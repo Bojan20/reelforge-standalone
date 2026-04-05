@@ -203,6 +203,10 @@ class DawActions {
     LowerZoneAction(label: 'Browse', icon: Icons.folder_open, onTap: onBrowse),
     LowerZoneAction(label: 'Export', icon: Icons.upload, onTap: onExport),
   ];
+
+  static List<LowerZoneAction> forCortex() => [
+    LowerZoneAction(label: 'CORTEX', icon: Icons.psychology, onTap: null, isPrimary: true),
+  ];
 }
 
 /// Common actions for Middleware section

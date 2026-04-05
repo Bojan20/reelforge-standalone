@@ -85,6 +85,7 @@ class PaneTabState {
   DawMixSubTab mixSubTab;
   DawProcessSubTab processSubTab;
   DawDeliverSubTab deliverSubTab;
+  DawCortexSubTab cortexSubTab;
 
   PaneTabState({
     this.superTab = DawSuperTab.browse,
@@ -93,6 +94,7 @@ class PaneTabState {
     this.mixSubTab = DawMixSubTab.mixer,
     this.processSubTab = DawProcessSubTab.eq,
     this.deliverSubTab = DawDeliverSubTab.export,
+    this.cortexSubTab = DawCortexSubTab.overview,
   });
 
   int get currentSubTabIndex => switch (superTab) {
@@ -101,6 +103,7 @@ class PaneTabState {
     DawSuperTab.mix => mixSubTab.index,
     DawSuperTab.process => processSubTab.index,
     DawSuperTab.deliver => deliverSubTab.index,
+    DawSuperTab.cortex => cortexSubTab.index,
   };
 
   void setSubTabIndex(int index) {
@@ -115,6 +118,8 @@ class PaneTabState {
         processSubTab = DawProcessSubTab.values[index.clamp(0, DawProcessSubTab.values.length - 1)];
       case DawSuperTab.deliver:
         deliverSubTab = DawDeliverSubTab.values[index.clamp(0, DawDeliverSubTab.values.length - 1)];
+      case DawSuperTab.cortex:
+        cortexSubTab = DawCortexSubTab.values[index.clamp(0, DawCortexSubTab.values.length - 1)];
     }
   }
 
@@ -124,6 +129,7 @@ class PaneTabState {
     DawSuperTab.mix => DawMixSubTab.values.map((e) => e.label).toList(),
     DawSuperTab.process => DawProcessSubTab.values.map((e) => e.label).toList(),
     DawSuperTab.deliver => DawDeliverSubTab.values.map((e) => e.label).toList(),
+    DawSuperTab.cortex => DawCortexSubTab.values.map((e) => e.label).toList(),
   };
 
   PaneTabState copy() => PaneTabState(
@@ -133,6 +139,7 @@ class PaneTabState {
     mixSubTab: mixSubTab,
     processSubTab: processSubTab,
     deliverSubTab: deliverSubTab,
+    cortexSubTab: cortexSubTab,
   );
 
   Map<String, dynamic> toJson() => {
@@ -142,6 +149,7 @@ class PaneTabState {
     'mixSubTab': mixSubTab.index,
     'processSubTab': processSubTab.index,
     'deliverSubTab': deliverSubTab.index,
+    'cortexSubTab': cortexSubTab.index,
   };
 
   factory PaneTabState.fromJson(Map<String, dynamic> json) => PaneTabState(
@@ -151,6 +159,7 @@ class PaneTabState {
     mixSubTab: DawMixSubTab.values[(json['mixSubTab'] as int? ?? 0).clamp(0, DawMixSubTab.values.length - 1)],
     processSubTab: DawProcessSubTab.values[(json['processSubTab'] as int? ?? 0).clamp(0, DawProcessSubTab.values.length - 1)],
     deliverSubTab: DawDeliverSubTab.values[(json['deliverSubTab'] as int? ?? 0).clamp(0, DawDeliverSubTab.values.length - 1)],
+    cortexSubTab: DawCortexSubTab.values[(json['cortexSubTab'] as int? ?? 0).clamp(0, DawCortexSubTab.values.length - 1)],
   );
 
   /// Default tab states for each pane index (different tabs for usefulness)
@@ -273,22 +282,23 @@ class LowerZoneColors {
 // ═══════════════════════════════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/// DAW Super-tabs: BROWSE, EDIT, MIX, PROCESS, DELIVER
-enum DawSuperTab { browse, edit, mix, process, deliver }
+/// DAW Super-tabs: BROWSE, EDIT, MIX, PROCESS, DELIVER, CORTEX
+enum DawSuperTab { browse, edit, mix, process, deliver, cortex }
 
 extension DawSuperTabX on DawSuperTab {
-  String get label => ['BROWSE', 'EDIT', 'MIX', 'PROCESS', 'DELIVER'][index];
-  IconData get icon => [Icons.folder_open, Icons.content_cut, Icons.tune, Icons.equalizer, Icons.upload][index];
+  String get label => ['BROWSE', 'EDIT', 'MIX', 'PROCESS', 'DELIVER', 'CORTEX'][index];
+  IconData get icon => [Icons.folder_open, Icons.content_cut, Icons.tune, Icons.equalizer, Icons.upload, Icons.psychology][index];
   String get shortcut => '${index + 1}';
 
   /// Category-based accent colors for DAW:
-  /// BROWSE = blue, EDIT = cyan, MIX = green, PROCESS = orange, DELIVER = purple
+  /// BROWSE = blue, EDIT = cyan, MIX = green, PROCESS = orange, DELIVER = purple, CORTEX = neural pink
   Color get color => switch (this) {
     DawSuperTab.browse  => const Color(0xFF4A9EFF), // Blue — file browsing
     DawSuperTab.edit    => const Color(0xFF40C8FF), // Cyan — editing
     DawSuperTab.mix     => const Color(0xFF50FF98), // Green — mixing
     DawSuperTab.process => const Color(0xFFFF9850), // Orange — processing
     DawSuperTab.deliver => const Color(0xFFB080FF), // Purple — delivery
+    DawSuperTab.cortex  => const Color(0xFFFF60B0), // Neural pink — nervous system
   };
 
   String get category => switch (this) {
@@ -297,6 +307,7 @@ extension DawSuperTabX on DawSuperTab {
     DawSuperTab.mix     => 'MIX',
     DawSuperTab.process => 'DSP',
     DawSuperTab.deliver => 'EXPORT',
+    DawSuperTab.cortex  => 'NEURAL',
   };
 
   String get tooltip => [
@@ -305,6 +316,7 @@ extension DawSuperTabX on DawSuperTab {
     'Mix with faders, sends, panning, and automation',
     'Process with EQ, dynamics, and FX chain',
     'Deliver: export, stems, bounce, and archive',
+    'CORTEX nervous system: health, awareness, immune defense',
   ][index];
 }
 
@@ -315,6 +327,20 @@ enum DawEditSubTab { timeline, pianoRoll, fades, grid, punch, comping, warp, ela
 enum DawMixSubTab { mixer, sends, pan, automation }
 enum DawProcessSubTab { eq, comp, limiter, reverb, gate, delay, saturation, deEsser, fxChain, sidechain }
 enum DawDeliverSubTab { export, stems, stemManager, loudnessReport, bounce, archive }
+enum DawCortexSubTab { overview, awareness, neural, immune, events }
+
+extension DawCortexSubTabX on DawCortexSubTab {
+  String get label => ['Overview', 'Awareness', 'Neural', 'Immune', 'Events'][index];
+  String get shortcut => ['Q', 'W', 'E', 'R', 'T'][index];
+  IconData get icon => [Icons.dashboard, Icons.radar, Icons.electric_bolt, Icons.shield, Icons.timeline][index];
+  String get tooltip => [
+    'Health overview with radar chart and sparkline history',
+    '7-dimensional awareness: throughput, reliability, responsiveness, coverage, cognition, efficiency, coherence',
+    'Neural signal flow: reflexes, patterns, signal rate, drop monitoring',
+    'Immune defense grid: antibodies, escalations, chronic conditions, healing',
+    'Live event waterfall: filtered real-time event stream with timeline',
+  ][index];
+}
 
 extension DawBrowseSubTabX on DawBrowseSubTab {
   String get label => ['Files', 'Presets', 'Plugins', 'History'][index];
@@ -418,6 +444,7 @@ class DawLowerZoneState {
   DawMixSubTab mixSubTab;
   DawProcessSubTab processSubTab;
   DawDeliverSubTab deliverSubTab;
+  DawCortexSubTab cortexSubTab;
   bool isExpanded;
   double height;
 
@@ -456,6 +483,7 @@ class DawLowerZoneState {
     this.mixSubTab = DawMixSubTab.mixer,
     this.processSubTab = DawProcessSubTab.eq,
     this.deliverSubTab = DawDeliverSubTab.export,
+    this.cortexSubTab = DawCortexSubTab.overview,
     this.isExpanded = true,
     this.height = kLowerZoneMaxHeight,
     // Split view defaults
@@ -487,6 +515,7 @@ class DawLowerZoneState {
     DawSuperTab.mix => mixSubTab.index,
     DawSuperTab.process => processSubTab.index,
     DawSuperTab.deliver => deliverSubTab.index,
+    DawSuperTab.cortex => cortexSubTab.index,
   };
 
   /// Set sub-tab by index for active super-tab
@@ -502,6 +531,8 @@ class DawLowerZoneState {
         processSubTab = DawProcessSubTab.values[index.clamp(0, DawProcessSubTab.values.length - 1)];
       case DawSuperTab.deliver:
         deliverSubTab = DawDeliverSubTab.values[index.clamp(0, DawDeliverSubTab.values.length - 1)];
+      case DawSuperTab.cortex:
+        cortexSubTab = DawCortexSubTab.values[index.clamp(0, DawCortexSubTab.values.length - 1)];
     }
   }
 
@@ -512,6 +543,7 @@ class DawLowerZoneState {
     DawSuperTab.mix => DawMixSubTab.values.map((e) => e.label).toList(),
     DawSuperTab.process => DawProcessSubTab.values.map((e) => e.label).toList(),
     DawSuperTab.deliver => DawDeliverSubTab.values.map((e) => e.label).toList(),
+    DawSuperTab.cortex => DawCortexSubTab.values.map((e) => e.label).toList(),
   };
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -525,6 +557,7 @@ class DawLowerZoneState {
     DawSuperTab.mix => secondPaneMixSubTab.index,
     DawSuperTab.process => secondPaneProcessSubTab.index,
     DawSuperTab.deliver => secondPaneDeliverSubTab.index,
+    DawSuperTab.cortex => DawCortexSubTab.overview.index,
   };
 
   /// Set sub-tab by index for second pane's active super-tab
@@ -540,6 +573,8 @@ class DawLowerZoneState {
         secondPaneProcessSubTab = DawProcessSubTab.values[index.clamp(0, DawProcessSubTab.values.length - 1)];
       case DawSuperTab.deliver:
         secondPaneDeliverSubTab = DawDeliverSubTab.values[index.clamp(0, DawDeliverSubTab.values.length - 1)];
+      case DawSuperTab.cortex:
+        break; // Cortex uses main pane cortexSubTab
     }
   }
 
@@ -550,6 +585,7 @@ class DawLowerZoneState {
     DawSuperTab.mix => DawMixSubTab.values.map((e) => e.label).toList(),
     DawSuperTab.process => DawProcessSubTab.values.map((e) => e.label).toList(),
     DawSuperTab.deliver => DawDeliverSubTab.values.map((e) => e.label).toList(),
+    DawSuperTab.cortex => DawCortexSubTab.values.map((e) => e.label).toList(),
   };
 
   DawLowerZoneState copyWith({
@@ -559,6 +595,7 @@ class DawLowerZoneState {
     DawMixSubTab? mixSubTab,
     DawProcessSubTab? processSubTab,
     DawDeliverSubTab? deliverSubTab,
+    DawCortexSubTab? cortexSubTab,
     bool? isExpanded,
     double? height,
     // Split view fields
@@ -583,6 +620,7 @@ class DawLowerZoneState {
       mixSubTab: mixSubTab ?? this.mixSubTab,
       processSubTab: processSubTab ?? this.processSubTab,
       deliverSubTab: deliverSubTab ?? this.deliverSubTab,
+      cortexSubTab: cortexSubTab ?? this.cortexSubTab,
       isExpanded: isExpanded ?? this.isExpanded,
       height: height ?? this.height,
       // Split view
@@ -610,6 +648,7 @@ class DawLowerZoneState {
     'mixSubTab': mixSubTab.index,
     'processSubTab': processSubTab.index,
     'deliverSubTab': deliverSubTab.index,
+    'cortexSubTab': cortexSubTab.index,
     'isExpanded': isExpanded,
     'height': height,
     // Split view
@@ -648,6 +687,7 @@ class DawLowerZoneState {
       mixSubTab: DawMixSubTab.values[json['mixSubTab'] as int? ?? 0],
       processSubTab: DawProcessSubTab.values[(json['processSubTab'] as int? ?? 0).clamp(0, DawProcessSubTab.values.length - 1)],
       deliverSubTab: DawDeliverSubTab.values[(json['deliverSubTab'] as int? ?? 0).clamp(0, DawDeliverSubTab.values.length - 1)],
+      cortexSubTab: DawCortexSubTab.values[(json['cortexSubTab'] as int? ?? 0).clamp(0, DawCortexSubTab.values.length - 1)],
       isExpanded: json['isExpanded'] as bool? ?? true,
       height: (json['height'] as num?)?.toDouble() ?? kLowerZoneMaxHeight,
       // Split view

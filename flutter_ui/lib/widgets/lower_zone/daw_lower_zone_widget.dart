@@ -86,6 +86,8 @@ import 'daw/process/sidechain_panel.dart'; // ✅ P0.5: Sidechain UI
 import 'daw/process/delay_panel.dart'; // ✅ FF-D Delay
 import 'daw/process/saturation_panel_wrapper.dart'; // ✅ FF-SAT Saturator
 import 'daw/process/deesser_panel.dart'; // ✅ FF-E DeEsser
+// ✅ CORTEX Neural Dashboard
+import 'daw/cortex/cortex_neural_dashboard.dart';
 // ✅ P0.1: Extracted DELIVER panels
 import 'daw/deliver/export_panel.dart';
 import 'daw/deliver/stems_panel.dart';
@@ -264,6 +266,8 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
         return DawProcessSubTab.values.map((t) => t.tooltip).toList();
       case DawSuperTab.deliver:
         return DawDeliverSubTab.values.map((t) => t.tooltip).toList();
+      case DawSuperTab.cortex:
+        return DawCortexSubTab.values.map((t) => t.tooltip).toList();
     }
   }
 
@@ -752,6 +756,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       DawSuperTab.mix => DawMixSubTab.values.map((e) => e.label).toList(),
       DawSuperTab.process => DawProcessSubTab.values.map((e) => e.label).toList(),
       DawSuperTab.deliver => DawDeliverSubTab.values.map((e) => e.label).toList(),
+      DawSuperTab.cortex => DawCortexSubTab.values.map((e) => e.label).toList(),
     };
   }
 
@@ -763,6 +768,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       DawSuperTab.mix => _getMixContentForIndex(subTabIndex),
       DawSuperTab.process => _getProcessContentForIndex(subTabIndex),
       DawSuperTab.deliver => _getDeliverContentForIndex(subTabIndex),
+      DawSuperTab.cortex => _getCortexContentForIndex(subTabIndex),
     };
   }
 
@@ -857,6 +863,8 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
         return _buildProcessContent();
       case DawSuperTab.deliver:
         return _buildDeliverContent();
+      case DawSuperTab.cortex:
+        return _buildCortexContent();
     }
   }
 
@@ -1558,6 +1566,20 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
 
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // CORTEX CONTENT — Neural Dashboard Panels
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildCortexContent() {
+    final subTab = widget.controller.state.cortexSubTab;
+    return CortexNeuralDashboard(subTab: subTab);
+  }
+
+  Widget _getCortexContentForIndex(int index) {
+    final subTab = DawCortexSubTab.values[index.clamp(0, DawCortexSubTab.values.length - 1)];
+    return CortexNeuralDashboard(subTab: subTab);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // EMPTY STATE PANELS
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -2054,6 +2076,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
         },
       ),
       DawSuperTab.process => _buildProcessActions(),
+      DawSuperTab.cortex => DawActions.forCortex(),
       DawSuperTab.deliver => DawActions.forDeliver(
         onQuickExport: () {
           // Quick export with last used settings

@@ -138,6 +138,8 @@ class DawLowerZoneController extends ChangeNotifier {
         return DawProcessSubTab.values[subIndex].label;
       case DawSuperTab.deliver:
         return DawDeliverSubTab.values[subIndex].label;
+      case DawSuperTab.cortex:
+        return DawCortexSubTab.values[subIndex].label;
     }
   }
 
@@ -154,6 +156,8 @@ class DawLowerZoneController extends ChangeNotifier {
         return DawProcessSubTab.values[subIndex].icon;
       case DawSuperTab.deliver:
         return DawDeliverSubTab.values[subIndex].icon;
+      case DawSuperTab.cortex:
+        return DawCortexSubTab.values[subIndex].icon;
     }
   }
 
@@ -523,6 +527,10 @@ class DawLowerZoneController extends ChangeNotifier {
     }
     if (event.logicalKey == LogicalKeyboardKey.digit5) {
       setSuperTab(DawSuperTab.deliver);
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.digit6) {
+      setSuperTab(DawSuperTab.cortex);
       return KeyEventResult.handled;
     }
 

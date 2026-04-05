@@ -6336,6 +6336,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         DawSuperTab.mix => DawMixSubTab.values.map((t) => (label: t.label, tooltip: t.tooltip, icon: t.icon)),
         DawSuperTab.process => DawProcessSubTab.values.map((t) => (label: t.label, tooltip: t.tooltip, icon: t.icon)),
         DawSuperTab.deliver => DawDeliverSubTab.values.map((t) => (label: t.label, tooltip: t.tooltip, icon: t.icon)),
+        DawSuperTab.cortex => DawCortexSubTab.values.map((t) => (label: t.label, tooltip: t.tooltip, icon: t.icon)),
       };
       for (final (idx, t) in labels.indexed) {
         allSubTabs.add((superTab: st, subIdx: idx, label: t.label, tooltip: t.tooltip, icon: t.icon));
