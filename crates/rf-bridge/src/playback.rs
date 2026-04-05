@@ -1353,6 +1353,25 @@ impl PlaybackEngine {
         self.simple_clips.write().clear();
     }
 
+    /// Approximate memory used by cached clips (bytes).
+    pub fn cache_size_bytes(&self) -> usize {
+        let clips = self.simple_clips.read();
+        clips.iter().map(|c| {
+            (c.samples_l.len() + c.samples_r.len()) * std::mem::size_of::<f32>()
+        }).sum()
+    }
+
+    /// Trim cache: remove muted clips to free memory.
+    pub fn trim_cache(&self) {
+        let mut clips = self.simple_clips.write();
+        clips.retain(|c| !c.muted);
+    }
+
+    /// Clear the entire audio cache (free all clip memory).
+    pub fn clear_cache(&self) {
+        self.simple_clips.write().clear();
+    }
+
     /// Load audio file as simple clip (test tone for now)
     pub fn load_audio_file(&self, id: &str, _path: &str, start_sample: u64) -> Result<(), String> {
         let sample_rate = self.state.sample_rate() as usize;

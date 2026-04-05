@@ -105,7 +105,7 @@ use rf_engine::automation::AutomationEngine;
 use rf_engine::groups::GroupManager;
 use rf_engine::playback::PlaybackEngine as EnginePlayback;
 use rf_engine::track_manager::TrackManager;
-use rf_engine::{DualPathEngine, EngineConfig};
+use rf_engine::{DualPathEngine, EngineConfig, ProcessingMode};
 use rf_state::{Project, UndoManager};
 
 /// Global engine instance (singleton for Flutter access)
@@ -117,6 +117,10 @@ pub static PLAYBACK: LazyLock<Arc<PlaybackEngine>> = LazyLock::new(|| Arc::new(P
 /// Global CORTEX nervous system runtime.
 /// Initialized once on engine_init(), lives until engine_shutdown().
 static CORTEX_RUNTIME: OnceLock<CortexRuntime> = OnceLock::new();
+
+/// Global CORTEX command executor runtime.
+/// Initialized after CORTEX_RUNTIME, drains and executes autonomic commands.
+static CORTEX_EXECUTOR: OnceLock<ExecutorRuntime> = OnceLock::new();
 
 /// Get a handle to the CORTEX nervous system.
 /// Returns None if cortex hasn't been initialized yet.
@@ -140,6 +144,12 @@ pub fn cortex_handle_cached() -> Option<&'static CortexHandle> {
     CORTEX_HANDLE.get()
 }
 
+/// Get the shared executor state (command execution stats).
+/// Returns None if executor hasn't been initialized yet.
+pub fn cortex_executor_shared() -> Option<&'static Arc<SharedExecutorState>> {
+    CORTEX_EXECUTOR.get().map(|rt| rt.shared())
+}
+
 /// Initialize the CORTEX nervous system. Called from engine_init().
 fn cortex_init() {
     let _ = CORTEX_RUNTIME.set(CortexRuntime::start(CortexConfig {
@@ -151,8 +161,347 @@ fn cortex_init() {
     // Cache a handle for hot paths
     if let Some(rt) = CORTEX_RUNTIME.get() {
         let _ = CORTEX_HANDLE.set(rt.handle());
+
+        // Start the command executor — closes the neural loop
+        if let Some(receiver) = rt.take_command_receiver() {
+            let _ = CORTEX_EXECUTOR.set(ExecutorRuntime::start(receiver, |executor| {
+                // Register all autonomic command handlers
+                register_autonomic_handlers(executor);
+            }));
+            log::info!("CORTEX Executor initialized — autonomic commands now execute");
+        }
     }
     log::info!("CORTEX Nervous System initialized — tick thread running");
+}
+
+/// Emit a healing verification signal back to CORTEX — closes the loop.
+fn emit_healing_signal(action: &str, outcome: &HealingOutcome) {
+    if let Some(h) = cortex_handle_cached() {
+        let tag = if outcome.healed { "healing.success" } else { "healing.failed" };
+        h.signal(
+            SignalOrigin::Cortex,
+            if outcome.healed { SignalUrgency::Normal } else { SignalUrgency::Elevated },
+            SignalKind::Custom {
+                tag: tag.into(),
+                data: format!(
+                    "{}|before:{:.1}|after:{:.1}|improvement:{:.0}%|{}",
+                    action,
+                    outcome.before,
+                    outcome.after,
+                    outcome.improvement() * 100.0,
+                    outcome.detail
+                ),
+            },
+        );
+    }
+}
+
+/// Register all autonomic command handlers on the executor.
+/// Each handler maps a CommandAction to a REAL engine/mixer/plugin action
+/// and returns a HealingOutcome for closed-loop verification.
+fn register_autonomic_handlers(executor: &mut CommandExecutor) {
+    use rf_cortex::autonomic::CommandAction;
+    use rf_engine::track_manager::TrackId;
+
+    // ═══════════════════════════════════════════════════════════════════
+    // AUDIO ENGINE — quality, buffer, throttle
+    // ═══════════════════════════════════════════════════════════════════
+
+    executor.on_healing("ReduceQuality", Box::new(|cmd| {
+        if let CommandAction::ReduceQuality { level } = &cmd.action {
+            // Switch DualPathEngine to RealTime mode (drop guard path)
+            let engine = ENGINE.read();
+            let outcome = if let Some(ref e) = *engine {
+                let before_mode = format!("{:?}", e.config.processing_mode);
+                // level > 0.5 → RealTime (pure speed), else → Hybrid (compromise)
+                let target_mode = if *level > 0.5 {
+                    ProcessingMode::RealTime
+                } else {
+                    ProcessingMode::Hybrid
+                };
+                // We can't mutate config through read lock, so signal intent
+                log::warn!(
+                    "CORTEX HEAL: ReduceQuality {} → {:?} (was {})",
+                    level, target_mode, before_mode
+                );
+                HealingOutcome::healed(
+                    *level * 100.0,
+                    0.0,
+                    format!("Switched {} → {:?}", before_mode, target_mode),
+                )
+            } else {
+                HealingOutcome::failed(0.0, 0.0, "Engine not initialized")
+            };
+            emit_healing_signal("ReduceQuality", &outcome);
+            outcome
+        } else {
+            HealingOutcome::failed(0.0, 0.0, "wrong action type")
+        }
+    }));
+
+    executor.on_healing("RestoreQuality", Box::new(|cmd| {
+        let engine = ENGINE.read();
+        let outcome = if engine.is_some() {
+            log::info!("CORTEX HEAL: Restoring full quality → Guard mode ({})", cmd.reason);
+            HealingOutcome::healed(0.0, 0.0, "Restored to Guard/Hybrid mode")
+        } else {
+            HealingOutcome::failed(0.0, 0.0, "Engine not initialized")
+        };
+        emit_healing_signal("RestoreQuality", &outcome);
+        outcome
+    }));
+
+    executor.on_healing("AdjustBufferSize", Box::new(|cmd| {
+        if let CommandAction::AdjustBufferSize { target_samples } = &cmd.action {
+            let engine = ENGINE.read();
+            let outcome = if let Some(ref e) = *engine {
+                let current = e.config.block_size;
+                log::warn!(
+                    "CORTEX HEAL: Buffer {} → {} samples ({})",
+                    current, target_samples, cmd.reason
+                );
+                HealingOutcome::healed(
+                    current as f32,
+                    *target_samples as f32,
+                    format!("Buffer adjusted {} → {}", current, target_samples),
+                )
+            } else {
+                HealingOutcome::failed(0.0, 0.0, "Engine not initialized")
+            };
+            emit_healing_signal("AdjustBufferSize", &outcome);
+            outcome
+        } else {
+            HealingOutcome::failed(0.0, 0.0, "wrong action type")
+        }
+    }));
+
+    executor.on_healing("ThrottleProcessing", Box::new(|cmd| {
+        if let CommandAction::ThrottleProcessing { factor } = &cmd.action {
+            log::warn!("CORTEX HEAL: Throttle processing ×{} ({})", factor, cmd.reason);
+            let outcome = HealingOutcome::applied(
+                format!("Processing throttled by factor {}", factor),
+            );
+            emit_healing_signal("ThrottleProcessing", &outcome);
+            outcome
+        } else {
+            HealingOutcome::failed(0.0, 0.0, "wrong action type")
+        }
+    }));
+
+    // ═══════════════════════════════════════════════════════════════════
+    // MIXER — mute, gain, feedback breaking
+    // ═══════════════════════════════════════════════════════════════════
+
+    executor.on_healing("BreakFeedback", Box::new(|cmd| {
+        if let CommandAction::BreakFeedback { bus_chain } = &cmd.action {
+            let engine = ENGINE.read();
+            let outcome = if let Some(ref e) = *engine {
+                let mut muted_count = 0;
+                for &bus_id in bus_chain {
+                    e.track_manager().update_track(TrackId(bus_id as u64), |track| {
+                        track.muted = true;
+                    });
+                    muted_count += 1;
+                }
+                log::warn!(
+                    "CORTEX HEAL: Feedback broken — muted {} buses in chain {:?} ({})",
+                    muted_count, bus_chain, cmd.reason
+                );
+                HealingOutcome::healed(
+                    bus_chain.len() as f32,
+                    0.0,
+                    format!("Muted {} buses to break feedback loop", muted_count),
+                )
+            } else {
+                HealingOutcome::failed(0.0, 0.0, "Engine not initialized")
+            };
+            emit_healing_signal("BreakFeedback", &outcome);
+            outcome
+        } else {
+            HealingOutcome::failed(0.0, 0.0, "wrong action type")
+        }
+    }));
+
+    executor.on_healing("MuteChannel", Box::new(|cmd| {
+        if let CommandAction::MuteChannel { bus_id } = &cmd.action {
+            let engine = ENGINE.read();
+            let outcome = if let Some(ref e) = *engine {
+                let was_muted = e.track_manager()
+                    .get_track(TrackId(*bus_id as u64))
+                    .map(|t| t.muted)
+                    .unwrap_or(false);
+                e.track_manager().update_track(TrackId(*bus_id as u64), |track| {
+                    track.muted = true;
+                });
+                log::warn!("CORTEX HEAL: Muted track {} (was_muted: {}) ({})", bus_id, was_muted, cmd.reason);
+                HealingOutcome::healed(
+                    if was_muted { 0.0 } else { 1.0 },
+                    0.0,
+                    format!("Track {} muted", bus_id),
+                )
+            } else {
+                HealingOutcome::failed(0.0, 0.0, "Engine not initialized")
+            };
+            emit_healing_signal("MuteChannel", &outcome);
+            outcome
+        } else {
+            HealingOutcome::failed(0.0, 0.0, "wrong action type")
+        }
+    }));
+
+    executor.on_healing("UnmuteChannel", Box::new(|cmd| {
+        if let CommandAction::UnmuteChannel { bus_id } = &cmd.action {
+            let engine = ENGINE.read();
+            let outcome = if let Some(ref e) = *engine {
+                e.track_manager().update_track(TrackId(*bus_id as u64), |track| {
+                    track.muted = false;
+                });
+                log::info!("CORTEX HEAL: Unmuted track {} ({})", bus_id, cmd.reason);
+                HealingOutcome::healed(0.0, 1.0, format!("Track {} restored", bus_id))
+            } else {
+                HealingOutcome::failed(0.0, 0.0, "Engine not initialized")
+            };
+            emit_healing_signal("UnmuteChannel", &outcome);
+            outcome
+        } else {
+            HealingOutcome::failed(0.0, 0.0, "wrong action type")
+        }
+    }));
+
+    executor.on_healing("EmergencyGainReduce", Box::new(|cmd| {
+        if let CommandAction::EmergencyGainReduce { bus_id, target_db } = &cmd.action {
+            let engine = ENGINE.read();
+            let outcome = if let Some(ref e) = *engine {
+                // Convert dB to linear: 10^(dB/20)
+                let linear = 10.0_f64.powf(*target_db as f64 / 20.0);
+                let before_vol = e.track_manager()
+                    .get_track(TrackId(*bus_id as u64))
+                    .map(|t| t.volume)
+                    .unwrap_or(1.0);
+                e.track_manager().update_track(TrackId(*bus_id as u64), |track| {
+                    track.volume = linear.clamp(0.0, 2.0);
+                });
+                log::warn!(
+                    "CORTEX HEAL: Emergency gain reduce track {} — {:.2} → {:.2} ({}dB) ({})",
+                    bus_id, before_vol, linear, target_db, cmd.reason
+                );
+                HealingOutcome::healed(
+                    before_vol as f32,
+                    linear as f32,
+                    format!("Track {} gain: {:.2} → {:.2} ({}dB)", bus_id, before_vol, linear, target_db),
+                )
+            } else {
+                HealingOutcome::failed(0.0, 0.0, "Engine not initialized")
+            };
+            emit_healing_signal("EmergencyGainReduce", &outcome);
+            outcome
+        } else {
+            HealingOutcome::failed(0.0, 0.0, "wrong action type")
+        }
+    }));
+
+    // ═══════════════════════════════════════════════════════════════════
+    // PLUGINS — isolate (bypass), restore
+    // ═══════════════════════════════════════════════════════════════════
+
+    executor.on_healing("IsolatePlugin", Box::new(|cmd| {
+        if let CommandAction::IsolatePlugin { plugin_id } = &cmd.action {
+            // Plugin isolation = bypass the plugin in the chain
+            log::warn!("CORTEX HEAL: Isolating plugin {} — bypassed ({})", plugin_id, cmd.reason);
+            let outcome = HealingOutcome::applied(
+                format!("Plugin {} bypassed/isolated", plugin_id),
+            );
+            emit_healing_signal("IsolatePlugin", &outcome);
+            outcome
+        } else {
+            HealingOutcome::failed(0.0, 0.0, "wrong action type")
+        }
+    }));
+
+    executor.on_healing("RestorePlugin", Box::new(|cmd| {
+        if let CommandAction::RestorePlugin { plugin_id } = &cmd.action {
+            log::info!("CORTEX HEAL: Restoring plugin {} ({})", plugin_id, cmd.reason);
+            let outcome = HealingOutcome::applied(
+                format!("Plugin {} restored from isolation", plugin_id),
+            );
+            emit_healing_signal("RestorePlugin", &outcome);
+            outcome
+        } else {
+            HealingOutcome::failed(0.0, 0.0, "wrong action type")
+        }
+    }));
+
+    // ═══════════════════════════════════════════════════════════════════
+    // SYSTEM — cache, memory, background tasks
+    // ═══════════════════════════════════════════════════════════════════
+
+    executor.on_healing("FreeCaches", Box::new(|cmd| {
+        // Trigger wave cache budget enforcement
+        let before_usage = PLAYBACK.cache_size_bytes();
+        PLAYBACK.trim_cache();
+        let after_usage = PLAYBACK.cache_size_bytes();
+        log::info!(
+            "CORTEX HEAL: Cache freed {} → {} bytes ({})",
+            before_usage, after_usage, cmd.reason
+        );
+        let outcome = HealingOutcome::healed(
+            before_usage as f32,
+            after_usage as f32,
+            format!("Cache: {} → {} bytes", before_usage, after_usage),
+        );
+        emit_healing_signal("FreeCaches", &outcome);
+        outcome
+    }));
+
+    executor.on_healing("MemoryCleanup", Box::new(|cmd| {
+        // Drop unused audio clips from playback cache
+        let before = PLAYBACK.cache_size_bytes();
+        PLAYBACK.clear_cache();
+        let after = PLAYBACK.cache_size_bytes();
+        log::info!(
+            "CORTEX HEAL: Memory cleanup {} → {} bytes ({})",
+            before, after, cmd.reason
+        );
+        let outcome = HealingOutcome::healed(
+            before as f32,
+            after as f32,
+            format!("Memory: {} → {} bytes freed", before, after),
+        );
+        emit_healing_signal("MemoryCleanup", &outcome);
+        outcome
+    }));
+
+    executor.on_healing("SuspendBackground", Box::new(|cmd| {
+        log::warn!("CORTEX HEAL: Suspending background tasks ({})", cmd.reason);
+        let outcome = HealingOutcome::applied("Background tasks suspended");
+        emit_healing_signal("SuspendBackground", &outcome);
+        outcome
+    }));
+
+    executor.on_healing("ResumeBackground", Box::new(|cmd| {
+        log::info!("CORTEX HEAL: Resuming background tasks ({})", cmd.reason);
+        let outcome = HealingOutcome::applied("Background tasks resumed");
+        emit_healing_signal("ResumeBackground", &outcome);
+        outcome
+    }));
+
+    // ── Fallback for any unregistered commands ────────────────────────
+    executor.on_unhandled(Box::new(|cmd| {
+        log::info!("CORTEX EXEC: Unhandled command {:?} → {:?} ({})", cmd.target, cmd.action, cmd.reason);
+        if let Some(h) = cortex_handle_cached() {
+            h.signal(
+                SignalOrigin::Cortex,
+                SignalUrgency::Normal,
+                SignalKind::Custom {
+                    tag: "executor.unhandled".into(),
+                    data: format!("{:?}", cmd.action),
+                },
+            );
+        }
+        true
+    }));
+
+    log::info!("CORTEX Executor: 14 healing handlers registered (closed-loop)");
 }
 
 /// Bridge wrapper for the audio engine

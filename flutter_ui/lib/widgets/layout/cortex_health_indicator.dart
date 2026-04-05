@@ -187,6 +187,13 @@ class _CortexDashboardDialogState extends State<_CortexDashboardDialog> {
   double _dimEfficiency = 0;
   double _dimCoherence = 0;
 
+  // Autonomic & Immune
+  int _commandsDispatched = 0;
+  int _commandsExecuted = 0;
+  bool _hasChronic = false;
+  int _immuneActiveCount = 0;
+  int _immuneEscalations = 0;
+
   @override
   void initState() {
     super.initState();
@@ -223,6 +230,12 @@ class _CortexDashboardDialogState extends State<_CortexDashboardDialog> {
         _dimCognition = ffi.cortexGetDimension(4);
         _dimEfficiency = ffi.cortexGetDimension(5);
         _dimCoherence = ffi.cortexGetDimension(6);
+
+        _commandsDispatched = ffi.cortexGetCommandsDispatched();
+        _commandsExecuted = ffi.cortexGetCommandsExecuted();
+        _hasChronic = ffi.cortexGetHasChronic();
+        _immuneActiveCount = ffi.cortexGetImmuneActiveCount();
+        _immuneEscalations = ffi.cortexGetImmuneEscalations();
       });
     } catch (_) {}
   }
@@ -287,6 +300,60 @@ class _CortexDashboardDialogState extends State<_CortexDashboardDialog> {
                   Expanded(child: _buildStatCard('Fires', _formatNumber(_totalReflexActions), const Color(0xFFFF9040))),
                   const SizedBox(width: 8),
                   Expanded(child: _buildStatCard('Patterns', _formatNumber(_totalPatterns), const Color(0xFFBB80FF))),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // ═══ AUTONOMIC NERVOUS SYSTEM ═══
+              _buildSectionTitle('AUTONOMIC RESPONSE'),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(child: _buildStatCard(
+                    'Dispatched',
+                    _formatNumber(_commandsDispatched),
+                    const Color(0xFF60A0FF),
+                  )),
+                  const SizedBox(width: 8),
+                  Expanded(child: _buildStatCard(
+                    'Executed',
+                    _formatNumber(_commandsExecuted),
+                    _commandsExecuted > 0 ? const Color(0xFF40FF90) : const Color(0xFF60A0FF),
+                  )),
+                  const SizedBox(width: 8),
+                  Expanded(child: _buildStatCard(
+                    'Pending',
+                    _formatNumber(_commandsDispatched - _commandsExecuted),
+                    (_commandsDispatched - _commandsExecuted) > 10
+                        ? const Color(0xFFFF4060)
+                        : const Color(0xFF60A0FF),
+                  )),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // ═══ IMMUNE SYSTEM ═══
+              _buildSectionTitle('IMMUNE SYSTEM'),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(child: _buildStatCard(
+                    'Anomalies',
+                    '$_immuneActiveCount active',
+                    _immuneActiveCount > 0 ? const Color(0xFFFF9040) : const Color(0xFF40FF90),
+                  )),
+                  const SizedBox(width: 8),
+                  Expanded(child: _buildStatCard(
+                    'Escalations',
+                    _formatNumber(_immuneEscalations),
+                    _immuneEscalations > 0 ? const Color(0xFFFFD740) : const Color(0xFF40FF90),
+                  )),
+                  const SizedBox(width: 8),
+                  Expanded(child: _buildStatCard(
+                    'Chronic',
+                    _hasChronic ? 'YES' : 'None',
+                    _hasChronic ? const Color(0xFFFF4060) : const Color(0xFF40FF90),
+                  )),
                 ],
               ),
 

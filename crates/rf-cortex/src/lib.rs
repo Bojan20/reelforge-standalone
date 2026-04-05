@@ -59,6 +59,7 @@ pub mod autonomic;
 pub mod awareness;
 pub mod bus;
 pub mod cortex;
+pub mod executor;
 pub mod handle;
 pub mod immune;
 pub mod pattern;
@@ -74,6 +75,10 @@ pub mod prelude {
     pub use crate::awareness::{AwarenessDimensions, AwarenessEngine, AwarenessSnapshot};
     pub use crate::bus::{BusStats, NeuralBus, SignalFilter, Synapse};
     pub use crate::cortex::{Cortex, CortexConfig};
+    pub use crate::executor::{
+        CommandExecutor, CommandHandler, ExecutionRecord, ExecutionResult, ExecutorRuntime,
+        ExecutorStats, HealingHandler, HealingOutcome, SharedExecutorState,
+    };
     pub use crate::handle::CortexHandle;
     pub use crate::immune::{ImmuneSnapshot, ImmuneSystem};
     pub use crate::pattern::{PatternDetector, PatternEngine, RecognizedPattern};

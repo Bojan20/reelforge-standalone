@@ -4,7 +4,7 @@
 //! All functions are safe to call from any thread. Returns sensible defaults
 //! if the cortex hasn't been initialized yet.
 
-use crate::{cortex_handle, cortex_shared};
+use crate::{cortex_handle, cortex_shared, cortex_executor_shared};
 use rf_cortex::prelude::*;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -245,6 +245,172 @@ pub fn cortex_report_device_change(device_name: String) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// IMMUNE SYSTEM STATUS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Immune system status DTO for Flutter.
+#[derive(Clone, Debug)]
+pub struct CortexImmuneDto {
+    pub total_anomalies: u64,
+    pub total_escalations: u64,
+    pub active_count: u32,
+    pub chronic_count: u32,
+    pub has_chronic: bool,
+    pub categories: Vec<CortexAntibodyDto>,
+}
+
+/// Individual antibody DTO.
+#[derive(Clone, Debug)]
+pub struct CortexAntibodyDto {
+    pub category: String,
+    pub count: u32,
+    pub escalation_level: u8,
+    pub max_severity: f32,
+    pub is_chronic: bool,
+}
+
+/// Get immune system status.
+#[flutter_rust_bridge::frb(sync)]
+pub fn cortex_immune_status() -> Option<CortexImmuneDto> {
+    let shared = cortex_shared()?;
+    let snap = shared.immune_snapshot.lock().clone()?;
+    Some(CortexImmuneDto {
+        total_anomalies: snap.total_anomalies,
+        total_escalations: snap.total_escalations,
+        active_count: snap.active_count as u32,
+        chronic_count: snap.chronic_count as u32,
+        has_chronic: snap.chronic_count > 0,
+        categories: snap
+            .categories
+            .iter()
+            .map(|ab| CortexAntibodyDto {
+                category: ab.category.clone(),
+                count: ab.count,
+                escalation_level: ab.escalation_level,
+                max_severity: ab.max_severity,
+                is_chronic: ab.is_chronic,
+            })
+            .collect(),
+    })
+}
+
+/// Is any anomaly chronic? (lock-free check)
+#[flutter_rust_bridge::frb(sync)]
+pub fn cortex_has_chronic_anomaly() -> bool {
+    cortex_shared()
+        .map(|s| s.has_chronic.load(std::sync::atomic::Ordering::Relaxed))
+        .unwrap_or(false)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// COMMAND EXECUTOR STATS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Command executor stats DTO for Flutter.
+#[derive(Clone, Debug)]
+pub struct CortexExecutorDto {
+    pub total_commands_dispatched: u64,
+    pub total_executed: u64,
+    pub total_failed: u64,
+    pub total_no_handler: u64,
+    pub total_drained: u64,
+    /// Commands that actually healed something (closed-loop verified).
+    pub total_healed: u64,
+    /// Commands that ran but didn't improve the situation.
+    pub total_not_healed: u64,
+    /// Healing success rate (0.0 to 1.0).
+    pub healing_rate: f32,
+    pub recent_actions: Vec<CortexExecutionDto>,
+}
+
+/// Individual execution record DTO.
+#[derive(Clone, Debug)]
+pub struct CortexExecutionDto {
+    pub action_tag: String,
+    pub reason: String,
+    pub priority: String,
+    pub result: String,
+    /// Healing outcome detail (empty if legacy handler or no outcome).
+    pub healing_detail: String,
+    /// Whether this action healed the problem.
+    pub healed: bool,
+}
+
+/// Get command executor stats (commands dispatched vs executed).
+#[flutter_rust_bridge::frb(sync)]
+pub fn cortex_executor_stats() -> Option<CortexExecutorDto> {
+    let shared = cortex_shared()?;
+    let exec_shared = cortex_executor_shared()?;
+
+    let dispatched = shared.total_commands_dispatched.load(portable_atomic::Ordering::Relaxed);
+    let recent = exec_shared.recent_log.lock();
+
+    Some(CortexExecutorDto {
+        total_commands_dispatched: dispatched,
+        total_executed: exec_shared.total_executed.load(std::sync::atomic::Ordering::Relaxed),
+        total_failed: exec_shared.total_failed.load(std::sync::atomic::Ordering::Relaxed),
+        total_no_handler: exec_shared.total_no_handler.load(std::sync::atomic::Ordering::Relaxed),
+        total_drained: exec_shared.total_drained.load(std::sync::atomic::Ordering::Relaxed),
+        total_healed: exec_shared.total_healed.load(std::sync::atomic::Ordering::Relaxed),
+        total_not_healed: exec_shared.total_not_healed.load(std::sync::atomic::Ordering::Relaxed),
+        healing_rate: exec_shared.healing_rate(),
+        recent_actions: recent
+            .iter()
+            .rev()
+            .take(20)
+            .map(|r| CortexExecutionDto {
+                action_tag: r.action_tag.clone(),
+                reason: r.reason.clone(),
+                priority: format!("{:?}", r.priority),
+                result: format!("{:?}", r.result),
+                healing_detail: r.outcome.as_ref().map(|o| o.detail.clone()).unwrap_or_default(),
+                healed: r.outcome.as_ref().map(|o| o.healed).unwrap_or(false),
+            })
+            .collect(),
+    })
+}
+
+/// Total commands dispatched by CORTEX (lock-free).
+#[flutter_rust_bridge::frb(sync)]
+pub fn cortex_total_commands_dispatched() -> u64 {
+    cortex_shared()
+        .map(|s| s.total_commands_dispatched.load(portable_atomic::Ordering::Relaxed))
+        .unwrap_or(0)
+}
+
+/// Total commands executed by the executor (lock-free).
+#[flutter_rust_bridge::frb(sync)]
+pub fn cortex_total_commands_executed() -> u64 {
+    cortex_executor_shared()
+        .map(|s| s.total_executed.load(std::sync::atomic::Ordering::Relaxed))
+        .unwrap_or(0)
+}
+
+/// Healing success rate (0.0 to 1.0). Returns 1.0 if no healing actions yet.
+#[flutter_rust_bridge::frb(sync)]
+pub fn cortex_healing_rate() -> f32 {
+    cortex_executor_shared()
+        .map(|s| s.healing_rate())
+        .unwrap_or(1.0)
+}
+
+/// Total commands that successfully healed a problem.
+#[flutter_rust_bridge::frb(sync)]
+pub fn cortex_total_healed() -> u64 {
+    cortex_executor_shared()
+        .map(|s| s.total_healed.load(std::sync::atomic::Ordering::Relaxed))
+        .unwrap_or(0)
+}
+
+/// Total commands that ran but didn't improve the situation.
+#[flutter_rust_bridge::frb(sync)]
+pub fn cortex_total_not_healed() -> u64 {
+    cortex_executor_shared()
+        .map(|s| s.total_not_healed.load(std::sync::atomic::Ordering::Relaxed))
+        .unwrap_or(0)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // C FFI (for dart:ffi direct calls)
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -346,6 +512,73 @@ pub extern "C" fn cortex_get_active_reflex_count() -> u32 {
                 .iter()
                 .filter(|r| r.enabled)
                 .count() as u32
+        })
+        .unwrap_or(0)
+}
+
+/// C FFI: Get total autonomic commands dispatched.
+#[unsafe(no_mangle)]
+pub extern "C" fn cortex_get_commands_dispatched() -> u64 {
+    cortex_shared()
+        .map(|s| s.total_commands_dispatched.load(portable_atomic::Ordering::Relaxed))
+        .unwrap_or(0)
+}
+
+/// C FFI: Get total commands executed by executor.
+#[unsafe(no_mangle)]
+pub extern "C" fn cortex_get_commands_executed() -> u64 {
+    cortex_executor_shared()
+        .map(|s| s.total_executed.load(std::sync::atomic::Ordering::Relaxed))
+        .unwrap_or(0)
+}
+
+/// C FFI: Healing success rate (0.0 to 1.0).
+#[unsafe(no_mangle)]
+pub extern "C" fn cortex_get_healing_rate() -> f64 {
+    cortex_executor_shared()
+        .map(|s| s.healing_rate() as f64)
+        .unwrap_or(1.0)
+}
+
+/// C FFI: Total healed commands.
+#[unsafe(no_mangle)]
+pub extern "C" fn cortex_get_total_healed() -> u64 {
+    cortex_executor_shared()
+        .map(|s| s.total_healed.load(std::sync::atomic::Ordering::Relaxed))
+        .unwrap_or(0)
+}
+
+/// C FFI: Has any chronic anomaly?
+#[unsafe(no_mangle)]
+pub extern "C" fn cortex_get_has_chronic() -> i32 {
+    if cortex_shared()
+        .map(|s| s.has_chronic.load(std::sync::atomic::Ordering::Relaxed))
+        .unwrap_or(false)
+    {
+        1
+    } else {
+        0
+    }
+}
+
+/// C FFI: Get immune system active anomaly count.
+#[unsafe(no_mangle)]
+pub extern "C" fn cortex_get_immune_active_count() -> u32 {
+    cortex_shared()
+        .and_then(|s| {
+            let snap = s.immune_snapshot.lock().clone()?;
+            Some(snap.active_count as u32)
+        })
+        .unwrap_or(0)
+}
+
+/// C FFI: Get immune system total escalations.
+#[unsafe(no_mangle)]
+pub extern "C" fn cortex_get_immune_escalations() -> u64 {
+    cortex_shared()
+        .and_then(|s| {
+            let snap = s.immune_snapshot.lock().clone()?;
+            Some(snap.total_escalations)
         })
         .unwrap_or(0)
 }

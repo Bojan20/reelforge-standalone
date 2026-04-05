@@ -21897,6 +21897,43 @@ extension ProfilerFFI on NativeFFI {
 
   /// Number of active (enabled) reflex rules.
   int cortexGetActiveReflexCount() => _cortexGetActiveReflexCount();
+
+  // --- CORTEX Autonomic Command Executor FFI ---
+
+  static final _cortexGetCommandsDispatched = _loadNativeLibrary().lookupFunction<
+      Uint64 Function(),
+      int Function()>('cortex_get_commands_dispatched');
+
+  static final _cortexGetCommandsExecuted = _loadNativeLibrary().lookupFunction<
+      Uint64 Function(),
+      int Function()>('cortex_get_commands_executed');
+
+  static final _cortexGetHasChronic = _loadNativeLibrary().lookupFunction<
+      Int32 Function(),
+      int Function()>('cortex_get_has_chronic');
+
+  static final _cortexGetImmuneActiveCount = _loadNativeLibrary().lookupFunction<
+      Uint32 Function(),
+      int Function()>('cortex_get_immune_active_count');
+
+  static final _cortexGetImmuneEscalations = _loadNativeLibrary().lookupFunction<
+      Uint64 Function(),
+      int Function()>('cortex_get_immune_escalations');
+
+  /// Total autonomic commands dispatched by CORTEX brain.
+  int cortexGetCommandsDispatched() => _cortexGetCommandsDispatched();
+
+  /// Total autonomic commands executed by the executor.
+  int cortexGetCommandsExecuted() => _cortexGetCommandsExecuted();
+
+  /// Whether any anomaly is chronic (persistent, high-escalation).
+  bool cortexGetHasChronic() => _cortexGetHasChronic() != 0;
+
+  /// Number of active anomalies being tracked by immune system.
+  int cortexGetImmuneActiveCount() => _cortexGetImmuneActiveCount();
+
+  /// Total immune system escalations.
+  int cortexGetImmuneEscalations() => _cortexGetImmuneEscalations();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

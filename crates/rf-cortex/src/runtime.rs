@@ -9,7 +9,7 @@
 //! runtime.shutdown(); // or drop
 //! ```
 
-use crate::autonomic::CommandReceiver;
+use crate::autonomic::{CommandChannel, CommandReceiver};
 use crate::awareness::AwarenessSnapshot;
 use crate::cortex::{Cortex, CortexConfig};
 use crate::handle::CortexHandle;
@@ -40,9 +40,9 @@ pub struct CortexRuntime {
     shutdown: Arc<AtomicBool>,
     /// The tick thread handle.
     tick_thread: Option<thread::JoinHandle<()>>,
-    /// Command receiver — subsystems poll this for autonomic commands.
-    /// Currently used internally; will be exposed via FFI in next phase.
-    _command_receiver: Option<CommandReceiver>,
+    /// Command receiver — subsystems drain this for autonomic commands.
+    /// Protected by Mutex so it can be taken once (interior mutability for OnceLock).
+    command_receiver: Mutex<Option<CommandReceiver>>,
 }
 
 /// Shared cortex state — readable from any thread (behind Mutex for snapshots).
@@ -94,11 +94,15 @@ impl SharedCortexState {
 impl CortexRuntime {
     /// Start the cortex runtime with the given configuration.
     /// Spawns a background tick thread that processes signals every 50ms.
+    /// The CommandReceiver is accessible via `take_command_receiver()`.
     pub fn start(config: CortexConfig) -> Self {
         let (tx, rx) = crossbeam_channel::bounded(INBOX_CAPACITY);
         let handle = CortexHandle::new(tx);
         let shared = Arc::new(SharedCortexState::new());
         let shutdown = Arc::new(AtomicBool::new(false));
+
+        // Create command channel BEFORE spawning thread — receiver stays accessible
+        let (cmd_channel, cmd_receiver) = CommandChannel::new();
 
         let tick_thread = {
             let shared = Arc::clone(&shared);
@@ -106,7 +110,7 @@ impl CortexRuntime {
             thread::Builder::new()
                 .name("cortex-tick".into())
                 .spawn(move || {
-                    Self::tick_loop(config, rx, shared, shutdown);
+                    Self::tick_loop(config, rx, shared, shutdown, cmd_channel);
                 })
                 .expect("Failed to spawn cortex-tick thread")
         };
@@ -116,7 +120,7 @@ impl CortexRuntime {
             shared,
             shutdown,
             tick_thread: Some(tick_thread),
-            _command_receiver: None, // Command receiver is inside tick_loop
+            command_receiver: Mutex::new(Some(cmd_receiver)),
         }
     }
 
@@ -126,10 +130,11 @@ impl CortexRuntime {
         inbox: Receiver<NeuralSignal>,
         shared: Arc<SharedCortexState>,
         shutdown: Arc<AtomicBool>,
+        cmd_channel: crate::autonomic::CommandChannel,
     ) {
-        // Create cortex with command channel — commands dispatch into the channel
-        // and are tracked in shared state for FFI/UI consumption
-        let (mut cortex, _command_rx) = Cortex::with_command_channel(config);
+        // Create cortex with the provided command channel — commands dispatch
+        // into the channel, receiver is held externally by CortexRuntime
+        let mut cortex = Cortex::with_provided_channel(config, cmd_channel);
 
         log::info!("CORTEX tick thread started (interval: {:?})", TICK_INTERVAL);
 
@@ -232,6 +237,13 @@ impl CortexRuntime {
     /// Total autonomic commands dispatched (lock-free).
     pub fn total_commands_dispatched(&self) -> u64 {
         self.shared.total_commands_dispatched.load(portable_atomic::Ordering::Relaxed)
+    }
+
+    /// Take the command receiver (can only be called once).
+    /// The receiver is how subsystems get autonomic commands from CORTEX.
+    /// Returns None if already taken.
+    pub fn take_command_receiver(&self) -> Option<CommandReceiver> {
+        self.command_receiver.lock().take()
     }
 
     /// Gracefully shut down the cortex.

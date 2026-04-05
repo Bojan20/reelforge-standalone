@@ -81,6 +81,12 @@ impl Cortex {
         (cortex, command_receiver)
     }
 
+    /// Create a Cortex with a pre-created command channel (sender side).
+    /// Use this when the CommandReceiver needs to live outside the Cortex.
+    pub fn with_provided_channel(config: CortexConfig, command_channel: CommandChannel) -> Self {
+        Self::new_inner(config, command_channel)
+    }
+
     /// Create a new Cortex (commands are dispatched but no external receiver).
     /// Useful for testing or standalone operation.
     pub fn new(config: CortexConfig) -> Self {
