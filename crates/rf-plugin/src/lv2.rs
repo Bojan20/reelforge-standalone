@@ -116,7 +116,7 @@ struct Lv2UridUnmap {
 /// URID map callback — called by plugins to map URI → integer
 unsafe extern "C" fn urid_map_callback(_handle: *mut c_void, uri: *const c_char) -> u32 {
     if uri.is_null() { return 0; }
-    let uri_str = CStr::from_ptr(uri).to_string_lossy().to_string();
+    let uri_str = unsafe { CStr::from_ptr(uri) }.to_string_lossy().to_string();
     let mut map = URID_MAP.lock().expect("URID map mutex poisoned");
     if let Some(&id) = map.uri_to_id.get(&uri_str) {
         return id;
@@ -373,7 +373,7 @@ fn regex_lite_find(text: &str, pattern: &str) -> Option<String> {
     let cap_start = pattern.find('(')?;
     let cap_end = pattern.rfind(')')?;
     let prefix_pat = &pattern[..cap_start];
-    let suffix_pat = &pattern[cap_end + 1..];
+    let _suffix_pat = &pattern[cap_end + 1..];
 
     // Very simplified matching — find prefix, then capture until suffix delimiter
     let prefix_clean = prefix_pat
@@ -853,27 +853,31 @@ impl Lv2PluginInstance {
     /// (TAP, MDA, basic LV2 effects) but may fail for complex plugins with non-standard layouts.
     /// TODO: Parse plugin.ttl port definitions to discover actual port indices by type.
     unsafe fn connect_audio_ports(&mut self) {
-        if let Some(connect) = (*self.descriptor).connect_port {
+        if let Some(connect) = unsafe { (*self.descriptor).connect_port } {
             // Connect audio inputs (assumed ports 0, 1)
             for (i, buf) in self.audio_inputs.iter_mut().enumerate() {
-                connect(self.handle, i as u32, buf.as_mut_ptr() as *mut c_void);
+                unsafe { connect(self.handle, i as u32, buf.as_mut_ptr() as *mut c_void) };
             }
             // Connect audio outputs (assumed ports 2, 3 for stereo)
             for (i, buf) in self.audio_outputs.iter_mut().enumerate() {
-                connect(
-                    self.handle,
-                    (i + self.audio_inputs.len()) as u32,
-                    buf.as_mut_ptr() as *mut c_void,
-                );
+                unsafe {
+                    connect(
+                        self.handle,
+                        (i + self.audio_inputs.len()) as u32,
+                        buf.as_mut_ptr() as *mut c_void,
+                    )
+                };
             }
             // Connect control ports (starting after audio ports)
             for (i, val) in self.port_values.iter_mut().enumerate() {
                 let port_index = self.audio_inputs.len() + self.audio_outputs.len() + i;
-                connect(
-                    self.handle,
-                    port_index as u32,
-                    val as *mut f32 as *mut c_void,
-                );
+                unsafe {
+                    connect(
+                        self.handle,
+                        port_index as u32,
+                        val as *mut f32 as *mut c_void,
+                    )
+                };
             }
         }
     }
@@ -901,7 +905,7 @@ unsafe fn cstr_to_string(ptr: *const c_char) -> String {
     if ptr.is_null() {
         String::new()
     } else {
-        CStr::from_ptr(ptr).to_string_lossy().to_string()
+        unsafe { CStr::from_ptr(ptr) }.to_string_lossy().to_string()
     }
 }
 

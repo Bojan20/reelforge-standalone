@@ -273,7 +273,7 @@ unsafe fn cstr_to_string(ptr: *const c_char) -> String {
     if ptr.is_null() {
         String::new()
     } else {
-        CStr::from_ptr(ptr).to_string_lossy().to_string()
+        unsafe { CStr::from_ptr(ptr) }.to_string_lossy().to_string()
     }
 }
 
@@ -285,11 +285,11 @@ unsafe fn read_features(features_ptr: *const *const c_char) -> Vec<String> {
     }
     let mut i = 0;
     loop {
-        let ptr = *features_ptr.add(i);
+        let ptr = unsafe { *features_ptr.add(i) };
         if ptr.is_null() {
             break;
         }
-        result.push(CStr::from_ptr(ptr).to_string_lossy().to_string());
+        result.push(unsafe { CStr::from_ptr(ptr) }.to_string_lossy().to_string());
         i += 1;
     }
     result
@@ -728,9 +728,9 @@ impl ClapPluginInstance {
     /// Query a CLAP extension from the plugin
     unsafe fn query_ext(plugin_ptr: *const ClapPlugin, ext_id: &[u8]) -> *const c_void {
         if plugin_ptr.is_null() { return std::ptr::null(); }
-        let plugin_ref = &*plugin_ptr;
+        let plugin_ref = unsafe { &*plugin_ptr };
         plugin_ref.get_extension
-            .map(|f| f(plugin_ptr, ext_id.as_ptr() as *const c_char))
+            .map(|f| unsafe { f(plugin_ptr, ext_id.as_ptr() as *const c_char) })
             .unwrap_or(std::ptr::null())
     }
 
@@ -865,7 +865,7 @@ impl PluginInstance for ClapPluginInstance {
             self.output_ptrs[i] = ch.as_mut_ptr();
         }
 
-        let mut audio_in = ClapAudioBuffer {
+        let audio_in = ClapAudioBuffer {
             data32: self.input_ptrs.as_mut_ptr(),
             data64: std::ptr::null_mut(),
             channel_count: input.channels as u32,
@@ -980,8 +980,8 @@ impl PluginInstance for ClapPluginInstance {
             unsafe extern "C" fn single_size(_list: *const ClapInputEvents) -> u32 { 1 }
             unsafe extern "C" fn single_get(list: *const ClapInputEvents, index: u32) -> *const c_void {
                 if index == 0 {
-                    let ctx = (*list).ctx as *const SingleEventCtx;
-                    (*ctx).event_ptr
+                    let ctx = unsafe { (*list).ctx as *const SingleEventCtx };
+                    unsafe { (*ctx).event_ptr }
                 } else {
                     std::ptr::null()
                 }
@@ -1008,8 +1008,8 @@ impl PluginInstance for ClapPluginInstance {
         // Create output stream that writes to a Vec<u8>
         struct WriteCtx { data: Vec<u8> }
         unsafe extern "C" fn stream_write(stream: *const ClapOStream, buffer: *const c_void, size: u64) -> i64 {
-            let ctx = &mut *((*stream).ctx as *mut WriteCtx);
-            let slice = std::slice::from_raw_parts(buffer as *const u8, size as usize);
+            let ctx = unsafe { &mut *((*stream).ctx as *mut WriteCtx) };
+            let slice = unsafe { std::slice::from_raw_parts(buffer as *const u8, size as usize) };
             ctx.data.extend_from_slice(slice);
             size as i64
         }
@@ -1031,11 +1031,11 @@ impl PluginInstance for ClapPluginInstance {
         // Create input stream that reads from a slice
         struct ReadCtx { data: *const u8, len: usize, pos: usize }
         unsafe extern "C" fn stream_read(stream: *const ClapIStream, buffer: *mut c_void, size: u64) -> i64 {
-            let ctx = &mut *((*stream).ctx as *mut ReadCtx);
+            let ctx = unsafe { &mut *((*stream).ctx as *mut ReadCtx) };
             let remaining = ctx.len - ctx.pos;
             let to_read = (size as usize).min(remaining);
             if to_read == 0 { return 0; }
-            std::ptr::copy_nonoverlapping(ctx.data.add(ctx.pos), buffer as *mut u8, to_read);
+            unsafe { std::ptr::copy_nonoverlapping(ctx.data.add(ctx.pos), buffer as *mut u8, to_read) };
             ctx.pos += to_read;
             to_read as i64
         }

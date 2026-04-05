@@ -636,7 +636,7 @@ impl Vst3Host {
     fn load_with_rack(path: &Path) -> PluginResult<RackLoadResult> {
         use rack::prelude::*;
 
-        let is_au = path
+        let _is_au = path
             .extension()
             .and_then(|e| e.to_str())
             .is_some_and(|e| e.eq_ignore_ascii_case("component"));
@@ -1245,7 +1245,7 @@ impl PluginInstance for Vst3Host {
                                 NSPoint::new(frame.origin.x, frame.origin.y),
                                 NSSize::new(w, h + 22.0), // +22 for standard macOS title bar
                             );
-                            let _: () = msg_send![window, setFrame: new_frame display: true animate: true];
+                            let _: () = msg_send![window, setFrame: new_frame, display: true, animate: true];
                             // Also resize the content view's plugin subview
                             let content_view: *mut AnyObject = msg_send![window, contentView];
                             if !content_view.is_null() {
