@@ -20,6 +20,8 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../providers/mixer_provider.dart';
+
 // ═══════════════════════════════════════════════════════════════════════════
 // SUGGESTION TYPES
 // ═══════════════════════════════════════════════════════════════════════════
@@ -508,6 +510,9 @@ class AiMixingService extends ChangeNotifier {
   final List<MixingSuggestion> _suggestionHistory = [];
   final _random = math.Random();
 
+  /// Connected mixer provider for live data + parameter application
+  MixerProvider? _mixerProvider;
+
   // Getters
   GenreProfile get selectedGenre => _selectedGenre;
   bool get enabled => _enabled;
@@ -585,12 +590,65 @@ class AiMixingService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Analyze project - convenience wrapper that creates empty track list
+  /// Connect to a MixerProvider for live data access
+  void connectMixer(MixerProvider mixer) {
+    _mixerProvider = mixer;
+  }
+
+  /// Disconnect mixer provider
+  void disconnectMixer() {
+    _mixerProvider = null;
+  }
+
+  /// Whether a mixer is connected
+  bool get hasMixer => _mixerProvider != null;
+
+  /// Analyze project using live mixer data
+  ///
+  /// Pulls real channel metering (peak, RMS, LUFS, stereo width) from
+  /// the connected MixerProvider. Falls back to empty list if no mixer.
   Future<MixAnalysisResult> analyzeProject() async {
-    // Create mock track analysis for demo purposes
+    final mixer = _mixerProvider;
+    if (mixer == null) {
+      return analyzeMix(<TrackAnalysis>[]);
+    }
+
+    // Pull real track data from MixerProvider
     final tracks = <TrackAnalysis>[];
+    final allChannels = mixer.channels;
+
+    for (final channel in allChannels) {
+      // Convert linear peak/RMS to dB
+      final peakDb = channel.peakL > 0.000001
+          ? 20 * _log10(math.max(channel.peakL, channel.peakR))
+          : -70.0;
+      final rmsDb = channel.rmsL > 0.000001
+          ? 20 * _log10(math.max(channel.rmsL, channel.rmsR))
+          : -70.0;
+
+      // Use LUFS if available (master has it), otherwise estimate from RMS
+      final lufs = channel.lufsIntegrated > -69.0
+          ? channel.lufsIntegrated
+          : rmsDb - 0.691; // EBU R128 approximation
+
+      // Dynamic range from peak - RMS
+      final dr = (peakDb - rmsDb).abs();
+
+      tracks.add(TrackAnalysis.fromMeasurements(
+        trackId: channel.id,
+        trackName: channel.name,
+        peakDb: peakDb,
+        rmsDb: rmsDb,
+        lufs: lufs,
+        dynamicRange: dr,
+        stereoWidth: channel.stereoWidth,
+      ));
+    }
+
     return analyzeMix(tracks);
   }
+
+  static double _log10(double x) => math.log(x) / math.ln10;
 
   /// Analyze mix and get suggestions
   Future<MixAnalysisResult> analyzeMix(List<TrackAnalysis> tracks) async {
@@ -675,14 +733,106 @@ class AiMixingService extends ChangeNotifier {
     }
   }
 
-  /// Apply a suggestion
+  /// Apply a suggestion — actually modifies mixer parameters via MixerProvider
   Future<bool> applySuggestion(MixingSuggestion suggestion) async {
     try {
+      final mixer = _mixerProvider;
+      if (mixer == null) {
+        // No mixer connected — log only
+        _suggestionHistory.add(suggestion.copyWith(applied: true));
+        await _saveHistory();
+        notifyListeners();
+        return true;
+      }
+
+      final trackId = suggestion.trackId;
+      final params = suggestion.parameters;
+
+      switch (suggestion.type) {
+        case SuggestionType.gain:
+          if (trackId != null) {
+            final gainChange = params['gain_reduction'] ?? params['gain_increase'];
+            if (gainChange != null) {
+              final channel = mixer.getChannel(trackId);
+              if (channel != null) {
+                // Apply input gain change (dB domain, -20 to +20)
+                final newGain = (channel.inputGain + gainChange).clamp(-20.0, 20.0);
+                mixer.setInputGain(trackId, newGain);
+              }
+            }
+          }
+
+        case SuggestionType.eq:
+          // EQ suggestions are informational — applied via insert plugins
+          // Log parameters so UI can show recommended settings
+          break;
+
+        case SuggestionType.compression:
+          // Compression suggestions are informational — applied via insert plugins
+          break;
+
+        case SuggestionType.spatial:
+          if (trackId != null) {
+            final width = params['width'];
+            if (width != null) {
+              mixer.setStereoWidth(trackId, width);
+            }
+          }
+
+        case SuggestionType.balance:
+          if (trackId != null) {
+            final targetVolume = params['target_volume'];
+            if (targetVolume != null) {
+              mixer.setChannelVolume(trackId, targetVolume);
+            }
+          }
+
+        case SuggestionType.loudness:
+          final gainNeeded = params['gain_needed'] ?? -(params['gain_reduction'] ?? 0.0);
+          if (gainNeeded != 0.0) {
+            // Apply to master input gain
+            final masterGain = mixer.master.inputGain;
+            final newGain = (masterGain + gainNeeded).clamp(-20.0, 20.0);
+            mixer.setInputGain('master', newGain);
+          }
+
+        case SuggestionType.masking:
+          // Masking is informational — user decides which track to EQ
+          break;
+
+        case SuggestionType.dynamics:
+          // Dynamics suggestions are informational
+          break;
+
+        case SuggestionType.reverb:
+          // Reverb suggestions are informational — applied via insert plugins
+          break;
+
+        case SuggestionType.noise:
+          // Noise detection is informational
+          break;
+      }
+
       // Log to history
       _suggestionHistory.add(suggestion.copyWith(applied: true));
       await _saveHistory();
 
-      // In real implementation, this would apply the DSP changes
+      // Remove from current analysis (it's been applied)
+      if (_lastAnalysis != null) {
+        final updated = _lastAnalysis!.suggestions
+            .where((s) => s.id != suggestion.id)
+            .toList();
+        _lastAnalysis = MixAnalysisResult(
+          tracks: _lastAnalysis!.tracks,
+          suggestions: updated,
+          overallScore: _lastAnalysis!.overallScore,
+          detectedGenre: _lastAnalysis!.detectedGenre,
+          overallSpectrum: _lastAnalysis!.overallSpectrum,
+          overallLufs: _lastAnalysis!.overallLufs,
+          overallDynamicRange: _lastAnalysis!.overallDynamicRange,
+          analyzedAt: _lastAnalysis!.analyzedAt,
+        );
+      }
 
       notifyListeners();
       return true;

@@ -15,6 +15,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/cortex_vision_service.dart';
+import '../../services/cortex_intelligence_loop.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../../models/layout_models.dart';
 import '../../models/editor_mode_config.dart';
@@ -437,6 +438,10 @@ class _ControlBarState extends State<ControlBar> {
                         _CloudStatusBadges(
                           onCrdtSyncTap: widget.onCrdtSyncTap,
                         ),
+
+                      // CORTEX Intelligence Status
+                      if (!isVeryCompact)
+                        const _CortexIntelligenceBadge(),
 
                       // System Meters
                       if (!isVeryCompact)
@@ -1894,6 +1899,109 @@ class _CloudBadge extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// CORTEX INTELLIGENCE BADGE — Live brain status in the control bar
+// ════════════════════════════════════════════════════════════════════════════
+
+class _CortexIntelligenceBadge extends StatelessWidget {
+  const _CortexIntelligenceBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: CortexIntelligenceLoop.instance,
+      builder: (context, _) {
+        final loop = CortexIntelligenceLoop.instance;
+        final last = loop.lastResult;
+
+        // Color based on state
+        Color color;
+        String label;
+        IconData icon;
+
+        if (loop.isAnalyzing) {
+          color = const Color(0xFF4A9EFF);
+          label = '...';
+          icon = Icons.psychology;
+        } else if (last == null) {
+          color = Colors.grey;
+          label = 'OFF';
+          icon = Icons.psychology_outlined;
+        } else if (last.hasCriticalIssues) {
+          color = const Color(0xFFFF4060);
+          label = '${last.criticalIssues}!';
+          icon = Icons.psychology;
+        } else if (last.mixScore >= 80) {
+          color = const Color(0xFF40FF90);
+          label = last.mixScore.toInt().toString();
+          icon = Icons.psychology;
+        } else if (last.mixScore >= 60) {
+          color = const Color(0xFFFFFF40);
+          label = last.mixScore.toInt().toString();
+          icon = Icons.psychology;
+        } else {
+          color = const Color(0xFFFF9040);
+          label = last.mixScore.toInt().toString();
+          icon = Icons.psychology;
+        }
+
+        return Tooltip(
+          message: _buildTooltip(loop, last),
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: color.withOpacity(0.3)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (loop.isAnalyzing)
+                  SizedBox(
+                    width: 12, height: 12,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.5,
+                      valueColor: AlwaysStoppedAnimation(color),
+                    ),
+                  )
+                else
+                  Icon(icon, size: 14, color: color),
+                const SizedBox(width: 3),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  String _buildTooltip(CortexIntelligenceLoop loop, IntelligenceCycleResult? last) {
+    if (!loop.isRunning) return 'CORTEX Intelligence: inactive';
+    if (loop.isAnalyzing) return 'CORTEX: analyzing mix...';
+    if (last == null) return 'CORTEX Intelligence: waiting for first cycle';
+
+    final lines = <String>[
+      'CORTEX Intelligence — Score: ${last.mixScore.toInt()}%',
+      '${last.tracksAnalyzed} tracks, ${last.suggestionsGenerated} suggestions',
+    ];
+    if (last.hasCriticalIssues) {
+      lines.add('${last.criticalIssues} CRITICAL issues detected!');
+    }
+    lines.add('Cycles: ${loop.totalCycles} | Acceptance: ${(loop.acceptanceRate * 100).toInt()}%');
+    return lines.join('\n');
   }
 }
 

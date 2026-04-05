@@ -76,6 +76,7 @@ import 'services/localization_service.dart';
 import 'services/asset_cloud_service.dart';
 import 'services/crdt_sync_service.dart';
 import 'services/cortex_vision_service.dart';
+import 'services/cortex_intelligence_loop.dart';
 import 'src/rust/native_ffi.dart';
 import 'utils/path_validator.dart';
 import 'dart:io';
@@ -469,6 +470,14 @@ class _AppInitializerState extends State<_AppInitializer> {
 
       // Start auto-observation — CORTEX watches the app every 10s
       vision.startObserving();
+
+      // Phase 5.5: Wire CORTEX Intelligence Loop (Eyes + Brain + Hands)
+      if (mounted) {
+        final mixer = context.read<MixerProvider>();
+        final intelligence = CortexIntelligenceLoop.instance;
+        intelligence.connect(mixer);
+        intelligence.start(); // 30s cycle: capture → analyze → suggest
+      }
 
       // Phase 6: Engine ready — enable launcher buttons
       if (mounted) {
