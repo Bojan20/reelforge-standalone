@@ -649,6 +649,7 @@ pub extern "C" fn container_group_add_child(
 /// Returns 1 on success, 0 if not found
 #[unsafe(no_mangle)]
 pub extern "C" fn container_group_remove_child(group_id: u32, child_id: u32) -> i32 {
+    #[allow(clippy::collapsible_match)]
     match STORAGE.get_group(group_id) {
         Some(mut group) => {
             if group.remove_child_by_id(child_id) {

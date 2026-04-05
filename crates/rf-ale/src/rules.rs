@@ -629,7 +629,7 @@ impl RuleRegistry {
     pub fn add(&mut self, rule: Rule) {
         self.rules.push(rule);
         // Sort by priority (descending)
-        self.rules.sort_by(|a, b| b.priority.cmp(&a.priority));
+        self.rules.sort_by_key(|b| std::cmp::Reverse(b.priority));
     }
 
     /// Get all rules for a context

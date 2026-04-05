@@ -326,7 +326,7 @@ impl TruePeakDetector {
         // Kaiser window parameters
         let beta = 4.5;
 
-        for i in 0..n {
+        for (i, coeff) in coeffs.iter_mut().enumerate().take(n) {
             let x = (i as f64 - (n - 1) as f64 / 2.0) / 4.0;
 
             // Sinc function
@@ -341,7 +341,7 @@ impl TruePeakDetector {
             let window =
                 Self::bessel_i0(beta * (1.0 - alpha * alpha).sqrt()) / Self::bessel_i0(beta);
 
-            coeffs[i] = sinc * window / 4.0; // Divide by 4 for interpolation
+            *coeff = sinc * window / 4.0; // Divide by 4 for interpolation
         }
 
         coeffs
@@ -656,10 +656,7 @@ impl LoudnessMeter {
 
         // 10th to 95th percentile
         let low_idx = (loudnesses.len() as f64 * 0.10) as usize;
-        let high_idx = (loudnesses.len() as f64 * 0.95) as usize;
-
-        let low_idx = low_idx;
-        let high_idx = high_idx.min(loudnesses.len() - 1);
+        let high_idx = ((loudnesses.len() as f64 * 0.95) as usize).min(loudnesses.len() - 1);
 
         loudnesses[high_idx] - loudnesses[low_idx]
     }

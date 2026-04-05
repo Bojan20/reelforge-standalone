@@ -82,7 +82,7 @@ impl VoiceCollisionResolver {
 
     /// Sort voices by priority (highest first).
     pub fn sort_by_priority(&mut self) {
-        self.voices.sort_by(|a, b| b.priority.cmp(&a.priority));
+        self.voices.sort_by_key(|b| std::cmp::Reverse(b.priority));
     }
 }
 

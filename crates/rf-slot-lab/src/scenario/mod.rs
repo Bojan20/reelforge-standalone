@@ -151,6 +151,7 @@ impl ScenarioPlayback {
     }
 
     /// Get next spin
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Option<&ScriptedSpin> {
         if self.is_complete() {
             return None;

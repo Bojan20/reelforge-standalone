@@ -76,14 +76,14 @@ impl SpectralAnalyzer {
             let end = (start + self.fft_size).min(samples.len());
 
             // Apply window and copy to input buffer
-            for i in 0..self.fft_size {
+            for (i, (inp, win)) in input.iter_mut().zip(self.window.iter()).enumerate().take(self.fft_size) {
                 let sample_idx = start + i;
                 let sample = if sample_idx < end {
                     samples[sample_idx]
                 } else {
                     0.0
                 };
-                input[i] = sample * self.window[i];
+                *inp = sample * win;
             }
 
             // Perform FFT

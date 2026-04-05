@@ -379,22 +379,18 @@ class ServerAudioBridge with ChangeNotifier {
 /// Locator for EventRegistry (avoids circular dependency).
 /// Uses dynamic to prevent circular import. All calls wrapped in try/catch.
 class EventRegistryLocator {
-  static dynamic _instance;
-
-  /// Get instance. Returns null if not set (never throws).
-  static dynamic get instance => _instance;
-
-  /// Set instance (call once at app startup with the real EventRegistry).
-  static set instance(dynamic registry) => _instance = registry;
+  /// Instance. Set once at app startup with the real EventRegistry.
+  /// Returns null if not set.
+  static dynamic instance;
 
   /// Check if instance is set and has triggerEvent method.
-  static bool get isSet => _instance != null;
+  static bool get isSet => instance != null;
 
   /// Safe trigger — never throws, returns false on any error.
   static bool trigger(String eventId) {
-    if (_instance == null) return false;
+    if (instance == null) return false;
     try {
-      _instance.triggerEvent(eventId);
+      instance.triggerEvent(eventId);
       return true;
     } catch (_) {
       return false;

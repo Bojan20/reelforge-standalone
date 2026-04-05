@@ -6,7 +6,7 @@
 // Flags: --ci (JSON output + exit code), --verbose, --seed
 // ============================================================================
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process;
 
 use clap::{Parser, Subcommand};
@@ -175,7 +175,7 @@ fn main() {
 // ─── Command Implementations ────────────────────────────────────────────────
 
 fn cmd_run(
-    file: &PathBuf,
+    file: &Path,
     seed: Option<u64>,
     workdir: Option<PathBuf>,
     format: Option<String>,
@@ -260,7 +260,7 @@ fn cmd_run(
     Ok(if ctx.is_success() { 0 } else { 1 })
 }
 
-fn cmd_dry_run(file: &PathBuf, ci: bool) -> Result<i32, FluxMacroError> {
+fn cmd_dry_run(file: &Path, ci: bool) -> Result<i32, FluxMacroError> {
     let macro_file = parser::parse_macro_file(file)?;
     let interp = build_interpreter();
 
@@ -307,7 +307,7 @@ fn cmd_dry_run(file: &PathBuf, ci: bool) -> Result<i32, FluxMacroError> {
     Ok(0)
 }
 
-fn cmd_validate(file: &PathBuf, ci: bool) -> Result<i32, FluxMacroError> {
+fn cmd_validate(file: &Path, ci: bool) -> Result<i32, FluxMacroError> {
     let macro_file = parser::parse_macro_file(file)?;
     let interp = build_interpreter();
     let warnings = interp.validate(&macro_file)?;
@@ -374,7 +374,7 @@ fn cmd_steps(ci: bool) -> Result<i32, FluxMacroError> {
 }
 
 fn cmd_qa(
-    file: &PathBuf,
+    file: &Path,
     seed: Option<u64>,
     workdir: Option<PathBuf>,
     verbose: bool,
@@ -454,7 +454,7 @@ fn cmd_qa(
 }
 
 fn cmd_adb(
-    file: &PathBuf,
+    file: &Path,
     workdir: Option<PathBuf>,
     verbose: bool,
     ci: bool,
@@ -491,7 +491,7 @@ fn cmd_adb(
     Ok(if ctx.is_success() { 0 } else { 1 })
 }
 
-fn cmd_replay(run_id: &str, workdir: &PathBuf, ci: bool) -> Result<i32, FluxMacroError> {
+fn cmd_replay(run_id: &str, workdir: &Path, ci: bool) -> Result<i32, FluxMacroError> {
     let run_path = version::run_dir(workdir, run_id);
 
     if !run_path.exists() {
@@ -519,7 +519,7 @@ fn cmd_replay(run_id: &str, workdir: &PathBuf, ci: bool) -> Result<i32, FluxMacr
     macro_file.seed = Some(meta.seed);
 
     let interp = build_interpreter();
-    let ctx = interp.run(&macro_file, workdir.clone())?;
+    let ctx = interp.run(&macro_file, workdir.to_path_buf())?;
 
     let hash_matches = ctx.run_hash == meta.run_hash;
 
@@ -556,7 +556,7 @@ fn cmd_replay(run_id: &str, workdir: &PathBuf, ci: bool) -> Result<i32, FluxMacr
     Ok(if hash_matches { 0 } else { 1 })
 }
 
-fn cmd_history(workdir: &PathBuf, detail: Option<&str>, ci: bool) -> Result<i32, FluxMacroError> {
+fn cmd_history(workdir: &Path, detail: Option<&str>, ci: bool) -> Result<i32, FluxMacroError> {
     if let Some(run_id) = detail {
         let run_path = version::run_dir(workdir, run_id);
         let meta = version::load_run_meta(&run_path)?;
@@ -649,7 +649,7 @@ fn build_interpreter() -> MacroInterpreter {
     MacroInterpreter::new(registry)
 }
 
-fn resolve_workdir(workdir: Option<PathBuf>, file: &PathBuf) -> PathBuf {
+fn resolve_workdir(workdir: Option<PathBuf>, file: &Path) -> PathBuf {
     workdir.unwrap_or_else(|| {
         file.parent()
             .map(|p| p.to_path_buf())

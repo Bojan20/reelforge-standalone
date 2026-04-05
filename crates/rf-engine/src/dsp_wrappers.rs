@@ -3003,7 +3003,9 @@ impl InsertProcessor for ReverbWrapper {
             28 => self.reverb.out_eq_mid_gain(),
             29 => self.reverb.out_eq_mid_freq(),
             30 => self.reverb.out_eq_mid_q(),
+            #[allow(clippy::collapsible_match)]
             31 => if self.reverb.soft_limiter_enabled() { 1.0 } else { 0.0 },
+            #[allow(clippy::collapsible_match)]
             32 => if self.reverb.predelay_bpm_sync() { 1.0 } else { 0.0 },
             33 => self.reverb.predelay_bpm(),
             34 => self.reverb.predelay_note_div() as f64,

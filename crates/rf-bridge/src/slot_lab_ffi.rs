@@ -418,7 +418,7 @@ pub extern "C" fn slot_lab_forced_outcome_name(outcome: i32) -> *const c_char {
     if (FORCED_OUTCOME_MIN..=FORCED_OUTCOME_MAX).contains(&outcome) {
         NAMES[outcome as usize].as_ptr() as *const c_char
     } else {
-        "Invalid\0".as_ptr() as *const c_char
+        c"Invalid".as_ptr()
     }
 }
 
@@ -942,14 +942,8 @@ pub extern "C" fn slot_lab_get_max_win_ratio() -> f64 {
 pub extern "C" fn slot_lab_in_free_spins() -> i32 {
     let guard = SLOT_ENGINE.read();
     match &*guard {
-        Some(engine) => {
-            if engine.in_free_spins() {
-                1
-            } else {
-                0
-            }
-        }
-        None => 0,
+        Some(engine) if engine.in_free_spins() => 1,
+        _ => 0,
     }
 }
 
@@ -989,15 +983,10 @@ pub extern "C" fn slot_lab_import_config(json: *const c_char) -> i32 {
     };
 
     let mut guard = SLOT_ENGINE.write();
-    match &mut *guard {
-        Some(engine) => {
-            if engine.import_config(json_str).is_ok() {
-                1
-            } else {
-                0
-            }
-        }
-        None => 0,
+    if let Some(engine) = &mut *guard {
+        i32::from(engine.import_config(json_str).is_ok())
+    } else {
+        0
     }
 }
 
@@ -1010,14 +999,8 @@ pub extern "C" fn slot_lab_import_config(json: *const c_char) -> i32 {
 pub extern "C" fn slot_lab_last_spin_is_win() -> i32 {
     let guard = LAST_SPIN_RESULT.read();
     match &*guard {
-        Some(result) => {
-            if result.is_win() {
-                1
-            } else {
-                0
-            }
-        }
-        None => 0,
+        Some(result) if result.is_win() => 1,
+        _ => 0,
     }
 }
 
@@ -1066,14 +1049,8 @@ pub extern "C" fn slot_lab_last_spin_line_count() -> i32 {
 pub extern "C" fn slot_lab_last_spin_triggered_feature() -> i32 {
     let guard = LAST_SPIN_RESULT.read();
     match &*guard {
-        Some(result) => {
-            if result.feature_triggered.is_some() {
-                1
-            } else {
-                0
-            }
-        }
-        None => 0,
+        Some(result) if result.feature_triggered.is_some() => 1,
+        _ => 0,
     }
 }
 
@@ -1082,14 +1059,8 @@ pub extern "C" fn slot_lab_last_spin_triggered_feature() -> i32 {
 pub extern "C" fn slot_lab_last_spin_near_miss() -> i32 {
     let guard = LAST_SPIN_RESULT.read();
     match &*guard {
-        Some(result) => {
-            if result.near_miss {
-                1
-            } else {
-                0
-            }
-        }
-        None => 0,
+        Some(result) if result.near_miss => 1,
+        _ => 0,
     }
 }
 
@@ -1567,13 +1538,8 @@ pub extern "C" fn slot_lab_scenario_progress() -> *mut c_char {
 pub extern "C" fn slot_lab_scenario_is_complete() -> i32 {
     let playback = ACTIVE_PLAYBACK.read();
     match &*playback {
-        Some(pb) => {
-            if pb.is_complete() {
-                1
-            } else {
-                0
-            }
-        }
+        Some(pb) if pb.is_complete() => 1,
+        Some(_) => 0,
         None => 1, // No playback = complete
     }
 }
@@ -1780,14 +1746,8 @@ struct LockedSymbolJson {
 pub extern "C" fn slot_lab_hold_and_win_is_active() -> i32 {
     let guard = ENGINE_V2.read();
     match &*guard {
-        Some(engine) => {
-            if engine.is_hold_and_win_active() {
-                1
-            } else {
-                0
-            }
-        }
-        None => 0,
+        Some(engine) if engine.is_hold_and_win_active() => 1,
+        _ => 0,
     }
 }
 
@@ -1912,15 +1872,10 @@ pub extern "C" fn slot_lab_hold_and_win_total_value() -> f64 {
 #[unsafe(no_mangle)]
 pub extern "C" fn slot_lab_hold_and_win_force_trigger() -> i32 {
     let mut guard = ENGINE_V2.write();
-    match &mut *guard {
-        Some(engine) => {
-            if engine.force_trigger_hold_and_win() {
-                1
-            } else {
-                0
-            }
-        }
-        None => 0,
+    if let Some(engine) = &mut *guard {
+        i32::from(engine.force_trigger_hold_and_win())
+    } else {
+        0
     }
 }
 
@@ -1950,7 +1905,7 @@ pub extern "C" fn slot_lab_hold_and_win_add_locked_symbol(
     }
 
     // P12.0.5: Validate symbol_type (0-4 for Normal/Mini/Minor/Major/Grand)
-    if symbol_type < 0 || symbol_type > 4 {
+    if !(0..=4).contains(&symbol_type) {
         log::error!(
             "slot_lab_hold_and_win_add_locked_symbol: Invalid symbol_type {}",
             symbol_type
@@ -1958,24 +1913,20 @@ pub extern "C" fn slot_lab_hold_and_win_add_locked_symbol(
         return 0;
     }
 
+    let sym_type = match symbol_type {
+        0 => rf_slot_lab::features::HoldSymbolType::Normal,
+        1 => rf_slot_lab::features::HoldSymbolType::Mini,
+        2 => rf_slot_lab::features::HoldSymbolType::Minor,
+        3 => rf_slot_lab::features::HoldSymbolType::Major,
+        4 => rf_slot_lab::features::HoldSymbolType::Grand,
+        _ => rf_slot_lab::features::HoldSymbolType::Normal,
+    };
+
     let mut guard = ENGINE_V2.write();
-    match &mut *guard {
-        Some(engine) => {
-            let sym_type = match symbol_type {
-                0 => rf_slot_lab::features::HoldSymbolType::Normal,
-                1 => rf_slot_lab::features::HoldSymbolType::Mini,
-                2 => rf_slot_lab::features::HoldSymbolType::Minor,
-                3 => rf_slot_lab::features::HoldSymbolType::Major,
-                4 => rf_slot_lab::features::HoldSymbolType::Grand,
-                _ => rf_slot_lab::features::HoldSymbolType::Normal,
-            };
-            if engine.hold_and_win_add_locked_symbol(position, value, sym_type) {
-                1
-            } else {
-                0
-            }
-        }
-        None => 0,
+    if let Some(engine) = &mut *guard {
+        i32::from(engine.hold_and_win_add_locked_symbol(position, value, sym_type))
+    } else {
+        0
     }
 }
 
@@ -2001,14 +1952,8 @@ pub extern "C" fn slot_lab_hold_and_win_complete() -> f64 {
 pub extern "C" fn slot_lab_pick_bonus_is_active() -> i32 {
     let guard = ENGINE_V2.read();
     match &*guard {
-        Some(engine) => {
-            if engine.is_pick_bonus_active() {
-                1
-            } else {
-                0
-            }
-        }
-        None => 0,
+        Some(engine) if engine.is_pick_bonus_active() => 1,
+        _ => 0,
     }
 }
 
@@ -2057,15 +2002,10 @@ pub extern "C" fn slot_lab_pick_bonus_total_win() -> f64 {
 #[unsafe(no_mangle)]
 pub extern "C" fn slot_lab_pick_bonus_force_trigger() -> i32 {
     let mut guard = ENGINE_V2.write();
-    match &mut *guard {
-        Some(engine) => {
-            if engine.force_trigger_pick_bonus() {
-                1
-            } else {
-                0
-            }
-        }
-        None => 0,
+    if let Some(engine) = &mut *guard {
+        i32::from(engine.force_trigger_pick_bonus())
+    } else {
+        0
     }
 }
 
@@ -2136,14 +2076,8 @@ pub extern "C" fn slot_lab_pick_bonus_complete() -> f64 {
 pub extern "C" fn slot_lab_gamble_is_active() -> i32 {
     let guard = ENGINE_V2.read();
     match &*guard {
-        Some(engine) => {
-            if engine.is_gamble_active() {
-                1
-            } else {
-                0
-            }
-        }
-        None => 0,
+        Some(engine) if engine.is_gamble_active() => 1,
+        _ => 0,
     }
 }
 
@@ -2172,15 +2106,10 @@ pub extern "C" fn slot_lab_gamble_attempts_used() -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn slot_lab_gamble_force_trigger(initial_stake: f64) -> i32 {
     let mut guard = ENGINE_V2.write();
-    match &mut *guard {
-        Some(engine) => {
-            if engine.force_trigger_gamble(initial_stake) {
-                1
-            } else {
-                0
-            }
-        }
-        None => 0,
+    if let Some(engine) = &mut *guard {
+        i32::from(engine.force_trigger_gamble(initial_stake))
+    } else {
+        0
     }
 }
 
@@ -2273,14 +2202,8 @@ pub extern "C" fn slot_lab_gamble_get_state_json() -> *mut c_char {
 pub extern "C" fn slot_lab_jackpot_is_active() -> i32 {
     let guard = ENGINE_V2.read();
     match &*guard {
-        Some(engine) => {
-            if engine.is_jackpot_active() {
-                1
-            } else {
-                0
-            }
-        }
-        None => 0,
+        Some(engine) if engine.is_jackpot_active() => 1,
+        _ => 0,
     }
 }
 
@@ -2367,19 +2290,14 @@ pub extern "C" fn slot_lab_jackpot_won_amount() -> f64 {
 /// Returns 1 if triggered, 0 if failed
 #[unsafe(no_mangle)]
 pub extern "C" fn slot_lab_jackpot_force_trigger(tier: i32) -> i32 {
-    if tier < 0 || tier > 3 {
+    if !(0..=3).contains(&tier) {
         return 0;
     }
     let mut guard = ENGINE_V2.write();
-    match &mut *guard {
-        Some(engine) => {
-            if engine.force_trigger_jackpot(tier as usize) {
-                1
-            } else {
-                0
-            }
-        }
-        None => 0,
+    if let Some(engine) = &mut *guard {
+        i32::from(engine.force_trigger_jackpot(tier as usize))
+    } else {
+        0
     }
 }
 
@@ -2441,14 +2359,8 @@ pub extern "C" fn slot_lab_jackpot_get_state_json() -> *mut c_char {
 pub extern "C" fn slot_lab_free_spins_is_active() -> i32 {
     let guard = ENGINE_V2.read();
     match &*guard {
-        Some(engine) => {
-            if engine.is_free_spins_active() {
-                1
-            } else {
-                0
-            }
-        }
-        None => 0,
+        Some(engine) if engine.is_free_spins_active() => 1,
+        _ => 0,
     }
 }
 
@@ -2498,15 +2410,10 @@ pub extern "C" fn slot_lab_free_spins_total_win() -> f64 {
 #[unsafe(no_mangle)]
 pub extern "C" fn slot_lab_free_spins_force_trigger(num_spins: i32) -> i32 {
     let mut guard = ENGINE_V2.write();
-    match &mut *guard {
-        Some(engine) => {
-            if engine.force_trigger_free_spins(num_spins as u32) {
-                1
-            } else {
-                0
-            }
-        }
-        None => 0,
+    if let Some(engine) = &mut *guard {
+        i32::from(engine.force_trigger_free_spins(num_spins as u32))
+    } else {
+        0
     }
 }
 
@@ -2515,15 +2422,10 @@ pub extern "C" fn slot_lab_free_spins_force_trigger(num_spins: i32) -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn slot_lab_free_spins_add(extra_spins: i32) -> i32 {
     let mut guard = ENGINE_V2.write();
-    match &mut *guard {
-        Some(engine) => {
-            if engine.free_spins_add(extra_spins as u32) {
-                1
-            } else {
-                0
-            }
-        }
-        None => 0,
+    if let Some(engine) = &mut *guard {
+        i32::from(engine.free_spins_add(extra_spins as u32))
+    } else {
+        0
     }
 }
 
@@ -2579,14 +2481,8 @@ pub extern "C" fn slot_lab_free_spins_get_state_json() -> *mut c_char {
 pub extern "C" fn slot_lab_cascade_is_active() -> i32 {
     let guard = ENGINE_V2.read();
     match &*guard {
-        Some(engine) => {
-            if engine.is_cascade_active() {
-                1
-            } else {
-                0
-            }
-        }
-        None => 0,
+        Some(engine) if engine.is_cascade_active() => 1,
+        _ => 0,
     }
 }
 
@@ -2635,15 +2531,10 @@ pub extern "C" fn slot_lab_cascade_total_win() -> f64 {
 #[unsafe(no_mangle)]
 pub extern "C" fn slot_lab_cascade_force_trigger() -> i32 {
     let mut guard = ENGINE_V2.write();
-    match &mut *guard {
-        Some(engine) => {
-            if engine.force_trigger_cascade() {
-                1
-            } else {
-                0
-            }
-        }
-        None => 0,
+    if let Some(engine) = &mut *guard {
+        i32::from(engine.force_trigger_cascade())
+    } else {
+        0
     }
 }
 
@@ -2892,7 +2783,7 @@ pub extern "C" fn slot_lab_win_tier_add_regular(
     config
         .regular_wins
         .tiers
-        .sort_by(|a, b| a.tier_id.cmp(&b.tier_id));
+        .sort_by_key(|a| a.tier_id);
 
     log::debug!("slot_lab_win_tier_add_regular: Added tier {}", tier_id);
     1

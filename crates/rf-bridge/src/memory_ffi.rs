@@ -20,23 +20,19 @@ use std::time::{Duration, Instant};
 
 /// Load priority for soundbanks
 #[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum LoadPriority {
     /// Load immediately, keep resident
     Critical = 0,
     /// Load on demand, keep resident
     High = 1,
     /// Load on demand, can unload
+    #[default]
     Normal = 2,
     /// Stream from disk
     Streaming = 3,
 }
 
-impl Default for LoadPriority {
-    fn default() -> Self {
-        LoadPriority::Normal
-    }
-}
 
 /// Memory state
 #[repr(C)]
@@ -255,7 +251,7 @@ impl MemoryBudgetManager {
             .collect();
 
         // Sort by last used (oldest first)
-        candidates.sort_by(|a, b| a.1.cmp(&b.1));
+        candidates.sort_by_key(|a| a.1);
 
         let mut freed = 0usize;
         for (bank_id, _, estimated_size) in candidates {

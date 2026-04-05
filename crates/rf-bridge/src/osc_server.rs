@@ -122,11 +122,11 @@ fn process_message(msg: rosc::OscMessage) {
     // Extract first argument of each type
     for arg in &msg.args {
         match arg {
-            rosc::OscType::Float(f) => { if float_arg.is_none() { float_arg = Some(*f); } }
-            rosc::OscType::Int(i) => { if int_arg.is_none() { int_arg = Some(*i); } }
-            rosc::OscType::String(s) => { if string_arg.is_none() { string_arg = Some(s.clone()); } }
-            rosc::OscType::Double(d) => { if float_arg.is_none() { float_arg = Some(*d as f32); } }
-            rosc::OscType::Long(l) => { if int_arg.is_none() { int_arg = Some(*l as i32); } }
+            rosc::OscType::Float(f) if float_arg.is_none() => { float_arg = Some(*f); }
+            rosc::OscType::Int(i) if int_arg.is_none() => { int_arg = Some(*i); }
+            rosc::OscType::String(s) if string_arg.is_none() => { string_arg = Some(s.clone()); }
+            rosc::OscType::Double(d) if float_arg.is_none() => { float_arg = Some(*d as f32); }
+            rosc::OscType::Long(l) if int_arg.is_none() => { int_arg = Some(*l as i32); }
             _ => {} // Skip blobs, booleans, etc.
         }
     }

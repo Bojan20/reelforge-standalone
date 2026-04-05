@@ -76,16 +76,16 @@ pub fn to_minimum_phase(kernel: &[f64], len_mult: usize) -> Vec<f64> {
     // log_spec[0] unchanged
 
     // Positive quefrencies: double
-    for i in 1..half {
-        log_spec[i] *= 2.0;
+    for cell in log_spec.iter_mut().take(half).skip(1) {
+        *cell *= 2.0;
     }
 
     // Nyquist stays
     // log_spec[half] unchanged
 
     // Negative quefrencies: zero
-    for i in (half + 1)..fft_len {
-        log_spec[i] = Complex64::new(0.0, 0.0);
+    for cell in log_spec.iter_mut().take(fft_len).skip(half + 1) {
+        *cell = Complex64::new(0.0, 0.0);
     }
 
     // Step 6: Forward FFT → analytic signal spectrum
@@ -112,10 +112,7 @@ pub fn to_minimum_phase(kernel: &[f64], len_mult: usize) -> Vec<f64> {
 
     // Normalize and extract real part (truncated to original length)
     let inv_scale2 = 1.0 / fft_len_f;
-    let mut result = Vec::with_capacity(kernel_len);
-    for i in 0..kernel_len {
-        result.push(log_spec[i].re * inv_scale2);
-    }
+    let result: Vec<f64> = log_spec.iter().take(kernel_len).map(|c| c.re * inv_scale2).collect();
 
     result
 }

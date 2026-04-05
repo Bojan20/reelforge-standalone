@@ -438,7 +438,7 @@ impl AudioCache {
             .iter()
             .map(|(k, v)| (k.clone(), v.last_access))
             .collect();
-        files.sort_by(|a, b| b.1.cmp(&a.1)); // Descending by access time
+        files.sort_by_key(|b| std::cmp::Reverse(b.1)); // Descending by access time
         files.into_iter().map(|(k, _)| k).collect()
     }
 
@@ -4724,11 +4724,10 @@ impl PlaybackEngine {
                 let active_count = voices.iter().filter(|v| v.active).count() as u32;
                 self.diag_active_voices.store(active_count, Ordering::Relaxed);
                 self.diag_degraded_voices.store(degraded_count, Ordering::Relaxed);
-                let cpu_pct = if voice_budget_us > 0 {
-                    ((cumulative_us * 100) / voice_budget_us).min(200) as u32
-                } else {
-                    0
-                };
+                let cpu_pct = (cumulative_us * 100)
+                    .checked_div(voice_budget_us)
+                    .unwrap_or(0)
+                    .min(200) as u32;
                 self.diag_cpu_load_pct.store(cpu_pct, Ordering::Relaxed);
                 let mode_val = match global_mode {
                     ResampleMode::Point => 0,
@@ -7922,9 +7921,9 @@ impl PlaybackEngine {
                             / (xf_end_sample - xf_start_sample) as f32;
                         let (fo, fi) = xf.shape.evaluate(xf_t);
                         fade *= if is_clip_a { fo as f64 } else { fi as f64 };
-                    } else if is_clip_a && playback_sample >= xf_end_sample {
-                        fade = 0.0;
-                    } else if !is_clip_a && playback_sample < xf_start_sample {
+                    } else if (is_clip_a && playback_sample >= xf_end_sample)
+                        || (!is_clip_a && playback_sample < xf_start_sample)
+                    {
                         fade = 0.0;
                     }
                 }

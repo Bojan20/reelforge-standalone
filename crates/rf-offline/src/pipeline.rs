@@ -119,11 +119,7 @@ impl AudioBuffer {
 
     /// Number of frames
     pub fn frames(&self) -> usize {
-        if self.channels == 0 {
-            0
-        } else {
-            self.samples.len() / self.channels
-        }
+        self.samples.len().checked_div(self.channels).unwrap_or(0)
     }
 
     /// Duration in seconds
@@ -805,8 +801,8 @@ impl OfflinePipeline {
         let out_frames = output_channels[0].len();
         let mut interleaved = Vec::with_capacity(out_frames * channels);
         for frame in 0..out_frames {
-            for ch in 0..channels {
-                interleaved.push(output_channels[ch].get(frame).copied().unwrap_or(0.0));
+            for channel in output_channels.iter().take(channels) {
+                interleaved.push(channel.get(frame).copied().unwrap_or(0.0));
             }
         }
 

@@ -294,7 +294,7 @@ impl VersionManager {
     /// Get all versions (sorted by number descending)
     pub fn list_versions(&self) -> Vec<ProjectVersion> {
         let mut versions = self.versions.read().clone();
-        versions.sort_by(|a, b| b.number.cmp(&a.number));
+        versions.sort_by_key(|b| std::cmp::Reverse(b.number));
         versions
     }
 
@@ -381,7 +381,7 @@ impl VersionManager {
         }
 
         let mut versions = self.versions.read().clone();
-        versions.sort_by(|a, b| b.number.cmp(&a.number)); // Newest first
+        versions.sort_by_key(|b| std::cmp::Reverse(b.number)); // Newest first
 
         // Count non-milestone versions
         let non_milestones: Vec<_> = versions.iter().filter(|v| !v.is_milestone).collect();

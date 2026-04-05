@@ -317,10 +317,10 @@ impl FeatureChapter for PickBonusChapter {
 
     fn configure(&mut self, config: &FeatureConfig) -> Result<(), ConfigError> {
         if let Some(total) = config.get::<u8>("total_items") {
-            self.config.total_items = total.max(4).min(24);
+            self.config.total_items = total.clamp(4, 24);
         }
         if let Some(end_count) = config.get::<u8>("end_game_count") {
-            self.config.end_game_count = end_count.max(1).min(5);
+            self.config.end_game_count = end_count.clamp(1, 5);
         }
         if let Some(jackpot_chance) = config.get::<f64>("jackpot_chance") {
             self.config.jackpot_chance = jackpot_chance.clamp(0.0, 0.1);

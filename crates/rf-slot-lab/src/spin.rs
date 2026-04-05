@@ -111,6 +111,7 @@ impl AnticipationReason {
     }
 
     /// Parse from string (case-insensitive)
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Self {
         match s.to_lowercase().as_str() {
             "scatter" => Self::Scatter,
@@ -955,9 +956,7 @@ impl SpinResult {
         feature: &TriggeredFeature,
         timing: &mut TimestampGenerator,
     ) -> Vec<StageEvent> {
-        let mut events = Vec::new();
-
-        events.push(StageEvent::with_payload(
+        let events = vec![StageEvent::with_payload(
             Stage::FeatureEnter {
                 feature_type: feature.feature_type,
                 total_steps: Some(feature.total_spins),
@@ -967,7 +966,7 @@ impl SpinResult {
             StagePayload::new()
                 .spins_remaining(feature.total_spins)
                 .multiplier(feature.multiplier),
-        ));
+        )];
 
         events
     }
@@ -977,23 +976,21 @@ impl SpinResult {
         jackpot: &JackpotWin,
         timing: &mut TimestampGenerator,
     ) -> Vec<StageEvent> {
-        let mut events = Vec::new();
-
-        events.push(StageEvent::new(
-            Stage::JackpotTrigger { tier: jackpot.tier },
-            timing.advance(500.0),
-        ));
-
-        events.push(StageEvent::with_payload(
-            Stage::JackpotPresent {
-                amount: jackpot.amount,
-                tier: jackpot.tier,
-            },
-            timing.advance(3000.0),
-            StagePayload::new().win_amount(jackpot.amount),
-        ));
-
-        events.push(StageEvent::new(Stage::JackpotEnd, timing.advance(1000.0)));
+        let events = vec![
+            StageEvent::new(
+                Stage::JackpotTrigger { tier: jackpot.tier },
+                timing.advance(500.0),
+            ),
+            StageEvent::with_payload(
+                Stage::JackpotPresent {
+                    amount: jackpot.amount,
+                    tier: jackpot.tier,
+                },
+                timing.advance(3000.0),
+                StagePayload::new().win_amount(jackpot.amount),
+            ),
+            StageEvent::new(Stage::JackpotEnd, timing.advance(1000.0)),
+        ];
 
         events
     }

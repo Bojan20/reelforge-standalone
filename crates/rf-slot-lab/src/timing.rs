@@ -395,8 +395,7 @@ impl TimingConfig {
             return 0.0;
         }
         (amount / self.rollup_speed * 1000.0)
-            .max(500.0)
-            .min(10000.0)
+            .clamp(500.0, 10000.0)
     }
 
     /// Calculate big win celebration duration

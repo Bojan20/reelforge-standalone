@@ -29,6 +29,7 @@ pub struct PatternDetector {
     /// Name of this detector.
     pub name: String,
     /// The detection function.
+    #[allow(clippy::type_complexity)]
     detect_fn: Box<dyn Fn(&[NeuralSignal]) -> Option<(f32, String)> + Send>,
     /// How many times this pattern has been recognized.
     pub recognition_count: u64,

@@ -1707,6 +1707,7 @@ impl FDNDelayLine {
     /// Apply 4-band decay shaping inside feedback path (R4.1-R4.4)
     /// Linkwitz-Riley 12dB/oct crossover → 4 bands with independent decay multipliers
     #[inline(always)]
+    #[allow(clippy::too_many_arguments)]
     fn apply_decay_shaping_4band(
         &mut self,
         sample: f64,
@@ -2214,6 +2215,7 @@ impl FDNCore {
 
     /// Process stereo input through FDN, returns stereo output
     #[inline(always)]
+    #[allow(clippy::too_many_arguments)]
     fn process(
         &mut self,
         left: f64,

@@ -406,9 +406,9 @@ impl SlotEngineV2 {
                 column[1] = winning_symbol; // Middle row
             }
             // Fill rest
-            for row in 0..rows {
-                if column[row] == 0 {
-                    column[row] = self.rng.random_range(6..=10);
+            for cell in column.iter_mut().take(rows) {
+                if *cell == 0 {
+                    *cell = self.rng.random_range(6..=10);
                 }
             }
             grid.push(column);
@@ -452,9 +452,9 @@ impl SlotEngineV2 {
                 column[row] = scatter_id;
                 placed += 1;
             }
-            for row in 0..rows {
-                if column[row] == 0 {
-                    column[row] = self.rng.random_range(1..=8);
+            for cell in column.iter_mut().take(rows) {
+                if *cell == 0 {
+                    *cell = self.rng.random_range(1..=8);
                 }
             }
             grid.push(column);
@@ -475,9 +475,9 @@ impl SlotEngineV2 {
                 column[0] = winning_symbol;
                 column[1] = self.rng.random_range(2..=10);
             }
-            for row in 0..rows {
-                if column[row] == 0 {
-                    column[row] = self.rng.random_range(2..=10);
+            for cell in column.iter_mut().take(rows) {
+                if *cell == 0 {
+                    *cell = self.rng.random_range(2..=10);
                 }
             }
             grid.push(column);
@@ -990,22 +990,22 @@ impl SlotEngineV2 {
     /// Get all jackpot tier values as array [Mini, Minor, Major, Grand]
     pub fn jackpot_get_all_values(&self) -> [f64; 4] {
         let mut values = [0.0; 4];
-        self.features
+        if let Some(f) = self.features
             .get(&crate::features::FeatureId::new("jackpot"))
-            .map(|f| {
-                let snapshot = f.snapshot();
-                if let Some(arr) = snapshot
-                    .data
-                    .get("current_values")
-                    .and_then(|v| v.as_array())
-                {
-                    for (i, v) in arr.iter().enumerate().take(4) {
-                        if let Some(val) = v.as_f64() {
-                            values[i] = val;
-                        }
+        {
+            let snapshot = f.snapshot();
+            if let Some(arr) = snapshot
+                .data
+                .get("current_values")
+                .and_then(|v| v.as_array())
+            {
+                for (i, v) in arr.iter().enumerate().take(4) {
+                    if let Some(val) = v.as_f64() {
+                        values[i] = val;
                     }
                 }
-            });
+            }
+        }
         values
     }
 
@@ -1137,7 +1137,7 @@ impl SlotEngineV2 {
             .get(&crate::features::FeatureId::new("free_spins"))
             .and_then(|f| {
                 let snapshot = f.snapshot();
-                snapshot.total_steps.map(|s| s)
+                snapshot.total_steps
             })
             .unwrap_or(0)
     }

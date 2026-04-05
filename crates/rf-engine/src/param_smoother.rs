@@ -303,6 +303,7 @@ impl ParamSmootherManager {
     /// Create new manager with pre-allocated state
     pub fn new(sample_rate: f64) -> Self {
         // Initialize atomic state array
+        #[allow(clippy::declare_interior_mutable_const)]
         const ATOMIC_INIT: AtomicParamState = AtomicParamState::new();
         let atomic_state = [ATOMIC_INIT; MAX_TRACKS];
 

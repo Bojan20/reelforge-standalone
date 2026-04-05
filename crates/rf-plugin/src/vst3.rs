@@ -236,7 +236,6 @@ unsafe fn create_plugin_window(view_ptr: *mut c_void, width: f64, height: f64, t
 /// Searches: same directory as current executable, Frameworks dir, cargo target dir.
 #[cfg(target_os = "macos")]
 // Uses crate::find_plugin_host_binary() from lib.rs
-
 /// Result type for rack plugin loading
 type RackLoadResult = (
     Option<Arc<Mutex<RackPlugin>>>,
@@ -443,7 +442,7 @@ impl<P: rack::PluginInstance + Send + 'static> RackPluginTrait for RackPluginWra
                     if let Some(stdout) = child.stdout.take() {
                         use std::io::BufRead;
                         let reader = std::io::BufReader::new(stdout);
-                        for line in reader.lines().flatten() {
+                        for line in reader.lines().map_while(Result::ok) {
                             eprintln!("[FluxForge] plugin-host: {}", line);
                         }
                     }
@@ -1220,8 +1219,8 @@ impl PluginInstance for Vst3Host {
         }
 
         // Clamp to reasonable bounds
-        let w = (width.max(200).min(4096)) as f64;
-        let h = (height.max(150).min(4096)) as f64;
+        let w = width.clamp(200, 4096) as f64;
+        let h = height.clamp(150, 4096) as f64;
 
         #[cfg(target_os = "macos")]
         {

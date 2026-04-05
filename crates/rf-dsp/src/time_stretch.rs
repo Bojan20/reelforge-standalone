@@ -201,8 +201,8 @@ impl SimplePhaseVocoder {
 
                 // Accumulate phase
                 self.phase_acc[bin] += phase_inc;
-                new_phases[bin] = self.phase_acc[bin];
             }
+            new_phases[..num_bins].copy_from_slice(&self.phase_acc[..num_bins]);
 
             // === SYNTHESIS (ISTFT) ===
 

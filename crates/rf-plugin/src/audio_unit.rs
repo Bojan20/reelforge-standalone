@@ -623,7 +623,7 @@ impl PluginInstance for AudioUnitInstance {
                     std::thread::spawn(move || {
                         if let Some(stdout) = child.stdout.take() {
                             let reader = std::io::BufReader::new(stdout);
-                            for line in reader.lines().flatten() {
+                            for line in reader.lines().map_while(Result::ok) {
                                 eprintln!("[FluxForge] plugin-host: {}", line);
                             }
                         }

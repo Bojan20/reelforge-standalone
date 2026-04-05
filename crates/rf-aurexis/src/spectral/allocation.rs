@@ -128,7 +128,7 @@ impl SpectralAllocator {
 
         // Sort by priority descending (highest priority gets first pick)
         let mut sorted: Vec<VoiceSlot> = self.voices.clone();
-        sorted.sort_by(|a, b| b.priority.cmp(&a.priority));
+        sorted.sort_by_key(|b| std::cmp::Reverse(b.priority));
 
         // Track occupied bands (role index → list of priorities)
         let mut occupied: Vec<Vec<(u32, i32)>> = vec![Vec::new(); SpectralRole::COUNT];

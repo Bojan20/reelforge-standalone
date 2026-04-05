@@ -175,6 +175,7 @@ pub struct FluxForgeAudio {
 impl FluxForgeAudio {
     /// Create a new FluxForge audio manager
     #[wasm_bindgen(constructor)]
+    #[allow(clippy::new_without_default)]
     pub fn new() -> FluxForgeAudio {
         FluxForgeAudio {
             context: None,

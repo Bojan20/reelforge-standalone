@@ -144,7 +144,7 @@ pub fn detect_events(samples: &[Value], structure: &AnalyzedStructure) -> Vec<De
         .collect();
 
     // Sort by count (most common first)
-    detected.sort_by(|a, b| b.sample_count.cmp(&a.sample_count));
+    detected.sort_by_key(|b| std::cmp::Reverse(b.sample_count));
 
     detected
 }

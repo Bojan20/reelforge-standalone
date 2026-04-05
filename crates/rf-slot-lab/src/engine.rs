@@ -445,16 +445,16 @@ impl SyntheticSlotEngine {
                 column[1] = winning_symbol;
             } else {
                 // Fill with random non-matching symbols
-                for row in 0..rows {
+                for cell in column.iter_mut().take(rows) {
                     let idx = self.rng.random_range(0..regular_ids.len());
-                    column[row] = regular_ids[idx];
+                    *cell = regular_ids[idx];
                 }
             }
             // Fill other rows
-            for row in 0..rows {
-                if column[row] == 0 {
+            for cell in column.iter_mut().take(rows) {
+                if *cell == 0 {
                     let idx = self.rng.random_range(0..regular_ids.len());
-                    column[row] = regular_ids[idx];
+                    *cell = regular_ids[idx];
                 }
             }
             grid.push(column);
@@ -482,10 +482,10 @@ impl SyntheticSlotEngine {
                 };
             }
             // Fill other positions
-            for row in 0..rows {
-                if column[row] == 0 {
+            for cell in column.iter_mut().take(rows) {
+                if *cell == 0 {
                     let idx = self.rng.random_range(0..regular_ids.len());
-                    column[row] = regular_ids[idx];
+                    *cell = regular_ids[idx];
                 }
             }
             grid.push(column);
@@ -511,10 +511,10 @@ impl SyntheticSlotEngine {
                 scatters_placed += 1;
             }
             // Fill other positions
-            for row in 0..rows {
-                if column[row] == 0 {
+            for cell in column.iter_mut().take(rows) {
+                if *cell == 0 {
                     let idx = self.rng.random_range(0..regular_ids.len());
-                    column[row] = regular_ids[idx];
+                    *cell = regular_ids[idx];
                 }
             }
             grid.push(column);
@@ -541,10 +541,10 @@ impl SyntheticSlotEngine {
                 column[1] = regular_ids[1];
             }
             // Fill other positions
-            for row in 0..rows {
-                if column[row] == 0 {
+            for cell in column.iter_mut().take(rows) {
+                if *cell == 0 {
                     let idx = self.rng.random_range(0..regular_ids.len());
-                    column[row] = regular_ids[idx];
+                    *cell = regular_ids[idx];
                 }
             }
             grid.push(column);

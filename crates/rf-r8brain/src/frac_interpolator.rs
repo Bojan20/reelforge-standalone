@@ -183,6 +183,7 @@ impl FracInterpolator {
 ///
 /// Coefficients from r8brain source (empirically optimized):
 #[inline]
+#[allow(clippy::too_many_arguments)]
 fn calc_spline_3p8(
     x_m3: f64, x_m2: f64, x_m1: f64, x_0: f64,
     x_1: f64, x_2: f64, x_3: f64, x_4: f64,

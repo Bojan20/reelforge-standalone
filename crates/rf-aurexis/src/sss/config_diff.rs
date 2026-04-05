@@ -156,7 +156,7 @@ impl ConfigDiffEngine {
         }
 
         // Sort by risk level (highest first)
-        entries.sort_by(|a, b| b.risk_level.cmp(&a.risk_level));
+        entries.sort_by_key(|b| std::cmp::Reverse(b.risk_level));
 
         let overall_risk = entries
             .iter()

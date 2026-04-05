@@ -212,7 +212,7 @@ impl GddParser {
             "ways_1024" => WinMechanism::ways_1024(),
             "cluster" => WinMechanism::cluster_5(),
             "megaways" => WinMechanism::megaways_standard(),
-            "paylines" | _ => WinMechanism::standard_20_paylines(),
+            _ => WinMechanism::standard_20_paylines(),
         };
 
         // Build win tiers

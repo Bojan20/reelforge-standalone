@@ -2567,7 +2567,7 @@ impl RazorArea {
 // TRACK MANAGER
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Central manager for all tracks, clips, crossfades, and markers
+// Central manager for all tracks, clips, crossfades, and markers
 // ═══════════════════════════════════════════════════════════════════════════
 // MIX SNAPSHOTS (SWS-style Save/Recall Mix States)
 // ═══════════════════════════════════════════════════════════════════════════

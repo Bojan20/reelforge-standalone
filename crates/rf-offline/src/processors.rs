@@ -43,6 +43,7 @@ impl ProcessorChain {
     }
 
     /// Add processor to chain
+    #[allow(clippy::should_implement_trait)]
     pub fn add<P: OfflineProcessor + 'static>(mut self, processor: P) -> Self {
         self.processors.push(Box::new(processor));
         self

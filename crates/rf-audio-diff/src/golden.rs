@@ -195,6 +195,7 @@ impl GoldenStore {
     }
 
     /// Create a new golden file from audio data
+    #[allow(clippy::too_many_arguments)]
     pub fn create(
         &mut self,
         id: impl Into<String>,
@@ -245,6 +246,7 @@ impl GoldenStore {
     }
 
     /// Create golden from an audio file
+    #[allow(clippy::too_many_arguments)]
     pub fn create_from_file<P: AsRef<Path>>(
         &mut self,
         id: impl Into<String>,

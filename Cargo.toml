@@ -46,6 +46,8 @@ members = [
     "crates/rf-plugin-host",
     # CORTEX Nervous System — central neural bus
     "crates/rf-cortex",
+    # CORTEX Evolution Engine — self-learning, self-evolving organism
+    "crates/rf-evolution",
 ]
 
 [workspace.package]
@@ -85,6 +87,7 @@ rf-offline = { path = "crates/rf-offline" }
 rf-audio-diff = { path = "crates/rf-audio-diff" }
 rf-fluxmacro = { path = "crates/rf-fluxmacro" }
 rf-cortex = { path = "crates/rf-cortex" }
+rf-evolution = { path = "crates/rf-evolution" }
 
 # Plugin hosting
 vst3 = "0.3"

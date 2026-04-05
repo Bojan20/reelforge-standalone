@@ -289,9 +289,9 @@ impl SequenceContainer {
         }
 
         // Check for end of sequence
-        if self.direction > 0 && self.position_ms >= duration {
-            self.handle_end(&mut result);
-        } else if self.direction < 0 && self.position_ms <= 0.0 {
+        if (self.direction > 0 && self.position_ms >= duration)
+            || (self.direction < 0 && self.position_ms <= 0.0)
+        {
             self.handle_end(&mut result);
         }
 

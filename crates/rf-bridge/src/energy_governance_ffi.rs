@@ -238,8 +238,8 @@ pub extern "C" fn geg_all_domain_caps(out_caps: *mut f64) -> i32 {
     if let Some(ref engine) = *ENGINE.read() {
         let caps = &engine.energy_governor().budget().caps;
         unsafe {
-            for i in 0..5 {
-                *out_caps.add(i) = caps[i];
+            for (i, &cap) in caps.iter().enumerate().take(5) {
+                *out_caps.add(i) = cap;
             }
         }
         return 1;

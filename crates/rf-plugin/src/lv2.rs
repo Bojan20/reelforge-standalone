@@ -656,6 +656,7 @@ pub struct Lv2PluginInstance {
     // that plugin pointers depend on. Dropping them last ensures no
     // dangling pointers during plugin cleanup().
     /// Feature structs (contain pointers into _feature_uris)
+    #[allow(clippy::vec_box)] // Box needed for stable raw pointer addresses
     _feature_structs: Vec<Box<Lv2Feature>>,
     /// Feature C strings (owned, pointed to by _feature_structs)
     _feature_uris: Vec<std::ffi::CString>,
@@ -792,8 +793,8 @@ impl Lv2PluginInstance {
         };
 
         // Get URIDs for atom types
-        let sequence_urid = unsafe { urid_map_callback(std::ptr::null_mut(), b"http://lv2plug.in/ns/ext/atom#Sequence\0".as_ptr() as *const c_char) };
-        let midi_event_urid = unsafe { urid_map_callback(std::ptr::null_mut(), b"http://lv2plug.in/ns/ext/midi#MidiEvent\0".as_ptr() as *const c_char) };
+        let sequence_urid = unsafe { urid_map_callback(std::ptr::null_mut(), c"http://lv2plug.in/ns/ext/atom#Sequence".as_ptr() as *const c_char) };
+        let midi_event_urid = unsafe { urid_map_callback(std::ptr::null_mut(), c"http://lv2plug.in/ns/ext/midi#MidiEvent".as_ptr() as *const c_char) };
 
         Ok(Self {
             info,

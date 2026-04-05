@@ -129,6 +129,7 @@ pub extern "C" fn gad_remove_track(track_id: *const c_char) -> i32 {
         None => return 0,
     };
     let mut guard = GAD_PROJECT.write();
+    #[allow(clippy::collapsible_match)]
     match &mut *guard {
         Some(p) => {
             if p.remove_track(&id) {

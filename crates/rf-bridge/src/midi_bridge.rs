@@ -80,6 +80,7 @@ static INPUT_DEVICES: LazyLock<RwLock<Vec<MidiDeviceInfo>>> = LazyLock::new(|| R
 static OUTPUT_DEVICES: LazyLock<RwLock<Vec<MidiDeviceInfo>>> = LazyLock::new(|| RwLock::new(Vec::new()));
 
 /// Active input connections (needs Mutex because MidiInputConnection is not Sync)
+#[allow(clippy::type_complexity)]
 static INPUT_CONNECTIONS: LazyLock<Mutex<Vec<(String, MidiInputConnection<()>)>>> = LazyLock::new(|| Mutex::new(Vec::new()));
 
 /// Active output connection

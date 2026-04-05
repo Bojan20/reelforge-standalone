@@ -1283,6 +1283,7 @@ impl ElasticPro {
     /// Time stretch and pitch shift are fully decoupled:
     /// 1. Phase vocoder stretches by `stretch_ratio * pitch_ratio` to compensate
     /// 2. Cubic resampling by `1/pitch_ratio` shifts pitch without changing duration
+    ///
     /// Result: output duration = input * stretch_ratio, pitch shifted independently.
     pub fn process(&mut self, input: &[f64]) -> Vec<f64> {
         if input.is_empty() {

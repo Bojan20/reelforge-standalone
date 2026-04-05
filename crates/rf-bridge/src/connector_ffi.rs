@@ -187,13 +187,16 @@ pub extern "C" fn connector_connect(connector_id: u64) -> i32 {
 
     is_running.store(true, Ordering::SeqCst);
 
-    RUNTIME.spawn(async move {
-        let mut conn = connector.write();
-        if let Err(e) = conn.connect().await {
-            log::error!("connector_connect: error: {}", e);
-            is_running.store(false, Ordering::SeqCst);
-        }
-    });
+    RUNTIME.spawn(
+        #[allow(clippy::await_holding_lock)]
+        async move {
+            let result = connector.write().connect().await;
+            if let Err(e) = result {
+                log::error!("connector_connect: error: {}", e);
+                is_running.store(false, Ordering::SeqCst);
+            }
+        },
+    );
 
     1
 }
@@ -212,12 +215,15 @@ pub extern "C" fn connector_disconnect(connector_id: u64) -> i32 {
 
     let connector = Arc::clone(&handle.connector);
 
-    RUNTIME.spawn(async move {
-        let mut conn = connector.write();
-        if let Err(e) = conn.disconnect().await {
-            log::error!("connector_disconnect: error: {}", e);
-        }
-    });
+    RUNTIME.spawn(
+        #[allow(clippy::await_holding_lock)]
+        async move {
+            let result = connector.write().disconnect().await;
+            if let Err(e) = result {
+                log::error!("connector_disconnect: error: {}", e);
+            }
+        },
+    );
 
     1
 }
@@ -225,6 +231,7 @@ pub extern "C" fn connector_disconnect(connector_id: u64) -> i32 {
 /// Get connection state (blocking call to async state())
 /// Returns JSON state object, caller must free with connector_free_string
 #[unsafe(no_mangle)]
+#[allow(clippy::await_holding_lock)]
 pub extern "C" fn connector_get_state(connector_id: u64) -> *mut c_char {
     let connectors = CONNECTORS.read();
     let handle = match connectors.get(&connector_id) {
@@ -236,8 +243,7 @@ pub extern "C" fn connector_get_state(connector_id: u64) -> *mut c_char {
 
     // Block on async call
     let state = RUNTIME.block_on(async {
-        let conn = connector.read();
-        conn.state().await
+        connector.read().state().await
     });
 
     let state_json = serde_json::json!({
@@ -260,6 +266,7 @@ pub extern "C" fn connector_get_state(connector_id: u64) -> *mut c_char {
 
 /// Check if connected (blocking)
 #[unsafe(no_mangle)]
+#[allow(clippy::await_holding_lock)]
 pub extern "C" fn connector_is_connected(connector_id: u64) -> i32 {
     let connectors = CONNECTORS.read();
     let handle = match connectors.get(&connector_id) {
@@ -270,8 +277,7 @@ pub extern "C" fn connector_is_connected(connector_id: u64) -> i32 {
     let connector = Arc::clone(&handle.connector);
 
     let state = RUNTIME.block_on(async {
-        let conn = connector.read();
-        conn.state().await
+        connector.read().state().await
     });
 
     if matches!(state, ConnectionState::Connected) {
@@ -527,12 +533,15 @@ fn send_command_internal(connector_id: u64, command: EngineCommand) -> i32 {
 
     let connector = Arc::clone(&handle.connector);
 
-    RUNTIME.spawn(async move {
-        let conn = connector.read();
-        if let Err(e) = conn.send_command(command).await {
-            log::error!("connector_send_command: send error: {}", e);
-        }
-    });
+    RUNTIME.spawn(
+        #[allow(clippy::await_holding_lock)]
+        async move {
+            let result = connector.read().send_command(command).await;
+            if let Err(e) = result {
+                log::error!("connector_send_command: send error: {}", e);
+            }
+        },
+    );
 
     1
 }
@@ -731,14 +740,8 @@ pub extern "C" fn connector_supports_command(
 
     let caps = handle.cached_capabilities.read();
     match caps.as_ref() {
-        Some(c) => {
-            if c.supported_commands.contains(&cmd_str.to_string()) {
-                1
-            } else {
-                0
-            }
-        }
-        None => 0,
+        Some(c) if c.supported_commands.contains(&cmd_str.to_string()) => 1,
+        _ => 0,
     }
 }
 

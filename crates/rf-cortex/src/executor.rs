@@ -171,7 +171,7 @@ impl CommandExecutor {
 
         // Sort by priority (Emergency first)
         let mut sorted = commands;
-        sorted.sort_by(|a, b| b.priority.cmp(&a.priority));
+        sorted.sort_by_key(|b| std::cmp::Reverse(b.priority));
 
         let now = Instant::now();
 

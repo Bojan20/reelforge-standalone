@@ -81,7 +81,7 @@ pub extern "C" fn time_stretch_create_with_fft_size(fft_size: usize, sample_rate
     }
 
     // Validate FFT size (must be power of 2)
-    if fft_size < 256 || fft_size > 8192 || !fft_size.is_power_of_two() {
+    if !(256..=8192).contains(&fft_size) || !fft_size.is_power_of_two() {
         return 0;
     }
 

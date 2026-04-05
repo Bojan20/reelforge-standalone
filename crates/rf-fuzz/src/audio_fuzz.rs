@@ -529,9 +529,7 @@ impl FlacHeaderGenerator {
         let padding_len = (rng.u32() % 256) as usize;
         let len_bytes = (padding_len as u32).to_be_bytes();
         buf.extend_from_slice(&len_bytes[1..4]); // 24-bit length
-        for _ in 0..padding_len {
-            buf.push(0);
-        }
+        buf.extend(std::iter::repeat_n(0u8, padding_len));
         buf
     }
 

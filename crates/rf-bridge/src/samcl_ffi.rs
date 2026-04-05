@@ -151,8 +151,8 @@ pub extern "C" fn samcl_all_band_densities(out_densities: *mut u32) -> i32 {
     if let Some(ref engine) = *ENGINE.read() {
         let densities = &engine.spectral_allocator().last_output().band_density;
         unsafe {
-            for i in 0..10 {
-                *out_densities.add(i) = densities[i];
+            for (i, &density) in densities.iter().enumerate().take(10) {
+                *out_densities.add(i) = density;
             }
         }
         return 1;

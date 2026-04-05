@@ -927,7 +927,7 @@ impl StreamingEngine {
         }
 
         // Sort by priority and submit
-        jobs.sort_by(|a, b| b.priority.cmp(&a.priority));
+        jobs.sort_by_key(|b| std::cmp::Reverse(b.priority));
 
         if let Some(ref reader) = self.disk_reader {
             reader.submit_batch(jobs);

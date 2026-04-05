@@ -125,8 +125,8 @@ pub extern "C" fn device_preview_all_profile_ids(out_ids: *mut u16, max_count: u
     let profiles = &device_preview::DEVICE_PROFILES;
     let count = profiles.len().min(max_count as usize);
     unsafe {
-        for i in 0..count {
-            *out_ids.add(i) = profiles[i].id;
+        for (i, profile) in profiles.iter().enumerate().take(count) {
+            *out_ids.add(i) = profile.id;
         }
     }
     count as u32
@@ -156,8 +156,8 @@ pub extern "C" fn device_preview_profiles_by_category(
     let profiles = device_preview::profiles_by_category(cat);
     let count = profiles.len().min(max_count as usize);
     unsafe {
-        for i in 0..count {
-            *out_ids.add(i) = profiles[i].id;
+        for (i, profile) in profiles.iter().enumerate().take(count) {
+            *out_ids.add(i) = profile.id;
         }
     }
     count as u32

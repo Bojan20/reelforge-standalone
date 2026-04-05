@@ -444,7 +444,7 @@ impl AudioAnalyzer {
         ));
 
         // Sort by priority
-        suggestions.sort_by(|a, b| b.priority.cmp(&a.priority));
+        suggestions.sort_by_key(|b| std::cmp::Reverse(b.priority));
 
         // Filter by confidence
         suggestions.retain(|s| s.confidence >= self.config.min_suggestion_confidence);

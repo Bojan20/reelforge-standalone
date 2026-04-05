@@ -762,7 +762,7 @@ impl Stage {
             }),
             "anticipation_tension_layer" => Some(Stage::AnticipationTensionLayer {
                 reel_index: get_u8("reel_index"),
-                tension_level: get_u8("tension_level").max(1).min(4),
+                tension_level: get_u8("tension_level").clamp(1, 4),
                 reason: get_string("reason"),
                 progress: data.get("progress").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32,
             }),

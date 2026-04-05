@@ -19,7 +19,7 @@ pub extern "C" fn insert_set_sidechain_source(
     if slot_index >= 8 {
         return -1;
     }
-    if source_track_id < -1 || source_track_id >= 1024 {
+    if !(-1..1024).contains(&source_track_id) {
         return -1;
     }
 

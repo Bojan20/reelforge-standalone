@@ -1,0 +1,47 @@
+[package]
+name = "rf-evolution"
+description = "CORTEX Evolution Engine — self-learning, self-evolving code organism"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# Internal crates
+rf-cortex = { workspace = true }
+
+# AST parsing for Rust code analysis
+syn = { version = "2.0", features = ["full", "parsing", "visit", "extra-traits"] }
+proc-macro2 = { version = "1.0", features = ["span-locations"] }
+quote = "1.0"
+
+# File system traversal
+walkdir = { workspace = true }
+
+# Content fingerprinting
+sha2 = { workspace = true }
+hex = { workspace = true }
+
+# Serialization (evolution memory persistence)
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Concurrency
+crossbeam-channel = { workspace = true }
+parking_lot = { workspace = true }
+
+# Utilities
+log = { workspace = true }
+thiserror = { workspace = true }
+rand = { workspace = true }
+
+# Regex for pattern matching in code
+regex = "1.11"
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+[dev-dependencies]
+approx = { workspace = true }
+tempfile = "3.19"

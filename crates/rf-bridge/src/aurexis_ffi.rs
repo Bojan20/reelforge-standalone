@@ -212,6 +212,7 @@ pub extern "C" fn aurexis_register_voice(
     priority: i32,
 ) -> i32 {
     let mut guard = ENGINE.write();
+    #[allow(clippy::collapsible_match)]
     match guard.as_mut() {
         Some(engine) => {
             if engine.register_voice(voice_id, pan, z_depth, priority) {
@@ -229,6 +230,7 @@ pub extern "C" fn aurexis_register_voice(
 #[unsafe(no_mangle)]
 pub extern "C" fn aurexis_unregister_voice(voice_id: u32) -> i32 {
     let mut guard = ENGINE.write();
+    #[allow(clippy::collapsible_match)]
     match guard.as_mut() {
         Some(engine) => {
             if engine.unregister_voice(voice_id) {
@@ -602,6 +604,7 @@ pub extern "C" fn aurexis_set_coefficient(
     };
 
     let mut guard = ENGINE.write();
+    #[allow(clippy::collapsible_match)]
     match guard.as_mut() {
         Some(engine) => {
             if engine.set_coefficient(section_str, key_str, value) {
