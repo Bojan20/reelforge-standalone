@@ -197,7 +197,7 @@ impl StageTrace {
         let has_win = self.total_win() > 0.0;
 
         TraceValidation {
-            has_spin_start: self.has_stage("spin_start"),
+            has_spin_start: self.has_stage("ui_spin_press"),
             has_spin_end: self.has_stage("spin_end"),
             reel_stop_count: reel_stops as u8,
             has_all_reels: reel_stops >= 3, // Most slots have at least 3 reels
@@ -419,7 +419,7 @@ mod tests {
         let json = serde_json::to_string_pretty(&trace).unwrap();
 
         assert!(json.contains("test_game"));
-        assert!(json.contains("spin_start"));
+        assert!(json.contains("ui_spin_press"));
 
         let deserialized: StageTrace = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized.game_id, trace.game_id);

@@ -203,6 +203,29 @@ pub extern "C" fn control_room_get_mono() -> i32 {
     }
 }
 
+/// Get dim level (dB)
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_get_dim_level() -> f64 {
+    with_control_room!(control_room, { control_room.dim_level_db() }, -20.0)
+}
+
+/// Set dim level (dB)
+/// Returns: 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_set_dim_level(level_db: f64) -> i32 {
+    if !level_db.is_finite() || !(-60.0..=0.0).contains(&level_db) {
+        return 0;
+    }
+    with_control_room!(
+        control_room,
+        {
+            control_room.set_dim_level_db(level_db);
+            1
+        },
+        0
+    )
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // SPEAKER SELECTION
 // ═══════════════════════════════════════════════════════════════════════════
@@ -253,6 +276,19 @@ pub extern "C" fn control_room_set_speaker_level(index: u8, level_db: f64) -> i3
     } else {
         0
     }
+}
+
+/// Get speaker calibration level (dB)
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_get_speaker_level(index: u8) -> f64 {
+    if index > 3 {
+        return 0.0;
+    }
+    with_control_room!(
+        control_room,
+        { control_room.speaker_sets[index as usize].calibration_db() },
+        0.0
+    )
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -414,6 +450,115 @@ pub extern "C" fn control_room_set_cue_pan(cue_index: u8, pan: f64) -> i32 {
     }
 }
 
+/// Get cue mix enabled
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_get_cue_enabled(cue_index: u8) -> i32 {
+    if cue_index > 3 {
+        return 0;
+    }
+    with_control_room!(
+        control_room,
+        {
+            if control_room.cue_mixes[cue_index as usize].is_enabled() {
+                1
+            } else {
+                0
+            }
+        },
+        0
+    )
+}
+
+/// Get cue mix level (dB)
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_get_cue_level(cue_index: u8) -> f64 {
+    if cue_index > 3 {
+        return -144.0;
+    }
+    with_control_room!(
+        control_room,
+        { control_room.cue_mixes[cue_index as usize].level_db() },
+        -144.0
+    )
+}
+
+/// Get cue mix pan (-1 to 1)
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_get_cue_pan(cue_index: u8) -> f64 {
+    if cue_index > 3 {
+        return 0.0;
+    }
+    with_control_room!(
+        control_room,
+        { control_room.cue_mixes[cue_index as usize].pan() },
+        0.0
+    )
+}
+
+/// Get cue mix peak level (left)
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_get_cue_peak_l(cue_index: u8) -> f64 {
+    if cue_index > 3 {
+        return 0.0;
+    }
+    with_control_room!(
+        control_room,
+        { control_room.cue_mixes[cue_index as usize].peak().0 },
+        0.0
+    )
+}
+
+/// Get cue mix peak level (right)
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_get_cue_peak_r(cue_index: u8) -> f64 {
+    if cue_index > 3 {
+        return 0.0;
+    }
+    with_control_room!(
+        control_room,
+        { control_room.cue_mixes[cue_index as usize].peak().1 },
+        0.0
+    )
+}
+
+/// Get cue send level for a channel
+/// Returns: level value, or -999.0 if no send exists
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_get_cue_send_level(cue_index: u8, channel_id: u32) -> f64 {
+    if cue_index > 3 {
+        return -999.0;
+    }
+    with_control_room!(
+        control_room,
+        {
+            control_room.cue_mixes[cue_index as usize]
+                .get_send(ChannelId(channel_id))
+                .map(|s| s.level)
+                .unwrap_or(-999.0)
+        },
+        -999.0
+    )
+}
+
+/// Get cue send pan for a channel
+/// Returns: pan value, or -999.0 if no send exists
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_get_cue_send_pan(cue_index: u8, channel_id: u32) -> f64 {
+    if cue_index > 3 {
+        return -999.0;
+    }
+    with_control_room!(
+        control_room,
+        {
+            control_room.cue_mixes[cue_index as usize]
+                .get_send(ChannelId(channel_id))
+                .map(|s| s.pan)
+                .unwrap_or(-999.0)
+        },
+        -999.0
+    )
+}
+
 /// Add channel to cue mix send
 /// Returns: 1 on success, 0 on failure
 #[unsafe(no_mangle)]
@@ -512,6 +657,68 @@ pub extern "C" fn control_room_set_talkback_destinations(destinations: u8) -> i3
     } else {
         0
     }
+}
+
+/// Get talkback enabled
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_get_talkback() -> i32 {
+    with_control_room!(
+        control_room,
+        {
+            if control_room.talkback_enabled() {
+                1
+            } else {
+                0
+            }
+        },
+        0
+    )
+}
+
+/// Get talkback level (dB)
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_get_talkback_level() -> f64 {
+    with_control_room!(control_room, { control_room.talkback_level_db() }, 0.0)
+}
+
+/// Get talkback destinations (bitmask)
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_get_talkback_destinations() -> u8 {
+    with_control_room!(
+        control_room,
+        { control_room.talkback_destinations() },
+        0x0F
+    )
+}
+
+/// Get talkback dim main on talk
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_get_talkback_dim_main() -> i32 {
+    with_control_room!(
+        control_room,
+        {
+            if control_room.talkback_dim_main_on_talk() {
+                1
+            } else {
+                0
+            }
+        },
+        1
+    )
+}
+
+/// Set talkback dim main on talk
+/// Returns: 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_set_talkback_dim_main(enabled: i32) -> i32 {
+    with_control_room!(
+        control_room,
+        {
+            control_room.set_talkback_dim_main_on_talk(enabled != 0);
+            1
+        },
+        0
+    )
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -1041,7 +1041,7 @@ mod tests {
         assert!(!result.is_null());
         unsafe {
             let json = CStr::from_ptr(result).to_str().unwrap();
-            assert!(json.contains("spin_start"));
+            assert!(json.contains("ui_spin_press"));
             stage_free_string(result);
         }
     }

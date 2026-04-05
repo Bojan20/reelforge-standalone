@@ -19,6 +19,7 @@
 //   final result = await bridge.execute('return fluxforge.createEvent("Test", "UI_SPIN_PRESS")');
 
 import 'dart:async';
+import 'dart:io';
 import 'fluxforge_api.dart';
 
 /// Lua execution result
@@ -210,8 +211,24 @@ class LuaBridge {
 
   /// Execute a Lua file
   Future<LuaResult> executeFile(String path) async {
-    // TODO: Read file and execute
-    throw UnimplementedError('executeFile not yet implemented');
+    final file = File(path);
+    if (!file.existsSync()) {
+      return LuaResult(
+        success: false,
+        error: 'File not found: $path',
+        executionTime: Duration.zero,
+      );
+    }
+    try {
+      final script = await file.readAsString();
+      return await execute(script);
+    } catch (e) {
+      return LuaResult(
+        success: false,
+        error: 'Failed to read file: $e',
+        executionTime: Duration.zero,
+      );
+    }
   }
 
   /// Get available FluxForge API functions

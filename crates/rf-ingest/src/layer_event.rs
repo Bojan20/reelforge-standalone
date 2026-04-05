@@ -431,7 +431,7 @@ mod tests {
 
         let trace = parse_with_config(&json, &config).unwrap();
         assert_eq!(trace.events.len(), 2);
-        assert_eq!(trace.events[0].stage.type_name(), "spin_start");
+        assert_eq!(trace.events[0].stage.type_name(), "ui_spin_press");
         assert_eq!(trace.events[1].stage.type_name(), "spin_end");
     }
 

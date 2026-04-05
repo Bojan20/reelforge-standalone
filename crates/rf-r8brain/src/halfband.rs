@@ -120,15 +120,17 @@ impl HBUpsampler {
 
             let rp = self.write_pos;
 
-            // Even output: direct copy
-            output[i * 2] = self.buf[rp];
+            // Even output: delayed copy (center of symmetric filter)
+            let center_idx = rp.wrapping_sub(self.taps) & UP_BUF_MASK;
+            output[i * 2] = self.buf[center_idx];
 
-            // Odd output: symmetric half-band convolution
+            // Odd output: symmetric half-band convolution around center
+            // Both branches read from past (already-written) positions
             let mut odd = 0.0;
             for k in 0..self.taps {
-                let left_idx = rp.wrapping_sub(2 * k) & UP_BUF_MASK;
-                let right_idx = (rp + 2 * k + 1) & UP_BUF_MASK;
-                odd += self.flt[k] * (self.buf[right_idx] + self.buf[left_idx]);
+                let left_idx = rp.wrapping_sub(self.taps + k + 1) & UP_BUF_MASK;
+                let right_idx = rp.wrapping_sub(self.taps - k - 1) & UP_BUF_MASK;
+                odd += self.flt[k] * (self.buf[left_idx] + self.buf[right_idx]);
             }
             output[i * 2 + 1] = odd;
 
@@ -209,12 +211,13 @@ impl HBDownsampler {
 
             let rp = self.write_pos;
 
-            // Output: center (even) + filtered (odd)
-            let mut out = self.buf_even[rp];
+            // Output: center (even, delayed) + filtered (odd)
+            let center_idx = rp.wrapping_sub(self.taps) & DOWN_BUF_MASK;
+            let mut out = self.buf_even[center_idx];
             for k in 0..self.taps {
-                let left_idx = rp.wrapping_sub(2 * k) & DOWN_BUF_MASK;
-                let right_idx = (rp + 2 * k + 1) & DOWN_BUF_MASK;
-                out += self.flt[k] * (self.buf_odd[right_idx] + self.buf_odd[left_idx]);
+                let left_idx = rp.wrapping_sub(self.taps + k + 1) & DOWN_BUF_MASK;
+                let right_idx = rp.wrapping_sub(self.taps - k - 1) & DOWN_BUF_MASK;
+                out += self.flt[k] * (self.buf_odd[left_idx] + self.buf_odd[right_idx]);
             }
             output[i] = out; // 2.0 gain (r8brain convention)
 

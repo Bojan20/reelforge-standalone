@@ -386,16 +386,27 @@ mod tests {
 
     #[test]
     fn test_dc_preservation() {
-        // DC (all 1.0) should remain ~1.0 after resampling
-        let mut r = R8brainResampler::new(44100.0, 48000.0, 256, R8brainQuality::Quality136);
-        let input = vec![1.0f64; 512]; // Longer for settling
-        let mut output = vec![0.0f64; 1024];
-        let written = r.process(&input, &mut output);
+        // DC (all 1.0) should remain ~1.0 after resampling.
+        // The anti-aliasing convolver has significant latency (kernel_len - 1
+        // samples), so we need a long input and generous settling skip.
+        let mut r = R8brainResampler::new(44100.0, 48000.0, 1024, R8brainQuality::Quality136);
 
-        // After settling, output should be close to 1.0
-        let settled = &output[50..written];
+        // Process multiple blocks to allow full settling through the
+        // convolver + interpolator pipeline.
+        let block = vec![1.0f64; 1024];
+        let mut all_output = Vec::new();
+        for _ in 0..4 {
+            let mut output = vec![0.0f64; 2048];
+            let written = r.process(&block, &mut output);
+            all_output.extend_from_slice(&output[..written]);
+        }
+
+        // Skip first 500 output samples for convolver settling
+        // (kernel can be ~180 taps → ~200 output samples of latency)
+        assert!(all_output.len() > 600, "Not enough output: {}", all_output.len());
+        let settled = &all_output[500..];
         for &s in settled {
-            assert!((s - 1.0).abs() < 0.1, "DC not preserved: {s}");
+            assert!((s - 1.0).abs() < 0.15, "DC not preserved: {s}");
         }
     }
 

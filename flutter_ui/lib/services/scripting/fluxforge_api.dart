@@ -212,8 +212,20 @@ class FluxForgeApi {
       throw ArgumentError('Missing required parameters: rtpcId, value');
     }
 
-    // TODO: Implement RTPC setting via provider
-    // For now, return success
+    final provider = sl<MiddlewareProvider>();
+    final interpolationMs = (params['interpolationMs'] as num?)?.toInt() ?? 0;
+    final rtpcIdInt = int.tryParse(rtpcId);
+    if (rtpcIdInt != null) {
+      provider.setRtpc(rtpcIdInt, value, interpolationMs: interpolationMs);
+    } else {
+      // Lookup by name
+      final defs = provider.rtpcDefinitions;
+      final match = defs.where((r) => r.name == rtpcId).firstOrNull;
+      if (match == null) {
+        return {'success': false, 'error': 'RTPC not found: $rtpcId'};
+      }
+      provider.setRtpc(match.id, value, interpolationMs: interpolationMs);
+    }
     return {'success': true, 'rtpcId': rtpcId, 'value': value};
   }
 
@@ -225,14 +237,33 @@ class FluxForgeApi {
       throw ArgumentError('Missing required parameter: rtpcId');
     }
 
-    // TODO: Implement RTPC getting via provider
-    return {'rtpcId': rtpcId, 'value': 0.0};
+    final provider = sl<MiddlewareProvider>();
+    final rtpcIdInt = int.tryParse(rtpcId);
+    if (rtpcIdInt != null) {
+      return {'rtpcId': rtpcId, 'value': provider.getRtpcValue(rtpcIdInt)};
+    }
+    final defs = provider.rtpcDefinitions;
+    final match = defs.where((r) => r.name == rtpcId).firstOrNull;
+    if (match == null) {
+      return {'rtpcId': rtpcId, 'value': 0.0, 'error': 'RTPC not found'};
+    }
+    return {'rtpcId': rtpcId, 'value': provider.getRtpcValue(match.id)};
   }
 
   /// List all RTCPs
   Future<Map<String, dynamic>> listRtpcs(Map<String, dynamic> params) async {
-    // TODO: Implement RTPC listing via provider
-    return {'rtpcs': [], 'count': 0};
+    final provider = sl<MiddlewareProvider>();
+    final defs = provider.rtpcDefinitions;
+    return {
+      'rtpcs': defs.map((r) => {
+        'id': r.id,
+        'name': r.name,
+        'min': r.min,
+        'max': r.max,
+        'value': provider.getRtpcValue(r.id),
+      }).toList(),
+      'count': defs.length,
+    };
   }
 
   // ============ State Methods ============
@@ -246,7 +277,18 @@ class FluxForgeApi {
       throw ArgumentError('Missing required parameters: stateGroup, state');
     }
 
-    // TODO: Implement state setting via provider
+    final provider = sl<MiddlewareProvider>();
+    final groupIdInt = int.tryParse(stateGroup);
+    if (groupIdInt != null) {
+      provider.setStateByName(groupIdInt, state);
+    } else {
+      final groups = provider.stateGroups;
+      final match = groups.where((g) => g.name == stateGroup).firstOrNull;
+      if (match == null) {
+        return {'success': false, 'error': 'State group not found: $stateGroup'};
+      }
+      provider.setStateByName(match.id, state);
+    }
     return {'success': true, 'stateGroup': stateGroup, 'state': state};
   }
 
@@ -258,14 +300,32 @@ class FluxForgeApi {
       throw ArgumentError('Missing required parameter: stateGroup');
     }
 
-    // TODO: Implement state getting via provider
-    return {'stateGroup': stateGroup, 'state': 'default'};
+    final provider = sl<MiddlewareProvider>();
+    final groupIdInt = int.tryParse(stateGroup);
+    if (groupIdInt != null) {
+      return {'stateGroup': stateGroup, 'state': provider.getCurrentStateName(groupIdInt)};
+    }
+    final groups = provider.stateGroups;
+    final match = groups.where((g) => g.name == stateGroup).firstOrNull;
+    if (match == null) {
+      return {'stateGroup': stateGroup, 'state': 'default', 'error': 'State group not found'};
+    }
+    return {'stateGroup': stateGroup, 'state': provider.getCurrentStateName(match.id)};
   }
 
   /// List all state groups
   Future<Map<String, dynamic>> listStates(Map<String, dynamic> params) async {
-    // TODO: Implement state listing via provider
-    return {'stateGroups': [], 'count': 0};
+    final provider = sl<MiddlewareProvider>();
+    final groups = provider.stateGroups;
+    return {
+      'stateGroups': groups.map((g) => {
+        'id': g.id,
+        'name': g.name,
+        'currentState': provider.getCurrentStateName(g.id),
+        'states': g.states.map((s) => {'id': s.id, 'name': s.name}).toList(),
+      }).toList(),
+      'count': groups.length,
+    };
   }
 
   // ============ Audio Playback Methods ============
@@ -353,8 +413,21 @@ class FluxForgeApi {
       throw ArgumentError('Missing required parameters: type, name');
     }
 
-    // TODO: Implement container creation
-    return {'success': true, 'containerId': 'cnt_${DateTime.now().millisecondsSinceEpoch}'};
+    final provider = sl<MiddlewareProvider>();
+    switch (type) {
+      case 'blend':
+        final rtpcId = (params['rtpcId'] as num?)?.toInt() ?? 0;
+        final container = provider.createBlendContainer(name: name, rtpcId: rtpcId);
+        return {'success': true, 'containerId': container.id, 'type': 'blend'};
+      case 'random':
+        final container = provider.createRandomContainer(name: name);
+        return {'success': true, 'containerId': container.id, 'type': 'random'};
+      case 'sequence':
+        final container = provider.createSequenceContainer(name: name);
+        return {'success': true, 'containerId': container.id, 'type': 'sequence'};
+      default:
+        return {'success': false, 'error': 'Unknown container type: $type (use blend, random, or sequence)'};
+    }
   }
 
   /// Delete a container
@@ -365,7 +438,25 @@ class FluxForgeApi {
       throw ArgumentError('Missing required parameter: containerId');
     }
 
-    // TODO: Implement container deletion
+    final provider = sl<MiddlewareProvider>();
+    final containerIdInt = int.tryParse(containerId);
+    if (containerIdInt == null) {
+      return {'success': false, 'error': 'Invalid containerId: $containerId'};
+    }
+    final containerType = params['type'] as String?;
+    switch (containerType) {
+      case 'blend':
+        provider.removeBlendContainer(containerIdInt);
+      case 'random':
+        provider.removeRandomContainer(containerIdInt);
+      case 'sequence':
+        provider.removeSequenceContainer(containerIdInt);
+      default:
+        // Try all types
+        provider.removeBlendContainer(containerIdInt);
+        provider.removeRandomContainer(containerIdInt);
+        provider.removeSequenceContainer(containerIdInt);
+    }
     return {'success': true};
   }
 
@@ -377,8 +468,34 @@ class FluxForgeApi {
       throw ArgumentError('Missing required parameter: containerId');
     }
 
-    // TODO: Implement container evaluation
-    return {'success': true, 'result': null};
+    final provider = sl<MiddlewareProvider>();
+    final containerIdInt = int.tryParse(containerId);
+    if (containerIdInt == null) {
+      return {'success': false, 'error': 'Invalid containerId: $containerId'};
+    }
+    final containerType = params['type'] as String? ?? 'blend';
+    switch (containerType) {
+      case 'blend':
+        final rtpcValue = (params['rtpcValue'] as num?)?.toDouble() ?? 0.0;
+        final weights = provider.evaluateBlend(containerIdInt, rtpcValue);
+        return {'success': true, 'result': weights.map((k, v) => MapEntry(k.toString(), v))};
+      case 'random':
+        final selection = provider.selectRandomChild(containerIdInt);
+        return {
+          'success': selection != null,
+          'result': selection != null
+              ? {
+                  'childId': selection.child.id,
+                  'name': selection.child.name,
+                  'audioPath': selection.child.audioPath,
+                  'pitchOffset': selection.pitchOffset,
+                  'volumeMultiplier': selection.volumeMultiplier,
+                }
+              : null,
+        };
+      default:
+        return {'success': false, 'error': 'Evaluate not supported for type: $containerType'};
+    }
   }
 
   // ============ Scripting Methods ============

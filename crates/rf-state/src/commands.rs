@@ -1001,6 +1001,8 @@ mod tests {
             color: None,
             regions: Vec::new(),
             automation: Vec::new(),
+            instrument_plugin_id: None,
+            output_channel_map: Vec::new(),
         };
 
         manager.execute(Box::new(AddTrackCommand::new(project.clone(), track, None)));

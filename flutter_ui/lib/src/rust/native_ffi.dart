@@ -8660,6 +8660,66 @@ class NativeFFI {
       Int32 Function(Uint8),
       int Function(int)>('control_room_set_talkback_destinations');
 
+  late final _controlRoomGetDimLevel = _lib.lookupFunction<
+      Double Function(),
+      double Function()>('control_room_get_dim_level');
+
+  late final _controlRoomSetDimLevel = _lib.lookupFunction<
+      Int32 Function(Double),
+      int Function(double)>('control_room_set_dim_level');
+
+  late final _controlRoomGetSpeakerLevel = _lib.lookupFunction<
+      Double Function(Uint8),
+      double Function(int)>('control_room_get_speaker_level');
+
+  late final _controlRoomGetCueEnabled = _lib.lookupFunction<
+      Int32 Function(Uint8),
+      int Function(int)>('control_room_get_cue_enabled');
+
+  late final _controlRoomGetCueLevel = _lib.lookupFunction<
+      Double Function(Uint8),
+      double Function(int)>('control_room_get_cue_level');
+
+  late final _controlRoomGetCuePan = _lib.lookupFunction<
+      Double Function(Uint8),
+      double Function(int)>('control_room_get_cue_pan');
+
+  late final _controlRoomGetCuePeakL = _lib.lookupFunction<
+      Double Function(Uint8),
+      double Function(int)>('control_room_get_cue_peak_l');
+
+  late final _controlRoomGetCuePeakR = _lib.lookupFunction<
+      Double Function(Uint8),
+      double Function(int)>('control_room_get_cue_peak_r');
+
+  late final _controlRoomGetCueSendLevel = _lib.lookupFunction<
+      Double Function(Uint8, Uint32),
+      double Function(int, int)>('control_room_get_cue_send_level');
+
+  late final _controlRoomGetCueSendPan = _lib.lookupFunction<
+      Double Function(Uint8, Uint32),
+      double Function(int, int)>('control_room_get_cue_send_pan');
+
+  late final _controlRoomGetTalkback = _lib.lookupFunction<
+      Int32 Function(),
+      int Function()>('control_room_get_talkback');
+
+  late final _controlRoomGetTalkbackLevel = _lib.lookupFunction<
+      Double Function(),
+      double Function()>('control_room_get_talkback_level');
+
+  late final _controlRoomGetTalkbackDestinations = _lib.lookupFunction<
+      Uint8 Function(),
+      int Function()>('control_room_get_talkback_destinations');
+
+  late final _controlRoomGetTalkbackDimMain = _lib.lookupFunction<
+      Int32 Function(),
+      int Function()>('control_room_get_talkback_dim_main');
+
+  late final _controlRoomSetTalkbackDimMain = _lib.lookupFunction<
+      Int32 Function(Int32),
+      int Function(int)>('control_room_set_talkback_dim_main');
+
   late final _controlRoomGetMonitorPeakL = _lib.lookupFunction<
       Double Function(),
       double Function()>('control_room_get_monitor_peak_l');
@@ -8694,6 +8754,21 @@ class NativeFFI {
   int controlRoomSetTalkback(int enabled) => _controlRoomSetTalkback(enabled);
   int controlRoomSetTalkbackLevel(double levelDb) => _controlRoomSetTalkbackLevel(levelDb);
   int controlRoomSetTalkbackDestinations(int destinations) => _controlRoomSetTalkbackDestinations(destinations);
+  double controlRoomGetDimLevel() => _controlRoomGetDimLevel();
+  int controlRoomSetDimLevel(double levelDb) => _controlRoomSetDimLevel(levelDb);
+  double controlRoomGetSpeakerLevel(int index) => _controlRoomGetSpeakerLevel(index);
+  int controlRoomGetCueEnabled(int cueIndex) => _controlRoomGetCueEnabled(cueIndex);
+  double controlRoomGetCueLevel(int cueIndex) => _controlRoomGetCueLevel(cueIndex);
+  double controlRoomGetCuePan(int cueIndex) => _controlRoomGetCuePan(cueIndex);
+  double controlRoomGetCuePeakL(int cueIndex) => _controlRoomGetCuePeakL(cueIndex);
+  double controlRoomGetCuePeakR(int cueIndex) => _controlRoomGetCuePeakR(cueIndex);
+  double controlRoomGetCueSendLevel(int cueIndex, int channelId) => _controlRoomGetCueSendLevel(cueIndex, channelId);
+  double controlRoomGetCueSendPan(int cueIndex, int channelId) => _controlRoomGetCueSendPan(cueIndex, channelId);
+  int controlRoomGetTalkback() => _controlRoomGetTalkback();
+  double controlRoomGetTalkbackLevel() => _controlRoomGetTalkbackLevel();
+  int controlRoomGetTalkbackDestinations() => _controlRoomGetTalkbackDestinations();
+  int controlRoomGetTalkbackDimMain() => _controlRoomGetTalkbackDimMain();
+  int controlRoomSetTalkbackDimMain(int enabled) => _controlRoomSetTalkbackDimMain(enabled);
   double controlRoomGetMonitorPeakL() => _controlRoomGetMonitorPeakL();
   double controlRoomGetMonitorPeakR() => _controlRoomGetMonitorPeakR();
 
@@ -13074,175 +13149,109 @@ extension ExportPresetsAPI on NativeFFI {
 // CONTROL ROOM EXTENSION
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/// Control Room API
+/// Control Room API — wired to native FFI
 extension ControlRoomAPI on NativeFFI {
   /// Get monitor source (0=Master, 1-4=Cue1-4, 5-6=External1-2)
-  int controlRoomGetMonitorSource() {
-    // TODO: Implement actual FFI binding
-    return 0;
-  }
+  int controlRoomApiGetMonitorSource() => controlRoomGetMonitorSource();
 
   /// Set monitor source
-  void controlRoomSetMonitorSource(int source) {
-    // TODO: Implement actual FFI binding
-  }
+  void controlRoomApiSetMonitorSource(int source) => controlRoomSetMonitorSource(source);
 
   /// Get monitor level (dB)
-  double controlRoomGetMonitorLevel() {
-    // TODO: Implement actual FFI binding
-    return 0.0;
-  }
+  double controlRoomApiGetMonitorLevel() => controlRoomGetMonitorLevel();
 
   /// Set monitor level (dB)
-  void controlRoomSetMonitorLevel(double db) {
-    // TODO: Implement actual FFI binding
-  }
+  void controlRoomApiSetMonitorLevel(double db) => controlRoomSetMonitorLevel(db);
 
   /// Get dim enabled
-  bool controlRoomGetDimEnabled() {
-    // TODO: Implement actual FFI binding
-    return false;
-  }
+  bool controlRoomApiGetDimEnabled() => controlRoomGetDim() != 0;
 
   /// Set dim enabled
-  void controlRoomSetDimEnabled(bool enabled) {
-    // TODO: Implement actual FFI binding
-  }
+  void controlRoomApiSetDimEnabled(bool enabled) => controlRoomSetDim(enabled ? 1 : 0);
 
   /// Get dim level (dB)
-  double controlRoomGetDimLevel() {
-    // TODO: Implement actual FFI binding
-    return -20.0;
-  }
+  double controlRoomApiGetDimLevel() => controlRoomGetDimLevel();
 
   /// Set dim level (dB)
-  void controlRoomSetDimLevel(double db) {
-    // TODO: Implement actual FFI binding
-  }
+  void controlRoomApiSetDimLevel(double db) => controlRoomSetDimLevel(db);
 
   /// Get mono enabled
-  bool controlRoomGetMonoEnabled() {
-    // TODO: Implement actual FFI binding
-    return false;
-  }
+  bool controlRoomApiGetMonoEnabled() => controlRoomGetMono() != 0;
 
   /// Set mono enabled
-  void controlRoomSetMonoEnabled(bool enabled) {
-    // TODO: Implement actual FFI binding
-  }
+  void controlRoomApiSetMonoEnabled(bool enabled) => controlRoomSetMono(enabled ? 1 : 0);
 
   /// Get solo mode (0=Off, 1=SIP, 2=AFL, 3=PFL)
-  int controlRoomGetSoloMode() {
-    // TODO: Implement actual FFI binding
-    return 0;
-  }
+  int controlRoomApiGetSoloMode() => controlRoomGetSoloMode();
 
   /// Set solo mode
-  void controlRoomSetSoloMode(int mode) {
-    // TODO: Implement actual FFI binding
-  }
+  void controlRoomApiSetSoloMode(int mode) => controlRoomSetSoloMode(mode);
 
   /// Get active speaker set (0-3)
-  int controlRoomGetActiveSpeakerSet() {
-    // TODO: Implement actual FFI binding
-    return 0;
-  }
+  int controlRoomApiGetActiveSpeakerSet() => controlRoomGetSpeakerSet();
 
   /// Set active speaker set
-  void controlRoomSetActiveSpeakerSet(int index) {
-    // TODO: Implement actual FFI binding
-  }
+  void controlRoomApiSetActiveSpeakerSet(int index) => controlRoomSetSpeakerSet(index);
 
   /// Get speaker calibration (dB)
-  double controlRoomGetSpeakerCalibration(int index) {
-    // TODO: Implement actual FFI binding
-    return 0.0;
-  }
+  double controlRoomApiGetSpeakerCalibration(int index) => controlRoomGetSpeakerLevel(index);
 
   /// Set speaker calibration (dB)
-  void controlRoomSetSpeakerCalibration(int index, double db) {
-    // TODO: Implement actual FFI binding
-  }
+  void controlRoomApiSetSpeakerCalibration(int index, double db) => controlRoomSetSpeakerLevel(index, db);
 
   /// Solo a channel
-  void controlRoomSoloChannel(int channelId) {
-    // TODO: Implement actual FFI binding
-  }
+  void controlRoomApiSoloChannel(int channelId) => controlRoomSoloChannel(channelId);
 
   /// Unsolo a channel
-  void controlRoomUnsoloChannel(int channelId) {
-    // TODO: Implement actual FFI binding
-  }
+  void controlRoomApiUnsoloChannel(int channelId) => controlRoomUnsoloChannel(channelId);
 
   /// Clear all solos
-  void controlRoomClearAllSolos() {
-    // TODO: Implement actual FFI binding
-  }
+  void controlRoomApiClearAllSolos() => controlRoomClearSolo();
 
   /// Check if channel is soloed
-  bool controlRoomIsChannelSoloed(int channelId) {
-    // TODO: Implement actual FFI binding
-    return false;
-  }
+  bool controlRoomApiIsChannelSoloed(int channelId) => controlRoomIsSoloed(channelId) != 0;
 
   /// Get monitor peak meters (returns [peakL, peakR])
-  List<double> controlRoomGetMonitorPeak() {
-    // TODO: Implement actual FFI binding
-    return [0.0, 0.0];
-  }
+  List<double> controlRoomApiGetMonitorPeak() =>
+      [controlRoomGetMonitorPeakL(), controlRoomGetMonitorPeakR()];
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // CUE MIXES
   // ═══════════════════════════════════════════════════════════════════════════════
 
   /// Get cue mix enabled
-  bool cueMixGetEnabled(int cueIndex) {
-    // TODO: Implement actual FFI binding
-    return false;
-  }
+  bool cueMixApiGetEnabled(int cueIndex) => controlRoomGetCueEnabled(cueIndex) != 0;
 
   /// Set cue mix enabled
-  void cueMixSetEnabled(int cueIndex, bool enabled) {
-    // TODO: Implement actual FFI binding
-  }
+  void cueMixApiSetEnabled(int cueIndex, bool enabled) =>
+      controlRoomSetCueEnabled(cueIndex, enabled ? 1 : 0);
 
   /// Get cue mix level (dB)
-  double cueMixGetLevel(int cueIndex) {
-    // TODO: Implement actual FFI binding
-    return 0.0;
-  }
+  double cueMixApiGetLevel(int cueIndex) => controlRoomGetCueLevel(cueIndex);
 
   /// Set cue mix level (dB)
-  void cueMixSetLevel(int cueIndex, double db) {
-    // TODO: Implement actual FFI binding
-  }
+  void cueMixApiSetLevel(int cueIndex, double db) => controlRoomSetCueLevel(cueIndex, db);
 
   /// Get cue mix pan (-1 to 1)
-  double cueMixGetPan(int cueIndex) {
-    // TODO: Implement actual FFI binding
-    return 0.0;
-  }
+  double cueMixApiGetPan(int cueIndex) => controlRoomGetCuePan(cueIndex);
 
   /// Set cue mix pan
-  void cueMixSetPan(int cueIndex, double pan) {
-    // TODO: Implement actual FFI binding
-  }
+  void cueMixApiSetPan(int cueIndex, double pan) => controlRoomSetCuePan(cueIndex, pan);
 
   /// Get cue mix peak meters (returns [peakL, peakR])
-  List<double> cueMixGetPeak(int cueIndex) {
-    // TODO: Implement actual FFI binding
-    return [0.0, 0.0];
-  }
+  List<double> cueMixApiGetPeak(int cueIndex) =>
+      [controlRoomGetCuePeakL(cueIndex), controlRoomGetCuePeakR(cueIndex)];
 
   /// Set cue send for a channel
-  void cueMixSetChannelSend(int cueIndex, int channelId, double level, double pan) {
-    // TODO: Implement actual FFI binding
-  }
+  void cueMixApiSetChannelSend(int cueIndex, int channelId, double level, double pan) =>
+      controlRoomAddCueSend(cueIndex, channelId, level, pan);
 
   /// Get cue send for a channel (returns [level, pan] or null if not set)
-  List<double>? cueMixGetChannelSend(int cueIndex, int channelId) {
-    // TODO: Implement actual FFI binding
-    return null;
+  List<double>? cueMixApiGetChannelSend(int cueIndex, int channelId) {
+    final level = controlRoomGetCueSendLevel(cueIndex, channelId);
+    if (level == -999.0) return null;
+    final pan = controlRoomGetCueSendPan(cueIndex, channelId);
+    return [level, pan];
   }
 
   // ═══════════════════════════════════════════════════════════════════════════════
@@ -13250,48 +13259,28 @@ extension ControlRoomAPI on NativeFFI {
   // ═══════════════════════════════════════════════════════════════════════════════
 
   /// Get talkback enabled
-  bool talkbackGetEnabled() {
-    // TODO: Implement actual FFI binding
-    return false;
-  }
+  bool talkbackApiGetEnabled() => controlRoomGetTalkback() != 0;
 
   /// Set talkback enabled
-  void talkbackSetEnabled(bool enabled) {
-    // TODO: Implement actual FFI binding
-  }
+  void talkbackApiSetEnabled(bool enabled) => controlRoomSetTalkback(enabled ? 1 : 0);
 
   /// Get talkback level (dB)
-  double talkbackGetLevel() {
-    // TODO: Implement actual FFI binding
-    return 0.0;
-  }
+  double talkbackApiGetLevel() => controlRoomGetTalkbackLevel();
 
   /// Set talkback level (dB)
-  void talkbackSetLevel(double db) {
-    // TODO: Implement actual FFI binding
-  }
+  void talkbackApiSetLevel(double db) => controlRoomSetTalkbackLevel(db);
 
   /// Get talkback destinations (bitmask)
-  int talkbackGetDestinations() {
-    // TODO: Implement actual FFI binding
-    return 0xF; // All 4 cues by default
-  }
+  int talkbackApiGetDestinations() => controlRoomGetTalkbackDestinations();
 
   /// Set talkback destinations (bitmask)
-  void talkbackSetDestinations(int mask) {
-    // TODO: Implement actual FFI binding
-  }
+  void talkbackApiSetDestinations(int mask) => controlRoomSetTalkbackDestinations(mask);
 
   /// Get talkback dim main on talk
-  bool talkbackGetDimMainOnTalk() {
-    // TODO: Implement actual FFI binding
-    return true;
-  }
+  bool talkbackApiGetDimMainOnTalk() => controlRoomGetTalkbackDimMain() != 0;
 
   /// Set talkback dim main on talk
-  void talkbackSetDimMainOnTalk(bool enabled) {
-    // TODO: Implement actual FFI binding
-  }
+  void talkbackApiSetDimMainOnTalk(bool enabled) => controlRoomSetTalkbackDimMain(enabled ? 1 : 0);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // MASTERING ENGINE (AI Mastering)
