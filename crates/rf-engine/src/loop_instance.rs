@@ -268,12 +268,11 @@ impl LoopInstance {
         }
         if self.playhead_samples >= region.out_samples {
             // Check max_loops
-            if let Some(max) = region.max_loops {
-                if self.loop_count >= max {
+            if let Some(max) = region.max_loops
+                && self.loop_count >= max {
                     self.state = LoopState::Exiting;
                     return false;
                 }
-            }
             // Wrap
             let overshoot = self.playhead_samples - region.out_samples;
             self.playhead_samples = region.in_samples + overshoot;
@@ -383,18 +382,15 @@ impl LoopInstance {
 
     /// Check if we've reached the exit point.
     pub fn check_exit_point(&mut self, sample_rate: u32) {
-        if self.state == LoopState::Looping || self.state == LoopState::Intro {
-            if let Some(ref config) = self.exit_config {
-                if let Some(exit_at) = config.exit_at_sample {
-                    if self.playhead_samples >= exit_at {
+        if (self.state == LoopState::Looping || self.state == LoopState::Intro)
+            && let Some(ref config) = self.exit_config
+                && let Some(exit_at) = config.exit_at_sample
+                    && self.playhead_samples >= exit_at {
                         self.state = LoopState::Exiting;
                         let fade_samples =
                             (config.fade_out_ms * sample_rate as f32 / 1000.0) as u64;
                         self.fade.start(0.0, fade_samples);
                     }
-                }
-            }
-        }
     }
 
     /// Check if exiting fade is complete → stop.
@@ -405,11 +401,10 @@ impl LoopInstance {
         // If fade is done (or never started) and either:
         // - gain is near zero (fade completed), or
         // - no exit_config exists (max_loops triggered exit, no fade)
-        if !self.fade.active {
-            if self.fade.current_gain <= 0.001 || self.exit_config.is_none() {
+        if !self.fade.active
+            && (self.fade.current_gain <= 0.001 || self.exit_config.is_none()) {
                 self.state = LoopState::Stopped;
             }
-        }
     }
 
     /// Apply the pending region switch at the resolved sync boundary.
@@ -470,8 +465,8 @@ pub fn assert_loop_invariants(inst: &LoopInstance, asset: &LoopAsset) {
     );
 
     // R-03: Looping state implies playhead in region (with tolerance for wrap overshoot)
-    if inst.state == LoopState::Looping {
-        if let Some(region) = asset.region_by_name(&inst.active_region) {
+    if inst.state == LoopState::Looping
+        && let Some(region) = asset.region_by_name(&inst.active_region) {
             debug_assert!(
                 inst.playhead_samples >= region.in_samples
                     && inst.playhead_samples <= region.out_samples,
@@ -481,5 +476,4 @@ pub fn assert_loop_invariants(inst: &LoopInstance, asset: &LoopAsset) {
                 region.out_samples
             );
         }
-    }
 }

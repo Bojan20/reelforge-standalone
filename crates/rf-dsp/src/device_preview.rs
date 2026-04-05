@@ -3098,7 +3098,7 @@ impl DevicePreviewEngine {
 
         // Node 2: HPF — bake coefficients into filters
         let hpf_coeffs = BiquadCoeffs::highpass(profile.hpf_freq, profile.hpf_q, self.sample_rate);
-        self.hpf_l.set_coeffs(hpf_coeffs.clone());
+        self.hpf_l.set_coeffs(hpf_coeffs);
         self.hpf_r.set_coeffs(hpf_coeffs);
         self.hpf_l.reset();
         self.hpf_r.reset();
@@ -3117,7 +3117,7 @@ impl DevicePreviewEngine {
         self.tonal_r
             .resize_with(num_bands, || BiquadTDF2::new(self.sample_rate));
         for (i, coeffs) in tonal_coeffs.into_iter().enumerate() {
-            self.tonal_l[i].set_coeffs(coeffs.clone());
+            self.tonal_l[i].set_coeffs(coeffs);
             self.tonal_r[i].set_coeffs(coeffs);
             self.tonal_l[i].reset();
             self.tonal_r[i].reset();

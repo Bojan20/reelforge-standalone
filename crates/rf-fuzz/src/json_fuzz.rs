@@ -934,7 +934,7 @@ pub fn run_json_fuzz_suite(config: &FuzzConfig) -> FuzzReport {
 pub fn fuzz_gdd_parse(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_custom(
-        |rng| GddJsonGenerator::fuzzed_gdd(rng),
+        GddJsonGenerator::fuzzed_gdd,
         |json_str| parse_gdd_safe(&json_str),
     )
 }
@@ -943,7 +943,7 @@ pub fn fuzz_gdd_parse(config: &FuzzConfig) -> FuzzResult {
 pub fn fuzz_gdd_field_validation(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_with_validation(
-        |rng| GddJsonGenerator::fuzzed_gdd(rng),
+        GddJsonGenerator::fuzzed_gdd,
         |json_str| parse_gdd_safe(&json_str),
         |_input, result| match result {
             GddParseResult::Valid {
@@ -978,7 +978,7 @@ pub fn fuzz_gdd_field_validation(config: &FuzzConfig) -> FuzzResult {
 pub fn fuzz_template_parse(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_custom(
-        |rng| TemplateJsonGenerator::fuzzed_template(rng),
+        TemplateJsonGenerator::fuzzed_template,
         |json_str| parse_template_safe(&json_str),
     )
 }
@@ -987,7 +987,7 @@ pub fn fuzz_template_parse(config: &FuzzConfig) -> FuzzResult {
 pub fn fuzz_template_field_validation(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_with_validation(
-        |rng| TemplateJsonGenerator::fuzzed_template(rng),
+        TemplateJsonGenerator::fuzzed_template,
         |json_str| parse_template_safe(&json_str),
         |_input, result| match result {
             TemplateParseResult::Valid { reels, rows, .. } => {
@@ -1014,7 +1014,7 @@ pub fn fuzz_template_field_validation(config: &FuzzConfig) -> FuzzResult {
 pub fn fuzz_preset_parse(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_custom(
-        |rng| PresetJsonGenerator::fuzzed_preset(rng),
+        PresetJsonGenerator::fuzzed_preset,
         |json_str| parse_preset_safe(&json_str),
     )
 }
@@ -1023,7 +1023,7 @@ pub fn fuzz_preset_parse(config: &FuzzConfig) -> FuzzResult {
 pub fn fuzz_preset_parameter_validation(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_with_validation(
-        |rng| PresetJsonGenerator::fuzzed_preset(rng),
+        PresetJsonGenerator::fuzzed_preset,
         |json_str| parse_preset_safe(&json_str),
         |_input, result| match result {
             PresetParseResult::Valid { parameters, .. } => {
@@ -1046,7 +1046,7 @@ pub fn fuzz_preset_parameter_validation(config: &FuzzConfig) -> FuzzResult {
 pub fn fuzz_malformed_json(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_custom(
-        |rng| MalformedJsonGenerator::broken_json(rng),
+        MalformedJsonGenerator::broken_json,
         |json_str| {
             // Try all parsers — none should panic
             let _ = parse_gdd_safe(&json_str);

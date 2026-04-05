@@ -658,7 +658,7 @@ impl LoudnessMeter {
         let low_idx = (loudnesses.len() as f64 * 0.10) as usize;
         let high_idx = (loudnesses.len() as f64 * 0.95) as usize;
 
-        let low_idx = low_idx.max(0);
+        let low_idx = low_idx;
         let high_idx = high_idx.min(loudnesses.len() - 1);
 
         loudnesses[high_idx] - loudnesses[low_idx]

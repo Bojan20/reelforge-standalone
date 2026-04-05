@@ -208,11 +208,10 @@ impl TransientDetector {
                 continue;
             }
             // Minimum interval from last peak
-            if let Some(last) = last_peak {
-                if i - last < min_frames {
+            if let Some(last) = last_peak
+                && i - last < min_frames {
                     continue;
                 }
-            }
 
             // Convert frame index to seconds
             let time = (i * self.hop_size) as f64 / self.sample_rate;

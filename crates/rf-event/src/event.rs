@@ -283,7 +283,7 @@ pub mod categories {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::action::{ActionPriority, ActionType};
+    
     use crate::curve::FadeCurve;
 
     #[test]

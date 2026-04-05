@@ -12,8 +12,10 @@ use super::{
 
 /// Gamble game type
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum GambleType {
     /// Red/Black card guess (50/50)
+    #[default]
     CardColor,
     /// Card suit guess (25% chance)
     CardSuit,
@@ -23,11 +25,6 @@ pub enum GambleType {
     Ladder,
 }
 
-impl Default for GambleType {
-    fn default() -> Self {
-        Self::CardColor
-    }
-}
 
 /// Gamble configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

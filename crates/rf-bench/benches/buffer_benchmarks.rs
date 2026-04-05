@@ -56,8 +56,7 @@ fn bench_buffer_alloc(c: &mut Criterion) {
             &size,
             |b, _| {
                 b.iter(|| {
-                    let mut v: Vec<f64> = Vec::with_capacity(size);
-                    unsafe { v.set_len(size) };
+                    let v: Vec<f64> = vec![0.0f64; size];
                     black_box(v)
                 })
             },

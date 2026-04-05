@@ -157,14 +157,13 @@ impl LatencyManager {
         inherent: u32,
         lookahead: u32,
     ) {
-        if let Some(path) = self.paths.get_mut(&path_id) {
-            if let Some(processor) = path.processors.iter_mut().find(|p| p.id == processor_id) {
+        if let Some(path) = self.paths.get_mut(&path_id)
+            && let Some(processor) = path.processors.iter_mut().find(|p| p.id == processor_id) {
                 processor.set_inherent(inherent);
                 processor.set_lookahead(lookahead);
                 path.recalculate();
                 self.recalculate_compensation();
             }
-        }
     }
 
     /// Recalculate all compensation values

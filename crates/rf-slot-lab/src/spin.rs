@@ -79,8 +79,10 @@ pub struct CascadeResult {
 /// Reason for anticipation trigger
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum AnticipationReason {
     /// Scatter symbols detected (most common)
+    #[default]
     Scatter,
     /// Bonus symbols detected
     Bonus,
@@ -94,11 +96,6 @@ pub enum AnticipationReason {
     Custom,
 }
 
-impl Default for AnticipationReason {
-    fn default() -> Self {
-        Self::Scatter
-    }
-}
 
 impl AnticipationReason {
     /// Convert to string for legacy compatibility
@@ -689,7 +686,7 @@ impl SpinResult {
                 let symbols = self
                     .grid
                     .get(reel as usize)
-                    .map(|r| r.iter().map(|&s| s).collect())
+                    .map(|r| r.to_vec())
                     .unwrap_or_default();
 
                 events.push(StageEvent::new(
@@ -770,7 +767,7 @@ impl SpinResult {
                 let symbols = self
                     .grid
                     .get(reel as usize)
-                    .map(|r| r.iter().map(|&s| s).collect())
+                    .map(|r| r.to_vec())
                     .unwrap_or_default();
 
                 events.push(StageEvent::new(
@@ -800,7 +797,7 @@ impl SpinResult {
                 let symbols = self
                     .grid
                     .get(reel as usize)
-                    .map(|r| r.iter().map(|&s| s).collect())
+                    .map(|r| r.to_vec())
                     .unwrap_or_default();
 
                 events.push(StageEvent::new(
@@ -884,19 +881,18 @@ impl SpinResult {
         }
 
         // Big win tier
-        if let Some(ref tier) = self.big_win_tier {
-            if !matches!(tier, BigWinTier::Win) {
+        if let Some(ref tier) = self.big_win_tier
+            && !matches!(tier, BigWinTier::Win) {
                 let big_win_time = timing.big_win(self.win_ratio);
                 events.push(StageEvent::with_payload(
                     Stage::BigWinTier {
-                        tier: tier.clone(),
+                        tier: *tier,
                         amount: self.total_win,
                     },
                     big_win_time,
                     StagePayload::with_win(self.total_win, Some(self.bet)),
                 ));
             }
-        }
 
         // Rollup
         let rollup_ticks = timing.rollup_ticks(self.total_win, 10);
@@ -1684,12 +1680,12 @@ mod tests {
         // ═══════════════════════════════════════════════════════════════════════════
 
         // 1. Verify SPIN_START is first
-        assert!(matches!(&stages[0].stage, Stage::UiSpinPress { .. }));
+        assert!(matches!(&stages[0].stage, Stage::UiSpinPress));
 
         // 2. Count all stage types
         let spin_starts = stages
             .iter()
-            .filter(|s| matches!(&s.stage, Stage::UiSpinPress { .. }))
+            .filter(|s| matches!(&s.stage, Stage::UiSpinPress))
             .count();
         let reel_stops = stages
             .iter()
@@ -1717,7 +1713,7 @@ mod tests {
             .count();
         let spin_ends = stages
             .iter()
-            .filter(|s| matches!(&s.stage, Stage::SpinEnd { .. }))
+            .filter(|s| matches!(&s.stage, Stage::SpinEnd))
             .count();
 
         // 3. Verify stage counts
@@ -1774,7 +1770,7 @@ mod tests {
         // 5. Verify SPIN_END is last
         let spin_end_ts = stages
             .iter()
-            .find(|s| matches!(&s.stage, Stage::SpinEnd { .. }))
+            .find(|s| matches!(&s.stage, Stage::SpinEnd))
             .map(|s| s.timestamp_ms)
             .unwrap();
 

@@ -173,14 +173,13 @@ impl GddSchema {
         }
 
         // ── RTP ──
-        if let Some(rtp) = doc.game.target_rtp {
-            if rtp < self.rtp_range.0 || rtp > self.rtp_range.1 {
+        if let Some(rtp) = doc.game.target_rtp
+            && (rtp < self.rtp_range.0 || rtp > self.rtp_range.1) {
                 return Err(GddParseError::InvalidValue(format!(
                     "target_rtp must be {:.2}-{:.3}, got: {:.4}",
                     self.rtp_range.0, self.rtp_range.1, rtp
                 )));
             }
-        }
 
         // ── Win Mechanism ──
         let mech_lower = doc.win_mechanism.to_lowercase();
@@ -254,25 +253,23 @@ impl GddSchema {
                 warnings.push(format!("win_tiers[{}] has empty name", i));
             }
 
-            if let (Some(min), Some(max)) = (tier.min_ratio, tier.max_ratio) {
-                if min >= max {
+            if let (Some(min), Some(max)) = (tier.min_ratio, tier.max_ratio)
+                && min >= max {
                     return Err(GddParseError::InvalidValue(format!(
                         "win_tiers[{}] '{}': min_ratio ({}) must be less than max_ratio ({})",
                         i, tier.name, min, max
                     )));
                 }
-            }
         }
 
         // ── Math Model ──
-        if let Some(ref math) = doc.math {
-            if math.target_rtp < self.rtp_range.0 || math.target_rtp > self.rtp_range.1 {
+        if let Some(ref math) = doc.math
+            && (math.target_rtp < self.rtp_range.0 || math.target_rtp > self.rtp_range.1) {
                 return Err(GddParseError::InvalidValue(format!(
                     "math.target_rtp must be {:.2}-{:.3}, got: {:.4}",
                     self.rtp_range.0, self.rtp_range.1, math.target_rtp
                 )));
             }
-        }
 
         Ok(warnings)
     }

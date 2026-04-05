@@ -169,7 +169,7 @@ mod tests {
 
         // Verify alternating L/R spread
         let pans: Vec<f32> = redist.iter().map(|r| r.new_pan).collect();
-        assert!(pans[0] > 0.0 || pans[0] < 0.0); // pushed away
+        assert!(pans[0] != 0.0); // pushed away
     }
 
     #[test]

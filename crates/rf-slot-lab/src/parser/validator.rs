@@ -76,33 +76,30 @@ fn validate_grid_mechanism(doc: &GddDocument, report: &mut ValidationReport) {
                 report.add_warning("Megaways uses ways, not fixed paylines".into());
             }
         }
-        "ways" | "ways_243" => {
+        "ways" | "ways_243"
             // 243 ways = 3^5 (5 reels, 3 rows)
-            if doc.grid.reels != 5 || doc.grid.rows != 3 {
+            if (doc.grid.reels != 5 || doc.grid.rows != 3) => {
                 report.add_warning(format!(
                     "243 ways expects 5x3 grid, got {}x{}",
                     doc.grid.reels, doc.grid.rows
                 ));
             }
-        }
-        "ways_1024" => {
+        "ways_1024"
             // 1024 ways = 4^5 (5 reels, 4 rows)
-            if doc.grid.reels != 5 || doc.grid.rows != 4 {
+            if (doc.grid.reels != 5 || doc.grid.rows != 4) => {
                 report.add_warning(format!(
                     "1024 ways expects 5x4 grid, got {}x{}",
                     doc.grid.reels, doc.grid.rows
                 ));
             }
-        }
-        "cluster" => {
+        "cluster"
             // Cluster pay typically needs larger grid
-            if doc.grid.reels < 5 || doc.grid.rows < 5 {
+            if (doc.grid.reels < 5 || doc.grid.rows < 5) => {
                 report.add_warning(format!(
                     "Cluster pay typically uses 5x5+ grid, got {}x{}",
                     doc.grid.reels, doc.grid.rows
                 ));
             }
-        }
         _ => {}
     }
 }
@@ -176,13 +173,11 @@ fn validate_feature_compatibility(doc: &GddDocument, report: &mut ValidationRepo
     // Hold and Win + Progressive should have jackpot tiers
     if feature_types.contains(&"hold_and_win".into())
         && feature_types.contains(&"progressive".into())
-    {
-        if doc.win_tiers.len() < 3 {
+        && doc.win_tiers.len() < 3 {
             report.add_warning(
                 "Hold and Win + Progressive typically needs 3+ win tiers (Mini, Minor, Major, Grand)".into(),
             );
         }
-    }
 
     // Gamble feature needs careful audio design
     if feature_types.contains(&"gamble".into()) {

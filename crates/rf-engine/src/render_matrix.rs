@@ -373,11 +373,10 @@ impl RenderMatrix {
         }
 
         // Subdirectory per tag (first tag)
-        if config.naming.subdirs_per_tag {
-            if let Some(tag) = region.tags.first() {
+        if config.naming.subdirs_per_tag
+            && let Some(tag) = region.tags.first() {
                 path.push(sanitize_filename(tag));
             }
-        }
 
         // Build filename from template
         let filename = self.expand_template(
@@ -467,7 +466,7 @@ impl RenderMatrix {
         }
 
         // Get project sample rate
-        let project_sr = self.playback_engine.position.sample_rate() as u32;
+        let project_sr = self.playback_engine.position.sample_rate();
 
         if config.parallel && total_jobs > 1 {
             // Parallel render: each job gets its own buffers
@@ -673,7 +672,7 @@ impl RenderMatrix {
         preset: &RenderPreset,
         output_path: &Path,
     ) -> Result<(), ExportError> {
-        let project_sr = self.playback_engine.position.sample_rate() as u32;
+        let project_sr = self.playback_engine.position.sample_rate();
         let job = RenderJob {
             region: region.clone(),
             preset: preset.clone(),
@@ -808,7 +807,7 @@ fn chrono_compat_date() -> String {
 }
 
 fn is_leap_year(y: u64) -> bool {
-    (y % 4 == 0 && y % 100 != 0) || y % 400 == 0
+    (y.is_multiple_of(4) && !y.is_multiple_of(100)) || y.is_multiple_of(400)
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

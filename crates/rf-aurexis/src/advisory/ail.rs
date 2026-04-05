@@ -418,7 +418,7 @@ impl AuthoringIntelligence {
             .filter(|r| r.level == RecommendationLevel::Info)
             .count() as u32;
 
-        let pbse_passed = pbse_result.map_or(false, |r| r.all_passed);
+        let pbse_passed = pbse_result.is_some_and(|r| r.all_passed);
 
         let report = AilReport {
             score,

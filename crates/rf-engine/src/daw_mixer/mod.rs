@@ -55,6 +55,12 @@ pub struct SoloEngine {
     _mode: SoloMode,
 }
 
+impl Default for SoloEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SoloEngine {
     pub fn new() -> Self {
         Self {
@@ -79,6 +85,12 @@ impl SoloEngine {
 
 pub struct FolderEngine;
 
+impl Default for FolderEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FolderEngine {
     pub fn new() -> Self {
         Self
@@ -90,6 +102,12 @@ impl FolderEngine {
 // ==========================
 
 pub struct VcaEngine;
+
+impl Default for VcaEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl VcaEngine {
     pub fn new() -> Self {
@@ -110,6 +128,12 @@ pub enum SpillMode {
 pub struct SpillEngine {
     _mode: SpillMode,
     _spill_targets: HashSet<DawChannelId>,
+}
+
+impl Default for SpillEngine {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SpillEngine {

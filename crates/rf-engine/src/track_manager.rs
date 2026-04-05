@@ -2427,20 +2427,17 @@ impl RenderRegion {
 
 /// What content a razor edit area selects
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum RazorContent {
     /// Select media items (clips) within the time range
     Media,
     /// Select automation envelope points within the time range
     Envelope,
     /// Select both media and envelope data
+    #[default]
     Both,
 }
 
-impl Default for RazorContent {
-    fn default() -> Self {
-        Self::Both
-    }
-}
 
 /// A single razor edit area — a time range on a specific track.
 ///
@@ -3377,13 +3374,12 @@ impl TrackManager {
             // Merge overlapping/adjacent ranges
             let mut merged: Vec<(f64, f64)> = Vec::new();
             for (s, e) in ranges {
-                if let Some(last) = merged.last_mut() {
-                    if s <= last.1 + 0.001 {
+                if let Some(last) = merged.last_mut()
+                    && s <= last.1 + 0.001 {
                         // Overlapping or adjacent — extend
                         last.1 = last.1.max(e);
                         continue;
                     }
-                }
                 merged.push((s, e));
             }
 
@@ -3418,20 +3414,17 @@ impl TrackManager {
                     let mut inner_id = clip.id;
 
                     // Split at range start if inside clip
-                    if range_start > clip.start_time + 0.001 {
-                        if let Some((_left, right)) = self.split_clip(inner_id, range_start) {
+                    if range_start > clip.start_time + 0.001
+                        && let Some((_left, right)) = self.split_clip(inner_id, range_start) {
                             inner_id = right;
                         }
-                    }
 
                     // Split at range end if inside the current piece
-                    if let Some(c) = self.get_clip(inner_id) {
-                        if range_end < c.end_time() - 0.001 {
-                            if let Some((left, _right)) = self.split_clip(inner_id, range_end) {
+                    if let Some(c) = self.get_clip(inner_id)
+                        && range_end < c.end_time() - 0.001
+                            && let Some((left, _right)) = self.split_clip(inner_id, range_end) {
                                 inner_id = left;
                             }
-                        }
-                    }
 
                     isolated.push(inner_id);
                 }
@@ -4483,22 +4476,20 @@ impl TrackManager {
 
             let mut changed = false;
 
-            if has(SnapshotCategory::Volume) {
-                if let Some(vol) = tdata.volume {
+            if has(SnapshotCategory::Volume)
+                && let Some(vol) = tdata.volume {
                     self.update_track(tdata.track_id, |t| t.volume = vol);
                     changed = true;
                 }
-            }
 
-            if has(SnapshotCategory::Pan) {
-                if let Some((pan_l, pan_r)) = tdata.pan {
+            if has(SnapshotCategory::Pan)
+                && let Some((pan_l, pan_r)) = tdata.pan {
                     self.update_track(tdata.track_id, |t| {
                         t.pan = pan_l;
                         t.pan_right = pan_r;
                     });
                     changed = true;
                 }
-            }
 
             if has(SnapshotCategory::MuteSolo) {
                 if let Some(muted) = tdata.muted {
@@ -4511,42 +4502,37 @@ impl TrackManager {
                 }
             }
 
-            if has(SnapshotCategory::Phase) {
-                if let Some(phase) = tdata.phase_inverted {
+            if has(SnapshotCategory::Phase)
+                && let Some(phase) = tdata.phase_inverted {
                     self.update_track(tdata.track_id, |t| t.phase_inverted = phase);
                     changed = true;
                 }
-            }
 
-            if has(SnapshotCategory::OutputBus) {
-                if let Some(bus) = tdata.output_bus {
+            if has(SnapshotCategory::OutputBus)
+                && let Some(bus) = tdata.output_bus {
                     self.update_track(tdata.track_id, |t| t.output_bus = bus);
                     changed = true;
                 }
-            }
 
-            if has(SnapshotCategory::ChannelConfig) {
-                if let Some(ch) = tdata.channels {
+            if has(SnapshotCategory::ChannelConfig)
+                && let Some(ch) = tdata.channels {
                     self.update_track(tdata.track_id, |t| t.channels = ch);
                     changed = true;
                 }
-            }
 
-            if has(SnapshotCategory::TrackName) {
-                if let Some(ref name) = tdata.name {
+            if has(SnapshotCategory::TrackName)
+                && let Some(ref name) = tdata.name {
                     self.update_track(tdata.track_id, |t| t.name = name.clone());
                     changed = true;
                 }
-            }
 
-            if has(SnapshotCategory::Sends) {
-                if let Some(ref sends_data) = tdata.sends {
+            if has(SnapshotCategory::Sends)
+                && let Some(ref sends_data) = tdata.sends {
                     self.update_track(tdata.track_id, |t| {
                         t.sends = sends_data.sends.clone();
                     });
                     changed = true;
                 }
-            }
 
             if changed {
                 affected += 1;
@@ -4805,12 +4791,11 @@ impl TrackManager {
         }
         // Now update ALL clips referencing this sub-project (no break — handles copy-pasted clips)
         for mut clip_ref in self.clips.iter_mut() {
-            if let Some(ref mut sp) = clip_ref.sub_project {
-                if sp.id == sub_id {
+            if let Some(ref mut sp) = clip_ref.sub_project
+                && sp.id == sub_id {
                     sp.proxy_status = status;
                     sp.needs_rerender = needs_rerender;
                 }
-            }
         }
         true
     }
@@ -4847,8 +4832,8 @@ impl TrackManager {
         }
         // Now update ALL clips referencing this sub-project (no break)
         for mut clip_ref in self.clips.iter_mut() {
-            if let Some(ref mut sp) = clip_ref.sub_project {
-                if sp.id == sub_id {
+            if let Some(ref mut sp) = clip_ref.sub_project
+                && sp.id == sub_id {
                     sp.proxy_path = Some(proxy_path.to_string());
                     sp.proxy_duration = duration;
                     sp.proxy_sample_rate = sample_rate;
@@ -4865,7 +4850,6 @@ impl TrackManager {
                         clip_ref.duration = duration;
                     }
                 }
-            }
         }
         true
     }
@@ -4883,12 +4867,11 @@ impl TrackManager {
         }
         // Update ALL clips (no break)
         for mut clip_ref in self.clips.iter_mut() {
-            if let Some(ref mut sp) = clip_ref.sub_project {
-                if sp.id == sub_id {
+            if let Some(ref mut sp) = clip_ref.sub_project
+                && sp.id == sub_id {
                     sp.proxy_status = ProxyStatus::Stale;
                     sp.needs_rerender = true;
                 }
-            }
         }
         true
     }
@@ -5137,6 +5120,12 @@ pub struct ProjectTabManager {
     next_id: std::sync::atomic::AtomicU64,
     /// Cross-tab clipboard (separate lock — independent data)
     clipboard: RwLock<Option<CrossTabClipboard>>,
+}
+
+impl Default for ProjectTabManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ProjectTabManager {

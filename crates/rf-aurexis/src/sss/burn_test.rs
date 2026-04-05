@@ -157,7 +157,7 @@ impl BurnTest {
                 .wrapping_mul(6364136223846793005)
                 .wrapping_add(1442695040888963407);
             let win_roll = ((rng_state >> 33) as f64) / (u32::MAX as f64);
-            let is_win = win_roll < self.config.win_probability as f64;
+            let is_win = win_roll < self.config.win_probability;
             let win_mult = if is_win {
                 self.config.avg_win_multiplier * (0.5 + win_roll)
             } else {
@@ -225,7 +225,7 @@ impl BurnTest {
                     .wrapping_mul(6364136223846793005)
                     .wrapping_add(1442695040888963407);
                 let win_roll = ((rng2 >> 33) as f64) / (u32::MAX as f64);
-                let is_win = win_roll < self.config.win_probability as f64;
+                let is_win = win_roll < self.config.win_probability;
                 let win_mult = if is_win {
                     self.config.avg_win_multiplier * (0.5 + win_roll)
                 } else {

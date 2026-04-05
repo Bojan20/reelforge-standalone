@@ -320,8 +320,10 @@ impl Default for AacConfig {
 
 /// AAC profile
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum AacProfile {
     /// Low Complexity (most compatible)
+    #[default]
     Lc,
     /// High Efficiency v1
     HeV1,
@@ -329,8 +331,3 @@ pub enum AacProfile {
     HeV2,
 }
 
-impl Default for AacProfile {
-    fn default() -> Self {
-        Self::Lc
-    }
-}

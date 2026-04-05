@@ -696,7 +696,7 @@ pub enum FreezeError {
 
 use std::sync::LazyLock;
 
-static FREEZE_MANAGER: LazyLock<FreezeManager> = LazyLock::new(|| FreezeManager::default());
+static FREEZE_MANAGER: LazyLock<FreezeManager> = LazyLock::new(FreezeManager::default);
 
 /// Freeze a track
 #[unsafe(no_mangle)]

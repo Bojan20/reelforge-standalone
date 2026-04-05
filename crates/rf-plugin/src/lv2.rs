@@ -381,7 +381,7 @@ fn regex_lite_find(text: &str, pattern: &str) -> Option<String> {
         .replace(r"\s", " ");
 
     // Search for prefix in text (case-insensitive search with whitespace normalization)
-    let normalized = text.replace('\t', " ").replace('\n', " ");
+    let normalized = text.replace(['\t', '\n'], " ");
     let lower = normalized.to_lowercase();
     let search = prefix_clean.to_lowercase().trim().to_string();
 
@@ -530,7 +530,7 @@ impl Lv2Host {
         }
 
         let manifest_content = std::fs::read_to_string(&manifest_path)
-            .map_err(|e| PluginError::IoError(e))?;
+            .map_err(PluginError::IoError)?;
 
         let manifest_data = parse_ttl_simple(&manifest_content);
 
@@ -887,11 +887,10 @@ impl Drop for Lv2PluginInstance {
     fn drop(&mut self) {
         if !self.handle.is_null() && !self.descriptor.is_null() {
             let desc = unsafe { &*self.descriptor };
-            if self.activated {
-                if let Some(deactivate) = desc.deactivate {
+            if self.activated
+                && let Some(deactivate) = desc.deactivate {
                     unsafe { deactivate(self.handle) };
                 }
-            }
             if let Some(cleanup) = desc.cleanup {
                 unsafe { cleanup(self.handle) };
             }

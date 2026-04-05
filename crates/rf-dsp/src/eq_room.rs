@@ -340,8 +340,8 @@ impl RoomMeasurement {
             let low_bin = (low_freq * ROOM_FFT_SIZE as f64 / self.sample_rate) as usize;
             let high_bin = (high_freq * ROOM_FFT_SIZE as f64 / self.sample_rate) as usize;
 
-            let low_bin = low_bin.max(0).min(db.len() - 1);
-            let high_bin = high_bin.max(0).min(db.len() - 1);
+            let low_bin = low_bin.min(db.len() - 1);
+            let high_bin = high_bin.min(db.len() - 1);
 
             if high_bin > low_bin {
                 let sum: f64 = db[low_bin..=high_bin].iter().sum();

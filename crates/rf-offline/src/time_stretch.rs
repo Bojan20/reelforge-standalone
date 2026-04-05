@@ -18,8 +18,10 @@ use crate::pipeline::AudioBuffer;
 
 /// Time-stretch algorithm
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum TimeStretchAlgorithm {
     /// Phase vocoder (best for music)
+    #[default]
     PhaseVocoder,
     /// WSOLA (best for speech)
     Wsola,
@@ -27,18 +29,15 @@ pub enum TimeStretchAlgorithm {
     Elastique,
 }
 
-impl Default for TimeStretchAlgorithm {
-    fn default() -> Self {
-        Self::PhaseVocoder
-    }
-}
 
 /// Time-stretch quality
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum TimeStretchQuality {
     /// Fast (512 FFT)
     Fast,
     /// Normal (2048 FFT)
+    #[default]
     Normal,
     /// High (4096 FFT)
     High,
@@ -46,11 +45,6 @@ pub enum TimeStretchQuality {
     Maximum,
 }
 
-impl Default for TimeStretchQuality {
-    fn default() -> Self {
-        Self::Normal
-    }
-}
 
 impl TimeStretchQuality {
     /// Get FFT size for quality level

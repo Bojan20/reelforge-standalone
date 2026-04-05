@@ -337,7 +337,7 @@ impl DWT {
 
         // Right extension
         for i in 0..pad {
-            let idx = (n - 2 - i).max(0);
+            let idx = n - 2 - i;
             extended.push(signal[idx]);
         }
 

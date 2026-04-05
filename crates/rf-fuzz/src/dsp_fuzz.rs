@@ -504,11 +504,10 @@ pub fn fuzz_gain_to_db_conversion(config: &FuzzConfig) -> FuzzResult {
             }
 
             // Specific property checks
-            if *gain <= 0.0 {
-                if *db != f64::NEG_INFINITY {
+            if *gain <= 0.0
+                && *db != f64::NEG_INFINITY {
                     return Err(format!("gain_to_db({}) should be -Inf, got {}", gain, db));
                 }
-            }
 
             // Round-trip accuracy for positive finite gains where dB doesn't overflow
             if *gain > 1e-15 && db.is_finite() && roundtrip.is_finite() {
@@ -543,7 +542,7 @@ pub fn fuzz_db_to_gain_extremes(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_with_validation(
         |rng| rng.f64(), // includes NaN, Inf, edge cases
-        |db| db_to_gain(db),
+        db_to_gain,
         |input, output| {
             // db_to_gain of finite input must be non-negative
             if input.is_finite() && (*output < 0.0 || output.is_nan()) {

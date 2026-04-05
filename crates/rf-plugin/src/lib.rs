@@ -79,12 +79,11 @@ pub fn find_plugin_host_binary() -> Option<std::path::PathBuf> {
     ];
 
     for candidate in &candidates {
-        if let Some(path) = candidate {
-            if path.exists() {
+        if let Some(path) = candidate
+            && path.exists() {
                 eprintln!("[FluxForge] Found rf-plugin-host at {:?}", path);
                 return Some(path.clone());
             }
-        }
     }
 
     eprintln!("[FluxForge] rf-plugin-host NOT FOUND in any location");

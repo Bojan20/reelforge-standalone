@@ -1,7 +1,6 @@
 //! Advanced Looping System — Unit Tests (T-01 through T-16+)
 
 use rf_engine::loop_asset::*;
-use rf_engine::loop_instance::*;
 use rf_engine::loop_manager::*;
 use rf_engine::loop_qa::*;
 use rf_engine::marker_ingest::*;

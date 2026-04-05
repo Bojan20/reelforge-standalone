@@ -284,7 +284,7 @@ impl AudioEncoder for AiffEncoder {
         let bytes_per_sample = (bit_depth / 8) as u32;
 
         // Apply dithering if needed
-        let dithered = apply_dithering(&buffer.samples, bit_depth, self.config.dithering.clone());
+        let dithered = apply_dithering(&buffer.samples, bit_depth, self.config.dithering);
 
         let num_frames = dithered.len() / buffer.channels;
         let sound_data_size = num_frames as u32 * channels as u32 * bytes_per_sample;
@@ -1324,12 +1324,12 @@ mod tests {
         assert!(q_low < q_mid, "Low quality should be less than mid");
         assert!(q_mid < q_high, "Mid quality should be less than high");
         assert!(
-            q_low >= -0.15 && q_low <= 0.0,
+            (-0.15..=0.0).contains(&q_low),
             "Quality -1 should map to ~-0.1, got {}",
             q_low
         );
         assert!(
-            q_high >= 0.9 && q_high <= 1.05,
+            (0.9..=1.05).contains(&q_high),
             "Quality 10 should map to ~1.0, got {}",
             q_high
         );

@@ -78,7 +78,7 @@ impl CertificationGate {
     }
 
     pub fn is_certified(&self) -> bool {
-        self.last_result.as_ref().map_or(false, |r| r.certified)
+        self.last_result.as_ref().is_some_and(|r| r.certified)
     }
 
     pub fn manifest(&self) -> &FluxManifest {
@@ -112,7 +112,7 @@ impl CertificationGate {
         let mut blocking_failures = Vec::new();
 
         // Stage 1: PBSE
-        let pbse_pass = pbse_result.map_or(false, |r| r.all_passed);
+        let pbse_pass = pbse_result.is_some_and(|r| r.all_passed);
         stages.push(StageResult {
             name: "PBSE",
             passed: pbse_pass,
@@ -291,7 +291,7 @@ impl Default for CertificationGate {
 mod tests {
     use super::*;
     use crate::core::engine::AurexisEngine;
-    use crate::qa::pbse::{PbseResult, PreBakeSimulator};
+    use crate::qa::pbse::PreBakeSimulator;
 
     fn test_steps() -> Vec<SimulationStep> {
         (0..50)

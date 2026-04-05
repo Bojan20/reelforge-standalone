@@ -19,8 +19,10 @@ use super::{
 
 /// Pick bonus game style
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum PickBonusStyle {
     /// Pick boxes with prizes
+    #[default]
     Boxes,
     /// Pick golden eggs
     Eggs,
@@ -32,11 +34,6 @@ pub enum PickBonusStyle {
     Custom,
 }
 
-impl Default for PickBonusStyle {
-    fn default() -> Self {
-        Self::Boxes
-    }
-}
 
 /// Prize type that can be revealed
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -193,7 +190,7 @@ impl PickBonusChapter {
             seed = (seed * 1103515245.0 + 12345.0) % 2147483648.0;
             let normalized = seed / 2147483648.0;
 
-            let idx = (self.config.end_game_count + 1 + i) as u8;
+            let idx = self.config.end_game_count + 1 + i;
             let prize = if normalized < self.config.jackpot_chance {
                 // Jackpot
                 let tier = ((normalized * 4.0 / self.config.jackpot_chance) as u8).min(3);

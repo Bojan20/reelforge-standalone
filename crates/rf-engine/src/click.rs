@@ -809,11 +809,7 @@ impl ClickTrack {
 
         // Average intervals from last N taps (max 8)
         let _usable = self.tap_count.min(8);
-        let start_idx = if self.tap_count > 8 {
-            self.tap_count - 8
-        } else {
-            0
-        };
+        let start_idx = self.tap_count.saturating_sub(8);
 
         let mut total_interval = 0u64;
         let mut count = 0u64;
@@ -1001,8 +997,8 @@ impl ClickTrack {
             let tick = self.samples_to_ticks_accurate(sample_pos);
 
             // Only trigger once per tick position
-            if tick != self.last_trigger_tick {
-                if let Some((is_downbeat, is_subdivision)) =
+            if tick != self.last_trigger_tick
+                && let Some((is_downbeat, is_subdivision)) =
                     self.should_trigger(tick, beats_per_bar)
                 {
                     let ticks_per_beat = self.ppq as u64;
@@ -1010,7 +1006,6 @@ impl ClickTrack {
                     self.trigger(beat_in_bar, is_downbeat, is_subdivision);
                     self.last_trigger_tick = tick;
                 }
-            }
 
             // Render current click sound sample-by-sample with per-sound volumes
             self.render_sample(output_l, output_r, frame);

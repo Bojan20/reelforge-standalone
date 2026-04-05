@@ -1458,11 +1458,10 @@ impl AutomationItemManager {
             }
         };
         // Decrement pool ref count (items lock released)
-        if let Some(pid) = pool_id {
-            if let Some(pool) = self.pools.write().get_mut(&pid) {
+        if let Some(pid) = pool_id
+            && let Some(pool) = self.pools.write().get_mut(&pid) {
                 pool.ref_count = pool.ref_count.saturating_sub(1);
             }
-        }
         true
     }
 
@@ -1511,11 +1510,10 @@ impl AutomationItemManager {
             new_item.start_samples = item.end_samples();
         }
         // If pooled, increment ref count
-        if let Some(pool_id) = new_item.pool_id {
-            if let Some(pool) = self.pools.write().get_mut(&pool_id) {
+        if let Some(pool_id) = new_item.pool_id
+            && let Some(pool) = self.pools.write().get_mut(&pool_id) {
                 pool.ref_count += 1;
             }
-        }
         let id = self.add_item(param_id, new_item);
         Some(id)
     }
@@ -1651,16 +1649,14 @@ impl AutomationItemManager {
             }
 
             // If pooled, use pool shape reference (zero alloc); otherwise use item's own
-            if let Some(pool_id) = item.pool_id {
-                if let Some(ref pools_guard) = pools {
-                    if let Some(pool) = pools_guard.get(&pool_id) {
+            if let Some(pool_id) = item.pool_id
+                && let Some(ref pools_guard) = pools
+                    && let Some(pool) = pools_guard.get(&pool_id) {
                         total_offset += item.value_offset_at_with_shape(
                             &pool.shape, sample, self.sample_rate,
                         );
                         continue;
                     }
-                }
-            }
             total_offset += item.value_offset_at(sample, self.sample_rate);
         }
 

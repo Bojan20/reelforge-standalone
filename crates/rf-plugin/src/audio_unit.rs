@@ -623,10 +623,8 @@ impl PluginInstance for AudioUnitInstance {
                     std::thread::spawn(move || {
                         if let Some(stdout) = child.stdout.take() {
                             let reader = std::io::BufReader::new(stdout);
-                            for line in reader.lines() {
-                                if let Ok(line) = line {
-                                    eprintln!("[FluxForge] plugin-host: {}", line);
-                                }
+                            for line in reader.lines().flatten() {
+                                eprintln!("[FluxForge] plugin-host: {}", line);
                             }
                         }
                         let _ = child.wait();
@@ -636,12 +634,12 @@ impl PluginInstance for AudioUnitInstance {
 
                     self.editor_open.store(true, Ordering::SeqCst);
                     eprintln!("[FluxForge] rf-plugin-host spawned for '{}'", plugin_name);
-                    return Ok(());
+                    Ok(())
                 }
                 None => {
-                    return Err(PluginError::InitError(
+                    Err(PluginError::InitError(
                         "rf-plugin-host binary not found".into(),
-                    ));
+                    ))
                 }
             }
         }

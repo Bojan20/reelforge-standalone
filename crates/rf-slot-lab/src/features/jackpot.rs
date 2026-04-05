@@ -164,11 +164,10 @@ impl JackpotChapter {
         self.state.won_tier = Some(tier);
         self.state.won_amount = amount;
 
-        if let Some(tier_config) = self.config.tiers.get(tier) {
-            if let Some(value) = self.state.current_values.get_mut(tier) {
+        if let Some(tier_config) = self.config.tiers.get(tier)
+            && let Some(value) = self.state.current_values.get_mut(tier) {
                 *value = tier_config.seed;
             }
-        }
 
         amount
     }
@@ -260,11 +259,10 @@ impl FeatureChapter for JackpotChapter {
         self.state.is_active = snapshot.is_active;
         self.state.won_amount = snapshot.accumulated_win;
 
-        if let Some(values) = snapshot.data.get("current_values") {
-            if let Ok(v) = serde_json::from_value::<Vec<f64>>(values.clone()) {
+        if let Some(values) = snapshot.data.get("current_values")
+            && let Ok(v) = serde_json::from_value::<Vec<f64>>(values.clone()) {
                 self.state.current_values = v;
             }
-        }
         if let Some(contrib) = snapshot
             .data
             .get("total_contributions")
@@ -329,7 +327,7 @@ impl FeatureChapter for JackpotChapter {
         let trigger_time = timing.advance(500.0);
         events.push(StageEvent::new(
             Stage::JackpotTrigger {
-                tier: tier_enum.clone(),
+                tier: tier_enum,
             },
             trigger_time,
         ));
@@ -338,7 +336,7 @@ impl FeatureChapter for JackpotChapter {
         let buildup_time = timing.advance(2000.0);
         events.push(StageEvent::new(
             Stage::JackpotBuildup {
-                tier: tier_enum.clone(),
+                tier: tier_enum,
             },
             buildup_time,
         ));
@@ -347,7 +345,7 @@ impl FeatureChapter for JackpotChapter {
         let reveal_time = timing.advance(1000.0);
         events.push(StageEvent::new(
             Stage::JackpotReveal {
-                tier: tier_enum.clone(),
+                tier: tier_enum,
                 amount,
             },
             reveal_time,
@@ -357,7 +355,7 @@ impl FeatureChapter for JackpotChapter {
         let present_time = timing.advance(5000.0);
         events.push(StageEvent::new(
             Stage::JackpotPresent {
-                tier: tier_enum.clone(),
+                tier: tier_enum,
                 amount,
             },
             present_time,
@@ -367,7 +365,7 @@ impl FeatureChapter for JackpotChapter {
         let celebration_time = timing.advance(500.0);
         events.push(StageEvent::new(
             Stage::JackpotCelebration {
-                tier: tier_enum.clone(),
+                tier: tier_enum,
                 amount,
             },
             celebration_time,

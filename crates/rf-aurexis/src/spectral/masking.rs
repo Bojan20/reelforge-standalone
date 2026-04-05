@@ -110,7 +110,7 @@ impl MaskingResolver {
     pub fn compute_slot_shift(original: SpectralBand, shift_index: u32) -> SpectralBand {
         let bw = original.bandwidth();
         // Alternate: even shifts go up, odd shifts go down
-        let offset = if shift_index % 2 == 0 {
+        let offset = if shift_index.is_multiple_of(2) {
             bw * 0.3 * ((shift_index / 2 + 1) as f64)
         } else {
             -(bw * 0.3 * ((shift_index / 2 + 1) as f64))

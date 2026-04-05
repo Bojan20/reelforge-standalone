@@ -181,13 +181,11 @@ pub extern "C" fn routing_poll_response(callback_id: u32) -> i32 {
                     CHANNEL_COUNT.fetch_add(1, std::sync::atomic::Ordering::Release);
 
                     // Move from pending to registry
-                    if let Ok(mut pending) = PENDING_CREATIONS.write() {
-                        if let Some(entry) = pending.remove(&resp_id) {
-                            if let Ok(mut registry) = CHANNEL_REGISTRY.write() {
+                    if let Ok(mut pending) = PENDING_CREATIONS.write()
+                        && let Some(entry) = pending.remove(&resp_id)
+                            && let Ok(mut registry) = CHANNEL_REGISTRY.write() {
                                 registry.insert(channel_id.0, entry);
                             }
-                        }
-                    }
 
                     if resp_id == callback_id {
                         return channel_id.0 as i32;

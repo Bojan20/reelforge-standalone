@@ -215,7 +215,7 @@ fn generate_release_summary(
                 qa.test_name, status, qa.details
             ));
         }
-        md.push_str("\n");
+        md.push('\n');
     }
 
     md.push_str("## Artifacts\n\n");

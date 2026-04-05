@@ -753,7 +753,7 @@ fn read_wav_metadata(path: &Path) -> FileResult<AudioMetadata> {
 
         // Move to next chunk (pad to word boundary)
         pos += 8 + chunk_size;
-        if pos % 2 != 0 {
+        if !pos.is_multiple_of(2) {
             pos += 1;
         }
     }

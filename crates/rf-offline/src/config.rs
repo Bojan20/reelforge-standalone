@@ -67,36 +67,30 @@ impl OfflineConfig {
 
 /// Dithering algorithm for bit depth reduction
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum DitheringMode {
     /// No dithering (truncation)
     None,
     /// Rectangular PDF dither
     Rectangular,
     /// Triangular PDF dither (recommended)
+    #[default]
     Triangular,
     /// Noise-shaped dithering (best quality)
     NoiseShaped,
 }
 
-impl Default for DitheringMode {
-    fn default() -> Self {
-        Self::Triangular
-    }
-}
 
 /// Sample rate conversion quality
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum SrcQuality {
     /// Fast, lower quality
     Quick,
     /// Medium quality
+    #[default]
     Medium,
     /// Best quality (slower)
     Best,
 }
 
-impl Default for SrcQuality {
-    fn default() -> Self {
-        Self::Medium
-    }
-}

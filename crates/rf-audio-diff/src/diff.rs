@@ -135,8 +135,8 @@ impl DiffResult {
     pub fn detailed_report(&self) -> String {
         let mut report = String::new();
 
-        report.push_str(&format!("Audio Diff Report\n"));
-        report.push_str(&format!("================\n\n"));
+        report.push_str("Audio Diff Report\n");
+        report.push_str("================\n\n");
 
         report.push_str(&format!(
             "Result: {}\n\n",

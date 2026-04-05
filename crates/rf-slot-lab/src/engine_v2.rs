@@ -665,12 +665,10 @@ impl SlotEngineV2 {
         if let Some(feature) = self
             .features
             .get_mut(&crate::features::FeatureId::new("hold_and_win"))
-        {
-            if !feature.is_active() && feature.can_activate(&activation_ctx) {
+            && !feature.is_active() && feature.can_activate(&activation_ctx) {
                 feature.activate(&activation_ctx);
                 return true;
             }
-        }
         false
     }
 
@@ -691,13 +689,11 @@ impl SlotEngineV2 {
         if let Some(feature) = self
             .features
             .get_mut(&crate::features::FeatureId::new("hold_and_win"))
-        {
-            if feature.is_active() {
+            && feature.is_active() {
                 let total = feature.snapshot().accumulated_win;
                 feature.deactivate();
                 return total;
             }
-        }
         0.0
     }
 
@@ -763,12 +759,10 @@ impl SlotEngineV2 {
         if let Some(feature) = self
             .features
             .get_mut(&crate::features::FeatureId::new("pick_bonus"))
-        {
-            if !feature.is_active() && feature.can_activate(&activation_ctx) {
+            && !feature.is_active() && feature.can_activate(&activation_ctx) {
                 feature.activate(&activation_ctx);
                 return true;
             }
-        }
         false
     }
 
@@ -819,13 +813,11 @@ impl SlotEngineV2 {
         if let Some(feature) = self
             .features
             .get_mut(&crate::features::FeatureId::new("pick_bonus"))
-        {
-            if feature.is_active() {
+            && feature.is_active() {
                 let total = feature.snapshot().accumulated_win;
                 feature.deactivate();
                 return total;
             }
-        }
         0.0
     }
 
@@ -891,12 +883,10 @@ impl SlotEngineV2 {
         if let Some(feature) = self
             .features
             .get_mut(&crate::features::FeatureId::new("gamble"))
-        {
-            if !feature.is_active() && feature.can_activate(&activation_ctx) {
+            && !feature.is_active() && feature.can_activate(&activation_ctx) {
                 feature.activate(&activation_ctx);
                 return true;
             }
-        }
         false
     }
 
@@ -940,13 +930,11 @@ impl SlotEngineV2 {
         if let Some(feature) = self
             .features
             .get_mut(&crate::features::FeatureId::new("gamble"))
-        {
-            if feature.is_active() {
+            && feature.is_active() {
                 let total = feature.snapshot().accumulated_win;
                 feature.deactivate();
                 return total;
             }
-        }
         0.0
     }
 
@@ -1068,12 +1056,10 @@ impl SlotEngineV2 {
         if let Some(feature) = self
             .features
             .get_mut(&crate::features::FeatureId::new("jackpot"))
-        {
-            if feature.can_activate(&activation_ctx) {
+            && feature.can_activate(&activation_ctx) {
                 feature.activate(&activation_ctx);
                 return true;
             }
-        }
         false
     }
 
@@ -1082,13 +1068,11 @@ impl SlotEngineV2 {
         if let Some(feature) = self
             .features
             .get_mut(&crate::features::FeatureId::new("jackpot"))
-        {
-            if feature.is_active() {
+            && feature.is_active() {
                 let total = feature.snapshot().accumulated_win;
                 feature.deactivate();
                 return total;
             }
-        }
         0.0
     }
 
@@ -1153,7 +1137,7 @@ impl SlotEngineV2 {
             .get(&crate::features::FeatureId::new("free_spins"))
             .and_then(|f| {
                 let snapshot = f.snapshot();
-                snapshot.total_steps.map(|s| s as u32)
+                snapshot.total_steps.map(|s| s)
             })
             .unwrap_or(0)
     }
@@ -1185,12 +1169,10 @@ impl SlotEngineV2 {
         if let Some(feature) = self
             .features
             .get_mut(&crate::features::FeatureId::new("free_spins"))
-        {
-            if !feature.is_active() && feature.can_activate(&activation_ctx) {
+            && !feature.is_active() && feature.can_activate(&activation_ctx) {
                 feature.activate(&activation_ctx);
                 return true;
             }
-        }
         false
     }
 
@@ -1199,14 +1181,12 @@ impl SlotEngineV2 {
         if let Some(feature) = self
             .features
             .get_mut(&crate::features::FeatureId::new("free_spins"))
-        {
-            if feature.is_active() {
+            && feature.is_active() {
                 // Use configure to add spins
                 let mut config = crate::features::FeatureConfig::new();
                 config.set("add_spins", extra_spins);
                 return feature.configure(&config).is_ok();
             }
-        }
         false
     }
 
@@ -1215,13 +1195,11 @@ impl SlotEngineV2 {
         if let Some(feature) = self
             .features
             .get_mut(&crate::features::FeatureId::new("free_spins"))
-        {
-            if feature.is_active() {
+            && feature.is_active() {
                 let total = feature.snapshot().accumulated_win;
                 feature.deactivate();
                 return total;
             }
-        }
         0.0
     }
 
@@ -1264,7 +1242,7 @@ impl SlotEngineV2 {
     pub fn cascade_current_step(&self) -> u32 {
         self.features
             .get(&crate::features::FeatureId::new("cascades"))
-            .map(|f| f.snapshot().current_step as u32)
+            .map(|f| f.snapshot().current_step)
             .unwrap_or(0)
     }
 
@@ -1305,12 +1283,10 @@ impl SlotEngineV2 {
         if let Some(feature) = self
             .features
             .get_mut(&crate::features::FeatureId::new("cascades"))
-        {
-            if !feature.is_active() && feature.can_activate(&activation_ctx) {
+            && !feature.is_active() && feature.can_activate(&activation_ctx) {
                 feature.activate(&activation_ctx);
                 return true;
             }
-        }
         false
     }
 
@@ -1319,13 +1295,11 @@ impl SlotEngineV2 {
         if let Some(feature) = self
             .features
             .get_mut(&crate::features::FeatureId::new("cascades"))
-        {
-            if feature.is_active() {
+            && feature.is_active() {
                 let total = feature.snapshot().accumulated_win;
                 feature.deactivate();
                 return total;
             }
-        }
         0.0
     }
 

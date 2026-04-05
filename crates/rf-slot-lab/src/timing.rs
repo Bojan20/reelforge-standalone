@@ -4,8 +4,10 @@ use serde::{Deserialize, Serialize};
 
 /// Timing profile for stage events
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum TimingProfile {
     /// Normal gameplay timing
+    #[default]
     Normal,
     /// Fast/Turbo mode
     Turbo,
@@ -17,11 +19,6 @@ pub enum TimingProfile {
     Custom,
 }
 
-impl Default for TimingProfile {
-    fn default() -> Self {
-        Self::Normal
-    }
-}
 
 /// Anticipation TIMING configuration for industry-standard anticipation system
 /// NOTE: This handles timing/effects parameters. For trigger rules (which symbols,

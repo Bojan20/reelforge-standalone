@@ -712,8 +712,8 @@ impl DualPathEngine {
             ProcessingMode::RealTime => {
                 // Direct processing with fallback - minimum latency
                 // Use pre-allocated block from pool (no allocation!)
-                if let Some(ref mut guard) = self.fallback.try_lock() {
-                    if let Some(ref mut fallback) = **guard {
+                if let Some(ref mut guard) = self.fallback.try_lock()
+                    && let Some(ref mut fallback) = **guard {
                         let block_idx = self.realtime_block_idx.load(Ordering::Relaxed);
                         // SAFETY: We own this index exclusively for realtime processing
                         unsafe {
@@ -724,7 +724,6 @@ impl DualPathEngine {
                             }
                         }
                     }
-                }
             }
 
             ProcessingMode::Guard => {
@@ -899,8 +898,8 @@ impl DualPathEngine {
         if !got_output {
             self.stats.fallback_blocks.fetch_add(1, Ordering::Relaxed);
 
-            if let Some(ref mut guard) = self.fallback.try_lock() {
-                if let Some(ref mut fallback) = **guard {
+            if let Some(ref mut guard) = self.fallback.try_lock()
+                && let Some(ref mut fallback) = **guard {
                     let block_idx = self.fallback_block_idx.load(Ordering::Relaxed);
                     // SAFETY: We own this index exclusively for fallback
                     unsafe {
@@ -911,7 +910,6 @@ impl DualPathEngine {
                         }
                     }
                 }
-            }
         }
     }
 

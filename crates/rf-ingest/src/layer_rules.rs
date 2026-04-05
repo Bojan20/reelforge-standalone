@@ -139,11 +139,10 @@ impl RuleEngine {
                 continue;
             }
 
-            if self.evaluate_conditions(&rule.conditions, data, timestamp_ms) {
-                if let Some(stage) = self.create_stage(&rule.emit_stage, data, timestamp_ms) {
+            if self.evaluate_conditions(&rule.conditions, data, timestamp_ms)
+                && let Some(stage) = self.create_stage(&rule.emit_stage, data, timestamp_ms) {
                     events.push(stage);
                 }
-            }
         }
 
         self.previous_data = Some(data.clone());

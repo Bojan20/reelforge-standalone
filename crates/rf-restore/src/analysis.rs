@@ -266,14 +266,13 @@ impl RestoreAnalyzer {
             ));
         }
 
-        if let Some(freq) = result.hum_frequency {
-            if result.hum_level_db > -50.0 {
+        if let Some(freq) = result.hum_frequency
+            && result.hum_level_db > -50.0 {
                 suggestions.push(format!(
                     "Dehum recommended: {:.0} Hz at {:.1} dB",
                     freq, result.hum_level_db
                 ));
             }
-        }
 
         if result.noise_floor_db > -50.0 {
             suggestions.push(format!(

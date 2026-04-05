@@ -297,12 +297,11 @@ impl InsertSlot {
         sc_right: Option<&[Sample]>,
     ) {
         // Feed sidechain to processor if available
-        if let (Some(sl), Some(sr)) = (sc_left, sc_right) {
-            if let Some(ref mut processor) = self.processor {
+        if let (Some(sl), Some(sr)) = (sc_left, sc_right)
+            && let Some(ref mut processor) = self.processor {
                 let len = left.len().min(sl.len()).min(sr.len());
                 processor.set_sidechain_input(&sl[..len], &sr[..len]);
             }
-        }
         self.process(left, right);
     }
 
@@ -457,11 +456,10 @@ impl InsertSlot {
 
     /// Get processor parameter (or InsertSlot mix if intercepted via slot_mix_param)
     pub fn get_processor_param(&self, index: usize) -> f64 {
-        if let Some(ref processor) = self.processor {
-            if processor.slot_mix_param() == Some(index) {
+        if let Some(ref processor) = self.processor
+            && processor.slot_mix_param() == Some(index) {
                 return self.mix();
             }
-        }
         self.processor
             .as_ref()
             .map(|p| p.get_param(index))
@@ -706,12 +704,11 @@ impl InsertChain {
     ) {
         for slot in &mut self.pre_slots {
             let sc_source = slot.get_sidechain_source();
-            if sc_source >= 0 {
-                if let Some(&(sc_l, sc_r)) = sidechain_buffers.get(&sc_source) {
+            if sc_source >= 0
+                && let Some(&(sc_l, sc_r)) = sidechain_buffers.get(&sc_source) {
                     slot.process_with_sidechain(left, right, Some(sc_l), Some(sc_r));
                     continue;
                 }
-            }
             slot.process(left, right);
         }
     }
@@ -734,12 +731,11 @@ impl InsertChain {
     ) {
         for slot in &mut self.post_slots {
             let sc_source = slot.get_sidechain_source();
-            if sc_source >= 0 {
-                if let Some(&(sc_l, sc_r)) = sidechain_buffers.get(&sc_source) {
+            if sc_source >= 0
+                && let Some(&(sc_l, sc_r)) = sidechain_buffers.get(&sc_source) {
                     slot.process_with_sidechain(left, right, Some(sc_l), Some(sc_r));
                     continue;
                 }
-            }
             slot.process(left, right);
         }
     }

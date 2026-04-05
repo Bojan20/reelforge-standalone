@@ -418,12 +418,11 @@ impl Chord {
 
         let mut name = format!("{}{}", note_names[self.root as usize], quality_str);
 
-        if let Some(bass) = self.bass {
-            if bass != self.root {
+        if let Some(bass) = self.bass
+            && bass != self.root {
                 name.push('/');
                 name.push_str(note_names[bass as usize]);
             }
-        }
 
         name
     }

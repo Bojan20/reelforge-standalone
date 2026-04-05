@@ -482,11 +482,10 @@ impl QualityGateRunner {
             self.check_dc_offset(&metrics, dc_gate, &mut checks);
         }
 
-        if let Some(ref stereo_gate) = self.config.stereo {
-            if let Some(corr) = metrics.stereo_correlation {
+        if let Some(ref stereo_gate) = self.config.stereo
+            && let Some(corr) = metrics.stereo_correlation {
                 self.check_stereo(corr, stereo_gate, &mut checks);
             }
-        }
 
         let passed = checks
             .iter()

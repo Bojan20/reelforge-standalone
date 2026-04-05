@@ -19,10 +19,12 @@ use crate::kaiser;
 
 /// Quality preset for the resampler
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Default)]
 pub enum R8brainQuality {
     /// 206.91 dB — reference quality (27-bit)
     Quality206,
     /// 180.15 dB — high quality (24-bit / 32-bit float)
+    #[default]
     Quality180,
     /// 136.45 dB — standard quality (16-bit)
     Quality136,
@@ -48,11 +50,6 @@ impl R8brainQuality {
     }
 }
 
-impl Default for R8brainQuality {
-    fn default() -> Self {
-        Self::Quality180
-    }
-}
 
 /// R8brain resampler — multi-stage pipeline.
 ///

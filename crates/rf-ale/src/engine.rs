@@ -566,7 +566,7 @@ impl AdaptiveLayerEngine {
 mod tests {
     use super::*;
     use crate::context::{Context, Layer};
-    use crate::rules::{Action, ComparisonOp, Condition, SimpleCondition};
+    
 
     fn create_test_engine() -> AdaptiveLayerEngine {
         let (_, _, cmd_rx, state_tx) = AdaptiveLayerEngine::create_channels();
@@ -605,7 +605,7 @@ mod tests {
 
     #[test]
     fn test_layer_volumes_no_transition() {
-        let mut engine = create_test_engine();
+        let engine = create_test_engine();
         engine.current_level.store(2, Ordering::Release);
 
         let volumes = engine.calculate_layer_volumes();

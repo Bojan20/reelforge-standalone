@@ -224,15 +224,14 @@ impl AtmosRenderer {
                 }
 
                 // LFE management
-                if self.config.lfe_management {
-                    if let Some(lfe_idx) = self.config.layout.speakers.iter().position(|s| s.is_lfe)
+                if self.config.lfe_management
+                    && let Some(lfe_idx) = self.config.layout.speakers.iter().position(|s| s.is_lfe)
                     {
                         let lfe_sample = self.process_lfe(sample);
                         if lfe_idx < output.len() && s < output[lfe_idx].len() {
                             output[lfe_idx][s] += lfe_sample * obj.gain * 0.707;
                         }
                     }
-                }
             }
         }
 

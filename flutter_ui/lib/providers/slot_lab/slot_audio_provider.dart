@@ -20,7 +20,6 @@ import '../../services/audio_asset_manager.dart';
 import 'package:get_it/get_it.dart';
 import '../middleware_provider.dart';
 import '../../src/rust/native_ffi.dart';
-import '../middleware_provider.dart';
 import '../ale_provider.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════

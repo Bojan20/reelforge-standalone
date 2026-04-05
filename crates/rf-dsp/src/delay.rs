@@ -770,6 +770,12 @@ pub struct ModulationMatrix {
     pub env_routes: Vec<ModRoute>,
 }
 
+impl Default for ModulationMatrix {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ModulationMatrix {
     pub fn new() -> Self {
         Self {

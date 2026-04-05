@@ -736,7 +736,7 @@ impl CorrelationMeter {
         self.write_pos = (self.write_pos + 1) % self.window_size;
 
         // Calculate correlation periodically (every 256 samples)
-        if self.write_pos % 256 == 0 {
+        if self.write_pos.is_multiple_of(256) {
             self.update_correlation();
         }
     }

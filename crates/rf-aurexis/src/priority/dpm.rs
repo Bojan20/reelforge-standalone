@@ -466,7 +466,7 @@ impl DynamicPriorityMatrix {
             "MegawaysStyle",
         ];
         let event_names: Vec<&str> = (0..8)
-            .filter_map(|i| EventType::from_index(i))
+            .filter_map(EventType::from_index)
             .map(|e| e.name())
             .collect();
 

@@ -1344,11 +1344,7 @@ impl OneShotVoice {
             // current_source_pos tracks actual position in source sample space
             let current_source_pos = self.position + (frame as f64 * combined_rate) as u64;
             if self.fade_out_samples_at_end > 0 && self.fade_samples_remaining == 0 {
-                let samples_to_end = if effective_end > current_source_pos {
-                    effective_end - current_source_pos
-                } else {
-                    0
-                };
+                let samples_to_end = effective_end.saturating_sub(current_source_pos);
                 if samples_to_end <= self.fade_out_samples_at_end && samples_to_end > 0 {
                     // Start fade-out automatically near the end
                     self.fade_samples_remaining = samples_to_end;
@@ -2553,24 +2549,22 @@ impl PlaybackEngine {
         plugin_channels: u8,
     ) -> bool {
         let mut chains = self.insert_chains.write();
-        if let Some(chain) = chains.get_mut(&track_id) {
-            if let Some(slot) = chain.slot_mut(slot_index) {
+        if let Some(chain) = chains.get_mut(&track_id)
+            && let Some(slot) = chain.slot_mut(slot_index) {
                 slot.enable_pin_connector(host_channels, plugin_channels);
                 return true;
             }
-        }
         false
     }
 
     /// Disable pin connector on a track insert slot
     pub fn disable_track_pin_connector(&self, track_id: u64, slot_index: usize) -> bool {
         let mut chains = self.insert_chains.write();
-        if let Some(chain) = chains.get_mut(&track_id) {
-            if let Some(slot) = chain.slot_mut(slot_index) {
+        if let Some(chain) = chains.get_mut(&track_id)
+            && let Some(slot) = chain.slot_mut(slot_index) {
                 slot.disable_pin_connector();
                 return true;
             }
-        }
         false
     }
 
@@ -2592,14 +2586,12 @@ impl PlaybackEngine {
         };
 
         let mut chains = self.insert_chains.write();
-        if let Some(chain) = chains.get_mut(&track_id) {
-            if let Some(slot) = chain.slot_mut(slot_index) {
-                if let Some(pc) = slot.pin_connector_mut() {
+        if let Some(chain) = chains.get_mut(&track_id)
+            && let Some(slot) = chain.slot_mut(slot_index)
+                && let Some(pc) = slot.pin_connector_mut() {
                     pc.set_mode(routing_mode);
                     return true;
                 }
-            }
-        }
         false
     }
 
@@ -2613,14 +2605,12 @@ impl PlaybackEngine {
         gain: f64,
     ) -> bool {
         let mut chains = self.insert_chains.write();
-        if let Some(chain) = chains.get_mut(&track_id) {
-            if let Some(slot) = chain.slot_mut(slot_index) {
-                if let Some(pc) = slot.pin_connector_mut() {
+        if let Some(chain) = chains.get_mut(&track_id)
+            && let Some(slot) = chain.slot_mut(slot_index)
+                && let Some(pc) = slot.pin_connector_mut() {
                     pc.set_input_gain(src_ch, dst_ch, gain);
                     return true;
                 }
-            }
-        }
         false
     }
 
@@ -2634,23 +2624,21 @@ impl PlaybackEngine {
         gain: f64,
     ) -> bool {
         let mut chains = self.insert_chains.write();
-        if let Some(chain) = chains.get_mut(&track_id) {
-            if let Some(slot) = chain.slot_mut(slot_index) {
-                if let Some(pc) = slot.pin_connector_mut() {
+        if let Some(chain) = chains.get_mut(&track_id)
+            && let Some(slot) = chain.slot_mut(slot_index)
+                && let Some(pc) = slot.pin_connector_mut() {
                     pc.set_output_gain(src_ch, dst_ch, gain);
                     return true;
                 }
-            }
-        }
         false
     }
 
     /// Get pin connector configuration as JSON
     pub fn get_track_pin_config_json(&self, track_id: u64, slot_index: usize) -> Option<String> {
         let chains = self.insert_chains.read();
-        if let Some(chain) = chains.get(&track_id) {
-            if let Some(slot) = chain.slot(slot_index) {
-                if let Some(pc) = slot.pin_connector() {
+        if let Some(chain) = chains.get(&track_id)
+            && let Some(slot) = chain.slot(slot_index)
+                && let Some(pc) = slot.pin_connector() {
                     let mode = match pc.mode() {
                         crate::pin_connector::PinRoutingMode::Normal => "normal",
                         crate::pin_connector::PinRoutingMode::MultiMono => "multi_mono",
@@ -2683,8 +2671,6 @@ impl PlaybackEngine {
                         output_maps.join(","),
                     ));
                 }
-            }
-        }
         None
     }
 
@@ -3121,8 +3107,8 @@ impl PlaybackEngine {
         // Extract track compensation from result
         for (&node_id, &compensation) in &result.compensation {
             // Only store track compensations (bus compensations are handled differently)
-            if let Some(GraphNode::Track(track_id)) = GraphNode::from_node_id(node_id) {
-                if compensation > 0 {
+            if let Some(GraphNode::Track(track_id)) = GraphNode::from_node_id(node_id)
+                && compensation > 0 {
                     delays.insert(track_id, compensation);
                     log::debug!(
                         "[GraphPDC] Track {} compensation: {} samples ({:.2}ms @ 48kHz)",
@@ -3131,7 +3117,6 @@ impl PlaybackEngine {
                         compensation as f64 / 48.0
                     );
                 }
-            }
         }
 
         log::info!("[GraphPDC] Applied delays to {} tracks", delays.len());
@@ -3270,15 +3255,14 @@ impl PlaybackEngine {
             if change.track_id & 0xFFFF_0000 == 0xFFFF_0000 {
                 // Bus insert param change
                 let bus_id = (change.track_id & 0x0000_FFFF) as usize;
-                if bus_id < 6 {
-                    if let Some(mut bus_inserts) = self.bus_inserts.try_write() {
+                if bus_id < 6
+                    && let Some(mut bus_inserts) = self.bus_inserts.try_write() {
                         bus_inserts[bus_id].set_slot_param(
                             change.slot_index as usize,
                             change.param_index as usize,
                             change.value,
                         );
                     }
-                }
             } else if change.track_id == 0 {
                 // Master bus
                 if let Some(mut master) = self.master_insert.try_write() {
@@ -3320,13 +3304,11 @@ impl PlaybackEngine {
         slot_index: usize,
         source_id: i64,
     ) {
-        if let Some(mut chains) = self.insert_chains.try_write() {
-            if let Some(chain) = chains.get_mut(&track_id) {
-                if let Some(slot) = chain.slot_mut(slot_index) {
+        if let Some(mut chains) = self.insert_chains.try_write()
+            && let Some(chain) = chains.get_mut(&track_id)
+                && let Some(slot) = chain.slot_mut(slot_index) {
                     slot.set_sidechain_source(source_id);
                 }
-            }
-        }
     }
 
     /// Get sidechain source for a track insert slot
@@ -4839,8 +4821,8 @@ impl PlaybackEngine {
                     asset_id, region, volume, bus, use_dual_voice, play_pre_entry: _, fade_in_ms,
                 } => {
                     let assets = match self.loop_assets.try_read() { Some(a) => a, None => continue };
-                    if let Some(asset) = assets.get(&asset_id) {
-                        if asset.regions.iter().any(|r| r.name == region) {
+                    if let Some(asset) = assets.get(&asset_id)
+                        && asset.regions.iter().any(|r| r.name == region) {
                             let instance_id = instances.len() as u64 + 1;
                             let mut inst = crate::loop_instance::LoopInstance::new(
                                 instance_id,
@@ -4864,7 +4846,6 @@ impl PlaybackEngine {
                                 asset_id,
                             });
                         }
-                    }
                 }
                 crate::loop_manager::LoopCommand::Stop { instance_id, fade_out_ms } => {
                     if let Some(inst) = instances.iter_mut().find(|i| i.instance_id == instance_id) {
@@ -4918,13 +4899,11 @@ impl PlaybackEngine {
                 }
                 crate::loop_manager::LoopCommand::Exit { instance_id, sync, fade_out_ms, play_post_exit } => {
                     let assets = match self.loop_assets.try_read() { Some(a) => a, None => continue };
-                    if let Some(inst) = instances.iter_mut().find(|i| i.instance_id == instance_id) {
-                        if let Some(asset) = assets.get(&inst.asset_id) {
-                            if let Some(region) = asset.region_by_name(&inst.active_region) {
+                    if let Some(inst) = instances.iter_mut().find(|i| i.instance_id == instance_id)
+                        && let Some(asset) = assets.get(&inst.asset_id)
+                            && let Some(region) = asset.region_by_name(&inst.active_region) {
                                 inst.begin_exit(sync, fade_out_ms, play_post_exit.unwrap_or(false), region, asset, sample_rate);
                             }
-                        }
-                    }
                 }
                 crate::loop_manager::LoopCommand::Seek { instance_id, position_samples } => {
                     if let Some(inst) = instances.iter_mut().find(|i| i.instance_id == instance_id) {
@@ -5096,8 +5075,8 @@ impl PlaybackEngine {
                 inst.playhead_samples += 1;
 
                 // 12. Complete crossfade if done
-                if let Some(ref xf) = inst.crossfade {
-                    if xf.progress >= 1.0 {
+                if let Some(ref xf) = inst.crossfade
+                    && xf.progress >= 1.0 {
                         if let Some(ref target) = xf.target_region {
                             let old = inst.active_region.clone();
                             inst.active_region = target.clone();
@@ -5110,7 +5089,6 @@ impl PlaybackEngine {
                         }
                         inst.crossfade = None;
                     }
-                }
 
                 // 13. Check pending region switch at sync boundary
                 if inst.pending_region.is_some() {
@@ -5719,8 +5697,8 @@ impl PlaybackEngine {
 
                         // Process instrument plugin: empty audio in → audio out + MIDI
                         // Use pre-allocated buffers (zero audio-thread allocations)
-                        if let Some(mut plugin) = plugin_arc.try_write() {
-                            if let (Some(mut audio_in), Some(mut audio_out), Some(mut midi_out)) = (
+                        if let Some(mut plugin) = plugin_arc.try_write()
+                            && let (Some(mut audio_in), Some(mut audio_out), Some(mut midi_out)) = (
                                 self.instrument_audio_in.try_write(),
                                 self.instrument_audio_out.try_write(),
                                 self.instrument_midi_out.try_write(),
@@ -5754,7 +5732,6 @@ impl PlaybackEngine {
                                     }
                                 }
                             }
-                        }
                     }
                 }
                 // Skip audio clip rendering for instrument tracks — go straight to insert chain
@@ -6003,8 +5980,8 @@ impl PlaybackEngine {
             // ═══ PER-TRACK STEREO IMAGER (post-pan, pre-post-inserts) ═══
             // SSL canonical signal flow: Fader → Pan → **StereoImager** → Post-Inserts
             // Width, M/S processing, balance, rotation applied here
-            if let Some(mut imagers) = self.stereo_imagers.try_write() {
-                if let Some(imager) = imagers.get_mut(&(track.id.0 as u32)) {
+            if let Some(mut imagers) = self.stereo_imagers.try_write()
+                && let Some(imager) = imagers.get_mut(&(track.id.0 as u32)) {
                     use rf_dsp::StereoProcessor;
                     for i in 0..frames {
                         let (l, r) = imager.process_sample(track_l[i], track_r[i]);
@@ -6012,7 +5989,6 @@ impl PlaybackEngine {
                         track_r[i] = r;
                     }
                 }
-            }
 
             // Process track insert chain (post-fader inserts applied after volume)
             // Use try_write to avoid blocking audio thread - skip inserts if lock contended
@@ -6117,8 +6093,8 @@ impl PlaybackEngine {
 
                 // Route additional channel pairs from PinConnector output buffers.
                 // Single try_read() scope — atomic view of insert chain state.
-                if let Some(chains) = self.insert_chains.try_read() {
-                    if let Some(chain) = chains.get(&track.id.0) {
+                if let Some(chains) = self.insert_chains.try_read()
+                    && let Some(chain) = chains.get(&track.id.0) {
                         // Find multi-channel plugin (last loaded slot with >2 channels)
                         let mut plugin_channels = 2u8;
                         let mut multi_slot_idx = 0usize;
@@ -6146,7 +6122,6 @@ impl PlaybackEngine {
                             }
                         }
                     }
-                }
             }
         }
 
@@ -6597,8 +6572,8 @@ impl PlaybackEngine {
             }
             TargetType::Send => {
                 // Apply send level automation
-                if let Some(slot) = param_id.slot {
-                    if let Some(mut track) =
+                if let Some(slot) = param_id.slot
+                    && let Some(mut track) =
                         self.track_manager.tracks.get_mut(&TrackId(track_id))
                     {
                         let slot_idx = slot as usize;
@@ -6606,7 +6581,6 @@ impl PlaybackEngine {
                             track.sends[slot_idx].level = change.value.clamp(0.0, 1.0);
                         }
                     }
-                }
             }
             TargetType::Plugin => {
                 // Apply plugin parameter automation to insert chain
@@ -6855,7 +6829,7 @@ impl PlaybackEngine {
         let rate_ratio = source_sample_rate / sample_rate;
 
         // Convert source_offset (seconds) to samples in source sample rate
-        let source_offset_samples = (clip.source_offset * source_sample_rate) as f64;
+        let source_offset_samples = clip.source_offset * source_sample_rate;
 
         // Acquire sinc table ONCE per clip render call (non-blocking — skip clip if locked)
         let clip_resample_mode = playback_resample_mode();

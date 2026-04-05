@@ -87,7 +87,7 @@ impl SincTable {
     ///
     /// Uses Blackman-Harris 4-term window for optimal sidelobe suppression.
     pub fn new(sinc_size: usize, interp_resolution: usize) -> Self {
-        assert!(sinc_size >= 4 && sinc_size % 2 == 0, "sinc_size must be even and >= 4");
+        assert!(sinc_size >= 4 && sinc_size.is_multiple_of(2), "sinc_size must be even and >= 4");
         assert!(interp_resolution >= 1, "interp_resolution must be >= 1");
 
         let half = sinc_size / 2;

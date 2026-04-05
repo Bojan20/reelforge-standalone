@@ -925,7 +925,7 @@ impl Compressor {
             DetectionMode::Peak => self.envelope.process(signal),
             DetectionMode::Rms => {
                 // Running RMS calculation
-                self.rms_sum += (signal * signal) as f64;
+                self.rms_sum += signal * signal;
                 self.rms_count += 1;
                 if self.rms_count >= self.rms_window_samples.max(1) {
                     let rms = (self.rms_sum / self.rms_count as f64).sqrt();
@@ -938,8 +938,8 @@ impl Compressor {
             }
             DetectionMode::Hybrid => {
                 // Blend of peak and RMS (70% peak, 30% RMS)
-                let peak = signal.abs() as f64;
-                self.rms_sum += (signal * signal) as f64;
+                let peak = signal.abs();
+                self.rms_sum += signal * signal;
                 self.rms_count += 1;
                 let rms = if self.rms_count >= self.rms_window_samples.max(1) {
                     let r = (self.rms_sum / self.rms_count as f64).sqrt();
@@ -1075,7 +1075,7 @@ impl Compressor {
     #[inline]
     fn update_meters(&mut self, input: Sample, output: Sample) {
         // Input peak (fast attack, 300ms release)
-        let abs_in = input.abs() as f64;
+        let abs_in = input.abs();
         if abs_in > self.input_peak {
             self.input_peak = abs_in;
         } else {
@@ -1083,7 +1083,7 @@ impl Compressor {
         }
 
         // Output peak
-        let abs_out = output.abs() as f64;
+        let abs_out = output.abs();
         if abs_out > self.output_peak {
             self.output_peak = abs_out;
         } else {

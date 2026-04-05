@@ -347,12 +347,10 @@ impl CoverageReport {
             failures
         ));
 
-        output.push_str(&format!(
-            "  <testcase name=\"line_coverage\" classname=\"coverage\">\n"
-        ));
+        output.push_str("  <testcase name=\"line_coverage\" classname=\"coverage\">\n");
 
-        if !passed {
-            if let Some(ref result) = self.threshold_result {
+        if !passed
+            && let Some(ref result) = self.threshold_result {
                 let msg = result.failures.join("; ");
                 output.push_str(&format!(
                     "    <failure message=\"{}\">{:.1}% coverage</failure>\n",
@@ -360,7 +358,6 @@ impl CoverageReport {
                     self.data.total_line_coverage()
                 ));
             }
-        }
 
         output.push_str("  </testcase>\n");
         output.push_str("</testsuite>\n");

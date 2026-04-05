@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 /// Musical position in bars/beats/ticks.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct MusicalPosition {
     pub bar: u32,
     pub beat: u32,
@@ -36,15 +37,6 @@ impl MusicalPosition {
     }
 }
 
-impl Default for MusicalPosition {
-    fn default() -> Self {
-        Self {
-            bar: 0,
-            beat: 0,
-            tick: 0,
-        }
-    }
-}
 
 /// Gameplay position in frames and event context.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -221,6 +213,7 @@ impl GameplayTimeline {
 
 /// Dual Timeline — the core of GAD. Musical + Gameplay running in parallel.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct DualTimeline {
     pub musical: MusicalTimeline,
     pub gameplay: GameplayTimeline,
@@ -238,16 +231,6 @@ pub struct TimelineAnchor {
     pub hook: String,
 }
 
-impl Default for DualTimeline {
-    fn default() -> Self {
-        Self {
-            musical: MusicalTimeline::default(),
-            gameplay: GameplayTimeline::default(),
-            markers: Vec::new(),
-            anchors: Vec::new(),
-        }
-    }
-}
 
 impl DualTimeline {
     /// Create a new dual timeline with given tempo and length.

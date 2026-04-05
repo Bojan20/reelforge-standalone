@@ -2739,7 +2739,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     // instead of entire UltimateAudioPanel (which has 300+ widgets)
     return ValueListenableBuilder<int>(
       valueListenable: _expandChangeNotifier,
-      builder: (context, _, __) {
+      builder: (context, _, _) {
         final phases = _getVisiblePhases();
         return ListView.builder(
           padding: EdgeInsets.zero,

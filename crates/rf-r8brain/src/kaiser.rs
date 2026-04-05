@@ -102,7 +102,7 @@ pub fn filter_length(atten_db: f64, transition_width: f64) -> usize {
     let n = ((atten_db - 7.95) / (2.285 * 2.0 * PI * transition_width)).ceil() as usize;
     // Ensure odd length for symmetric filter
     let n = n.max(3);
-    if n % 2 == 0 { n + 1 } else { n }
+    if n.is_multiple_of(2) { n + 1 } else { n }
 }
 
 /// Power-raised Kaiser window — r8brain's variant for spectral concentration control.

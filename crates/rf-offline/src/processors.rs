@@ -121,19 +121,16 @@ pub enum ProcessorConfig {
 
 /// Fade curve types
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum FadeCurve {
     Linear,
     Logarithmic,
     Exponential,
     SCurve,
+    #[default]
     EqualPower,
 }
 
-impl Default for FadeCurve {
-    fn default() -> Self {
-        Self::EqualPower
-    }
-}
 
 impl FadeCurve {
     /// Calculate fade amount at position (0.0 - 1.0)

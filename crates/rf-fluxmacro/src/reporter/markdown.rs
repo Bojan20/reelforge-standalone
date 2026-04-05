@@ -48,7 +48,7 @@ impl Reporter for MarkdownReporter {
                     qa.test_name, status_icon, qa.duration_ms, qa.details
                 ));
             }
-            md.push_str("\n");
+            md.push('\n');
         }
 
         // Artifacts
@@ -59,7 +59,7 @@ impl Reporter for MarkdownReporter {
             for (name, path) in sorted {
                 md.push_str(&format!("- **{}**: `{}`\n", name, path.display()));
             }
-            md.push_str("\n");
+            md.push('\n');
         }
 
         // Warnings
@@ -68,7 +68,7 @@ impl Reporter for MarkdownReporter {
             for w in &ctx.warnings {
                 md.push_str(&format!("- {w}\n"));
             }
-            md.push_str("\n");
+            md.push('\n');
         }
 
         // Errors
@@ -77,7 +77,7 @@ impl Reporter for MarkdownReporter {
             for e in &ctx.errors {
                 md.push_str(&format!("- {e}\n"));
             }
-            md.push_str("\n");
+            md.push('\n');
         }
 
         // Summary metrics

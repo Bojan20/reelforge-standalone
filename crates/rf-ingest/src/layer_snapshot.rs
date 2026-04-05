@@ -128,9 +128,9 @@ fn extract_snapshot(
     }
 
     // Extract reel positions
-    if let Some(path) = &paths.reels_path {
-        if let Some(reels) = get_json_value(json, path) {
-            if let Some(arr) = reels.as_array() {
+    if let Some(path) = &paths.reels_path
+        && let Some(reels) = get_json_value(json, path)
+            && let Some(arr) = reels.as_array() {
                 state.reel_positions = arr
                     .iter()
                     .filter_map(|r| {
@@ -143,8 +143,6 @@ fn extract_snapshot(
                     })
                     .collect();
             }
-        }
-    }
 
     // Extract feature info
     if let Some(path) = &paths.feature_active_path {
@@ -171,11 +169,10 @@ fn compute_diff(prev: &GameSnapshot, curr: &GameSnapshot) -> Result<SnapshotDiff
     let timestamp = curr.timestamp_ms;
 
     // Check for spin start (balance decreased)
-    if let (Some(prev_bal), Some(curr_bal)) = (prev.state.balance, curr.state.balance) {
-        if curr_bal < prev_bal && prev.state.win_amount.is_none() {
+    if let (Some(prev_bal), Some(curr_bal)) = (prev.state.balance, curr.state.balance)
+        && curr_bal < prev_bal && prev.state.win_amount.is_none() {
             stages.push(StageEvent::new(Stage::UiSpinPress, timestamp));
         }
-    }
 
     // Check for reel stops
     let prev_stopped: std::collections::HashSet<_> = prev.state.stopped_reels.iter().collect();
@@ -227,8 +224,8 @@ fn compute_diff(prev: &GameSnapshot, curr: &GameSnapshot) -> Result<SnapshotDiff
     }
 
     // Check for feature step
-    if let (Some(prev_step), Some(curr_step)) = (prev.state.feature_step, curr.state.feature_step) {
-        if curr_step > prev_step {
+    if let (Some(prev_step), Some(curr_step)) = (prev.state.feature_step, curr.state.feature_step)
+        && curr_step > prev_step {
             stages.push(StageEvent::new(
                 Stage::FeatureStep {
                     step_index: curr_step,
@@ -238,7 +235,6 @@ fn compute_diff(prev: &GameSnapshot, curr: &GameSnapshot) -> Result<SnapshotDiff
                 timestamp,
             ));
         }
-    }
 
     // Check for big win start
     if !prev.state.big_win_active && curr.state.big_win_active {
@@ -260,8 +256,8 @@ fn compute_diff(prev: &GameSnapshot, curr: &GameSnapshot) -> Result<SnapshotDiff
     }
 
     // Check for win present
-    if let (Some(prev_win), Some(curr_win)) = (prev.state.win_amount, curr.state.win_amount) {
-        if curr_win > 0.0 && prev_win == 0.0 {
+    if let (Some(prev_win), Some(curr_win)) = (prev.state.win_amount, curr.state.win_amount)
+        && curr_win > 0.0 && prev_win == 0.0 {
             stages.push(StageEvent::new(
                 Stage::WinPresent {
                     win_amount: curr_win,
@@ -270,7 +266,6 @@ fn compute_diff(prev: &GameSnapshot, curr: &GameSnapshot) -> Result<SnapshotDiff
                 timestamp,
             ));
         }
-    }
 
     // Check for spin end (win amount appeared or returned to idle)
     if prev.state.win_amount.is_none() && curr.state.win_amount.is_some() {

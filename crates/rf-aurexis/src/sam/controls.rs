@@ -211,6 +211,7 @@ impl Default for StabilityControls {
 
 /// Complete set of all 11 smart controls.
 #[derive(Debug, Clone, Copy)]
+#[derive(Default)]
 pub struct SmartControlSet {
     pub energy: EnergyControls,
     pub clarity: ClarityControls,
@@ -294,15 +295,6 @@ impl SmartControlSet {
     }
 }
 
-impl Default for SmartControlSet {
-    fn default() -> Self {
-        Self {
-            energy: EnergyControls::default(),
-            clarity: ClarityControls::default(),
-            stability: StabilityControls::default(),
-        }
-    }
-}
 
 // ═════════════════════════════════════════════════════════════════════════════
 // TESTS

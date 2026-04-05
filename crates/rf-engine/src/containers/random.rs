@@ -423,8 +423,8 @@ impl RandomContainer {
         let seed_after = self.rng_state;
 
         // Log to global seed log if enabled (try_lock to avoid blocking audio thread)
-        if let Some(mut log) = SEED_LOG.try_lock() {
-            if log.is_enabled() {
+        if let Some(mut log) = SEED_LOG.try_lock()
+            && log.is_enabled() {
                 let entry = log.create_entry(
                     self.id,
                     seed_before,
@@ -435,7 +435,6 @@ impl RandomContainer {
                 );
                 log.record(entry);
             }
-        }
 
         // Update history
         self.last_selected = Some(selected_id);
@@ -527,13 +526,11 @@ impl RandomContainer {
             }
 
             // Move last played to end (avoid consecutive repeat)
-            if let Some(last) = self.last_selected {
-                if let Some(pos) = self.shuffle_deck.iter().position(|&id| id == last) {
-                    if pos == 0 && self.shuffle_deck.len() > 1 {
+            if let Some(last) = self.last_selected
+                && let Some(pos) = self.shuffle_deck.iter().position(|&id| id == last)
+                    && pos == 0 && self.shuffle_deck.len() > 1 {
                         self.shuffle_deck.swap(0, 1);
                     }
-                }
-            }
         }
 
         self.shuffle_deck.pop()

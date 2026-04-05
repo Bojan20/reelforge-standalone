@@ -48,8 +48,10 @@ pub use storage::ContainerStorage;
 /// Container type enumeration
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u8)]
+#[derive(Default)]
 pub enum ContainerType {
     /// No container (direct playback)
+    #[default]
     None = 0,
     /// RTPC-based crossfade
     Blend = 1,
@@ -74,11 +76,6 @@ impl ContainerType {
     }
 }
 
-impl Default for ContainerType {
-    fn default() -> Self {
-        ContainerType::None
-    }
-}
 
 /// Container ID type (unique per container type)
 pub type ContainerId = u32;

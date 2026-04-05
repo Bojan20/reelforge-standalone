@@ -353,11 +353,10 @@ impl ProcessingGraph {
         }
 
         // Copy final output
-        if let Some(output_node) = self.processing_order.last() {
-            if let Some(final_buffer) = buffers.get(&output_node.node_id) {
+        if let Some(output_node) = self.processing_order.last()
+            && let Some(final_buffer) = buffers.get(&output_node.node_id) {
                 output.copy_from_slice(&final_buffer[..output.len().min(final_buffer.len())]);
             }
-        }
     }
 
     /// Enable/disable a node

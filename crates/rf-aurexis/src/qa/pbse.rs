@@ -255,7 +255,7 @@ impl PreBakeSimulator {
 
     /// Is BAKE unlocked? Only true after successful simulation.
     pub fn bake_unlocked(&self) -> bool {
-        self.last_result.as_ref().map_or(false, |r| r.bake_unlocked)
+        self.last_result.as_ref().is_some_and(|r| r.bake_unlocked)
     }
 
     /// Run full simulation across all 10 domains.

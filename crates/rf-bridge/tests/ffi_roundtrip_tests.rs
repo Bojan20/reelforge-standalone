@@ -865,7 +865,7 @@ fn test_cstring_utf8_characters() {
     ];
 
     for s in test_strings {
-        let cstring = CString::new(s).expect(&format!("CString creation failed for '{}'", s));
+        let cstring = CString::new(s).unwrap_or_else(|_| panic!("CString creation failed for '{}'", s));
         let back = cstring.to_str().expect("CString to str failed");
         assert_eq!(back, s, "UTF-8 roundtrip failed for '{}'", s);
     }

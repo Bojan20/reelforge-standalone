@@ -143,13 +143,11 @@ impl GoldenStore {
             let entry = entry?;
             let path = entry.path();
 
-            if path.extension().map(|e| e == "json").unwrap_or(false) {
-                if let Ok(content) = fs::read_to_string(&path) {
-                    if let Ok(metadata) = serde_json::from_str::<GoldenMetadata>(&content) {
+            if path.extension().map(|e| e == "json").unwrap_or(false)
+                && let Ok(content) = fs::read_to_string(&path)
+                    && let Ok(metadata) = serde_json::from_str::<GoldenMetadata>(&content) {
                         self.index.insert(metadata.id.clone(), metadata);
                     }
-                }
-            }
         }
 
         Ok(())
@@ -162,7 +160,7 @@ impl GoldenStore {
             .join("metadata")
             .join(format!("{}.json", metadata.id));
         let content = serde_json::to_string_pretty(metadata).map_err(|e| {
-            crate::AudioDiffError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e))
+            crate::AudioDiffError::IoError(std::io::Error::other(e))
         })?;
         fs::write(path, content)?;
         Ok(())
@@ -393,7 +391,7 @@ impl GoldenStore {
     pub fn export_manifest(&self) -> Result<String> {
         let manifest: Vec<&GoldenMetadata> = self.index.values().collect();
         serde_json::to_string_pretty(&manifest).map_err(|e| {
-            crate::AudioDiffError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e))
+            crate::AudioDiffError::IoError(std::io::Error::other(e))
         })
     }
 
@@ -466,7 +464,7 @@ fn save_audio_as_wav(audio: &AudioData, path: &Path) -> Result<()> {
     };
 
     let mut writer = hound::WavWriter::create(path, spec).map_err(|e| {
-        crate::AudioDiffError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e))
+        crate::AudioDiffError::IoError(std::io::Error::other(e))
     })?;
 
     // Interleave channels
@@ -474,13 +472,13 @@ fn save_audio_as_wav(audio: &AudioData, path: &Path) -> Result<()> {
         for ch in &audio.channels {
             let sample = ch.get(i).copied().unwrap_or(0.0) as f32;
             writer.write_sample(sample).map_err(|e| {
-                crate::AudioDiffError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e))
+                crate::AudioDiffError::IoError(std::io::Error::other(e))
             })?;
         }
     }
 
     writer.finalize().map_err(|e| {
-        crate::AudioDiffError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e))
+        crate::AudioDiffError::IoError(std::io::Error::other(e))
     })?;
 
     Ok(())
@@ -517,7 +515,7 @@ fn timestamp_now() -> String {
     let mut year = 1970u64;
     let mut remaining_days = days;
     loop {
-        let days_in_year = if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) {
+        let days_in_year = if year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400)) {
             366
         } else {
             365
@@ -529,7 +527,7 @@ fn timestamp_now() -> String {
         year += 1;
     }
 
-    let is_leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    let is_leap = year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400));
     let days_in_months: [u64; 12] = if is_leap {
         [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
     } else {

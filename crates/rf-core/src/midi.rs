@@ -367,107 +367,74 @@ impl MidiEvent {
     /// Convert to raw MIDI bytes
     pub fn to_bytes(&self, buffer: &mut [u8]) -> usize {
         match self.data {
-            MidiEventData::NoteOff { note, velocity } => {
-                if buffer.len() >= 3 {
+            MidiEventData::NoteOff { note, velocity }
+                if buffer.len() >= 3 => {
                     buffer[0] = status::NOTE_OFF | (self.channel & 0x0F);
                     buffer[1] = note & 0x7F;
                     buffer[2] = (velocity.min(127)) as u8;
                     3
-                } else {
-                    0
                 }
-            }
-            MidiEventData::NoteOn { note, velocity } => {
-                if buffer.len() >= 3 {
+            MidiEventData::NoteOn { note, velocity }
+                if buffer.len() >= 3 => {
                     buffer[0] = status::NOTE_ON | (self.channel & 0x0F);
                     buffer[1] = note & 0x7F;
                     buffer[2] = (velocity.min(127)) as u8;
                     3
-                } else {
-                    0
                 }
-            }
-            MidiEventData::ControlChange { controller, value } => {
-                if buffer.len() >= 3 {
+            MidiEventData::ControlChange { controller, value }
+                if buffer.len() >= 3 => {
                     buffer[0] = status::CONTROL_CHANGE | (self.channel & 0x0F);
                     buffer[1] = controller & 0x7F;
                     buffer[2] = (value.min(127)) as u8;
                     3
-                } else {
-                    0
                 }
-            }
-            MidiEventData::PitchBend { value } => {
-                if buffer.len() >= 3 {
+            MidiEventData::PitchBend { value }
+                if buffer.len() >= 3 => {
                     let bent = (value + 8192).clamp(0, 16383) as u16;
                     buffer[0] = status::PITCH_BEND | (self.channel & 0x0F);
                     buffer[1] = (bent & 0x7F) as u8;
                     buffer[2] = ((bent >> 7) & 0x7F) as u8;
                     3
-                } else {
-                    0
                 }
-            }
-            MidiEventData::ProgramChange { program } => {
-                if buffer.len() >= 2 {
+            MidiEventData::ProgramChange { program }
+                if buffer.len() >= 2 => {
                     buffer[0] = status::PROGRAM_CHANGE | (self.channel & 0x0F);
                     buffer[1] = program & 0x7F;
                     2
-                } else {
-                    0
                 }
-            }
-            MidiEventData::ChannelPressure { pressure } => {
-                if buffer.len() >= 2 {
+            MidiEventData::ChannelPressure { pressure }
+                if buffer.len() >= 2 => {
                     buffer[0] = status::CHANNEL_PRESSURE | (self.channel & 0x0F);
                     buffer[1] = (pressure.min(127)) as u8;
                     2
-                } else {
-                    0
                 }
-            }
-            MidiEventData::PolyPressure { note, pressure } => {
-                if buffer.len() >= 3 {
+            MidiEventData::PolyPressure { note, pressure }
+                if buffer.len() >= 3 => {
                     buffer[0] = status::POLY_PRESSURE | (self.channel & 0x0F);
                     buffer[1] = note & 0x7F;
                     buffer[2] = (pressure.min(127)) as u8;
                     3
-                } else {
-                    0
                 }
-            }
-            MidiEventData::TimingClock => {
-                if !buffer.is_empty() {
+            MidiEventData::TimingClock
+                if !buffer.is_empty() => {
                     buffer[0] = 0xF8;
                     1
-                } else {
-                    0
                 }
-            }
-            MidiEventData::Start => {
-                if !buffer.is_empty() {
+            MidiEventData::Start
+                if !buffer.is_empty() => {
                     buffer[0] = 0xFA;
                     1
-                } else {
-                    0
                 }
-            }
-            MidiEventData::Continue => {
-                if !buffer.is_empty() {
+            MidiEventData::Continue
+                if !buffer.is_empty() => {
                     buffer[0] = 0xFB;
                     1
-                } else {
-                    0
                 }
-            }
-            MidiEventData::Stop => {
-                if !buffer.is_empty() {
+            MidiEventData::Stop
+                if !buffer.is_empty() => {
                     buffer[0] = 0xFC;
                     1
-                } else {
-                    0
                 }
-            }
             _ => 0,
         }
     }
@@ -643,16 +610,14 @@ impl NoteStateTracker {
         let ch = event.channel as usize;
 
         match event.data {
-            MidiEventData::NoteOn { note, velocity } => {
-                if note < 128 {
+            MidiEventData::NoteOn { note, velocity }
+                if note < 128 => {
                     self.state[ch][note as usize] = velocity > 0;
                 }
-            }
-            MidiEventData::NoteOff { note, .. } => {
-                if note < 128 {
+            MidiEventData::NoteOff { note, .. }
+                if note < 128 => {
                     self.state[ch][note as usize] = false;
                 }
-            }
             MidiEventData::ControlChange { controller, .. } if controller == cc::ALL_NOTES_OFF => {
                 self.state[ch] = [false; 128];
             }

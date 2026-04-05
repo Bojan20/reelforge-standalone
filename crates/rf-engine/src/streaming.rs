@@ -473,7 +473,7 @@ impl DiskJob {
         current_tl_frame: i64,
     ) -> i32 {
         let need = HIGH_WATER_FRAMES.saturating_sub(available_read) as i32;
-        let urgency = LOW_WATER_FRAMES.saturating_sub(available_read).max(0) as i32;
+        let urgency = LOW_WATER_FRAMES.saturating_sub(available_read) as i32;
         let distance = (tl_start_frame - current_tl_frame).abs() as i32;
 
         // Urgency dominates, then need, distance is least important

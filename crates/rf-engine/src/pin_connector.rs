@@ -40,8 +40,10 @@ const MAX_BUFFER_SIZE: usize = 8192;
 
 /// Routing mode for the pin connector
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum PinRoutingMode {
     /// Normal stereo/multi-channel pass-through (1:1 mapping)
+    #[default]
     Normal,
     /// Multi-mono: same mono signal to each plugin input, separate outputs
     /// Used for per-channel processing (e.g. separate compressor per channel)
@@ -55,11 +57,6 @@ pub enum PinRoutingMode {
     CustomMatrix,
 }
 
-impl Default for PinRoutingMode {
-    fn default() -> Self {
-        Self::Normal
-    }
-}
 
 // =============================================================================
 // PIN MAPPING ENTRY

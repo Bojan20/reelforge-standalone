@@ -324,13 +324,10 @@ impl TimingResolver {
             Stage::BigWinTier { tier, .. } => config.get_bigwin_duration(tier),
 
             // Rollup duration based on amount and speed
-            Stage::RollupStart { target_amount, .. } => {
-                if config.rollup_speed > 0.0 {
+            Stage::RollupStart { target_amount, .. }
+                if config.rollup_speed > 0.0 => {
                     (target_amount / config.rollup_speed) * 1000.0
-                } else {
-                    0.0
                 }
-            }
 
             // Looping stages have no set duration
             _ if event.stage.is_looping() => f64::MAX,

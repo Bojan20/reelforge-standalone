@@ -2,6 +2,7 @@
 //!
 //! InsertProcessor implementations for all rf-dsp modules.
 //! Provides lock-free parameter updates and command queue integration.
+#![allow(clippy::erasing_op, clippy::identity_op)]
 
 use crate::insert_chain::InsertProcessor;
 use rf_core::Sample;
@@ -208,22 +209,16 @@ impl InsertProcessor for ProEqWrapper {
                     0 => band.frequency,
                     1 => band.gain_db,
                     2 => band.q,
-                    3 => {
-                        if band.enabled {
+                    3
+                        if band.enabled => {
                             1.0
-                        } else {
-                            0.0
                         }
-                    }
                     4 => band.shape as u8 as f64,
                     // Dynamic EQ params
-                    5 => {
-                        if band.dynamic.enabled {
+                    5
+                        if band.dynamic.enabled => {
                             1.0
-                        } else {
-                            0.0
                         }
-                    }
                     6 => band.dynamic.threshold_db,
                     7 => band.dynamic.ratio,
                     8 => band.dynamic.attack_ms,
@@ -246,13 +241,10 @@ impl InsertProcessor for ProEqWrapper {
             let global_idx = index - max_bands * per_band;
             match global_idx {
                 0 => self.eq.output_gain_db,
-                1 => {
-                    if self.auto_gain {
+                1
+                    if self.auto_gain => {
                         1.0
-                    } else {
-                        0.0
                     }
-                }
                 2 => self.solo_band as f64,
                 _ => 0.0,
             }
@@ -509,21 +501,15 @@ impl InsertProcessor for UltraEqWrapper {
                     0 => band.frequency,
                     1 => band.gain_db,
                     2 => band.q,
-                    3 => {
-                        if band.enabled {
+                    3
+                        if band.enabled => {
                             1.0
-                        } else {
-                            0.0
                         }
-                    }
                     4 => band.shape as u8 as f64,
-                    5 => {
-                        if band.dynamic.enabled {
+                    5
+                        if band.dynamic.enabled => {
                             1.0
-                        } else {
-                            0.0
                         }
-                    }
                     6 => band.dynamic.threshold_db,
                     7 => band.dynamic.ratio,
                     8 => band.dynamic.attack_ms,
@@ -537,20 +523,14 @@ impl InsertProcessor for UltraEqWrapper {
                         rf_dsp::StereoPlacement::Side => 4.0,
                     },
                     // Ultra-specific params
-                    12 => {
-                        if band.use_mzt {
+                    12
+                        if band.use_mzt => {
                             1.0
-                        } else {
-                            0.0
                         }
-                    }
-                    13 => {
-                        if band.transient_aware {
+                    13
+                        if band.transient_aware => {
                             1.0
-                        } else {
-                            0.0
                         }
-                    }
                     14 => band.transient_q_reduction,
                     15 => band.saturator.drive,
                     16 => band.saturator.mix,
@@ -564,21 +544,15 @@ impl InsertProcessor for UltraEqWrapper {
             let global_idx = index - max_bands * ULTRA_PARAMS_PER_BAND;
             match global_idx {
                 0 => self.eq.output_gain_db,
-                1 => {
-                    if self.auto_gain {
+                1
+                    if self.auto_gain => {
                         1.0
-                    } else {
-                        0.0
                     }
-                }
                 2 => self.solo_band as f64,
-                3 => {
-                    if self.eq.equal_loudness_enabled {
+                3
+                    if self.eq.equal_loudness_enabled => {
                         1.0
-                    } else {
-                        0.0
                     }
-                }
                 4 => match self.eq.global_oversample {
                     OversampleMode::Off => 0.0,
                     OversampleMode::X2 => 1.0,
@@ -1275,13 +1249,10 @@ impl InsertProcessor for Api550Wrapper {
                     1.0
                 }
             }
-            9 => {
-                if self.bandpass_enabled {
+            9
+                if self.bandpass_enabled => {
                     1.0
-                } else {
-                    0.0
                 }
-            }
             _ => 0.0,
         }
     }
@@ -1513,13 +1484,10 @@ impl InsertProcessor for Neve1073Wrapper {
 
     fn get_param(&self, index: usize) -> f64 {
         match index {
-            0 => {
-                if self.hp_enabled {
+            0
+                if self.hp_enabled => {
                     1.0
-                } else {
-                    0.0
                 }
-            }
             1 => self.low_gain,
             2 => self.mf_gain,
             3 => self.high_gain,
@@ -1680,13 +1648,10 @@ impl InsertProcessor for RoomCorrectionWrapper {
 
     fn get_param(&self, index: usize) -> f64 {
         match index {
-            0 => {
-                if self.eq.enabled {
+            0
+                if self.eq.enabled => {
                     1.0
-                } else {
-                    0.0
                 }
-            }
             _ => 0.0,
         }
     }
@@ -1845,57 +1810,39 @@ impl InsertProcessor for CompressorWrapper {
             10 => left.range_db(),
             11 => left.sc_hp_freq(),
             12 => left.sc_lp_freq(),
-            13 => {
-                if left.sc_audition() {
+            13
+                if left.sc_audition() => {
                     1.0
-                } else {
-                    0.0
                 }
-            }
             14 => left.lookahead_ms(),
             15 => left.sc_eq_mid_freq(),
             16 => left.sc_eq_mid_gain(),
-            17 => {
-                if left.auto_threshold_enabled() {
+            17
+                if left.auto_threshold_enabled() => {
                     1.0
-                } else {
-                    0.0
                 }
-            }
-            18 => {
-                if left.auto_makeup_enabled() {
+            18
+                if left.auto_makeup_enabled() => {
                     1.0
-                } else {
-                    0.0
                 }
-            }
             19 => match left.detection_mode() {
                 DetectionMode::Peak => 0.0,
                 DetectionMode::Rms => 1.0,
                 DetectionMode::Hybrid => 2.0,
             },
-            20 => {
-                if left.adaptive_release_enabled() {
+            20
+                if left.adaptive_release_enabled() => {
                     1.0
-                } else {
-                    0.0
                 }
-            }
-            21 => {
-                if left.host_sync_enabled() {
+            21
+                if left.host_sync_enabled() => {
                     1.0
-                } else {
-                    0.0
                 }
-            }
             22 => left.host_bpm(),
-            23 => {
-                if left.mid_side_enabled() {
+            23
+                if left.mid_side_enabled() => {
                     1.0
-                } else {
-                    0.0
                 }
-            }
             24 => left.knee_db(),
             _ => 0.0,
         }
@@ -2710,20 +2657,14 @@ impl InsertProcessor for DeEsserWrapper {
             4 => self.deesser.mode() as u8 as f64,
             5 => self.deesser.attack(),
             6 => self.deesser.release(),
-            7 => {
-                if self.deesser.listen() {
+            7
+                if self.deesser.listen() => {
                     1.0
-                } else {
-                    0.0
                 }
-            }
-            8 => {
-                if self.deesser.bypassed() {
+            8
+                if self.deesser.bypassed() => {
                     1.0
-                } else {
-                    0.0
                 }
-            }
             _ => 0.0,
         }
     }
@@ -3041,13 +2982,10 @@ impl InsertProcessor for ReverbWrapper {
             11 => self.reverb.character(),
             12 => self.reverb.thickness(),
             13 => self.reverb.ducking(),
-            14 => {
-                if self.reverb.freeze() {
+            14
+                if self.reverb.freeze() => {
                     1.0
-                } else {
-                    0.0
                 }
-            }
             15 => self.reverb.spin(),
             16 => self.reverb.wander(),
             17 => self.reverb.er_level(),
@@ -3702,7 +3640,7 @@ impl InsertProcessor for MultibandSaturatorWrapper {
             9 => "Crossover 4",
             10 => "Crossover 5",
             _ => {
-                if index >= Self::GLOBAL_COUNT && index < 65 {
+                if (Self::GLOBAL_COUNT..65).contains(&index) {
                     let rel = index - Self::GLOBAL_COUNT;
                     let param = rel % Self::BAND_PARAM_COUNT;
                     match param {
@@ -5393,7 +5331,7 @@ impl InsertProcessor for MultibandStereoImagerWrapper {
             66 => "Stereoize Amount",
             67 => "Band Link",
             _ => {
-                if index >= Self::GLOBAL_COUNT && index < 65 {
+                if (Self::GLOBAL_COUNT..65).contains(&index) {
                     let rel = index - Self::GLOBAL_COUNT;
                     let param = rel % Self::BAND_PARAM_COUNT;
                     match param {
@@ -7178,7 +7116,7 @@ mod tests {
             out_db
         );
         assert!(
-            gate_gain >= 0.0 && gate_gain <= 1.0,
+            (0.0..=1.0).contains(&gate_gain),
             "Gate gain should be 0-1, got {}",
             gate_gain
         );

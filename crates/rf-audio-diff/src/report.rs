@@ -110,7 +110,7 @@ impl DiffReport {
 
         output.push_str("Results:\n");
         output.push_str(&"-".repeat(80));
-        output.push_str("\n");
+        output.push('\n');
 
         for result in &self.results {
             let status = if result.passed { "PASS" } else { "FAIL" };
@@ -126,11 +126,11 @@ impl DiffReport {
                     }
                 }
             }
-            output.push_str("\n");
+            output.push('\n');
         }
 
         output.push_str(&"-".repeat(80));
-        output.push_str("\n");
+        output.push('\n');
         output.push_str(&format!(
             "Summary: {} tests, {} passed, {} failed\n",
             self.total, self.passed, self.failed
@@ -192,7 +192,7 @@ impl DiffReport {
                     check.name, icon, check.actual, check.tolerance
                 ));
             }
-            output.push_str("\n");
+            output.push('\n');
 
             if !result.passed {
                 output.push_str("**Failed Checks:**\n");
@@ -201,7 +201,7 @@ impl DiffReport {
                         output.push_str(&format!("- {}: {}\n", check.name, check.description));
                     }
                 }
-                output.push_str("\n");
+                output.push('\n');
             }
         }
 

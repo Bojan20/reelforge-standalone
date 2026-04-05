@@ -64,14 +64,6 @@ fn calculate_peak(signal: &[f64]) -> f64 {
         .fold(0.0_f64, |a, b| a.max(b))
 }
 
-/// Calculate DC offset of a signal
-fn calculate_dc_offset(signal: &[f64]) -> f64 {
-    if signal.is_empty() {
-        return 0.0;
-    }
-    signal.iter().sum::<f64>() / signal.len() as f64
-}
-
 /// Check if signal is within bounds
 fn signal_is_bounded(signal: &[f64], max_value: f64) -> bool {
     signal.iter().all(|s| s.abs() <= max_value)

@@ -274,7 +274,7 @@ fn timestamp_now() -> String {
     let mut year = 1970u64;
     let mut remaining_days = days;
     loop {
-        let days_in_year = if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) {
+        let days_in_year = if year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400)) {
             366
         } else {
             365
@@ -286,7 +286,7 @@ fn timestamp_now() -> String {
         year += 1;
     }
 
-    let is_leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    let is_leap = year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400));
     let days_in_months: [u64; 12] = if is_leap {
         [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
     } else {

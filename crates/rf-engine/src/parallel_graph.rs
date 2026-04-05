@@ -427,9 +427,8 @@ impl ParallelAudioGraph {
                     && conn.to_channel < num_inputs
                     && conn.to_channel < input_indices.len()
                     && conn.to_channel < sidechain_indices.len()
-                {
-                    if let Some(from_outputs) = self.node_outputs.get(&conn.from_node) {
-                        if conn.from_channel < from_outputs.len() {
+                    && let Some(from_outputs) = self.node_outputs.get(&conn.from_node)
+                        && conn.from_channel < from_outputs.len() {
                             let target_idx = match conn.connection_type {
                                 ConnectionType::Audio | ConnectionType::Modulation => input_indices[conn.to_channel],
                                 ConnectionType::Sidechain => sidechain_indices[conn.to_channel],
@@ -443,8 +442,6 @@ impl ParallelAudioGraph {
                                 }
                             }
                         }
-                    }
-                }
             }
 
             level_inputs.push((node_id, input_indices, sidechain_indices));

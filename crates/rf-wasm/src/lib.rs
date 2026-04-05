@@ -308,7 +308,7 @@ impl FluxForgeAudio {
         let event = self.events.get(event_id)?.clone();
 
         // Acquire voice
-        let voice_id = self.acquire_voice(&event_id.to_string(), event.priority)?;
+        let voice_id = self.acquire_voice(event_id, event.priority)?;
 
         // Create voice instance
         let context = self.context.as_ref()?;

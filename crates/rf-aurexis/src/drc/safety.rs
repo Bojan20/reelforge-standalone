@@ -126,7 +126,7 @@ impl SafetyEnvelope {
     }
 
     pub fn passed(&self) -> bool {
-        self.last_result.as_ref().map_or(false, |r| r.passed)
+        self.last_result.as_ref().is_some_and(|r| r.passed)
     }
 
     /// Validate a sequence of parameter map outputs against safety limits.

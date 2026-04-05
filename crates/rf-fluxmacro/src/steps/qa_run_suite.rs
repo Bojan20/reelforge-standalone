@@ -48,7 +48,7 @@ impl MacroStep for QaRunSuiteStep {
         // The interpreter handles actual execution — this step just validates
         // that all sub-steps are registered and sets up the qa_suite intermediate.
 
-        let available: Vec<&str> = QA_STEPS.iter().copied().collect();
+        let available: Vec<&str> = QA_STEPS.to_vec();
 
         let missing: Vec<&&str> = QA_STEPS
             .iter()

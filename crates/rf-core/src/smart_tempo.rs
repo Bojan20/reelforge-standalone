@@ -411,7 +411,7 @@ impl TempoDetector {
                 let can_add = self
                     .onset_peaks
                     .last()
-                    .map_or(true, |last| position - last.0 >= min_gap);
+                    .is_none_or(|last| position - last.0 >= min_gap);
                 if can_add {
                     self.onset_peaks.push((position, strength));
                 }
@@ -637,8 +637,8 @@ impl TempoDetector {
         }
 
         // Compute IOIs
-        let min_interval = (self.sample_rate * 60.0 / self.max_bpm) as f64;
-        let max_interval = (self.sample_rate * 60.0 / self.min_bpm) as f64;
+        let min_interval = self.sample_rate * 60.0 / self.max_bpm;
+        let max_interval = self.sample_rate * 60.0 / self.min_bpm;
 
         // High-resolution histogram (1024 bins for ~0.1 BPM resolution)
         let num_bins = 1024usize;
@@ -730,13 +730,13 @@ impl TempoDetector {
             // Check if half-tempo is a candidate with decent score
             let half = raw_bpm / 2.0;
             let has_half = candidates.iter().any(|&(b, _)| (b - half).abs() < 3.0);
-            if has_half || (half >= 80.0 && half <= 160.0) {
+            if has_half || (80.0..=160.0).contains(&half) {
                 best = half;
             }
         } else if raw_bpm < 80.0 && raw_bpm * 2.0 <= 240.0 {
             let double = raw_bpm * 2.0;
             let has_double = candidates.iter().any(|&(b, _)| (b - double).abs() < 3.0);
-            if has_double || (double >= 80.0 && double <= 160.0) {
+            if has_double || (80.0..=160.0).contains(&double) {
                 best = double;
             }
         }

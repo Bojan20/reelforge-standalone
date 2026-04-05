@@ -371,8 +371,8 @@ impl DeterminismResult {
     pub fn detailed_report(&self) -> String {
         let mut report = String::new();
 
-        report.push_str(&format!("Determinism Test Report\n"));
-        report.push_str(&format!("=======================\n\n"));
+        report.push_str("Determinism Test Report\n");
+        report.push_str("=======================\n\n");
 
         report.push_str(&format!(
             "Status: {}\n",
@@ -387,7 +387,7 @@ impl DeterminismResult {
             report.push_str(&format!("Max Diff at Sample: {}\n", sample));
         }
 
-        report.push_str(&format!("\nTiming:\n"));
+        report.push_str("\nTiming:\n");
         report.push_str(&format!("  Avg: {:.2} ms\n", self.avg_time_ms));
         report.push_str(&format!(
             "  Variance: {:.2}%\n",
@@ -399,7 +399,7 @@ impl DeterminismResult {
         }
 
         if !self.passed {
-            report.push_str(&format!("\nFailed Comparisons:\n"));
+            report.push_str("\nFailed Comparisons:\n");
             for comp in &self.comparisons {
                 if !comp.matched {
                     report.push_str(&format!(

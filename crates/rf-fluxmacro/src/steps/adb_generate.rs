@@ -112,7 +112,7 @@ fn generate_adb_markdown(ctx: &MacroContext, rules: &RuleSet) -> String {
     md.push_str(&format!("- **Platforms:** {}\n", platforms.join(", ")));
     let mechanics: Vec<&str> = ctx.mechanics.iter().map(|m| m.id()).collect();
     md.push_str(&format!("- **Mechanics:** {}\n", mechanics.join(", ")));
-    md.push_str("\n");
+    md.push('\n');
 
     // Section 2: Music Plan
     md.push_str("## 2. Music Plan\n\n");
@@ -159,7 +159,7 @@ fn generate_adb_markdown(ctx: &MacroContext, rules: &RuleSet) -> String {
             }
         }
     }
-    md.push_str("\n");
+    md.push('\n');
 
     // Section 3: SFX Plan
     md.push_str("## 3. SFX Plan\n\n");
@@ -175,7 +175,7 @@ fn generate_adb_markdown(ctx: &MacroContext, rules: &RuleSet) -> String {
             }
         }
     }
-    md.push_str("\n");
+    md.push('\n');
 
     // Section 4: VO Plan
     md.push_str("## 4. VO Plan\n\n");
@@ -194,7 +194,7 @@ fn generate_adb_markdown(ctx: &MacroContext, rules: &RuleSet) -> String {
             md.push_str(&format!("{event}\n"));
         }
     }
-    md.push_str("\n");
+    md.push('\n');
 
     // Section 5: Ducking Rules
     md.push_str("## 5. Ducking Rules\n\n");
@@ -211,7 +211,7 @@ fn generate_adb_markdown(ctx: &MacroContext, rules: &RuleSet) -> String {
             rule.priority
         ));
     }
-    md.push_str("\n");
+    md.push('\n');
 
     // Section 6: Loudness Targets
     md.push_str("## 6. Loudness Targets\n\n");
@@ -229,7 +229,7 @@ fn generate_adb_markdown(ctx: &MacroContext, rules: &RuleSet) -> String {
             target.layering_headroom
         ));
     }
-    md.push_str("\n");
+    md.push('\n');
 
     // Section 7: Voice Budget
     md.push_str("## 7. Voice Budget\n\n");
@@ -246,7 +246,7 @@ fn generate_adb_markdown(ctx: &MacroContext, rules: &RuleSet) -> String {
     md.push_str(&format!(
         "\n**Suggested voices for selected mechanics:** {suggested}\n"
     ));
-    md.push_str("\n");
+    md.push('\n');
 
     // Section 8: RTP Mapping
     md.push_str("## 8. RTP Mapping\n\n");
@@ -255,7 +255,7 @@ fn generate_adb_markdown(ctx: &MacroContext, rules: &RuleSet) -> String {
     md.push_str("| Low (85-90%) | Frequent small | Moderate base | Minimal |\n");
     md.push_str("| Mid (90-95%) | Balanced | Responsive | Standard |\n");
     md.push_str("| High (95-97%) | Rare but large | Dynamic peaks | Escalated |\n");
-    md.push_str("\n");
+    md.push('\n');
 
     // Section 9: Win Tier System
     md.push_str("## 9. Win Tier System\n\n");
@@ -266,7 +266,7 @@ fn generate_adb_markdown(ctx: &MacroContext, rules: &RuleSet) -> String {
     md.push_str("| WIN 3 | 20x–50x bet | Full celebration |\n");
     md.push_str("| WIN 4 | 50x–100x bet | Extended celebration |\n");
     md.push_str("| WIN 5 | 100x+ bet | Maximum celebration |\n");
-    md.push_str("\n");
+    md.push('\n');
 
     // Section 10: Fatigue Rules
     md.push_str("## 10. Fatigue Rules\n\n");

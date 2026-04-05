@@ -287,11 +287,9 @@ impl MpegHRenderer {
                 .personalization
                 .iter()
                 .find(|(id, _)| *id == element.id)
-            {
-                if element.allow_gain_change {
+                && element.allow_gain_change {
                     gain_db += g.clamp(element.gain_range.0, element.gain_range.1);
                 }
-            }
 
             // Check switch group status
             let mut active = element.default_on;

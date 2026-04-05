@@ -231,7 +231,7 @@ impl PayTable {
         Self {
             symbols,
             paylines,
-            grid: model.grid.clone(),
+            grid: model.grid,
             wild_id,
             scatter_id,
             scatter_trigger_count: 3,

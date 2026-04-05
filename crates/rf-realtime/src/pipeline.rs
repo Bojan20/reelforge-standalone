@@ -157,26 +157,24 @@ impl PdcManager {
 
     /// Remove a processor from a path
     pub fn remove_processor(&mut self, path_id: u32, processor_id: u32) {
-        if let Some(path) = self.paths.get_mut(&path_id) {
-            if let Some(idx) = path.processors.iter().position(|p| p.id == processor_id) {
+        if let Some(path) = self.paths.get_mut(&path_id)
+            && let Some(idx) = path.processors.iter().position(|p| p.id == processor_id) {
                 let latency = path.processors[idx].latency_samples;
                 path.total_latency = path.total_latency.saturating_sub(latency);
                 path.processors.remove(idx);
                 self.recalculate_compensation();
             }
-        }
     }
 
     /// Update processor latency
     pub fn update_latency(&mut self, path_id: u32, processor_id: u32, new_latency: u32) {
-        if let Some(path) = self.paths.get_mut(&path_id) {
-            if let Some(processor) = path.processors.iter_mut().find(|p| p.id == processor_id) {
+        if let Some(path) = self.paths.get_mut(&path_id)
+            && let Some(processor) = path.processors.iter_mut().find(|p| p.id == processor_id) {
                 let old_latency = processor.latency_samples;
                 processor.latency_samples = new_latency;
                 path.total_latency = path.total_latency.saturating_sub(old_latency) + new_latency;
                 self.recalculate_compensation();
             }
-        }
     }
 
     /// Recalculate compensation for all paths

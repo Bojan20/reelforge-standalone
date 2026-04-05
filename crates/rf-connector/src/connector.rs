@@ -212,11 +212,10 @@ impl EngineConnector {
                                 &uuid::Uuid::new_v4().to_string(),
                                 serde_json::to_value(&cmd).unwrap_or_default(),
                             );
-                            if let Ok(json) = serde_json::to_string(&frame) {
-                                if write.send(Message::Text(json)).await.is_err() {
+                            if let Ok(json) = serde_json::to_string(&frame)
+                                && write.send(Message::Text(json)).await.is_err() {
                                     break;
                                 }
-                            }
                         }
                     }
 
@@ -300,11 +299,10 @@ impl EngineConnector {
                                 &uuid::Uuid::new_v4().to_string(),
                                 serde_json::to_value(&cmd).unwrap_or_default(),
                             );
-                            if let Ok(json) = serde_json::to_string(&frame) {
-                                if write_half.write_all(format!("{}\n", json).as_bytes()).await.is_err() {
+                            if let Ok(json) = serde_json::to_string(&frame)
+                                && write_half.write_all(format!("{}\n", json).as_bytes()).await.is_err() {
                                     break;
                                 }
-                            }
                         }
                     }
 
@@ -341,13 +339,11 @@ impl EngineConnector {
         let _ = message_tx.send(message);
 
         // Try to parse as stage event
-        if msg_type == "stage_event" || json.get("stage").is_some() {
-            if let Some(stage_data) = json.get("stage").or(json.get("data")) {
-                if let Ok(event) = serde_json::from_value::<StageEvent>(stage_data.clone()) {
+        if (msg_type == "stage_event" || json.get("stage").is_some())
+            && let Some(stage_data) = json.get("stage").or(json.get("data"))
+                && let Ok(event) = serde_json::from_value::<StageEvent>(stage_data.clone()) {
                     let _ = event_tx.send(event);
                 }
-            }
-        }
     }
 }
 

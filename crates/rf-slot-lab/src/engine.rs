@@ -306,14 +306,13 @@ impl SyntheticSlotEngine {
 
         // CRITICAL: Override win amount with target multiplier if specified
         // This ensures precise tier targeting (WIN_1, WIN_2, etc.)
-        if let Some(target_mult) = target_multiplier {
-            if target_mult > 0.0 {
+        if let Some(target_mult) = target_multiplier
+            && target_mult > 0.0 {
                 result.total_win = bet * target_mult;
                 result.win_ratio = target_mult;
                 // Recalculate big win tier with new amount
                 result = result.with_big_win_tier(&self.config.volatility.win_tier_thresholds);
             }
-        }
 
         // Check for special outcomes based on forced or random
         if let Some(outcome) = forced {
@@ -347,8 +346,8 @@ impl SyntheticSlotEngine {
         }
 
         // Trigger new feature if applicable
-        if result.feature_triggered.is_some() && self.free_spin_state.is_none() {
-            if let Some(ref feature) = result.feature_triggered {
+        if result.feature_triggered.is_some() && self.free_spin_state.is_none()
+            && let Some(ref feature) = result.feature_triggered {
                 self.free_spin_state = Some(FreeSpinState {
                     remaining: feature.total_spins,
                     total: feature.total_spins,
@@ -357,7 +356,6 @@ impl SyntheticSlotEngine {
                     feature_type: feature.feature_type,
                 });
             }
-        }
 
         // Contribute to jackpots
         self.contribute_to_jackpots(bet);
@@ -675,8 +673,8 @@ impl SyntheticSlotEngine {
         let antic_config = &self.config.anticipation;
 
         // First, try scatter positions
-        if let Some(ref scatter) = result.scatter_win {
-            if scatter.count >= antic_config.min_trigger_count && !scatter.positions.is_empty() {
+        if let Some(ref scatter) = result.scatter_win
+            && scatter.count >= antic_config.min_trigger_count && !scatter.positions.is_empty() {
                 // Check if scatter_id is a trigger symbol
                 if antic_config.is_trigger_symbol(self.paytable.scatter_id) {
                     result.anticipation = AnticipationInfo::from_trigger_positions_with_config(
@@ -688,7 +686,6 @@ impl SyntheticSlotEngine {
                     );
                 }
             }
-        }
 
         // Check for bonus symbols (if not already triggered by scatter)
         // NOTE: This would require bonus detection logic which isn't in current paytable
@@ -922,7 +919,7 @@ mod tests {
         let mut engine = SyntheticSlotEngine::audio_test();
         engine.seed(54321);
 
-        let (result, stages) = engine.spin_with_stages();
+        let (_result, stages) = engine.spin_with_stages();
         assert!(!stages.is_empty());
 
         // Should have spin_start at beginning

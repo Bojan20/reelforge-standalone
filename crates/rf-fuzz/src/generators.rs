@@ -358,7 +358,7 @@ mod tests {
 
         for _ in 0..1000 {
             let val = rng.f64_range(0.0, 1.0);
-            assert!(val >= 0.0 && val <= 1.0, "Value {} out of range", val);
+            assert!((0.0..=1.0).contains(&val), "Value {} out of range", val);
         }
     }
 

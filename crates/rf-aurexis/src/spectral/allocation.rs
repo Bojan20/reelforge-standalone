@@ -146,12 +146,11 @@ impl SpectralAllocator {
                 if others.is_empty() || other_role_idx == role_idx {
                     continue;
                 }
-                if let Some(other_role) = SpectralRole::from_index(other_role_idx as u8) {
-                    if band.overlaps(&other_role.band()) {
+                if let Some(other_role) = SpectralRole::from_index(other_role_idx as u8)
+                    && band.overlaps(&other_role.band()) {
                         has_collision = true;
                         break;
                     }
-                }
             }
 
             if has_collision {

@@ -38,11 +38,10 @@ impl AudioData {
         let path_str = path.display().to_string();
 
         // Check file extension for WAV (use hound for better precision)
-        if let Some(ext) = path.extension() {
-            if ext.eq_ignore_ascii_case("wav") {
+        if let Some(ext) = path.extension()
+            && ext.eq_ignore_ascii_case("wav") {
                 return Self::load_wav(path, &path_str);
             }
-        }
 
         // Use symphonia for other formats
         Self::load_symphonia(path, &path_str)

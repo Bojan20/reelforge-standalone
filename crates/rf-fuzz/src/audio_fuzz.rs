@@ -675,7 +675,7 @@ pub fn run_audio_fuzz_suite(config: &FuzzConfig) -> FuzzReport {
 pub fn fuzz_wav_header_parse(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_custom(
-        |rng| WavHeaderGenerator::fuzzed_header(rng),
+        WavHeaderGenerator::fuzzed_header,
         |data| parse_wav_header_safe(&data),
     )
 }
@@ -687,7 +687,7 @@ pub fn fuzz_wav_header_parse(config: &FuzzConfig) -> FuzzResult {
 pub fn fuzz_wav_header_field_validation(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_with_validation(
-        |rng| WavHeaderGenerator::fuzzed_header(rng),
+        WavHeaderGenerator::fuzzed_header,
         |data| parse_wav_header_safe(&data),
         |_input, result| {
             match result {
@@ -732,7 +732,7 @@ pub fn fuzz_wav_truncated(config: &FuzzConfig) -> FuzzResult {
 pub fn fuzz_flac_stream_parse(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_custom(
-        |rng| FlacHeaderGenerator::fuzzed_stream(rng),
+        FlacHeaderGenerator::fuzzed_stream,
         |data| parse_flac_header_safe(&data),
     )
 }
@@ -741,7 +741,7 @@ pub fn fuzz_flac_stream_parse(config: &FuzzConfig) -> FuzzResult {
 pub fn fuzz_flac_block_type_validation(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_with_validation(
-        |rng| FlacHeaderGenerator::fuzzed_stream(rng),
+        FlacHeaderGenerator::fuzzed_stream,
         |data| parse_flac_header_safe(&data),
         |_input, result| match result {
             FlacParseResult::Valid {
@@ -789,7 +789,7 @@ pub fn fuzz_garbage_audio(config: &FuzzConfig) -> FuzzResult {
 pub fn fuzz_null_bytes(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_custom(
-        |rng| GarbageAudioGenerator::null_bytes(rng),
+        GarbageAudioGenerator::null_bytes,
         |data| {
             let _ = parse_wav_header_safe(&data);
             let _ = parse_flac_header_safe(&data);

@@ -1511,14 +1511,13 @@ impl RoutingGraph {
 
             if let Some(channel) = self.channels.get(&id) {
                 // Process output
-                if let Some(target) = channel.output.target_channel() {
-                    if let Some(deg) = in_degree.get_mut(&target) {
+                if let Some(target) = channel.output.target_channel()
+                    && let Some(deg) = in_degree.get_mut(&target) {
                         *deg -= 1;
                         if *deg == 0 {
                             queue.push_back(target);
                         }
                     }
-                }
 
                 // Process sends
                 for send in &channel.sends {
@@ -1712,13 +1711,13 @@ impl RoutingGraph {
                 let latency = channel.own_latency;
                 dest_sources
                     .entry(dest_id)
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push((*id, latency));
             }
         }
 
         // Step 3: Calculate compensation delays per destination group
-        for (_dest_id, sources) in &dest_sources {
+        for sources in dest_sources.values() {
             if sources.len() <= 1 {
                 continue; // No compensation needed for single source
             }
@@ -1755,13 +1754,13 @@ impl RoutingGraph {
                 let latency = channel.own_latency;
                 dest_sources
                     .entry(dest_id)
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push((*id, latency));
             }
         }
 
         // Calculate compensation delays per destination group
-        for (_dest_id, sources) in &dest_sources {
+        for sources in dest_sources.values() {
             if sources.len() <= 1 {
                 continue;
             }

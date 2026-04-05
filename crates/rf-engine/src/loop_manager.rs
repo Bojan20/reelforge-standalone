@@ -338,14 +338,13 @@ impl LoopInstanceManager {
         let mut inst = LoopInstance::new(id, asset_id, region, volume, bus, use_dual_voice);
         inst.init_playhead(&asset);
 
-        if let Some(fade_ms) = fade_in_ms {
-            if fade_ms > 0.0 {
+        if let Some(fade_ms) = fade_in_ms
+            && fade_ms > 0.0 {
                 let fade_samples = (fade_ms * self.sample_rate as f32 / 1000.0) as u64;
                 inst.gain = 0.0;
                 inst.fade = FadeState::idle(0.0);
                 inst.fade.start(volume, fade_samples);
             }
-        }
 
         let asset_id_str = asset_id.to_string();
         self.instances[slot_idx] = Some(inst);
@@ -584,8 +583,8 @@ fn process_instance_frames(
         inst.playhead_samples += 1;
 
         // 12. Complete crossfade if done
-        if let Some(ref xf) = inst.crossfade {
-            if xf.progress >= 1.0 {
+        if let Some(ref xf) = inst.crossfade
+            && xf.progress >= 1.0 {
                 if let Some(ref target) = xf.target_region {
                     let old = inst.active_region.clone();
                     inst.active_region = target.clone();
@@ -598,7 +597,6 @@ fn process_instance_frames(
                 }
                 inst.crossfade = None;
             }
-        }
 
         // 13. Check pending region switch at sync boundary
         if inst.pending_region.is_some() {

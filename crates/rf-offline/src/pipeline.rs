@@ -34,7 +34,9 @@ use rf_dsp::{Processor, StereoProcessor};
 
 /// Pipeline execution state
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum PipelineState {
+    #[default]
     Idle,
     Loading,
     Analyzing,
@@ -48,11 +50,6 @@ pub enum PipelineState {
     Cancelled,
 }
 
-impl Default for PipelineState {
-    fn default() -> Self {
-        Self::Idle
-    }
-}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PIPELINE PROGRESS
@@ -567,7 +564,7 @@ impl OfflinePipeline {
         // Step 4: Normalize
         if let Some(mode) = &self.normalization {
             self.set_state(PipelineState::Normalizing);
-            self.normalize_buffer(&mut buffer, mode.clone())?;
+            self.normalize_buffer(&mut buffer, *mode)?;
         }
 
         // Step 4b: TruePeakLimiter (post-normalization, prevents peaks exceeding ceiling)
@@ -963,7 +960,7 @@ impl BatchProcessor {
                     // Note: ProcessorChain is not Clone, so we'd need to recreate it
                     // For now, use default chain
                     if let Some(ref mode) = self.normalization {
-                        pipeline = pipeline.with_normalization(mode.clone());
+                        pipeline = pipeline.with_normalization(*mode);
                     }
                     pipeline = pipeline.with_output_format(self.output_format.clone());
 

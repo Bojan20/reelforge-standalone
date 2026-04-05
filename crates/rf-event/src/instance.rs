@@ -371,8 +371,6 @@ pub struct CallbackInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::action::ActionType;
-
     #[test]
     fn test_playing_id_generation() {
         let id1 = generate_playing_id();

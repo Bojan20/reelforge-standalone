@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 /// All tunable AUREXIS coefficients. Loaded from profile or set manually.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct AurexisConfig {
     // ═══ VOLATILITY ═══
     pub volatility: VolatilityConfig,
@@ -28,20 +29,6 @@ pub struct AurexisConfig {
     pub energy: EnergyConfig,
 }
 
-impl Default for AurexisConfig {
-    fn default() -> Self {
-        Self {
-            volatility: VolatilityConfig::default(),
-            rtp: RtpConfig::default(),
-            fatigue: FatigueConfig::default(),
-            collision: CollisionConfig::default(),
-            escalation: EscalationConfig::default(),
-            variation: VariationConfig::default(),
-            platform: PlatformConfig::default(),
-            energy: EnergyConfig::default(),
-        }
-    }
-}
 
 impl AurexisConfig {
     pub fn to_json(&self) -> Result<String, serde_json::Error> {

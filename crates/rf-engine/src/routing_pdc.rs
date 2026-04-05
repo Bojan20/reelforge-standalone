@@ -351,8 +351,7 @@ impl PDCCalculator {
             if in_degree >= 2 {
                 let incoming_edges: Vec<usize> = graph
                     .reverse_adjacency
-                    .get(&node)
-                    .map(|v| v.clone())
+                    .get(&node).cloned()
                     .unwrap_or_default();
 
                 // Calculate arrival time for each input
@@ -443,8 +442,7 @@ impl PDCCalculator {
         for &node in topo_order.iter().rev() {
             let outgoing_indices: Vec<usize> = graph
                 .adjacency
-                .get(&node)
-                .map(|v| v.clone())
+                .get(&node).cloned()
                 .unwrap_or_default();
 
             // Find max compensation required:
@@ -568,11 +566,10 @@ impl PDCCalculator {
         let mut rec_stack = HashSet::new();
 
         for node in graph.nodes() {
-            if !visited.contains(&node) {
-                if Self::has_cycles_dfs(graph, node, &mut visited, &mut rec_stack) {
+            if !visited.contains(&node)
+                && Self::has_cycles_dfs(graph, node, &mut visited, &mut rec_stack) {
                     return true;
                 }
-            }
         }
 
         false

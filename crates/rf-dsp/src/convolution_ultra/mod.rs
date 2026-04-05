@@ -59,7 +59,7 @@ impl ImpulseResponse {
     pub fn stereo(left: Vec<Sample>, right: Vec<Sample>, sample_rate: f64) -> Self {
         assert_eq!(left.len(), right.len());
         let mut samples = Vec::with_capacity(left.len() * 2);
-        for (l, r) in left.into_iter().zip(right.into_iter()) {
+        for (l, r) in left.into_iter().zip(right) {
             samples.push(l);
             samples.push(r);
         }

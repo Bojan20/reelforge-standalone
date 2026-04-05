@@ -72,7 +72,7 @@ mod tests {
         for offset in 0..100 {
             let val = seed_to_range(12345, offset, -0.05, 0.05);
             assert!(
-                val >= -0.05 && val <= 0.05,
+                (-0.05..=0.05).contains(&val),
                 "Value {val} out of range at offset={offset}"
             );
         }

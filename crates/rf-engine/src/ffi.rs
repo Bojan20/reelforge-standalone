@@ -120,7 +120,7 @@ impl PendingAudioEntry {
 static NEXT_PENDING_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1_000_000);
 
 pub(crate) static TRACK_MANAGER: LazyLock<Arc<TrackManager>> = LazyLock::new(|| Arc::new(TrackManager::new()));
-pub(crate) static WAVEFORM_CACHE: LazyLock<WaveformCache> = LazyLock::new(|| WaveformCache::new());
+pub(crate) static WAVEFORM_CACHE: LazyLock<WaveformCache> = LazyLock::new(WaveformCache::new);
 pub(crate) static IMPORTED_AUDIO: LazyLock<RwLock<std::collections::HashMap<ClipId, Arc<ImportedAudio>>>> = LazyLock::new(|| RwLock::new(std::collections::HashMap::new()));
 /// Pending audio entries — instant registration, metadata loaded async
 static PENDING_AUDIO: LazyLock<RwLock<std::collections::HashMap<u64, Arc<PendingAudioEntry>>>> = LazyLock::new(|| RwLock::new(std::collections::HashMap::new()));
@@ -133,7 +133,7 @@ static METADATA_THREAD_POOL: LazyLock<rayon::ThreadPool> = LazyLock::new(|| rayo
 pub static PLAYBACK_ENGINE: LazyLock<Arc<PlaybackEngine>> = LazyLock::new(|| Arc::new(PlaybackEngine::new(Arc::clone(&TRACK_MANAGER), 48000)));
 static UNDO_MANAGER: LazyLock<RwLock<UndoManager>> = LazyLock::new(|| RwLock::new(UndoManager::new(500)));
 /// Project dirty state tracking
-static PROJECT_STATE: LazyLock<ProjectState> = LazyLock::new(|| ProjectState::new());
+static PROJECT_STATE: LazyLock<ProjectState> = LazyLock::new(ProjectState::new);
 /// Click track / metronome
 pub(crate) static CLICK_TRACK: LazyLock<RwLock<crate::click::ClickTrack>> = LazyLock::new(|| RwLock::new(crate::click::ClickTrack::new(48000)));
 /// Export engine (Phase 12)
@@ -162,7 +162,7 @@ static EVENT_MANAGER_PARTS: LazyLock<(rf_event::EventManagerHandle, parking_lot:
 /// Asset registry for middleware audio (sound bank storage)
 static ASSET_REGISTRY: LazyLock<Arc<crate::middleware_integration::AssetRegistry>> = LazyLock::new(|| Arc::new(crate::middleware_integration::AssetRegistry::new()));
 /// Project Tab Manager (multi-project tabs)
-static PROJECT_TAB_MANAGER: LazyLock<crate::track_manager::ProjectTabManager> = LazyLock::new(|| crate::track_manager::ProjectTabManager::new());
+static PROJECT_TAB_MANAGER: LazyLock<crate::track_manager::ProjectTabManager> = LazyLock::new(crate::track_manager::ProjectTabManager::new);
 
 /// Get the event manager handle (thread-safe, for UI commands)
 fn event_handle() -> &'static rf_event::EventManagerHandle {
@@ -3798,11 +3798,10 @@ pub extern "C" fn clip_envelope_remove_point(
             3 => clip.pan_envelope.as_mut(),
             _ => None,
         };
-        if let Some(envelope) = env {
-            if envelope.remove_point_at(offset_samples, tolerance) {
+        if let Some(envelope) = env
+            && envelope.remove_point_at(offset_samples, tolerance) {
                 return 0;
             }
-        }
     }
     -1
 }
@@ -3875,13 +3874,11 @@ pub extern "C" fn clip_envelope_get_points_json(
             3 => clip.pan_envelope.as_ref(),
             _ => None,
         };
-        if let Some(envelope) = env {
-            if let Ok(json) = serde_json::to_string(&envelope.points) {
-                if let Ok(c) = std::ffi::CString::new(json) {
+        if let Some(envelope) = env
+            && let Ok(json) = serde_json::to_string(&envelope.points)
+                && let Ok(c) = std::ffi::CString::new(json) {
                     return c.into_raw();
                 }
-            }
-        }
     }
     std::ptr::null_mut()
 }
@@ -10288,13 +10285,10 @@ pub extern "C" fn algorithmic_reverb_get_param(track_id: u32, param_index: u32) 
             11 => reverb.character(),
             12 => reverb.thickness(),
             13 => reverb.ducking(),
-            14 => {
-                if reverb.freeze() {
+            14
+                if reverb.freeze() => {
                     1.0
-                } else {
-                    0.0
                 }
-            }
             15 => reverb.spin(),
             16 => reverb.wander(),
             17 => reverb.er_level(),
@@ -13757,14 +13751,12 @@ pub extern "C" fn debug_track_clip_state(
 
     // Check if stretcher exists for first clip
     let mut pv_pf = 0.0_f64;
-    if first_clip_id != 0 {
-        if let Some(stretchers) = PLAYBACK_ENGINE.clip_stretchers_try_read() {
-            if let Some(stretcher) = stretchers.get(&first_clip_id) {
+    if first_clip_id != 0
+        && let Some(stretchers) = PLAYBACK_ENGINE.clip_stretchers_try_read()
+            && let Some(stretcher) = stretchers.get(&first_clip_id) {
                 first_preserve |= 4; // bit2
                 pv_pf = stretcher.pitch_semitones();
             }
-        }
-    }
 
     // Stretcher debug counters (resets on read)
     let (pv_hit, pv_miss) = PLAYBACK_ENGINE.stretcher_debug_counters();
@@ -19144,9 +19136,9 @@ pub extern "C" fn audio_get_metadata(path: *const c_char) -> *mut c_char {
     }
 
     // TIER 2: Try time_base with n_frames (works for MP3, OGG, AAC, etc.)
-    if duration_secs <= 0.0 {
-        if let Some(time_base) = codec_params.time_base {
-            if let Some(n_frames) = codec_params.n_frames {
+    if duration_secs <= 0.0
+        && let Some(time_base) = codec_params.time_base
+            && let Some(n_frames) = codec_params.n_frames {
                 // Convert using time_base: duration = n_frames * time_base
                 let tb_num = time_base.numer as f64;
                 let tb_denom = time_base.denom as f64;
@@ -19154,8 +19146,6 @@ pub extern "C" fn audio_get_metadata(path: *const c_char) -> *mut c_char {
                     duration_secs = n_frames as f64 * tb_num / tb_denom;
                 }
             }
-        }
-    }
 
     // TIER 3: Packet scan - count total frames by reading packet headers (not decoding)
     // This is slower but works for ALL formats including VBR MP3
@@ -19168,7 +19158,7 @@ pub extern "C" fn audio_get_metadata(path: *const c_char) -> *mut c_char {
             match format.next_packet() {
                 Ok(packet) => {
                     if packet.track_id() == track_id {
-                        total_frames += packet.dur as u64;
+                        total_frames += packet.dur;
                         packet_count += 1;
                         if packet_count >= MAX_PACKETS {
                             break;
@@ -19514,17 +19504,15 @@ fn load_metadata_async(entry: Arc<PendingAudioEntry>) {
     }
 
     // TIER 2: time_base with n_frames
-    if duration_secs <= 0.0 {
-        if let Some(time_base) = codec_params.time_base {
-            if let Some(n_frames) = codec_params.n_frames {
+    if duration_secs <= 0.0
+        && let Some(time_base) = codec_params.time_base
+            && let Some(n_frames) = codec_params.n_frames {
                 let tb_num = time_base.numer as f64;
                 let tb_denom = time_base.denom as f64;
                 if tb_denom > 0.0 {
                     duration_secs = n_frames as f64 * tb_num / tb_denom;
                 }
             }
-        }
-    }
 
     // TIER 3: Packet scan (for VBR MP3, etc.)
     if duration_secs <= 0.0 {
@@ -19536,7 +19524,7 @@ fn load_metadata_async(entry: Arc<PendingAudioEntry>) {
             match format.next_packet() {
                 Ok(packet) => {
                     if packet.track_id() == track_id {
-                        total_frames += packet.dur as u64;
+                        total_frames += packet.dur;
                         packet_count += 1;
                         if packet_count >= MAX_PACKETS {
                             break;
@@ -21696,7 +21684,7 @@ pub extern "C" fn restoration_learn_noise_profile(input: *const f32, length: u32
     let samples = unsafe { std::slice::from_raw_parts(input, length as usize) };
 
     // Create temporary denoise processor to learn profile
-    let sample_rate = PLAYBACK_ENGINE.sample_rate().max(44100) as u32;
+    let sample_rate = PLAYBACK_ENGINE.sample_rate().max(44100);
     let config = DenoiseConfig::default();
     let mut denoise = Denoise::new(config, sample_rate);
     denoise.estimate_noise_auto(samples);
@@ -21761,7 +21749,7 @@ fn rebuild_restoration_pipeline() {
     let settings = RESTORATION_SETTINGS.read().clone();
     let config = RestoreConfig::default();
     let mut pipeline = RestorationPipeline::new(config.clone());
-    let sample_rate = PLAYBACK_ENGINE.sample_rate().max(44100) as u32;
+    let sample_rate = PLAYBACK_ENGINE.sample_rate().max(44100);
 
     // Add enabled modules in processing order
     if settings.denoise_enabled != 0 {
@@ -24071,15 +24059,14 @@ pub extern "C" fn fx_container_load_path_processor(
         if track_id == 0 {
             // Master bus
             let mut master = PLAYBACK_ENGINE.master_insert_chain().write();
-            if let Some(slot) = master.slot_mut(slot_index) {
-                if let Some(container_proc) = slot.processor_as_container_mut() {
+            if let Some(slot) = master.slot_mut(slot_index)
+                && let Some(container_proc) = slot.processor_as_container_mut() {
                     return if container_proc.container_mut().add_fx_to_path(path_id, processor) {
                         1
                     } else {
                         0
                     };
                 }
-            }
             return 0;
         }
 
@@ -24089,15 +24076,14 @@ pub extern "C" fn fx_container_load_path_processor(
             None => return 0,
         };
 
-        if let Some(slot) = chain.slot_mut(slot_index) {
-            if let Some(container_proc) = slot.processor_as_container_mut() {
+        if let Some(slot) = chain.slot_mut(slot_index)
+            && let Some(container_proc) = slot.processor_as_container_mut() {
                 return if container_proc.container_mut().add_fx_to_path(path_id, processor) {
                     1
                 } else {
                     0
                 };
             }
-        }
 
         0
     })
@@ -24826,7 +24812,7 @@ pub extern "C" fn metadata_batch_edit(
 /// Returns 1 on success, 0 on failure.
 #[unsafe(no_mangle)]
 pub extern "C" fn screenset_save(slot: i32, name: *const c_char, state_json: *const c_char) -> i32 {
-    if slot < 0 || slot > 9 || state_json.is_null() {
+    if !(0..=9).contains(&slot) || state_json.is_null() {
         return 0;
     }
     let name = if name.is_null() {
@@ -24852,7 +24838,7 @@ pub extern "C" fn screenset_save(slot: i32, name: *const c_char, state_json: *co
 /// or null if slot is empty. Caller must free with engine_free_string.
 #[unsafe(no_mangle)]
 pub extern "C" fn screenset_load(slot: i32) -> *mut c_char {
-    if slot < 0 || slot > 9 {
+    if !(0..=9).contains(&slot) {
         return std::ptr::null_mut();
     }
     match TRACK_MANAGER.load_screenset(slot as u8) {
@@ -24870,7 +24856,7 @@ pub extern "C" fn screenset_load(slot: i32) -> *mut c_char {
 /// Clear a screenset slot. Returns 1 on success.
 #[unsafe(no_mangle)]
 pub extern "C" fn screenset_clear(slot: i32) -> i32 {
-    if slot < 0 || slot > 9 {
+    if !(0..=9).contains(&slot) {
         return 0;
     }
     if TRACK_MANAGER.clear_screenset(slot as u8) { 1 } else { 0 }
@@ -24879,7 +24865,7 @@ pub extern "C" fn screenset_clear(slot: i32) -> i32 {
 /// Rename a screenset slot. Returns 1 on success, 0 if empty/invalid.
 #[unsafe(no_mangle)]
 pub extern "C" fn screenset_rename(slot: i32, name: *const c_char) -> i32 {
-    if slot < 0 || slot > 9 || name.is_null() {
+    if !(0..=9).contains(&slot) || name.is_null() {
         return 0;
     }
     let name = unsafe { std::ffi::CStr::from_ptr(name) }

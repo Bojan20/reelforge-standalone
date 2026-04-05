@@ -443,10 +443,8 @@ impl<P: rack::PluginInstance + Send + 'static> RackPluginTrait for RackPluginWra
                     if let Some(stdout) = child.stdout.take() {
                         use std::io::BufRead;
                         let reader = std::io::BufReader::new(stdout);
-                        for line in reader.lines() {
-                            if let Ok(line) = line {
-                                eprintln!("[FluxForge] plugin-host: {}", line);
-                            }
+                        for line in reader.lines().flatten() {
+                            eprintln!("[FluxForge] plugin-host: {}", line);
                         }
                     }
                     let _ = child.wait();
@@ -465,12 +463,11 @@ impl<P: rack::PluginInstance + Send + 'static> RackPluginTrait for RackPluginWra
 
     #[cfg(target_os = "macos")]
     fn close_gui_window(&mut self) {
-        if let Some(gui) = self.gui.lock().take() {
-            if let Err(e) = gui.hide_window() {
+        if let Some(gui) = self.gui.lock().take()
+            && let Err(e) = gui.hide_window() {
                 log::warn!("Failed to hide plugin GUI window: {:?}", e);
             }
             // GUI handle is dropped here, cleaning up native resources
-        }
     }
 
     #[cfg(target_os = "macos")]
@@ -1127,7 +1124,7 @@ impl PluginInstance for Vst3Host {
         // On macOS, AU hosting works independently of rack (in-process via au_host.m).
         // So has_editor is true whenever the plugin bundle exists, even if rack failed to load it.
         #[cfg(target_os = "macos")]
-        { return self.info.has_editor; }
+        { self.info.has_editor}
         #[cfg(not(target_os = "macos"))]
         { self.module_loaded }
     }
@@ -1231,8 +1228,8 @@ impl PluginInstance for Vst3Host {
             // Resize the AU window if we have one
             {
                 let guard = self.au_window.lock();
-                if let Some(window_ptr) = *guard {
-                    if window_ptr != 0 {
+                if let Some(window_ptr) = *guard
+                    && window_ptr != 0 {
                         unsafe {
                             use objc2::msg_send;
                             use objc2::runtime::AnyObject;
@@ -1263,7 +1260,6 @@ impl PluginInstance for Vst3Host {
                         }
                         log::info!("Resized editor window to {}x{}", width, height);
                     }
-                }
             }
         }
 

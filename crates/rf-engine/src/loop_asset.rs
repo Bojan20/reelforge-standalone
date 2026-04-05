@@ -65,8 +65,10 @@ pub enum WrapPolicy {
 
 /// Crossfade curve shape.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum LoopCrossfadeCurve {
     /// Equal-power (sin/cos) — default, mathematically optimal
+    #[default]
     EqualPower,
     /// Linear (simple ramp)
     Linear,
@@ -88,11 +90,6 @@ pub enum LoopCrossfadeCurve {
     SlowAttack,
 }
 
-impl Default for LoopCrossfadeCurve {
-    fn default() -> Self {
-        Self::EqualPower
-    }
-}
 
 /// Quantization type for snapping loop points.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -474,13 +471,12 @@ pub fn validate_loop_asset(asset: &LoopAsset) -> Result<(), Vec<ValidationError>
         }
 
         // V-10: Quantize grid non-zero
-        if let Some(ref q) = region.quantize {
-            if q.grid_samples == 0 {
+        if let Some(ref q) = region.quantize
+            && q.grid_samples == 0 {
                 errors.push(ValidationError::V10QuantizeGridZero {
                     name: region.name.clone(),
                 });
             }
-        }
 
         // V-15: Crossfade <= half region
         let region_ms =
@@ -494,14 +490,13 @@ pub fn validate_loop_asset(asset: &LoopAsset) -> Result<(), Vec<ValidationError>
         }
 
         // V-16: iteration_gain_factor must be in (0.0, 2.0]
-        if let Some(factor) = region.iteration_gain_factor {
-            if factor <= 0.0 || factor > 2.0 {
+        if let Some(factor) = region.iteration_gain_factor
+            && (factor <= 0.0 || factor > 2.0) {
                 errors.push(ValidationError::V16IterationGainInvalid {
                     name: region.name.clone(),
                     factor,
                 });
             }
-        }
     }
 
     // V-11: Unique region names
@@ -526,13 +521,12 @@ pub fn validate_loop_asset(asset: &LoopAsset) -> Result<(), Vec<ValidationError>
 
     // V-13: Custom cues must be between Entry and Exit
     for cue in &asset.cues {
-        if cue.cue_type == CueType::Custom || cue.cue_type == CueType::Sync || cue.cue_type == CueType::Event {
-            if cue.at_samples < entry || cue.at_samples > exit {
+        if (cue.cue_type == CueType::Custom || cue.cue_type == CueType::Sync || cue.cue_type == CueType::Event)
+            && (cue.at_samples < entry || cue.at_samples > exit) {
                 errors.push(ValidationError::V13CustomCueOutsideBody {
                     name: cue.name.clone(),
                 });
             }
-        }
     }
 
     // V-14: At least one region for looping assets

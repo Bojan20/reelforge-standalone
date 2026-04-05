@@ -86,13 +86,12 @@ impl CachedWaveform {
     ) -> Vec<TileData> {
         match self {
             CachedWaveform::Loaded(wfc) => {
-                if let Some(mip) = wfc.mip_levels.get(level) {
-                    if let Some(channel_tiles) = mip.tiles.get(channel) {
+                if let Some(mip) = wfc.mip_levels.get(level)
+                    && let Some(channel_tiles) = mip.tiles.get(channel) {
                         let s = start.min(channel_tiles.len());
                         let e = end.min(channel_tiles.len());
                         return channel_tiles[s..e].to_vec();
                     }
-                }
                 Vec::new()
             }
             CachedWaveform::Mmap(mmap) => mmap.get_tiles_range(level, channel, start, end),

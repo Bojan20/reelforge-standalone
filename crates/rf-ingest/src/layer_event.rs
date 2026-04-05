@@ -71,21 +71,18 @@ fn find_events_array<'a>(
     config: &AdapterConfig,
 ) -> Result<Vec<&'a Value>, AdapterError> {
     // Try configured path first
-    if let Some(path) = &config.payload_paths.events_path {
-        if let Some(arr) = json_path(json, path) {
-            if let Some(arr) = arr.as_array() {
+    if let Some(path) = &config.payload_paths.events_path
+        && let Some(arr) = json_path(json, path)
+            && let Some(arr) = arr.as_array() {
                 return Ok(arr.iter().collect());
             }
-        }
-    }
 
     // Try common paths
     for path in &["events", "event_log", "log", "data.events", "result.events"] {
-        if let Some(arr) = json_path(json, path) {
-            if let Some(arr) = arr.as_array() {
+        if let Some(arr) = json_path(json, path)
+            && let Some(arr) = arr.as_array() {
                 return Ok(arr.iter().collect());
             }
-        }
     }
 
     // If JSON is an array, use it directly
@@ -104,11 +101,10 @@ fn find_events_array<'a>(
 /// Extract event name from event object
 fn extract_event_name(event: &Value, config: &AdapterConfig) -> Result<String, AdapterError> {
     // Try configured path
-    if let Some(path) = &config.payload_paths.event_name_path {
-        if let Some(name) = json_path(event, path).and_then(|v| v.as_str()) {
+    if let Some(path) = &config.payload_paths.event_name_path
+        && let Some(name) = json_path(event, path).and_then(|v| v.as_str()) {
             return Ok(name.to_string());
         }
-    }
 
     // Try common fields
     for field in &["name", "event", "type", "event_name", "eventName", "cmd"] {
@@ -123,11 +119,10 @@ fn extract_event_name(event: &Value, config: &AdapterConfig) -> Result<String, A
 /// Extract timestamp from event
 fn extract_timestamp(event: &Value, config: &AdapterConfig) -> f64 {
     // Try configured path
-    if let Some(path) = &config.payload_paths.timestamp_path {
-        if let Some(ts) = json_path(event, path).and_then(|v| v.as_f64()) {
+    if let Some(path) = &config.payload_paths.timestamp_path
+        && let Some(ts) = json_path(event, path).and_then(|v| v.as_f64()) {
             return ts;
         }
-    }
 
     // Try common fields
     for field in &["time", "timestamp", "ts", "time_ms", "timeMs"] {

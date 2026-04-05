@@ -637,14 +637,13 @@ impl SlotWinConfig {
         }
 
         // Check regular tiers don't overlap with big win threshold
-        if let Some(last_regular) = sorted_regular.last() {
-            if last_regular.to_multiplier > self.big_wins.threshold {
+        if let Some(last_regular) = sorted_regular.last()
+            && last_regular.to_multiplier > self.big_wins.threshold {
                 errors.push(format!(
                     "Regular tier {} extends beyond big win threshold {}",
                     last_regular.tier_id, self.big_wins.threshold
                 ));
             }
-        }
 
         // Check big win tiers
         if self.big_wins.tiers.is_empty() {
@@ -660,14 +659,13 @@ impl SlotWinConfig {
         });
 
         // First big tier should start at threshold
-        if let Some(first_big) = sorted_big.first() {
-            if (first_big.from_multiplier - self.big_wins.threshold).abs() > 0.001 {
+        if let Some(first_big) = sorted_big.first()
+            && (first_big.from_multiplier - self.big_wins.threshold).abs() > 0.001 {
                 errors.push(format!(
                     "First big win tier starts at {} but threshold is {}",
                     first_big.from_multiplier, self.big_wins.threshold
                 ));
             }
-        }
 
         // Check for gaps in big tier ranges
         for i in 0..sorted_big.len().saturating_sub(1) {
@@ -682,14 +680,13 @@ impl SlotWinConfig {
         }
 
         // Last big tier should extend to infinity
-        if let Some(last_big) = sorted_big.last() {
-            if !last_big.to_multiplier.is_infinite() {
+        if let Some(last_big) = sorted_big.last()
+            && !last_big.to_multiplier.is_infinite() {
                 errors.push(format!(
                     "Last big win tier {} should extend to infinity, ends at {}",
                     last_big.tier_id, last_big.to_multiplier
                 ));
             }
-        }
 
         // Validate threshold is positive
         if self.big_wins.threshold <= 0.0 {

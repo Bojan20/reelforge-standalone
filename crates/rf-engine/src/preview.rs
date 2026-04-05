@@ -625,7 +625,7 @@ fn run_preview_stream(
 use std::sync::LazyLock;
 
 /// Global preview engine instance
-pub static PREVIEW_ENGINE: LazyLock<PreviewEngine> = LazyLock::new(|| PreviewEngine::new());
+pub static PREVIEW_ENGINE: LazyLock<PreviewEngine> = LazyLock::new(PreviewEngine::new);
 
 #[cfg(test)]
 mod tests {
@@ -641,7 +641,7 @@ mod tests {
     #[test]
     fn test_voice_slot_allocation() {
         let (_, rx) = RingBuffer::new(8);
-        let mut rt = RtState::new(rx, 48000);
+        let rt = RtState::new(rx, 48000);
 
         // All voices start inactive
         assert!(rt.voices.iter().all(|v| !v.active));
