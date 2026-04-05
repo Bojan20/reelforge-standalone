@@ -3,7 +3,8 @@
 //! Extracted from api.rs as part of modular FFI decomposition.
 //! Handles playback transport control: play, stop, pause, seek, loop, tempo.
 
-use crate::{ENGINE, TransportState};
+use crate::{ENGINE, TransportState, cortex_handle};
+use rf_cortex::prelude::*;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TRANSPORT
@@ -15,6 +16,14 @@ pub fn transport_play() -> bool {
     let mut engine = ENGINE.write();
     if let Some(ref mut e) = *engine {
         e.transport.is_playing = true;
+        // Emit transport signal to CORTEX
+        if let Some(h) = cortex_handle() {
+            h.signal(
+                SignalOrigin::Transport,
+                SignalUrgency::Normal,
+                SignalKind::TransportStateChanged { playing: true, recording: e.transport.is_recording },
+            );
+        }
         true
     } else {
         false
@@ -26,9 +35,25 @@ pub fn transport_play() -> bool {
 pub fn transport_stop() -> bool {
     let mut engine = ENGINE.write();
     if let Some(ref mut e) = *engine {
+        let from = e.transport.position_samples;
         e.transport.is_playing = false;
         e.transport.position_samples = 0;
         e.transport.position_seconds = 0.0;
+        // Emit signals to CORTEX
+        if let Some(h) = cortex_handle() {
+            h.signal(
+                SignalOrigin::Transport,
+                SignalUrgency::Normal,
+                SignalKind::TransportStateChanged { playing: false, recording: e.transport.is_recording },
+            );
+            if from > 0 {
+                h.signal(
+                    SignalOrigin::Transport,
+                    SignalUrgency::Normal,
+                    SignalKind::PositionJump { from_samples: from, to_samples: 0 },
+                );
+            }
+        }
         true
     } else {
         false
@@ -64,9 +89,18 @@ pub fn transport_record() -> bool {
 pub fn transport_set_position(seconds: f64) -> bool {
     let mut engine = ENGINE.write();
     if let Some(ref mut e) = *engine {
+        let from = e.transport.position_samples;
         e.transport.position_seconds = seconds;
         let sr = e.config.sample_rate.as_f64();
         e.transport.position_samples = (seconds * sr) as u64;
+        // Emit position jump signal
+        if let Some(h) = cortex_handle() {
+            h.signal(
+                SignalOrigin::Transport,
+                SignalUrgency::Normal,
+                SignalKind::PositionJump { from_samples: from, to_samples: e.transport.position_samples },
+            );
+        }
         true
     } else {
         false

@@ -46,6 +46,7 @@ pub mod autosave_ffi;
 pub mod command_queue;
 pub mod connector_ffi;
 pub mod container_ffi;
+pub mod cortex_ffi;
 pub mod device_preview_ffi;
 pub mod dpm_ffi;
 pub mod drc_ffi;
@@ -97,8 +98,9 @@ pub use viz::*;
 pub use rf_file::{RecordingConfig, RecordingState, RecordingStats};
 
 use parking_lot::RwLock;
-use std::sync::{Arc, LazyLock};
+use std::sync::{Arc, LazyLock, OnceLock};
 
+use rf_cortex::prelude::*;
 use rf_engine::automation::AutomationEngine;
 use rf_engine::groups::GroupManager;
 use rf_engine::playback::PlaybackEngine as EnginePlayback;
@@ -111,6 +113,47 @@ static ENGINE: LazyLock<Arc<RwLock<Option<EngineBridge>>>> = LazyLock::new(|| Ar
 
 /// Global playback engine (real-time audio output)
 pub static PLAYBACK: LazyLock<Arc<PlaybackEngine>> = LazyLock::new(|| Arc::new(PlaybackEngine::new()));
+
+/// Global CORTEX nervous system runtime.
+/// Initialized once on engine_init(), lives until engine_shutdown().
+static CORTEX_RUNTIME: OnceLock<CortexRuntime> = OnceLock::new();
+
+/// Get a handle to the CORTEX nervous system.
+/// Returns None if cortex hasn't been initialized yet.
+pub fn cortex_handle() -> Option<CortexHandle> {
+    CORTEX_RUNTIME.get().map(|rt| rt.handle())
+}
+
+/// Get the shared CORTEX state (health, patterns, etc.).
+/// Returns None if cortex hasn't been initialized yet.
+pub fn cortex_shared() -> Option<&'static Arc<SharedCortexState>> {
+    CORTEX_RUNTIME.get().map(|rt| rt.shared())
+}
+
+/// Cached cortex handle for hot paths (audio callback, metering).
+/// Set once during cortex_init(), read from any thread without allocation.
+static CORTEX_HANDLE: OnceLock<CortexHandle> = OnceLock::new();
+
+/// Get the cached cortex handle (zero-cost read, no Arc::clone).
+/// Use this in audio callbacks and hot paths.
+pub fn cortex_handle_cached() -> Option<&'static CortexHandle> {
+    CORTEX_HANDLE.get()
+}
+
+/// Initialize the CORTEX nervous system. Called from engine_init().
+fn cortex_init() {
+    let _ = CORTEX_RUNTIME.set(CortexRuntime::start(CortexConfig {
+        awareness_interval: std::time::Duration::from_secs(2),
+        expected_origins: 12, // AudioEngine, DSP, Mixer, Plugin, Transport, Timeline, Automation, SlotLab, Aurexis, ML, Vision, Bridge
+        default_reflexes: true,
+        default_patterns: true,
+    }));
+    // Cache a handle for hot paths
+    if let Some(rt) = CORTEX_RUNTIME.get() {
+        let _ = CORTEX_HANDLE.set(rt.handle());
+    }
+    log::info!("CORTEX Nervous System initialized — tick thread running");
+}
 
 /// Bridge wrapper for the audio engine
 pub struct EngineBridge {
@@ -401,6 +444,9 @@ pub use fluxmacro_ffi::*;
 
 // Re-export Advanced Loop System FFI (Wwise-grade)
 pub use loop_ffi::*;
+
+// Re-export CORTEX Nervous System FFI
+pub use cortex_ffi::*;
 
 // Re-export Control Room FFI
 pub use rf_engine::ffi_control_room::*;

@@ -21,6 +21,7 @@ rf-restore = { path = "../rf-restore" }
 rf-ml = { path = "../rf-ml" }
 rf-script = { path = "../rf-script" }
 rf-event = { path = "../rf-event" }
+rf-cortex = { path = "../rf-cortex" }
 rf-stage = { path = "../rf-stage" }
 rf-ingest = { path = "../rf-ingest" }
 rf-connector = { path = "../rf-connector" }

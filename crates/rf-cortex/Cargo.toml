@@ -10,7 +10,6 @@ rust-version.workspace = true
 [dependencies]
 # Internal crates
 rf-core = { workspace = true }
-rf-event = { workspace = true }
 
 # Lock-free communication
 crossbeam-channel = { workspace = true }

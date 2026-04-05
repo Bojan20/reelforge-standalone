@@ -32,6 +32,7 @@ use std::thread;
 use std::time::Duration;
 
 use crate::command_queue::audio_command_handle;
+use crate::cortex_handle_cached;
 use crate::dsp_commands::DspCommand;
 
 use rf_engine::playback::{BusState, PlaybackEngine as EnginePlayback};
@@ -2022,7 +2023,17 @@ fn process_audio_unified(
 
         // Clip detection
         if abs_l > 1.0 || abs_r > 1.0 {
-            meters.clipped.store(true, Ordering::Relaxed);
+            // Emit CORTEX signal on clip transition (false→true only, no spam)
+            if !meters.clipped.swap(true, Ordering::Relaxed) {
+                if let Some(h) = cortex_handle_cached() {
+                    let peak_db = 20.0 * peak_l.max(peak_r).log10();
+                    h.signal(
+                        rf_cortex::signal::SignalOrigin::AudioEngine,
+                        rf_cortex::signal::SignalUrgency::Elevated,
+                        rf_cortex::signal::SignalKind::ClipDetected { channel: 0, peak_db },
+                    );
+                }
+            }
         }
     }
 

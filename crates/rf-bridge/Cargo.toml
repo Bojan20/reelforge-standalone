@@ -28,6 +28,7 @@ rf-aurexis = { path = "../rf-aurexis" }
 rf-connector = { path = "../rf-connector" }
 rf-offline = { path = "../rf-offline" }
 rf-fluxmacro = { path = "../rf-fluxmacro" }
+rf-cortex = { path = "../rf-cortex" }
 
 # Audio I/O
 cpal.workspace = true
@@ -61,6 +62,7 @@ log.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
 dashmap = "6.0"
+portable-atomic = { workspace = true }
 rayon.workspace = true
 dirs = "5.0"
 

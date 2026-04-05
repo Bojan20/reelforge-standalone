@@ -3,8 +3,9 @@
 //! Extracted from api.rs as part of modular FFI decomposition.
 //! Handles engine initialization, shutdown, and status.
 
-use crate::{ENGINE, EngineBridge};
+use crate::{ENGINE, EngineBridge, cortex_init, cortex_handle};
 use rf_core::SampleRate;
+use rf_cortex::prelude::*;
 use rf_engine::EngineConfig;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -18,6 +19,9 @@ pub fn engine_init() -> bool {
     if engine.is_some() {
         return false; // Already initialized
     }
+    // Initialize CORTEX nervous system first
+    cortex_init();
+
     *engine = Some(EngineBridge::new(EngineConfig::default()));
     true
 }
@@ -47,6 +51,9 @@ pub fn engine_init_with_config(sample_rate: u32, block_size: usize, num_buses: u
         ..Default::default()
     };
 
+    // Initialize CORTEX nervous system first
+    cortex_init();
+
     *engine = Some(EngineBridge::new(config));
     true
 }
@@ -54,6 +61,10 @@ pub fn engine_init_with_config(sample_rate: u32, block_size: usize, num_buses: u
 /// Shutdown the engine
 #[flutter_rust_bridge::frb(sync)]
 pub fn engine_shutdown() {
+    // Emit shutdown signal before tearing down
+    if let Some(h) = cortex_handle() {
+        h.signal(SignalOrigin::Bridge, SignalUrgency::Normal, SignalKind::Shutdown);
+    }
     let mut engine = ENGINE.write();
     *engine = None;
 }
