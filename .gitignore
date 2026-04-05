@@ -45,4 +45,17 @@ perf.data*
 .env
 .env.local
 ._*
+
+# IntelliJ / Android Studio
+*.iml
+
+# Backup files
+*.bak
+
+# Generated Flutter files (flutter gen-l10n output)
+flutter_ui/lib/l10n/app_localizations*.dart
+
+# Generated FFI bridge (flutter_rust_bridge codegen)
+flutter_ui/lib/src/rust/bridge_generated.dart
+
 ReelToReel-ReverseEngineered-ULTIMATE.txt

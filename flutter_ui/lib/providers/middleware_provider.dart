@@ -326,27 +326,6 @@ class MiddlewareProvider extends ChangeNotifier {
   final AutoSpatialEngine _autoSpatialEngine = AutoSpatialEngine();
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // SHARED AUDIO POOL (accessible from DAW, Middleware, and Slot Mode)
-  // Now delegates to AudioAssetManager (single source of truth)
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  /// @deprecated Use AudioAssetManager.instance.assets instead
-  /// Kept for backwards compatibility - converts from UnifiedAudioAsset
-  List<SharedPoolAudioFile> get _sharedAudioPool {
-    return AudioAssetManager.instance.assets.map((a) => SharedPoolAudioFile(
-      id: a.id,
-      path: a.path,
-      name: a.name,
-      duration: a.duration,
-      sampleRate: a.sampleRate,
-      channels: a.channels,
-      format: a.format,
-      waveform: a.waveform,
-      importedAt: a.importedAt,
-    )).toList();
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
   // SLOT MODE STATE (persistent across mode switches)
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -508,9 +487,6 @@ class MiddlewareProvider extends ChangeNotifier {
   StreamingConfig get streamingConfig => _streamingConfig;
   AutoSpatialEngine get autoSpatialEngine => _autoSpatialEngine;
   AnchorRegistry get anchorRegistry => _autoSpatialEngine.anchorRegistry;
-
-  // Shared Audio Pool getters
-  List<SharedPoolAudioFile> get sharedAudioPool => List.unmodifiable(_sharedAudioPool);
 
   // Slot Mode state getters
   List<SlotAudioTrack> get slotTracks => List.unmodifiable(_slotTracks);

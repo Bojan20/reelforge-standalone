@@ -124,27 +124,6 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                 ),
               ),
 
-            // EQ Test Lab button
-            Positioned(
-              top: 16,
-              left: 16,
-              child: TextButton.icon(
-                onPressed: () => Navigator.pushNamed(context, '/eq-test'),
-                icon: Icon(Icons.graphic_eq, color: FluxForgeTheme.accentBlue, size: 16),
-                label: Text(
-                  'EQ Test Lab',
-                  style: TextStyle(
-                    color: FluxForgeTheme.accentBlue,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                style: TextButton.styleFrom(
-                  backgroundColor: FluxForgeTheme.accentBlue.withOpacity(0.1),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                ),
-              ),
-            ),
           ],
         ),
       ),

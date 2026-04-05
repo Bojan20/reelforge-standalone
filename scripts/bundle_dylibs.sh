@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-APP_BUNDLE="flutter_ui/build/macos/Build/Products/Release/reelforge_ui.app"
+APP_BUNDLE="$HOME/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/Release/FluxForge Studio.app"
 FRAMEWORKS_DIR="$APP_BUNDLE/Contents/Frameworks"
 LIB_PATH="target/release/librf_bridge.dylib"
 

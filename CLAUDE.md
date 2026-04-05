@@ -26,7 +26,7 @@ pkill -f "flutter run" 2>/dev/null || true
 sleep 1
 
 # BUILD
-cd "/Volumes/Bojan - T7/DevVault/Projects/fluxforge-studio"
+cd "/Users/vanvinklstudio/Projects/fluxforge-studio"
 cargo build --release
 cp target/release/librf_bridge.dylib flutter_ui/macos/Frameworks/
 cp target/release/librf_engine.dylib flutter_ui/macos/Frameworks/

@@ -14,7 +14,6 @@ import 'screens/engine_connected_layout.dart';
 import 'screens/launcher_screen.dart';
 import 'screens/daw_hub_screen.dart';
 // middleware_hub_screen removed — SlotLab is unified
-import 'screens/eq_test_screen.dart';
 import 'providers/engine_provider.dart';
 import 'providers/timeline_playback_provider.dart';
 import 'providers/mixer_dsp_provider.dart';
@@ -381,7 +380,6 @@ class FluxForgeApp extends StatelessWidget {
         initialRoute: '/',
         routes: {
           '/': (context) => const _AppInitializer(),
-          '/eq-test': (context) => const _EqTestRoute(),
         },
       ),
     );
@@ -737,12 +735,3 @@ class _DawLayoutState extends State<_DawLayout> {
   }
 }
 
-/// Route wrapper for EQ Test Screen
-class _EqTestRoute extends StatelessWidget {
-  const _EqTestRoute();
-
-  @override
-  Widget build(BuildContext context) {
-    return const EqTestScreen();
-  }
-}

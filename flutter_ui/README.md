@@ -1,16 +1,14 @@
-# fluxforge_ui
+# FluxForge Studio — Flutter UI
 
-A new Flutter project.
+Flutter desktop frontend for FluxForge Studio DAW.
 
-## Getting Started
+## Build
 
-This project is a starting point for a Flutter application.
+See `CLAUDE.md` in the project root for the full build procedure (xcodebuild flow, NOT `flutter run`).
 
-A few resources to get you started if this is your first Flutter project:
+## Architecture
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- **State management:** GetIt (singleton services) + Provider (widget tree reactivity)
+- **FFI:** flutter_rust_bridge → `rf-bridge` Rust crate (`librf_bridge.dylib`)
+- **Screens:** DAW (engine_connected_layout), SlotLab, Welcome, Settings
+- **Shaders:** `shaders/spectrum.frag`, `shaders/anticipation_glow.frag` (Skia fragment shaders)
