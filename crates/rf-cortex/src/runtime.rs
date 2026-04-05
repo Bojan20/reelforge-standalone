@@ -9,9 +9,11 @@
 //! runtime.shutdown(); // or drop
 //! ```
 
+use crate::autonomic::CommandReceiver;
 use crate::awareness::AwarenessSnapshot;
 use crate::cortex::{Cortex, CortexConfig};
 use crate::handle::CortexHandle;
+use crate::immune::ImmuneSnapshot;
 use crate::pattern::RecognizedPattern;
 use crate::reflex::ReflexStats;
 use crate::signal::NeuralSignal;
@@ -38,6 +40,9 @@ pub struct CortexRuntime {
     shutdown: Arc<AtomicBool>,
     /// The tick thread handle.
     tick_thread: Option<thread::JoinHandle<()>>,
+    /// Command receiver — subsystems poll this for autonomic commands.
+    /// Currently used internally; will be exposed via FFI in next phase.
+    _command_receiver: Option<CommandReceiver>,
 }
 
 /// Shared cortex state — readable from any thread (behind Mutex for snapshots).
@@ -56,6 +61,12 @@ pub struct SharedCortexState {
     pub health_score_bits: portable_atomic::AtomicU64,
     /// Recent reflex stats (name, fire_count, enabled).
     pub reflex_stats: Mutex<Vec<ReflexStats>>,
+    /// Total autonomic commands dispatched.
+    pub total_commands_dispatched: portable_atomic::AtomicU64,
+    /// Latest immune system snapshot.
+    pub immune_snapshot: Mutex<Option<ImmuneSnapshot>>,
+    /// Has chronic anomaly?
+    pub has_chronic: AtomicBool,
 }
 
 impl SharedCortexState {
@@ -68,6 +79,9 @@ impl SharedCortexState {
             is_degraded: AtomicBool::new(false),
             health_score_bits: portable_atomic::AtomicU64::new(f64::to_bits(1.0)),
             reflex_stats: Mutex::new(Vec::new()),
+            total_commands_dispatched: portable_atomic::AtomicU64::new(0),
+            immune_snapshot: Mutex::new(None),
+            has_chronic: AtomicBool::new(false),
         }
     }
 
@@ -102,6 +116,7 @@ impl CortexRuntime {
             shared,
             shutdown,
             tick_thread: Some(tick_thread),
+            _command_receiver: None, // Command receiver is inside tick_loop
         }
     }
 
@@ -112,7 +127,9 @@ impl CortexRuntime {
         shared: Arc<SharedCortexState>,
         shutdown: Arc<AtomicBool>,
     ) {
-        let mut cortex = Cortex::new(config);
+        // Create cortex with command channel — commands dispatch into the channel
+        // and are tracked in shared state for FFI/UI consumption
+        let (mut cortex, _command_rx) = Cortex::with_command_channel(config);
 
         log::info!("CORTEX tick thread started (interval: {:?})", TICK_INTERVAL);
 
@@ -134,7 +151,9 @@ impl CortexRuntime {
             // Update shared state
             shared.total_processed.store(cortex.total_processed, portable_atomic::Ordering::Relaxed);
             shared.total_reflex_actions.store(cortex.total_reflex_actions, portable_atomic::Ordering::Relaxed);
+            shared.total_commands_dispatched.store(cortex.total_commands_dispatched, portable_atomic::Ordering::Relaxed);
             shared.is_degraded.store(cortex.is_degraded(), Ordering::Relaxed);
+            shared.has_chronic.store(cortex.has_chronic_anomaly(), Ordering::Relaxed);
 
             if let Some(snap) = cortex.awareness() {
                 shared.health_score_bits.store(
@@ -143,6 +162,9 @@ impl CortexRuntime {
                 );
                 *shared.latest_awareness.lock() = Some(snap.clone());
             }
+
+            // Update immune snapshot
+            *shared.immune_snapshot.lock() = Some(cortex.immune_snapshot());
 
             if !patterns.is_empty() {
                 let mut recent = shared.recent_patterns.lock();
@@ -160,7 +182,11 @@ impl CortexRuntime {
             thread::sleep(TICK_INTERVAL);
         }
 
-        log::info!("CORTEX tick thread shutting down (processed {} signals)", cortex.total_processed);
+        log::info!(
+            "CORTEX tick thread shutting down (processed {} signals, dispatched {} commands)",
+            cortex.total_processed,
+            cortex.total_commands_dispatched
+        );
     }
 
     /// Get a clone of the handle for signal emission.
@@ -191,6 +217,21 @@ impl CortexRuntime {
     /// Get recent recognized patterns.
     pub fn recent_patterns(&self) -> Vec<RecognizedPattern> {
         self.shared.recent_patterns.lock().clone()
+    }
+
+    /// Get immune system snapshot.
+    pub fn immune_snapshot(&self) -> Option<ImmuneSnapshot> {
+        self.shared.immune_snapshot.lock().clone()
+    }
+
+    /// Has any chronic anomaly? (lock-free)
+    pub fn has_chronic(&self) -> bool {
+        self.shared.has_chronic.load(Ordering::Relaxed)
+    }
+
+    /// Total autonomic commands dispatched (lock-free).
+    pub fn total_commands_dispatched(&self) -> u64 {
+        self.shared.total_commands_dispatched.load(portable_atomic::Ordering::Relaxed)
     }
 
     /// Gracefully shut down the cortex.

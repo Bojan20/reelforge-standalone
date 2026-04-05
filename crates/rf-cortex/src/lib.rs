@@ -55,10 +55,12 @@
 //! let patterns = cortex.tick();
 //! ```
 
+pub mod autonomic;
 pub mod awareness;
 pub mod bus;
 pub mod cortex;
 pub mod handle;
+pub mod immune;
 pub mod pattern;
 pub mod reflex;
 pub mod runtime;
@@ -66,10 +68,14 @@ pub mod signal;
 
 /// Prelude — import everything you need with `use rf_cortex::prelude::*`
 pub mod prelude {
+    pub use crate::autonomic::{
+        AutonomicCommand, CommandAction, CommandChannel, CommandPriority, CommandReceiver,
+    };
     pub use crate::awareness::{AwarenessDimensions, AwarenessEngine, AwarenessSnapshot};
     pub use crate::bus::{BusStats, NeuralBus, SignalFilter, Synapse};
     pub use crate::cortex::{Cortex, CortexConfig};
     pub use crate::handle::CortexHandle;
+    pub use crate::immune::{ImmuneSnapshot, ImmuneSystem};
     pub use crate::pattern::{PatternDetector, PatternEngine, RecognizedPattern};
     pub use crate::reflex::{Reflex, ReflexAction, ReflexArc};
     pub use crate::runtime::{CortexRuntime, SharedCortexState};

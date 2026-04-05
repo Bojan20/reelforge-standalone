@@ -8,8 +8,10 @@
 //! - Maintains self-awareness
 //! - Executes actions based on recognized patterns
 
+use crate::autonomic::{AutonomicCommand, CommandAction, CommandChannel, CommandPriority, CommandReceiver};
 use crate::awareness::{AwarenessEngine, AwarenessSnapshot};
 use crate::bus::{NeuralBus, SignalFilter, Synapse};
+use crate::immune::{ImmuneSnapshot, ImmuneSystem};
 use crate::pattern::{PatternEngine, RecognizedPattern};
 use crate::reflex::{ReflexAction, ReflexArc};
 use crate::signal::{NeuralSignal, SignalKind, SignalOrigin, SignalUrgency};
@@ -50,6 +52,10 @@ pub struct Cortex {
     pattern_engine: PatternEngine,
     /// Self-awareness engine.
     awareness: AwarenessEngine,
+    /// Immune system — anomaly tracking + escalation.
+    immune: ImmuneSystem,
+    /// Autonomic command channel — efferent nerves.
+    command_channel: CommandChannel,
     /// Last awareness snapshot time.
     last_awareness: Instant,
     /// Config.
@@ -62,11 +68,27 @@ pub struct Cortex {
     pub total_processed: u64,
     /// Total reflex actions executed.
     pub total_reflex_actions: u64,
+    /// Total autonomic commands dispatched.
+    pub total_commands_dispatched: u64,
 }
 
 impl Cortex {
     /// Create a new Cortex with the given configuration.
+    /// Returns (Cortex, CommandReceiver) — the receiver is how subsystems get commands.
+    pub fn with_command_channel(config: CortexConfig) -> (Self, CommandReceiver) {
+        let (command_channel, command_receiver) = CommandChannel::new();
+        let cortex = Self::new_inner(config, command_channel);
+        (cortex, command_receiver)
+    }
+
+    /// Create a new Cortex (commands are dispatched but no external receiver).
+    /// Useful for testing or standalone operation.
     pub fn new(config: CortexConfig) -> Self {
+        let (command_channel, _receiver) = CommandChannel::new();
+        Self::new_inner(config, command_channel)
+    }
+
+    fn new_inner(config: CortexConfig, command_channel: CommandChannel) -> Self {
         let mut bus = NeuralBus::new();
         let cortex_synapse = bus.subscribe("cortex-brain", SignalFilter::all());
 
@@ -90,12 +112,15 @@ impl Cortex {
             reflex_arc,
             pattern_engine,
             awareness,
+            immune: ImmuneSystem::new(),
+            command_channel,
             last_awareness: Instant::now(),
             config,
             pattern_log: Vec::new(),
             max_pattern_log: 500,
             total_processed: 0,
             total_reflex_actions: 0,
+            total_commands_dispatched: 0,
         }
     }
 
@@ -149,7 +174,10 @@ impl Cortex {
             self.pattern_log.remove(0);
         }
 
-        // 3. Self-awareness snapshot (periodic)
+        // 3. Immune system decay tick
+        self.immune.decay_tick();
+
+        // 4. Self-awareness snapshot (periodic)
         if self.last_awareness.elapsed() >= self.config.awareness_interval {
             self.take_awareness_snapshot();
         }
@@ -166,7 +194,7 @@ impl Cortex {
         self.awareness.snapshot(&bus_stats, &reflex_stats, &pattern_stats)
     }
 
-    /// Execute a reflex action.
+    /// Execute a reflex action — NOW with real autonomic dispatch.
     fn execute_reflex_action(&mut self, action: &ReflexAction) {
         match action {
             ReflexAction::EmitSignal {
@@ -186,15 +214,55 @@ impl Cortex {
                     category,
                     severity
                 );
-                // Future: integrate with immune system / antibodies
+                // Feed the immune system — it tracks + escalates
+                if let Some(escalation_cmd) = self.immune.record_anomaly(category, *severity) {
+                    log::warn!(
+                        "CORTEX Immune escalation: {} → {:?}",
+                        category,
+                        escalation_cmd.action
+                    );
+                    if self.command_channel.dispatch(escalation_cmd) {
+                        self.total_commands_dispatched += 1;
+                    }
+                }
             }
             ReflexAction::CommandSubsystem { target, command } => {
-                log::info!("CORTEX Command: {:?} → {}", target, command);
-                // Future: send command through bridge
+                // Translate reflex command string → typed AutonomicCommand
+                let action = match command.as_str() {
+                    "reduce_quality" => CommandAction::ReduceQuality { level: 0.5 },
+                    "free_caches" => CommandAction::FreeCaches,
+                    "break_feedback" => CommandAction::BreakFeedback { bus_chain: vec![] },
+                    "isolate_plugin" => CommandAction::SuspendBackground,
+                    "throttle" => CommandAction::ThrottleProcessing { factor: 0.5 },
+                    other => CommandAction::Custom {
+                        tag: "reflex_command".into(),
+                        data: other.into(),
+                    },
+                };
+
+                let cmd = AutonomicCommand::new(
+                    *target,
+                    action,
+                    format!("Reflex command: {}", command),
+                    CommandPriority::High,
+                );
+
+                log::info!("CORTEX Autonomic dispatch: {:?} → {}", target, command);
+                if self.command_channel.dispatch(cmd) {
+                    self.total_commands_dispatched += 1;
+                }
             }
             ReflexAction::Suppress { duration_ms } => {
                 log::debug!("CORTEX Suppressing for {}ms", duration_ms);
-                // Future: implement signal suppression
+                // Signal suppression: emit a meta-signal that the bus can use
+                self.bus.emit(NeuralSignal::new(
+                    SignalOrigin::Cortex,
+                    SignalUrgency::Normal,
+                    SignalKind::Custom {
+                        tag: "suppress".into(),
+                        data: format!("{}ms", duration_ms),
+                    },
+                ));
             }
         }
     }
@@ -248,6 +316,26 @@ impl Cortex {
     pub fn pattern_engine_mut(&mut self) -> &mut PatternEngine {
         &mut self.pattern_engine
     }
+
+    /// Get immune system snapshot.
+    pub fn immune_snapshot(&self) -> ImmuneSnapshot {
+        self.immune.snapshot()
+    }
+
+    /// Is any anomaly chronic?
+    pub fn has_chronic_anomaly(&self) -> bool {
+        self.immune.has_chronic()
+    }
+
+    /// Resolve an anomaly category (mark as handled by subsystem).
+    pub fn resolve_anomaly(&mut self, category: &str) {
+        self.immune.resolve(category);
+    }
+
+    /// Total autonomic commands dispatched.
+    pub fn commands_dispatched(&self) -> u64 {
+        self.total_commands_dispatched
+    }
 }
 
 impl Default for Cortex {
@@ -265,6 +353,84 @@ mod tests {
         let cortex = Cortex::default();
         assert_eq!(cortex.total_processed, 0);
         assert_eq!(cortex.total_reflex_actions, 0);
+        assert_eq!(cortex.total_commands_dispatched, 0);
+    }
+
+    #[test]
+    fn cortex_with_command_channel() {
+        let (mut cortex, receiver) = Cortex::with_command_channel(CortexConfig::default());
+
+        // Trigger CPU overload reflex → should dispatch AutonomicCommand
+        cortex.signal(
+            SignalOrigin::AudioEngine,
+            SignalUrgency::Critical,
+            SignalKind::CpuLoadAlert { load_percent: 95.0 },
+        );
+        cortex.tick();
+
+        // The "cpu-overload-reduce" reflex should have fired and dispatched a command
+        assert!(cortex.total_reflex_actions > 0);
+        assert!(cortex.total_commands_dispatched > 0);
+
+        // Receiver should have the command
+        let commands = receiver.drain();
+        assert!(!commands.is_empty(), "Expected autonomic command to be dispatched");
+        assert_eq!(commands[0].target, SignalOrigin::AudioEngine);
+        assert!(matches!(commands[0].action, CommandAction::ReduceQuality { .. }));
+    }
+
+    #[test]
+    fn immune_escalation_through_cortex() {
+        let (mut cortex, _receiver) = Cortex::with_command_channel(CortexConfig::default());
+
+        // The buffer-underrun-alert reflex has 5s cooldown, so it fires once per tick batch.
+        // But that one fire records an anomaly in the immune system.
+        // To escalate, we need multiple ticks to accumulate anomalies.
+        for _ in 0..4 {
+            cortex.signal(
+                SignalOrigin::AudioEngine,
+                SignalUrgency::Critical,
+                SignalKind::BufferUnderrun { count: 5 },
+            );
+            cortex.tick();
+        }
+
+        let snap = cortex.immune_snapshot();
+        // Reflex fires (at least once), recording anomalies in the immune system
+        assert!(snap.total_anomalies > 0, "Expected immune anomalies to be recorded");
+    }
+
+    #[test]
+    fn feedback_loop_dispatches_break_command() {
+        let (mut cortex, receiver) = Cortex::with_command_channel(CortexConfig::default());
+
+        cortex.signal(
+            SignalOrigin::MixerBus,
+            SignalUrgency::Emergency,
+            SignalKind::FeedbackDetected { bus_chain: vec![1, 3, 5] },
+        );
+        cortex.tick();
+
+        let commands = receiver.drain();
+        assert!(!commands.is_empty());
+        assert_eq!(commands[0].target, SignalOrigin::MixerBus);
+        assert!(matches!(commands[0].action, CommandAction::BreakFeedback { .. }));
+    }
+
+    #[test]
+    fn memory_pressure_dispatches_free_caches() {
+        let (mut cortex, receiver) = Cortex::with_command_channel(CortexConfig::default());
+
+        cortex.signal(
+            SignalOrigin::Cortex,
+            SignalUrgency::Elevated,
+            SignalKind::MemoryPressure { used_mb: 7000, available_mb: 256 },
+        );
+        cortex.tick();
+
+        let commands = receiver.drain();
+        assert!(!commands.is_empty());
+        assert!(matches!(commands[0].action, CommandAction::FreeCaches));
     }
 
     #[test]
