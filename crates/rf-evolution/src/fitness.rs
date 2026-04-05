@@ -223,7 +223,7 @@ impl FitnessEvaluator {
     fn score_conciseness(&self, stats: &GenomeStats) -> FitnessScore {
         // Reasonable LOC per function (not too long, not too short)
         let avg_lines = stats.avg_function_lines;
-        let normalized = if avg_lines >= 5.0 && avg_lines <= 25.0 {
+        let normalized = if (5.0..=25.0).contains(&avg_lines) {
             1.0
         } else if avg_lines < 5.0 {
             avg_lines / 5.0
@@ -250,7 +250,7 @@ impl FitnessEvaluator {
         };
 
         // Ideal: 30-60% public (good encapsulation)
-        let normalized = if pub_ratio >= 0.3 && pub_ratio <= 0.6 {
+        let normalized = if (0.3..=0.6).contains(&pub_ratio) {
             1.0
         } else if pub_ratio < 0.3 {
             pub_ratio / 0.3

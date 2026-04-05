@@ -28,12 +28,34 @@ impl EngineBridge {
             }
         }
 
-        // TODO: Route through DualPathEngine
-        // For now, pass through with gain
-        let gain = 1.0f32;
-        for (i, (out_l, out_r)) in output_l.iter_mut().zip(output_r.iter_mut()).enumerate() {
-            *out_l = input_l.get(i).copied().unwrap_or(0.0) * gain;
-            *out_r = input_r.get(i).copied().unwrap_or(0.0) * gain;
+        // DualPathEngine processes f64 internally for precision.
+        // Convert f32 input → f64, process, convert back → f32 output.
+        // Uses stack-allocated buffers for blocks ≤ 2048, heap for larger.
+        let len = output_l.len().min(input_l.len());
+        let total = output_l.len();
+
+        if total <= 2048 {
+            let mut buf_l = [0.0f64; 2048];
+            let mut buf_r = [0.0f64; 2048];
+            for i in 0..len {
+                buf_l[i] = input_l[i] as f64;
+                buf_r[i] = input_r[i] as f64;
+            }
+            self.engine.process(&mut buf_l[..total], &mut buf_r[..total]);
+            for i in 0..total {
+                output_l[i] = buf_l[i] as f32;
+                output_r[i] = buf_r[i] as f32;
+            }
+        } else {
+            let mut buf_l: Vec<f64> = input_l.iter().map(|&s| s as f64).collect();
+            let mut buf_r: Vec<f64> = input_r.iter().map(|&s| s as f64).collect();
+            buf_l.resize(total, 0.0);
+            buf_r.resize(total, 0.0);
+            self.engine.process(&mut buf_l, &mut buf_r);
+            for i in 0..total {
+                output_l[i] = buf_l[i] as f32;
+                output_r[i] = buf_r[i] as f32;
+            }
         }
 
         // Update metering (peak detection)

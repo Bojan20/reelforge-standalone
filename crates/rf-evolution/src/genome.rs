@@ -190,7 +190,7 @@ impl CodeGenome {
     /// Find a file genome by relative path.
     pub fn find_file(&self, rel_path: &str) -> Option<&FileGenome> {
         self.files.iter().find(|f| {
-            f.path.to_str().map_or(false, |p| p == rel_path)
+            f.path.to_str() == Some(rel_path)
         })
     }
 
@@ -202,7 +202,7 @@ impl CodeGenome {
             .flat_map(|f| f.functions.iter().map(move |func| (f, func)))
             .collect();
 
-        all.sort_by(|a, b| b.1.complexity.cmp(&a.1.complexity));
+        all.sort_by_key(|item| std::cmp::Reverse(item.1.complexity));
         all.truncate(n);
         all
     }
@@ -215,7 +215,7 @@ impl CodeGenome {
             .flat_map(|f| f.functions.iter().map(move |func| (f, func)))
             .collect();
 
-        all.sort_by(|a, b| b.1.body_lines.cmp(&a.1.body_lines));
+        all.sort_by_key(|item| std::cmp::Reverse(item.1.body_lines));
         all.truncate(n);
         all
     }
@@ -223,7 +223,7 @@ impl CodeGenome {
     /// Get files with the most unwrap() calls.
     pub fn unwrap_hotspots(&self, n: usize) -> Vec<&FileGenome> {
         let mut sorted: Vec<_> = self.files.iter().filter(|f| f.unwrap_count > 0).collect();
-        sorted.sort_by(|a, b| b.unwrap_count.cmp(&a.unwrap_count));
+        sorted.sort_by_key(|f| std::cmp::Reverse(f.unwrap_count));
         sorted.truncate(n);
         sorted
     }
@@ -649,7 +649,7 @@ fn is_hidden(entry: &walkdir::DirEntry) -> bool {
     entry
         .file_name()
         .to_str()
-        .map_or(false, |s| s.starts_with('.') && s != ".")
+        .is_some_and(|s| s.starts_with('.') && s != ".")
 }
 
 fn is_build_dir(entry: &walkdir::DirEntry) -> bool {

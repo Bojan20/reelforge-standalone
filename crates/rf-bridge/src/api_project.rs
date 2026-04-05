@@ -488,8 +488,8 @@ pub fn project_get_info() -> Option<ProjectInfo> {
             time_sig_denom: e.project.time_sig_denom,
             track_count: e.project.tracks.len(),
             bus_count: e.project.buses.len(),
-            is_modified: false, // TODO: Track dirty state
-            file_path: None,    // TODO: Track file path
+            is_modified: e.is_dirty(),
+            file_path: e.file_path(),
         }
     })
 }
