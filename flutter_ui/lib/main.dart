@@ -75,6 +75,7 @@ import 'services/offline_service.dart';
 import 'services/localization_service.dart';
 import 'services/asset_cloud_service.dart';
 import 'services/crdt_sync_service.dart';
+import 'services/cortex_vision_service.dart';
 import 'src/rust/native_ffi.dart';
 import 'utils/path_validator.dart';
 import 'dart:io';
@@ -155,6 +156,9 @@ void main() async {
 
   // Initialize CRDT Sync Service (P3-13)
   await CrdtSyncService.instance.init();
+
+  // Initialize CORTEX Vision Service (The Eyes of the Organism)
+  await CortexVisionService.instance.init();
 
   // P13.9.8: Initialize Feature Block Registry with all 17 blocks
   FeatureBlockRegistry.instance.initialize([
@@ -353,14 +357,17 @@ class FluxForgeApp extends StatelessWidget {
           value: GetIt.instance<VideoPlaybackService>(),
         ),
       ],
-      child: MaterialApp(
-        title: 'FluxForge Studio',
-        debugShowCheckedModeBanner: false,
-        theme: FluxForgeTheme.darkTheme,
-        initialRoute: '/',
-        routes: {
-          '/': (context) => const _AppInitializer(),
-        },
+      child: RepaintBoundary(
+        key: CortexVisionService.instance.rootBoundaryKey,
+        child: MaterialApp(
+          title: 'FluxForge Studio',
+          debugShowCheckedModeBanner: false,
+          theme: FluxForgeTheme.darkTheme,
+          initialRoute: '/',
+          routes: {
+            '/': (context) => const _AppInitializer(),
+          },
+        ),
       ),
     );
   }
@@ -437,7 +444,30 @@ class _AppInitializerState extends State<_AppInitializer> {
         getEventSyncService(eventRegistry, middleware);
       }
 
-      // Phase 5: Engine ready — enable launcher buttons
+      // Phase 5: Register CORTEX Vision regions (The Eyes)
+      final vision = CortexVisionService.instance;
+      vision.registerRegion(
+        name: 'timeline',
+        description: 'DAW timeline with tracks, clips, and waveforms',
+      );
+      vision.registerRegion(
+        name: 'mixer',
+        description: 'Mixer panel with faders, meters, and routing',
+      );
+      vision.registerRegion(
+        name: 'slot_lab',
+        description: 'SlotLab workspace with stages and events',
+      );
+      vision.registerRegion(
+        name: 'lower_zone',
+        description: 'Lower zone panels (editor, mixer, plugins)',
+      );
+      vision.registerRegion(
+        name: 'transport',
+        description: 'Transport controls and position display',
+      );
+
+      // Phase 6: Engine ready — enable launcher buttons
       if (mounted) {
         setState(() => _engineReady = true);
       }
