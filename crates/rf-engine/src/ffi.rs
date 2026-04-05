@@ -723,7 +723,7 @@ pub extern "C" fn engine_set_track_armed(track_id: u64, armed: i32) -> i32 {
     // Get track name for recording (before updating state)
     let track_name = TRACK_MANAGER
         .get_track(tid)
-        .map(|t| t.name.clone())
+        .map(|t| t.name)
         .unwrap_or_else(|| format!("Track_{}", track_id));
 
     // Update track state
@@ -1472,7 +1472,7 @@ fn engine_import_audio_inner(path: *const c_char, track_id: u64, start_time: f64
         imported.samples.len()
     );
     // Use the LRU cache insert method
-    PLAYBACK_ENGINE.cache.insert(path_str.clone(), imported);
+    PLAYBACK_ENGINE.cache.insert(path_str, imported);
 
     // Debug: verify cache contents
     let cache_size = PLAYBACK_ENGINE.cache.size();
@@ -2283,7 +2283,7 @@ pub extern "C" fn engine_generate_waveform_from_samples(
     WAVEFORM_CACHE
         .cache
         .write()
-        .insert(key.clone(), Arc::new(waveform.clone()));
+        .insert(key, Arc::new(waveform.clone()));
 
     // Return as JSON
     waveform_to_json(&waveform)
@@ -15504,7 +15504,7 @@ pub extern "C" fn render_selection_to_new_clip(
     // Add to audio cache using LRU cache insert
     PLAYBACK_ENGINE
         .cache()
-        .insert(path_str.to_string(), imported.clone());
+        .insert(path_str.to_string(), imported);
 
     // Create new clip from rendered file
     let duration = end_time - start_time;
@@ -19228,7 +19228,7 @@ pub extern "C" fn audio_pool_register_instant(path: *const c_char) -> u64 {
     let id = NEXT_PENDING_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
     // Create pending entry (instant — only extracts filename and file size)
-    let entry = Arc::new(PendingAudioEntry::new(id, path_str.clone()));
+    let entry = Arc::new(PendingAudioEntry::new(id, path_str));
 
     // Store in pending map
     PENDING_AUDIO.write().insert(id, Arc::clone(&entry));
@@ -21758,7 +21758,7 @@ fn rebuild_restoration_pipeline() {
     // Add enabled modules in processing order
     if settings.denoise_enabled != 0 {
         let denoise_config = DenoiseConfig {
-            base: config.clone(),
+            base: config,
             reduction_db: settings.denoise_strength * 0.3, // 0-30 dB range
             ..Default::default()
         };

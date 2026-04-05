@@ -53,7 +53,7 @@ impl MacroStep for QaDeterminismStep {
 
         // Record reference trace
         let mut drc =
-            rf_aurexis::drc::replay::DeterministicReplayCore::with_config(aurexis_config.clone());
+            rf_aurexis::drc::replay::DeterministicReplayCore::with_config(aurexis_config);
         let reference_trace = drc.record(&sim_steps);
 
         // Replay N times and collect hashes

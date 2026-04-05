@@ -482,7 +482,7 @@ impl LinearPhaseEQ {
 
         // Create flat filter
         let flat_fir = vec![0.0; design_fft_size];
-        let mut initial_fir = flat_fir.clone();
+        let mut initial_fir = flat_fir;
         initial_fir[design_fft_size / 2] = 1.0; // Dirac delta = flat response
 
         let convolver_l = OverlapSaveConvolver::new(&initial_fir, block_size);

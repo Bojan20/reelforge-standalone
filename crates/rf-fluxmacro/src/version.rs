@@ -66,7 +66,7 @@ pub fn save_run_history(
 
     // 1. Run metadata
     let meta = RunMeta {
-        run_id: run_id.clone(),
+        run_id: run_id,
         macro_name: macro_name.to_string(),
         game_id: ctx.game_id.clone(),
         timestamp: Local::now().to_rfc3339(),

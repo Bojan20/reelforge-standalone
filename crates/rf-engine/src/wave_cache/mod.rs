@@ -314,7 +314,7 @@ impl WaveCacheManager {
                         self.touch_lru(&hash);
                         self.loaded_caches
                             .write()
-                            .insert(hash.clone(), cached.clone());
+                            .insert(hash, cached.clone());
 
                         log::info!(
                             "[WaveCache] Opened {} via mmap ({:.2} MB file, {:.0} bytes heap)",
@@ -348,7 +348,7 @@ impl WaveCacheManager {
                     self.touch_lru(&hash);
                     self.loaded_caches
                         .write()
-                        .insert(hash.clone(), cached.clone());
+                        .insert(hash, cached.clone());
 
                     // P1.11: Enforce budget after adding
                     self.enforce_budget();
@@ -382,7 +382,7 @@ impl WaveCacheManager {
 
         // Start background build
         let builder_clone = Arc::clone(&builder);
-        let _hash_clone = hash.clone();
+        let _hash_clone = hash;
         // These are unused but kept for future implementation
         let _loaded_caches: Arc<parking_lot::RwLock<HashMap<String, Arc<WfcFile>>>> =
             Arc::new(parking_lot::RwLock::new(HashMap::new()));

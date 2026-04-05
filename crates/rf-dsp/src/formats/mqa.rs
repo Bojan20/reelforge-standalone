@@ -173,7 +173,7 @@ impl MqaCoreDecoder {
         Self {
             input_rate,
             output_rate,
-            filter_coeffs: filter_coeffs.clone(),
+            filter_coeffs: filter_coeffs,
             state_left: vec![0.0; filter_length],
             state_right: vec![0.0; filter_length],
             active: false,

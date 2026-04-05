@@ -1169,7 +1169,7 @@ impl MetadataField {
             Self::Genre => meta.genre = value,
             Self::Year => meta.year = value,
             Self::TrackNumber => meta.track_number = value,
-            Self::Comment => meta.comment = value.clone(),
+            Self::Comment => meta.comment = value,
             Self::Bpm => meta.bpm = value.as_ref().and_then(|v| v.parse::<f64>().ok()),
             Self::Key => meta.key = value,
             Self::Copyright => meta.copyright = value,

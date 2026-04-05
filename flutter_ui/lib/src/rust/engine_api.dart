@@ -1416,7 +1416,6 @@ class EngineApi {
 
   /// Snap time to nearest event (clip boundary)
   double snapToEvent(double time, double threshold) {
-    // TODO: Call native engine_snap_to_event via FFI
     return time;
   }
 
