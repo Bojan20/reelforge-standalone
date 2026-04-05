@@ -60,7 +60,7 @@ impl AtmosRenderer {
         let max_obj = config.max_objects;
 
         Self {
-            config: config,
+            config,
             sample_rate,
             gain_matrices: vec![vec![0.0; num_speakers]; max_obj],
             prev_gains: vec![vec![0.0; num_speakers]; max_obj],
