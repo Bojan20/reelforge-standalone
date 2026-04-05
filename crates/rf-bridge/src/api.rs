@@ -1436,36 +1436,174 @@ pub fn clip_apply_gain(clip_id: u64, gain_db: f64) -> bool {
 /// Create a new track
 #[flutter_rust_bridge::frb(sync)]
 pub fn track_create(name: String, color: u32, bus_id: u32) -> u64 {
-    log::warn!("track_create('{}', color={}, bus={}) — not yet implemented", name, color, bus_id);
-    0 // Not implemented — return 0 (failure)
+    use rf_engine::track_manager::OutputBus;
+
+    let engine = ENGINE.read();
+    if let Some(ref e) = *engine {
+        let output_bus = OutputBus::from(bus_id);
+        let track_id = e.track_manager().create_track(&name, color, output_bus);
+        log::info!("track_create('{}', color={}, bus={:?}) → id={}", name, color, output_bus, track_id.0);
+
+        // Emit CORTEX signal — organism knows a track was born
+        if let Some(h) = crate::cortex_handle_cached() {
+            h.signal(
+                rf_cortex::signal::SignalOrigin::Timeline,
+                rf_cortex::signal::SignalUrgency::Normal,
+                rf_cortex::signal::SignalKind::Custom {
+                    tag: "track.created".into(),
+                    data: format!("{}:{}", track_id.0, name),
+                },
+            );
+        }
+
+        track_id.0
+    } else {
+        log::error!("track_create failed — engine not initialized");
+        0
+    }
 }
 
 /// Delete a track
 #[flutter_rust_bridge::frb(sync)]
 pub fn track_delete(track_id: u64) -> bool {
-    log::warn!("track_delete({}) — not yet implemented", track_id);
-    false
+    use rf_engine::track_manager::TrackId;
+
+    let engine = ENGINE.read();
+    if let Some(ref e) = *engine {
+        let tid = TrackId(track_id);
+        if e.track_manager().get_track(tid).is_none() {
+            log::warn!("track_delete({}) — track not found", track_id);
+            return false;
+        }
+        e.track_manager().delete_track(tid);
+        log::info!("track_delete({}) — deleted with all clips", track_id);
+
+        if let Some(h) = crate::cortex_handle_cached() {
+            h.signal(
+                rf_cortex::signal::SignalOrigin::Timeline,
+                rf_cortex::signal::SignalUrgency::Normal,
+                rf_cortex::signal::SignalKind::Custom {
+                    tag: "track.deleted".into(),
+                    data: track_id.to_string(),
+                },
+            );
+        }
+
+        true
+    } else {
+        log::error!("track_delete failed — engine not initialized");
+        false
+    }
 }
 
 /// Rename a track
 #[flutter_rust_bridge::frb(sync)]
 pub fn track_rename(track_id: u64, name: String) -> bool {
-    log::warn!("track_rename({}, '{}') — not yet implemented", track_id, name);
-    false
+    use rf_engine::track_manager::TrackId;
+
+    let engine = ENGINE.read();
+    if let Some(ref e) = *engine {
+        let tid = TrackId(track_id);
+        if e.track_manager().get_track(tid).is_none() {
+            log::warn!("track_rename({}) — track not found", track_id);
+            return false;
+        }
+        let name_clone = name.clone();
+        e.track_manager().update_track(tid, |t| {
+            t.name = name_clone;
+        });
+        log::info!("track_rename({}, '{}') — done", track_id, name);
+        true
+    } else {
+        log::error!("track_rename failed — engine not initialized");
+        false
+    }
 }
 
-/// Duplicate a track
+/// Duplicate a track (creates new track with same settings, no clips)
 #[flutter_rust_bridge::frb(sync)]
 pub fn track_duplicate(track_id: u64) -> u64 {
-    log::warn!("track_duplicate({}) — not yet implemented", track_id);
-    0
+    use rf_engine::track_manager::TrackId;
+
+    let engine = ENGINE.read();
+    if let Some(ref e) = *engine {
+        let tid = TrackId(track_id);
+        let source = match e.track_manager().get_track(tid) {
+            Some(t) => t,
+            None => {
+                log::warn!("track_duplicate({}) — source track not found", track_id);
+                return 0;
+            }
+        };
+
+        // Create new track with same properties
+        let new_name = format!("{} (Copy)", source.name);
+        let new_id = e.track_manager().create_track(&new_name, source.color, source.output_bus);
+
+        // Copy all mixer settings via update_track closure
+        let vol = source.volume;
+        let pan = source.pan;
+        let pan_r = source.pan_right;
+        let channels = source.channels;
+        let muted = source.muted;
+        let armed = source.armed;
+        let sends = source.sends.clone();
+        let input_bus = source.input_bus;
+        let track_type = source.track_type;
+
+        e.track_manager().update_track(new_id, |t| {
+            t.volume = vol;
+            t.pan = pan;
+            t.pan_right = pan_r;
+            t.channels = channels;
+            t.muted = muted;
+            t.armed = armed;
+            t.sends = sends;
+            t.input_bus = input_bus;
+            t.track_type = track_type;
+        });
+
+        log::info!("track_duplicate({}) → new_id={} ('{}')", track_id, new_id.0, new_name);
+
+        if let Some(h) = crate::cortex_handle_cached() {
+            h.signal(
+                rf_cortex::signal::SignalOrigin::Timeline,
+                rf_cortex::signal::SignalUrgency::Normal,
+                rf_cortex::signal::SignalKind::Custom {
+                    tag: "track.duplicated".into(),
+                    data: format!("{}→{}", track_id, new_id.0),
+                },
+            );
+        }
+
+        new_id.0
+    } else {
+        log::error!("track_duplicate failed — engine not initialized");
+        0
+    }
 }
 
 /// Set track color
 #[flutter_rust_bridge::frb(sync)]
 pub fn track_set_color(track_id: u64, color: u32) -> bool {
-    log::warn!("track_set_color({}, {}) — not yet implemented", track_id, color);
-    false
+    use rf_engine::track_manager::TrackId;
+
+    let engine = ENGINE.read();
+    if let Some(ref e) = *engine {
+        let tid = TrackId(track_id);
+        if e.track_manager().get_track(tid).is_none() {
+            log::warn!("track_set_color({}) — track not found", track_id);
+            return false;
+        }
+        e.track_manager().update_track(tid, |t| {
+            t.color = color;
+        });
+        log::info!("track_set_color({}, 0x{:08X}) — done", track_id, color);
+        true
+    } else {
+        log::error!("track_set_color failed — engine not initialized");
+        false
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
