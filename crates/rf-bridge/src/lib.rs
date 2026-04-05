@@ -82,6 +82,10 @@ pub mod stage_ffi;
 pub mod tempo_state_ffi; // Wwise-style tempo state transitions for SlotLab
 pub mod time_stretch_ffi; // P12.1.4: Simple time-stretch for animation timing
 pub mod timestretch;
+pub mod ml_ffi; // ML/AI engine FFI — denoise, separation, voice enhance
+pub mod pitch_ffi; // Pitch detection & correction FFI
+pub mod script_ffi; // Lua scripting engine FFI — execute, poll actions, context
+pub mod video_ffi; // Video engine FFI — timeline, frames, timecode
 mod transport;
 mod viz;
 
@@ -865,3 +869,15 @@ pub use rf_engine::ffi_control_room::*;
 
 // Re-export Routing FFI
 pub use rf_engine::ffi_routing::*;
+
+// Re-export ML/AI Engine FFI
+pub use ml_ffi::*;
+
+// Re-export Pitch Detection/Correction FFI
+pub use pitch_ffi::*;
+
+// Re-export Script Engine FFI
+pub use script_ffi::*;
+
+// Re-export Video Engine FFI
+pub use video_ffi::*;

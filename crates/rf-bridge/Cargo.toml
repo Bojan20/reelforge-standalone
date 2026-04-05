@@ -30,6 +30,10 @@ rf-offline = { path = "../rf-offline" }
 rf-fluxmacro = { path = "../rf-fluxmacro" }
 rf-cortex = { path = "../rf-cortex" }
 rf-evolution = { path = "../rf-evolution" }
+rf-video = { path = "../rf-video" }
+rf-script = { path = "../rf-script" }
+rf-pitch = { path = "../rf-pitch" }
+rf-ml = { path = "../rf-ml" }
 
 # Audio I/O
 cpal.workspace = true

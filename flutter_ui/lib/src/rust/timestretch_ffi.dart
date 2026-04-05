@@ -17,67 +17,67 @@ import 'native_ffi.dart';
 // ═══════════════════════════════════════════════════════════════════════════════
 
 extension ElasticClipFFI on NativeFFI {
-  static final _elasticCreate = loadNativeLibrary().lookupFunction<
+  static final _elasticCreate = NativeFFI.instance.lib.lookupFunction<
       Int32 Function(Uint32 clipId, Double sampleRate),
       int Function(int clipId, double sampleRate)>('elastic_create');
 
-  static final _elasticRemove = loadNativeLibrary().lookupFunction<
+  static final _elasticRemove = NativeFFI.instance.lib.lookupFunction<
       Int32 Function(Uint32 clipId),
       int Function(int clipId)>('elastic_remove');
 
-  static final _elasticSetRatio = loadNativeLibrary().lookupFunction<
+  static final _elasticSetRatio = NativeFFI.instance.lib.lookupFunction<
       Int32 Function(Uint32 clipId, Double ratio),
       int Function(int clipId, double ratio)>('elastic_set_ratio');
 
-  static final _elasticSetPitch = loadNativeLibrary().lookupFunction<
+  static final _elasticSetPitch = NativeFFI.instance.lib.lookupFunction<
       Int32 Function(Uint32 clipId, Double semitones),
       int Function(int clipId, double semitones)>('elastic_set_pitch');
 
-  static final _elasticSetQuality = loadNativeLibrary().lookupFunction<
+  static final _elasticSetQuality = NativeFFI.instance.lib.lookupFunction<
       Int32 Function(Uint32 clipId, Uint8 quality),
       int Function(int clipId, int quality)>('elastic_set_quality');
 
-  static final _elasticSetMode = loadNativeLibrary().lookupFunction<
+  static final _elasticSetMode = NativeFFI.instance.lib.lookupFunction<
       Int32 Function(Uint32 clipId, Uint8 mode),
       int Function(int clipId, int mode)>('elastic_set_mode');
 
-  static final _elasticSetStnEnabled = loadNativeLibrary().lookupFunction<
+  static final _elasticSetStnEnabled = NativeFFI.instance.lib.lookupFunction<
       Int32 Function(Uint32 clipId, Int32 enabled),
       int Function(int clipId, int enabled)>('elastic_set_stn_enabled');
 
-  static final _elasticSetPreserveTransients = loadNativeLibrary().lookupFunction<
+  static final _elasticSetPreserveTransients = NativeFFI.instance.lib.lookupFunction<
       Int32 Function(Uint32 clipId, Int32 enabled),
       int Function(int clipId, int enabled)>('elastic_set_preserve_transients');
 
-  static final _elasticSetPreserveFormants = loadNativeLibrary().lookupFunction<
+  static final _elasticSetPreserveFormants = NativeFFI.instance.lib.lookupFunction<
       Int32 Function(Uint32 clipId, Int32 enabled),
       int Function(int clipId, int enabled)>('elastic_set_preserve_formants');
 
-  static final _elasticSetTonalThreshold = loadNativeLibrary().lookupFunction<
+  static final _elasticSetTonalThreshold = NativeFFI.instance.lib.lookupFunction<
       Int32 Function(Uint32 clipId, Double threshold),
       int Function(int clipId, double threshold)>('elastic_set_tonal_threshold');
 
-  static final _elasticSetTransientThreshold = loadNativeLibrary().lookupFunction<
+  static final _elasticSetTransientThreshold = NativeFFI.instance.lib.lookupFunction<
       Int32 Function(Uint32 clipId, Double threshold),
       int Function(int clipId, double threshold)>('elastic_set_transient_threshold');
 
-  static final _elasticGetOutputLength = loadNativeLibrary().lookupFunction<
+  static final _elasticGetOutputLength = NativeFFI.instance.lib.lookupFunction<
       Uint32 Function(Uint32 clipId, Uint32 inputLen),
       int Function(int clipId, int inputLen)>('elastic_get_output_length');
 
-  static final _elasticGetRatio = loadNativeLibrary().lookupFunction<
+  static final _elasticGetRatio = NativeFFI.instance.lib.lookupFunction<
       Double Function(Uint32 clipId),
       double Function(int clipId)>('elastic_get_ratio');
 
-  static final _elasticGetPitch = loadNativeLibrary().lookupFunction<
+  static final _elasticGetPitch = NativeFFI.instance.lib.lookupFunction<
       Double Function(Uint32 clipId),
       double Function(int clipId)>('elastic_get_pitch');
 
-  static final _elasticReset = loadNativeLibrary().lookupFunction<
+  static final _elasticReset = NativeFFI.instance.lib.lookupFunction<
       Int32 Function(Uint32 clipId),
       int Function(int clipId)>('elastic_reset');
 
-  static final _elasticApplyToClip = loadNativeLibrary().lookupFunction<
+  static final _elasticApplyToClip = NativeFFI.instance.lib.lookupFunction<
       Int32 Function(Uint32 clipId),
       int Function(int clipId)>('elastic_apply_to_clip');
 

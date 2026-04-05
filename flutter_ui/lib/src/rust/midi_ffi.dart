@@ -80,15 +80,15 @@ class MidiDeviceInfo {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 extension MidiLiveInputFFI on NativeFFI {
-  static final _midiPollInputEvents = loadNativeLibrary().lookupFunction<
+  static final _midiPollInputEvents = NativeFFI.instance.lib.lookupFunction<
       Uint32 Function(Pointer<Uint8> outBuffer, Uint32 maxEvents),
       int Function(Pointer<Uint8> outBuffer, int maxEvents)>('midi_poll_input_events');
 
-  static final _midiPendingInputCount = loadNativeLibrary().lookupFunction<
+  static final _midiPendingInputCount = NativeFFI.instance.lib.lookupFunction<
       Uint32 Function(),
       int Function()>('midi_pending_input_count');
 
-  static final _midiSendRaw = loadNativeLibrary().lookupFunction<
+  static final _midiSendRaw = NativeFFI.instance.lib.lookupFunction<
       Int32 Function(Pointer<Uint8> data, Uint8 len),
       int Function(Pointer<Uint8> data, int len)>('midi_send_raw');
 
