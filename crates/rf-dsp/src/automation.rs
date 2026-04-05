@@ -312,7 +312,7 @@ impl AutomationLane {
     }
 
     /// Fill buffer with automation values (sample-accurate)
-    /// start_sample: absolute sample position at buffer[0]
+    /// start_sample: absolute sample position at `buffer[0]`
     pub fn fill_buffer(&mut self, buffer: &mut [Sample], start_sample: u64) {
         for (i, sample) in buffer.iter_mut().enumerate() {
             *sample = self.value_at_sample_optimized(start_sample + i as u64);

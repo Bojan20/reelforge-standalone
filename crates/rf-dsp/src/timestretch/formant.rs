@@ -36,8 +36,8 @@ impl LevinsonDurbin {
 
     /// Solve for LPC coefficients using Levinson-Durbin recursion
     ///
-    /// Input: autocorrelation coefficients r[0..=order]
-    /// Output: LPC coefficients a[1..=order] (a[0] is always 1.0)
+    /// Input: autocorrelation coefficients `r[0..=order]`
+    /// Output: LPC coefficients `a[1..=order]` (`a[0]` is always 1.0)
     pub fn solve(&mut self, autocorr: &[f64], order: usize) -> Vec<f64> {
         let order = order.min(self.max_order).min(autocorr.len() - 1);
 

@@ -1,7 +1,7 @@
 //! CLAP Plugin Host
 //!
 //! CLever Audio Plugin format support with real dynamic library loading.
-//! Reference: https://github.com/free-audio/clap
+//! Reference: <https://github.com/free-audio/clap>
 
 use std::collections::HashMap;
 use std::ffi::{c_char, c_void, CStr};

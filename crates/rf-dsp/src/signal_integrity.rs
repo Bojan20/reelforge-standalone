@@ -1160,7 +1160,7 @@ impl Default for SoftClip {
 /// Complete Signal Integrity Chain
 ///
 /// Combines all processors for ultimate signal quality:
-/// Input → DC Block → Auto-Gain → [Processing] → Soft Clip → ISP Limiter → Dither
+/// Input → DC Block → Auto-Gain → \[Processing\] → Soft Clip → ISP Limiter → Dither
 #[derive(Debug, Clone)]
 pub struct SignalIntegrityChain {
     pub dc_blocker: StereoDcBlocker,

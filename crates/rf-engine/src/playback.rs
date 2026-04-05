@@ -1817,7 +1817,7 @@ pub struct PlaybackEngine {
     varispeed_rate: AtomicU64,
     /// Varispeed enabled flag
     varispeed_enabled: AtomicBool,
-    /// Track VCA assignments (track_id -> Vec<VcaId>)
+    /// Track VCA assignments (track_id -> `Vec<VcaId>`)
     vca_assignments: RwLock<HashMap<u32, Vec<VcaId>>>,
     /// Insert chains per track (track_id -> InsertChain)
     insert_chains: RwLock<HashMap<u64, InsertChain>>,

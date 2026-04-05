@@ -36,7 +36,7 @@ impl VoiceDensityAnalyzer {
 /// 8-zone × 2-depth density map.
 #[derive(Debug, Clone, Default)]
 pub struct DensityMap {
-    /// zones[depth_layer][pan_zone] = voice count.
+    /// `zones[depth_layer][pan_zone]` = voice count.
     /// depth 0 = front, depth 1 = back.
     /// pan zones: 0=hard left, 3-4=center, 7=hard right.
     pub zones: [[u32; 8]; 2],

@@ -3721,7 +3721,7 @@ impl InsertProcessor for MultibandSaturatorWrapper {
 ///  36: ENV Attack (ms)       [0.1..100]    def 5.0
 ///  37: ENV Release (ms)      [1..1000]     def 50.0
 ///  38: Pitch Shift (st)      [-12..+12]    def 0.0
-///  39: Mod Target Config     [packed]      def 0.0
+///  39: Mod Target Config     `[packed]`      def 0.0
 /// --- D3 Tempo Sync & Rhythm ---
 ///  40: BPM                   [20..999]     def 120.0
 ///  41: Note Value L          [0..18]       def 9 (1/4)

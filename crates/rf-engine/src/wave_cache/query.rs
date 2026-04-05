@@ -36,7 +36,7 @@ pub struct TileResponse {
     /// Start frame of first tile
     pub first_tile_frame: u64,
     /// Tiles for each channel
-    /// Layout: tiles[channel][tile_index]
+    /// Layout: `tiles[channel][tile_index]`
     pub tiles: Vec<Vec<CachedTile>>,
 }
 

@@ -5,7 +5,7 @@
 //!
 //! Architecture:
 //! - Background thread listens on UDP socket
-//! - Parsed messages pushed to bounded buffer (Mutex<Vec>)
+//! - Parsed messages pushed to bounded buffer (`Mutex<Vec>`)
 //! - Dart polls via osc_poll_messages() FFI every 5-10ms
 //! - Buffer bounded to 256 entries (drains oldest on overflow)
 

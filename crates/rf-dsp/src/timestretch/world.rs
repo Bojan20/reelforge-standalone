@@ -11,7 +11,7 @@
 //! ## References
 //!
 //! - Morise, M. (2016). "WORLD: a vocoder-based high-quality speech synthesis system"
-//! - https://github.com/mmorise/World
+//! - <https://github.com/mmorise/World>
 
 use rustfft::{FftPlanner, num_complex::Complex64};
 use std::f64::consts::PI;

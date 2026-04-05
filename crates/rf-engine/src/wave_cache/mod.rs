@@ -115,7 +115,7 @@ pub struct WaveCacheManager {
     cache_dir: PathBuf,
 
     /// In-memory cache of loaded .wfc files (both full and mmap)
-    /// P3.4: Now stores CachedWaveform enum instead of Arc<WfcFile>
+    /// P3.4: Now stores CachedWaveform enum instead of `Arc<WfcFile>`
     loaded_caches: RwLock<HashMap<String, CachedWaveform>>,
 
     /// Active builders (file_hash -> builder)

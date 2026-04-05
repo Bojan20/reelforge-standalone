@@ -1,7 +1,7 @@
 //! AudioUnit Plugin Host (macOS only)
 //!
 //! Loads and hosts AudioUnit plugins on macOS.
-//! Reference: https://developer.apple.com/documentation/audiounit
+//! Reference: <https://developer.apple.com/documentation/audiounit>
 //!
 //! # Implementation
 //!

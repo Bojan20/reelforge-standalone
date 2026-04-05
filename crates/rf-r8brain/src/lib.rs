@@ -1,7 +1,7 @@
 //! rf-r8brain — Reference-grade sample rate converter
 //!
 //! Pure Rust port of the r8brain-free-src algorithm by Aleksey Vaneev (Voxengo).
-//! Original C++ source: https://github.com/avaneev/r8brain-free-src (MIT license)
+//! Original C++ source: <https://github.com/avaneev/r8brain-free-src> (MIT license)
 //!
 //! Multi-stage resampling pipeline:
 //! 1. Half-band 2x up/downsample (sparse FIR)

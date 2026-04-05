@@ -597,7 +597,7 @@ impl CWT {
 /// CWT result
 #[derive(Debug, Clone)]
 pub struct CWTResult {
-    /// Scalogram: complex coefficients [scale][time]
+    /// Scalogram: complex coefficients `[scale][time]`
     pub scalogram: Vec<Vec<Complex<f64>>>,
     /// Scales used
     pub scales: Vec<f64>,
@@ -785,7 +785,7 @@ impl CQT {
 /// CQT result
 #[derive(Debug, Clone)]
 pub struct CQTResult {
-    /// Complex coefficients [bin][time]
+    /// Complex coefficients `[bin][time]`
     pub coefficients: Vec<Vec<Complex<f64>>>,
     /// Center frequencies per bin
     pub frequencies: Vec<f64>,

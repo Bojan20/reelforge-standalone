@@ -1422,7 +1422,7 @@ impl ClipEnvelope {
     /// Used for source position calculation with time-varying playback rate.
     /// For a rate envelope, this gives the total "source samples traversed" from clip start.
     ///
-    /// For linear segments: ∫[a,b] (v1 + (v2-v1)*(t-a)/(b-a)) dt = (b-a) * (v1+v2)/2
+    /// For linear segments: `∫[a,b] (v1 + (v2-v1)*(t-a)/(b-a)) dt = (b-a) * (v1+v2)/2`
     /// This is exact for Linear curves and a good approximation for others.
     pub fn integrated_value_to(&self, offset_samples: u64) -> f64 {
         if self.points.is_empty() {

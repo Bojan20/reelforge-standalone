@@ -121,7 +121,7 @@ pub static GLOBAL_HOST: LazyLock<parking_lot::RwLock<PluginHost>> =
     LazyLock::new(|| parking_lot::RwLock::new(PluginHost::new()));
 
 /// Load plugin instance for insert chain (convenience function)
-/// Returns Box<dyn PluginInstance> directly without registering
+/// Returns `Box<dyn PluginInstance>` directly without registering
 pub fn load_plugin(plugin_id: &str) -> PluginResult<Box<dyn PluginInstance>> {
     GLOBAL_HOST.read().create_plugin_instance(plugin_id)
 }

@@ -77,7 +77,7 @@ impl AudioBlock {
     /// This method calls `to_vec()` which allocates heap memory.
     /// Use ONLY during setup, initialization, or testing.
     ///
-    /// In audio callback, use [`copy_from_slices()`] instead.
+    /// In audio callback, use `copy_from_slices()` instead.
     #[cold]
     #[inline(never)]
     pub fn from_slices(left: &[Sample], right: &[Sample], sequence: u64, position: u64) -> Self {

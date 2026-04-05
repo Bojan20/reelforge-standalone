@@ -5,7 +5,7 @@
 //! - Deep filtering in frequency domain
 //! - Dual-path processing for efficient inference
 //!
-//! Reference: https://github.com/Rikorose/DeepFilterNet
+//! Reference: <https://github.com/Rikorose/DeepFilterNet>
 
 use crate::buffer::{AudioFrame, FrameBuffer, OverlapAddBuffer};
 use crate::denoise::{DenoiseConfig, Denoiser, NoiseProfile};

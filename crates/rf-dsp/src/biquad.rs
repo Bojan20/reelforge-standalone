@@ -549,7 +549,7 @@ impl BiquadSimd4 {
 
     /// Process a mono block using scalar TDF-II (SIMD not applicable for serial IIR)
     ///
-    /// NOTE: IIR biquad filters have feedback dependencies (y[n] depends on y[n-1])
+    /// NOTE: IIR biquad filters have feedback dependencies (`y[n]` depends on `y[n-1]`)
     /// so they cannot be parallelized with SIMD for mono processing.
     /// This method uses optimized scalar processing with loop unrolling.
     /// Use process_simd() only for parallel channel processing (e.g., 4 channels).
@@ -719,7 +719,7 @@ impl BiquadSimd8 {
 
     /// Process 8 parallel channel blocks (8-channel interleaved format)
     ///
-    /// Buffer format: [ch0[0], ch1[0], ..., ch7[0], ch0[1], ch1[1], ..., ch7[1], ...]
+    /// Buffer format: `[ch0[0], ch1[0], ..., ch7[0], ch0[1], ch1[1], ..., ch7[1], ...]`
     /// Each SIMD vector processes 8 channels simultaneously for one time step.
     ///
     /// IMPORTANT: For mono processing, use BiquadTDF2 or BiquadSimd4::process_block() instead.

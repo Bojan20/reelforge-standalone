@@ -890,7 +890,7 @@ pub extern "C" fn engine_reorder_tracks(track_ids: *const u64, count: usize) -> 
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Batch update track volumes (single FFI call instead of N calls)
-/// Arrays: track_ids[count], volumes[count]
+/// Arrays: `track_ids[count]`, `volumes[count]`
 /// Returns number of tracks successfully updated
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_batch_set_track_volumes(
@@ -930,7 +930,7 @@ pub extern "C" fn engine_batch_set_track_volumes(
 }
 
 /// Batch update track pans (single FFI call instead of N calls)
-/// Arrays: track_ids[count], pans[count]
+/// Arrays: `track_ids[count]`, `pans[count]`
 /// Returns number of tracks successfully updated
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_batch_set_track_pans(
@@ -970,7 +970,7 @@ pub extern "C" fn engine_batch_set_track_pans(
 }
 
 /// Batch update track mutes (single FFI call instead of N calls)
-/// Arrays: track_ids[count], muted[count] (0 = unmuted, non-zero = muted)
+/// Arrays: `track_ids[count]`, `muted[count]` (0 = unmuted, non-zero = muted)
 /// Returns number of tracks successfully updated
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_batch_set_track_mutes(
@@ -1010,7 +1010,7 @@ pub extern "C" fn engine_batch_set_track_mutes(
 }
 
 /// Batch update track solos (single FFI call instead of N calls)
-/// Arrays: track_ids[count], solo[count] (0 = not soloed, non-zero = soloed)
+/// Arrays: `track_ids[count]`, `solo[count]` (0 = not soloed, non-zero = soloed)
 /// Returns number of tracks successfully updated
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_batch_set_track_solos(
@@ -1263,7 +1263,7 @@ pub extern "C" fn engine_get_all_track_peaks(
 }
 
 /// Get all track stereo meters at once (most efficient for UI)
-/// Writes: out_ids[i], out_peak_l[i], out_peak_r[i], out_rms_l[i], out_rms_r[i], out_corr[i]
+/// Writes: `out_ids[i]`, `out_peak_l[i]`, `out_peak_r[i]`, `out_rms_l[i]`, `out_rms_r[i]`, `out_corr[i]`
 /// Returns number of tracks written
 ///
 /// P1.14 FIX: Uses write_all_track_meters_to_buffers() to avoid HashMap clone
@@ -2160,6 +2160,7 @@ pub extern "C" fn engine_query_raw_samples(
 /// - null on failure
 ///
 /// JSON format:
+/// ```text
 /// {
 ///   "sample_rate": 48000,
 ///   "total_samples": 123456,
@@ -2170,6 +2171,7 @@ pub extern "C" fn engine_query_raw_samples(
 ///     ...
 ///   ]
 /// }
+/// ```
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_generate_waveform_from_file(
     path: *const c_char,
@@ -13815,7 +13817,7 @@ pub extern "C" fn clip_update_vocoder_pitch(clip_id: u64, stretch_ratio: f64) ->
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Get adaptive quality diagnostics.
-/// Returns packed u64: [active_voices:u16][degraded_voices:u16][cpu_pct:u16][src_mode:u16]
+/// Returns packed u64: `[active_voices:u16][degraded_voices:u16][cpu_pct:u16][src_mode:u16]`
 #[unsafe(no_mangle)]
 pub extern "C" fn get_adaptive_quality_stats(
     active_voices: *mut u32,

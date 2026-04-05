@@ -220,7 +220,7 @@ pub struct MipLevel {
     /// Samples per tile at this level
     pub samples_per_tile: usize,
     /// Tile data for each channel
-    /// Layout: [channel][tile_index] = TileData
+    /// Layout: `channel -> tile_index -> TileData`
     pub tiles: Vec<Vec<TileData>>,
 }
 

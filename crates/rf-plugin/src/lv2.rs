@@ -2,7 +2,7 @@
 //!
 //! LV2 audio plugin format support with dynamic library loading.
 //! Uses minimal TTL parsing for manifest discovery.
-//! Reference: https://lv2plug.in/
+//! Reference: <https://lv2plug.in/>
 
 use std::collections::HashMap;
 use std::ffi::{c_char, c_void, CStr};
