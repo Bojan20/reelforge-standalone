@@ -14,6 +14,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../services/cortex_vision_service.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../../models/layout_models.dart';
 import '../../models/editor_mode_config.dart';
@@ -236,7 +237,10 @@ class _ControlBarState extends State<ControlBar> {
     // Get feature flags for current mode
     final features = getModeLayoutConfig(widget.editorMode).features;
 
-    return Container(
+    // CORTEX Eyes: wrap transport for visual capture
+    final visionKey = CortexVisionService.instance.getRegion('transport')?.boundaryKey;
+
+    Widget bar = Container(
         height: 52,
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -449,6 +453,11 @@ class _ControlBarState extends State<ControlBar> {
           },
         ),
     );
+
+    if (visionKey != null) {
+      return RepaintBoundary(key: visionKey, child: bar);
+    }
+    return bar;
   }
 }
 

@@ -11,6 +11,7 @@
 
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import '../../services/cortex_vision_service.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../../models/layout_models.dart';
 
@@ -105,7 +106,7 @@ class _LowerZoneState extends State<LowerZone> {
       ),
     );
 
-    return Container(
+    Widget zone = Container(
       height: _height,
       decoration: BoxDecoration(
         color: FluxForgeTheme.bgDeep,
@@ -131,6 +132,13 @@ class _LowerZoneState extends State<LowerZone> {
         ],
       ),
     );
+
+    // CORTEX Eyes: wrap lower zone for visual capture
+    final visionKey = CortexVisionService.instance.getRegion('lower_zone')?.boundaryKey;
+    if (visionKey != null) {
+      return RepaintBoundary(key: visionKey, child: zone);
+    }
+    return zone;
   }
 
   Widget _buildResizeHandle() {

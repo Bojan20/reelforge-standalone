@@ -467,6 +467,9 @@ class _AppInitializerState extends State<_AppInitializer> {
         description: 'Transport controls and position display',
       );
 
+      // Start auto-observation — CORTEX watches the app every 10s
+      vision.startObserving();
+
       // Phase 6: Engine ready — enable launcher buttons
       if (mounted) {
         setState(() => _engineReady = true);

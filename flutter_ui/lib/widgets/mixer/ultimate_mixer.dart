@@ -12,6 +12,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/mixer_view_models.dart';
+import '../../services/cortex_vision_service.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../../utils/audio_math.dart';
 import '../lower_zone/daw/mix/pdc_indicator.dart';
@@ -648,7 +649,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
 
     // Material ancestor required for PopupMenuButton, IconButton, Tooltip,
     // showMenu, showDialog used within the mixer toolbar and channel strips
-    return Material(
+    Widget result = Material(
       type: MaterialType.transparency,
       child: CallbackShortcuts(
         bindings: <ShortcutActivator, VoidCallback>{
@@ -668,6 +669,13 @@ class _UltimateMixerState extends State<UltimateMixer> {
         ),
       ),
     );
+
+    // CORTEX Eyes: wrap mixer for visual capture
+    final visionKey = CortexVisionService.instance.getRegion('mixer')?.boundaryKey;
+    if (visionKey != null) {
+      return RepaintBoundary(key: visionKey, child: result);
+    }
+    return result;
   }
 
   /// Show View > Mix Window Views popup

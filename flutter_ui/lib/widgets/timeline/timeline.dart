@@ -22,6 +22,7 @@ import '../../theme/fluxforge_theme.dart';
 import '../../models/timeline_models.dart';
 import '../../models/comping_models.dart';
 import '../../src/rust/engine_api.dart';
+import '../../services/cortex_vision_service.dart';
 import 'time_ruler.dart';
 import 'timeline_edit_toolbar.dart';
 import 'track_header_simple.dart';
@@ -2180,8 +2181,9 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    // Wrap in DragTarget for Audio Pool items
-    return DragTarget<Object>(
+    // CORTEX Eyes: wrap timeline for visual capture
+    final visionKey = CortexVisionService.instance.getRegion('timeline')?.boundaryKey;
+    Widget content = DragTarget<Object>(
       onWillAcceptWithDetails: (details) {
         // Accept any PoolAudioFile
         setState(() {
@@ -2897,6 +2899,12 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
     ); // DropTarget
       }, // DragTarget builder
     ); // DragTarget
+
+    // CORTEX Eyes: wrap in RepaintBoundary for visual capture
+    if (visionKey != null) {
+      return RepaintBoundary(key: visionKey, child: content);
+    }
+    return content;
   }
 
   Widget _buildLoopHandles() {

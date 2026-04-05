@@ -96,6 +96,7 @@ import '../widgets/slot_lab/audio_hover_preview.dart';
 import '../widgets/slot_lab/slot_lab_settings_panel.dart' as settings;
 import '../widgets/browser/audio_pool_panel.dart' show triggerAudioPoolRefresh;
 import '../src/rust/native_ffi.dart';
+import '../services/cortex_vision_service.dart';
 import '../services/event_registry.dart';
 import '../services/slotlab_track_bridge.dart';
 import '../services/waveform_cache.dart';
@@ -3515,7 +3516,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       );
     }
 
-    return ChangeNotifierProvider<SlotLabLowerZoneController>.value(
+    // CORTEX Eyes: wrap slot_lab for visual capture
+    final visionKey = CortexVisionService.instance.getRegion('slot_lab')?.boundaryKey;
+
+    Widget slotLabContent = ChangeNotifierProvider<SlotLabLowerZoneController>.value(
       value: _lowerZoneController,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -3888,6 +3892,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       ),
       ),
     );
+
+    if (visionKey != null) {
+      return RepaintBoundary(key: visionKey, child: slotLabContent);
+    }
+    return slotLabContent;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
