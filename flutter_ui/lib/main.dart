@@ -77,6 +77,7 @@ import 'services/asset_cloud_service.dart';
 import 'services/crdt_sync_service.dart';
 import 'services/cortex_vision_service.dart';
 import 'services/cortex_intelligence_loop.dart';
+import 'providers/cortex_provider.dart';
 import 'src/rust/native_ffi.dart';
 import 'utils/path_validator.dart';
 import 'dart:io';
@@ -347,6 +348,11 @@ class FluxForgeApp extends StatelessWidget {
           value: sl<CustomEventProvider>(),
         ),
 
+        // CORTEX Reactive Nervous System — GetIt singleton
+        ChangeNotifierProvider<CortexProvider>.value(
+          value: sl<CortexProvider>(),
+        ),
+
         // Video System — GetIt singletons
         ChangeNotifierProvider<VideoProvider>.value(
           value: GetIt.instance<VideoProvider>(),
@@ -443,6 +449,11 @@ class _AppInitializerState extends State<_AppInitializer> {
       if (mounted) {
         final middleware = context.read<MiddlewareProvider>();
         getEventSyncService(eventRegistry, middleware);
+      }
+
+      // Phase 4.5: Start CORTEX reactive event stream
+      if (mounted) {
+        sl<CortexProvider>().start();
       }
 
       // Phase 5: Register CORTEX Vision regions (The Eyes)

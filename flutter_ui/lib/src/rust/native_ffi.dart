@@ -21934,6 +21934,29 @@ extension ProfilerFFI on NativeFFI {
 
   /// Total immune system escalations.
   int cortexGetImmuneEscalations() => _cortexGetImmuneEscalations();
+
+  // ═══ CORTEX EVENT STREAM ═══
+
+  static final _cortexGetPendingEventCount = _loadNativeLibrary().lookupFunction<
+      Uint32 Function(),
+      int Function()>('cortex_get_pending_event_count');
+
+  /// Number of pending events in the CORTEX event stream buffer.
+  int cortexGetPendingEventCount() => _cortexGetPendingEventCount();
+
+  static final _cortexGetHealingRate = _loadNativeLibrary().lookupFunction<
+      Double Function(),
+      double Function()>('cortex_get_healing_rate');
+
+  static final _cortexGetTotalHealed = _loadNativeLibrary().lookupFunction<
+      Uint64 Function(),
+      int Function()>('cortex_get_total_healed');
+
+  /// Healing success rate (0.0 to 1.0).
+  double cortexGetHealingRate() => _cortexGetHealingRate();
+
+  /// Total commands that successfully healed a problem.
+  int cortexGetTotalHealed() => _cortexGetTotalHealed();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

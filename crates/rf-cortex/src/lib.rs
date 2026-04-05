@@ -83,7 +83,7 @@ pub mod prelude {
     pub use crate::immune::{ImmuneSnapshot, ImmuneSystem};
     pub use crate::pattern::{PatternDetector, PatternEngine, RecognizedPattern};
     pub use crate::reflex::{Reflex, ReflexAction, ReflexArc};
-    pub use crate::runtime::{CortexRuntime, SharedCortexState};
+    pub use crate::runtime::{CortexEvent, CortexRuntime, SharedCortexState};
     pub use crate::signal::{NeuralSignal, SignalKind, SignalOrigin, SignalUrgency};
 }
 

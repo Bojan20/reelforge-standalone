@@ -111,6 +111,7 @@ import '../providers/slot_lab/slot_lab_coordinator.dart';
 import 'video_export_service.dart';
 import 'video_playback_service.dart';
 import '../providers/custom_event_provider.dart';
+import '../providers/cortex_provider.dart';
 import 'extension_sdk_service.dart';
 
 /// Global service locator instance
@@ -616,6 +617,13 @@ class ServiceLocator {
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<ExtensionSdkService>(
       () => ExtensionSdkService.instance,
+    );
+
+    // =============================================================================
+    // LAYER 9: CORTEX Provider (Reactive Nervous System State)
+    // =============================================================================
+    sl.registerLazySingleton<CortexProvider>(
+      () => CortexProvider(),
     );
 
     // Initialize plugin alternatives registry

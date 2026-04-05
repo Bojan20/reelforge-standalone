@@ -19,10 +19,74 @@ use crate::reflex::ReflexStats;
 use crate::signal::NeuralSignal;
 use crossbeam_channel::{self, Receiver};
 use parking_lot::Mutex;
+use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CORTEX EVENT STREAM — Real-time events for Flutter reactive binding
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Maximum events in the ring buffer before oldest are dropped.
+const EVENT_BUFFER_CAPACITY: usize = 512;
+
+/// Events emitted by CORTEX for Flutter to consume reactively.
+/// Each event represents a meaningful state change — not raw signals,
+/// but semantic events the UI cares about.
+#[derive(Debug, Clone)]
+pub enum CortexEvent {
+    /// Health score changed significantly (delta > 0.05).
+    HealthChanged {
+        old: f64,
+        new: f64,
+    },
+    /// Entered or exited degraded state.
+    DegradedStateChanged {
+        is_degraded: bool,
+    },
+    /// A pattern was recognized by the pattern engine.
+    PatternRecognized {
+        name: String,
+        severity: f32,
+        description: String,
+    },
+    /// A reflex fired (instant autonomic reaction).
+    ReflexFired {
+        name: String,
+        fire_count: u64,
+    },
+    /// An autonomic command was dispatched.
+    CommandDispatched {
+        action_tag: String,
+        reason: String,
+    },
+    /// Immune system escalated an anomaly.
+    ImmuneEscalation {
+        category: String,
+        escalation_level: u8,
+    },
+    /// A chronic anomaly was detected or resolved.
+    ChronicChanged {
+        has_chronic: bool,
+    },
+    /// Awareness dimensions changed significantly.
+    AwarenessUpdated {
+        health_score: f64,
+        signals_per_second: f64,
+        drop_rate: f64,
+    },
+    /// A healing action completed (closed-loop verification).
+    HealingComplete {
+        action_tag: String,
+        healed: bool,
+    },
+    /// Signal throughput milestone (every 1000 signals).
+    SignalMilestone {
+        total: u64,
+    },
+}
 
 /// Inbox capacity — how many signals can queue before being dropped.
 const INBOX_CAPACITY: usize = 8192;
@@ -67,6 +131,10 @@ pub struct SharedCortexState {
     pub immune_snapshot: Mutex<Option<ImmuneSnapshot>>,
     /// Has chronic anomaly?
     pub has_chronic: AtomicBool,
+    /// Event stream ring buffer — Flutter drains this for reactive updates.
+    pub event_buffer: Mutex<VecDeque<CortexEvent>>,
+    /// Total events ever pushed (for milestone tracking).
+    pub total_events_pushed: portable_atomic::AtomicU64,
 }
 
 impl SharedCortexState {
@@ -82,12 +150,35 @@ impl SharedCortexState {
             total_commands_dispatched: portable_atomic::AtomicU64::new(0),
             immune_snapshot: Mutex::new(None),
             has_chronic: AtomicBool::new(false),
+            event_buffer: Mutex::new(VecDeque::with_capacity(EVENT_BUFFER_CAPACITY)),
+            total_events_pushed: portable_atomic::AtomicU64::new(0),
         }
     }
 
     /// Get current health score.
     pub fn health_score(&self) -> f64 {
         f64::from_bits(self.health_score_bits.load(portable_atomic::Ordering::Relaxed))
+    }
+
+    /// Push an event into the ring buffer. Drops oldest if full.
+    pub fn push_event(&self, event: CortexEvent) {
+        let mut buf = self.event_buffer.lock();
+        if buf.len() >= EVENT_BUFFER_CAPACITY {
+            buf.pop_front();
+        }
+        buf.push_back(event);
+        self.total_events_pushed.fetch_add(1, portable_atomic::Ordering::Relaxed);
+    }
+
+    /// Drain all pending events. Returns them in order (oldest first).
+    pub fn drain_events(&self) -> Vec<CortexEvent> {
+        let mut buf = self.event_buffer.lock();
+        buf.drain(..).collect()
+    }
+
+    /// Number of pending events.
+    pub fn pending_event_count(&self) -> usize {
+        self.event_buffer.lock().len()
     }
 }
 
@@ -138,6 +229,14 @@ impl CortexRuntime {
 
         log::info!("CORTEX tick thread started (interval: {:?})", TICK_INTERVAL);
 
+        // Track previous state for change detection → event emission
+        let mut prev_health: f64 = 1.0;
+        let mut prev_degraded: bool = false;
+        let mut prev_chronic: bool = false;
+        let mut prev_reflex_actions: u64 = 0;
+        let mut prev_commands: u64 = 0;
+        let mut prev_milestone: u64 = 0; // signals / 1000
+
         while !shutdown.load(Ordering::Relaxed) {
             // Drain inbox → feed into cortex
             let mut fed = 0u64;
@@ -153,12 +252,118 @@ impl CortexRuntime {
             // Process tick
             let patterns = cortex.tick();
 
-            // Update shared state
+            // ═══════════════════════════════════════════════════════════════
+            // STATE DIFF → EVENT EMISSION (the reactive nerve impulses)
+            // ═══════════════════════════════════════════════════════════════
+
+            let current_health = cortex.awareness()
+                .map(|s| s.health_score)
+                .unwrap_or(prev_health);
+
+            // Health change (significant delta > 0.05)
+            if (current_health - prev_health).abs() > 0.05 {
+                shared.push_event(CortexEvent::HealthChanged {
+                    old: prev_health,
+                    new: current_health,
+                });
+                prev_health = current_health;
+            }
+
+            // Degraded state transition
+            let current_degraded = cortex.is_degraded();
+            if current_degraded != prev_degraded {
+                shared.push_event(CortexEvent::DegradedStateChanged {
+                    is_degraded: current_degraded,
+                });
+                prev_degraded = current_degraded;
+            }
+
+            // Chronic anomaly transition
+            let current_chronic = cortex.has_chronic_anomaly();
+            if current_chronic != prev_chronic {
+                shared.push_event(CortexEvent::ChronicChanged {
+                    has_chronic: current_chronic,
+                });
+                prev_chronic = current_chronic;
+            }
+
+            // Pattern recognized events
+            if !patterns.is_empty() {
+                for pattern in &patterns {
+                    shared.push_event(CortexEvent::PatternRecognized {
+                        name: pattern.name.clone(),
+                        severity: pattern.severity,
+                        description: pattern.description.clone(),
+                    });
+                }
+            }
+
+            // Reflex fired events (detect new fires)
+            let current_reflex_actions = cortex.total_reflex_actions;
+            if current_reflex_actions > prev_reflex_actions {
+                // Get the reflex that fired most recently
+                let stats = cortex.reflex_stats();
+                for stat in &stats {
+                    if stat.fire_count > 0 {
+                        shared.push_event(CortexEvent::ReflexFired {
+                            name: stat.name.clone(),
+                            fire_count: stat.fire_count,
+                        });
+                    }
+                }
+                prev_reflex_actions = current_reflex_actions;
+            }
+
+            // Command dispatched events
+            let current_commands = cortex.total_commands_dispatched;
+            if current_commands > prev_commands {
+                shared.push_event(CortexEvent::CommandDispatched {
+                    action_tag: "autonomic".into(),
+                    reason: format!("{} commands total", current_commands),
+                });
+                prev_commands = current_commands;
+            }
+
+            // Signal milestone (every 1000)
+            let current_milestone = cortex.total_processed / 1000;
+            if current_milestone > prev_milestone {
+                shared.push_event(CortexEvent::SignalMilestone {
+                    total: cortex.total_processed,
+                });
+                prev_milestone = current_milestone;
+            }
+
+            // Awareness update event (when snapshot is taken)
+            if let Some(snap) = cortex.awareness() {
+                shared.push_event(CortexEvent::AwarenessUpdated {
+                    health_score: snap.health_score,
+                    signals_per_second: snap.signals_per_second,
+                    drop_rate: snap.drop_rate,
+                });
+            }
+
+            // Immune escalation events
+            {
+                let immune_snap = cortex.immune_snapshot();
+                for cat in &immune_snap.categories {
+                    if cat.escalation_level > 1 {
+                        shared.push_event(CortexEvent::ImmuneEscalation {
+                            category: cat.category.clone(),
+                            escalation_level: cat.escalation_level,
+                        });
+                    }
+                }
+            }
+
+            // ═══════════════════════════════════════════════════════════════
+            // SHARED STATE UPDATE (existing logic — unchanged)
+            // ═══════════════════════════════════════════════════════════════
+
             shared.total_processed.store(cortex.total_processed, portable_atomic::Ordering::Relaxed);
             shared.total_reflex_actions.store(cortex.total_reflex_actions, portable_atomic::Ordering::Relaxed);
             shared.total_commands_dispatched.store(cortex.total_commands_dispatched, portable_atomic::Ordering::Relaxed);
-            shared.is_degraded.store(cortex.is_degraded(), Ordering::Relaxed);
-            shared.has_chronic.store(cortex.has_chronic_anomaly(), Ordering::Relaxed);
+            shared.is_degraded.store(current_degraded, Ordering::Relaxed);
+            shared.has_chronic.store(current_chronic, Ordering::Relaxed);
 
             if let Some(snap) = cortex.awareness() {
                 shared.health_score_bits.store(
@@ -340,6 +545,118 @@ mod tests {
 
         let processed = runtime.shared().total_processed.load(portable_atomic::Ordering::Relaxed);
         assert!(processed >= 100, "Expected 200 processed, got {}", processed);
+
+        runtime.shutdown();
+    }
+
+    #[test]
+    fn event_stream_emits_on_state_change() {
+        let runtime = CortexRuntime::start(CortexConfig {
+            awareness_interval: Duration::from_millis(0),
+            ..Default::default()
+        });
+
+        // Emit signals that should trigger awareness events
+        let handle = runtime.handle();
+        for _ in 0..5 {
+            handle.signal(SignalOrigin::AudioEngine, SignalUrgency::Normal, SignalKind::Heartbeat);
+        }
+
+        // Wait for tick thread to process
+        thread::sleep(Duration::from_millis(200));
+
+        // Drain events — should have at least awareness_updated events
+        let events = runtime.shared().drain_events();
+        assert!(!events.is_empty(), "Expected events to be emitted, got none");
+
+        // Check that awareness events exist
+        let awareness_events: Vec<_> = events
+            .iter()
+            .filter(|e| matches!(e, CortexEvent::AwarenessUpdated { .. }))
+            .collect();
+        assert!(!awareness_events.is_empty(), "Expected AwarenessUpdated events");
+
+        // After drain, buffer should be empty
+        assert_eq!(runtime.shared().pending_event_count(), 0);
+
+        runtime.shutdown();
+    }
+
+    #[test]
+    fn event_stream_push_and_drain() {
+        let shared = Arc::new(SharedCortexState::new());
+
+        // Push some events
+        shared.push_event(CortexEvent::HealthChanged { old: 1.0, new: 0.5 });
+        shared.push_event(CortexEvent::DegradedStateChanged { is_degraded: true });
+        shared.push_event(CortexEvent::PatternRecognized {
+            name: "test_pattern".into(),
+            severity: 0.8,
+            description: "test".into(),
+        });
+
+        assert_eq!(shared.pending_event_count(), 3);
+
+        // Drain
+        let events = shared.drain_events();
+        assert_eq!(events.len(), 3);
+        assert_eq!(shared.pending_event_count(), 0);
+
+        // Verify types
+        assert!(matches!(&events[0], CortexEvent::HealthChanged { new, .. } if *new == 0.5));
+        assert!(matches!(&events[1], CortexEvent::DegradedStateChanged { is_degraded: true }));
+        assert!(matches!(&events[2], CortexEvent::PatternRecognized { name, .. } if name == "test_pattern"));
+    }
+
+    #[test]
+    fn event_buffer_capacity_limit() {
+        let shared = Arc::new(SharedCortexState::new());
+
+        // Push more than capacity
+        for i in 0..600 {
+            shared.push_event(CortexEvent::SignalMilestone { total: i });
+        }
+
+        // Should be capped at EVENT_BUFFER_CAPACITY (512)
+        assert!(shared.pending_event_count() <= 512);
+
+        // Oldest events should be dropped — first event should be > 0
+        let events = shared.drain_events();
+        if let CortexEvent::SignalMilestone { total } = &events[0] {
+            assert!(*total > 0, "Oldest events should have been dropped");
+        }
+    }
+
+    #[test]
+    fn event_stream_crisis_emits_events() {
+        let runtime = CortexRuntime::start(CortexConfig {
+            awareness_interval: Duration::from_millis(0),
+            ..Default::default()
+        });
+
+        let handle = runtime.handle();
+
+        // Trigger crisis: repeated buffer underruns
+        for i in 1..=5 {
+            handle.signal(
+                SignalOrigin::AudioEngine,
+                SignalUrgency::Critical,
+                SignalKind::BufferUnderrun { count: i },
+            );
+        }
+
+        thread::sleep(Duration::from_millis(200));
+
+        let events = runtime.shared().drain_events();
+        // Should have reflex and/or pattern events from crisis
+        let has_reflex = events.iter().any(|e| matches!(e, CortexEvent::ReflexFired { .. }));
+        let has_pattern = events.iter().any(|e| matches!(e, CortexEvent::PatternRecognized { .. }));
+        assert!(
+            has_reflex || has_pattern,
+            "Crisis should trigger reflex and/or pattern events. Got {} events: {:?}",
+            events.len(),
+            events.iter().map(|e| format!("{:?}", std::mem::discriminant(e))).collect::<Vec<_>>()
+        );
 
         runtime.shutdown();
     }

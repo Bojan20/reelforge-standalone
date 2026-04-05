@@ -411,6 +411,137 @@ pub fn cortex_total_not_healed() -> u64 {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// EVENT STREAM — Reactive updates for Flutter CortexProvider
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Event DTO for Flutter — serialized form of CortexEvent.
+#[derive(Clone, Debug)]
+pub struct CortexEventDto {
+    /// Event type tag: "health_changed", "degraded_changed", "pattern_recognized",
+    /// "reflex_fired", "command_dispatched", "immune_escalation", "chronic_changed",
+    /// "awareness_updated", "healing_complete", "signal_milestone"
+    pub event_type: String,
+    /// Primary value (context-dependent):
+    /// - health_changed: new health score
+    /// - degraded_changed: 1.0 if degraded, 0.0 if not
+    /// - pattern_recognized: severity
+    /// - reflex_fired: fire_count
+    /// - immune_escalation: escalation_level
+    /// - awareness_updated: health_score
+    /// - signal_milestone: total signals
+    pub value: f64,
+    /// Secondary value (context-dependent):
+    /// - health_changed: old health score
+    /// - awareness_updated: signals_per_second
+    pub value2: f64,
+    /// Description/name field:
+    /// - pattern_recognized: pattern name
+    /// - reflex_fired: reflex name
+    /// - command_dispatched: action_tag
+    /// - immune_escalation: category
+    pub name: String,
+    /// Detail text:
+    /// - pattern_recognized: description
+    /// - command_dispatched: reason
+    pub detail: String,
+}
+
+/// Drain all pending CORTEX events. Returns empty vec if no events.
+/// Call this periodically from Flutter (e.g. every 200ms) for reactive updates.
+#[flutter_rust_bridge::frb(sync)]
+pub fn cortex_drain_events() -> Vec<CortexEventDto> {
+    let shared = match cortex_shared() {
+        Some(s) => s,
+        None => return Vec::new(),
+    };
+
+    let events = shared.drain_events();
+    events
+        .into_iter()
+        .map(|e| match e {
+            rf_cortex::runtime::CortexEvent::HealthChanged { old, new } => CortexEventDto {
+                event_type: "health_changed".into(),
+                value: new,
+                value2: old,
+                name: String::new(),
+                detail: String::new(),
+            },
+            rf_cortex::runtime::CortexEvent::DegradedStateChanged { is_degraded } => CortexEventDto {
+                event_type: "degraded_changed".into(),
+                value: if is_degraded { 1.0 } else { 0.0 },
+                value2: 0.0,
+                name: String::new(),
+                detail: String::new(),
+            },
+            rf_cortex::runtime::CortexEvent::PatternRecognized { name, severity, description } => CortexEventDto {
+                event_type: "pattern_recognized".into(),
+                value: severity as f64,
+                value2: 0.0,
+                name,
+                detail: description,
+            },
+            rf_cortex::runtime::CortexEvent::ReflexFired { name, fire_count } => CortexEventDto {
+                event_type: "reflex_fired".into(),
+                value: fire_count as f64,
+                value2: 0.0,
+                name,
+                detail: String::new(),
+            },
+            rf_cortex::runtime::CortexEvent::CommandDispatched { action_tag, reason } => CortexEventDto {
+                event_type: "command_dispatched".into(),
+                value: 0.0,
+                value2: 0.0,
+                name: action_tag,
+                detail: reason,
+            },
+            rf_cortex::runtime::CortexEvent::ImmuneEscalation { category, escalation_level } => CortexEventDto {
+                event_type: "immune_escalation".into(),
+                value: escalation_level as f64,
+                value2: 0.0,
+                name: category,
+                detail: String::new(),
+            },
+            rf_cortex::runtime::CortexEvent::ChronicChanged { has_chronic } => CortexEventDto {
+                event_type: "chronic_changed".into(),
+                value: if has_chronic { 1.0 } else { 0.0 },
+                value2: 0.0,
+                name: String::new(),
+                detail: String::new(),
+            },
+            rf_cortex::runtime::CortexEvent::AwarenessUpdated { health_score, signals_per_second, drop_rate } => CortexEventDto {
+                event_type: "awareness_updated".into(),
+                value: health_score,
+                value2: signals_per_second,
+                name: String::new(),
+                detail: format!("{:.4}", drop_rate),
+            },
+            rf_cortex::runtime::CortexEvent::HealingComplete { action_tag, healed } => CortexEventDto {
+                event_type: "healing_complete".into(),
+                value: if healed { 1.0 } else { 0.0 },
+                value2: 0.0,
+                name: action_tag,
+                detail: String::new(),
+            },
+            rf_cortex::runtime::CortexEvent::SignalMilestone { total } => CortexEventDto {
+                event_type: "signal_milestone".into(),
+                value: total as f64,
+                value2: 0.0,
+                name: String::new(),
+                detail: String::new(),
+            },
+        })
+        .collect()
+}
+
+/// Number of pending events in the buffer (lock-free read).
+#[flutter_rust_bridge::frb(sync)]
+pub fn cortex_pending_event_count() -> u32 {
+    cortex_shared()
+        .map(|s| s.pending_event_count() as u32)
+        .unwrap_or(0)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // C FFI (for dart:ffi direct calls)
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -580,5 +711,13 @@ pub extern "C" fn cortex_get_immune_escalations() -> u64 {
             let snap = s.immune_snapshot.lock().clone()?;
             Some(snap.total_escalations)
         })
+        .unwrap_or(0)
+}
+
+/// C FFI: Get number of pending events in the stream buffer.
+#[unsafe(no_mangle)]
+pub extern "C" fn cortex_get_pending_event_count() -> u32 {
+    cortex_shared()
+        .map(|s| s.pending_event_count() as u32)
         .unwrap_or(0)
 }
