@@ -44,6 +44,8 @@ members = [
     "crates/rf-wasm",
     # Standalone plugin GUI host (out-of-process, avoids Flutter Metal conflict)
     "crates/rf-plugin-host",
+    # CORTEX Nervous System — central neural bus
+    "crates/rf-cortex",
 ]
 
 [workspace.package]
@@ -82,6 +84,7 @@ rf-aurexis = { path = "crates/rf-aurexis" }
 rf-offline = { path = "crates/rf-offline" }
 rf-audio-diff = { path = "crates/rf-audio-diff" }
 rf-fluxmacro = { path = "crates/rf-fluxmacro" }
+rf-cortex = { path = "crates/rf-cortex" }
 
 # Plugin hosting
 vst3 = "0.3"

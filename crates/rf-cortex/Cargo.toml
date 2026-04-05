@@ -1,0 +1,31 @@
+[package]
+name = "rf-cortex"
+description = "CORTEX Nervous System — central neural bus connecting all FluxForge subsystems"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# Internal crates
+rf-core = { workspace = true }
+rf-event = { workspace = true }
+
+# Lock-free communication
+crossbeam-channel = { workspace = true }
+parking_lot = { workspace = true }
+
+# Concurrency
+portable-atomic = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Utilities
+log = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+approx = { workspace = true }
