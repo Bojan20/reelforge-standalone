@@ -35,8 +35,6 @@ class EngineConnectedControlBar extends StatelessWidget {
   final VoidCallback? onBackToMiddleware;
 
   // P3 Cloud callbacks
-  final VoidCallback? onCloudSyncTap;
-  final VoidCallback? onCollaborationTap;
   final VoidCallback? onCrdtSyncTap;
 
   const EngineConnectedControlBar({
@@ -59,8 +57,6 @@ class EngineConnectedControlBar extends StatelessWidget {
     this.onToggleLowerZone,
     this.onBackToLauncher,
     this.onBackToMiddleware,
-    this.onCloudSyncTap,
-    this.onCollaborationTap,
     this.onCrdtSyncTap,
   });
 
@@ -164,8 +160,6 @@ class EngineConnectedControlBar extends StatelessWidget {
           onPdcTap: onPdcToggle,
           onBackToLauncher: onBackToLauncher,
           onBackToMiddleware: onBackToMiddleware,
-          onCloudSyncTap: onCloudSyncTap,
-          onCollaborationTap: onCollaborationTap,
           onCrdtSyncTap: onCrdtSyncTap,
         );
       },

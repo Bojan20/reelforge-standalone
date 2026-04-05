@@ -46,7 +46,6 @@ import '../common/audio_waveform_picker_dialog.dart';
 import 'realtime_bus_meters.dart';
 import 'export_panels.dart';
 import '../common/git_panel.dart';
-import '../common/analytics_dashboard.dart';
 import '../common/documentation_viewer.dart';
 import '../../providers/git_provider.dart';
 import '../slot_lab/slot_voice_mixer.dart';
@@ -1290,9 +1289,11 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     );
   }
 
-  /// P3-07: Analytics dashboard panel
+  /// P3-07: Analytics dashboard panel (stub removed)
   Widget _buildAnalyticsPanel() {
-    return const AnalyticsDashboard();
+    return const Center(
+      child: Text('Analytics — coming soon', style: TextStyle(color: Colors.white38)),
+    );
   }
 
   /// P3-10: Documentation generator panel

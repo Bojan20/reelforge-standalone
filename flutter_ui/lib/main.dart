@@ -71,14 +71,9 @@ import 'services/lower_zone_persistence_service.dart';
 import 'services/event_sync_service.dart';
 import 'services/stage_configuration_service.dart';
 import 'services/workspace_preset_service.dart';
-import 'services/analytics_service.dart';
 import 'services/offline_service.dart';
 import 'services/localization_service.dart';
-import 'services/cloud_sync_service.dart';
-import 'services/ai_mixing_service.dart';
-import 'services/collaboration_service.dart';
 import 'services/asset_cloud_service.dart';
-import 'services/marketplace_service.dart';
 import 'services/crdt_sync_service.dart';
 import 'src/rust/native_ffi.dart';
 import 'utils/path_validator.dart';
@@ -140,9 +135,6 @@ void main() async {
   // Initialize dependency injection (GetIt)
   await ServiceLocator.init();
 
-  // Initialize Analytics Service (usage tracking, P3-07)
-  await AnalyticsService.instance.init();
-
   // Initialize Lower Zone persistence (SharedPreferences)
   await LowerZonePersistenceService.instance.init();
 
@@ -158,20 +150,8 @@ void main() async {
   // Initialize Offline Service (P3-14)
   await OfflineService.instance.init();
 
-  // Initialize Cloud Sync Service (P3-01)
-  await CloudSyncService.instance.init();
-
-  // Initialize AI Mixing Service (P3-03)
-  await AiMixingService.instance.init();
-
-  // Initialize Collaboration Service (P3-04)
-  await CollaborationService.instance.init();
-
   // Initialize Asset Cloud Service (P3-06)
   await AssetCloudService.instance.init();
-
-  // Initialize Marketplace Service (P3-11)
-  await MarketplaceService.instance.init();
 
   // Initialize CRDT Sync Service (P3-13)
   await CrdtSyncService.instance.init();

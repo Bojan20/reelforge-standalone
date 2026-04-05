@@ -136,13 +136,8 @@ class _AppMenuBarState extends State<AppMenuBar> {
           isOpen: _openMenu == 'cloud',
           onTap: () => _handleMenuClick('cloud'),
           items: [
-            _MenuItem('Cloud Sync Settings...', null, widget.callbacks?.onCloudSync),
-            _MenuItem('Collaboration...', '⌥⌘C', widget.callbacks?.onCollaboration),
-            const _MenuSeparator(),
             _MenuItem('Asset Cloud...', null, widget.callbacks?.onAssetCloud),
-            _MenuItem('Plugin Marketplace...', null, widget.callbacks?.onMarketplace),
             const _MenuSeparator(),
-            _MenuItem('AI Mixing Assistant...', null, widget.callbacks?.onAiMixing),
             _MenuItem('CRDT Project Sync...', null, widget.callbacks?.onCrdtSync),
           ],
           onItemTap: _handleItemClick,

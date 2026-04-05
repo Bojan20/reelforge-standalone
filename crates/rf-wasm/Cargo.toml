@@ -56,7 +56,7 @@ log = "0.4"
 console_log = "1.0"
 
 # UUID generation
-uuid = { version = "1.8", features = ["v4", "js"] }
+uuid = { version = "1.11", features = ["v4", "js"] }
 
 # Reuse rf-engine types where possible
 # Note: In production, would share types via rf-core

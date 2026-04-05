@@ -27,10 +27,7 @@ import '../../providers/macro_control_provider.dart';
 import '../../providers/track_versions_provider.dart';
 import '../../providers/groove_quantize_provider.dart';
 import '../../providers/scale_assistant_provider.dart';
-// P3 Cloud Services
-import '../../services/cloud_sync_service.dart';
 import '../transport/metronome_settings_popup.dart';
-import '../../services/collaboration_service.dart';
 import '../../services/crdt_sync_service.dart';
 import '../../src/rust/native_ffi.dart';
 
@@ -154,8 +151,6 @@ class ControlBar extends StatefulWidget {
   final VoidCallback? onBackToMiddleware; // For Slot mode only
 
   // P3 Cloud callbacks
-  final VoidCallback? onCloudSyncTap;
-  final VoidCallback? onCollaborationTap;
   final VoidCallback? onCrdtSyncTap;
 
   const ControlBar({
@@ -199,8 +194,6 @@ class ControlBar extends StatefulWidget {
     this.onPdcTap,
     this.onBackToLauncher,
     this.onBackToMiddleware,
-    this.onCloudSyncTap,
-    this.onCollaborationTap,
     this.onCrdtSyncTap,
   });
 
@@ -438,8 +431,6 @@ class _ControlBarState extends State<ControlBar> {
                       // P3 Cloud Status Badges
                       if (!isVeryCompact)
                         _CloudStatusBadges(
-                          onCloudSyncTap: widget.onCloudSyncTap,
-                          onCollaborationTap: widget.onCollaborationTap,
                           onCrdtSyncTap: widget.onCrdtSyncTap,
                         ),
 
@@ -1768,13 +1759,9 @@ class _ZoneBtnState extends State<_ZoneBtn> {
 // ════════════════════════════════════════════════════════════════════════════
 
 class _CloudStatusBadges extends StatelessWidget {
-  final VoidCallback? onCloudSyncTap;
-  final VoidCallback? onCollaborationTap;
   final VoidCallback? onCrdtSyncTap;
 
   const _CloudStatusBadges({
-    this.onCloudSyncTap,
-    this.onCollaborationTap,
     this.onCrdtSyncTap,
   });
 
@@ -1785,51 +1772,6 @@ class _CloudStatusBadges extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Cloud Sync Status
-          ListenableBuilder(
-            listenable: CloudSyncService.instance,
-            builder: (context, _) {
-              final service = CloudSyncService.instance;
-              return _CloudBadge(
-                icon: Icons.cloud,
-                label: 'SYNC',
-                isActive: service.isEnabled,
-                isSyncing: service.isSyncing,
-                color: service.lastSyncTime != null
-                    ? FluxForgeTheme.accentGreen
-                    : FluxForgeTheme.textTertiary,
-                onTap: onCloudSyncTap,
-                tooltip: service.isSyncing
-                    ? 'Syncing...'
-                    : service.lastSyncTime != null
-                        ? 'Last sync: ${_formatTime(service.lastSyncTime!)}'
-                        : 'Cloud sync disabled',
-              );
-            },
-          ),
-          const SizedBox(width: 4),
-          // Collaboration Status
-          ListenableBuilder(
-            listenable: CollaborationService.instance,
-            builder: (context, _) {
-              final service = CollaborationService.instance;
-              final peerCount = service.connectedPeers.length;
-              return _CloudBadge(
-                icon: Icons.people,
-                label: peerCount > 0 ? '$peerCount' : 'COLLAB',
-                isActive: service.isConnected,
-                isSyncing: false,
-                color: service.isConnected
-                    ? FluxForgeTheme.accentCyan
-                    : FluxForgeTheme.textTertiary,
-                onTap: onCollaborationTap,
-                tooltip: service.isConnected
-                    ? '$peerCount peer${peerCount != 1 ? 's' : ''} connected'
-                    : 'Collaboration offline',
-              );
-            },
-          ),
-          const SizedBox(width: 4),
           // CRDT Sync Status
           ListenableBuilder(
             listenable: CrdtSyncService.instance,

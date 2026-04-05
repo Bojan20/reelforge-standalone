@@ -16,14 +16,9 @@ import 'package:fluxforge_ui/services/service_locator.dart';
 import 'package:fluxforge_ui/services/lower_zone_persistence_service.dart';
 import 'package:fluxforge_ui/services/stage_configuration_service.dart';
 import 'package:fluxforge_ui/services/workspace_preset_service.dart';
-import 'package:fluxforge_ui/services/analytics_service.dart';
 import 'package:fluxforge_ui/services/offline_service.dart';
 import 'package:fluxforge_ui/services/localization_service.dart';
-import 'package:fluxforge_ui/services/cloud_sync_service.dart';
-import 'package:fluxforge_ui/services/ai_mixing_service.dart';
-import 'package:fluxforge_ui/services/collaboration_service.dart';
 import 'package:fluxforge_ui/services/asset_cloud_service.dart';
-import 'package:fluxforge_ui/services/marketplace_service.dart';
 import 'package:fluxforge_ui/services/crdt_sync_service.dart';
 import 'package:fluxforge_ui/utils/path_validator.dart';
 import 'package:fluxforge_ui/services/feature_builder/feature_block_registry.dart';
@@ -131,17 +126,12 @@ Future<void> initializeApp() async {
   await ServiceLocator.init();
 
   // Initialize services
-  await AnalyticsService.instance.init();
   await LowerZonePersistenceService.instance.init();
   StageConfigurationService.instance.init();
   await WorkspacePresetService.instance.init();
   await LocalizationService.instance.init();
   await OfflineService.instance.init();
-  await CloudSyncService.instance.init();
-  await AiMixingService.instance.init();
-  await CollaborationService.instance.init();
   await AssetCloudService.instance.init();
-  await MarketplaceService.instance.init();
   await CrdtSyncService.instance.init();
 
   // Initialize Feature Block Registry

@@ -68,7 +68,6 @@ import 'unified_search_service.dart';
 import 'recent_favorites_service.dart';
 import 'plugin_state_service.dart';
 import 'missing_plugin_detector.dart';
-import 'analytics_service.dart';
 import '../controllers/middleware_timeline_sync_controller.dart';
 import '../providers/event_folder_provider.dart';
 import '../providers/aurexis_provider.dart';
@@ -537,10 +536,6 @@ class ServiceLocator {
     sl.registerLazySingleton<RecentFavoritesService>(
       () => RecentFavoritesService.instance,
     );
-    sl.registerLazySingleton<AnalyticsService>(
-      () => AnalyticsService.instance,
-    );
-
     // Initialize search providers
     _initializeSearchProviders();
 
