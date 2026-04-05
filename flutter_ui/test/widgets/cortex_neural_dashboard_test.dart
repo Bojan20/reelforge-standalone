@@ -77,7 +77,7 @@ void main() {
       expect(find.text('HEALING'), findsOneWidget);
     });
 
-    testWidgets('renders events sub-tab', (tester) async {
+    testWidgets('renders events sub-tab with COMMAND filter', (tester) async {
       await tester.pumpWidget(_testApp(
         const CortexNeuralDashboard(subTab: DawCortexSubTab.events),
       ));
@@ -88,6 +88,7 @@ void main() {
       expect(find.text('HEALTH'), findsOneWidget);
       expect(find.text('REFLEX'), findsOneWidget);
       expect(find.text('PATTERN'), findsOneWidget);
+      expect(find.text('COMMAND'), findsOneWidget);
       expect(find.text('IMMUNE'), findsOneWidget);
       expect(find.text('HEAL'), findsOneWidget);
     });
@@ -117,7 +118,7 @@ void main() {
       expect(find.text('HEALTHY'), findsOneWidget);
     });
 
-    testWidgets('immune shows clear status by default', (tester) async {
+    testWidgets('immune shows clear status and antibodies section', (tester) async {
       await tester.pumpWidget(_testApp(
         const CortexNeuralDashboard(subTab: DawCortexSubTab.immune),
       ));
@@ -125,6 +126,9 @@ void main() {
 
       expect(find.text('Clear'), findsOneWidget); // No chronic
       expect(find.text('0'), findsWidgets); // No active anomalies
+      expect(find.text('ANTIBODIES'), findsOneWidget);
+      // No antibodies = clear message
+      expect(find.textContaining('No active antibodies'), findsOneWidget);
     });
 
     testWidgets('all sub-tabs have consistent dark bg', (tester) async {
@@ -292,6 +296,144 @@ void main() {
     test('fromJson handles missing cortexSubTab', () {
       final state = DawLowerZoneState.fromJson({});
       expect(state.cortexSubTab, DawCortexSubTab.overview);
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // CORTEX MODEL TESTS — CortexEvent, ReflexInfo, PatternInfo, etc.
+  // ═══════════════════════════════════════════════════════════════════════
+
+  group('CortexEvent', () {
+    test('fromJson creates event correctly', () {
+      final event = CortexEvent.fromJson({
+        'event_type': 'health_changed',
+        'value': 0.85,
+        'value2': 0.92,
+        'name': '',
+        'detail': '',
+      });
+      expect(event.eventType, 'health_changed');
+      expect(event.value, 0.85);
+      expect(event.value2, 0.92);
+      expect(event.isHealthChanged, isTrue);
+      expect(event.isReflexFired, isFalse);
+    });
+
+    test('fromJson handles missing fields gracefully', () {
+      final event = CortexEvent.fromJson({});
+      expect(event.eventType, '');
+      expect(event.value, 0.0);
+      expect(event.name, '');
+    });
+
+    test('timestamp is set on creation', () {
+      final before = DateTime.now();
+      final event = CortexEvent.fromJson({'event_type': 'test'});
+      final after = DateTime.now();
+      expect(event.timestamp.isAfter(before) || event.timestamp.isAtSameMomentAs(before), isTrue);
+      expect(event.timestamp.isBefore(after) || event.timestamp.isAtSameMomentAs(after), isTrue);
+    });
+
+    test('all type checks work', () {
+      final types = {
+        'health_changed': (CortexEvent e) => e.isHealthChanged,
+        'degraded_changed': (CortexEvent e) => e.isDegradedChanged,
+        'pattern_recognized': (CortexEvent e) => e.isPatternRecognized,
+        'reflex_fired': (CortexEvent e) => e.isReflexFired,
+        'command_dispatched': (CortexEvent e) => e.isCommandDispatched,
+        'immune_escalation': (CortexEvent e) => e.isImmuneEscalation,
+        'chronic_changed': (CortexEvent e) => e.isChronicChanged,
+        'awareness_updated': (CortexEvent e) => e.isAwarenessUpdated,
+        'healing_complete': (CortexEvent e) => e.isHealingComplete,
+        'signal_milestone': (CortexEvent e) => e.isSignalMilestone,
+      };
+      for (final entry in types.entries) {
+        final event = CortexEvent.fromJson({'event_type': entry.key});
+        expect(entry.value(event), isTrue, reason: '${entry.key} check should be true');
+      }
+    });
+  });
+
+  group('CortexReflexInfo', () {
+    test('fromJson parses correctly', () {
+      final r = CortexReflexInfo.fromJson({
+        'name': 'buffer-underrun-alert',
+        'fire_count': 42,
+        'enabled': true,
+      });
+      expect(r.name, 'buffer-underrun-alert');
+      expect(r.fireCount, 42);
+      expect(r.enabled, isTrue);
+    });
+
+    test('fromJson handles missing fields', () {
+      final r = CortexReflexInfo.fromJson({});
+      expect(r.name, '');
+      expect(r.fireCount, 0);
+      expect(r.enabled, isFalse);
+    });
+  });
+
+  group('CortexPatternInfo', () {
+    test('fromJson parses correctly', () {
+      final p = CortexPatternInfo.fromJson({
+        'name': 'repeated-underruns',
+        'severity': 0.9,
+        'description': '3+ underruns in 10s',
+      });
+      expect(p.name, 'repeated-underruns');
+      expect(p.severity, 0.9);
+      expect(p.description, '3+ underruns in 10s');
+    });
+  });
+
+  group('CortexAntibodyInfo', () {
+    test('fromJson parses all fields', () {
+      final ab = CortexAntibodyInfo.fromJson({
+        'category': 'audio.underrun',
+        'count': 7,
+        'escalation_level': 2,
+        'max_severity': 0.85,
+        'is_chronic': false,
+      });
+      expect(ab.category, 'audio.underrun');
+      expect(ab.count, 7);
+      expect(ab.escalationLevel, 2);
+      expect(ab.maxSeverity, 0.85);
+      expect(ab.isChronic, isFalse);
+    });
+
+    test('escalationLabel returns correct labels', () {
+      expect(CortexAntibodyInfo.fromJson({'escalation_level': 0}).escalationLabel, 'Normal');
+      expect(CortexAntibodyInfo.fromJson({'escalation_level': 1}).escalationLabel, 'Elevated');
+      expect(CortexAntibodyInfo.fromJson({'escalation_level': 2}).escalationLabel, 'High');
+      expect(CortexAntibodyInfo.fromJson({'escalation_level': 3}).escalationLabel, 'Critical');
+      expect(CortexAntibodyInfo.fromJson({'escalation_level': 4}).escalationLabel, 'Critical');
+    });
+  });
+
+  group('CortexExecutionInfo', () {
+    test('fromJson parses correctly', () {
+      final ex = CortexExecutionInfo.fromJson({
+        'action_tag': 'AdjustBufferSize',
+        'reason': 'Buffer underrun escalation L1',
+        'priority': 'High',
+        'result': 'Executed',
+        'healing_detail': 'Buffer size increased to 512',
+        'healed': true,
+      });
+      expect(ex.actionTag, 'AdjustBufferSize');
+      expect(ex.reason, 'Buffer underrun escalation L1');
+      expect(ex.priority, 'High');
+      expect(ex.result, 'Executed');
+      expect(ex.healingDetail, 'Buffer size increased to 512');
+      expect(ex.healed, isTrue);
+    });
+
+    test('fromJson handles missing fields', () {
+      final ex = CortexExecutionInfo.fromJson({});
+      expect(ex.actionTag, '');
+      expect(ex.healed, isFalse);
     });
   });
 }

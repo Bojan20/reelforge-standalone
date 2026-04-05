@@ -721,3 +721,162 @@ pub extern "C" fn cortex_get_pending_event_count() -> u32 {
         .map(|s| s.pending_event_count() as u32)
         .unwrap_or(0)
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// C FFI: JSON endpoints for detailed data (Flutter consumes via dart:ffi)
+//
+// Pattern: Return a heap-allocated C string (NUL-terminated UTF-8).
+// Flutter calls `cortex_free_string` to release memory.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Free a string returned by any cortex_get_*_json function.
+/// # Safety
+/// `ptr` must be a pointer returned by one of the JSON FFI functions,
+/// or null (in which case this is a no-op).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn cortex_free_string(ptr: *mut std::os::raw::c_char) {
+    if !ptr.is_null() {
+        unsafe { drop(std::ffi::CString::from_raw(ptr)); }
+    }
+}
+
+fn to_c_json(json: &str) -> *mut std::os::raw::c_char {
+    std::ffi::CString::new(json)
+        .unwrap_or_default()
+        .into_raw()
+}
+
+/// C FFI: Get reflex stats as JSON array.
+/// Returns `[{"name":"...","fire_count":N,"enabled":bool}, ...]`
+#[unsafe(no_mangle)]
+pub extern "C" fn cortex_get_reflex_stats_json() -> *mut std::os::raw::c_char {
+    let stats = cortex_shared()
+        .map(|s| {
+            s.reflex_stats
+                .lock()
+                .iter()
+                .map(|r| serde_json::json!({
+                    "name": r.name,
+                    "fire_count": r.fire_count,
+                    "enabled": r.enabled,
+                }))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    to_c_json(&serde_json::to_string(&stats).unwrap_or_else(|_| "[]".into()))
+}
+
+/// C FFI: Get recent patterns as JSON array.
+/// Returns `[{"name":"...","severity":0.9,"description":"..."}, ...]`
+#[unsafe(no_mangle)]
+pub extern "C" fn cortex_get_recent_patterns_json() -> *mut std::os::raw::c_char {
+    let patterns = cortex_shared()
+        .map(|s| {
+            s.recent_patterns
+                .lock()
+                .iter()
+                .map(|p| serde_json::json!({
+                    "name": p.name,
+                    "severity": p.severity,
+                    "description": p.description,
+                }))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    to_c_json(&serde_json::to_string(&patterns).unwrap_or_else(|_| "[]".into()))
+}
+
+/// C FFI: Get immune system antibodies as JSON array.
+/// Returns `[{"category":"...","count":N,"escalation_level":N,"max_severity":0.9,"is_chronic":bool}, ...]`
+#[unsafe(no_mangle)]
+pub extern "C" fn cortex_get_immune_antibodies_json() -> *mut std::os::raw::c_char {
+    let antibodies = cortex_shared()
+        .and_then(|s| {
+            let snap = s.immune_snapshot.lock().clone()?;
+            Some(
+                snap.categories
+                    .iter()
+                    .map(|ab| serde_json::json!({
+                        "category": ab.category,
+                        "count": ab.count,
+                        "escalation_level": ab.escalation_level,
+                        "max_severity": ab.max_severity,
+                        "is_chronic": ab.is_chronic,
+                    }))
+                    .collect::<Vec<_>>(),
+            )
+        })
+        .unwrap_or_default();
+    to_c_json(&serde_json::to_string(&antibodies).unwrap_or_else(|_| "[]".into()))
+}
+
+/// C FFI: Get executor recent actions as JSON array.
+/// Returns `[{"action_tag":"...","reason":"...","priority":"...","result":"...","healed":bool}, ...]`
+#[unsafe(no_mangle)]
+pub extern "C" fn cortex_get_executor_actions_json() -> *mut std::os::raw::c_char {
+    let actions = cortex_executor_shared()
+        .map(|s| {
+            s.recent_log
+                .lock()
+                .iter()
+                .rev()
+                .take(20)
+                .map(|r| serde_json::json!({
+                    "action_tag": r.action_tag,
+                    "reason": r.reason,
+                    "priority": format!("{:?}", r.priority),
+                    "result": format!("{:?}", r.result),
+                    "healing_detail": r.outcome.as_ref().map(|o| o.detail.as_str()).unwrap_or(""),
+                    "healed": r.outcome.as_ref().map(|o| o.healed).unwrap_or(false),
+                }))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    to_c_json(&serde_json::to_string(&actions).unwrap_or_else(|_| "[]".into()))
+}
+
+/// C FFI: Drain all pending events as JSON array.
+/// Returns `[{"event_type":"...","value":N,"value2":N,"name":"...","detail":"..."}, ...]`
+/// Clears the event buffer — each event is returned exactly once.
+#[unsafe(no_mangle)]
+pub extern "C" fn cortex_drain_events_json() -> *mut std::os::raw::c_char {
+    let events = cortex_shared()
+        .map(|s| {
+            s.drain_events()
+                .into_iter()
+                .map(|e| {
+                    let (etype, v1, v2, name, detail) = match e {
+                        rf_cortex::runtime::CortexEvent::HealthChanged { old, new } =>
+                            ("health_changed", new, old, "", String::new()),
+                        rf_cortex::runtime::CortexEvent::DegradedStateChanged { is_degraded } =>
+                            ("degraded_changed", if is_degraded { 1.0 } else { 0.0 }, 0.0, "", String::new()),
+                        rf_cortex::runtime::CortexEvent::PatternRecognized { ref name, severity, ref description } =>
+                            ("pattern_recognized", severity as f64, 0.0, name.as_str(), description.clone()),
+                        rf_cortex::runtime::CortexEvent::ReflexFired { ref name, fire_count } =>
+                            ("reflex_fired", fire_count as f64, 0.0, name.as_str(), String::new()),
+                        rf_cortex::runtime::CortexEvent::CommandDispatched { ref action_tag, ref reason } =>
+                            ("command_dispatched", 0.0, 0.0, action_tag.as_str(), reason.clone()),
+                        rf_cortex::runtime::CortexEvent::ImmuneEscalation { ref category, escalation_level } =>
+                            ("immune_escalation", escalation_level as f64, 0.0, category.as_str(), String::new()),
+                        rf_cortex::runtime::CortexEvent::ChronicChanged { has_chronic } =>
+                            ("chronic_changed", if has_chronic { 1.0 } else { 0.0 }, 0.0, "", String::new()),
+                        rf_cortex::runtime::CortexEvent::AwarenessUpdated { health_score, signals_per_second, drop_rate } =>
+                            ("awareness_updated", health_score, signals_per_second, "", format!("{:.4}", drop_rate)),
+                        rf_cortex::runtime::CortexEvent::HealingComplete { ref action_tag, healed } =>
+                            ("healing_complete", if healed { 1.0 } else { 0.0 }, 0.0, action_tag.as_str(), String::new()),
+                        rf_cortex::runtime::CortexEvent::SignalMilestone { total } =>
+                            ("signal_milestone", total as f64, 0.0, "", String::new()),
+                    };
+                    serde_json::json!({
+                        "event_type": etype,
+                        "value": v1,
+                        "value2": v2,
+                        "name": name,
+                        "detail": detail,
+                    })
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    to_c_json(&serde_json::to_string(&events).unwrap_or_else(|_| "[]".into()))
+}

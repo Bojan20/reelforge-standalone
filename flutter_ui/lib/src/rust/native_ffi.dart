@@ -21957,6 +21957,84 @@ extension ProfilerFFI on NativeFFI {
 
   /// Total commands that successfully healed a problem.
   int cortexGetTotalHealed() => _cortexGetTotalHealed();
+
+  // ═══ CORTEX DETAILED JSON FFI ═══
+
+  static final _cortexGetReflexStatsJson = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(),
+      Pointer<Utf8> Function()>('cortex_get_reflex_stats_json');
+
+  static final _cortexGetRecentPatternsJson = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(),
+      Pointer<Utf8> Function()>('cortex_get_recent_patterns_json');
+
+  static final _cortexGetImmuneAntibodiesJson = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(),
+      Pointer<Utf8> Function()>('cortex_get_immune_antibodies_json');
+
+  static final _cortexGetExecutorActionsJson = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(),
+      Pointer<Utf8> Function()>('cortex_get_executor_actions_json');
+
+  static final _cortexDrainEventsJson = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(),
+      Pointer<Utf8> Function()>('cortex_drain_events_json');
+
+  /// Get detailed reflex stats: [{name, fire_count, enabled}, ...]
+  List<Map<String, dynamic>> cortexGetReflexStats() {
+    if (!_loaded) return [];
+    final ptr = _cortexGetReflexStatsJson();
+    if (ptr == nullptr) return [];
+    final json = ptr.toDartString();
+    _freeString(ptr);
+    if (json.isEmpty || json == '[]') return [];
+    return (jsonDecode(json) as List).cast<Map<String, dynamic>>();
+  }
+
+  /// Get recent recognized patterns: [{name, severity, description}, ...]
+  List<Map<String, dynamic>> cortexGetRecentPatterns() {
+    if (!_loaded) return [];
+    final ptr = _cortexGetRecentPatternsJson();
+    if (ptr == nullptr) return [];
+    final json = ptr.toDartString();
+    _freeString(ptr);
+    if (json.isEmpty || json == '[]') return [];
+    return (jsonDecode(json) as List).cast<Map<String, dynamic>>();
+  }
+
+  /// Get immune antibodies: [{category, count, escalation_level, max_severity, is_chronic}, ...]
+  List<Map<String, dynamic>> cortexGetImmuneAntibodies() {
+    if (!_loaded) return [];
+    final ptr = _cortexGetImmuneAntibodiesJson();
+    if (ptr == nullptr) return [];
+    final json = ptr.toDartString();
+    _freeString(ptr);
+    if (json.isEmpty || json == '[]') return [];
+    return (jsonDecode(json) as List).cast<Map<String, dynamic>>();
+  }
+
+  /// Get executor recent actions: [{action_tag, reason, priority, result, healed}, ...]
+  List<Map<String, dynamic>> cortexGetExecutorActions() {
+    if (!_loaded) return [];
+    final ptr = _cortexGetExecutorActionsJson();
+    if (ptr == nullptr) return [];
+    final json = ptr.toDartString();
+    _freeString(ptr);
+    if (json.isEmpty || json == '[]') return [];
+    return (jsonDecode(json) as List).cast<Map<String, dynamic>>();
+  }
+
+  /// Drain pending events from Rust: [{event_type, value, value2, name, detail}, ...]
+  /// Clears the buffer — each event returned exactly once.
+  List<Map<String, dynamic>> cortexDrainEvents() {
+    if (!_loaded) return [];
+    final ptr = _cortexDrainEventsJson();
+    if (ptr == nullptr) return [];
+    final json = ptr.toDartString();
+    _freeString(ptr);
+    if (json.isEmpty || json == '[]') return [];
+    return (jsonDecode(json) as List).cast<Map<String, dynamic>>();
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

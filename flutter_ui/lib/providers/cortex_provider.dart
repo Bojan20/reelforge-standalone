@@ -25,14 +25,24 @@ class CortexEvent {
   final double value2;
   final String name;
   final String detail;
+  final DateTime timestamp;
 
-  const CortexEvent({
+  CortexEvent({
     required this.eventType,
     required this.value,
     required this.value2,
     required this.name,
     required this.detail,
-  });
+    DateTime? timestamp,
+  }) : timestamp = timestamp ?? DateTime.now();
+
+  factory CortexEvent.fromJson(Map<String, dynamic> json) => CortexEvent(
+    eventType: json['event_type'] as String? ?? '',
+    value: (json['value'] as num?)?.toDouble() ?? 0.0,
+    value2: (json['value2'] as num?)?.toDouble() ?? 0.0,
+    name: json['name'] as String? ?? '',
+    detail: json['detail'] as String? ?? '',
+  );
 
   bool get isHealthChanged => eventType == 'health_changed';
   bool get isDegradedChanged => eventType == 'degraded_changed';
@@ -47,6 +57,92 @@ class CortexEvent {
 
   @override
   String toString() => 'CortexEvent($eventType, v=$value, name=$name)';
+}
+
+/// Individual reflex state from the CORTEX reflex arc.
+class CortexReflexInfo {
+  final String name;
+  final int fireCount;
+  final bool enabled;
+  const CortexReflexInfo({required this.name, required this.fireCount, required this.enabled});
+
+  factory CortexReflexInfo.fromJson(Map<String, dynamic> json) => CortexReflexInfo(
+    name: json['name'] as String? ?? '',
+    fireCount: (json['fire_count'] as num?)?.toInt() ?? 0,
+    enabled: json['enabled'] as bool? ?? false,
+  );
+}
+
+/// Recognized pattern from the CORTEX pattern engine.
+class CortexPatternInfo {
+  final String name;
+  final double severity;
+  final String description;
+  const CortexPatternInfo({required this.name, required this.severity, required this.description});
+
+  factory CortexPatternInfo.fromJson(Map<String, dynamic> json) => CortexPatternInfo(
+    name: json['name'] as String? ?? '',
+    severity: (json['severity'] as num?)?.toDouble() ?? 0.0,
+    description: json['description'] as String? ?? '',
+  );
+}
+
+/// Antibody from the CORTEX immune system.
+class CortexAntibodyInfo {
+  final String category;
+  final int count;
+  final int escalationLevel;
+  final double maxSeverity;
+  final bool isChronic;
+  const CortexAntibodyInfo({
+    required this.category,
+    required this.count,
+    required this.escalationLevel,
+    required this.maxSeverity,
+    required this.isChronic,
+  });
+
+  factory CortexAntibodyInfo.fromJson(Map<String, dynamic> json) => CortexAntibodyInfo(
+    category: json['category'] as String? ?? '',
+    count: (json['count'] as num?)?.toInt() ?? 0,
+    escalationLevel: (json['escalation_level'] as num?)?.toInt() ?? 0,
+    maxSeverity: (json['max_severity'] as num?)?.toDouble() ?? 0.0,
+    isChronic: json['is_chronic'] as bool? ?? false,
+  );
+
+  String get escalationLabel => switch (escalationLevel) {
+    0 => 'Normal',
+    1 => 'Elevated',
+    2 => 'High',
+    _ => 'Critical',
+  };
+}
+
+/// Executor action record from the CORTEX autonomic system.
+class CortexExecutionInfo {
+  final String actionTag;
+  final String reason;
+  final String priority;
+  final String result;
+  final String healingDetail;
+  final bool healed;
+  const CortexExecutionInfo({
+    required this.actionTag,
+    required this.reason,
+    required this.priority,
+    required this.result,
+    required this.healingDetail,
+    required this.healed,
+  });
+
+  factory CortexExecutionInfo.fromJson(Map<String, dynamic> json) => CortexExecutionInfo(
+    actionTag: json['action_tag'] as String? ?? '',
+    reason: json['reason'] as String? ?? '',
+    priority: json['priority'] as String? ?? '',
+    result: json['result'] as String? ?? '',
+    healingDetail: json['healing_detail'] as String? ?? '',
+    healed: json['healed'] as bool? ?? false,
+  );
 }
 
 /// Central CORTEX state provider — reactive, event-driven, granular.
@@ -105,9 +201,15 @@ class CortexProvider extends ChangeNotifier {
   double _dimEfficiency = 0;
   double _dimCoherence = 0;
 
-  // Event log (last 50 events for UI display)
+  // Event log (last 100 events for UI display)
   final List<CortexEvent> _recentEvents = [];
-  static const int _maxRecentEvents = 50;
+  static const int _maxRecentEvents = 100;
+
+  // Detailed lists from JSON endpoints
+  List<CortexReflexInfo> _reflexStats = [];
+  List<CortexPatternInfo> _recentPatterns = [];
+  List<CortexAntibodyInfo> _antibodies = [];
+  List<CortexExecutionInfo> _executorActions = [];
 
   // Event stream for listeners who want raw events
   final StreamController<CortexEvent> _eventStreamController =
@@ -142,6 +244,18 @@ class CortexProvider extends ChangeNotifier {
   double get dimCoherence => _dimCoherence;
 
   List<CortexEvent> get recentEvents => List.unmodifiable(_recentEvents);
+
+  /// Detailed reflex stats (name, fire count, enabled) — updated every drain cycle.
+  List<CortexReflexInfo> get reflexStats => _reflexStats;
+
+  /// Recent recognized patterns (name, severity, description) — updated every drain cycle.
+  List<CortexPatternInfo> get recentPatterns => _recentPatterns;
+
+  /// Active antibodies (category, count, escalation, severity) — updated every drain cycle.
+  List<CortexAntibodyInfo> get antibodies => _antibodies;
+
+  /// Recent executor actions (action, reason, result, healed) — updated every drain cycle.
+  List<CortexExecutionInfo> get executorActions => _executorActions;
 
   /// Stream of raw CORTEX events — subscribe for real-time reactive updates.
   Stream<CortexEvent> get eventStream => _eventStreamController.stream;
@@ -209,13 +323,26 @@ class CortexProvider extends ChangeNotifier {
     final pendingCount = ffi.cortexGetPendingEventCount();
 
     if (pendingCount > 0) {
-      // For now, we use the flutter_rust_bridge drain function
-      // which returns Vec<CortexEventDto>. Since that goes through codegen,
-      // we also do a lightweight poll for the most critical data.
+      // Drain real events from Rust ring buffer
+      _drainRealEvents(ffi);
+      // Full state poll including detailed lists
       _pollFullState();
     } else {
       // Even without events, do a lightweight health check (lock-free atomics)
       _pollLightweight();
+    }
+  }
+
+  /// Drain real events from the Rust event ring buffer via C FFI JSON.
+  void _drainRealEvents(NativeFFI ffi) {
+    try {
+      final rawEvents = ffi.cortexDrainEvents();
+      for (final raw in rawEvents) {
+        final event = CortexEvent.fromJson(raw);
+        _emitEvent(event);
+      }
+    } catch (_) {
+      // JSON parse failed — skip this drain cycle
     }
   }
 
@@ -332,12 +459,55 @@ class CortexProvider extends ChangeNotifier {
       _dimEfficiency = newDimEfficiency;
       _dimCoherence = newDimCoherence;
 
+      // Fetch detailed lists via JSON FFI
+      _pollDetailedLists(ffi);
+
       // Notify if anything changed
       if (_pendingChanges != changeNone) {
         _scheduleNotify();
       }
     } catch (_) {
       // FFI call failed — cortex not ready yet
+    }
+  }
+
+  /// Fetch detailed lists (reflexes, patterns, antibodies, executor actions).
+  /// Called during full state poll only — slightly heavier than atomics.
+  void _pollDetailedLists(NativeFFI ffi) {
+    try {
+      final newReflexes = ffi.cortexGetReflexStats()
+          .map((j) => CortexReflexInfo.fromJson(j))
+          .toList();
+      if (newReflexes.length != _reflexStats.length) {
+        _pendingChanges |= changeReflexes;
+      }
+      _reflexStats = newReflexes;
+
+      final newPatterns = ffi.cortexGetRecentPatterns()
+          .map((j) => CortexPatternInfo.fromJson(j))
+          .toList();
+      if (newPatterns.length != _recentPatterns.length) {
+        _pendingChanges |= changePatterns;
+      }
+      _recentPatterns = newPatterns;
+
+      final newAntibodies = ffi.cortexGetImmuneAntibodies()
+          .map((j) => CortexAntibodyInfo.fromJson(j))
+          .toList();
+      if (newAntibodies.length != _antibodies.length) {
+        _pendingChanges |= changeImmune;
+      }
+      _antibodies = newAntibodies;
+
+      final newActions = ffi.cortexGetExecutorActions()
+          .map((j) => CortexExecutionInfo.fromJson(j))
+          .toList();
+      if (newActions.length != _executorActions.length) {
+        _pendingChanges |= changeCommands;
+      }
+      _executorActions = newActions;
+    } catch (_) {
+      // JSON parse error — skip detailed lists this cycle
     }
   }
 

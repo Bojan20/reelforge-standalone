@@ -566,7 +566,7 @@ class _NeuralPanelState extends State<_NeuralPanel> {
                 ),
               ),
               const SizedBox(width: 16),
-              // RIGHT — Reflex & Pattern monitor
+              // RIGHT — Reflex & Pattern monitor (live from Rust)
               Expanded(
                 flex: 4,
                 child: Column(
@@ -574,16 +574,30 @@ class _NeuralPanelState extends State<_NeuralPanel> {
                   children: [
                     _sectionTitle('REFLEX ARC'),
                     const SizedBox(height: 8),
-                    _statRow('Active Reflexes', '${cortex.activeReflexes}',
+                    _statRow('Active', '${cortex.activeReflexes}/${cortex.reflexStats.length}',
                         _CortexColors.reflexOrange),
                     _statRow('Total Fires', _fmt(cortex.totalReflexActions),
                         _CortexColors.reflexOrange),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 6),
+                    // Individual reflex list
+                    if (cortex.reflexStats.isNotEmpty)
+                      Expanded(
+                        flex: 3,
+                        child: _buildReflexList(cortex.reflexStats),
+                      ),
+                    const SizedBox(height: 12),
                     _sectionTitle('PATTERN RECOGNITION'),
                     const SizedBox(height: 8),
-                    _statRow('Detected', _fmt(cortex.totalPatterns),
+                    _statRow('Total Detected', _fmt(cortex.totalPatterns),
                         _CortexColors.patternPurple),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 6),
+                    // Recent patterns feed
+                    if (cortex.recentPatterns.isNotEmpty)
+                      Expanded(
+                        flex: 3,
+                        child: _buildPatternFeed(cortex.recentPatterns),
+                      ),
+                    const SizedBox(height: 12),
                     _sectionTitle('AUTONOMIC COMMANDS'),
                     const SizedBox(height: 8),
                     _statRow('Dispatched', _fmt(cortex.commandsDispatched),
@@ -596,8 +610,128 @@ class _NeuralPanelState extends State<_NeuralPanel> {
                         '${(cortex.commandsExecuted / cortex.commandsDispatched * 100).round()}%',
                         _CortexColors.healthGreen,
                       ),
+                    // Recent executor actions
+                    if (cortex.executorActions.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Expanded(
+                        flex: 2,
+                        child: _buildExecutorFeed(cortex.executorActions),
+                      ),
+                    ],
                   ],
                 ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildReflexList(List<CortexReflexInfo> reflexes) {
+    return ListView.builder(
+      itemCount: reflexes.length,
+      padding: EdgeInsets.zero,
+      itemBuilder: (_, i) {
+        final r = reflexes[i];
+        final color = r.enabled ? _CortexColors.reflexOrange : _CortexColors.textDim;
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 1),
+          child: Row(
+            children: [
+              Container(
+                width: 6, height: 6,
+                decoration: BoxDecoration(
+                  color: r.enabled ? _CortexColors.reflexOrange : _CortexColors.textDim,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  r.name,
+                  style: TextStyle(color: color, fontSize: 10, fontFamily: 'monospace'),
+                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Text(
+                r.fireCount > 0 ? '${_fmt(r.fireCount)}x' : '\u2014',
+                style: TextStyle(
+                  color: r.fireCount > 0 ? _CortexColors.reflexOrange : _CortexColors.textDim,
+                  fontSize: 10, fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPatternFeed(List<CortexPatternInfo> patterns) {
+    return ListView.builder(
+      itemCount: patterns.length,
+      padding: EdgeInsets.zero,
+      itemBuilder: (_, i) {
+        final p = patterns[patterns.length - 1 - i]; // newest first
+        final color = _CortexColors.forHealth(1.0 - p.severity);
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 1),
+          child: Row(
+            children: [
+              Icon(Icons.hub, size: 10, color: _CortexColors.patternPurple.withOpacity(0.6)),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  p.name,
+                  style: TextStyle(color: _CortexColors.textMuted, fontSize: 10, fontFamily: 'monospace'),
+                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+                child: Text(
+                  '${(p.severity * 100).round()}%',
+                  style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildExecutorFeed(List<CortexExecutionInfo> actions) {
+    return ListView.builder(
+      itemCount: actions.length,
+      padding: EdgeInsets.zero,
+      itemBuilder: (_, i) {
+        final a = actions[i];
+        final color = a.healed ? _CortexColors.healthGreen : _CortexColors.warningAmber;
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 1),
+          child: Row(
+            children: [
+              Icon(
+                a.healed ? Icons.check_circle : Icons.pending,
+                size: 10, color: color.withOpacity(0.6),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  a.actionTag,
+                  style: TextStyle(color: _CortexColors.textMuted, fontSize: 10, fontFamily: 'monospace'),
+                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Text(
+                a.result,
+                style: TextStyle(color: color.withOpacity(0.7), fontSize: 9),
               ),
             ],
           ),
@@ -663,7 +797,7 @@ class _ImmunePanel extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 16),
-              // RIGHT — Stats and healing
+              // RIGHT — Stats, healing, and antibody list
               Expanded(
                 flex: 5,
                 child: Column(
@@ -691,15 +825,31 @@ class _ImmunePanel extends StatelessWidget {
                       cortex.hasChronic ? _CortexColors.dangerRed : _CortexColors.healthGreen,
                       cortex.hasChronic ? Icons.error : Icons.check,
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     _sectionTitle('HEALING'),
                     const SizedBox(height: 8),
                     _buildHealingBar(cortex.healingRate),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
                     _statRow('Total Healed', _fmt(cortex.totalHealed),
                         _CortexColors.healthGreen),
-                    _statRow('Commands Executed', _fmt(cortex.commandsExecuted),
-                        _CortexColors.signalBlue),
+                    const SizedBox(height: 12),
+                    // Live antibody list
+                    _sectionTitle('ANTIBODIES'),
+                    const SizedBox(height: 6),
+                    Expanded(
+                      child: cortex.antibodies.isEmpty
+                          ? Center(
+                              child: Text(
+                                'No active antibodies — immune system clear',
+                                style: TextStyle(color: _CortexColors.healthGreen.withOpacity(0.5), fontSize: 10),
+                              ),
+                            )
+                          : ListView.builder(
+                              padding: EdgeInsets.zero,
+                              itemCount: cortex.antibodies.length,
+                              itemBuilder: (_, i) => _buildAntibodyRow(cortex.antibodies[i]),
+                            ),
+                    ),
                   ],
                 ),
               ),
@@ -707,6 +857,93 @@ class _ImmunePanel extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildAntibodyRow(CortexAntibodyInfo ab) {
+    final escalationColor = switch (ab.escalationLevel) {
+      0 => _CortexColors.healthGreen,
+      1 => _CortexColors.warningAmber,
+      2 => _CortexColors.reflexOrange,
+      _ => _CortexColors.dangerRed,
+    };
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        decoration: BoxDecoration(
+          color: escalationColor.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: escalationColor.withOpacity(0.12)),
+        ),
+        child: Row(
+          children: [
+            // Escalation indicator
+            Container(
+              width: 8, height: 8,
+              decoration: BoxDecoration(
+                color: escalationColor,
+                shape: BoxShape.circle,
+                boxShadow: ab.isChronic
+                    ? [BoxShadow(color: _CortexColors.dangerRed.withOpacity(0.5), blurRadius: 4)]
+                    : null,
+              ),
+            ),
+            const SizedBox(width: 6),
+            // Category name
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    ab.category,
+                    style: TextStyle(color: _CortexColors.textLight, fontSize: 10, fontFamily: 'monospace'),
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    ab.isChronic ? 'CHRONIC' : ab.escalationLabel,
+                    style: TextStyle(
+                      color: escalationColor.withOpacity(0.7),
+                      fontSize: 8,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Count badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+              decoration: BoxDecoration(
+                color: escalationColor.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Text(
+                '${ab.count}x',
+                style: TextStyle(color: escalationColor, fontSize: 10, fontWeight: FontWeight.w700),
+              ),
+            ),
+            const SizedBox(width: 6),
+            // Severity bar
+            SizedBox(
+              width: 30,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: SizedBox(
+                  height: 3,
+                  child: LinearProgressIndicator(
+                    value: ab.maxSeverity.clamp(0.0, 1.0),
+                    backgroundColor: Colors.white.withOpacity(0.04),
+                    color: escalationColor,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -813,6 +1050,7 @@ class _EventsPanelState extends State<_EventsPanel> {
                   _filterChip('HEALTH', 'health_changed'),
                   _filterChip('REFLEX', 'reflex_fired'),
                   _filterChip('PATTERN', 'pattern_recognized'),
+                  _filterChip('COMMAND', 'command_dispatched'),
                   _filterChip('IMMUNE', 'immune_escalation'),
                   _filterChip('HEAL', 'healing_complete'),
                 ],
@@ -876,13 +1114,26 @@ class _EventsPanelState extends State<_EventsPanel> {
     final color = _eventColor(event);
     final icon = _eventIcon(event);
     final label = _eventLabel(event);
+    final ts = '${event.timestamp.hour.toString().padLeft(2, '0')}:'
+        '${event.timestamp.minute.toString().padLeft(2, '0')}:'
+        '${event.timestamp.second.toString().padLeft(2, '0')}';
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 1),
       child: Row(
         children: [
-          Icon(icon, size: 10, color: color.withOpacity(0.6)),
+          // Timestamp
+          Text(
+            ts,
+            style: TextStyle(
+              color: _CortexColors.textDim,
+              fontSize: 9,
+              fontFamily: 'monospace',
+            ),
+          ),
           const SizedBox(width: 6),
+          Icon(icon, size: 10, color: color.withOpacity(0.6)),
+          const SizedBox(width: 4),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
             decoration: BoxDecoration(
@@ -899,7 +1150,7 @@ class _EventsPanelState extends State<_EventsPanel> {
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
           Expanded(
             child: Text(
               label,
