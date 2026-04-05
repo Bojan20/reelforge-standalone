@@ -86,6 +86,21 @@ pub enum CortexEvent {
     SignalMilestone {
         total: u64,
     },
+    /// Code Guardian applied a mutation.
+    EvolutionApplied {
+        description: String,
+        fitness_delta: f64,
+    },
+    /// Code Guardian reverted a mutation.
+    EvolutionReverted {
+        description: String,
+        reason: String,
+    },
+    /// Code health score changed.
+    CodeHealthChanged {
+        old_score: f64,
+        new_score: f64,
+    },
 }
 
 /// Inbox capacity — how many signals can queue before being dropped.

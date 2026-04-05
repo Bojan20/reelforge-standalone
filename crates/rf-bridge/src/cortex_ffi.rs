@@ -529,6 +529,27 @@ pub fn cortex_drain_events() -> Vec<CortexEventDto> {
                 name: String::new(),
                 detail: String::new(),
             },
+            rf_cortex::runtime::CortexEvent::EvolutionApplied { description, fitness_delta } => CortexEventDto {
+                event_type: "evolution_applied".into(),
+                value: fitness_delta,
+                value2: 0.0,
+                name: description,
+                detail: String::new(),
+            },
+            rf_cortex::runtime::CortexEvent::EvolutionReverted { description, reason } => CortexEventDto {
+                event_type: "evolution_reverted".into(),
+                value: 0.0,
+                value2: 0.0,
+                name: description,
+                detail: reason,
+            },
+            rf_cortex::runtime::CortexEvent::CodeHealthChanged { old_score, new_score } => CortexEventDto {
+                event_type: "code_health_changed".into(),
+                value: new_score,
+                value2: old_score,
+                name: String::new(),
+                detail: String::new(),
+            },
         })
         .collect()
 }
@@ -580,6 +601,64 @@ pub extern "C" fn cortex_get_total_reflex_actions() -> u64 {
     cortex_shared()
         .map(|s| s.total_reflex_actions.load(portable_atomic::Ordering::Relaxed))
         .unwrap_or(0)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CODE GUARDIAN — Evolution status for Flutter
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Get the Code Guardian status as a DTO.
+#[flutter_rust_bridge::frb(sync)]
+pub fn cortex_guardian_status() -> Option<GuardianStatusDto> {
+    crate::guardian_shared().map(|state| {
+        let snap = state.snapshot();
+        GuardianStatusDto {
+            total_cycles: snap.total_cycles,
+            total_applied: snap.total_applied,
+            total_reverted: snap.total_reverted,
+            total_skipped: snap.total_skipped,
+            total_commits: snap.total_commits,
+            code_health: snap.code_health,
+            is_cycling: snap.is_cycling,
+            cumulative_improvement: snap.cumulative_improvement,
+        }
+    })
+}
+
+/// Get current code health score from the Guardian (0.0-1.0).
+#[flutter_rust_bridge::frb(sync)]
+pub fn cortex_code_health() -> f64 {
+    crate::guardian_shared()
+        .map(|state| state.code_health())
+        .unwrap_or(1.0)
+}
+
+/// Is the Guardian currently running an evolution cycle?
+#[flutter_rust_bridge::frb(sync)]
+pub fn cortex_guardian_is_cycling() -> bool {
+    crate::guardian_shared()
+        .map(|state| state.is_cycling.load(std::sync::atomic::Ordering::Relaxed))
+        .unwrap_or(false)
+}
+
+/// Total mutations applied by the Guardian.
+#[flutter_rust_bridge::frb(sync)]
+pub fn cortex_guardian_total_applied() -> u64 {
+    crate::guardian_shared()
+        .map(|state| state.total_applied.load(std::sync::atomic::Ordering::Relaxed))
+        .unwrap_or(0)
+}
+
+/// DTO for Code Guardian status.
+pub struct GuardianStatusDto {
+    pub total_cycles: u64,
+    pub total_applied: u64,
+    pub total_reverted: u64,
+    pub total_skipped: u64,
+    pub total_commits: u64,
+    pub code_health: f64,
+    pub is_cycling: bool,
+    pub cumulative_improvement: f64,
 }
 
 /// C FFI: Get total recognized patterns.
@@ -866,6 +945,12 @@ pub extern "C" fn cortex_drain_events_json() -> *mut std::os::raw::c_char {
                             ("healing_complete", if healed { 1.0 } else { 0.0 }, 0.0, action_tag.as_str(), String::new()),
                         rf_cortex::runtime::CortexEvent::SignalMilestone { total } =>
                             ("signal_milestone", total as f64, 0.0, "", String::new()),
+                        rf_cortex::runtime::CortexEvent::EvolutionApplied { ref description, fitness_delta } =>
+                            ("evolution_applied", fitness_delta, 0.0, description.as_str(), String::new()),
+                        rf_cortex::runtime::CortexEvent::EvolutionReverted { ref description, ref reason } =>
+                            ("evolution_reverted", 0.0, 0.0, description.as_str(), reason.clone()),
+                        rf_cortex::runtime::CortexEvent::CodeHealthChanged { old_score, new_score } =>
+                            ("code_health_changed", new_score, old_score, "", String::new()),
                     };
                     serde_json::json!({
                         "event_type": etype,

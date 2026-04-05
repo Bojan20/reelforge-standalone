@@ -25,6 +25,7 @@ pub enum SignalOrigin {
     Vision,
     User,
     Cortex,
+    Evolution,
 }
 
 /// Urgency of a signal — determines routing priority.
@@ -102,6 +103,16 @@ pub enum SignalKind {
     VisualAnomaly { region: String, description: String },
     /// UI interaction observed.
     UserInteraction { action: String },
+
+    // --- Evolution signals (from Code Guardian) ---
+    /// Code smell detected during analysis.
+    CodeSmellDetected { file: String, kind: String, severity: f32 },
+    /// Mutation successfully applied and verified.
+    EvolutionApplied { description: String, fitness_delta: f64 },
+    /// Mutation was reverted (broke something).
+    EvolutionReverted { description: String, reason: String },
+    /// Code health score changed.
+    CodeHealthChanged { old_score: f64, new_score: f64 },
 
     // --- Meta signals ---
     /// Heartbeat from a subsystem (alive check).

@@ -29,6 +29,7 @@ rf-connector = { path = "../rf-connector" }
 rf-offline = { path = "../rf-offline" }
 rf-fluxmacro = { path = "../rf-fluxmacro" }
 rf-cortex = { path = "../rf-cortex" }
+rf-evolution = { path = "../rf-evolution" }
 
 # Audio I/O
 cpal.workspace = true

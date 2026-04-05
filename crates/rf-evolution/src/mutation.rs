@@ -112,6 +112,8 @@ pub struct MutationResult {
     pub applied: bool,
     /// The actual diff (if applied).
     pub diff: Option<String>,
+    /// The new file content after mutation (if applied).
+    pub new_content: Option<String>,
     /// Error message (if failed).
     pub error: Option<String>,
     /// Lines changed.
@@ -298,17 +300,18 @@ impl MutationOperator {
         }
     }
 
-    /// Apply a Transform::Replace mutation to file content.
+    /// Apply a Transform to file content. Returns the new content if successful.
     pub fn apply_replace(content: &str, transform: &Transform) -> MutationResult {
         match transform {
             Transform::Replace { old, new } => {
                 if content.contains(old.as_str()) {
-                    let _new_content = content.replacen(old.as_str(), new.as_str(), 1);
+                    let new_content = content.replacen(old.as_str(), new.as_str(), 1);
                     let lines_changed = old.lines().count().max(new.lines().count());
                     MutationResult {
                         mutation_id: String::new(),
                         applied: true,
                         diff: Some(format!("-{}\n+{}", old, new)),
+                        new_content: Some(new_content),
                         error: None,
                         lines_changed,
                     }
@@ -317,6 +320,7 @@ impl MutationOperator {
                         mutation_id: String::new(),
                         applied: false,
                         diff: None,
+                        new_content: None,
                         error: Some("Old text not found in file".to_string()),
                         lines_changed: 0,
                     }
@@ -325,12 +329,13 @@ impl MutationOperator {
             Transform::RegexReplace { pattern, replacement } => {
                 match regex::Regex::new(pattern) {
                     Ok(re) => {
-                        let new_content = re.replace_all(content, replacement.as_str());
+                        let new_content = re.replace_all(content, replacement.as_str()).into_owned();
                         if new_content != content {
                             MutationResult {
                                 mutation_id: String::new(),
                                 applied: true,
                                 diff: Some(format!("Regex: s/{}/{}/", pattern, replacement)),
+                                new_content: Some(new_content),
                                 error: None,
                                 lines_changed: 1,
                             }
@@ -339,6 +344,7 @@ impl MutationOperator {
                                 mutation_id: String::new(),
                                 applied: false,
                                 diff: None,
+                                new_content: None,
                                 error: Some("Regex pattern did not match".to_string()),
                                 lines_changed: 0,
                             }
@@ -348,6 +354,7 @@ impl MutationOperator {
                         mutation_id: String::new(),
                         applied: false,
                         diff: None,
+                        new_content: None,
                         error: Some(format!("Invalid regex: {}", e)),
                         lines_changed: 0,
                     },
@@ -357,6 +364,7 @@ impl MutationOperator {
                 mutation_id: String::new(),
                 applied: false,
                 diff: None,
+                new_content: None,
                 error: Some("Transform type not auto-applicable".to_string()),
                 lines_changed: 0,
             },

@@ -49,6 +49,7 @@ pub mod analyzer;
 pub mod evolution;
 pub mod fitness;
 pub mod genome;
+pub mod guardian;
 pub mod journal;
 pub mod memory;
 pub mod mutation;
@@ -62,6 +63,7 @@ pub mod prelude {
     pub use crate::evolution::{EvolutionConfig, EvolutionEngine, EvolutionOutcome};
     pub use crate::fitness::{FitnessEvaluator, FitnessReport, FitnessScore, Objective};
     pub use crate::genome::{CodeGenome, FileGenome, FunctionSignature, GenomeStats};
+    pub use crate::guardian::{CodeGuardian, GuardianConfig, GuardianSnapshot, GuardianState};
     pub use crate::journal::{EvolutionEntry, EvolutionJournal, EntryOutcome};
     pub use crate::memory::{EvolutionMemory, MemoryEntry, MemoryKind};
     pub use crate::mutation::{Mutation, MutationKind, MutationOperator, MutationResult};

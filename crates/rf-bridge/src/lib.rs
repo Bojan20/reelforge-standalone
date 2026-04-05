@@ -101,6 +101,7 @@ use parking_lot::RwLock;
 use std::sync::{Arc, LazyLock, OnceLock};
 
 use rf_cortex::prelude::*;
+use rf_evolution::guardian::{CodeGuardian, GuardianConfig};
 use rf_engine::automation::AutomationEngine;
 use rf_engine::groups::GroupManager;
 use rf_engine::playback::PlaybackEngine as EnginePlayback;
@@ -121,6 +122,10 @@ static CORTEX_RUNTIME: OnceLock<CortexRuntime> = OnceLock::new();
 /// Global CORTEX command executor runtime.
 /// Initialized after CORTEX_RUNTIME, drains and executes autonomic commands.
 static CORTEX_EXECUTOR: OnceLock<ExecutorRuntime> = OnceLock::new();
+
+/// Global CORTEX Code Guardian — autonomous code maintenance daemon.
+/// Initialized after CORTEX, watches and evolves the codebase.
+static CODE_GUARDIAN: OnceLock<CodeGuardian> = OnceLock::new();
 
 /// Get a handle to the CORTEX nervous system.
 /// Returns None if cortex hasn't been initialized yet.
@@ -172,6 +177,64 @@ fn cortex_init() {
         }
     }
     log::info!("CORTEX Nervous System initialized — tick thread running");
+
+    // Start the Code Guardian — autonomous code maintenance daemon
+    guardian_init();
+}
+
+/// Initialize the CORTEX Code Guardian. Called from cortex_init().
+fn guardian_init() {
+    // Detect project root from the executable's parent directories
+    let project_root = detect_project_root().unwrap_or_else(|| {
+        log::warn!("CORTEX Guardian: could not detect project root, using cwd");
+        std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."))
+    });
+
+    let config = GuardianConfig {
+        project_root: project_root.clone(),
+        cycle_interval: std::time::Duration::from_secs(300), // 5 minutes
+        max_mutations_per_cycle: 3,
+        verify_with_cargo: true,
+        auto_commit: true,
+        commit_branch: None,
+        strategy: rf_evolution::strategy::StrategyKind::Adaptive,
+        extensions: vec!["rs".into()],
+        data_dir: project_root.join(".cortex").join("evolution"),
+    };
+
+    let _ = CODE_GUARDIAN.set(CodeGuardian::start(config));
+    log::info!("CORTEX Code Guardian initialized — autonomous maintenance active");
+}
+
+/// Detect the project root by looking for Cargo.toml
+fn detect_project_root() -> Option<std::path::PathBuf> {
+    // Try common locations
+    let candidates = [
+        // Direct path (development)
+        std::path::PathBuf::from("/Users/vanvinklstudio/Projects/fluxforge-studio"),
+        // Current directory
+        std::env::current_dir().ok()?,
+    ];
+
+    for candidate in &candidates {
+        if candidate.join("Cargo.toml").exists() {
+            return Some(candidate.clone());
+        }
+        // Walk up
+        let mut dir = candidate.clone();
+        for _ in 0..5 {
+            if dir.join("Cargo.toml").exists() {
+                return Some(dir);
+            }
+            if !dir.pop() { break; }
+        }
+    }
+    None
+}
+
+/// Get the Code Guardian state (for FFI).
+pub fn guardian_shared() -> Option<&'static Arc<rf_evolution::guardian::GuardianState>> {
+    CODE_GUARDIAN.get().map(|g| g.shared())
 }
 
 /// Emit a healing verification signal back to CORTEX — closes the loop.

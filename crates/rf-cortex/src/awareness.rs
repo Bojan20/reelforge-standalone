@@ -34,7 +34,7 @@ pub struct AwarenessSnapshot {
     pub dimensions: AwarenessDimensions,
 }
 
-/// The seven dimensions of CORTEX self-awareness.
+/// The eight dimensions of CORTEX self-awareness.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AwarenessDimensions {
     /// Signal throughput health (are we processing fast enough?).
@@ -51,19 +51,22 @@ pub struct AwarenessDimensions {
     pub efficiency: f64,
     /// System coherence (are subsystems in sync?).
     pub coherence: f64,
+    /// Code health (evolution fitness score from Code Guardian).
+    pub code_health: f64,
 }
 
 impl AwarenessDimensions {
     /// Calculate overall health as weighted average of dimensions.
     pub fn overall(&self) -> f64 {
         let weights = [
-            (self.throughput, 0.20),
-            (self.reliability, 0.25),
-            (self.responsiveness, 0.15),
-            (self.coverage, 0.10),
-            (self.cognition, 0.10),
-            (self.efficiency, 0.10),
-            (self.coherence, 0.10),
+            (self.throughput, 0.18),
+            (self.reliability, 0.22),
+            (self.responsiveness, 0.13),
+            (self.coverage, 0.08),
+            (self.cognition, 0.09),
+            (self.efficiency, 0.08),
+            (self.coherence, 0.08),
+            (self.code_health, 0.14), // Code quality matters
         ];
         let (weighted_sum, weight_total) =
             weights.iter().fold((0.0, 0.0), |(sum, total), (val, w)| {
@@ -89,6 +92,9 @@ pub struct AwarenessEngine {
     prev_pattern_count: u64,
     /// Expected origins (subsystems that should be sending signals).
     expected_origins: usize,
+    /// Code health score from Code Guardian (0.0-1.0).
+    /// Updated externally via `set_code_health()`.
+    code_health_score: f64,
 }
 
 impl AwarenessEngine {
@@ -101,7 +107,13 @@ impl AwarenessEngine {
             prev_reflex_fires: 0,
             prev_pattern_count: 0,
             expected_origins,
+            code_health_score: 1.0, // assume healthy until Guardian reports
         }
+    }
+
+    /// Set the code health score (called by Code Guardian).
+    pub fn set_code_health(&mut self, score: f64) {
+        self.code_health_score = score.clamp(0.0, 1.0);
     }
 
     /// Take a snapshot of the cortex's current awareness state.
@@ -149,6 +161,7 @@ impl AwarenessEngine {
             cognition: Self::score_cognition(new_patterns, new_reflex_fires),
             efficiency: Self::score_efficiency(bus_stats),
             coherence: Self::score_coherence(bus_stats),
+            code_health: self.code_health_score,
         };
 
         let snapshot = AwarenessSnapshot {
@@ -427,6 +440,7 @@ mod tests {
             cognition: 1.0,
             efficiency: 1.0,
             coherence: 1.0,
+            code_health: 1.0,
         };
         let overall = dims.overall();
         assert!((overall - 1.0).abs() < 0.001);

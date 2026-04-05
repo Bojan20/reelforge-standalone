@@ -245,28 +245,79 @@ impl EvolutionEngine {
                     ));
                 }
                 transform => {
-                    // Try to apply the transform
+                    // Try to apply the transform — WRITE + VERIFY + REVERT cycle
                     let file_path = self.config.project_root.join(&mutation.file);
-                    if let Ok(content) = std::fs::read_to_string(&file_path) {
-                        let result = MutationOperator::apply_replace(&content, transform);
+                    if let Ok(original_content) = std::fs::read_to_string(&file_path) {
+                        let result = MutationOperator::apply_replace(&original_content, transform);
                         if result.applied {
-                            applied.push(AppliedMutation {
-                                mutation_id: mutation.id.clone(),
-                                description: mutation.description.clone(),
-                                fitness_delta: mutation.expected_improvement,
-                            });
-                            self.memory.record(MemoryEntry::success(
-                                &kind_str,
-                                &mutation.file.display().to_string(),
-                                mutation.expected_improvement,
-                            ));
-                            self.journal.record(EvolutionEntry::new(
-                                &mutation.description,
-                                &format!("{}:{}", mutation.file.display(), mutation.line),
-                                EntryOutcome::Applied {
-                                    fitness_delta: mutation.expected_improvement,
-                                },
-                            ));
+                            if let Some(ref new_content) = result.new_content {
+                                // WRITE the mutated content
+                                if let Err(e) = std::fs::write(&file_path, new_content) {
+                                    log::error!("Evolution: failed to write {}: {}", file_path.display(), e);
+                                    reverted.push(RevertedMutation {
+                                        mutation_id: mutation.id.clone(),
+                                        description: mutation.description.clone(),
+                                        reason: format!("Write failed: {}", e),
+                                    });
+                                    continue;
+                                }
+
+                                // VERIFY — run cargo check on the project
+                                let verified = if self.config.run_commands {
+                                    Self::verify_mutation(&self.config.project_root)
+                                } else {
+                                    true // static-only mode: trust the transform
+                                };
+
+                                if verified {
+                                    // KEEP — mutation improves the code
+                                    log::info!(
+                                        "Evolution APPLIED: {} in {}",
+                                        mutation.description, mutation.file.display()
+                                    );
+                                    applied.push(AppliedMutation {
+                                        mutation_id: mutation.id.clone(),
+                                        description: mutation.description.clone(),
+                                        fitness_delta: mutation.expected_improvement,
+                                    });
+                                    self.memory.record(MemoryEntry::success(
+                                        &kind_str,
+                                        &mutation.file.display().to_string(),
+                                        mutation.expected_improvement,
+                                    ));
+                                    self.journal.record(EvolutionEntry::new(
+                                        &mutation.description,
+                                        &format!("{}:{}", mutation.file.display(), mutation.line),
+                                        EntryOutcome::Applied {
+                                            fitness_delta: mutation.expected_improvement,
+                                        },
+                                    ));
+                                } else {
+                                    // REVERT — mutation broke something
+                                    log::warn!(
+                                        "Evolution REVERTED: {} in {} — verification failed",
+                                        mutation.description, mutation.file.display()
+                                    );
+                                    let _ = std::fs::write(&file_path, &original_content);
+                                    reverted.push(RevertedMutation {
+                                        mutation_id: mutation.id.clone(),
+                                        description: mutation.description.clone(),
+                                        reason: "Verification failed (cargo check/test)".into(),
+                                    });
+                                    self.memory.record(MemoryEntry::failure(
+                                        &kind_str,
+                                        &mutation.file.display().to_string(),
+                                        "Verification failed after apply",
+                                    ));
+                                    self.journal.record(EvolutionEntry::new(
+                                        &mutation.description,
+                                        &format!("{}:{}", mutation.file.display(), mutation.line),
+                                        EntryOutcome::Reverted {
+                                            reason: "Verification failed".into(),
+                                        },
+                                    ));
+                                }
+                            }
                         } else {
                             let reason = result.error.unwrap_or_else(|| "Unknown".into());
                             reverted.push(RevertedMutation {
@@ -318,6 +369,60 @@ impl EvolutionEngine {
         );
 
         Ok(outcome)
+    }
+
+    /// Verify a mutation by running cargo check (and optionally cargo test).
+    /// Returns true if the project still compiles and passes tests.
+    fn verify_mutation(project_root: &std::path::Path) -> bool {
+        // Step 1: cargo check — must compile
+        let check = std::process::Command::new("cargo")
+            .arg("check")
+            .arg("--workspace")
+            .arg("--quiet")
+            .current_dir(project_root)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::piped())
+            .output();
+
+        match check {
+            Ok(output) => {
+                if !output.status.success() {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    log::warn!("Evolution verify: cargo check FAILED: {}", stderr.chars().take(200).collect::<String>());
+                    return false;
+                }
+            }
+            Err(e) => {
+                log::error!("Evolution verify: could not run cargo check: {}", e);
+                return false;
+            }
+        }
+
+        // Step 2: cargo test — must pass (only if check passed)
+        let test = std::process::Command::new("cargo")
+            .arg("test")
+            .arg("--workspace")
+            .arg("--quiet")
+            .arg("--no-fail-fast")
+            .current_dir(project_root)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::piped())
+            .output();
+
+        match test {
+            Ok(output) => {
+                if !output.status.success() {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    log::warn!("Evolution verify: cargo test FAILED: {}", stderr.chars().take(200).collect::<String>());
+                    return false;
+                }
+                true
+            }
+            Err(e) => {
+                log::error!("Evolution verify: could not run cargo test: {}", e);
+                false
+            }
+        }
     }
 
     /// Get a read-only analysis of the codebase (no mutations).
