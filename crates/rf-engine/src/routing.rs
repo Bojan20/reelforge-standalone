@@ -647,6 +647,12 @@ pub struct Channel {
     /// Compensation delay applied to this channel
     pdc_delay: u32,
 
+    // Pre-allocated plugin buffers (avoids allocation on audio thread)
+    /// Reusable plugin input buffer
+    plugin_input_buf: PluginAudioBuffer,
+    /// Reusable plugin output buffer
+    plugin_output_buf: PluginAudioBuffer,
+
     // State
     /// Processing order index (computed by topological sort)
     processing_order: u32,
@@ -714,6 +720,9 @@ impl Channel {
             pdc_buffer: ChannelPdcBuffer::new(MAX_PDC_DELAY),
             own_latency: 0,
             pdc_delay: 0,
+            // Pre-allocate plugin buffers (2 channels, block_size samples)
+            plugin_input_buf: PluginAudioBuffer::new(2, block_size),
+            plugin_output_buf: PluginAudioBuffer::new(2, block_size),
             processing_order: 0,
         }
     }
@@ -945,27 +954,28 @@ impl Channel {
         self.output_right[..len].copy_from_slice(&self.input_right[..len]);
 
         // Process through plugin chain first (if present)
-        if let Some(plugin_chain) = &mut self.plugin_chain
-            && !plugin_chain.is_empty()
-        {
-            // Convert f64 buffers to f32 for plugin API
-            let mut plugin_input = PluginAudioBuffer::new(2, len);
+        // Use pre-allocated buffers to avoid allocation on audio thread
+        if self.plugin_chain.as_ref().is_some_and(|c| !c.is_empty()) {
+            // Convert f64 buffers to f32 using pre-allocated plugin buffers (zero allocation)
+            self.plugin_input_buf.clear();
+            self.plugin_output_buf.clear();
             for i in 0..len {
-                plugin_input.data[0][i] = self.output_left[i] as f32;
-                plugin_input.data[1][i] = self.output_right[i] as f32;
+                self.plugin_input_buf.data[0][i] = self.output_left[i] as f32;
+                self.plugin_input_buf.data[1][i] = self.output_right[i] as f32;
             }
 
-            let mut plugin_output = PluginAudioBuffer::new(2, len);
+            // Process through plugin chain (split borrow via temporary take)
+            let mut chain = self.plugin_chain.take().unwrap();
+            let ok = chain
+                .process(&self.plugin_input_buf, &mut self.plugin_output_buf)
+                .is_ok();
+            self.plugin_chain = Some(chain);
 
-            // Process through plugin chain
-            if plugin_chain
-                .process(&plugin_input, &mut plugin_output)
-                .is_ok()
-            {
+            if ok {
                 // Convert f32 back to f64
                 for i in 0..len {
-                    self.output_left[i] = plugin_output.data[0][i] as f64;
-                    self.output_right[i] = plugin_output.data[1][i] as f64;
+                    self.output_left[i] = self.plugin_output_buf.data[0][i] as f64;
+                    self.output_right[i] = self.plugin_output_buf.data[1][i] as f64;
                 }
             }
         }

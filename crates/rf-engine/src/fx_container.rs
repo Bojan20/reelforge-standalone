@@ -360,12 +360,6 @@ impl FxContainer {
         self.dry_left[..len].copy_from_slice(&left[..len]);
         self.dry_right[..len].copy_from_slice(&right[..len]);
 
-        // Ensure we have enough buffers
-        while self.path_buffers.len() < self.paths.len() {
-            self.path_buffers
-                .push((vec![0.0; self.block_size], vec![0.0; self.block_size]));
-        }
-
         let any_soloed = self.any_soloed();
 
         // Clear output
@@ -374,8 +368,12 @@ impl FxContainer {
 
         let mut active_paths = 0usize;
 
-        // Process each path
+        // Process each path (skip paths without pre-allocated buffers)
+        let num_buffered = self.path_buffers.len();
         for (i, path) in self.paths.iter_mut().enumerate() {
+            if i >= num_buffered {
+                break; // No buffer for this path — skip gracefully (no allocation)
+            }
             let gain = path.effective_gain(any_soloed);
             if gain <= 0.0 {
                 continue;

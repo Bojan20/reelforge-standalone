@@ -14898,14 +14898,15 @@ extension ControlRoomAPI on NativeFFI {
       if (tilesPtr == nullptr) return null;
 
       final tileCount = outTileCount.value;
+      final elementCount = tileCount * 2; // Each tile has min + max
       if (tileCount == 0) {
-        _waveCacheFreeTiles(tilesPtr, tileCount);
+        _waveCacheFreeTiles(tilesPtr, elementCount);
         return null;
       }
 
       // Copy data to Dart
-      final peaks = Float32List(tileCount * 2);
-      for (int i = 0; i < tileCount * 2; i++) {
+      final peaks = Float32List(elementCount);
+      for (int i = 0; i < elementCount; i++) {
         peaks[i] = tilesPtr[i];
       }
 
@@ -14915,8 +14916,8 @@ extension ControlRoomAPI on NativeFFI {
         peaks: peaks,
       );
 
-      // Free native memory
-      _waveCacheFreeTiles(tilesPtr, tileCount);
+      // Free native memory — pass exact element count to match allocation size
+      _waveCacheFreeTiles(tilesPtr, elementCount);
 
       return result;
     } finally {

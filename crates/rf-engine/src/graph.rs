@@ -230,18 +230,31 @@ impl AudioGraph {
                 self.output_buffers[i].fill(0.0);
             }
 
-            // Process the node using pre-allocated buffers
-            let input_refs: Vec<&[Sample]> = self.input_buffers[..num_inputs]
-                .iter()
-                .map(|v| v.as_slice())
-                .collect();
-            let mut output_refs: Vec<&mut [Sample]> = self.output_buffers[..num_outputs]
-                .iter_mut()
-                .map(|v| v.as_mut_slice())
-                .collect();
+            // Process the node using pre-allocated buffers (ZERO allocation — stack arrays)
+            let mut input_arr: [&[Sample]; MAX_NODE_CHANNELS] = [&[]; MAX_NODE_CHANNELS];
+            for i in 0..num_inputs {
+                input_arr[i] = self.input_buffers[i].as_slice();
+            }
+            let input_refs = &input_arr[..num_inputs];
+
+            // SAFETY: We need split borrows into output_buffers. Each index is unique
+            // because num_outputs <= MAX_NODE_CHANNELS and indices are 0..num_outputs.
+            let mut output_arr: [*mut [Sample]; MAX_NODE_CHANNELS] =
+                [std::ptr::slice_from_raw_parts_mut(std::ptr::null_mut(), 0); MAX_NODE_CHANNELS];
+            for i in 0..num_outputs {
+                output_arr[i] = self.output_buffers[i].as_mut_slice() as *mut [Sample];
+            }
+            let mut output_ref_arr: [&mut [Sample]; MAX_NODE_CHANNELS] =
+                std::array::from_fn(|_| &mut [] as &mut [Sample]);
+            for i in 0..num_outputs {
+                // SAFETY: Each pointer is to a distinct element of output_buffers,
+                // and we only create one &mut reference per element.
+                output_ref_arr[i] = unsafe { &mut *output_arr[i] };
+            }
+            let output_refs = &mut output_ref_arr[..num_outputs];
 
             if let Some(node) = self.nodes.get_mut(&node_id) {
-                node.process(&input_refs, &mut output_refs);
+                node.process(input_refs, &mut *output_refs);
             }
 
             // Copy outputs to node buffers (reuse existing allocations)

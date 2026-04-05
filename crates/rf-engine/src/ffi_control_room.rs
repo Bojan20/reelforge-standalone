@@ -14,6 +14,25 @@ use std::sync::atomic::Ordering;
 use crate::control_room::{ControlRoom, MonitorSource, SoloMode};
 use crate::routing::ChannelId;
 
+/// Panic guard for FFI boundary — prevents panics from unwinding across extern "C"
+macro_rules! ffi_panic_guard {
+    ($default:expr, $body:expr) => {
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| $body)) {
+            Ok(result) => result,
+            Err(e) => {
+                if let Some(s) = e.downcast_ref::<&str>() {
+                    log::error!("FFI panic caught: {}", s);
+                } else if let Some(s) = e.downcast_ref::<String>() {
+                    log::error!("FFI panic caught: {}", s);
+                } else {
+                    log::error!("FFI panic caught (unknown type)");
+                }
+                $default
+            }
+        }
+    };
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // GLOBAL CONTROL ROOM POINTER
 // ═══════════════════════════════════════════════════════════════════════════
@@ -68,14 +87,29 @@ unsafe fn cstr_to_string(ptr: *const c_char) -> Option<String> {
 /// SAFETY: control_room_ptr must remain valid for the entire program lifetime
 #[unsafe(no_mangle)]
 pub extern "C" fn control_room_init(control_room_ptr: *mut ControlRoom) -> i32 {
-    if control_room_ptr.is_null() {
-        return 0;
+    ffi_panic_guard!(0, {
+        if control_room_ptr.is_null() {
+            return 0;
+        }
+
+        *CONTROL_ROOM_PTR.write() = Some(ControlRoomPtr(control_room_ptr));
+
+        log::info!("Control Room FFI initialized");
+        1
+    })
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SHUTDOWN
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Nullify the control room pointer on shutdown to prevent use-after-free
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_shutdown() {
+    if let Some(mut guard) = CONTROL_ROOM_PTR.try_write() {
+        *guard = None;
     }
-
-    *CONTROL_ROOM_PTR.write() = Some(ControlRoomPtr(control_room_ptr));
-
-    log::info!("Control Room FFI initialized");
-    1
+    log::info!("Control Room FFI shut down");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

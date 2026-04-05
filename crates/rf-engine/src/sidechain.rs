@@ -88,6 +88,12 @@ pub struct SidechainInput {
     sample_rate: f64,
     /// Block size
     block_size: usize,
+    /// Pre-allocated scratch buffer for key signal left (avoids audio-thread allocation)
+    key_scratch_left: Vec<Sample>,
+    /// Pre-allocated scratch buffer for key signal right
+    key_scratch_right: Vec<Sample>,
+    /// Pre-allocated scratch buffer for key signal output (mono sum)
+    key_scratch_out: Vec<Sample>,
 }
 
 impl SidechainInput {
@@ -137,6 +143,9 @@ impl SidechainInput {
             active: AtomicBool::new(false),
             sample_rate,
             block_size,
+            key_scratch_left: vec![0.0; block_size],
+            key_scratch_right: vec![0.0; block_size],
+            key_scratch_out: vec![0.0; block_size],
         };
 
         instance.update_filters();
@@ -296,25 +305,37 @@ impl SidechainInput {
     }
 
     /// Get sidechain signal for dynamics processor (mono sum)
+    /// ZERO ALLOCATION — uses pre-allocated scratch buffers via temporary move
     pub fn get_key_signal(
         &mut self,
         internal_left: &[Sample],
         internal_right: &[Sample],
-    ) -> Vec<Sample> {
+    ) -> &[Sample] {
         let len = internal_left
             .len()
             .min(internal_right.len())
             .min(self.block_size);
-        let mut left = vec![0.0; len];
-        let mut right = vec![0.0; len];
 
-        self.process(internal_left, internal_right, &mut left, &mut right);
+        // Temporarily take scratch buffers out of self to avoid borrow conflict with process()
+        // std::mem::take replaces with zero-alloc empty Vec; we put the originals back after.
+        let mut scratch_l = std::mem::take(&mut self.key_scratch_left);
+        let mut scratch_r = std::mem::take(&mut self.key_scratch_right);
 
-        // Return mono sum for envelope detection
-        left.iter()
-            .zip(right.iter())
-            .map(|(&l, &r)| (l + r) * 0.5)
-            .collect()
+        scratch_l[..len].fill(0.0);
+        scratch_r[..len].fill(0.0);
+
+        self.process(internal_left, internal_right, &mut scratch_l[..len], &mut scratch_r[..len]);
+
+        // Mono sum into output scratch buffer
+        for i in 0..len {
+            self.key_scratch_out[i] = (scratch_l[i] + scratch_r[i]) * 0.5;
+        }
+
+        // Put scratch buffers back (no allocation — same heap memory)
+        self.key_scratch_left = scratch_l;
+        self.key_scratch_right = scratch_r;
+
+        &self.key_scratch_out[..len]
     }
 
     /// Update filter coefficients

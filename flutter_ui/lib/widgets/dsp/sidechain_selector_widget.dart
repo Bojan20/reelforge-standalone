@@ -66,7 +66,8 @@ class _SidechainSelectorWidgetState extends State<SidechainSelectorWidget> {
               child: Text('Internal (no external sidechain)'),
             ),
             ...channels.map((ch) {
-              final trackId = int.tryParse(ch.id.replaceAll('ch_', '')) ?? 0;
+              final trackIdMatch = RegExp(r'\d+').firstMatch(ch.id);
+              final trackId = trackIdMatch != null ? (int.tryParse(trackIdMatch.group(0)!) ?? 0) : 0;
               return DropdownMenuItem(
                 value: trackId,
                 child: Text('Track: ${ch.name}'),

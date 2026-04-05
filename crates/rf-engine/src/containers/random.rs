@@ -422,9 +422,8 @@ impl RandomContainer {
         // Capture seed AFTER selection
         let seed_after = self.rng_state;
 
-        // Log to global seed log if enabled
-        {
-            let mut log = SEED_LOG.lock();
+        // Log to global seed log if enabled (try_lock to avoid blocking audio thread)
+        if let Some(mut log) = SEED_LOG.try_lock() {
             if log.is_enabled() {
                 let entry = log.create_entry(
                     self.id,

@@ -394,12 +394,11 @@ class _ClipEditorState extends State<ClipEditor> with TickerProviderStateMixin {
   void _detectHitpointsDirect(ClipEditorClip clip) {
 
     try {
-      // Parse clip ID to int (clip IDs are strings like 'clip_1711234567890')
-      final numericStr = clip.id.replaceAll(RegExp(r'[^0-9]'), '');
-      final clipId = numericStr.isEmpty ? 0 : (int.tryParse(numericStr) ?? 0);
-      if (clipId == 0) {
-        return;
-      }
+      // Parse clip ID to int (clip IDs are strings like 'clip_1711234567890_0')
+      final numericMatch = RegExp(r'\d+').firstMatch(clip.id);
+      if (numericMatch == null) return;
+      final clipId = int.tryParse(numericMatch.group(0)!);
+      if (clipId == null || clipId == 0) return;
 
       // Map algorithm enum to int
       final algorithmInt = widget.hitpointAlgorithm.index;

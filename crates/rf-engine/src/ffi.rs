@@ -744,13 +744,17 @@ pub extern "C" fn engine_set_track_armed(track_id: u64, armed: i32) -> i32 {
 /// Set track volume (0.0 - 2.0, 1.0 = unity)
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_set_track_volume(track_id: u64, volume: f64) -> i32 {
+    if !volume.is_finite() {
+        return 0;
+    }
+    let volume = volume.clamp(0.0, 2.0);
     log::trace!(
         "[FFI] set_track_volume: track_id={}, volume={:.3}",
         track_id,
         volume
     );
     TRACK_MANAGER.update_track(TrackId(track_id), |track| {
-        track.volume = volume.clamp(0.0, 2.0);
+        track.volume = volume;
     });
     1
 }
@@ -759,8 +763,12 @@ pub extern "C" fn engine_set_track_volume(track_id: u64, volume: f64) -> i32 {
 /// For stereo tracks with dual-pan, this controls the left channel
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_set_track_pan(track_id: u64, pan: f64) -> i32 {
+    if !pan.is_finite() {
+        return 0;
+    }
+    let pan = pan.clamp(-1.0, 1.0);
     TRACK_MANAGER.update_track(TrackId(track_id), |track| {
-        track.pan = pan.clamp(-1.0, 1.0);
+        track.pan = pan;
     });
     1
 }
@@ -20158,13 +20166,13 @@ pub extern "C" fn wave_cache_query_tiles(
 }
 
 /// Free tiles returned by wave_cache_query_tiles
+/// `element_count` must be the EXACT number of f32 elements allocated (tile_count * 2)
 #[unsafe(no_mangle)]
-pub extern "C" fn wave_cache_free_tiles(ptr: *mut f32, count: u32) {
-    if ptr.is_null() || count == 0 {
+pub extern "C" fn wave_cache_free_tiles(ptr: *mut f32, element_count: u32) {
+    if ptr.is_null() || element_count == 0 {
         return;
     }
-    let size = (count as usize).saturating_mul(2);
-    if let Ok(layout) = std::alloc::Layout::array::<f32>(size) {
+    if let Ok(layout) = std::alloc::Layout::array::<f32>(element_count as usize) {
         unsafe {
             std::alloc::dealloc(ptr as *mut u8, layout);
         }

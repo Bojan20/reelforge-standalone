@@ -378,67 +378,111 @@ impl ParallelAudioGraph {
             }
         }
 
-        // Clone levels to avoid borrow conflict
-        let levels = self.levels.clone();
-
         // Process each level (levels must be sequential, nodes within level parallel)
-        for level in &levels {
-            self.process_level(level);
+        // Use index-based iteration to avoid cloning levels Vec
+        for level_idx in 0..self.levels.len() {
+            self.process_level_by_index(level_idx);
         }
     }
 
-    /// Process a single level of nodes in parallel
-    fn process_level(&mut self, level: &ProcessingLevel) {
+    /// Process a single level of nodes by index (avoids cloning levels Vec)
+    fn process_level_by_index(&mut self, level_idx: usize) {
         let block_size = self.block_size;
-        let connections = &self.connections;
-        let node_outputs = &self.node_outputs;
 
-        // Collect inputs for each node in this level
-        let level_inputs: Vec<(NodeId, Vec<Vec<Sample>>, Vec<Vec<Sample>>)> = level
-            .node_ids
-            .iter()
-            .map(|&node_id| {
+        // Extract node_ids for this level (cheap clone of small Vec<NodeId>)
+        let node_ids = self.levels[level_idx].node_ids.clone();
+
+        // Acquire buffers from pool for inputs/outputs instead of allocating
+        // Collect buffer indices so we can release them after processing
+        let mut acquired_buffers: Vec<usize> = Vec::new();
+
+        // Collect inputs for each node in this level using pre-allocated pool buffers
+        let mut level_inputs: Vec<(NodeId, Vec<usize>, Vec<usize>)> = Vec::with_capacity(node_ids.len());
+
+        for &node_id in &node_ids {
+            let num_inputs = {
                 let wrapper = &self.nodes[&node_id];
                 let node = wrapper.node.read();
-                let num_inputs = node.num_inputs();
+                node.num_inputs()
+            };
 
-                // Audio inputs
-                let mut inputs: Vec<Vec<Sample>> =
-                    (0..num_inputs).map(|_| vec![0.0; block_size]).collect();
+            // Acquire pool buffers for audio inputs
+            let mut input_indices: Vec<usize> = Vec::with_capacity(num_inputs);
+            let mut sidechain_indices: Vec<usize> = Vec::with_capacity(num_inputs);
 
-                // Sidechain inputs
-                let mut sidechains: Vec<Vec<Sample>> =
-                    (0..num_inputs).map(|_| vec![0.0; block_size]).collect();
+            for _ in 0..num_inputs {
+                if let Some(idx) = self.buffer_pool.acquire() {
+                    input_indices.push(idx);
+                    acquired_buffers.push(idx);
+                }
+                if let Some(idx) = self.buffer_pool.acquire() {
+                    sidechain_indices.push(idx);
+                    acquired_buffers.push(idx);
+                }
+            }
 
-                // Sum inputs from connections
-                for conn in connections {
-                    if conn.to_node == node_id
-                        && conn.to_channel < num_inputs
-                        && let Some(from_outputs) = node_outputs.get(&conn.from_node)
-                        && conn.from_channel < from_outputs.len()
-                    {
-                        let target = match conn.connection_type {
-                            ConnectionType::Audio => &mut inputs[conn.to_channel],
-                            ConnectionType::Sidechain => &mut sidechains[conn.to_channel],
-                            ConnectionType::Modulation => &mut inputs[conn.to_channel],
-                        };
+            // Sum inputs from connections into pool buffers
+            for conn in &self.connections {
+                if conn.to_node == node_id
+                    && conn.to_channel < num_inputs
+                    && conn.to_channel < input_indices.len()
+                    && conn.to_channel < sidechain_indices.len()
+                {
+                    if let Some(from_outputs) = self.node_outputs.get(&conn.from_node) {
+                        if conn.from_channel < from_outputs.len() {
+                            let target_idx = match conn.connection_type {
+                                ConnectionType::Audio | ConnectionType::Modulation => input_indices[conn.to_channel],
+                                ConnectionType::Sidechain => sidechain_indices[conn.to_channel],
+                            };
 
-                        for (i, &sample) in from_outputs[conn.from_channel].iter().enumerate() {
-                            target[i] += sample * conn.gain;
+                            if let Some(target_buf) = self.buffer_pool.get_mut(target_idx) {
+                                for (i, &sample) in from_outputs[conn.from_channel].iter().enumerate() {
+                                    if i < target_buf.len() {
+                                        target_buf[i] += sample * conn.gain;
+                                    }
+                                }
+                            }
                         }
                     }
                 }
+            }
 
-                (node_id, inputs, sidechains)
-            })
-            .collect();
+            level_inputs.push((node_id, input_indices, sidechain_indices));
+        }
 
         // Process nodes in parallel
-        let results: Vec<(NodeId, Vec<Vec<Sample>>)> = level_inputs
+        // Build owned input data from pool (needed for parallel send to rayon)
+        let mut parallel_inputs: Vec<(NodeId, Vec<Vec<Sample>>, Vec<Vec<Sample>>)> =
+            Vec::with_capacity(level_inputs.len());
+
+        for (node_id, input_indices, sidechain_indices) in &level_inputs {
+            let inputs: Vec<Vec<Sample>> = input_indices
+                .iter()
+                .map(|&idx| {
+                    self.buffer_pool
+                        .get(idx)
+                        .map(|s| s[..block_size].to_vec())
+                        .unwrap_or_default()
+                })
+                .collect();
+            let sidechains: Vec<Vec<Sample>> = sidechain_indices
+                .iter()
+                .map(|&idx| {
+                    self.buffer_pool
+                        .get(idx)
+                        .map(|s| s[..block_size].to_vec())
+                        .unwrap_or_default()
+                })
+                .collect();
+            parallel_inputs.push((*node_id, inputs, sidechains));
+        }
+
+        let results: Vec<(NodeId, Vec<Vec<Sample>>)> = parallel_inputs
             .into_par_iter()
-            .map(|(node_id, inputs, sidechains)| {
+            .filter_map(|(node_id, inputs, sidechains)| {
                 let wrapper = &self.nodes[&node_id];
-                let mut node = wrapper.node.write();
+                // Use try_write to avoid blocking on the audio thread
+                let mut node = wrapper.node.try_write()?;
 
                 let num_outputs = node.num_outputs();
                 let mut outputs: Vec<Vec<Sample>> =
@@ -457,9 +501,14 @@ impl ParallelAudioGraph {
                     node.process(&input_refs, &mut output_refs);
                 }
 
-                (node_id, outputs)
+                Some((node_id, outputs))
             })
             .collect();
+
+        // Release all acquired pool buffers
+        for idx in acquired_buffers {
+            self.buffer_pool.release(idx);
+        }
 
         // Store results
         for (node_id, outputs) in results {

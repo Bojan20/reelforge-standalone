@@ -561,8 +561,9 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
 
   /// Extract numeric clip ID for FFI (clip IDs are strings like 'clip_1711234567890_0')
   int? _parseClipId(String id) {
-    final numeric = id.replaceAll(RegExp(r'[^0-9]'), '');
-    return numeric.isEmpty ? null : int.tryParse(numeric);
+    final match = RegExp(r'\d+').firstMatch(id);
+    if (match == null) return null;
+    return int.tryParse(match.group(0)!);
   }
 
   Widget _buildStretchSection(TimelineClip clip) {

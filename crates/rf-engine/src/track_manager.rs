@@ -3145,7 +3145,7 @@ impl TrackManager {
             .iter()
             .map(|entry| entry.value().clone())
             .collect();
-        clips.sort_by(|a, b| a.start_time.partial_cmp(&b.start_time).unwrap());
+        clips.sort_by(|a, b| a.start_time.partial_cmp(&b.start_time).unwrap_or(std::cmp::Ordering::Equal));
         clips
     }
 
@@ -4113,7 +4113,7 @@ impl TrackManager {
         });
 
         // Sort by start time
-        track_regions.sort_by(|a, b| a.start_time.partial_cmp(&b.start_time).unwrap());
+        track_regions.sort_by(|a, b| a.start_time.partial_cmp(&b.start_time).unwrap_or(std::cmp::Ordering::Equal));
     }
 
     /// Get all comp lanes for a track
@@ -6422,7 +6422,7 @@ mod tests {
         tm.razor_delete();
 
         let mut clips = tm.get_clips_for_track(tid);
-        clips.sort_by(|a, b| a.start_time.partial_cmp(&b.start_time).unwrap());
+        clips.sort_by(|a, b| a.start_time.partial_cmp(&b.start_time).unwrap_or(std::cmp::Ordering::Equal));
         assert_eq!(clips.len(), 2);
 
         // Left piece [1.0, 3.0]
@@ -6447,7 +6447,7 @@ mod tests {
         tm.razor_split();
 
         let mut clips = tm.get_clips_for_track(tid);
-        clips.sort_by(|a, b| a.start_time.partial_cmp(&b.start_time).unwrap());
+        clips.sort_by(|a, b| a.start_time.partial_cmp(&b.start_time).unwrap_or(std::cmp::Ordering::Equal));
         assert_eq!(clips.len(), 3);
 
         // [1.0, 3.0], [3.0, 6.0], [6.0, 9.0]
@@ -6532,7 +6532,7 @@ mod tests {
 
         // Track 1: clip [1.0, 5.0] with razor [2.0, 4.0] → [1.0, 2.0] and [4.0, 5.0]
         let mut clips1 = tm.get_clips_for_track(tid1);
-        clips1.sort_by(|a, b| a.start_time.partial_cmp(&b.start_time).unwrap());
+        clips1.sort_by(|a, b| a.start_time.partial_cmp(&b.start_time).unwrap_or(std::cmp::Ordering::Equal));
         assert_eq!(clips1.len(), 2);
         assert!((clips1[0].start_time - 1.0).abs() < 0.01);
         assert!((clips1[0].duration - 1.0).abs() < 0.01);
@@ -6559,7 +6559,7 @@ mod tests {
         assert_eq!(new_ids.len(), 1);
 
         let mut clips = tm.get_clips_for_track(tid);
-        clips.sort_by(|a, b| a.start_time.partial_cmp(&b.start_time).unwrap());
+        clips.sort_by(|a, b| a.start_time.partial_cmp(&b.start_time).unwrap_or(std::cmp::Ordering::Equal));
         assert_eq!(clips.len(), 2);
 
         // Original at [2.0, 6.0]
@@ -6581,7 +6581,7 @@ mod tests {
         tm.razor_reverse();
 
         let mut clips = tm.get_clips_for_track(tid);
-        clips.sort_by(|a, b| a.start_time.partial_cmp(&b.start_time).unwrap());
+        clips.sort_by(|a, b| a.start_time.partial_cmp(&b.start_time).unwrap_or(std::cmp::Ordering::Equal));
 
         // Should have 3 clips after split: [1,3] [3,6] [6,9]
         assert_eq!(clips.len(), 3);

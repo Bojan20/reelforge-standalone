@@ -80,6 +80,18 @@ pub extern "C" fn routing_init(sender_ptr: *mut RoutingCommandSender) -> i32 {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// SHUTDOWN
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[cfg(feature = "unified_routing")]
+/// Nullify the routing sender pointer on shutdown to prevent use-after-free
+#[unsafe(no_mangle)]
+pub extern "C" fn routing_shutdown() {
+    ROUTING_SENDER_PTR.store(std::ptr::null_mut(), std::sync::atomic::Ordering::Release);
+    log::info!("Routing FFI shut down");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // CHANNEL MANAGEMENT
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -474,6 +486,10 @@ pub extern "C" fn routing_get_channels_json() -> *const c_char {
 pub extern "C" fn routing_init(_sender_ptr: *mut core::ffi::c_void) -> i32 {
     0
 }
+
+#[cfg(not(feature = "unified_routing"))]
+#[unsafe(no_mangle)]
+pub extern "C" fn routing_shutdown() {}
 
 #[cfg(not(feature = "unified_routing"))]
 #[unsafe(no_mangle)]
