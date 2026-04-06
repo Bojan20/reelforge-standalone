@@ -1,0 +1,36 @@
+[package]
+name = "cortex-daemon"
+description = "CORTEX Bridge Daemon — standalone WebSocket server for Corti ↔ ChatGPT Browser"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "cortex-daemon"
+path = "src/main.rs"
+
+[dependencies]
+# Async runtime + WebSocket
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "time", "io-util", "io-std", "signal"] }
+tokio-tungstenite = { workspace = true }
+futures-util = { workspace = true }
+
+# HTTP server for CLI/API queries
+hyper = { version = "1.6", features = ["server", "http1"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+http-body-util = "0.1"
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Logging
+log = { workspace = true }
+env_logger = { workspace = true }
+
+# Utilities
+uuid = { workspace = true }
+chrono = { workspace = true }
+clap = { workspace = true }

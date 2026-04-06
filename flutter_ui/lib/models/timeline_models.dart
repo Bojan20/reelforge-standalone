@@ -1307,7 +1307,7 @@ String formatTime(
 
   try {
     final data = jsonDecode(jsonStr) as Map<String, dynamic>;
-    final lods = data['lods'] as List<dynamic>?;
+    final lods = (data['lod_levels'] ?? data['lods']) as List<dynamic>?;
     if (lods == null || lods.isEmpty) return (null, null);
 
     // Use first LOD (highest resolution) or find appropriate LOD

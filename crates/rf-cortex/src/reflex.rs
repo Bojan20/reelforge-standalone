@@ -203,6 +203,34 @@ impl ReflexArc {
             Duration::from_millis(100),
         ));
 
+        // Reflex: Visual anomaly → record as anomaly for immune system
+        arc.register(Reflex::new(
+            "vision-anomaly-alert",
+            |sig| matches!(sig.kind, SignalKind::VisualAnomaly { .. }),
+            ReflexAction::RecordAnomaly {
+                category: "vision.anomaly".into(),
+                severity: 0.5,
+            },
+            Duration::from_secs(5),
+        ));
+
+        // Reflex: Vision frozen region → command UI subsystem to investigate
+        arc.register(Reflex::new(
+            "vision-frozen-diagnostic",
+            |sig| {
+                matches!(
+                    &sig.kind,
+                    SignalKind::Custom { tag, data }
+                    if tag == "vision_telemetry" && data.contains("frozen=") && !data.ends_with("frozen=0")
+                )
+            },
+            ReflexAction::RecordAnomaly {
+                category: "vision.frozen_region".into(),
+                severity: 0.6,
+            },
+            Duration::from_secs(30),
+        ));
+
         arc
     }
 }
@@ -307,7 +335,7 @@ mod tests {
     #[test]
     fn default_reflexes_exist() {
         let arc = ReflexArc::with_defaults();
-        assert!(arc.count() >= 6);
+        assert!(arc.count() >= 8);
     }
 
     #[test]

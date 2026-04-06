@@ -2293,19 +2293,28 @@ pub extern "C" fn engine_generate_waveform_from_samples(
 fn waveform_to_json(waveform: &crate::waveform::StereoWaveformData) -> *mut c_char {
     use serde_json::json;
 
-    // Build levels array
-    let mut levels = Vec::new();
+    // Build LOD levels with left/right channels as object arrays
+    // Format: { "min": f32, "max": f32, "rms": f32 } per bucket
+    let mut lod_levels = Vec::new();
     for level_idx in 0..crate::waveform::NUM_LOD_LEVELS {
         let left_buckets = waveform.left.get_level(level_idx);
+        let right_buckets = waveform.right.get_level(level_idx);
         let samples_per_bucket = crate::waveform::SAMPLES_PER_BUCKET[level_idx];
 
-        // Convert buckets to JSON array [[min,max,rms], ...]
-        let buckets: Vec<[f32; 3]> = left_buckets.iter().map(|b| [b.min, b.max, b.rms]).collect();
+        let left: Vec<serde_json::Value> = left_buckets
+            .iter()
+            .map(|b| json!({"min": b.min, "max": b.max, "rms": b.rms}))
+            .collect();
 
-        levels.push(json!({
+        let right: Vec<serde_json::Value> = right_buckets
+            .iter()
+            .map(|b| json!({"min": b.min, "max": b.max, "rms": b.rms}))
+            .collect();
+
+        lod_levels.push(json!({
             "samples_per_bucket": samples_per_bucket,
-            "bucket_count": buckets.len(),
-            "buckets": buckets
+            "left": left,
+            "right": right
         }));
     }
 
@@ -2313,7 +2322,7 @@ fn waveform_to_json(waveform: &crate::waveform::StereoWaveformData) -> *mut c_ch
         "sample_rate": waveform.sample_rate(),
         "total_samples": waveform.total_samples(),
         "duration_secs": waveform.left.duration_secs,
-        "levels": levels
+        "lod_levels": lod_levels
     });
 
     let json_str = json_obj.to_string();

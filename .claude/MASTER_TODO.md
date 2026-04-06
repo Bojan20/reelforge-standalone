@@ -669,6 +669,157 @@
 
 ---
 
+## DAW Industrija — Istraživanje za Flux Nadogradnju
+
+> Ovo je referenca za buduće odluke. Kad pravimo novu feature — pogledamo ovde šta industrija radi pogrešno i kako Flux može bolje.
+
+### 1. FRUSTRACIJE PRODUCENATA — Šta mrze u svojim DAW-ovima
+
+**Ableton Live:**
+- Zamrzavanje (Freeze) traje predugo, blokira workflow
+- Nema comping (snimanje više take-ova i biranje najboljih delova) — tek u 12+
+- Ograničen MIDI editor — nema notation view, expression editing je primitivan
+- Nema video track — post-production nemoguća
+- Max for Live kočenje — CPU spike kad koristiš M4L device
+- Session View ↔ Arrangement View desync — producenti gube rad
+- Izvoz je SPOR — nema offline render optimizaciju
+
+**Logic Pro:**
+- macOS only — zaključava korisnike u ekosistem
+- Mixer izgleda kao iz 2005. — UI zastareo
+- MIDI environment je nerazumljiv — flight simulator kontrola
+- Bounce offline NIKAD ne zvuči isto kao realtime — poznati bug
+- Plugin scanning crash — restart celog DAW-a
+- Undo history se gubi posle save — katastrofa za workflow
+- Smart Tempo detektuje pogrešno u 30%+ slučajeva
+
+**FL Studio:**
+- Pattern/Playlist koncept zbunjuje početnike — jedinstven ali neintuitivni model
+- Mixer routing je spaghetti — nema vizuelni signal flow
+- Audio recording je sekundarni citizen — MIDI first filozofija
+- Nema ARA podrška — Melodyne/SpectraLayers integra nemoguća
+- Automation Clips su odvojeni od svega — teško upravljanje
+- CPU threading loš — ne koristi sve core-ove efikasno
+- macOS verzija je ZAOSTALA za Windows
+
+**Bitwig Studio:**
+- Stabilnost — crashuje više od drugih DAW-ova
+- Plugin hosting — sandbox crashuje plugin bez razloga
+- CPU optimizacija — troši više nego Ableton za isti projekat
+- Dokumentacija — skoro pa ne postoji
+- Preset browser — spor, bez tagova, chaotičan
+- Nema notation view
+- VST3 podrška kasni za standardom
+
+**Reaper:**
+- UI je RUŽAN — izgleda kao Windows 98
+- Nema stock instrumente — moraš kupiti sve treće strane
+- Learning curve — konfigurisanje traje danima
+- JSFX plugin format — niko ga ne koristi van Reaper-a
+- MIDI editor — funkcionalan ali primitivan UX
+- Nema kolaboraciju — offline alat iz prošlosti
+- Theme engine je moćan ali NIKO ne pravi profesionalne teme
+
+**Pro Tools:**
+- iLok DRM — producenti MRZE iLok (hardver dongle, licencni problemi)
+- Subscription model — preskup za indie producente
+- Avid hardware lock-in — "radi najbolje" sa Avid interfejsima
+- Buffer size promene zahtevaju restart
+- Editing je fenomenalno ali MIDI je katastrofa
+- AAX only — ne podržava VST3, smanjuje plugin izbor
+- Cloud kolaboracija je spora i nesigurna
+
+**Studio One:**
+- Mastering Page — dobar koncept ali polovično implementiran
+- Show Page — live performance mod ima bug-ove
+- Plugin scanner crash
+- ARA integracija — jedina koja radi DOBRO (referenca za Flux)
+- Scratch pad — genijalna ideja, loša implementacija
+
+**Cubase/Nuendo:**
+- NAJSTARIJI DAW — legacy kod iz 90-ih
+- Dongle (ranije eLicenser) — isto kao iLok problemi
+- MixConsole — moćan ali komplikovan
+- Expression Maps — samo Cubase ih ima, ali UX je užasan
+- MediaBay — scan traje SATIMA
+- Svaki update slomi nešto — "Steinberg quality"
+- ASIO Guard nepredvidiv
+
+### 2. TEHNIČKE GRANICE — Gde se DAW-ovi lome
+
+**Performanse:**
+| DAW | Track limit pre pada | Plugin limit | Gde puca |
+|-----|---------------------|-------------|----------|
+| Ableton | ~150 audio | ~80 plugin chains | M4L + complex routing |
+| Logic | ~200 audio | ~100 | Alchemy synth + Flex Time |
+| FL Studio | ~100 pattern | ~60 | Mixer routing complexity |
+| Bitwig | ~100 audio | ~50 sandboxed | Plugin sandbox overhead |
+| Reaper | ~500+ audio | ~200 | UI postaje bottleneck pre audio engine-a |
+| Pro Tools | ~256 (HDX limit) | ~128 (DSP limit) | Hardware ceiling |
+| Cubase | ~200 | ~80 | MixConsole rendering |
+| Studio One | ~200 | ~90 | ARA processing peak |
+
+**Multithreading:**
+- NIJEDAN DAW ne koristi GPU za audio processing (osim parcijalno Bitwig)
+- Većina koristi per-bus threading, ne per-plugin
+- Audio graph paralelizam je ograničen dependency chain-om
+- Lock contention na mixer bus-ovima — univerzalni problem
+
+**Memory:**
+- Sample library loading — svi koriste disk streaming ali sa različitim cache strategijama
+- Undo history — neograničena u memoriji, swap na disk kad ponestane RAM
+- Waveform cache — svi regenerišu pri svakom otvaranju projekta (sporo)
+
+**Latency:**
+- Plugin latency compensation — SVE DAW-ovi imaju edge case bug-ove
+- MIDI input latency — Pro Tools jedini sa sub-ms (sa HDX)
+- Audio-to-MIDI konverzija — realtime je nemoguć sa <10ms latency
+
+### 3. BUDUĆNOST VAN AUDIO INDUSTRIJE — Šta audio svet NIJE dotakao
+
+**AI/ML alati koji audio industrija ignoriše:**
+- **Generativni audio** — Stable Audio, MusicGen, AudioCraft — nijedan DAW nema native integraciju
+- **AI mastering** — LANDR, eMastering, CloudBounce — DAW-ovi ih ne integrišu
+- **Stem separation** — Demucs, LALAL.ai — samo Logic ima primitive verziju
+- **Voice cloning** — ElevenLabs, RVC — nijedan DAW ne podržava
+- **Intelligent mixing** — iZotope Neutron AI — ali kao plugin, ne native
+- **Real-time style transfer** — Google Magenta, RAVE — akademski rad, nula u produkciji
+
+**Game Engine inovacije koje DAW-ovi ne koriste:**
+- **Node-based visual scripting** — Unreal Blueprints, Unity Visual Scripting → DAW-ovi još koriste linearne automation lane-ove
+- **Real-time collaborative editing** — Figma model → nijedan DAW nema pravi real-time collab
+- **Hot reload** — Flutter/React → DAW-ovi zahtevaju restart za plugin promene
+- **GPU-accelerated rendering** — Metal/Vulkan → DAW-ovi renderuju waveform na CPU
+- **Entity Component System (ECS)** — Bevy, Unity DOTS → DAW-ovi koriste monolitne objekte
+- **Procedural generation** — Houdini, World Machine → audio nema proceduralne alate
+- **Digital twins** — replika studija u softveru za testiranje pre fizičkog postavljanja
+- **Spatial computing** — Apple Vision Pro, Meta Quest → 3D mixing postoji ali primitivan
+
+**Kreativni alati koji su ISPRED audio sveta:**
+- **Figma** — multiplayer editing, auto-layout, design tokens, plugin API → DAW ekvivalent NE POSTOJI
+- **Notion/Obsidian** — linked thinking, graph view → project metadata u DAW-ovima je flat lista
+- **After Effects/DaVinci** — node-based compositing → audio routing je zaostao 15 godina
+- **Blender** — open source sa profesionalnim kvalitetom + geometry nodes → audio nema ekvivalent
+- **TouchDesigner** — real-time generativna grafika sa MIDI/OSC → audio verzija ne postoji
+- **Runway ML** — AI u kreativnom workflow-u → audio to tek počinje
+
+### 4. FLUX PRILIKE — Gde Flux može da ubije
+
+Na osnovu svega gore, ovo su oblasti gde Flux može biti **prvi na svetu**:
+
+- [ ] **AI-native workflow** — ne plugin, ne sidebar — AI u jezgru editovanja (stem split, smart comp, generativni fill)
+- [ ] **Real-time kolaboracija** — Figma model za audio: više producenata u istom projektu simultano
+- [ ] **GPU waveform/spectrum** — Metal/Vulkan za sve vizualizacije, CPU samo za audio
+- [ ] **Node-based routing** — vizuelni signal flow umesto mixer-strip paradigme
+- [ ] **Proceduralni audio** — generator zvuka baziran na pravilima, ne samo sample playback
+- [ ] **Hot reload plugins** — promena parametara bez restart-a, live patching
+- [ ] **Unified MIDI+Audio** — jedan clip type koji je i MIDI i audio istovremeno (Bitwig pokušao, loše)
+- [ ] **Smart project memory** — DAW koji pamti šta si radio, predlaže sledeći korak, uči od tebe
+- [ ] **Cross-platform native** — jednaki performansi na macOS, Windows, Linux (ne Electron wrapper)
+- [ ] **Zero-config audio** — bez ASIO, bez driver setup-a, radi iz kutije
+
+---
+
 ## Reference
 
 - `AGENT_TEAM_ARCHITECTURE.md` — Agent tim arhitektura + kompletna tabela bagova

@@ -67,6 +67,7 @@ pub struct CortexAwarenessDto {
     pub dim_cognition: f64,
     pub dim_efficiency: f64,
     pub dim_coherence: f64,
+    pub dim_vision: f64,
 }
 
 /// Get full cortex awareness snapshot.
@@ -91,6 +92,7 @@ pub fn cortex_awareness() -> Option<CortexAwarenessDto> {
         dim_cognition: snap.dimensions.cognition,
         dim_efficiency: snap.dimensions.efficiency,
         dim_coherence: snap.dimensions.coherence,
+        dim_vision: snap.dimensions.vision,
     })
 }
 
@@ -178,6 +180,36 @@ pub fn cortex_emit_visual_anomaly(region: String, description: String) {
             SignalOrigin::Vision,
             SignalUrgency::Elevated,
             SignalKind::VisualAnomaly { region, description },
+        );
+    }
+}
+
+/// Report vision telemetry from Flutter (called after each auto-observe cycle).
+/// `anomaly_count` = number of visual anomalies detected.
+/// `frozen_count` = number of frozen (unchanging) regions.
+/// `region_count` = number of registered vision regions.
+#[flutter_rust_bridge::frb(sync)]
+pub fn cortex_report_vision_telemetry(anomaly_count: u32, frozen_count: u32, region_count: u32) {
+    // Update shared state atomics (awareness engine reads these on next tick)
+    if let Some(shared) = cortex_shared() {
+        shared.vision_anomaly_count.store(anomaly_count, portable_atomic::Ordering::Relaxed);
+        shared.vision_frozen_count.store(frozen_count, portable_atomic::Ordering::Relaxed);
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+        shared.vision_last_report_ms.store(now_ms, portable_atomic::Ordering::Relaxed);
+    }
+
+    // Emit a vision heartbeat signal so coverage tracking sees Vision alive
+    if let Some(handle) = cortex_handle() {
+        handle.signal(
+            SignalOrigin::Vision,
+            SignalUrgency::Normal,
+            SignalKind::Custom {
+                tag: "vision_telemetry".into(),
+                data: format!("regions={},anomalies={},frozen={}", region_count, anomaly_count, frozen_count),
+            },
         );
     }
 }
@@ -669,7 +701,7 @@ pub extern "C" fn cortex_get_total_patterns() -> u64 {
         .unwrap_or(0)
 }
 
-/// C FFI: Get awareness dimension (0-6 → throughput, reliability, responsiveness, coverage, cognition, efficiency, coherence).
+/// C FFI: Get awareness dimension (0-8 → throughput, reliability, responsiveness, coverage, cognition, efficiency, coherence, code_health, vision).
 /// Returns -1.0 if unavailable.
 #[unsafe(no_mangle)]
 pub extern "C" fn cortex_get_dimension(idx: u32) -> f64 {
@@ -684,6 +716,8 @@ pub extern "C" fn cortex_get_dimension(idx: u32) -> f64 {
                 4 => snap.dimensions.cognition,
                 5 => snap.dimensions.efficiency,
                 6 => snap.dimensions.coherence,
+                7 => snap.dimensions.code_health,
+                8 => snap.dimensions.vision,
                 _ => return None,
             })
         })
@@ -780,6 +814,70 @@ pub extern "C" fn cortex_get_immune_active_count() -> u32 {
             Some(snap.active_count as u32)
         })
         .unwrap_or(0)
+}
+
+/// C FFI: Report vision telemetry from Flutter.
+/// `anomaly_count` = number of visual anomalies detected.
+/// `frozen_count` = number of frozen (unchanging) regions.
+/// `region_count` = number of registered vision regions.
+#[unsafe(no_mangle)]
+pub extern "C" fn cortex_report_vision(anomaly_count: u32, frozen_count: u32, region_count: u32) {
+    // Update shared state atomics (awareness engine reads these on next tick)
+    if let Some(shared) = cortex_shared() {
+        shared.vision_anomaly_count.store(anomaly_count, portable_atomic::Ordering::Relaxed);
+        shared.vision_frozen_count.store(frozen_count, portable_atomic::Ordering::Relaxed);
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+        shared.vision_last_report_ms.store(now_ms, portable_atomic::Ordering::Relaxed);
+    }
+
+    // Emit a vision heartbeat signal
+    if let Some(handle) = cortex_handle() {
+        handle.signal(
+            SignalOrigin::Vision,
+            SignalUrgency::Normal,
+            SignalKind::Custom {
+                tag: "vision_telemetry".into(),
+                data: format!("regions={},anomalies={},frozen={}", region_count, anomaly_count, frozen_count),
+            },
+        );
+    }
+}
+
+/// C FFI: Emit a visual anomaly from Flutter.
+#[unsafe(no_mangle)]
+pub extern "C" fn cortex_emit_vision_anomaly(
+    region: *const std::os::raw::c_char,
+    description: *const std::os::raw::c_char,
+) {
+    let region = unsafe {
+        if region.is_null() { return; }
+        std::ffi::CStr::from_ptr(region).to_string_lossy().into_owned()
+    };
+    let description = unsafe {
+        if description.is_null() { return; }
+        std::ffi::CStr::from_ptr(description).to_string_lossy().into_owned()
+    };
+    if let Some(handle) = cortex_handle() {
+        handle.signal(
+            SignalOrigin::Vision,
+            SignalUrgency::Elevated,
+            SignalKind::VisualAnomaly { region, description },
+        );
+    }
+}
+
+/// C FFI: Get vision dimension score.
+#[unsafe(no_mangle)]
+pub extern "C" fn cortex_get_vision_score() -> f64 {
+    cortex_shared()
+        .and_then(|s| {
+            let snap = s.latest_awareness.lock().clone()?;
+            Some(snap.dimensions.vision)
+        })
+        .unwrap_or(-1.0)
 }
 
 /// C FFI: Get immune system total escalations.

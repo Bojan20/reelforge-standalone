@@ -416,8 +416,8 @@ class _ClipWidgetState extends State<ClipWidget> {
     }
 
     // Skip if not visible
-    // Cull clips outside visible viewport (use parent constraints or large fallback)
-    final viewportWidth = context.size?.width ?? 4096;
+    // Cull clips outside visible viewport — use large fallback (context.size not available during build)
+    const viewportWidth = 4096.0;
     if (x + width < 0 || x > viewportWidth + 200) {
       if (_isDraggingGain) _isDraggingGain = false;
       return const SizedBox.shrink();

@@ -172,6 +172,7 @@ import '../widgets/common/crdt_sync_panel.dart';
 // Section-specific Lower Zone imports (DAW only)
 // SlotLab uses its own fullscreen layout with dedicated bottom panel
 import '../widgets/lower_zone/daw_lower_zone_widget.dart';
+import '../widgets/cortex/vision_dashboard.dart';
 import '../widgets/lower_zone/daw/edit/timeline_overview_panel.dart' show TimelineOverviewTrack, TimelineOverviewClip;
 import '../widgets/lower_zone/daw_lower_zone_controller.dart';
 import '../widgets/lower_zone/lower_zone_types.dart';
@@ -2385,7 +2386,20 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         outputBus: timeline.OutputBus.sfx,
       ));
 
-      // Create clip with real duration and waveform from pool
+      // Load waveform from file via Rust FFI (pool waveform is usually null)
+      Float32List? waveform = poolFile?.waveform;
+      Float32List? waveformRight;
+      if (waveform == null && poolFile != null) {
+        final cacheKey = 'evt-${poolFile.id}';
+        final waveformJson = NativeFFI.instance.generateWaveformFromFile(poolFile.path, cacheKey);
+        if (waveformJson != null) {
+          final (left, right) = timeline.parseWaveformFromJson(waveformJson);
+          waveform = left;
+          waveformRight = right;
+        }
+      }
+
+      // Create clip with real duration and waveform
       newClips.add(timeline.TimelineClip(
         id: clipId,
         trackId: trackId,
@@ -2394,7 +2408,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         duration: clipDuration,
         color: _getTrackColor(i),
         sourceFile: action.assetId.isNotEmpty ? action.assetId : null,
-        waveform: poolFile?.waveform,
+        waveform: waveform,
+        waveformRight: waveformRight,
         sourceDuration: poolFile?.duration,
         gain: action.gain,
         channels: poolFile?.channels ?? 2,
@@ -2477,6 +2492,19 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
       // Only add clip if there's an asset
       if (layer.audioPath.isNotEmpty) {
+        // Load waveform from file via Rust FFI
+        Float32List? waveform = poolFile?.waveform;
+        Float32List? waveformRight;
+        if (waveform == null) {
+          final cacheKey = 'evt-layer-$i-${layer.audioPath.hashCode}';
+          final waveformJson = NativeFFI.instance.generateWaveformFromFile(layer.audioPath, cacheKey);
+          if (waveformJson != null) {
+            final (left, right) = timeline.parseWaveformFromJson(waveformJson);
+            waveform = left;
+            waveformRight = right;
+          }
+        }
+
         newClips.add(timeline.TimelineClip(
           id: clipId,
           trackId: trackId,
@@ -2485,7 +2513,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           duration: clipDuration,
           color: _getTrackColor(i),
           sourceFile: layer.audioPath,
-          waveform: poolFile?.waveform,
+          waveform: waveform,
+          waveformRight: waveformRight,
           sourceDuration: poolFile?.duration,
           gain: layer.volume,
           channels: poolFile?.channels ?? 2,
@@ -2570,12 +2599,24 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     final clipBus = bus ?? poolFile.defaultBus;
     final clipId = clipInfo?.clipId ?? 'clip-${DateTime.now().millisecondsSinceEpoch}';
 
-    // Get real waveform from engine (or fallback to pool waveform)
+    // Get real waveform from engine (or fallback to pool waveform, then FFI file generation)
     Float32List? waveform = poolFile.waveform;
+    Float32List? waveformRight;
     if (clipInfo != null) {
       final peaks = await engine.getWaveformPeaks(clipId: clipInfo.clipId);
       if (peaks.isNotEmpty) {
         waveform = Float32List.fromList(peaks.map((v) => v.toDouble()).toList().cast<double>());
+      }
+    }
+
+    // Fallback: generate waveform directly from audio file (SIMD-optimized)
+    if (waveform == null) {
+      final cacheKey = 'clip-add-${poolFile.id}';
+      final waveformJson = NativeFFI.instance.generateWaveformFromFile(poolFile.path, cacheKey);
+      if (waveformJson != null) {
+        final (left, right) = timeline.parseWaveformFromJson(waveformJson);
+        waveform = left;
+        waveformRight = right;
       }
     }
 
@@ -2593,6 +2634,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           sourceDuration: clipInfo?.sourceDuration ?? poolFile.duration,
           sourceFile: poolFile.path,
           waveform: waveform,
+          waveformRight: waveformRight,
           color: track.color,
           eventId: _currentEventId, // Assign to current event
           channels: clipInfo?.channels ?? poolFile.channels,
@@ -2683,12 +2725,24 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
     final clipId = clipInfo?.clipId ?? 'clip-${DateTime.now().millisecondsSinceEpoch}-$trackIndex';
 
-    // Get real waveform from engine (or fallback to pool waveform)
+    // Get real waveform from engine (or fallback to pool waveform, then FFI file generation)
     Float32List? waveform = poolFile.waveform;
+    Float32List? waveformRight;
     if (clipInfo != null) {
       final peaks = await engine.getWaveformPeaks(clipId: clipInfo.clipId);
       if (peaks.isNotEmpty) {
         waveform = Float32List.fromList(peaks.map((v) => v.toDouble()).toList().cast<double>());
+      }
+    }
+
+    // Fallback: generate waveform directly from audio file (SIMD-optimized)
+    if (waveform == null) {
+      final cacheKey = 'clip-create-${poolFile.id}';
+      final waveformJson = NativeFFI.instance.generateWaveformFromFile(poolFile.path, cacheKey);
+      if (waveformJson != null) {
+        final (left, right) = timeline.parseWaveformFromJson(waveformJson);
+        waveform = left;
+        waveformRight = right;
       }
     }
 
@@ -2703,6 +2757,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       sourceDuration: clipInfo?.sourceDuration ?? poolFile.duration,
       sourceFile: poolFile.path,
       waveform: waveform,
+      waveformRight: waveformRight,
       color: color,
       eventId: _currentEventId, // Assign to current event
       channels: clipInfo?.channels ?? poolFile.channels,
@@ -2837,18 +2892,28 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     triggerAudioPoolRefresh();
   }
 
-  /// Handle file drop on timeline
+  /// Handle file drop on timeline (desktop file drop from Finder)
+  ///
+  /// Cubase-style behavior:
+  /// - targetTrackId != null → add clip to that track
+  /// - targetTrackId == null → create new track with clip (dropped on empty space)
   Future<void> _handleFileDrop(String filePath, String? targetTrackId, double startTime) async {
-    // If no track exists, create one first
-    if (_tracks.isEmpty) {
-      _handleAddTrack();
-    }
+    // Extract file info for pool file creation
+    final fileName = filePath.split('/').last;
 
-    // Use target track or first track
-    final trackId = targetTrackId ?? _tracks.first.id;
+    // Create a temporary PoolAudioFile for the unified import path
+    final poolFile = timeline.PoolAudioFile(
+      id: 'import-${DateTime.now().millisecondsSinceEpoch}',
+      path: filePath,
+      name: fileName,
+      duration: 0, // Will be determined by engine import
+      sampleRate: 0,
+      channels: 2,
+      format: fileName.split('.').last.toLowerCase(),
+      importedAt: DateTime.now(),
+    );
 
-    // Import the audio file
-    await _handleImportAudio(filePath, trackId, startTime);
+    await _addPoolFileToTimeline(poolFile, targetTrackId: targetTrackId, startTime: startTime);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -4180,8 +4245,18 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       }
     }
 
-    // Update pool entry with metadata (NO waveform — loaded on-demand)
+    // Generate waveform from file via Rust FFI (SIMD-optimized)
     final file = _audioPool[index];
+    Float32List? waveform = file.waveform;
+    if (waveform == null) {
+      final cacheKey = 'pool-${file.id}';
+      final waveformJson = NativeFFI.instance.generateWaveformFromFile(filePath, cacheKey);
+      if (waveformJson != null) {
+        final (left, _) = timeline.parseWaveformFromJson(waveformJson);
+        waveform = left;
+      }
+    }
+
     final updated = timeline.PoolAudioFile(
       id: file.id,
       path: file.path,
@@ -4190,7 +4265,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       sampleRate: sampleRate,
       channels: channels,
       format: file.format,
-      waveform: file.waveform,  // Keep existing waveform if any
+      waveform: waveform,
       importedAt: file.importedAt,
       defaultBus: file.defaultBus,
     );
@@ -13489,6 +13564,17 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         content: const PublishPipelinePanel(),
         groupId: 'middleware',
       ),
+
+      // ══════════════════════════════════════════════════════════════════════
+      // GROUP 8: CORTEX — Organism awareness, vision, intelligence
+      // ══════════════════════════════════════════════════════════════════════
+      LowerZoneTab(
+        id: 'cortex-vision',
+        label: 'Vision',
+        icon: Icons.visibility,
+        content: const VisionDashboard(),
+        groupId: 'cortex',
+      ),
     ];
 
     // Filter tabs based on mode visibility
@@ -13549,6 +13635,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         id: 'middleware',
         label: 'Middleware',
         tabs: ['events-folder', 'event-editor', 'ale', 'intensity-crossfade', 'publish'],
+      ),
+      // GROUP 8: CORTEX — Organism awareness, vision, intelligence
+      const TabGroup(
+        id: 'cortex',
+        label: 'CORTEX',
+        tabs: ['cortex-vision'],
       ),
     ];
 

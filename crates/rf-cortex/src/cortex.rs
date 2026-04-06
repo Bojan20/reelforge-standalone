@@ -283,6 +283,11 @@ impl Cortex {
         self.take_awareness_snapshot()
     }
 
+    /// Update vision telemetry state (called from tick loop with shared state data).
+    pub fn report_vision(&mut self, anomaly_count: u32, frozen_count: u32) {
+        self.awareness.report_vision_capture(anomaly_count, frozen_count);
+    }
+
     /// Get reflex stats (name, fire_count, enabled) for all reflexes.
     pub fn reflex_stats(&self) -> Vec<crate::reflex::ReflexStats> {
         self.reflex_arc.stats()

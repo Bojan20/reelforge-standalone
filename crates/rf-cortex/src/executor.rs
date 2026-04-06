@@ -280,6 +280,8 @@ fn action_tag(action: &CommandAction) -> String {
         CommandAction::SuspendBackground => "SuspendBackground".into(),
         CommandAction::ResumeBackground => "ResumeBackground".into(),
         CommandAction::Custom { tag, .. } => format!("Custom:{}", tag),
+        CommandAction::GptQuery { topic, .. } => format!("GptQuery:{}", topic),
+        CommandAction::GptForwardSuggestion { action, .. } => format!("GptForward:{}", action),
     }
 }
 

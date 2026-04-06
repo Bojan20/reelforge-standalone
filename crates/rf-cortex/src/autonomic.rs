@@ -121,6 +121,13 @@ pub enum CommandAction {
     /// Resume background tasks.
     ResumeBackground,
 
+    // --- GPT Bridge commands ---
+    /// Send a query to GPT for analysis/insight.
+    GptQuery { topic: String, context: String, urgency: f32 },
+
+    /// Forward a GPT suggestion to the appropriate subsystem.
+    GptForwardSuggestion { action: String, target_subsystem: String },
+
     /// Custom command for extensibility.
     Custom { tag: String, data: String },
 }

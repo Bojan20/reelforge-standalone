@@ -26,6 +26,8 @@ pub enum SignalOrigin {
     User,
     Cortex,
     Evolution,
+    /// External LLM (GPT) bridge — insights, analysis, suggestions from GPT.
+    Gpt,
 }
 
 /// Urgency of a signal — determines routing priority.
@@ -113,6 +115,20 @@ pub enum SignalKind {
     EvolutionReverted { description: String, reason: String },
     /// Code health score changed.
     CodeHealthChanged { old_score: f64, new_score: f64 },
+
+    // --- GPT Bridge signals ---
+    /// GPT returned an insight/analysis about the system state.
+    GptInsight { topic: String, insight: String, confidence: f32 },
+    /// GPT suggested an action (Corti decides whether to execute).
+    GptSuggestion { action: String, reasoning: String, urgency: f32 },
+    /// GPT request was sent (tracking signal).
+    GptRequestSent { request_id: String, topic: String },
+    /// GPT request failed (network, rate limit, etc).
+    GptRequestFailed { request_id: String, error: String },
+    /// GPT conversation context updated.
+    GptConversationUpdate { message_count: u32, tokens_used: u32 },
+    /// User explicitly asked Corti to consult GPT.
+    GptUserRequest { query: String },
 
     // --- Meta signals ---
     /// Heartbeat from a subsystem (alive check).

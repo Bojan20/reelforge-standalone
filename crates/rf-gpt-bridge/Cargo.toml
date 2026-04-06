@@ -1,0 +1,39 @@
+[package]
+name = "rf-gpt-bridge"
+description = "GPT Browser Bridge — bidirectional CORTEX ↔ ChatGPT Browser communication via WebSocket"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# Internal crates
+rf-cortex = { workspace = true }
+
+# Async runtime + WebSocket
+tokio = { workspace = true, features = ["time"] }
+tokio-tungstenite = { workspace = true }
+futures-util = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Lock-free communication
+crossbeam-channel = { workspace = true }
+parking_lot = { workspace = true }
+
+# Utilities
+log = { workspace = true }
+thiserror = { workspace = true }
+
+# Unique IDs
+uuid = { workspace = true }
+
+# Time
+chrono = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+approx = { workspace = true }

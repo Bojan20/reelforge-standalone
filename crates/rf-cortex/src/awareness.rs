@@ -53,20 +53,23 @@ pub struct AwarenessDimensions {
     pub coherence: f64,
     /// Code health (evolution fitness score from Code Guardian).
     pub code_health: f64,
+    /// Vision health (freshness and anomaly level from Flutter vision system).
+    pub vision: f64,
 }
 
 impl AwarenessDimensions {
     /// Calculate overall health as weighted average of dimensions.
     pub fn overall(&self) -> f64 {
         let weights = [
-            (self.throughput, 0.18),
-            (self.reliability, 0.22),
-            (self.responsiveness, 0.13),
-            (self.coverage, 0.08),
-            (self.cognition, 0.09),
-            (self.efficiency, 0.08),
-            (self.coherence, 0.08),
-            (self.code_health, 0.14), // Code quality matters
+            (self.throughput, 0.16),
+            (self.reliability, 0.20),
+            (self.responsiveness, 0.12),
+            (self.coverage, 0.07),
+            (self.cognition, 0.08),
+            (self.efficiency, 0.07),
+            (self.coherence, 0.07),
+            (self.code_health, 0.13),
+            (self.vision, 0.10), // Vision health — the organism's eyes
         ];
         let (weighted_sum, weight_total) =
             weights.iter().fold((0.0, 0.0), |(sum, total), (val, w)| {
@@ -95,6 +98,13 @@ pub struct AwarenessEngine {
     /// Code health score from Code Guardian (0.0-1.0).
     /// Updated externally via `set_code_health()`.
     code_health_score: f64,
+    /// Vision freshness: seconds since last vision signal from Flutter.
+    /// Updated externally via `report_vision_capture()`.
+    vision_last_capture: Option<Instant>,
+    /// Count of visual anomalies in the current window.
+    vision_anomaly_count: u32,
+    /// Count of frozen regions reported by Flutter.
+    vision_frozen_count: u32,
 }
 
 impl AwarenessEngine {
@@ -108,12 +118,22 @@ impl AwarenessEngine {
             prev_pattern_count: 0,
             expected_origins,
             code_health_score: 1.0, // assume healthy until Guardian reports
+            vision_last_capture: None,
+            vision_anomaly_count: 0,
+            vision_frozen_count: 0,
         }
     }
 
     /// Set the code health score (called by Code Guardian).
     pub fn set_code_health(&mut self, score: f64) {
         self.code_health_score = score.clamp(0.0, 1.0);
+    }
+
+    /// Report a vision capture from Flutter (called on each auto-observe cycle).
+    pub fn report_vision_capture(&mut self, anomaly_count: u32, frozen_count: u32) {
+        self.vision_last_capture = Some(Instant::now());
+        self.vision_anomaly_count = anomaly_count;
+        self.vision_frozen_count = frozen_count;
     }
 
     /// Take a snapshot of the cortex's current awareness state.
@@ -162,6 +182,11 @@ impl AwarenessEngine {
             efficiency: Self::score_efficiency(bus_stats),
             coherence: Self::score_coherence(bus_stats),
             code_health: self.code_health_score,
+            vision: Self::score_vision(
+                self.vision_last_capture,
+                self.vision_anomaly_count,
+                self.vision_frozen_count,
+            ),
         };
 
         let snapshot = AwarenessSnapshot {
@@ -299,6 +324,37 @@ impl AwarenessEngine {
         } else {
             0.7
         }
+    }
+
+    /// Score vision health based on freshness, anomalies, and frozen regions.
+    fn score_vision(
+        last_capture: Option<Instant>,
+        anomaly_count: u32,
+        frozen_count: u32,
+    ) -> f64 {
+        let freshness = match last_capture {
+            None => 0.3, // No captures yet — vision not active
+            Some(t) => {
+                let age_secs = t.elapsed().as_secs_f64();
+                if age_secs < 15.0 {
+                    1.0 // Fresh — captured within observation interval
+                } else if age_secs < 60.0 {
+                    0.8 // Recent
+                } else if age_secs < 300.0 {
+                    0.5 // Stale
+                } else {
+                    0.2 // Very stale — vision may have stopped
+                }
+            }
+        };
+
+        // Anomaly penalty: each anomaly reduces score
+        let anomaly_penalty = (anomaly_count as f64 * 0.1).min(0.4);
+
+        // Frozen penalty: frozen regions indicate UI problems
+        let frozen_penalty = (frozen_count as f64 * 0.15).min(0.5);
+
+        (freshness - anomaly_penalty - frozen_penalty).clamp(0.0, 1.0)
     }
 }
 
@@ -441,6 +497,7 @@ mod tests {
             efficiency: 1.0,
             coherence: 1.0,
             code_health: 1.0,
+            vision: 1.0,
         };
         let overall = dims.overall();
         assert!((overall - 1.0).abs() < 0.001);

@@ -1142,7 +1142,9 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
 
   /// Convert a local Y coordinate (relative to track area top) to a track index.
   /// Accounts for per-track heights (variable height tracks).
+  /// Returns -1 if Y is above all tracks, or _visibleTracks.length if below all tracks.
   int _trackIndexFromLocalY(double localY) {
+    if (localY < 0) return -1;
     // Adjust for vertical scroll offset
     final adjustedY = localY + (_verticalScrollController.hasClients ? _verticalScrollController.offset : 0);
     double accumulated = 0;
@@ -1151,7 +1153,8 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
       accumulated += h;
       if (adjustedY < accumulated) return i;
     }
-    return _visibleTracks.length - 1;
+    // Below all tracks — signals "create new track" zone
+    return _visibleTracks.length;
   }
 
   /// Handle track header drag-select: pointer down records start,
@@ -1308,19 +1311,33 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
     final startTime = _snapDropTime(position.dx);
 
     // Calculate track from Y position
-    final trackIndex = _trackIndexFromLocalY(position.dy - _rulerHeight);
+    final yInContent = position.dy - _rulerHeight;
+    final trackIndex = _trackIndexFromLocalY(yInContent);
     String? trackId;
-    if (trackIndex >= 0 && trackIndex < widget.tracks.length) {
-      trackId = widget.tracks[trackIndex].id;
+    // Only assign trackId if dropping ON an existing track (not on ruler or below all tracks)
+    if (yInContent >= 0 && trackIndex >= 0 && trackIndex < _visibleTracks.length) {
+      trackId = _visibleTracks[trackIndex].id;
     }
+    // trackId == null means: create new track (Cubase-style behavior)
 
-    // Process dropped files
+    // Collect audio files from drop
+    final audioFiles = <String>[];
     for (final file in details.files) {
       final path = file.path;
       final extension = path.toLowerCase().split('.').lastOrNull;
-
       if (extension != null && _audioExtensions.contains('.$extension')) {
-        widget.onFileDrop!(path, trackId, startTime);
+        audioFiles.add(path);
+      }
+    }
+
+    // Single file → drop on target track (or create new)
+    // Multiple files → each gets its own track (Cubase-style batch import)
+    if (audioFiles.length == 1) {
+      widget.onFileDrop!(audioFiles.first, trackId, startTime);
+    } else {
+      for (final path in audioFiles) {
+        // Each file creates a new track — pass null trackId
+        widget.onFileDrop!(path, null, startTime);
       }
     }
   }
@@ -2760,37 +2777,73 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
 
                           // Calculate target track
                           final yInContent = _dropPosition!.dy - _rulerHeight;
-                          final int trackIndex = _trackIndexFromLocalY(yInContent).clamp(0, math.max(0, widget.tracks.length - 1));
-                          final targetTrackY = _trackTopY(trackIndex) + _rulerHeight + 2;
+                          final rawTrackIndex = _trackIndexFromLocalY(yInContent);
+                          // Determine if dropping on existing track or creating new
+                          final isNewTrack = yInContent < 0 ||
+                              rawTrackIndex < 0 ||
+                              rawTrackIndex >= _visibleTracks.length ||
+                              _visibleTracks.isEmpty;
+                          final int trackIndex = isNewTrack
+                              ? math.max(0, _visibleTracks.length - 1)
+                              : rawTrackIndex;
+
+                          // For new track: position ghost below all existing tracks
+                          final double targetTrackY;
+                          if (isNewTrack && _visibleTracks.isNotEmpty) {
+                            targetTrackY = _trackTopY(_visibleTracks.length) + _rulerHeight + 2;
+                          } else if (_visibleTracks.isNotEmpty) {
+                            targetTrackY = _trackTopY(trackIndex) + _rulerHeight + 2;
+                          } else {
+                            targetTrackY = _rulerHeight + 2;
+                          }
 
                           // Ghost clip dimensions (preview)
                           const ghostWidth = 120.0;
                           final ghostHeight = _defaultTrackHeight - 4;
 
+                          // Colors: cyan for existing track, green for new track
+                          final highlightColor = isNewTrack
+                              ? FluxForgeTheme.accentGreen
+                              : FluxForgeTheme.accentCyan;
+
                           return Stack(
                             children: [
                               // Track highlight — full width lane indicator
-                              if (widget.tracks.isNotEmpty)
-                                Positioned(
-                                  left: _headerWidth,
-                                  top: targetTrackY - 2,
-                                  right: 0,
-                                  height: _defaultTrackHeight,
-                                  child: IgnorePointer(
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        color: FluxForgeTheme.accentCyan.withValues(alpha: 0.08),
-                                        border: Border.all(
-                                          color: FluxForgeTheme.accentCyan.withValues(alpha: 0.3),
-                                          width: 1,
-                                        ),
+                              Positioned(
+                                left: _headerWidth,
+                                top: targetTrackY - 2,
+                                right: 0,
+                                height: _defaultTrackHeight,
+                                child: IgnorePointer(
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: highlightColor.withValues(alpha: 0.08),
+                                      border: Border.all(
+                                        color: highlightColor.withValues(alpha: 0.3),
+                                        width: 1,
                                       ),
                                     ),
+                                    // "New Track" label when dropping below all tracks
+                                    child: isNewTrack
+                                        ? Align(
+                                            alignment: Alignment.centerLeft,
+                                            child: Padding(
+                                              padding: const EdgeInsets.only(left: 8),
+                                              child: Text(
+                                                '+ New Track',
+                                                style: FluxForgeTheme.bodySmall.copyWith(
+                                                  color: highlightColor.withValues(alpha: 0.7),
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
+                                          )
+                                        : null,
                                   ),
                                 ),
+                              ),
 
                               // ═══ INSERTION LINE — prominent vertical snap indicator ═══
-                              // Full-height cyan line at snapped position (Cubase/Reaper style)
                               Positioned(
                                 left: snappedX - 1,
                                 top: 0,
@@ -2799,10 +2852,10 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                                   child: Container(
                                     width: 2,
                                     decoration: BoxDecoration(
-                                      color: FluxForgeTheme.accentCyan,
+                                      color: highlightColor,
                                       boxShadow: [
                                         BoxShadow(
-                                          color: FluxForgeTheme.accentCyan.withValues(alpha: 0.8),
+                                          color: highlightColor.withValues(alpha: 0.8),
                                           blurRadius: 8,
                                           spreadRadius: 1,
                                         ),
@@ -2820,7 +2873,7 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                                   child: CustomPaint(
                                     size: const Size(10, 6),
                                     painter: _DropHeadTrianglePainter(
-                                      color: FluxForgeTheme.accentCyan,
+                                      color: highlightColor,
                                     ),
                                   ),
                                 ),
@@ -2835,18 +2888,18 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                                     width: ghostWidth,
                                     height: ghostHeight,
                                     decoration: BoxDecoration(
-                                      color: FluxForgeTheme.accentCyan.withValues(alpha: 0.3),
+                                      color: highlightColor.withValues(alpha: 0.3),
                                       borderRadius: BorderRadius.circular(4),
                                       border: Border.all(
-                                        color: FluxForgeTheme.accentCyan.withValues(alpha: 0.7),
+                                        color: highlightColor.withValues(alpha: 0.7),
                                         width: 1.5,
                                       ),
                                     ),
                                     child: Center(
                                       child: Icon(
-                                        Icons.audio_file,
+                                        isNewTrack ? Icons.add_circle_outline : Icons.audio_file,
                                         size: 18,
-                                        color: FluxForgeTheme.accentCyan.withValues(alpha: 0.8),
+                                        color: highlightColor.withValues(alpha: 0.8),
                                       ),
                                     ),
                                   ),
@@ -2861,11 +2914,11 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: FluxForgeTheme.accentCyan,
+                                      color: highlightColor,
                                       borderRadius: BorderRadius.circular(3),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: FluxForgeTheme.accentCyan.withValues(alpha: 0.5),
+                                          color: highlightColor.withValues(alpha: 0.5),
                                           blurRadius: 6,
                                         ),
                                       ],

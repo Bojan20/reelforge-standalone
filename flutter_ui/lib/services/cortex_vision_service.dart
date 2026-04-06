@@ -21,6 +21,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
+import 'vision_diff_engine.dart';
+import '../src/rust/native_ffi.dart';
+
 // ═══════════════════════════════════════════════════════════════════════════
 // VISION REGION — Named capture targets
 // ═══════════════════════════════════════════════════════════════════════════
@@ -311,9 +314,33 @@ class CortexVisionService extends ChangeNotifier {
         await captureAll(metadata: {'type': 'auto_observe'});
       }
 
+      // Compute visual diffs after capture
+      VisionDiffEngine.instance.computeAllDiffs();
+
+      // Detect frozen regions and emit anomaly events
+      final frozen = VisionDiffEngine.instance.frozenRegions;
+      for (final region in frozen) {
+        _addEvent(VisionEvent(
+          type: VisionEventType.errorVisible,
+          description: 'Region "$region" appears frozen (no visual change)',
+          timestamp: DateTime.now(),
+        ));
+      }
+
+      // Report vision telemetry to Rust CORTEX (updates awareness dimension)
+      try {
+        final ffi = NativeFFI.instance;
+        if (ffi.isLoaded) {
+          ffi.cortexReportVision(frozen.length, frozen.length, _regions.length);
+        }
+      } catch (_) {
+        // FFI not available (e.g., test mode)
+      }
+
       _addEvent(VisionEvent(
         type: VisionEventType.healthCheck,
-        description: 'Periodic observation: ${_regions.length} regions',
+        description: 'Periodic observation: ${_regions.length} regions'
+            '${frozen.isNotEmpty ? ', ${frozen.length} frozen' : ''}',
         timestamp: DateTime.now(),
       ));
     });

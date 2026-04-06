@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 320px;
+      padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f0f0f;
+      color: #e0e0e0;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .header h1 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #fff;
+    }
+    .header .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #ef4444;
+      transition: background 0.3s;
+    }
+    .header .dot.connected { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,0.5); }
+    .header .dot.connecting { background: #f59e0b; animation: pulse 1s infinite; }
+    @keyframes pulse { 50% { opacity: 0.5; } }
+    .status {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 12px;
+      padding: 8px;
+      background: #1a1a1a;
+      border-radius: 6px;
+    }
+    .status .label { color: #666; }
+    .status .value { color: #e0e0e0; float: right; }
+    .status .row { margin-bottom: 4px; overflow: hidden; }
+    .status .row:last-child { margin-bottom: 0; }
+    button {
+      width: 100%;
+      padding: 8px;
+      border: none;
+      border-radius: 6px;
+      background: #2563eb;
+      color: #fff;
+      font-size: 12px;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+    button:hover { background: #1d4ed8; }
+    button:disabled { background: #333; color: #666; cursor: default; }
+    .footer {
+      margin-top: 12px;
+      font-size: 10px;
+      color: #444;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="dot" id="statusDot"></div>
+    <h1>CORTEX Bridge</h1>
+  </div>
+
+  <div class="status">
+    <div class="row">
+      <span class="label">CORTEX:</span>
+      <span class="value" id="cortexStatus">Disconnected</span>
+    </div>
+    <div class="row">
+      <span class="label">ChatGPT Tab:</span>
+      <span class="value" id="chatgptStatus">Not detected</span>
+    </div>
+    <div class="row">
+      <span class="label">Messages sent:</span>
+      <span class="value" id="msgSent">0</span>
+    </div>
+    <div class="row">
+      <span class="label">Messages received:</span>
+      <span class="value" id="msgRecv">0</span>
+    </div>
+    <div class="row">
+      <span class="label">Reconnects:</span>
+      <span class="value" id="reconnects">0</span>
+    </div>
+  </div>
+
+  <button id="reconnectBtn">Reconnect to CORTEX</button>
+
+  <div class="footer">Corti ↔ GPT Neural Bridge v1.0</div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

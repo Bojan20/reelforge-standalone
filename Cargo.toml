@@ -48,6 +48,10 @@ members = [
     "crates/rf-cortex",
     # CORTEX Evolution Engine — self-learning, self-evolving organism
     "crates/rf-evolution",
+    # GPT Neural Bridge — bidirectional CORTEX ↔ GPT communication
+    "crates/rf-gpt-bridge",
+    # CORTEX Bridge Daemon — standalone Corti ↔ ChatGPT browser daemon
+    "crates/cortex-daemon",
 ]
 
 [workspace.package]
@@ -88,6 +92,7 @@ rf-audio-diff = { path = "crates/rf-audio-diff" }
 rf-fluxmacro = { path = "crates/rf-fluxmacro" }
 rf-cortex = { path = "crates/rf-cortex" }
 rf-evolution = { path = "crates/rf-evolution" }
+rf-gpt-bridge = { path = "crates/rf-gpt-bridge" }
 
 # Plugin hosting
 vst3 = "0.3"
@@ -175,6 +180,19 @@ portable-atomic = { version = "1.13", features = ["float"] }
 # Concurrency (additional)
 crossbeam-utils = "0.8"
 tokio = { version = "1.50", features = ["rt-multi-thread", "sync", "macros"] }
+
+# HTTP client
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+
+# WebSocket
+tokio-tungstenite = "0.26"
+futures-util = "0.3"
+
+# UUIDs
+uuid = { version = "1.11", features = ["v4"] }
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
 num_cpus = "1.16"
 
 # Tracing

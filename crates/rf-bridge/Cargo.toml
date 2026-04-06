@@ -30,6 +30,7 @@ rf-offline = { path = "../rf-offline" }
 rf-fluxmacro = { path = "../rf-fluxmacro" }
 rf-cortex = { path = "../rf-cortex" }
 rf-evolution = { path = "../rf-evolution" }
+rf-gpt-bridge = { path = "../rf-gpt-bridge" }
 rf-video = { path = "../rf-video" }
 rf-script = { path = "../rf-script" }
 rf-pitch = { path = "../rf-pitch" }

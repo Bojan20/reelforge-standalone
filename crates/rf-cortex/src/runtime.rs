@@ -146,6 +146,12 @@ pub struct SharedCortexState {
     pub immune_snapshot: Mutex<Option<ImmuneSnapshot>>,
     /// Has chronic anomaly?
     pub has_chronic: AtomicBool,
+    /// Vision: anomaly count reported by Flutter.
+    pub vision_anomaly_count: portable_atomic::AtomicU32,
+    /// Vision: frozen region count reported by Flutter.
+    pub vision_frozen_count: portable_atomic::AtomicU32,
+    /// Vision: last report timestamp (epoch millis, or 0 if never).
+    pub vision_last_report_ms: portable_atomic::AtomicU64,
     /// Event stream ring buffer — Flutter drains this for reactive updates.
     pub event_buffer: Mutex<VecDeque<CortexEvent>>,
     /// Total events ever pushed (for milestone tracking).
@@ -165,6 +171,9 @@ impl SharedCortexState {
             total_commands_dispatched: portable_atomic::AtomicU64::new(0),
             immune_snapshot: Mutex::new(None),
             has_chronic: AtomicBool::new(false),
+            vision_anomaly_count: portable_atomic::AtomicU32::new(0),
+            vision_frozen_count: portable_atomic::AtomicU32::new(0),
+            vision_last_report_ms: portable_atomic::AtomicU64::new(0),
             event_buffer: Mutex::new(VecDeque::with_capacity(EVENT_BUFFER_CAPACITY)),
             total_events_pushed: portable_atomic::AtomicU64::new(0),
         }
@@ -262,6 +271,13 @@ impl CortexRuntime {
                 if fed >= 1000 {
                     break;
                 }
+            }
+
+            // Inject vision telemetry from Flutter shared state (before tick)
+            {
+                let anomalies = shared.vision_anomaly_count.load(portable_atomic::Ordering::Relaxed);
+                let frozen = shared.vision_frozen_count.load(portable_atomic::Ordering::Relaxed);
+                cortex.report_vision(anomalies, frozen);
             }
 
             // Process tick

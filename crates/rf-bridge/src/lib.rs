@@ -46,8 +46,13 @@ pub mod autosave_ffi;
 pub mod command_queue;
 pub mod connector_ffi;
 pub mod container_ffi;
+pub mod cortex_bridge; // CortexBridge v2 — ultimativni bidirekcioni bridge
+pub mod cortex_bridge_ffi; // CortexBridge v2 FFI — C + Flutter Rust Bridge bindings
 pub mod cortex_ffi;
+pub mod gpt_bridge_ffi;
 pub mod device_preview_ffi;
+pub mod intent_bridge;
+pub mod intent_ffi;
 pub mod dpm_ffi;
 pub mod drc_ffi;
 pub mod dsp_commands;
@@ -86,6 +91,7 @@ pub mod ml_ffi; // ML/AI engine FFI — denoise, separation, voice enhance
 pub mod pitch_ffi; // Pitch detection & correction FFI
 pub mod script_ffi; // Lua scripting engine FFI — execute, poll actions, context
 pub mod video_ffi; // Video engine FFI — timeline, frames, timecode
+pub mod neural_bridge; // Ultimate Neural Bridge — unified intent-based communication
 mod transport;
 mod viz;
 
@@ -130,6 +136,10 @@ static CORTEX_EXECUTOR: OnceLock<ExecutorRuntime> = OnceLock::new();
 /// Global CORTEX Code Guardian — autonomous code maintenance daemon.
 /// Initialized after CORTEX, watches and evolves the codebase.
 static CODE_GUARDIAN: OnceLock<CodeGuardian> = OnceLock::new();
+
+/// Global GPT Browser Bridge — CORTEX ↔ ChatGPT Browser via WebSocket.
+/// Initialized after CORTEX, connects to ChatGPT in the browser via Tampermonkey.
+static GPT_BRIDGE: OnceLock<rf_gpt_bridge::GptBridge> = OnceLock::new();
 
 /// Get a handle to the CORTEX nervous system.
 /// Returns None if cortex hasn't been initialized yet.
@@ -182,8 +192,30 @@ fn cortex_init() {
     }
     log::info!("CORTEX Nervous System initialized — tick thread running");
 
+    // Start the GPT Neural Bridge — CORTEX ↔ GPT communication
+    gpt_bridge_init();
+
     // Start the Code Guardian — autonomous code maintenance daemon
     guardian_init();
+}
+
+/// Get the GPT Neural Bridge (for FFI/Flutter access).
+pub fn gpt_bridge() -> Option<&'static rf_gpt_bridge::GptBridge> {
+    GPT_BRIDGE.get()
+}
+
+/// Initialize the GPT Browser Bridge. Called from cortex_init().
+fn gpt_bridge_init() {
+    let config = rf_gpt_bridge::GptBridgeConfig::default();
+
+    log::info!(
+        "GPT Browser Bridge: starting WebSocket server on ws://{}",
+        config.ws_addr()
+    );
+
+    let bridge = rf_gpt_bridge::GptBridge::new(config);
+    let _ = GPT_BRIDGE.set(bridge);
+    log::info!("GPT Browser Bridge initialized — install Tampermonkey userscript to connect");
 }
 
 /// Initialize the CORTEX Code Guardian. Called from cortex_init().
@@ -863,6 +895,9 @@ pub use loop_ffi::*;
 
 // Re-export CORTEX Nervous System FFI
 pub use cortex_ffi::*;
+
+// Re-export IntentBridge FFI (typed request/response bridge)
+pub use intent_ffi::*;
 
 // Re-export Control Room FFI
 pub use rf_engine::ffi_control_room::*;

@@ -22589,6 +22589,23 @@ extension ProfilerFFI on NativeFFI {
   /// Total commands that successfully healed a problem.
   int cortexGetTotalHealed() => _cortexGetTotalHealed();
 
+  // ═══ CORTEX VISION FFI ═══
+
+  static final _cortexReportVision = _loadNativeLibrary().lookupFunction<
+      Void Function(Uint32, Uint32, Uint32),
+      void Function(int, int, int)>('cortex_report_vision');
+
+  static final _cortexGetVisionScore = _loadNativeLibrary().lookupFunction<
+      Double Function(),
+      double Function()>('cortex_get_vision_score');
+
+  /// Report vision telemetry from Flutter (call after each auto-observe cycle).
+  void cortexReportVision(int anomalyCount, int frozenCount, int regionCount) =>
+      _cortexReportVision(anomalyCount, frozenCount, regionCount);
+
+  /// Get the vision awareness dimension score (0.0-1.0).
+  double cortexGetVisionScore() => _cortexGetVisionScore();
+
   // ═══ CORTEX DETAILED JSON FFI ═══
 
   static final _cortexGetReflexStatsJson = _loadNativeLibrary().lookupFunction<
@@ -27977,6 +27994,146 @@ extension MetadataBrowserAPI on NativeFFI {
     } finally {
       malloc.free(metaPtr);
       malloc.free(queryPtr);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// INTENT BRIDGE FFI — Unified typed request/response bridge
+// ═══════════════════════════════════════════════════════════════════════════════
+
+extension IntentBridgeAPI on NativeFFI {
+  static final _intentSubmit = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(Pointer<Utf8>),
+      Pointer<Utf8> Function(Pointer<Utf8>)>('intent_submit');
+
+  static final _intentSubmitBatch = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(Pointer<Utf8>),
+      Pointer<Utf8> Function(Pointer<Utf8>)>('intent_submit_batch');
+
+  static final _intentDrainEvents = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(Uint32),
+      Pointer<Utf8> Function(int)>('intent_drain_events_c');
+
+  static final _intentDrainResponses = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(Uint32),
+      Pointer<Utf8> Function(int)>('intent_drain_responses_c');
+
+  static final _intentStats = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(),
+      Pointer<Utf8> Function()>('intent_stats_c');
+
+  static final _intentPendingResponses = _loadNativeLibrary().lookupFunction<
+      Uint32 Function(),
+      int Function()>('intent_pending_responses_c');
+
+  static final _intentPendingEvents = _loadNativeLibrary().lookupFunction<
+      Uint32 Function(),
+      int Function()>('intent_pending_events_c');
+
+  static final _intentAudioRingSequence = _loadNativeLibrary().lookupFunction<
+      Uint64 Function(),
+      int Function()>('intent_audio_ring_sequence_c');
+
+  static final _intentFreeString = _loadNativeLibrary().lookupFunction<
+      Void Function(Pointer<Utf8>),
+      void Function(Pointer<Utf8>)>('intent_free_string');
+
+  /// Submit a typed request as JSON. Returns JSON response.
+  String intentSubmit(String requestJson) {
+    final reqPtr = requestJson.toNativeUtf8();
+    try {
+      final ptr = _intentSubmit(reqPtr);
+      if (ptr == nullptr || ptr.address == 0) return '{}';
+      final json = ptr.toDartString();
+      _intentFreeString(ptr);
+      return json;
+    } catch (e) {
+      return '{"status":"Error","error":"FFI call failed: $e"}';
+    } finally {
+      malloc.free(reqPtr);
+    }
+  }
+
+  /// Submit a batch of requests as JSON. Returns JSON batch response.
+  String intentSubmitBatch(String batchJson) {
+    final reqPtr = batchJson.toNativeUtf8();
+    try {
+      final ptr = _intentSubmitBatch(reqPtr);
+      if (ptr == nullptr || ptr.address == 0) return '{}';
+      final json = ptr.toDartString();
+      _intentFreeString(ptr);
+      return json;
+    } catch (e) {
+      return '{"status":"Error","error":"FFI batch call failed: $e"}';
+    } finally {
+      malloc.free(reqPtr);
+    }
+  }
+
+  /// Drain pending events (Rust→Flutter push). Returns JSON array.
+  String intentDrainEvents({int max = 64}) {
+    try {
+      final ptr = _intentDrainEvents(max);
+      if (ptr == nullptr || ptr.address == 0) return '[]';
+      final json = ptr.toDartString();
+      _intentFreeString(ptr);
+      return json;
+    } catch (e) {
+      return '[]';
+    }
+  }
+
+  /// Drain pending responses. Returns JSON array.
+  String intentDrainResponses({int max = 32}) {
+    try {
+      final ptr = _intentDrainResponses(max);
+      if (ptr == nullptr || ptr.address == 0) return '[]';
+      final json = ptr.toDartString();
+      _intentFreeString(ptr);
+      return json;
+    } catch (e) {
+      return '[]';
+    }
+  }
+
+  /// Get bridge stats as JSON.
+  String intentStats() {
+    try {
+      final ptr = _intentStats();
+      if (ptr == nullptr || ptr.address == 0) return '{}';
+      final json = ptr.toDartString();
+      _intentFreeString(ptr);
+      return json;
+    } catch (e) {
+      return '{}';
+    }
+  }
+
+  /// Number of pending responses.
+  int intentPendingResponses() {
+    try {
+      return _intentPendingResponses();
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  /// Number of pending events.
+  int intentPendingEvents() {
+    try {
+      return _intentPendingEvents();
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  /// Audio ring buffer sequence (check for new data).
+  int intentAudioRingSequence() {
+    try {
+      return _intentAudioRingSequence();
+    } catch (e) {
+      return 0;
     }
   }
 }
