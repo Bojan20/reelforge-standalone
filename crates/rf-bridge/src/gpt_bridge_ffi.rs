@@ -152,6 +152,11 @@ pub extern "C" fn gpt_bridge_update_config(config_json: *const c_char) -> i32 {
         autonomous_enabled: Option<bool>,
         min_query_interval_secs: Option<u64>,
         response_timeout_secs: Option<u64>,
+        confidence_threshold: Option<f32>,
+        quality_threshold: Option<f64>,
+        max_pending_queries: Option<usize>,
+        pipeline_enabled: Option<bool>,
+        max_conversation_history: Option<usize>,
     }
 
     let Ok(patch) = serde_json::from_str::<ConfigPatch>(&json_str) else {
@@ -159,7 +164,8 @@ pub extern "C" fn gpt_bridge_update_config(config_json: *const c_char) -> i32 {
         return 0;
     };
 
-    let mut config = rf_gpt_bridge::GptBridgeConfig::default();
+    // Start from current config, not default — prevents data loss
+    let mut config = bridge.current_config();
 
     if let Some(auto) = patch.autonomous_enabled {
         config.autonomous_enabled = auto;
@@ -169,6 +175,21 @@ pub extern "C" fn gpt_bridge_update_config(config_json: *const c_char) -> i32 {
     }
     if let Some(timeout) = patch.response_timeout_secs {
         config.response_timeout_secs = timeout;
+    }
+    if let Some(threshold) = patch.confidence_threshold {
+        config.confidence_threshold = threshold;
+    }
+    if let Some(quality) = patch.quality_threshold {
+        config.quality_threshold = quality;
+    }
+    if let Some(max) = patch.max_pending_queries {
+        config.max_pending_queries = max;
+    }
+    if let Some(pipeline) = patch.pipeline_enabled {
+        config.pipeline_enabled = pipeline;
+    }
+    if let Some(history) = patch.max_conversation_history {
+        config.max_conversation_history = history;
     }
 
     bridge.update_config(config);

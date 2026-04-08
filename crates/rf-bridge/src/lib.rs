@@ -216,6 +216,48 @@ fn gpt_bridge_init() {
     let bridge = rf_gpt_bridge::GptBridge::new(config);
     let _ = GPT_BRIDGE.set(bridge);
     log::info!("GPT Browser Bridge initialized — install Tampermonkey userscript to connect");
+
+    // Spawn bridge drain thread — feeds GPT responses back into CORTEX neural bus.
+    // This closes the loop: CORTEX → GPT → browser → GPT → CORTEX.
+    if let Some(handle) = CORTEX_HANDLE.get() {
+        let cortex_handle = handle.clone();
+        std::thread::Builder::new()
+            .name("gpt-bridge-drain".into())
+            .spawn(move || {
+                gpt_bridge_drain_loop(cortex_handle);
+            })
+            .ok();
+        log::info!("GPT Browser Bridge: drain thread started — responses will flow into CORTEX");
+    }
+}
+
+/// Background loop that drains GPT responses and injects them as NeuralSignals.
+/// Runs every 100ms — lightweight, only does work when responses arrive.
+fn gpt_bridge_drain_loop(cortex_handle: CortexHandle) {
+    let drain_interval = std::time::Duration::from_millis(100);
+
+    loop {
+        // Check if bridge still exists (shutdown check)
+        let Some(bridge) = GPT_BRIDGE.get() else {
+            break;
+        };
+
+        if !bridge.is_ready() {
+            break;
+        }
+
+        let payloads = bridge.drain_responses();
+        for payload in payloads {
+            let signal = payload.signal;
+            if !cortex_handle.emit(signal) {
+                log::warn!("GPT Bridge drain: CORTEX inbox full, signal dropped");
+            }
+        }
+
+        std::thread::sleep(drain_interval);
+    }
+
+    log::info!("GPT Bridge drain thread exiting");
 }
 
 /// Initialize the CORTEX Code Guardian. Called from cortex_init().

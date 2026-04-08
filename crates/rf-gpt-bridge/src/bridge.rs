@@ -589,10 +589,67 @@ impl GptBridge {
         // Process pipeline stages that need sending (chain mode — next stage after completion)
         {
             let mgr = self.pipeline_manager.lock();
-            let _stages = mgr.stages_to_send();
-            // TODO: Send pending pipeline stages (requires pipeline_manager.active to be pub)
-            // This will be handled in the next tick cycle
+            let pending_stages: Vec<(String, Vec<(usize, GptPersona, String, f32)>)> = mgr
+                .stages_to_send()
+                .iter()
+                .map(|(pid, stages)| {
+                    let stage_data: Vec<_> = stages
+                        .iter()
+                        .map(|s| (s.index, s.persona, s.query.clone(), s.urgency))
+                        .collect();
+                    (pid.to_string(), stage_data)
+                })
+                .collect();
             drop(mgr);
+
+            for (pipeline_id, stages) in pending_stages {
+                for (stage_idx, persona, stage_query, stage_urgency) in stages {
+                    let role_def = persona.definition();
+                    let request_id = uuid::Uuid::new_v4().to_string();
+
+                    let content = format!(
+                        "[TVOJA ULOGA — pročitaj ali ne ponavljaj ovo u odgovoru]\n{}\n\n---\n\n{}",
+                        role_def.system_prompt, stage_query
+                    );
+
+                    let ws = self.ws_server.lock();
+                    let cmd = BrowserCommand::Query {
+                        id: request_id.clone(),
+                        content,
+                        intent: "analysis".to_string(),
+                        urgency: stage_urgency,
+                        role: Some(persona.as_str().to_string()),
+                        pipeline_id: Some(pipeline_id.clone()),
+                    };
+
+                    if let Ok(()) = ws.send_command(cmd) {
+                        self.total_requests.fetch_add(1, Ordering::Relaxed);
+
+                        self.pending_requests.lock().insert(
+                            request_id.clone(),
+                            PendingRequest {
+                                intent: GptIntent::Analysis,
+                                persona: Some(persona),
+                                query: stage_query,
+                                sent_at: Instant::now(),
+                            },
+                        );
+
+                        let mut mgr = self.pipeline_manager.lock();
+                        if let Some(p) = mgr.active.get_mut(&pipeline_id) {
+                            p.mark_sent(stage_idx, request_id.clone());
+                        }
+                        mgr.register_request(request_id, pipeline_id.clone());
+
+                        log::info!(
+                            "GPT Browser Bridge: pipeline stage sent — pipeline={}, stage={}, persona={}",
+                            pipeline_id,
+                            stage_idx,
+                            persona.display_name()
+                        );
+                    }
+                }
+            }
         }
 
         // Timeout stale requests
@@ -670,6 +727,11 @@ impl GptBridge {
     /// Get role performance data.
     pub fn role_performance(&self) -> crate::roles::RolePerformance {
         self.role_selector.lock().performance().clone()
+    }
+
+    /// Get a clone of the current configuration.
+    pub fn current_config(&self) -> GptBridgeConfig {
+        self.config.lock().clone()
     }
 
     /// Update configuration at runtime.
