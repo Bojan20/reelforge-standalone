@@ -463,19 +463,21 @@ class _VoiceStripState extends State<_VoiceStrip> {
     final isDimmed = widget.hasSoloActive && !ch.soloed;
     final stripWidth = widget.compact ? 56.0 : 68.0;
 
+    // BUG#17 FIX: modifier keys via Listener.onPointerDown (CLAUDE.md rule)
+    // GestureDetector.onTap + HardwareKeyboard.instance.isMetaPressed is unreliable
     return Listener(
       onPointerDown: (event) {
-        if (event.buttons == 1 && HardwareKeyboard.instance.isMetaPressed) {
-          // Ctrl/Cmd+Click = multi-select
-          widget.provider.toggleMultiSelect(ch.layerId);
+        if (event.buttons == 1) {
+          // Primary button only
+          if (HardwareKeyboard.instance.isMetaPressed) {
+            // Cmd/Ctrl+Click = multi-select
+            widget.provider.toggleMultiSelect(ch.layerId);
+          } else {
+            widget.provider.selectChannel(ch.layerId);
+          }
         }
       },
       child: GestureDetector(
-      onTap: () {
-        if (!HardwareKeyboard.instance.isMetaPressed) {
-          widget.provider.selectChannel(ch.layerId);
-        }
-      },
       onSecondaryTapDown: (details) => _showContextMenu(context, details.globalPosition),
       child: AnimatedOpacity(
         duration: const Duration(milliseconds: 120),

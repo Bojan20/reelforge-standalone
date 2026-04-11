@@ -3251,11 +3251,15 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     final busInfo = slot.bus;
     final priorityInfo = slot.priority;
 
+    // BUG#17 FIX: track Shift state at pointer-down time (reliable), use in onTap guard
+    bool _slotPointerWasShift = false;
+
     return Listener(
       // Shift+click: toggle multi-select (per CLAUDE.md: modifier keys → Listener)
       onPointerDown: (event) {
-        if (event.kind == PointerDeviceKind.mouse &&
-            HardwareKeyboard.instance.isShiftPressed) {
+        _slotPointerWasShift = event.kind == PointerDeviceKind.mouse &&
+            HardwareKeyboard.instance.isShiftPressed;
+        if (_slotPointerWasShift) {
           setState(() {
             if (_selectedSlots.contains(slot.stage)) {
               _selectedSlots.remove(slot.stage);
@@ -3271,7 +3275,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         builder: (isSlotHovered) => GestureDetector(
         onTap: widget.quickAssignMode
             ? () {
-                if (HardwareKeyboard.instance.isShiftPressed) return;
+                if (_slotPointerWasShift) return;
                 if (widget.quickAssignSelectedSlot == slot.stage) {
                   widget.onQuickAssignSlotSelected?.call('__UNSELECT__');
                 } else {
