@@ -156,6 +156,55 @@ struct ClapOutputEvents {
     try_push: Option<unsafe extern "C" fn(list: *const ClapOutputEvents, event: *const c_void) -> bool>,
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// CLAP MIDI EVENT TYPES
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// CLAP event header (clap_event_header_t) — 16 bytes
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct ClapEventHeader {
+    size: u32,       // total event size in bytes
+    time: u32,       // sample offset within buffer
+    space_id: u16,   // CLAP_CORE_EVENT_SPACE_ID = 0
+    event_type: u16, // CLAP_EVENT_MIDI = 10
+    flags: u32,      // 0 = no flags
+}
+
+/// CLAP raw MIDI event (clap_event_midi_t)
+/// Layout: header(16) + port_index(2) + data[3](3) + _pad(1) = 22 bytes, aligned to 4 → 24
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct ClapEventMidiRaw {
+    header: ClapEventHeader, // 16 bytes
+    port_index: u16,         // 2 bytes (offset 16)
+    data: [u8; 3],           // 3 bytes (offset 18)
+    _pad: u8,                // 1 byte  (offset 21) — align to 4-byte boundary
+}
+
+const CLAP_CORE_EVENT_SPACE_ID: u16 = 0;
+const CLAP_EVENT_MIDI: u16 = 10;
+
+/// Context struct passed via ClapInputEvents.ctx for MIDI event delivery
+struct ClapMidiEventsCtx {
+    events_ptr: *const ClapEventMidiRaw,
+    count: u32,
+}
+
+unsafe extern "C" fn midi_events_size(list: *const ClapInputEvents) -> u32 {
+    let ctx = unsafe { &*((*list).ctx as *const ClapMidiEventsCtx) };
+    ctx.count
+}
+
+unsafe extern "C" fn midi_events_get(list: *const ClapInputEvents, index: u32) -> *const c_void {
+    let ctx = unsafe { &*((*list).ctx as *const ClapMidiEventsCtx) };
+    if index < ctx.count {
+        unsafe { ctx.events_ptr.add(index as usize) as *const c_void }
+    } else {
+        std::ptr::null()
+    }
+}
+
 const CLAP_PLUGIN_FACTORY_ID: &[u8] = b"clap.plugin-factory\0";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -514,9 +563,12 @@ pub struct ClapPluginInstance {
     /// Pre-allocated audio buffer pointers — fixed size 8 channels (zero audio-thread alloc)
     input_ptrs: [*mut f32; 8],
     output_ptrs: [*mut f32; 8],
-    /// Empty event lists (pre-allocated, zero-alloc)
+    /// Empty event lists (pre-allocated, zero-alloc) — used when no MIDI to send
     input_events: Box<ClapInputEvents>,
     output_events: Box<ClapOutputEvents>,
+    /// Pre-allocated MIDI event storage for converting rf_core::MidiBuffer → CLAP events
+    /// (re-used each process() call — avoids audio-thread heap allocation when capacity fits)
+    midi_event_storage: Vec<ClapEventMidiRaw>,
     /// CLAP extension pointers (queried at load, null if not supported)
     params_ext: *const ClapPluginParams,
     state_ext: *const ClapPluginState,
@@ -704,6 +756,7 @@ impl ClapPluginInstance {
             output_ptrs: [std::ptr::null_mut(); 8],
             input_events,
             output_events,
+            midi_event_storage: Vec::with_capacity(256),
             params_ext,
             state_ext,
             latency_ext,
@@ -881,7 +934,52 @@ impl PluginInstance for ClapPluginInstance {
             constant_mask: 0,
         };
 
-        // TODO: Convert _midi_in to CLAP input events for instrument plugins
+        // Convert rf_core::MidiBuffer events to CLAP raw MIDI events.
+        // Uses pre-allocated Vec (reuse existing capacity — zero alloc when count ≤ prev max).
+        self.midi_event_storage.clear();
+        if self.info.has_midi_input && !_midi_in.is_empty() {
+            for event in _midi_in.events() {
+                // Build 3-byte MIDI message from event
+                let mut bytes = [0u8; 3];
+                let byte_len = event.to_bytes(&mut bytes);
+                if byte_len >= 1 {
+                    let raw = ClapEventMidiRaw {
+                        header: ClapEventHeader {
+                            size: std::mem::size_of::<ClapEventMidiRaw>() as u32,
+                            time: event.sample_offset,
+                            space_id: CLAP_CORE_EVENT_SPACE_ID,
+                            event_type: CLAP_EVENT_MIDI,
+                            flags: 0,
+                        },
+                        port_index: 0,
+                        data: bytes,
+                        _pad: 0,
+                    };
+                    self.midi_event_storage.push(raw);
+                }
+            }
+        }
+
+        // Build ClapInputEvents: use real MIDI events if any, otherwise empty fallback.
+        // We must ensure the ctx+events_tmp live through the process() call.
+        // These are allocated here on the stack — zero heap cost.
+        let midi_ctx;
+        let midi_input_events_tmp;
+        let in_events_ptr: *const ClapInputEvents = if self.midi_event_storage.is_empty() {
+            // No MIDI — use pre-allocated empty event list
+            &*self.input_events
+        } else {
+            midi_ctx = ClapMidiEventsCtx {
+                events_ptr: self.midi_event_storage.as_ptr(),
+                count: self.midi_event_storage.len() as u32,
+            };
+            midi_input_events_tmp = ClapInputEvents {
+                ctx: &midi_ctx as *const ClapMidiEventsCtx as *mut c_void,
+                size: Some(midi_events_size),
+                get: Some(midi_events_get),
+            };
+            &midi_input_events_tmp
+        };
 
         let process_data = ClapProcess {
             steady_time: -1,
@@ -891,7 +989,7 @@ impl PluginInstance for ClapPluginInstance {
             audio_outputs: &mut audio_out as *mut ClapAudioBuffer,
             audio_inputs_count: 1,
             audio_outputs_count: 1,
-            in_events: &*self.input_events as *const ClapInputEvents,
+            in_events: in_events_ptr,
             out_events: &*self.output_events as *const ClapOutputEvents,
         };
 

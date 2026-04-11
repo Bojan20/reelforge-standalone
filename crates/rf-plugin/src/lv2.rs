@@ -211,6 +211,65 @@ impl AtomBuffer {
     fn as_mut_ptr(&mut self) -> *mut c_void {
         self.data.as_mut_ptr() as *mut c_void
     }
+
+    /// Append a raw MIDI event to the Atom sequence.
+    ///
+    /// Format per LV2 Atom spec:
+    ///   [time_frames: i64][body.size: u32][body.type: u32][data: [u8; data.len()]][padding to 8-byte]
+    ///
+    /// The sequence header `atom.size` is updated to include the new event.
+    fn push_midi_event(&mut self, time_frames: i64, midi_urid: u32, raw_bytes: &[u8]) {
+        if raw_bytes.is_empty() {
+            return;
+        }
+
+        let data_size = raw_bytes.len() as u32;
+        // event entry size: time(8) + atom header(8) + data, rounded up to 8-byte align
+        let unpadded = 8u32 + 8 + data_size;
+        let padded = (unpadded + 7) & !7;
+
+        // Current body size (includes the 8-byte body_pad/body_pad2 prefix)
+        let seq_ptr = self.data.as_mut_ptr() as *mut Lv2AtomSequence;
+        let current_body_size = unsafe { (*seq_ptr).atom.size };
+
+        // Events start at offset = 8 (Lv2Atom header) + current_body_size
+        let offset = (8 + current_body_size) as usize;
+        let needed = offset + padded as usize;
+
+        if needed > self.capacity {
+            // Buffer overflow — skip event silently (audio thread cannot panic)
+            return;
+        }
+
+        // Extend Vec data length if needed (capacity was pre-allocated, just moving len)
+        if self.data.len() < needed {
+            self.data.resize(needed, 0);
+        }
+
+        // Write Lv2AtomEvent header at offset
+        unsafe {
+            let event_ptr = self.data.as_mut_ptr().add(offset) as *mut Lv2AtomEvent;
+            (*event_ptr).time_frames = time_frames;
+            (*event_ptr).body.size = data_size;
+            (*event_ptr).body.atom_type = midi_urid;
+        }
+
+        // Copy MIDI data bytes after the event header
+        let data_offset = offset + std::mem::size_of::<Lv2AtomEvent>();
+        self.data[data_offset..data_offset + raw_bytes.len()].copy_from_slice(raw_bytes);
+
+        // Zero padding bytes for alignment
+        let pad_start = data_offset + raw_bytes.len();
+        let pad_end = offset + padded as usize;
+        if pad_end > pad_start {
+            self.data[pad_start..pad_end].fill(0);
+        }
+
+        // Update sequence body size to include this event
+        unsafe {
+            (*seq_ptr).atom.size += padded;
+        }
+    }
 }
 
 // LV2 Feature URIs
@@ -958,7 +1017,7 @@ impl PluginInstance for Lv2PluginInstance {
         &mut self,
         input: &AudioBuffer,
         output: &mut AudioBuffer,
-        _midi_in: &rf_core::MidiBuffer,
+        midi_in: &rf_core::MidiBuffer,
         _midi_out: &mut rf_core::MidiBuffer,
         _context: &ProcessContext,
     ) -> PluginResult<()> {
@@ -970,6 +1029,26 @@ impl PluginInstance for Lv2PluginInstance {
                 }
             }
             return Ok(());
+        }
+
+        // Fill Atom MIDI input buffer with incoming MIDI events
+        if self.info.has_midi_input {
+            if let Some(ref mut atom_buf) = self.atom_input {
+                atom_buf.clear(self.sequence_urid);
+                if !midi_in.is_empty() {
+                    for event in midi_in.events() {
+                        let mut bytes = [0u8; 3];
+                        let byte_len = event.to_bytes(&mut bytes);
+                        if byte_len > 0 {
+                            atom_buf.push_midi_event(
+                                event.sample_offset as i64,
+                                self.midi_event_urid,
+                                &bytes[..byte_len],
+                            );
+                        }
+                    }
+                }
+            }
         }
 
         // Cap frames to pre-allocated buffer size (4096) — prevents buffer overflow

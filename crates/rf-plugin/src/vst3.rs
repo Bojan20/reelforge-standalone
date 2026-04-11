@@ -243,6 +243,7 @@ type RackLoadResult = (
     usize, // input channels
     usize, // output channels
     usize, // latency
+    bool,  // has_midi_input (true for Instrument plugins)
 );
 
 /// Lock-free parameter change queue entry
@@ -276,6 +277,11 @@ trait RackPluginTrait {
         outputs: &mut [&mut [f32]],
         num_frames: usize,
     ) -> Result<(), String>;
+    /// Send MIDI events to the plugin before the next process() call.
+    /// Default: no-op (for effect plugins that don't need MIDI).
+    fn send_midi(&mut self, _events: &[rack::MidiEvent]) -> Result<(), String> {
+        Ok(())
+    }
     fn parameter_count(&self) -> usize;
     fn get_parameter(&self, index: usize) -> Result<f32, String>;
     fn set_parameter(&mut self, index: usize, value: f32) -> Result<(), String>;
@@ -340,6 +346,10 @@ impl<P: rack::PluginInstance + Send + 'static> RackPluginTrait for RackPluginWra
         self.plugin
             .process(inputs, outputs, num_frames)
             .map_err(|e| format!("{:?}", e))
+    }
+
+    fn send_midi(&mut self, events: &[rack::MidiEvent]) -> Result<(), String> {
+        self.plugin.send_midi(events).map_err(|e| format!("{:?}", e))
     }
 
     fn parameter_count(&self) -> usize {
@@ -475,6 +485,53 @@ impl<P: rack::PluginInstance + Send + 'static> RackPluginTrait for RackPluginWra
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// MIDI CONVERSION HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Convert rf_core::MidiBuffer events to rack::MidiEvent slice (audio-thread safe,
+/// uses stack allocation for up to 256 events; falls back to heap beyond that).
+fn rf_core_midi_to_rack_events(midi_in: &rf_core::MidiBuffer) -> Vec<rack::MidiEvent> {
+    let mut out = Vec::with_capacity(midi_in.len());
+    for event in midi_in.events() {
+        let rack_event = match event.data {
+            rf_core::MidiEventData::NoteOn { note, velocity } => {
+                rack::MidiEvent::note_on(note, velocity.min(127) as u8, event.channel, event.sample_offset)
+            }
+            rf_core::MidiEventData::NoteOff { note, velocity } => {
+                rack::MidiEvent::note_off(note, velocity.min(127) as u8, event.channel, event.sample_offset)
+            }
+            rf_core::MidiEventData::ControlChange { controller, value } => {
+                rack::MidiEvent::control_change(controller, value.min(127) as u8, event.channel, event.sample_offset)
+            }
+            rf_core::MidiEventData::ProgramChange { program } => {
+                rack::MidiEvent::program_change(program, event.channel, event.sample_offset)
+            }
+            rf_core::MidiEventData::PitchBend { value } => {
+                // rf_core: -8192..+8191 centered at 0 → rack: 0..16383 centered at 8192
+                let rack_val = ((value as i32) + 8192).clamp(0, 16383) as u16;
+                rack::MidiEvent::pitch_bend(rack_val, event.channel, event.sample_offset)
+            }
+            rf_core::MidiEventData::ChannelPressure { pressure } => {
+                rack::MidiEvent::channel_aftertouch(pressure.min(127) as u8, event.channel, event.sample_offset)
+            }
+            rf_core::MidiEventData::PolyPressure { note, pressure } => {
+                rack::MidiEvent::polyphonic_aftertouch(note, pressure.min(127) as u8, event.channel, event.sample_offset)
+            }
+            rf_core::MidiEventData::TimingClock => rack::MidiEvent::timing_clock(event.sample_offset),
+            rf_core::MidiEventData::Start => rack::MidiEvent::start(event.sample_offset),
+            rf_core::MidiEventData::Continue => rack::MidiEvent::continue_playback(event.sample_offset),
+            rf_core::MidiEventData::Stop => rack::MidiEvent::stop(event.sample_offset),
+            rf_core::MidiEventData::ActiveSensing => rack::MidiEvent::active_sensing(event.sample_offset),
+            rf_core::MidiEventData::SystemReset => rack::MidiEvent::system_reset(event.sample_offset),
+            // SysEx, MTC, SongPosition, SongSelect, TuneRequest — not supported by rack MidiEvent
+            _ => continue,
+        };
+        out.push(rack_event);
+    }
+    out
+}
+
 /// VST3 plugin host implementation using rack crate
 pub struct Vst3Host {
     /// Plugin info
@@ -560,13 +617,13 @@ impl Vst3Host {
         }
 
         // Try to load with rack crate
-        let (rack_plugin, parameters, audio_inputs, audio_outputs, plugin_latency) =
+        let (rack_plugin, parameters, audio_inputs, audio_outputs, plugin_latency, has_midi_input) =
             match Self::load_with_rack(path) {
                 Ok(result) => result,
                 Err(e) => {
                     eprintln!("[FluxForge] load_with_rack FAILED for {:?}: {}", path, e);
                     // Fallback to passthrough mode — no native GUI available
-                    (None, Self::default_parameters(), 2, 2, 0)
+                    (None, Self::default_parameters(), 2, 2, 0, false)
                 }
             };
 
@@ -583,7 +640,7 @@ impl Vst3Host {
             path: path.to_path_buf(),
             audio_inputs: audio_inputs as u32,
             audio_outputs: audio_outputs as u32,
-            has_midi_input: false,
+            has_midi_input,
             has_midi_output: false,
             has_editor: bundle_exists,
             latency: plugin_latency as u32,
@@ -764,12 +821,16 @@ impl Vst3Host {
             inner: Box::new(wrapper),
         };
 
+        // Determine MIDI capability from plugin type
+        let has_midi = matches!(plugin_info.plugin_type, rack::PluginType::Instrument);
+
         Ok((
             Some(Arc::new(Mutex::new(rack_plugin))),
             parameters,
             audio_inputs,
             audio_outputs,
             latency,
+            has_midi,
         ))
     }
 
@@ -1016,7 +1077,7 @@ impl PluginInstance for Vst3Host {
         &mut self,
         input: &AudioBuffer,
         output: &mut AudioBuffer,
-        _midi_in: &rf_core::MidiBuffer,
+        midi_in: &rf_core::MidiBuffer,
         _midi_out: &mut rf_core::MidiBuffer,
         context: &ProcessContext,
     ) -> PluginResult<()> {
@@ -1027,8 +1088,15 @@ impl PluginInstance for Vst3Host {
         // Process any pending parameter changes
         self.process_param_changes();
 
-        // TODO: Forward _midi_in to VST3 IEventList for instrument plugins
-        // TODO: Extract MIDI output from VST3 to _midi_out
+        // Forward MIDI events to instrument plugins via rack send_midi()
+        if self.info.has_midi_input && !midi_in.is_empty() {
+            if let Some(ref instance) = self.rack_plugin {
+                let rack_events = rf_core_midi_to_rack_events(midi_in);
+                if let Some(mut plugin) = instance.try_lock() {
+                    let _ = plugin.inner.send_midi(&rack_events);
+                }
+            }
+        }
 
         // Use real plugin processing if available, otherwise fallback
         if self.rack_plugin.is_some() {

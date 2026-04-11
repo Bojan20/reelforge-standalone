@@ -5185,20 +5185,25 @@ impl PlaybackEngine {
         output_l.fill(0.0);
         output_r.fill(0.0);
 
+        // Acquire bus_buffers ONCE for the entire process() call.
+        // Holding this through the whole frame eliminates the re-acquisition window that
+        // previously allowed process_offline() (running on an export thread) to steal the lock
+        // between the two former try_write() calls → causing silent audio dropouts.
+        // ROOT CAUSE FIX: process_offline() now uses its own local BusBuffers (no shared lock),
+        // so this try_write() should always succeed during normal realtime playback.
+        let mut bus_buffers = match self.bus_buffers.try_write() {
+            Some(b) => b,
+            None => {
+                self.diag_bus_contention.fetch_add(1, Ordering::Relaxed);
+                return;
+            }
+        };
+
         // === ONE-SHOT VOICES (Middleware/SlotLab) ===
         // CRITICAL: Process one-shot voices BEFORE is_playing() check!
         // SlotLab/Middleware use ensureStreamRunning() WITHOUT transport play(),
         // so one-shot voices must play even when transport is stopped.
-        // Get bus buffers first (needed for one-shot mixing)
         {
-            let mut bus_buffers = match self.bus_buffers.try_write() {
-                Some(b) => b,
-                None => {
-                    self.diag_bus_contention.fetch_add(1, Ordering::Relaxed);
-                    return;
-                }
-            };
-
             // Ensure buffer size matches
             if bus_buffers.block_size != frames {
                 *bus_buffers = BusBuffers::new(frames);
@@ -5515,15 +5520,10 @@ impl PlaybackEngine {
         // Decay factor for meters (60dB in ~300ms at 48kHz, 256 block size)
         let decay = 0.9995_f64.powf(frames as f64 / 8.0);
 
-        // Get bus buffers (try lock) - already processed one-shots above
-        let mut bus_buffers = match self.bus_buffers.try_write() {
-            Some(b) => b,
-            None => return,
-        };
-
-        // NOTE: One-shot voices already processed BEFORE is_playing() check
-        // Bus buffers already contain one-shot audio, don't clear them here
-        // Only tracks will be mixed INTO existing bus content
+        // NOTE: bus_buffers is already held (acquired at start of process()).
+        // One-shot voices were already processed above.
+        // Bus buffers already contain one-shot audio — tracks mix INTO existing content.
+        // (Previously this had a second try_write() here, creating a dropout window.)
 
         // Clear control room buffers (solo bus, cue mixes)
         self.control_room.clear_all_buffers();
@@ -7149,11 +7149,11 @@ impl PlaybackEngine {
         let start_time = start_sample as f64 / sample_rate;
         let end_time = (start_sample + frames) as f64 / sample_rate;
 
-        // Get bus buffers
-        let mut bus_buffers = self.bus_buffers.write();
-        if bus_buffers.block_size != frames {
-            *bus_buffers = BusBuffers::new(frames);
-        }
+        // CRITICAL FIX (BUG #3): Use a LOCAL BusBuffers instead of self.bus_buffers.
+        // Previously this acquired self.bus_buffers.write() (blocking), which starved
+        // the audio thread's try_write() in process() → silent frame dropouts during export.
+        // By using a local buffer, process_offline() and process() never contend on the lock.
+        let mut bus_buffers = BusBuffers::new(frames);
         bus_buffers.clear();
 
         // DashMap provides lock-free access - safe for offline processing
@@ -7275,7 +7275,7 @@ impl PlaybackEngine {
         output_l.copy_from_slice(&master_l[..frames]);
         output_r.copy_from_slice(&master_r[..frames]);
 
-        // Drop bus_buffers lock before taking master_insert lock
+        // Drop local bus_buffers (free memory) before taking master_insert lock
         drop(bus_buffers);
 
         // Master processing

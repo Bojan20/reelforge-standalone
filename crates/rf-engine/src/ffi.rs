@@ -2882,7 +2882,28 @@ pub extern "C" fn engine_set_sample_rate(sample_rate: u32) -> i32 {
     // Update all insert chains (track, bus, master)
     PLAYBACK_ENGINE.update_all_insert_sample_rates(sample_rate as f64);
 
-    log::info!("Project sample rate set to {}Hz", sample_rate);
+    // FIX BUG: Sync sample rate to all sub-engines that were previously out-of-sync.
+    // CLICK_TRACK, VIDEO_ENGINE, and EVENT_MANAGER all need matching SR so timing stays
+    // aligned with the audio thread (click sync drift, video frame timing, event scheduling).
+    {
+        let mut click = CLICK_TRACK.write();
+        click.set_sample_rate(sample_rate);
+    }
+
+    {
+        let sr_enum = match sample_rate {
+            44100 => rf_core::SampleRate::Hz44100,
+            48000 => rf_core::SampleRate::Hz48000,
+            88200 => rf_core::SampleRate::Hz88200,
+            96000 => rf_core::SampleRate::Hz96000,
+            176400 => rf_core::SampleRate::Hz176400,
+            192000 => rf_core::SampleRate::Hz192000,
+            _ => rf_core::SampleRate::Hz48000,
+        };
+        VIDEO_ENGINE.write().set_sample_rate(sr_enum);
+    }
+
+    log::info!("Project sample rate set to {}Hz (PlaybackEngine, ClickTrack, VideoEngine synced)", sample_rate);
     1
 }
 

@@ -540,6 +540,25 @@ impl ClickTrack {
         self.enabled.load(Ordering::Relaxed)
     }
 
+    /// Update sample rate — regenerates pre-computed click sounds at new rate.
+    /// Must be called whenever the project/device sample rate changes so click timing
+    /// stays synchronized with the audio thread (prevents drift after rate switch).
+    pub fn set_sample_rate(&mut self, sample_rate: u32) {
+        if self.sample_rate == sample_rate {
+            return; // already correct — avoid unnecessary recomputation
+        }
+        self.sample_rate = sample_rate;
+        // Regenerate all click sounds at new sample rate with current preset
+        let (accent, beat, subdiv) = self.preset.generate(sample_rate);
+        self.accent_sound = accent;
+        self.beat_sound = beat;
+        self.subdivision_sound = subdiv;
+        // Reset playback position to avoid stale sample-offset artifacts
+        self.playback_pos = 0;
+        self.current_sound = None;
+        log::debug!("ClickTrack sample rate updated to {}Hz", sample_rate);
+    }
+
     /// Set volume (0.0 - 1.0)
     pub fn set_volume(&mut self, volume: f32) {
         self.volume = volume.clamp(0.0, 1.0);
