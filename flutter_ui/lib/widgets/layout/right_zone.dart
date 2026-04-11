@@ -294,7 +294,8 @@ class _InspectorSectionWidget extends StatelessWidget {
 // ============ Field Components ============
 
 /// Text field widget
-class InspectorTextField extends StatelessWidget {
+/// BUG#16 FIX: converted to StatefulWidget to properly manage TextEditingController lifecycle
+class InspectorTextField extends StatefulWidget {
   final String label;
   final String value;
   final ValueChanged<String>? onChange;
@@ -311,6 +312,34 @@ class InspectorTextField extends StatelessWidget {
   });
 
   @override
+  State<InspectorTextField> createState() => _InspectorTextFieldState();
+}
+
+class _InspectorTextFieldState extends State<InspectorTextField> {
+  late TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.value);
+  }
+
+  @override
+  void didUpdateWidget(InspectorTextField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Sync controller when external value changes (e.g. undo/redo)
+    if (oldWidget.value != widget.value && _controller.text != widget.value) {
+      _controller.text = widget.value;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -318,7 +347,7 @@ class InspectorTextField extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            label,
+            widget.label,
             style: TextStyle(
               fontSize: 10,
               color: FluxForgeTheme.textSecondary,
@@ -333,15 +362,15 @@ class InspectorTextField extends StatelessWidget {
               border: Border.all(color: FluxForgeTheme.borderSubtle),
             ),
             child: TextField(
-              controller: TextEditingController(text: value),
-              onChanged: onChange,
-              enabled: !disabled,
+              controller: _controller,
+              onChanged: widget.onChange,
+              enabled: !widget.disabled,
               style: const TextStyle(
                 fontSize: 12,
                 color: FluxForgeTheme.textPrimary,
               ),
               decoration: InputDecoration(
-                hintText: placeholder,
+                hintText: widget.placeholder,
                 hintStyle: TextStyle(color: FluxForgeTheme.textSecondary),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 8),

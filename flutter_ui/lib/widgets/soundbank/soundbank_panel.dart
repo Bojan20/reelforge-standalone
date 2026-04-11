@@ -1229,45 +1229,12 @@ class _ConfigTab extends StatelessWidget {
     ValueChanged<String> onChanged, {
     bool multiline = false,
   }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: multiline ? CrossAxisAlignment.start : CrossAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: 100,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.white.withValues(alpha: 0.7),
-              ),
-            ),
-          ),
-          Expanded(
-            child: TextField(
-              controller: TextEditingController(text: value),
-              style: const TextStyle(fontSize: 12, color: Colors.white),
-              maxLines: multiline ? 3 : 1,
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: FluxForgeTheme.bgDeepest,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4),
-                  borderSide: BorderSide.none,
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4),
-                  borderSide: const BorderSide(color: FluxForgeTheme.accentBlue),
-                ),
-              ),
-              onSubmitted: onChanged,
-              onChanged: onChanged,
-            ),
-          ),
-        ],
-      ),
+    // BUG#16 FIX: delegate to StatefulWidget that properly manages controller lifecycle
+    return _ConfigRowField(
+      label: label,
+      value: value,
+      onChanged: onChanged,
+      multiline: multiline,
     );
   }
 
@@ -1977,5 +1944,93 @@ class _PriorityDropdown extends StatelessWidget {
       SoundbankAssetPriority.low => FluxForgeTheme.accentCyan,
       SoundbankAssetPriority.background => Colors.white38,
     };
+  }
+}
+
+// BUG#16 FIX: StatefulWidget wrapper for config row TextField — proper controller lifecycle
+class _ConfigRowField extends StatefulWidget {
+  final String label;
+  final String value;
+  final ValueChanged<String> onChanged;
+  final bool multiline;
+
+  const _ConfigRowField({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+    this.multiline = false,
+  });
+
+  @override
+  State<_ConfigRowField> createState() => _ConfigRowFieldState();
+}
+
+class _ConfigRowFieldState extends State<_ConfigRowField> {
+  late TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.value);
+  }
+
+  @override
+  void didUpdateWidget(_ConfigRowField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value && _controller.text != widget.value) {
+      _controller.text = widget.value;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment:
+            widget.multiline ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              widget.label,
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.white.withValues(alpha: 0.7),
+              ),
+            ),
+          ),
+          Expanded(
+            child: TextField(
+              controller: _controller,
+              style: const TextStyle(fontSize: 12, color: Colors.white),
+              maxLines: widget.multiline ? 3 : 1,
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: FluxForgeTheme.bgDeepest,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: const BorderSide(color: FluxForgeTheme.accentBlue),
+                ),
+              ),
+              onSubmitted: widget.onChanged,
+              onChanged: widget.onChanged,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

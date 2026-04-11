@@ -279,8 +279,6 @@ class MainFlutterWindow: NSWindow {
       removed.append(className)
     }
 
-    if !removed.isEmpty {
-      print("[FluxForge] [\(context)] ✅ Removed \(removed.count) re-added overlay(s): \(removed.joined(separator: ", "))")
-    }
+    // BUG#21: print() removed — user has no console access (CLAUDE.md rule)
   }
 }

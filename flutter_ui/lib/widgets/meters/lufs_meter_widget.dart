@@ -34,8 +34,8 @@ class LufsData {
     required this.truePeakR,
   });
 
-  /// Get max true peak (L/R)
-  double get maxTruePeak => momentary > shortTerm ? momentary : shortTerm;
+  /// Get max true peak (L/R) in dBTP — BUG#28 fix (was comparing LUFS values)
+  double get maxTruePeak => truePeakL > truePeakR ? truePeakL : truePeakR;
 
   /// Check if over streaming target (-14 LUFS)
   bool get isOverStreamingTarget => integrated > -14.0;

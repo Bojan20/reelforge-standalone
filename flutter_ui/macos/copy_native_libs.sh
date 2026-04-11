@@ -25,9 +25,9 @@ mkdir -p "$FRAMEWORKS_DIR"
 echo "Copying librf_bridge.dylib..."
 cp "$DYLIB_SOURCE" "$FRAMEWORKS_DIR/"
 
-# Copy homebrew dependencies
-FLAC_LIB="/opt/homebrew/opt/flac/lib/libFLAC.14.dylib"
-OGG_LIB="/opt/homebrew/opt/libogg/lib/libogg.0.dylib"
+# Copy homebrew dependencies — BUG#15 FIX: dynamic paths via brew --prefix
+FLAC_LIB="$(brew --prefix flac 2>/dev/null)/lib/libFLAC.14.dylib"
+OGG_LIB="$(brew --prefix libogg 2>/dev/null)/lib/libogg.0.dylib"
 
 if [ -f "$FLAC_LIB" ]; then
     echo "Copying libFLAC.14.dylib..."

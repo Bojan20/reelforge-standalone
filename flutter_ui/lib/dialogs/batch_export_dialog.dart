@@ -146,6 +146,8 @@ class _BatchExportDialogState extends State<BatchExportDialog> {
   int _currentIndex = -1;
   double _overallProgress = 0;
   Timer? _progressTimer;
+  // BUG#16 FIX: controller managed in state instead of recreated in build()
+  late TextEditingController _namingTemplateController;
 
   @override
   void initState() {
@@ -153,11 +155,13 @@ class _BatchExportDialogState extends State<BatchExportDialog> {
     _items = List.from(widget.items);
     _selectedPreset = widget.defaultPreset;
     _outputFolder = _ffi.getDefaultExportPath();
+    _namingTemplateController = TextEditingController(text: _namingTemplate);
   }
 
   @override
   void dispose() {
     _progressTimer?.cancel();
+    _namingTemplateController.dispose();
     super.dispose();
   }
 
@@ -342,7 +346,7 @@ class _BatchExportDialogState extends State<BatchExportDialog> {
                   border: Border.all(color: FluxForgeTheme.borderSubtle),
                 ),
                 child: TextField(
-                  controller: TextEditingController(text: _namingTemplate),
+                  controller: _namingTemplateController,
                   style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 11, fontFamily: 'JetBrains Mono'),
                   decoration: const InputDecoration(
                     border: InputBorder.none,

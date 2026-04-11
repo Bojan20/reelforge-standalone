@@ -38,18 +38,25 @@ class _PriorityTierPresetPanelState extends State<PriorityTierPresetPanel>
   Map<String, int> _editStageOverrides = {};
   bool _isEditing = false;
   String? _editingPresetId;
+  // BUG#16 FIX: controllers managed in state instead of recreated in build()
+  late TextEditingController _editNameController;
+  late TextEditingController _editDescController;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _service.addListener(_onServiceChanged);
+    _editNameController = TextEditingController(text: _editPresetName);
+    _editDescController = TextEditingController(text: _editPresetDescription);
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     _service.removeListener(_onServiceChanged);
+    _editNameController.dispose();
+    _editDescController.dispose();
     super.dispose();
   }
 
@@ -387,7 +394,7 @@ class _PriorityTierPresetPanelState extends State<PriorityTierPresetPanel>
             ),
             style: const TextStyle(color: Colors.white),
             onChanged: (v) => setState(() => _editPresetName = v),
-            controller: TextEditingController(text: _editPresetName),
+            controller: _editNameController,
           ),
           const SizedBox(height: 12),
 
@@ -401,7 +408,7 @@ class _PriorityTierPresetPanelState extends State<PriorityTierPresetPanel>
             style: const TextStyle(color: Colors.white),
             maxLines: 2,
             onChanged: (v) => setState(() => _editPresetDescription = v),
-            controller: TextEditingController(text: _editPresetDescription),
+            controller: _editDescController,
           ),
           const SizedBox(height: 12),
 
@@ -815,6 +822,8 @@ class _PriorityTierPresetPanelState extends State<PriorityTierPresetPanel>
       _editCategoryPriorities = {};
       _editStageOverrides = {};
     });
+    _editNameController.text = '';
+    _editDescController.text = '';
   }
 
   void _startEditPreset(PriorityTierPreset preset) {
@@ -827,6 +836,8 @@ class _PriorityTierPresetPanelState extends State<PriorityTierPresetPanel>
       _editCategoryPriorities = Map.from(preset.categoryPriorities);
       _editStageOverrides = Map.from(preset.stageOverrides);
     });
+    _editNameController.text = preset.name;
+    _editDescController.text = preset.description;
   }
 
   void _cancelEdit() {

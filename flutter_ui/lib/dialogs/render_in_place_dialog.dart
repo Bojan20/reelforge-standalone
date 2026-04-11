@@ -130,6 +130,8 @@ class _RenderInPlaceDialogState extends State<RenderInPlaceDialog> {
   late int _bitDepth;
   late int _sampleRate;
   late DitherType _ditherType;
+  // BUG#16 FIX: controller managed in state instead of recreated in build()
+  late TextEditingController _normalizeTargetController;
 
   @override
   void initState() {
@@ -147,6 +149,15 @@ class _RenderInPlaceDialogState extends State<RenderInPlaceDialog> {
     _bitDepth = opts.bitDepth;
     _sampleRate = opts.sampleRate;
     _ditherType = opts.ditherType;
+    _normalizeTargetController = TextEditingController(
+      text: _normalizeTarget.toStringAsFixed(1),
+    );
+  }
+
+  @override
+  void dispose() {
+    _normalizeTargetController.dispose();
+    super.dispose();
   }
 
   @override
@@ -324,9 +335,7 @@ class _RenderInPlaceDialogState extends State<RenderInPlaceDialog> {
                       ),
                       suffixText: _normalizeMode == NormalizeMode.lufs ? 'LUFS' : 'dB',
                     ),
-                    controller: TextEditingController(
-                      text: _normalizeTarget.toStringAsFixed(1),
-                    ),
+                    controller: _normalizeTargetController,
                     onChanged: (v) {
                       final val = double.tryParse(v);
                       if (val != null) {
