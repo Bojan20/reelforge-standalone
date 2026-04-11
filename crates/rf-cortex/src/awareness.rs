@@ -13,10 +13,12 @@ use std::time::{Duration, Instant};
 
 /// Whether the cortex is in an idle state (no active app connected).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum CortexActivityState {
     /// App is running, signals flowing — full health evaluation applies.
     Active,
     /// No app connected, daemon-only mode — low scores are expected, not alarming.
+    #[default]
     Idle,
 }
 
@@ -186,7 +188,7 @@ impl AwarenessEngine {
         let now = Instant::now();
         let has_activity = signals_per_second > 0.1
             || bus_stats.subscriber_count > 0
-            || bus_stats.origin_counts.len() > 0;
+            || !bus_stats.origin_counts.is_empty();
 
         if has_activity {
             self.last_activity = Some(now);
@@ -447,11 +449,6 @@ impl Default for AwarenessEngine {
     }
 }
 
-impl Default for CortexActivityState {
-    fn default() -> Self {
-        Self::Idle
-    }
-}
 
 #[cfg(test)]
 mod tests {

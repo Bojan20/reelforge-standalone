@@ -1089,14 +1089,13 @@ impl PluginInstance for Vst3Host {
         self.process_param_changes();
 
         // Forward MIDI events to instrument plugins via rack send_midi()
-        if self.info.has_midi_input && !midi_in.is_empty() {
-            if let Some(ref instance) = self.rack_plugin {
+        if self.info.has_midi_input && !midi_in.is_empty()
+            && let Some(ref instance) = self.rack_plugin {
                 let rack_events = rf_core_midi_to_rack_events(midi_in);
                 if let Some(mut plugin) = instance.try_lock() {
                     let _ = plugin.inner.send_midi(&rack_events);
                 }
             }
-        }
 
         // Use real plugin processing if available, otherwise fallback
         if self.rack_plugin.is_some() {

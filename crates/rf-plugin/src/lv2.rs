@@ -1080,8 +1080,8 @@ impl PluginInstance for Lv2PluginInstance {
         }
 
         // Fill Atom MIDI input buffer with incoming MIDI events
-        if self.info.has_midi_input {
-            if let Some(ref mut atom_buf) = self.atom_input {
+        if self.info.has_midi_input
+            && let Some(ref mut atom_buf) = self.atom_input {
                 atom_buf.clear(self.sequence_urid);
                 if !midi_in.is_empty() {
                     for event in midi_in.events() {
@@ -1097,7 +1097,6 @@ impl PluginInstance for Lv2PluginInstance {
                     }
                 }
             }
-        }
 
         // Cap frames to pre-allocated buffer size (4096) — prevents buffer overflow
         let frames = input.samples.min(self.audio_inputs.first().map_or(4096, |b| b.len()));

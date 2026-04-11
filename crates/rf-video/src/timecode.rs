@@ -263,7 +263,7 @@ impl Timecode {
                         // The only acceptable ';' position is immediately before the
                         // frame field (i.e. the last separator).  Reject if ':' is
                         // used as the last separator or if ';' appears earlier.
-                        let last_sep_pos = s.rfind(|c| c == ':' || c == ';');
+                        let last_sep_pos = s.rfind([':', ';']);
                         match last_sep_pos {
                             Some(pos) if s.as_bytes()[pos] == b';' => {
                                 // Correct drop-frame layout — still reject if ';'
