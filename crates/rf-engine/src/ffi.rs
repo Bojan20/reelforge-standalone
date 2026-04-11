@@ -6367,8 +6367,15 @@ pub extern "C" fn engine_start_playback() -> i32 {
     // Store handle
     *AUDIO_THREAD_HANDLE.lock() = Some((handle, shutdown_tx));
 
-    // Wait a bit for thread to start
-    std::thread::sleep(std::time::Duration::from_millis(50));
+    // Wait for audio thread to initialize cpal device and start stream.
+    // 50ms was too short — cpal CoreAudio init can take 100-300ms on first call.
+    // Poll every 10ms for up to 500ms instead of sleeping a fixed duration.
+    for _ in 0..50 {
+        if AUDIO_STREAM_RUNNING.load(Ordering::Acquire) {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
 
     if AUDIO_STREAM_RUNNING.load(Ordering::Acquire) {
         1
@@ -17399,10 +17406,17 @@ pub extern "C" fn plugin_presets_get_all_json(instance_id: *const c_char) -> *mu
     }
 }
 
+#[unsafe(no_mangle)]
 pub extern "C" fn plugin_host_init() -> i32 {
     // Force initialization of lazy statics
     drop(PLUGIN_HOST.read());
     1
+}
+
+/// Placeholder FFI function (referenced by Dart bindings but not yet implemented)
+#[unsafe(no_mangle)]
+pub extern "C" fn my_ffi_function() -> *mut c_char {
+    CString::new("{}").unwrap().into_raw()
 }
 
 /// Get list of active plugin instances as JSON
