@@ -196,8 +196,9 @@ impl AdaptiveLayerEngine {
                         .and_then(|m| m.transition.as_ref())
                 })
                 .and_then(|t| self.transitions.get(t))
-                .unwrap_or_else(|| self.transitions.default_profile())
-                .clone();
+                .or_else(|| self.transitions.default_profile())
+                .cloned()
+                .unwrap_or_default();
 
             // Calculate sync delay
             let sync_delay = transition.calculate_sync_delay(

@@ -341,6 +341,16 @@ class MixerGroup {
 // ═══════════════════════════════════════════════════════════════════════════
 
 class MixerProvider extends ChangeNotifier {
+  // ── ID parsing ──────────────────────��─────────────────────���────────────────
+  /// Extract the first contiguous run of decimal digits from [id] and parse it
+  /// as an integer.  Works for all ID formats used in this provider:
+  ///   "ch_12"  → 12,  "track_5"  → 5,  "vca_1710000000000" → 1710000000000,
+  ///   "bus_sfx" → 0 (no digits),  "42" → 42
+  static int _parseId(String id) {
+    final match = RegExp(r'\d+').firstMatch(id);
+    return int.tryParse(match?.group(0) ?? '') ?? 0;
+  }
+
   // Channels by type
   final Map<String, MixerChannel> _channels = {};
   final Map<String, MixerChannel> _buses = {};
@@ -421,8 +431,9 @@ class MixerProvider extends ChangeNotifier {
 
     // For each channel, sync its insert slots from DspChainProvider
     for (final channel in _channels.values) {
-      final trackId = int.tryParse(channel.id.replaceAll('track_', ''));
-      if (trackId == null) continue;
+      final _idMatch = RegExp(r'\d+').firstMatch(channel.id);
+      if (_idMatch == null) continue;
+      final trackId = int.tryParse(_idMatch.group(0)!) ?? 0;
 
       if (!dspProvider.hasChain(trackId)) continue;
 
@@ -1052,7 +1063,7 @@ class MixerProvider extends ChangeNotifier {
     if (channel != null) {
       _channels[id] = channel.copyWith(name: newName);
       // Sync to engine via FFI
-      NativeFFI.instance.setTrackName(int.tryParse(id.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0, newName);
+      NativeFFI.instance.setTrackName(_parseId(id), newName);
       notifyListeners();
       return;
     }
@@ -2252,7 +2263,7 @@ class MixerProvider extends ChangeNotifier {
     _channels[id] = channel.copyWith(armed: newArmed);
 
     // Sync with recording system via FFI
-    final trackId = int.tryParse(id) ?? 0;
+    final trackId = _parseId(id);
     if (newArmed) {
       recordingArmTrack(trackId);
     } else {

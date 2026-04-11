@@ -92,7 +92,6 @@ import '../widgets/slot_lab/aux_sends_panel.dart';
 import '../widgets/slot_lab/slot_preview_widget.dart';
 import '../widgets/slot_lab/premium_slot_preview.dart';
 import '../widgets/slot_lab/event_log_panel.dart';
-import '../widgets/slot_lab/audio_hover_preview.dart';
 import '../widgets/slot_lab/slot_lab_settings_panel.dart' as settings;
 import '../widgets/browser/audio_pool_panel.dart' show triggerAudioPoolRefresh;
 import '../src/rust/native_ffi.dart';
@@ -13124,80 +13123,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         }
       }
     } catch (_) {}
-  }
-
-  /// Handle audio dropped on stage from StageTraceWidget drag & drop
-  /// Creates or updates an AudioEvent for the target stage
-  void _onAudioDroppedOnStage(AudioFileInfo audio, String stageType) {
-
-    // Normalize stage type to uppercase
-    final normalizedStage = stageType.toUpperCase().replaceAll(' ', '_');
-
-    // Check if event already exists for this stage
-    final existingEvent = eventRegistry.getEventForStage(normalizedStage);
-
-    if (existingEvent != null) {
-      // Add as new layer to existing event
-      final newLayer = AudioLayer(
-        id: 'layer_${DateTime.now().millisecondsSinceEpoch}',
-        audioPath: audio.path,
-        name: audio.name,
-        volume: 1.0,
-        pan: 0.0,
-        delay: 0.0,
-        busId: _getBusIdForStage(normalizedStage),
-      );
-
-      // Create updated event with new layer
-      final updatedEvent = AudioEvent(
-        id: existingEvent.id,
-        name: existingEvent.name,
-        stage: existingEvent.stage,
-        layers: [...existingEvent.layers, newLayer],
-        duration: existingEvent.duration,
-        loop: existingEvent.loop,
-        priority: existingEvent.priority,
-      );
-
-      eventRegistry.registerEvent(updatedEvent);
-    } else {
-      // Create new event for this stage
-      final eventId = 'event_${normalizedStage.toLowerCase()}_${DateTime.now().millisecondsSinceEpoch}';
-      final newEvent = AudioEvent(
-        id: eventId,
-        name: _formatEventName(normalizedStage),
-        stage: normalizedStage,
-        layers: [
-          AudioLayer(
-            id: 'layer_${DateTime.now().millisecondsSinceEpoch}',
-            audioPath: audio.path,
-            name: audio.name,
-            volume: 1.0,
-            pan: 0.0,
-            delay: 0.0,
-            busId: _getBusIdForStage(normalizedStage),
-          ),
-        ],
-        duration: audio.duration.inMilliseconds / 1000.0,
-        loop: StageConfigurationService.instance.isLooping(normalizedStage),
-        priority: _getPriorityForStage(normalizedStage),
-      );
-
-      eventRegistry.registerEvent(newEvent);
-    }
-
-    // Trigger visual feedback
-    setState(() {});
-
-    // Show confirmation
-    if (mounted) {
-      showToast(
-        existingEvent != null
-            ? 'Added "${audio.name}" to ${_formatEventName(normalizedStage)}'
-            : 'Created event for $normalizedStage with "${audio.name}"',
-        icon: Icons.check_circle,
-      );
-    }
   }
 
   int _getBusIdForStage(String stage) {

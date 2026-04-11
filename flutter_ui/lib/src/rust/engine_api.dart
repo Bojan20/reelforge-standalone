@@ -657,7 +657,7 @@ class EngineApi {
   /// Delete a track
   void deleteTrack(String trackId) {
     if (!_useMock) {
-      final nativeId = int.tryParse(trackId);
+      final nativeId = _trackIdToNative(trackId);
       if (nativeId != null) {
         _ffi.deleteTrack(nativeId);
         return;
@@ -677,7 +677,7 @@ class EngineApi {
     int? busId,
   }) {
     if (!_useMock) {
-      final nativeId = int.tryParse(trackId);
+      final nativeId = _trackIdToNative(trackId);
       if (nativeId != null) {
         if (name != null) _ffi.setTrackName(nativeId, name);
         if (muted != null) _ffi.setTrackMute(nativeId, muted);
@@ -751,7 +751,7 @@ class EngineApi {
   }) async {
 
     if (!_useMock) {
-      final nativeTrackId = int.tryParse(trackId);
+      final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
         final clipId = _ffi.importAudio(filePath, nativeTrackId, startTime);
         if (clipId != 0) {

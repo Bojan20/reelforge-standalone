@@ -544,11 +544,11 @@ impl TransitionRegistry {
         self.profiles.get(id)
     }
 
-    /// Get default profile
-    pub fn default_profile(&self) -> &TransitionProfile {
+    /// Get default profile, or `None` if no profiles have been registered.
+    pub fn default_profile(&self) -> Option<&TransitionProfile> {
         self.profiles
             .get("default")
-            .unwrap_or_else(|| self.profiles.values().next().unwrap())
+            .or_else(|| self.profiles.values().next())
     }
 
     /// List all profile IDs

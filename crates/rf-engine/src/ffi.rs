@@ -20150,33 +20150,69 @@ pub extern "C" fn wave_cache_query_tiles(
         return std::ptr::null_mut();
     }
 
-    // Allocate and copy
+    // Allocate with a u64 length prefix so wave_cache_free_tiles can recover the
+    // exact allocation size without relying on the caller to pass it correctly.
+    //
+    // Layout: [ u64 element_count | f32 × element_count ]
+    let element_count = flat.len();
+    let prefix_layout = std::alloc::Layout::new::<u64>();
+    let data_layout = match std::alloc::Layout::array::<f32>(element_count) {
+        Ok(l) => l,
+        Err(_) => return std::ptr::null_mut(),
+    };
+    let (full_layout, data_offset) = match prefix_layout.extend(data_layout) {
+        Ok(pair) => pair,
+        Err(_) => return std::ptr::null_mut(),
+    };
 
     unsafe {
-        let layout = match std::alloc::Layout::array::<f32>(flat.len()) {
-            Ok(l) => l,
-            Err(_) => return std::ptr::null_mut(),
-        };
-        let ptr = std::alloc::alloc(layout) as *mut f32;
-        if ptr.is_null() {
+        let base = std::alloc::alloc(full_layout);
+        if base.is_null() {
             return std::ptr::null_mut();
         }
-        std::ptr::copy_nonoverlapping(flat.as_ptr(), ptr, flat.len());
-        ptr
+        // Write the element count into the prefix
+        (base as *mut u64).write(element_count as u64);
+        // Write the f32 data after the prefix
+        let data_ptr = base.add(data_offset) as *mut f32;
+        std::ptr::copy_nonoverlapping(flat.as_ptr(), data_ptr, element_count);
+        data_ptr
     }
 }
 
-/// Free tiles returned by wave_cache_query_tiles
-/// `element_count` must be the EXACT number of f32 elements allocated (tile_count * 2)
+/// Free tiles returned by wave_cache_query_tiles.
+/// The `element_count` parameter is ignored — the allocation size is read from
+/// the u64 prefix that wave_cache_query_tiles stores before the data pointer.
 #[unsafe(no_mangle)]
-pub extern "C" fn wave_cache_free_tiles(ptr: *mut f32, element_count: u32) {
-    if ptr.is_null() || element_count == 0 {
+pub extern "C" fn wave_cache_free_tiles(ptr: *mut f32, _element_count: u32) {
+    if ptr.is_null() {
         return;
     }
-    if let Ok(layout) = std::alloc::Layout::array::<f32>(element_count as usize) {
-        unsafe {
-            std::alloc::dealloc(ptr as *mut u8, layout);
-        }
+
+    unsafe {
+        // Recover the prefix layout to find the base pointer and full layout
+        let prefix_layout = std::alloc::Layout::new::<u64>();
+        let (_, data_offset) = match prefix_layout.extend(std::alloc::Layout::new::<f32>()) {
+            Ok(pair) => pair,
+            Err(_) => return,
+        };
+        // The base allocation starts data_offset bytes before the f32 pointer.
+        // (data_offset == align_of::<u64>() == 8 on all supported targets)
+        let base = (ptr as *mut u8).sub(data_offset);
+
+        // Read the element count that was written by wave_cache_query_tiles
+        let element_count = (base as *const u64).read() as usize;
+
+        // Reconstruct the exact layout used during allocation
+        let data_layout = match std::alloc::Layout::array::<f32>(element_count) {
+            Ok(l) => l,
+            Err(_) => return,
+        };
+        let (full_layout, _) = match prefix_layout.extend(data_layout) {
+            Ok(pair) => pair,
+            Err(_) => return,
+        };
+
+        std::alloc::dealloc(base, full_layout);
     }
 }
 
