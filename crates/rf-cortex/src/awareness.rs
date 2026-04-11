@@ -11,6 +11,15 @@ use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
+/// Whether the cortex is in an idle state (no active app connected).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CortexActivityState {
+    /// App is running, signals flowing — full health evaluation applies.
+    Active,
+    /// No app connected, daemon-only mode — low scores are expected, not alarming.
+    Idle,
+}
+
 /// A snapshot of the cortex's self-awareness at a point in time.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AwarenessSnapshot {
@@ -32,6 +41,8 @@ pub struct AwarenessSnapshot {
     pub health_score: f64,
     /// Individual dimension scores.
     pub dimensions: AwarenessDimensions,
+    /// Whether system was idle when this snapshot was taken.
+    pub activity_state: CortexActivityState,
 }
 
 /// The eight dimensions of CORTEX self-awareness.
@@ -59,23 +70,51 @@ pub struct AwarenessDimensions {
 
 impl AwarenessDimensions {
     /// Calculate overall health as weighted average of dimensions.
+    /// When `active`, all dimensions contribute normally.
+    /// When `idle`, dimensions that require app connectivity are excluded
+    /// from the score — only code_health, reliability, and efficiency matter.
     pub fn overall(&self) -> f64 {
-        let weights = [
-            (self.throughput, 0.16),
-            (self.reliability, 0.20),
-            (self.responsiveness, 0.12),
-            (self.coverage, 0.07),
-            (self.cognition, 0.08),
-            (self.efficiency, 0.07),
-            (self.coherence, 0.07),
-            (self.code_health, 0.13),
-            (self.vision, 0.10), // Vision health — the organism's eyes
-        ];
-        let (weighted_sum, weight_total) =
-            weights.iter().fold((0.0, 0.0), |(sum, total), (val, w)| {
-                (sum + val * w, total + w)
-            });
-        weighted_sum / weight_total
+        self.overall_for_state(CortexActivityState::Active)
+    }
+
+    /// Calculate overall health adjusted for the current activity state.
+    pub fn overall_for_state(&self, state: CortexActivityState) -> f64 {
+        match state {
+            CortexActivityState::Active => {
+                let weights = [
+                    (self.throughput, 0.16),
+                    (self.reliability, 0.20),
+                    (self.responsiveness, 0.12),
+                    (self.coverage, 0.07),
+                    (self.cognition, 0.08),
+                    (self.efficiency, 0.07),
+                    (self.coherence, 0.07),
+                    (self.code_health, 0.13),
+                    (self.vision, 0.10),
+                ];
+                let (weighted_sum, weight_total) =
+                    weights.iter().fold((0.0, 0.0), |(sum, total), (val, w)| {
+                        (sum + val * w, total + w)
+                    });
+                weighted_sum / weight_total
+            }
+            CortexActivityState::Idle => {
+                // When idle: only evaluate dimensions that make sense without an app.
+                // Throughput, vision, coverage, coherence are N/A — don't penalize.
+                // Code health, reliability, efficiency still matter (daemon health).
+                let weights = [
+                    (self.reliability, 0.30),
+                    (self.code_health, 0.35),
+                    (self.efficiency, 0.20),
+                    (self.cognition, 0.15),
+                ];
+                let (weighted_sum, weight_total) =
+                    weights.iter().fold((0.0, 0.0), |(sum, total), (val, w)| {
+                        (sum + val * w, total + w)
+                    });
+                weighted_sum / weight_total
+            }
+        }
     }
 }
 
@@ -105,6 +144,10 @@ pub struct AwarenessEngine {
     vision_anomaly_count: u32,
     /// Count of frozen regions reported by Flutter.
     vision_frozen_count: u32,
+    /// Last time we saw real activity (signals > 0 or subscribers > 0).
+    last_activity: Option<Instant>,
+    /// How long without activity before we consider the system idle.
+    idle_threshold: Duration,
 }
 
 impl AwarenessEngine {
@@ -121,6 +164,8 @@ impl AwarenessEngine {
             vision_last_capture: None,
             vision_anomaly_count: 0,
             vision_frozen_count: 0,
+            last_activity: None,
+            idle_threshold: Duration::from_secs(30), // 30s without signals → idle
         }
     }
 
@@ -134,6 +179,34 @@ impl AwarenessEngine {
         self.vision_last_capture = Some(Instant::now());
         self.vision_anomaly_count = anomaly_count;
         self.vision_frozen_count = frozen_count;
+    }
+
+    /// Detect current activity state based on signal flow and subscribers.
+    fn detect_activity_state(&mut self, bus_stats: &BusStats, signals_per_second: f64) -> CortexActivityState {
+        let now = Instant::now();
+        let has_activity = signals_per_second > 0.1
+            || bus_stats.subscriber_count > 0
+            || bus_stats.origin_counts.len() > 0;
+
+        if has_activity {
+            self.last_activity = Some(now);
+            CortexActivityState::Active
+        } else {
+            match self.last_activity {
+                Some(last) if now.duration_since(last) < self.idle_threshold => {
+                    CortexActivityState::Active // grace period
+                }
+                _ => CortexActivityState::Idle,
+            }
+        }
+    }
+
+    /// Get the current activity state without mutating.
+    pub fn activity_state(&self) -> CortexActivityState {
+        match self.last_activity {
+            Some(last) if last.elapsed() < self.idle_threshold => CortexActivityState::Active,
+            Some(_) | None => CortexActivityState::Idle,
+        }
     }
 
     /// Take a snapshot of the cortex's current awareness state.
@@ -164,6 +237,9 @@ impl AwarenessEngine {
             (0.0, 0.0)
         };
 
+        // Detect idle vs active state
+        let activity_state = self.detect_activity_state(bus_stats, signals_per_second);
+
         // Count current reflex fires
         let total_reflex_fires: u64 = reflex_stats.iter().map(|r| r.fire_count).sum();
         let new_reflex_fires = total_reflex_fires.saturating_sub(self.prev_reflex_fires);
@@ -189,6 +265,9 @@ impl AwarenessEngine {
             ),
         };
 
+        // Use idle-aware scoring: when idle, don't penalize missing signals/vision
+        let health_score = dimensions.overall_for_state(activity_state);
+
         let snapshot = AwarenessSnapshot {
             uptime_secs: uptime.as_secs_f64(),
             signals_per_second,
@@ -197,8 +276,9 @@ impl AwarenessEngine {
             reflex_fires: new_reflex_fires,
             patterns_recognized: new_patterns,
             subscriber_count: bus_stats.subscriber_count,
-            health_score: dimensions.overall(),
+            health_score,
             dimensions,
+            activity_state,
         };
 
         // Update history
@@ -235,8 +315,11 @@ impl AwarenessEngine {
     }
 
     /// Is the cortex degraded (health below threshold)?
+    /// When idle, the system is NEVER considered degraded — low scores are expected.
     pub fn is_degraded(&self) -> bool {
-        self.latest().is_some_and(|s| s.health_score < 0.6)
+        self.latest().is_some_and(|s| {
+            s.activity_state == CortexActivityState::Active && s.health_score < 0.6
+        })
     }
 
     /// Uptime since boot.
@@ -361,6 +444,12 @@ impl AwarenessEngine {
 impl Default for AwarenessEngine {
     fn default() -> Self {
         Self::new(8) // expect 8 subsystems by default
+    }
+}
+
+impl Default for CortexActivityState {
+    fn default() -> Self {
+        Self::Idle
     }
 }
 

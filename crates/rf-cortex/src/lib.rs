@@ -72,7 +72,7 @@ pub mod prelude {
     pub use crate::autonomic::{
         AutonomicCommand, CommandAction, CommandChannel, CommandPriority, CommandReceiver,
     };
-    pub use crate::awareness::{AwarenessDimensions, AwarenessEngine, AwarenessSnapshot};
+    pub use crate::awareness::{AwarenessDimensions, AwarenessEngine, AwarenessSnapshot, CortexActivityState};
     pub use crate::bus::{BusStats, NeuralBus, SignalFilter, Synapse};
     pub use crate::cortex::{Cortex, CortexConfig};
     pub use crate::executor::{
