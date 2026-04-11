@@ -549,9 +549,9 @@ class PluginProvider extends ChangeNotifier {
     final instance = _instances[instanceId];
     if (instance == null) return false;
 
-    // Close editor if open
+    // Close editor if open — BUG#30 FIX: await async closeEditor before deactivating
     if (instance.isEditorOpen) {
-      closeEditor(instanceId);
+      await closeEditor(instanceId);
     }
 
     // Deactivate first

@@ -117,7 +117,8 @@ struct Lv2UridUnmap {
 unsafe extern "C" fn urid_map_callback(_handle: *mut c_void, uri: *const c_char) -> u32 {
     if uri.is_null() { return 0; }
     let uri_str = unsafe { CStr::from_ptr(uri) }.to_string_lossy().to_string();
-    let mut map = URID_MAP.lock().expect("URID map mutex poisoned");
+    // BUG#32 FIX: recover from mutex poison instead of crashing the host
+    let mut map = URID_MAP.lock().unwrap_or_else(|e| e.into_inner());
     if let Some(&id) = map.uri_to_id.get(&uri_str) {
         return id;
     }
@@ -131,7 +132,8 @@ unsafe extern "C" fn urid_map_callback(_handle: *mut c_void, uri: *const c_char)
 /// URID unmap callback — called by plugins to get URI from integer
 unsafe extern "C" fn urid_unmap_callback(_handle: *mut c_void, urid: u32) -> *const c_char {
     if urid == 0 { return std::ptr::null(); }
-    let map = URID_MAP.lock().expect("URID map mutex poisoned");
+    // BUG#32 FIX: recover from mutex poison instead of crashing the host
+    let map = URID_MAP.lock().unwrap_or_else(|e| e.into_inner());
     let idx = (urid - 1) as usize;
     if idx < map.id_to_uri.len() {
         // Return pointer to CString in a thread-local (stable for duration of plugin call)
@@ -698,8 +700,12 @@ pub struct Lv2PluginInstance {
     audio_outputs: Vec<Vec<f32>>,
     /// Is activated
     activated: bool,
-    /// Sample rate
+    /// Sample rate at which plugin was instantiated (BUG#33: track for reinit)
+    instantiated_sample_rate: f64,
+    /// Current device sample rate
     sample_rate: f64,
+    /// Bundle path CString for reinstantiation (BUG#33)
+    _bundle_path_cstr: std::ffi::CString,
     /// Pre-allocated Atom buffers for MIDI ports
     atom_input: Option<AtomBuffer>,
     atom_output: Option<AtomBuffer>,
@@ -865,7 +871,9 @@ impl Lv2PluginInstance {
             audio_inputs: vec![vec![0.0f32; 4096]; 2],
             audio_outputs: vec![vec![0.0f32; 4096]; 2],
             activated: false,
+            instantiated_sample_rate: 48000.0,
             sample_rate: 48000.0,
+            _bundle_path_cstr: bundle_path_cstr,  // BUG#33: kept for potential reinstantiation
             _urid_map: urid_map,
             _urid_unmap: urid_unmap,
             _feature_uris: feature_uris,
@@ -974,16 +982,56 @@ impl PluginInstance for Lv2PluginInstance {
     }
 
     fn initialize(&mut self, context: &ProcessContext) -> PluginResult<()> {
-        // NOTE: LV2 sample rate is set at instantiate() time (in load()).
-        // If device sample rate differs from 48000, plugin should be re-instantiated.
-        // For now, store the actual rate for reference. Full fix requires lazy instantiation.
         self.sample_rate = context.sample_rate;
-        if (self.sample_rate - 48000.0).abs() > 1.0 {
-            log::warn!(
-                "LV2 plugin instantiated at 48000 Hz but device is {} Hz. Audio may be incorrect.",
-                self.sample_rate
+
+        // BUG#33 FIX: Reinstantiate at correct sample rate if mismatch
+        if (self.instantiated_sample_rate - context.sample_rate).abs() > 1.0 {
+            log::info!(
+                "LV2: reinstantiating at {} Hz (was {} Hz)",
+                context.sample_rate,
+                self.instantiated_sample_rate
             );
+
+            // Cleanup old handle
+            let desc = unsafe { &*self.descriptor };
+            if let Some(cleanup) = desc.cleanup {
+                unsafe { cleanup(self.handle) };
+            }
+            self.handle = std::ptr::null_mut();
+
+            // Rebuild features list with stable pointers (still in self._feature_structs)
+            let mut features: Vec<*const Lv2Feature> = self._feature_structs
+                .iter()
+                .map(|f| f.as_ref() as *const Lv2Feature)
+                .collect();
+            features.push(std::ptr::null());
+
+            // Reinstantiate at correct sample rate
+            let new_handle = if let Some(instantiate) = desc.instantiate {
+                unsafe {
+                    instantiate(
+                        self.descriptor,
+                        context.sample_rate,
+                        self._bundle_path_cstr.as_ptr(),
+                        features.as_ptr(),
+                    )
+                }
+            } else {
+                return Err(PluginError::ProcessingError(
+                    "LV2 reinstantiation failed: no instantiate callback".into()
+                ));
+            };
+
+            if new_handle.is_null() {
+                return Err(PluginError::ProcessingError(format!(
+                    "LV2 reinstantiation at {} Hz returned null", context.sample_rate
+                )));
+            }
+
+            self.handle = new_handle;
+            self.instantiated_sample_rate = context.sample_rate;
         }
+
         Ok(())
     }
 
