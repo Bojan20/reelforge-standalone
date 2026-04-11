@@ -290,6 +290,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
 
   // D3 — Tempo Sync
   double _bpm = 120.0;
+  double _defaultBpm = 120.0; // BUG#23: loaded preset BPM as knob reset target
   int _noteValueL = 9; // 1/4
   int _noteValueR = 9;
   double _swing = 0.0;
@@ -429,6 +430,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
       _modRouting = _ffi.insertGetParam(t, s, _P.modRouting).round();
       // D3
       _bpm = _ffi.insertGetParam(t, s, _P.bpm);
+      _defaultBpm = _bpm; // BUG#23: capture loaded preset BPM as knob reset target
       _noteValueL = _ffi.insertGetParam(t, s, _P.noteValueL).round();
       _noteValueR = _ffi.insertGetParam(t, s, _P.noteValueR).round();
       _swing = _ffi.insertGetParam(t, s, _P.swing);
@@ -1296,7 +1298,8 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
                 display: _bpm.toStringAsFixed(1),
                 color: FabFilterColors.cyan,
                 size: 36,
-                defaultValue: (120.0 - 20.0) / 280.0,
+                // BUG#23 FIX: use loaded preset BPM as default, not hardcoded 120
+                defaultValue: (_defaultBpm - 20.0) / 280.0,
                 onChanged: (v) {
                   setState(() => _bpm = 20.0 + v * 280.0);
                   _setParam(_P.bpm, _bpm);
