@@ -2620,6 +2620,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       }
     }
 
+    // CRITICAL: If native import succeeded, ensure waveform is non-null so
+    // _UltimateClipWaveform widget is always created and can query native cache.
+    if (waveform == null && clipInfo != null) {
+      waveform = Float32List(0); // sentinel: non-null, widget uses native WAVEFORM_CACHE
+    }
+
     if (!mounted) return;
 
     setState(() {
@@ -2744,6 +2750,14 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         waveform = left;
         waveformRight = right;
       }
+    }
+
+    // CRITICAL: If native import succeeded, ALWAYS create waveform widget by
+    // ensuring waveform is non-null. _UltimateClipWaveform queries native
+    // WAVEFORM_CACHE directly and doesn't depend on this legacy peaks array.
+    // Without this, clip.waveform == null → widget never created → no waveform shown.
+    if (waveform == null && clipInfo != null) {
+      waveform = Float32List(0); // sentinel: non-null, widget will use native cache
     }
 
     if (!mounted) return;

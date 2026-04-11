@@ -763,6 +763,10 @@ class EngineApi {
           final duration = _ffi.getClipDuration(clipId);
           final sourceDuration = _ffi.getClipSourceDuration(clipId);
 
+          // Get actual sample rate and channel count from engine (not hardcoded)
+          final actualSampleRate = _ffi.getClipSampleRate(clipId);
+          final actualChannels = _ffi.getTrackChannels(nativeTrackId);
+
           return ImportedClipInfo(
             clipId: clipId.toString(),
             trackId: trackId,
@@ -770,8 +774,8 @@ class EngineApi {
             startTime: startTime,
             duration: duration > 0 ? duration : 5.0,
             sourceDuration: sourceDuration > 0 ? sourceDuration : duration > 0 ? duration : 5.0,
-            sampleRate: 48000,
-            channels: 2,
+            sampleRate: actualSampleRate > 0 ? actualSampleRate : 48000,
+            channels: actualChannels > 0 ? actualChannels : 2,
           );
         }
       }

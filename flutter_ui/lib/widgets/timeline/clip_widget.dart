@@ -1593,6 +1593,7 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
   @override
   void initState() {
     super.initState();
+    // initState: can't call setState, but first build() will read _cachedStereoData directly
     _loadCacheOnce();
   }
 
@@ -1600,10 +1601,9 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     // Check if waveform generation changed (mode switch from SlotLab back to DAW)
-    // This triggers reload even if widget props didn't change
     final currentGeneration = context.read<EditorModeProvider>().waveformGeneration;
     if (_cachedWaveformGeneration != currentGeneration && _cachedWaveformGeneration != -1) {
-      _loadCacheOnce();
+      if (_loadCacheOnce() && mounted) setState(() {});
     }
   }
 
@@ -1614,25 +1614,26 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
     final offsetChanged = (widget.sourceOffset - oldWidget.sourceOffset).abs() > 0.01;
     final durationChanged = (widget.duration - oldWidget.duration).abs() > 0.01;
 
-    // Reload on clip content change
+    // Reload on clip content change — setState ensures repaint with new data
     if (clipChanged || offsetChanged || durationChanged) {
-      _loadCacheOnce();
+      if (_loadCacheOnce() && mounted) setState(() {});
       return;
     }
 
-    // Reload when screen pixel count changes significantly (>20% diff)
+    // Reload when screen pixel count changes significantly (>20% diff = zoom changed)
     final screenPixels = (widget.zoom * widget.duration).round().clamp(64, 16384);
     if (_cachedPixelCount > 0) {
       final ratio = screenPixels / _cachedPixelCount;
       if (ratio > 1.2 || ratio < 0.8) {
-        _loadCacheOnce();
+        if (_loadCacheOnce() && mounted) setState(() {});
       }
     }
   }
 
-  void _loadCacheOnce() {
+  /// Returns true if cache was actually updated (triggers setState in callers)
+  bool _loadCacheOnce() {
     final clipIdNum = int.tryParse(widget.clipId.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-    if (clipIdNum <= 0 || widget.duration <= 0) return;
+    if (clipIdNum <= 0 || widget.duration <= 0) return false;
 
     // Pixel-perfect: query exactly as many data points as screen pixels
     final screenPixels = (widget.zoom * widget.duration).round().clamp(64, 16384);
@@ -1649,7 +1650,7 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
       // Only skip if pixel count hasn't changed significantly
       if (_cachedPixelCount > 0) {
         final ratio = screenPixels / _cachedPixelCount;
-        if (ratio <= 1.2 && ratio >= 0.8) return;
+        if (ratio <= 1.2 && ratio >= 0.8) return false;
       }
     }
 
@@ -1657,7 +1658,7 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
 
     final sampleRate = NativeFFI.instance.getWaveformSampleRate(clipIdNum);
     final totalSamples = NativeFFI.instance.getWaveformTotalSamples(clipIdNum);
-    if (totalSamples <= 0) return;
+    if (totalSamples <= 0) return false;
 
     final startFrame = (widget.sourceOffset * sampleRate).round();
     final endFrame = ((widget.sourceOffset + widget.duration) * sampleRate).round();
@@ -1688,7 +1689,9 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
         _combinedMaxs![i] = math.max(stereoData.left.maxs[i], stereoData.right.maxs[i]);
         _combinedRms![i] = (stereoData.left.rms[i] + stereoData.right.rms[i]) * 0.5;
       }
+      return true; // Cache updated — caller should setState
     }
+    return false;
   }
 
   @override
