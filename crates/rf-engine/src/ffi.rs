@@ -2025,7 +2025,9 @@ pub extern "C" fn engine_get_waveform_sample_rate(clip_id: u64) -> u32 {
         return waveform.sample_rate();
     }
 
-    48000 // Default
+    // FIX BUG #12: Use engine's actual sample rate as fallback (not hardcoded 48000).
+    // Waveform display would be rendered at wrong zoom level if project is at 44100 or 96000Hz.
+    PLAYBACK_ENGINE.position.sample_rate()
 }
 
 /// Get waveform total samples for a clip

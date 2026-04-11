@@ -1006,7 +1006,7 @@ class EngineApi {
   /// Normalize clip to target dB
   bool normalizeClip(String clipId, {double targetDb = -3.0}) {
     if (!_useMock) {
-      final nativeClipId = int.tryParse(clipId);
+      final nativeClipId = _parseClipId(clipId);
       if (nativeClipId != null) {
         return _ffi.clipNormalize(nativeClipId, targetDb);
       }
@@ -1017,7 +1017,7 @@ class EngineApi {
   /// Reverse clip audio
   bool reverseClip(String clipId) {
     if (!_useMock) {
-      final nativeClipId = int.tryParse(clipId);
+      final nativeClipId = _parseClipId(clipId);
       if (nativeClipId != null) {
         return _ffi.clipReverse(nativeClipId);
       }
@@ -1067,7 +1067,7 @@ class EngineApi {
   /// Apply gain adjustment to clip
   bool applyGainToClip(String clipId, double gainDb) {
     if (!_useMock) {
-      final nativeClipId = int.tryParse(clipId);
+      final nativeClipId = _parseClipId(clipId);
       if (nativeClipId != null) {
         return _ffi.clipApplyGain(nativeClipId, gainDb);
       }

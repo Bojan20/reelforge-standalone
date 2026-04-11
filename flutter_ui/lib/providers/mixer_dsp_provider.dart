@@ -182,12 +182,14 @@ class PluginInfo {
 
 // ============ Default Buses ============
 
+// FIX BUG #11: Bus volumes per DAW_AUDIO_ROUTING.md specification.
+// All 1.0 was incorrect — each bus has a documented target level optimized for its content.
 const List<MixerBus> kDefaultBuses = [
-  MixerBus(id: 'master', name: 'Master', volume: 1.0),
-  MixerBus(id: 'music', name: 'Music', volume: 1.0),
-  MixerBus(id: 'sfx', name: 'SFX', volume: 1.0),
-  MixerBus(id: 'ambience', name: 'Ambience', volume: 1.0),
-  MixerBus(id: 'voice', name: 'Voice', volume: 1.0),
+  MixerBus(id: 'master', name: 'Master', volume: 0.85),
+  MixerBus(id: 'music', name: 'Music', volume: 0.70),
+  MixerBus(id: 'sfx', name: 'SFX', volume: 0.90),
+  MixerBus(id: 'ambience', name: 'Ambience', volume: 0.50),
+  MixerBus(id: 'voice', name: 'Voice', volume: 0.95),
 ];
 
 // ============ Available Plugins ============
