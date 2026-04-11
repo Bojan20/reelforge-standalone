@@ -5,6 +5,12 @@ use crate::error::SpatialResult;
 use crate::position::{Orientation, Position3D};
 use crate::{AudioObject, SpatialRenderer, SpeakerLayout};
 
+// BUG#65: `prev_gains` read-modify-write in render() is safe because render() takes
+// `&mut self` — Rust's borrow checker enforces that no other caller can hold a
+// reference to self simultaneously. AtmosRenderer MUST NOT be wrapped in Arc<Mutex>
+// and called from multiple threads without holding the mutex for the entire render()
+// call. See SpatialRenderer::render() signature for the single-threaded contract.
+
 /// Atmos rendering configuration
 #[derive(Debug, Clone)]
 pub struct AtmosConfig {

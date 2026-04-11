@@ -190,13 +190,28 @@ impl FrameCache {
 
 impl FrameCacheInner {
     fn evict_lru(&mut self) {
-        if let Some((&oldest_key, _)) = self
+        if let Some((&oldest_key, oldest_entry)) = self
             .frames
             .iter()
             .min_by_key(|(_, entry)| entry.last_access)
-            && let Some(entry) = self.frames.remove(&oldest_key)
         {
-            self.memory_used -= entry.frame.data.len();
+            let expected_size = oldest_entry.frame.data.len();
+            match self.frames.remove(&oldest_key) {
+                Some(entry) => {
+                    self.memory_used -= entry.frame.data.len();
+                }
+                None => {
+                    // The key was visible during iteration but missing on remove — should not
+                    // happen in practice, but guard against the memory_used underflow anyway.
+                    // BUG#67: use saturating_sub to avoid underflow; rf-video has no log dep
+                    eprintln!(
+                        "[rf-video] evict_lru: frames.remove returned None for key {}; \
+                         applying saturating_sub({} bytes) to memory_used",
+                        oldest_key, expected_size
+                    );
+                    self.memory_used = self.memory_used.saturating_sub(expected_size);
+                }
+            }
         }
     }
 }

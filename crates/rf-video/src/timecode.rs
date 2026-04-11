@@ -232,7 +232,64 @@ impl Timecode {
             TimecodeFormat::DropFrame => ';',
         };
 
-        // Handle both separators for flexibility
+        // Detect the separator used between the first two fields and validate
+        // that the string does not mix ':' and ';'.
+        // Non-drop-frame uses ':' throughout ("HH:MM:SS:FF").
+        // Drop-frame uses ':' between the first three fields and ';' before
+        // the frame count ("HH:MM:SS;FF").
+        let first_sep = s.chars().find(|&c| c == ':' || c == ';');
+        match first_sep {
+            None => {
+                return Err(VideoError::InvalidTimecode(format!(
+                    "Expected HH:MM:SS{}FF format, got: {}",
+                    separator, s
+                )));
+            }
+            Some(detected) => {
+                // For NDF every separator must be ':'.
+                // For DF the first three separators must be ':' and the last ';',
+                // but we must at minimum reject a string whose leading separator
+                // contradicts the declared format.
+                match format {
+                    TimecodeFormat::NonDropFrame => {
+                        if s.contains(';') {
+                            return Err(VideoError::InvalidTimecode(format!(
+                                "Mixed separators in non-drop-frame timecode: {}",
+                                s
+                            )));
+                        }
+                    }
+                    TimecodeFormat::DropFrame => {
+                        // The only acceptable ';' position is immediately before the
+                        // frame field (i.e. the last separator).  Reject if ':' is
+                        // used as the last separator or if ';' appears earlier.
+                        let last_sep_pos = s.rfind(|c| c == ':' || c == ';');
+                        match last_sep_pos {
+                            Some(pos) if s.as_bytes()[pos] == b';' => {
+                                // Correct drop-frame layout — still reject if ';'
+                                // also appears elsewhere (mixed interior separators).
+                                if s[..pos].contains(';') {
+                                    return Err(VideoError::InvalidTimecode(format!(
+                                        "Mixed separators in drop-frame timecode: {}",
+                                        s
+                                    )));
+                                }
+                            }
+                            _ => {
+                                return Err(VideoError::InvalidTimecode(format!(
+                                    "Drop-frame timecode must use ';' before frame count: {}",
+                                    s
+                                )));
+                            }
+                        }
+                        let _ = detected; // suppress unused-variable warning
+                    }
+                }
+            }
+        }
+
+        // Split on the canonical separator set; validation above ensures the
+        // layout is already correct.
         let parts: Vec<&str> = s.split([':', ';']).collect();
 
         if parts.len() != 4 {

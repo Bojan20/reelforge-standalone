@@ -22,6 +22,8 @@ import 'io_selector_popup.dart';
 import 'automation_mode_badge.dart';
 import 'group_id_badge.dart';
 import 'send_slot_widget.dart';
+import '../../providers/automation_provider.dart' as ap;
+import '../../services/service_locator.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -258,6 +260,7 @@ class UltimateMixer extends StatefulWidget {
   final void Function(String channelId)? onSoloSafeToggle; // Cmd+Click solo
   final void Function(String channelId)? onArmToggle;
   final void Function(String channelId, int sendIndex, double level)? onSendLevelChange;
+  final void Function(String channelId, int sendIndex, double pan)? onSendPanChange;
   final void Function(String channelId, int sendIndex, bool muted)? onSendMuteToggle;
   final void Function(String channelId, int sendIndex, bool preFader)? onSendPreFaderToggle;
   final void Function(String channelId, int sendIndex, String? destination)? onSendDestChange;
@@ -342,6 +345,7 @@ class UltimateMixer extends StatefulWidget {
     this.onSoloSafeToggle,
     this.onArmToggle,
     this.onSendLevelChange,
+    this.onSendPanChange,
     this.onSendMuteToggle,
     this.onSendPreFaderToggle,
     this.onSendDestChange,
@@ -483,6 +487,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
                           onArmToggle: () => widget.onArmToggle?.call(ch.id),
                           onSelect: () => widget.onChannelSelect?.call(ch.id),
                           onSendLevelChange: (idx, lvl) => widget.onSendLevelChange?.call(ch.id, idx, lvl),
+                          onSendPanChange: (idx, pan) => widget.onSendPanChange?.call(ch.id, idx, pan),
                           onSendMuteToggle: (idx, muted) => widget.onSendMuteToggle?.call(ch.id, idx, muted),
                           onSendPreFaderToggle: (idx, pre) => widget.onSendPreFaderToggle?.call(ch.id, idx, pre),
                           onSendDestChange: (idx, dest) => widget.onSendDestChange?.call(ch.id, idx, dest),
@@ -850,6 +855,7 @@ class _UltimateChannelStrip extends StatefulWidget {
   final VoidCallback? onArmToggle;
   final VoidCallback? onSelect;
   final void Function(int index, double level)? onSendLevelChange;
+  final void Function(int index, double pan)? onSendPanChange;
   final void Function(int index, bool muted)? onSendMuteToggle;
   final void Function(int index, bool preFader)? onSendPreFaderToggle;
   final void Function(int index, String? destination)? onSendDestChange;
@@ -888,6 +894,7 @@ class _UltimateChannelStrip extends StatefulWidget {
     this.onArmToggle,
     this.onSelect,
     this.onSendLevelChange,
+    this.onSendPanChange,
     this.onSendMuteToggle,
     this.onSendPreFaderToggle,
     this.onSendDestChange,
@@ -1174,13 +1181,27 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
     );
   }
 
-  /// Automation mode badge with popup selector
+  /// Maps the badge's AutomationMode (7-value enum including off/touchLatch)
+  /// to the provider's AutomationMode (5-value Rust-backed enum).
+  ap.AutomationMode _badgeModeToProviderMode(AutomationMode badgeMode) {
+    return switch (badgeMode) {
+      AutomationMode.off        => ap.AutomationMode.read,
+      AutomationMode.read       => ap.AutomationMode.read,
+      AutomationMode.touch      => ap.AutomationMode.touch,
+      AutomationMode.write      => ap.AutomationMode.write,
+      AutomationMode.latch      => ap.AutomationMode.latch,
+      AutomationMode.touchLatch => ap.AutomationMode.latch,
+      AutomationMode.trim       => ap.AutomationMode.trim,
+    };
+  }
+
+  /// Automation mode badge with popup selector — wired to AutomationProvider.
   Widget _buildAutomationBadge() {
     return AutomationModeBadge(
       mode: AutomationMode.fromString(widget.channel.automationMode),
       isNarrow: widget.compact,
       onModeChanged: (newMode) {
-        // UI-only state in Phase 2 — FFI wiring in Phase 4
+        sl<ap.AutomationProvider>().setMode(_badgeModeToProviderMode(newMode));
       },
     );
   }
@@ -1355,6 +1376,7 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
               isNarrow: widget.compact,
               slotLabel: idx < labels.length ? labels[idx] : '${idx + 1}',
               onLevelChanged: (lvl) => widget.onSendLevelChange?.call(idx, lvl),
+              onPanChanged: (pan) => widget.onSendPanChange?.call(idx, pan),
               onMuteToggle: () => widget.onSendMuteToggle?.call(idx, !send.muted),
               onPrePostToggle: () => widget.onSendPreFaderToggle?.call(idx, !send.preFader),
               onDestinationChanged: (dest) => widget.onSendDestChange?.call(idx, dest),

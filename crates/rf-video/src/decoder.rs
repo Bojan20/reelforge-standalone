@@ -263,7 +263,7 @@ impl VideoDecoder {
             24.0
         };
 
-        let duration_frames = (duration_secs * frame_rate) as u64;
+        let duration_frames = (duration_secs * frame_rate).round() as u64;
         let frame_rate_enum = fps_to_frame_rate(frame_rate);
 
         let has_audio = mp4.tracks().values().any(|t| {

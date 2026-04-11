@@ -137,12 +137,15 @@ class LufsNormalizationIndicator extends StatelessWidget {
     // For gain > 1, line moves up (audio will be louder)
     // For gain < 1, line moves down (audio will be quieter)
 
-    // Map linear gain to vertical position
-    // 1.0 (0dB) → 0.5 (center)
-    // 2.0 (+6dB) → 0.75 (75% of height)
-    // 0.5 (-6dB) → 0.25 (25% of height)
-
-    return 0.5 * linearGain;
+    // Map linear gain to vertical position using log2 scale so that each octave
+    // of gain change maps to the same pixel offset:
+    //   1.0 (0 dB)  → 0.5  (center)
+    //   2.0 (+6 dB) → 0.75 (75% of height)
+    //   0.5 (-6 dB) → 0.25 (25% of height)
+    // Formula: position = 0.5 + 0.25 * log2(linearGain)
+    final safeGain = linearGain > 0 ? linearGain : 1e-6;
+    final position = 0.5 + 0.25 * math.log(safeGain) / math.ln2;
+    return position.clamp(0.0, 1.0);
   }
 }
 

@@ -3,6 +3,9 @@
 //! Derives STAGES by comparing consecutive game state snapshots.
 //! Used when engine doesn't emit discrete events but does provide state dumps.
 
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+
 use serde_json::Value;
 
 use crate::adapter::AdapterError;
@@ -77,6 +80,19 @@ pub struct SnapshotDiff {
     pub to: ExtractedState,
 }
 
+/// Number of consecutive identical (empty-diff) snapshots before we emit a stuck-state warning.
+const STUCK_THRESHOLD: usize = 5;
+
+/// Hash the raw JSON of a snapshot to a `u64` fingerprint.
+/// Uses `serde_json::Value`'s `Debug` representation so we don't need a custom
+/// `Hash` impl on `Value` — stable enough for same-process duplicate detection.
+fn snapshot_hash(snapshot: &GameSnapshot) -> u64 {
+    let mut h = DefaultHasher::new();
+    // Hash the canonical string representation of the JSON value.
+    snapshot.raw.to_string().hash(&mut h);
+    h.finish()
+}
+
 /// Parse snapshots using config
 pub fn parse_snapshots(
     snapshots: &[Value],
@@ -89,17 +105,51 @@ pub fn parse_snapshots(
     let mut events = Vec::new();
     let mut previous: Option<GameSnapshot> = None;
 
+    // BUG#64: track consecutive empty diffs to detect a stuck / corrupted snapshot stream.
+    // `last_applied_hash` holds the hash of the most recently processed snapshot.
+    // `consecutive_empty_diffs` is reset to 0 whenever a diff produces at least one stage.
+    let mut last_applied_hash: Option<u64> = None;
+    let mut consecutive_empty_diffs: usize = 0;
+
     for (i, snapshot_json) in snapshots.iter().enumerate() {
         let snapshot = extract_snapshot(snapshot_json, config, i as f64 * 100.0)?;
 
         if let Some(prev) = previous {
             let diff = compute_diff(&prev, &snapshot)?;
-            events.extend(diff.stages);
+
+            if diff.stages.is_empty() {
+                // Check whether the raw content is genuinely identical to the last
+                // successfully applied snapshot, which is the tell-tale sign of a
+                // stuck / corrupted feed rather than a legitimate quiet period.
+                let curr_hash = snapshot_hash(&snapshot);
+                if last_applied_hash == Some(curr_hash) {
+                    consecutive_empty_diffs += 1;
+
+                    if consecutive_empty_diffs >= STUCK_THRESHOLD {
+                        eprintln!(
+                            "[rf-ingest] snapshot appears stuck — possible corruption \
+                             (hash={curr_hash:#018x}, {consecutive_empty_diffs} consecutive \
+                             identical snapshots at index {i})"
+                        );
+                    }
+                } else {
+                    // Different content but still no detectable stage transitions —
+                    // not a stuck state, just a quiet update.
+                    consecutive_empty_diffs = 0;
+                    last_applied_hash = Some(curr_hash);
+                }
+            } else {
+                // Diff produced stages — reset stuck counter and update the hash.
+                consecutive_empty_diffs = 0;
+                last_applied_hash = Some(snapshot_hash(&snapshot));
+                events.extend(diff.stages);
+            }
         } else {
             // First snapshot - check if we're already in a state
             if snapshot.state.is_spinning {
                 events.push(StageEvent::new(Stage::UiSpinPress, snapshot.timestamp_ms));
             }
+            last_applied_hash = Some(snapshot_hash(&snapshot));
         }
 
         previous = Some(snapshot);
@@ -339,6 +389,62 @@ mod tests {
         let diff = compute_diff(&prev, &curr).unwrap();
         assert_eq!(diff.stages.len(), 1);
         assert!(matches!(diff.stages[0].stage, Stage::UiSpinPress));
+    }
+
+    #[test]
+    fn test_stuck_state_detection_no_panic() {
+        // Build a config with no paths so every snapshot extracts to the same empty state.
+        use crate::config::{AdapterConfig, SnapshotPaths};
+
+        let config = AdapterConfig {
+            snapshot_paths: SnapshotPaths {
+                balance_path: None,
+                win_path: None,
+                reels_path: None,
+                feature_active_path: None,
+            },
+            ..Default::default()
+        };
+
+        // Repeat the same JSON snapshot STUCK_THRESHOLD + 2 times to exercise the warning path.
+        let identical = serde_json::json!({"state": "frozen", "balance": 100});
+        let snapshots: Vec<serde_json::Value> = std::iter::repeat(identical)
+            .take(STUCK_THRESHOLD + 2)
+            .collect();
+
+        // Should not panic or return an error — warning is emitted to stderr.
+        let result = parse_snapshots(&snapshots, &config);
+        assert!(result.is_ok(), "parse_snapshots must not error on stuck stream");
+    }
+
+    #[test]
+    fn test_stuck_counter_resets_on_change() {
+        use crate::config::{AdapterConfig, SnapshotPaths};
+
+        let config = AdapterConfig {
+            snapshot_paths: SnapshotPaths {
+                balance_path: Some("balance".to_string()),
+                win_path: None,
+                reels_path: None,
+                feature_active_path: None,
+            },
+            ..Default::default()
+        };
+
+        // 4 identical snapshots (just below threshold) then one that triggers a spin start.
+        let frozen = serde_json::json!({"balance": 100.0});
+        let deducted = serde_json::json!({"balance": 90.0});
+
+        let mut snapshots: Vec<serde_json::Value> =
+            std::iter::repeat(frozen).take(4).collect();
+        snapshots.push(deducted);
+
+        let result = parse_snapshots(&snapshots, &config).unwrap();
+        // The balance drop from 100→90 should produce a UiSpinPress.
+        assert!(
+            result.iter().any(|e| matches!(e.stage, Stage::UiSpinPress)),
+            "expected UiSpinPress after balance drop"
+        );
     }
 
     #[test]

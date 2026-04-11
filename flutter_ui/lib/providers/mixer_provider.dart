@@ -1202,6 +1202,7 @@ class MixerProvider extends ChangeNotifier {
   }
 
   /// Detect routing loop: would routing [sourceBusId] → [targetBusId] create a cycle?
+  /// Used for bus-to-bus output routing (setBusOutput).
   bool _detectRoutingLoop(String sourceBusId, String targetBusId) {
     // 'master' is always a terminal — no loop possible
     if (targetBusId == 'master') return false;
@@ -1219,6 +1220,70 @@ class MixerProvider extends ChangeNotifier {
       if (next == 'master') return false; // Terminal
       current = next;
     }
+  }
+
+  /// DFS-based cycle detection across the full routing graph.
+  ///
+  /// Builds an adjacency list from ALL current edges:
+  ///   - channel.outputBus (channel → bus)
+  ///   - channel.sends[].auxId (channel → aux)
+  ///   - bus.outputBus (bus → bus / master)
+  ///   - aux.outputBus (aux → bus / master)
+  ///   - aux.sends[].auxId (aux → aux, if any)
+  /// Then adds the proposed edge [fromId] → [toId] and checks whether
+  /// [fromId] is reachable from [toId] (i.e., whether the new edge
+  /// closes a cycle).
+  ///
+  /// Returns true when the proposed connection WOULD create a cycle.
+  bool _wouldCreateCycle(String fromId, String toId) {
+    // Routing to master is always safe — it is the global sink.
+    if (toId == 'master') return false;
+    // Self-loop is always a cycle.
+    if (fromId == toId) return true;
+
+    // Build adjacency list from current state (excluding the proposed edge).
+    final Map<String, List<String>> adj = {};
+
+    void addEdge(String src, String dst) {
+      if (dst == 'master') return; // master is a sink, no outgoing edges
+      adj.putIfAbsent(src, () => []).add(dst);
+    }
+
+    for (final ch in _channels.values) {
+      if (ch.outputBus != null) addEdge(ch.id, ch.outputBus!);
+      for (final s in ch.sends) {
+        addEdge(ch.id, s.auxId);
+      }
+    }
+    for (final bus in _buses.values) {
+      if (bus.outputBus != null) addEdge(bus.id, bus.outputBus!);
+      for (final s in bus.sends) {
+        addEdge(bus.id, s.auxId);
+      }
+    }
+    for (final aux in _auxes.values) {
+      if (aux.outputBus != null) addEdge(aux.id, aux.outputBus!);
+      for (final s in aux.sends) {
+        addEdge(aux.id, s.auxId);
+      }
+    }
+
+    // Add the proposed edge.
+    addEdge(fromId, toId);
+
+    // DFS from [toId] — if we can reach [fromId], adding this edge creates a cycle.
+    final visited = <String>{};
+    final stack = <String>[toId];
+
+    while (stack.isNotEmpty) {
+      final node = stack.removeLast();
+      if (node == fromId) return true; // Cycle confirmed
+      if (!visited.add(node)) continue; // Already explored
+      final neighbours = adj[node];
+      if (neighbours != null) stack.addAll(neighbours);
+    }
+
+    return false;
   }
 
   /// Re-sync all buses that cascade through [parentBusId].
@@ -2283,6 +2348,9 @@ class MixerProvider extends ChangeNotifier {
     final channel = _channels[channelId];
     if (channel == null) return;
 
+    // BUG#37: Reject routing changes that would create a feedback cycle (A→B→A).
+    if (_wouldCreateCycle(channelId, busId)) return;
+
     final oldBusId = channel.outputBus ?? 'master';
     _channels[channelId] = channel.copyWith(outputBus: busId);
 
@@ -2615,6 +2683,9 @@ class MixerProvider extends ChangeNotifier {
   void setAuxSendLevel(String channelId, String auxId, double level) {
     final channel = _channels[channelId];
     if (channel == null) return;
+
+    // BUG#37: Reject routing changes that would create a feedback cycle (A→B→A).
+    if (_wouldCreateCycle(channelId, auxId)) return;
 
     final sends = List<AuxSend>.from(channel.sends);
     final existingIndex = sends.indexWhere((s) => s.auxId == auxId);

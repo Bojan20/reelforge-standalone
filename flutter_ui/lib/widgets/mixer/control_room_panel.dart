@@ -37,12 +37,15 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
       if (!mounted) return;
       // Refresh metering at 30 Hz - with safety check for provider
       _refreshTimer = Timer.periodic(const Duration(milliseconds: 33), (_) {
-        if (mounted) {
-          try {
-            context.read<ControlRoomProvider>().updateMetering();
-          } catch (e) {
-            assert(() { debugPrint('ControlRoom metering error: $e'); return true; }());
-          }
+        if (!mounted) {
+          // Widget was disposed after the timer started — cancel to stop future firings.
+          _refreshTimer?.cancel();
+          return;
+        }
+        try {
+          context.read<ControlRoomProvider>().updateMetering();
+        } catch (e) {
+          assert(() { debugPrint('ControlRoom metering error: $e'); return true; }());
         }
       });
     });

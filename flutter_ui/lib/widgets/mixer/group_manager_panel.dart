@@ -178,7 +178,43 @@ class _GroupManagerPanelState extends State<GroupManagerPanel> {
     return DragTarget<MixerChannel>(
       onAcceptWithDetails: (details) {
         final channel = details.data;
-        if (channel.groupId != group.id) {
+        if (channel.groupId != null && channel.groupId != group.id) {
+          // Channel is already in a different group — confirm before moving
+          final currentGroup = mixer.groups.where((g) => g.id == channel.groupId).firstOrNull;
+          final currentGroupName = currentGroup?.name ?? channel.groupId!;
+          showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              backgroundColor: const Color(0xFF1A1A20),
+              title: const Text(
+                'Move Channel',
+                style: TextStyle(color: Colors.white, fontSize: 16),
+              ),
+              content: Text(
+                '"${channel.name}" is already in group "$currentGroupName". '
+                'This will remove it from "$currentGroupName" and add it to "${group.name}". Continue?',
+                style: const TextStyle(color: Colors.white70),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: Text('Cancel', style: TextStyle(color: Colors.grey[500])),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4A9EFF),
+                  ),
+                  child: const Text('Move'),
+                ),
+              ],
+            ),
+          ).then((confirmed) {
+            if (confirmed == true) {
+              mixer.addChannelToGroup(channel.id, group.id);
+            }
+          });
+        } else if (channel.groupId != group.id) {
           mixer.addChannelToGroup(channel.id, group.id);
         }
       },
