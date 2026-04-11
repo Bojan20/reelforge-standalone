@@ -721,8 +721,13 @@ impl ClapPluginInstance {
             try_push: Some(discard_output_try_push),
         });
 
-        // Query extensions via get_extension
+        // BUG#54: query_ext returns null when a plugin doesn't implement an extension.
+        // This is normal for optional extensions (latency, gui, state) but params is
+        // effectively mandatory for any useful CLAP instrument/effect — log a warning if missing.
         let params_ext = unsafe { Self::query_ext(plugin_ptr, CLAP_EXT_PARAMS) as *const ClapPluginParams };
+        if params_ext.is_null() {
+            log::debug!("[CLAP] plugin '{}' did not return clap.params extension — parameter control unavailable", info.name);
+        }
         let state_ext = unsafe { Self::query_ext(plugin_ptr, CLAP_EXT_STATE) as *const ClapPluginState };
         let latency_ext = unsafe { Self::query_ext(plugin_ptr, CLAP_EXT_LATENCY) as *const ClapPluginLatency };
         let gui_ext = unsafe { Self::query_ext(plugin_ptr, CLAP_EXT_GUI) as *const ClapPluginGui };

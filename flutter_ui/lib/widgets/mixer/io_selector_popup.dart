@@ -47,7 +47,7 @@ enum IoRouteType {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Compact I/O selector for mixer strip — shows current route, opens popup on click.
-class IoSelectorPopup extends StatelessWidget {
+class IoSelectorPopup extends StatefulWidget {
   final String label; // "IN" or "OUT"
   final String currentRoute; // Current route display name
   final List<IoRoute> availableRoutes;
@@ -66,15 +66,35 @@ class IoSelectorPopup extends StatelessWidget {
   });
 
   @override
+  State<IoSelectorPopup> createState() => _IoSelectorPopupState();
+}
+
+class _IoSelectorPopupState extends State<IoSelectorPopup> {
+  /// Re-validates availability at selection time and shows a warning if the
+  /// route is no longer available (e.g. hardware was disconnected after the
+  /// menu was built). Fixes BUG#71.
+  void _onRouteSelected(IoRoute route) {
+    if (!route.isAvailable) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This audio route is currently unavailable.'),
+        ),
+      );
+      return;
+    }
+    widget.onRouteChanged?.call(route);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final accent = accentColor ?? FluxForgeTheme.accent;
+    final accent = widget.accentColor ?? FluxForgeTheme.accent;
 
     return SizedBox(
       height: 18,
       child: PopupMenuButton<IoRoute>(
         padding: EdgeInsets.zero,
-        tooltip: '$label: $currentRoute',
-        onSelected: onRouteChanged,
+        tooltip: '${widget.label}: ${widget.currentRoute}',
+        onSelected: _onRouteSelected,
         constraints: const BoxConstraints(
           minWidth: 140,
           maxWidth: 280,
@@ -100,7 +120,7 @@ class IoSelectorPopup extends StatelessWidget {
             children: [
               // Label
               Text(
-                label,
+                widget.label,
                 style: TextStyle(
                   color: accent.withValues(alpha: 0.6),
                   fontSize: 8,
@@ -112,7 +132,7 @@ class IoSelectorPopup extends StatelessWidget {
               // Route name
               Expanded(
                 child: Text(
-                  isNarrow ? _abbreviate(currentRoute) : currentRoute,
+                  widget.isNarrow ? _abbreviate(widget.currentRoute) : widget.currentRoute,
                   style: const TextStyle(
                     color: Color(0xFFCCCCDD),
                     fontSize: 9,
@@ -150,7 +170,7 @@ class IoSelectorPopup extends StatelessWidget {
 
     // Group routes by type
     final grouped = <IoRouteType, List<IoRoute>>{};
-    for (final route in availableRoutes) {
+    for (final route in widget.availableRoutes) {
       grouped.putIfAbsent(route.type, () => []).add(route);
     }
 
@@ -163,11 +183,11 @@ class IoSelectorPopup extends StatelessWidget {
     }
 
     // Hardware
-    final hardware = label == 'IN'
+    final hardware = widget.label == 'IN'
         ? grouped[IoRouteType.hardwareInput]
         : grouped[IoRouteType.hardwareOutput];
     if (hardware != null && hardware.isNotEmpty) {
-      items.add(_buildHeader(label == 'IN' ? 'Hardware Inputs' : 'Hardware Outputs'));
+      items.add(_buildHeader(widget.label == 'IN' ? 'Hardware Inputs' : 'Hardware Outputs'));
       for (final route in hardware) {
         items.add(_buildRouteItem(route));
       }
@@ -217,7 +237,7 @@ class IoSelectorPopup extends StatelessWidget {
   }
 
   PopupMenuItem<IoRoute> _buildRouteItem(IoRoute route) {
-    final isSelected = route.displayName == currentRoute;
+    final isSelected = route.displayName == widget.currentRoute;
     return PopupMenuItem<IoRoute>(
       value: route,
       height: 28,

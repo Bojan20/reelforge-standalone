@@ -21,6 +21,13 @@ import '../../providers/mixer_provider.dart';
 import '../lower_zone/lower_zone_types.dart';
 
 // =============================================================================
+// INTERNAL TYPES
+// =============================================================================
+
+/// Result of the multi-output conflict dialog (BUG#74).
+enum _MultiOutputChoice { replace, add, cancel }
+
+// =============================================================================
 // STEM ROUTING MATRIX WIDGET
 // =============================================================================
 
@@ -573,6 +580,111 @@ class _StemRoutingMatrixState extends State<StemRoutingMatrix> {
     );
   }
 
+  /// Handles a tap on a routing cell. Fixes BUG#74.
+  ///
+  /// Toggling OFF is always immediate. When toggling ON and the track already
+  /// has a final output assigned to a different stem column, a dialog warns the
+  /// user and offers two choices:
+  ///   • Replace — clears all existing stem routes for this track, then routes
+  ///     to the newly selected stem.
+  ///   • Add — allows multi-stem routing (intentional; the track will be
+  ///     exported into every assigned stem).
+  void _onCellTap(
+      StemRouting routing, StemType stem, StemRoutingProvider provider) {
+    final isCurrentlyRouted = routing.stems.contains(stem);
+
+    // Toggling OFF: no dialog needed.
+    if (isCurrentlyRouted) {
+      provider.toggleStemRouting(routing.trackId, stem);
+      return;
+    }
+
+    // Toggling ON: check whether the track already has another stem assigned.
+    final existingStems =
+        routing.stems.where((s) => s != stem).toList(growable: false);
+    if (existingStems.isEmpty) {
+      // No conflict — assign directly.
+      provider.toggleStemRouting(routing.trackId, stem);
+      return;
+    }
+
+    // Conflict — ask the user whether to replace or add.
+    final existingNames =
+        existingStems.map((s) => s.label).join(', ');
+    showDialog<_MultiOutputChoice>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: LowerZoneColors.bgSurface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: BorderSide(color: stem.color.withValues(alpha: 0.3)),
+        ),
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded,
+                color: LowerZoneColors.warning, size: 20),
+            const SizedBox(width: 8),
+            const Text(
+              'Multiple Stem Outputs',
+              style: TextStyle(
+                color: LowerZoneColors.textPrimary,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          '"${routing.trackName}" is already routed to: $existingNames.\n\n'
+          'Do you want to replace that assignment with ${stem.label}, '
+          'or add ${stem.label} as an additional output?',
+          style: const TextStyle(
+            color: LowerZoneColors.textSecondary,
+            fontSize: 12,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(_MultiOutputChoice.cancel),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: LowerZoneColors.textSecondary),
+            ),
+          ),
+          TextButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(_MultiOutputChoice.add),
+            child: Text(
+              'Add',
+              style: TextStyle(color: stem.color),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: stem.color.withValues(alpha: 0.2),
+              foregroundColor: stem.color,
+              elevation: 0,
+            ),
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(_MultiOutputChoice.replace),
+            child: const Text('Replace'),
+          ),
+        ],
+      ),
+    ).then((choice) {
+      if (choice == null || choice == _MultiOutputChoice.cancel) return;
+      if (choice == _MultiOutputChoice.replace) {
+        // Clear all existing stem assignments for this track, then assign
+        // only the newly selected stem.
+        provider.setStemRouting(routing.trackId, {stem});
+      } else {
+        // Add: keep existing assignments and add the new stem.
+        provider.addStemToTrack(routing.trackId, stem);
+      }
+    });
+  }
+
   Widget _buildRoutingCell(
       StemRouting routing, StemType stem, StemRoutingProvider provider) {
     final isRouted = routing.stems.contains(stem);
@@ -580,7 +692,7 @@ class _StemRoutingMatrixState extends State<StemRoutingMatrix> {
         _hoveredTrackId == routing.trackId || _hoveredStem == stem;
 
     return GestureDetector(
-      onTap: () => provider.toggleStemRouting(routing.trackId, stem),
+      onTap: () => _onCellTap(routing, stem, provider),
       child: MouseRegion(
         onEnter: (_) => setState(() {
           _hoveredTrackId = routing.trackId;
