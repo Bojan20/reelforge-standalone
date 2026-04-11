@@ -15,6 +15,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU32, AtomicU64, AtomicUsize, Ordering};
+use std::panic::AssertUnwindSafe;
 use std::thread;
 
 use crossbeam_channel::{Sender, bounded};
@@ -172,6 +173,8 @@ pub struct AudioCache {
     eviction_tx: Sender<EvictionCommand>,
     /// P0.5/P0.6: Flag to track if eviction is pending (avoid duplicate requests)
     eviction_pending: AtomicBool,
+    /// BUG#13: JoinHandle for graceful shutdown and panic detection
+    eviction_thread: parking_lot::Mutex<Option<thread::JoinHandle<()>>>,
 }
 
 impl AudioCache {
@@ -186,45 +189,42 @@ impl AudioCache {
         // Create bounded channel for eviction commands (small buffer to avoid memory growth)
         let (eviction_tx, eviction_rx) = bounded::<EvictionCommand>(4);
 
-        let cache = Self {
+        // Spawn eviction worker thread before constructing cache (handle stored after)
+        // BUG#13 FIX: catch_unwind guards against silent thread death
+        let handle = thread::Builder::new()
+            .name("audio-cache-evict".into())
+            .spawn(move || {
+                let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
+                    // This thread drains the channel to avoid blocking senders.
+                    // Actual eviction is inline but optimized (see evict_if_needed).
+                    while let Ok(cmd) = eviction_rx.recv() {
+                        match cmd {
+                            EvictionCommand::Shutdown => break,
+                            EvictionCommand::EvictIfNeeded { .. } => {
+                                // Eviction handled inline; thread exists for future async path.
+                            }
+                        }
+                    }
+                }));
+                if let Err(e) = result {
+                    let msg = e.downcast_ref::<&str>().copied()
+                        .or_else(|| e.downcast_ref::<String>().map(|s| s.as_str()))
+                        .unwrap_or("<non-string panic>");
+                    log::error!("[AudioCache] eviction thread panicked: {}", msg);
+                }
+                log::debug!("Audio cache eviction thread shutting down");
+            })
+            .ok();
+
+        Self {
             entries: RwLock::new(HashMap::new()),
             access_counter: AtomicU64::new(0),
             max_bytes,
             current_bytes: AtomicU64::new(0),
             eviction_tx,
             eviction_pending: AtomicBool::new(false),
-        };
-
-        // Spawn background eviction thread
-        // NOTE: We need to share the cache state, but since AudioCache is typically
-        // wrapped in Arc anyway, we'll use a simpler approach: the eviction thread
-        // receives the entries and current_bytes via the channel when needed.
-        // For now, we use a static approach where eviction is done inline but optimized.
-
-        // P0.5/P0.6 FIX: Instead of moving eviction to thread (which requires sharing),
-        // we optimize the eviction to avoid String clones in RT path by using indices.
-        // The background thread approach would require Arc<AudioCache> which changes the API.
-        // Alternative fix: Use SmallVec<[u64; 8]> to store keys to evict by last_access, not by String.
-
-        // Spawn eviction worker thread
-        let _ = thread::Builder::new()
-            .name("audio-cache-evict".into())
-            .spawn(move || {
-                // This thread just drains the channel to avoid blocking senders
-                // Actual eviction is still inline but optimized (see evict_if_needed_optimized)
-                while let Ok(cmd) = eviction_rx.recv() {
-                    match cmd {
-                        EvictionCommand::Shutdown => break,
-                        EvictionCommand::EvictIfNeeded { .. } => {
-                            // Eviction is handled inline now with optimized algorithm
-                            // This thread exists for future async eviction if needed
-                        }
-                    }
-                }
-                log::debug!("Audio cache eviction thread shutting down");
-            });
-
-        cache
+            eviction_thread: parking_lot::Mutex::new(handle),
+        }
     }
 
     /// Load audio file into cache (or return cached version)
@@ -624,8 +624,11 @@ impl Default for AudioCache {
 
 impl Drop for AudioCache {
     fn drop(&mut self) {
-        // Signal eviction thread to shutdown
+        // BUG#13 FIX: Signal shutdown then join for graceful exit
         let _ = self.eviction_tx.try_send(EvictionCommand::Shutdown);
+        if let Some(handle) = self.eviction_thread.lock().take() {
+            let _ = handle.join();
+        }
     }
 }
 

@@ -132,17 +132,20 @@ class MixerChannel {
     this.folderChildCount = 0,
   }) : inserts = inserts ?? _defaultInserts();
 
+  /// BUG#10: Pre-fader threshold by channel type.
+  /// Master has all 8 slots pre-fader; regular channels split 4/4.
+  static int preFaderThreshold(ChannelType type) =>
+      type == ChannelType.master ? 8 : 4;
+
+  /// Default empty insert slots (8 total).
+  /// Pre-fader count depends on channel type (master=8, regular=4).
+  static List<InsertSlot> _defaultInsertsForType(ChannelType type) {
+    final maxPre = preFaderThreshold(type);
+    return List.generate(8, (i) => InsertSlot.empty(i, isPreFader: i < maxPre));
+  }
+
   /// Default empty insert slots (8 total: 4 pre-fader, 4 post-fader)
-  static List<InsertSlot> _defaultInserts() => [
-    InsertSlot.empty(0, isPreFader: true),
-    InsertSlot.empty(1, isPreFader: true),
-    InsertSlot.empty(2, isPreFader: true),
-    InsertSlot.empty(3, isPreFader: true),
-    InsertSlot.empty(4, isPreFader: false),
-    InsertSlot.empty(5, isPreFader: false),
-    InsertSlot.empty(6, isPreFader: false),
-    InsertSlot.empty(7, isPreFader: false),
-  ];
+  static List<InsertSlot> _defaultInserts() => _defaultInsertsForType(ChannelType.audio);
 
   MixerChannel copyWith({
     String? id,
@@ -438,7 +441,7 @@ class MixerProvider extends ChangeNotifier {
       if (!dspProvider.hasChain(trackId)) continue;
 
       final chain = dspProvider.getChain(trackId);
-      final newInserts = _dspChainToInserts(chain);
+      final newInserts = _dspChainToInserts(chain, channel.type);
 
       // Only update if different
       if (!_insertsEqual(channel.inserts, newInserts)) {
@@ -450,9 +453,11 @@ class MixerProvider extends ChangeNotifier {
   }
 
   /// P1.1: Convert DspChain to InsertSlot list
-  List<InsertSlot> _dspChainToInserts(DspChain chain) {
+  /// BUG#10 FIX: pre-fader threshold is channel-type-aware (master=8, regular=4)
+  List<InsertSlot> _dspChainToInserts(DspChain chain, ChannelType type) {
     final inserts = <InsertSlot>[];
     final sortedNodes = chain.sortedNodes;
+    final maxPre = MixerChannel.preFaderThreshold(type);
 
     // DspChain has up to 8 nodes
     for (int i = 0; i < 8; i++) {
@@ -462,12 +467,12 @@ class MixerProvider extends ChangeNotifier {
           id: node.id,
           name: node.type.fullName,
           type: node.type.name, // eq, compressor, limiter, etc.
-          isPreFader: i < 4, // First 4 are pre-fader
+          isPreFader: i < maxPre,
           bypassed: node.bypass,
           wetDry: node.wetDry,
         ));
       } else {
-        inserts.add(InsertSlot.empty(i, isPreFader: i < 4));
+        inserts.add(InsertSlot.empty(i, isPreFader: i < maxPre));
       }
     }
 
@@ -684,6 +689,7 @@ class MixerProvider extends ChangeNotifier {
       name: 'Stereo Out',
       type: ChannelType.master,
       color: const Color(0xFFFF9040),
+      inserts: MixerChannel._defaultInsertsForType(ChannelType.master),
     );
     // No default buses - they are created when tracks are added
   }
@@ -2850,7 +2856,8 @@ class MixerProvider extends ChangeNotifier {
 
     // Update UI state only — caller is responsible for FFI unload
     final inserts = List<InsertSlot>.from(channel.inserts);
-    final isPreFader = slotIndex < 4;
+    // BUG#10 FIX: preserve existing isPreFader from slot (was set correctly on load)
+    final isPreFader = slotIndex < MixerChannel.preFaderThreshold(channel.type);
     inserts[slotIndex] = InsertSlot.empty(slotIndex, isPreFader: isPreFader);
     _channels[channelId] = channel.copyWith(inserts: inserts);
     notifyListeners();
@@ -2865,7 +2872,8 @@ class MixerProvider extends ChangeNotifier {
 
     // Update UI state only — caller is responsible for FFI load
     final inserts = List<InsertSlot>.from(channel.inserts);
-    final isPreFader = slotIndex < 4;
+    // BUG#10 FIX: channel-type-aware pre-fader threshold (master=8, regular=4)
+    final isPreFader = slotIndex < MixerChannel.preFaderThreshold(channel.type);
     inserts[slotIndex] = InsertSlot(
       id: pluginId,
       name: pluginName,
