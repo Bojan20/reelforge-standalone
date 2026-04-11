@@ -622,8 +622,10 @@ class _LogicalEditorPanelState extends State<LogicalEditorPanel> {
   }
 
   String _formatFilterValue(FilterCondition filter) {
-    if (filter.operator == FilterOperator.inRange || filter.operator == FilterOperator.notInRange) {
-      return '${filter.value1} - ${filter.value2}';
+    if (filter.operator == FilterOperator.inRange ||
+        filter.operator == FilterOperator.notInRange ||
+        filter.value2 != null) {
+      return '${filter.value1}-${filter.value2}';
     }
     return filter.value1?.toString() ?? '';
   }

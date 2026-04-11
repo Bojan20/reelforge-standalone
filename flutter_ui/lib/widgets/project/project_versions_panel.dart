@@ -65,7 +65,7 @@ class ProjectVersionData {
     if (diff.inHours < 1) return '${diff.inMinutes}m ago';
     if (diff.inDays < 1) return '${diff.inHours}h ago';
     if (diff.inDays < 7) return '${diff.inDays}d ago';
-    return '${date.day}/${date.month}/${date.year}';
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 }
 
@@ -98,11 +98,17 @@ class _ProjectVersionsPanelState extends State<ProjectVersionsPanel> {
     final json = _showMilestonesOnly
         ? _ffi.versionListMilestones()
         : _ffi.versionListAll();
-    final list = jsonDecode(json) as List;
-    setState(() {
-      _versions = list.map((e) => ProjectVersionData.fromJson(e)).toList();
-      _versions.sort((a, b) => b.number.compareTo(a.number)); // Newest first
-    });
+    try {
+      final list = jsonDecode(json) as List;
+      setState(() {
+        _versions = list.map((e) => ProjectVersionData.fromJson(e)).toList();
+        _versions.sort((a, b) => b.number.compareTo(a.number)); // Newest first
+      });
+    } catch (_) {
+      setState(() {
+        _versions = [];
+      });
+    }
   }
 
   void _createVersion() {

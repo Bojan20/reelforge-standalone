@@ -9,6 +9,7 @@
 ///
 /// Design: Cubase/Logic Pro style inspector sidebar
 
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../models/timeline_models.dart';
@@ -53,6 +54,15 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
   bool _stretchExpanded = false;
   bool _warpExpanded = false;
   bool _sourceExpanded = false;
+
+  // BUG#77: debounce timer for pitch shift FFI calls
+  Timer? _pitchShiftDebounce;
+
+  @override
+  void dispose() {
+    _pitchShiftDebounce?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -613,11 +623,14 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
           onChanged: (v) {
             final updated = clip.copyWith(pitchShift: v);
             widget.onClipChanged?.call(updated);
-            // Per-clip pitch shift via dedicated FFI (not per-track elasticPro)
-            final clipId = _parseClipId(clip.id);
-            if (clipId != null) {
-              NativeFFI.instance.clipSetPitchShift(clipId, v);
-            }
+            // BUG#77: debounce FFI — cancel previous timer and restart
+            _pitchShiftDebounce?.cancel();
+            _pitchShiftDebounce = Timer(const Duration(milliseconds: 100), () {
+              final clipId = _parseClipId(clip.id);
+              if (clipId != null) {
+                NativeFFI.instance.clipSetPitchShift(clipId, v);
+              }
+            });
           },
           onReset: () {
             widget.onClipChanged?.call(clip.copyWith(pitchShift: 0.0));

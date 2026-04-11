@@ -70,8 +70,18 @@ class _LoopEditorPanelState extends State<LoopEditorPanel> {
 
   List<TimelineClip> get _trackClips {
     if (widget.selectedTrackId == null) return [];
-    final tid = widget.selectedTrackId.toString();
-    return widget.clips.where((c) => c.trackId == tid).toList();
+    // BUG#79: selectedTrackId may be int or compound "track_123" format.
+    // Build a set of candidate ID strings: the raw toString() AND the numeric
+    // suffix extracted by regex, so clips stored as "123" or "track_123" both match.
+    final raw = widget.selectedTrackId.toString();
+    final numericMatch = RegExp(r'\d+').firstMatch(raw)?.group(0);
+    final candidates = <String>{raw, if (numericMatch != null) numericMatch};
+    return widget.clips.where((c) {
+      if (candidates.contains(c.trackId)) return true;
+      // Also match if clip trackId contains the same numeric suffix
+      final clipNum = RegExp(r'\d+').firstMatch(c.trackId)?.group(0);
+      return clipNum != null && candidates.contains(clipNum);
+    }).toList();
   }
 
   TimelineClip? get _selectedClip {

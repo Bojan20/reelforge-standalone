@@ -7,8 +7,12 @@ echo "🔧 Bundling dylibs..."
 cp "$LIB_PATH" "$FRAMEWORKS_DIR/"
 PROCESSED_FILE=$(mktemp)
 trap "rm -f $PROCESSED_FILE" EXIT
+declare -A _visited_dylibs
 bundle_dylib() {
-    local dylib_path="$1"
+    local lib="$1"
+    [[ -n "${_visited_dylibs[$lib]}" ]] && return 0
+    _visited_dylibs[$lib]=1
+    local dylib_path="$lib"
     local dylib_name=$(basename "$dylib_path")
     if grep -q "^$dylib_name$" "$PROCESSED_FILE" 2>/dev/null; then return; fi
     echo "$dylib_name" >> "$PROCESSED_FILE"

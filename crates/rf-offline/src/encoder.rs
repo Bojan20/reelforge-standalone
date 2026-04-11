@@ -67,6 +67,12 @@ impl AudioEncoder for WavEncoder {
         let mut writer = hound::WavWriter::new(cursor, spec)
             .map_err(|e| OfflineError::EncodingError(e.to_string()))?;
 
+        // Warn if any sample exceeds ±1.0 — clipping will occur silently after this point
+        let peak = buffer.samples.iter().map(|s| s.abs()).fold(0.0f64, f64::max);
+        if peak > 1.0 {
+            log::warn!("encoder: clipping detected, peak={:.3}", peak);
+        }
+
         // Apply dithering for bit depth reduction
         let dithered = apply_dithering(
             &buffer.samples,

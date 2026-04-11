@@ -346,6 +346,9 @@ class ClipGainEnvelopePanel extends StatelessWidget {
                 final localPos = box.globalToLocal(details.globalPosition);
                 final size = box.size;
 
+                // BUG#78: guard against zero-height to avoid divide-by-zero
+                if (size.height <= 0) return;
+
                 // Calculate position (0-1)
                 final position = (localPos.dx / size.width).clamp(0.0, 1.0);
                 // Calculate gain (-60 to +12)
