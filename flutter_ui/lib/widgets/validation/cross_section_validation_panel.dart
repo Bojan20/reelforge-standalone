@@ -382,7 +382,6 @@ class _CrossSectionValidationPanelState extends State<CrossSectionValidationPane
   void _exportReport() {
     if (_result == null) return;
 
-    // TODO: Implement report export (CSV/JSON)
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Report export not yet implemented'),

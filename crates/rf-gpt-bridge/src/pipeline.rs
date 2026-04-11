@@ -454,7 +454,7 @@ impl Pipeline {
             } = &stage.state
             {
                 if evaluation.accepted {
-                    let is_better = best.as_ref().map_or(true, |(_, _, q)| evaluation.quality > *q);
+                    let is_better = best.as_ref().is_none_or(|(_, _, q)| evaluation.quality > *q);
                     if is_better {
                         best = Some((response, stage.persona, evaluation.quality));
                     }
@@ -554,6 +554,12 @@ pub struct PipelineManager {
     completed: Vec<PipelineResult>,
     /// Max completed results to keep.
     max_completed: usize,
+}
+
+impl Default for PipelineManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl PipelineManager {

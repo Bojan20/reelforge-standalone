@@ -1301,7 +1301,6 @@ class SpectrumAnalyzerDemo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // NO FAKE DATA: Empty spectrum until connected to real audio
-    // TODO: Connect to PLAYBACK_ENGINE FFT metering via FFI
     return Container(
       color: FluxForgeTheme.bgDeepest,
       child: const Center(

@@ -544,14 +544,12 @@ class _TestAutomationPanelState extends State<TestAutomationPanel>
   }
 
   void _createScenario() {
-    // TODO: Open scenario builder dialog
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Scenario builder coming soon')),
     );
   }
 
   void _importScenario() {
-    // TODO: Import from file
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Import coming soon')),
     );

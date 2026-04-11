@@ -1,0 +1,38 @@
+[package]
+name = "rf-brain-router"
+description = "Multi-Brain Router — automatic task classification and routing to optimal AI model (Claude, DeepSeek, GPT-4o, Browser Bridge)"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# Internal crates
+rf-cortex = { workspace = true }
+
+# Async runtime + HTTP
+tokio = { workspace = true, features = ["time", "sync", "process", "io-util"] }
+reqwest = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Lock-free communication
+crossbeam-channel = { workspace = true }
+parking_lot = { workspace = true }
+
+# Utilities
+log = { workspace = true }
+thiserror = { workspace = true }
+
+# Unique IDs
+uuid = { workspace = true }
+
+# Time
+chrono = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+approx = { workspace = true }

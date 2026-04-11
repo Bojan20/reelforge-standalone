@@ -224,7 +224,7 @@ impl LinearPhaseEq {
             .collect();
 
         Self {
-            config: config.clone(),
+            config,
             fft_forward,
             fft_inverse,
             window,

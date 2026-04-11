@@ -53,10 +53,12 @@ pub fn bridge_next_correlation_id() -> u64 {
 /// Higher priority = processed first in batch and routing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[repr(u8)]
+#[derive(Default)]
 pub enum BridgePriority {
     /// Background tasks, non-urgent state sync
     Low = 0,
     /// Default for most UI interactions
+    #[default]
     Normal = 1,
     /// Time-sensitive: transport, automation recording
     High = 2,
@@ -66,11 +68,6 @@ pub enum BridgePriority {
     Emergency = 4,
 }
 
-impl Default for BridgePriority {
-    fn default() -> Self {
-        BridgePriority::Normal
-    }
-}
 
 impl From<u8> for BridgePriority {
     fn from(v: u8) -> Self {
@@ -307,6 +304,12 @@ pub struct StreamHub {
 /// Stream hub capacity — enough for ~16ms of events at 60fps
 const STREAM_HUB_CAPACITY: usize = 512;
 
+impl Default for StreamHub {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl StreamHub {
     pub fn new() -> Self {
         let (tx, rx) = bounded(STREAM_HUB_CAPACITY);
@@ -438,6 +441,12 @@ struct BridgeStatsInner {
     max_processing_us: u64,
     total_timeouts: u64,
     total_backpressure: u64,
+}
+
+impl Default for NeuralBridge {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl NeuralBridge {

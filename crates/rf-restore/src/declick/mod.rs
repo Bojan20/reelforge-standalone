@@ -303,7 +303,7 @@ impl Declick {
         a[0] = 1.0;
 
         let mut ef = samples.clone();
-        let mut eb = samples.clone();
+        let mut eb = samples;
 
         for k in 1..=order {
             // Compute reflection coefficient

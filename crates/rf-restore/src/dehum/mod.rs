@@ -135,7 +135,7 @@ impl Dehum {
         let notches = Self::create_notches(freq, config.harmonics, config.q, sample_rate);
 
         Self {
-            config: config.clone(),
+            config,
             sample_rate,
             notches,
             detected_freq: freq,

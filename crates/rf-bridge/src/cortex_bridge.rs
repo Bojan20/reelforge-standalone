@@ -27,8 +27,8 @@
 //! - **Zero-copy audio** — shared memory region for large audio buffers
 //! - **FSEvents watcher** — file system change notifications without polling
 
-use crossbeam_channel::{Receiver, Sender};
-use parking_lot::{Mutex, RwLock};
+use crossbeam_channel::Sender;
+use parking_lot::Mutex;
 use portable_atomic::{AtomicU64, Ordering};
 use rtrb::{Consumer, Producer, RingBuffer};
 use serde::{Deserialize, Serialize};
@@ -107,10 +107,12 @@ pub enum BridgeIntent {
 /// Request priority — determines queue ordering when contention exists.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[repr(u8)]
+#[derive(Default)]
 pub enum BridgePriority {
     /// Background task, process when idle.
     Low = 0,
     /// Normal interactive operation.
+    #[default]
     Normal = 1,
     /// User-initiated action that should feel instant.
     High = 2,
@@ -120,11 +122,6 @@ pub enum BridgePriority {
     Emergency = 4,
 }
 
-impl Default for BridgePriority {
-    fn default() -> Self {
-        Self::Normal
-    }
-}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // REQUEST PAYLOAD
@@ -1237,11 +1234,11 @@ impl BridgeRustHandle {
                 // TODO: async export
                 CortexResponse::ok(request.id, ResponseData::String(format!("Exporting: {path}")))
             }
-            BridgePayload::FileWatch { path, recursive } => {
+            BridgePayload::FileWatch { path: _, recursive: _ } => {
                 // TODO: wire to FileWatchManager
                 CortexResponse::ok(request.id, ResponseData::F64(1.0)) // watch_id placeholder
             }
-            BridgePayload::FileUnwatch { watch_id } => {
+            BridgePayload::FileUnwatch { watch_id: _ } => {
                 // TODO: wire to FileWatchManager
                 CortexResponse::ok(request.id, ResponseData::Bool(true))
             }
@@ -1251,12 +1248,12 @@ impl BridgeRustHandle {
 
     fn handle_stream(&self, request: &CortexRequest) -> CortexResponse {
         match &request.payload {
-            BridgePayload::StreamSubscribe { filter_origins, min_urgency } => {
+            BridgePayload::StreamSubscribe { filter_origins: _, min_urgency: _ } => {
                 // TODO: create NeuralBus subscription, pipe to event ring
                 let sub_id = next_request_id();
                 CortexResponse::ok(request.id, ResponseData::F64(sub_id as f64))
             }
-            BridgePayload::StreamUnsubscribe { subscription_id } => {
+            BridgePayload::StreamUnsubscribe { subscription_id: _ } => {
                 // TODO: remove subscription
                 CortexResponse::ok(request.id, ResponseData::Bool(true))
             }
@@ -1303,18 +1300,18 @@ impl BridgeRustHandle {
 
     fn handle_cortex(&self, request: &CortexRequest) -> CortexResponse {
         match &request.payload {
-            BridgePayload::CortexEmitSignal { origin, urgency, kind, data } => {
+            BridgePayload::CortexEmitSignal { origin: _, urgency: _, kind: _, data: _ } => {
                 // TODO: wire to cortex_handle().signal()
                 CortexResponse::ok(request.id, ResponseData::Bool(true))
             }
-            BridgePayload::CortexGetPatterns { limit } => {
+            BridgePayload::CortexGetPatterns { limit: _ } => {
                 // TODO: wire to cortex pattern engine
                 CortexResponse::ok(request.id, ResponseData::Json("[]".into()))
             }
             BridgePayload::CortexGetImmune => {
                 CortexResponse::ok(request.id, ResponseData::Json("{}".into()))
             }
-            BridgePayload::CortexTriggerReflex { reflex_name } => {
+            BridgePayload::CortexTriggerReflex { reflex_name: _ } => {
                 // TODO: wire to reflex arc
                 CortexResponse::ok(request.id, ResponseData::Bool(true))
             }
@@ -1324,23 +1321,23 @@ impl BridgeRustHandle {
 
     fn handle_spatial(&self, request: &CortexRequest) -> CortexResponse {
         match &request.payload {
-            BridgePayload::SpatialSetPosition { source_id, x, y, z } => {
+            BridgePayload::SpatialSetPosition { source_id: _, x: _, y: _, z: _ } => {
                 // TODO: wire to spatial audio engine
                 CortexResponse::ok(request.id, ResponseData::Bool(true))
             }
-            BridgePayload::SpatialSetListener { x, y, z, yaw, pitch } => {
+            BridgePayload::SpatialSetListener { x: _, y: _, z: _, yaw: _, pitch: _ } => {
                 CortexResponse::ok(request.id, ResponseData::Bool(true))
             }
-            BridgePayload::SpatialBinaural { enabled, hrtf_profile } => {
+            BridgePayload::SpatialBinaural { enabled: _, hrtf_profile: _ } => {
                 CortexResponse::ok(request.id, ResponseData::Bool(true))
             }
-            BridgePayload::SpatialAtmosConfig { bed_channels, max_objects } => {
+            BridgePayload::SpatialAtmosConfig { bed_channels: _, max_objects: _ } => {
                 CortexResponse::ok(request.id, ResponseData::Bool(true))
             }
-            BridgePayload::SpatialAttenuation { source_id, model, min_dist, max_dist } => {
+            BridgePayload::SpatialAttenuation { source_id: _, model: _, min_dist: _, max_dist: _ } => {
                 CortexResponse::ok(request.id, ResponseData::Bool(true))
             }
-            BridgePayload::SpatialReverbZone { zone_id, size, damping, mix } => {
+            BridgePayload::SpatialReverbZone { zone_id: _, size: _, damping: _, mix: _ } => {
                 CortexResponse::ok(request.id, ResponseData::Bool(true))
             }
             _ => CortexResponse::error(request.id, 9001, "Unknown spatial payload"),

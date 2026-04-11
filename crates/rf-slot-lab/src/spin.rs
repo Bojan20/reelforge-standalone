@@ -324,7 +324,7 @@ impl AnticipationInfo {
             .collect();
 
         Self {
-            reels: reels.clone(),
+            reels,
             reason_type: reason,
             reason: reason.as_str().to_string(),
             trigger_count: 0,

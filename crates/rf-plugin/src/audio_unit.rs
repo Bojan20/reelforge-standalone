@@ -244,7 +244,7 @@ impl AudioUnitHost {
         };
 
         Ok(AUDescriptor {
-            name: name.clone(),
+            name,
             manufacturer: "Unknown".to_string(),
             version: "1.0.0".to_string(),
             description: AUComponentDescription::new(

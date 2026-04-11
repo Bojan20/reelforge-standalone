@@ -82,10 +82,7 @@ pub extern "C" fn cortex_bridge_send_batch(requests_json: *const c_char) -> u64 
         Err(_) => return 0,
     };
 
-    match cortex_bridge::flutter_handle().lock().send_batch(requests) {
-        Some(batch_id) => batch_id,
-        None => 0,
-    }
+    cortex_bridge::flutter_handle().lock().send_batch(requests).unwrap_or_default()
 }
 
 /// Poll all available responses as a JSON array string.

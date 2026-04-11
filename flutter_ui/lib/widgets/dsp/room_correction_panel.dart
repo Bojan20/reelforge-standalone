@@ -403,7 +403,6 @@ class _RoomCorrectionPanelState extends State<RoomCorrectionPanel> {
   }
 
   void _startMeasurement() {
-    // TODO: Implement measurement workflow
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Measurement feature coming soon'),

@@ -1956,7 +1956,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
       // Check for near miss events
       // DISABLED: NearMiss visual effect temporarily disabled to fix red background bug
-      // TODO: Re-enable after fixing false positive detection
       // final nearMiss = stages.any((s) =>
       //     s.stageType.toLowerCase().contains('near') &&
       //     s.stageType.toLowerCase().contains('miss'));

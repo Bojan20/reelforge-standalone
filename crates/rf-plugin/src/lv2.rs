@@ -775,7 +775,7 @@ impl Lv2PluginInstance {
         );
 
         let info = PluginInfo {
-            id: plugin_uri.clone(),
+            id: plugin_uri,
             name: desc.name.clone(),
             vendor: desc.author.clone(),
             version: "1.0.0".to_string(),

@@ -249,7 +249,7 @@ impl TruePeakLimiter {
         let os = config.oversampling;
 
         Self {
-            config: config.clone(),
+            config,
             ceiling_linear,
             release_coeff,
             attack_coeff,

@@ -397,6 +397,12 @@ pub struct RoleStats {
     pub last_used: Option<DateTime<Utc>>,
 }
 
+impl Default for RolePerformance {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RolePerformance {
     pub fn new() -> Self {
         Self {
@@ -473,6 +479,12 @@ impl RolePerformance {
 /// Selects the best GPT persona for a given query context.
 pub struct RoleSelector {
     performance: RolePerformance,
+}
+
+impl Default for RoleSelector {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl RoleSelector {

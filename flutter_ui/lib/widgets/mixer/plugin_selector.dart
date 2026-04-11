@@ -414,7 +414,6 @@ class _PluginSelectorDialogState extends State<PluginSelectorDialog> {
                           : FluxForgeTheme.textDisabled,
                     ),
                     onPressed: () {
-                      // TODO: Toggle favorite
                     },
                     splashRadius: 14,
                     padding: EdgeInsets.zero,

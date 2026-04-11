@@ -67,6 +67,12 @@ pub struct ResponseEvaluator {
     max_response_length: usize,
 }
 
+impl Default for ResponseEvaluator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ResponseEvaluator {
     pub fn new() -> Self {
         Self {
@@ -345,18 +351,16 @@ impl ResponseEvaluator {
 
         // Intent-specific checks
         match intent {
-            GptIntent::Debugging => {
+            GptIntent::Debugging
                 // Debugging should mention specific error/cause
-                if !response.contains("error") && !response.contains("greška") && !response.contains("bug") {
+                if !response.contains("error") && !response.contains("greška") && !response.contains("bug") => {
                     score -= 0.1;
                 }
-            }
-            GptIntent::CodeReview => {
+            GptIntent::CodeReview
                 // Code review should reference specific code
-                if !response.contains("```") && !response.contains("linija") && !response.contains("line") {
+                if !response.contains("```") && !response.contains("linija") && !response.contains("line") => {
                     score -= 0.1;
                 }
-            }
             _ => {}
         }
 

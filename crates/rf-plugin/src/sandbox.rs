@@ -391,7 +391,7 @@ impl SandboxedPlugin {
         // Send command
         process
             .cmd_tx
-            .send(cmd.clone())
+            .send(cmd)
             .map_err(|e| SandboxError::IpcError(e.to_string()))?;
 
         // Wait for response with timeout

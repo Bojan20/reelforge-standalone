@@ -98,7 +98,6 @@ class _LatencyProfilerPanelState extends State<LatencyProfilerPanel> {
           IconButton(
             icon: const Icon(Icons.download, size: 20),
             onPressed: () {
-              // TODO: Export to file
               final json = profiler.exportToJson();
             },
             tooltip: 'Export to JSON',

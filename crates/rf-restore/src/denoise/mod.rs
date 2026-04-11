@@ -174,7 +174,7 @@ impl Denoise {
         let reduction_gain = 10.0_f32.powf(-config.reduction_db / 20.0);
 
         Self {
-            config: config.clone(),
+            config,
             sample_rate,
             fft_forward,
             fft_inverse,

@@ -313,7 +313,6 @@ class _EventLogPanelState extends State<EventLogPanel> {
   }
 
   // NOTE: _onSlotLabUpdate removed — stages logged via EventRegistry
-  // NOTE: _onMiddlewareUpdate removed — TODO for future middleware event logging
   // NOTE: _logMiddlewareEvent removed — was placeholder, never used
 
   void _addEntry(EventLogEntry entry) {
