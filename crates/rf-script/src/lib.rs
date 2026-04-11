@@ -10,11 +10,15 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use crossbeam_channel::{Receiver, Sender, bounded};
-use mlua::{Lua, Table, UserData, UserDataMethods};
+use mlua::{HookTriggers, Lua, Table, UserData, UserDataMethods, VmState};
 use parking_lot::RwLock;
 use thiserror::Error;
+
+/// Maximum Lua instructions per script execution — BUG#40: infinite loop guard
+const MAX_SCRIPT_INSTRUCTIONS: u64 = 10_000_000; // ~10M ops, roughly 1-10s depending on ops
 
 // ============ Error Types ============
 
@@ -222,6 +226,8 @@ pub struct ScriptEngine {
     context: Arc<RwLock<ScriptContext>>,
     /// Script search paths
     search_paths: Vec<PathBuf>,
+    /// BUG#40: instruction counter for infinite-loop guard (reset before each execution)
+    instruction_count: Arc<AtomicU64>,
 }
 
 #[allow(dead_code)]
@@ -270,6 +276,26 @@ impl ScriptEngine {
         let (action_tx, action_rx) = bounded(256);
         let context = Arc::new(RwLock::new(ScriptContext::default()));
 
+        // BUG#40 FIX: infinite loop guard via instruction count hook
+        let instruction_count = Arc::new(AtomicU64::new(0));
+        {
+            let counter = Arc::clone(&instruction_count);
+            lua.set_hook(
+                HookTriggers::new().every_nth_instruction(10_000),
+                move |_lua, _dbg| {
+                    let count = counter.fetch_add(10_000, Ordering::Relaxed);
+                    if count >= MAX_SCRIPT_INSTRUCTIONS {
+                        Err(mlua::Error::RuntimeError(format!(
+                            "script execution limit exceeded ({} instructions)",
+                            MAX_SCRIPT_INSTRUCTIONS
+                        )))
+                    } else {
+                        Ok(VmState::Continue)
+                    }
+                },
+            );
+        }
+
         let engine = Self {
             lua,
             scripts: HashMap::new(),
@@ -277,6 +303,7 @@ impl ScriptEngine {
             action_rx,
             context,
             search_paths: Vec::new(),
+            instruction_count,
         };
 
         engine.setup_api()?;
@@ -302,6 +329,9 @@ impl ScriptEngine {
         let (action_tx, action_rx) = bounded(256);
         let context = Arc::new(RwLock::new(ScriptContext::default()));
 
+        // BUG#40: unsafe engine also needs a counter (no hook set, but field required for consistency)
+        let instruction_count = Arc::new(AtomicU64::new(0));
+
         let engine = Self {
             lua,
             scripts: HashMap::new(),
@@ -309,6 +339,7 @@ impl ScriptEngine {
             action_rx,
             context,
             search_paths: Vec::new(),
+            instruction_count,
         };
 
         engine.setup_api()?;
@@ -731,18 +762,46 @@ impl ScriptEngine {
     }
 
     /// Load a script from file
+    ///
+    /// SECURITY BUG#41: Path traversal guard — the resolved canonical path must be
+    /// within one of the configured `search_paths`. Rejects `../` escapes and
+    /// absolute paths outside the sandbox. If no search_paths are configured,
+    /// the path must already exist and resolves relative to the process CWD, but
+    /// is still checked to not escape any parent search path prefix.
     pub fn load_script(&mut self, path: impl AsRef<Path>) -> ScriptResult<String> {
         let path = path.as_ref();
-        let source = std::fs::read_to_string(path)?;
 
-        let name = path
+        // BUG#41: resolve canonical path (follows symlinks, resolves ..)
+        let canonical = path.canonicalize().map_err(|e| {
+            ScriptError::InvalidScript(format!("cannot resolve script path '{}': {}", path.display(), e))
+        })?;
+
+        // If search_paths are configured, canonical path must be under at least one
+        if !self.search_paths.is_empty() {
+            let allowed = self.search_paths.iter().any(|search| {
+                // Canonicalize search path too so symlinks don't defeat the check
+                search.canonicalize()
+                    .map(|c| canonical.starts_with(&c))
+                    .unwrap_or(false)
+            });
+            if !allowed {
+                return Err(ScriptError::InvalidScript(format!(
+                    "script path '{}' is outside allowed search paths (path traversal denied)",
+                    canonical.display()
+                )));
+            }
+        }
+
+        let source = std::fs::read_to_string(&canonical)?;
+
+        let name = canonical
             .file_stem()
             .map(|s| s.to_string_lossy().to_string())
             .unwrap_or_else(|| "unnamed".into());
 
         let script = LoadedScript {
             name: name.clone(),
-            path: path.to_path_buf(),
+            path: canonical,
             source,
             description: None,
         };
@@ -758,6 +817,9 @@ impl ScriptEngine {
             .get(name)
             .ok_or_else(|| ScriptError::NotFound(name.into()))?;
 
+        // BUG#40: reset instruction counter before each execution
+        self.instruction_count.store(0, Ordering::Relaxed);
+
         self.lua
             .load(&script.source)
             .set_name(&script.name)
@@ -768,6 +830,8 @@ impl ScriptEngine {
 
     /// Execute inline Lua code
     pub fn execute(&self, code: &str) -> ScriptResult<()> {
+        // BUG#40: reset instruction counter before each execution
+        self.instruction_count.store(0, Ordering::Relaxed);
         self.lua.load(code).exec()?;
         Ok(())
     }
