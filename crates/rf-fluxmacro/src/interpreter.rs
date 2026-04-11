@@ -128,6 +128,19 @@ impl MacroInterpreter {
             // Execute
             let result = step.execute(&mut ctx)?;
 
+            // BUG#49: Check cancellation after the step completes (the pre-loop check
+            // only catches cancellation between steps; this guards against the case
+            // where a long step finishes but the user already cancelled, so we stop
+            // immediately rather than continuing to the next step).
+            if ctx.is_cancelled() {
+                ctx.log(
+                    LogLevel::Warning,
+                    step_name,
+                    "Macro execution cancelled after step",
+                );
+                return Err(FluxMacroError::Cancelled);
+            }
+
             // Record artifacts
             for (name, path) in &result.artifacts {
                 ctx.artifacts.insert(name.clone(), path.clone());

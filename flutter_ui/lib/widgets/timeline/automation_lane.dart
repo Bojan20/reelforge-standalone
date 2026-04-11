@@ -199,7 +199,12 @@ class AutomationLaneData {
   }
 
   double _bezierInterpolate(AutomationPoint p1, AutomationPoint p2, double t) {
-    // Cubic bezier interpolation
+    // Cubic bezier interpolation — BUG#45: cx1/cx2 are now used correctly.
+    // t is the normalized *time* position in [0,1]. To properly evaluate the
+    // value curve we must solve for the bezier *parameter* s such that the
+    // cubic bezier X(s) == target_x (where target_x = x1 + t*(x2-x1)).
+    // This matches how DAWs (Cubase, Pro Tools, After Effects) handle bezier
+    // automation: handles with dx≠0 affect the curve "speed", not just shape.
     final h1 = p1.handleOut ?? const Offset(0.3, 0);
     final h2 = p2.handleIn ?? const Offset(-0.3, 0);
 
@@ -208,22 +213,42 @@ class AutomationLaneData {
     final x2 = p2.time;
     final y2 = p2.value;
 
-    // Control points
-    // ignore: unused_local_variable
-    final cx1 = x1 + h1.dx * (x2 - x1);
-    final cy1 = y1 + h1.dy * (y2 - y1);
-    // ignore: unused_local_variable
-    final cx2 = x2 + h2.dx * (x2 - x1);
-    final cy2 = y2 + h2.dy * (y2 - y1);
+    // Four X control points of the cubic bezier in parametric form
+    final cx1 = x1 + h1.dx * (x2 - x1); // P1x
+    final cx2 = x2 + h2.dx * (x2 - x1); // P2x
 
-    // Cubic bezier formula
-    final t2 = t * t;
-    final t3 = t2 * t;
-    final mt = 1 - t;
-    final mt2 = mt * mt;
-    final mt3 = mt2 * mt;
+    // Four Y control points
+    final cy1 = y1 + h1.dy * (y2 - y1); // P1y
+    final cy2 = y2 + h2.dy * (y2 - y1); // P2y
 
-    return mt3 * y1 + 3 * mt2 * t * cy1 + 3 * mt * t2 * cy2 + t3 * y2;
+    // Evaluate cubic bezier X at parameter s
+    double bezierX(double s) {
+      final mt = 1 - s;
+      return mt * mt * mt * x1 + 3 * mt * mt * s * cx1 + 3 * mt * s * s * cx2 + s * s * s * x2;
+    }
+
+    // Evaluate cubic bezier Y at parameter s
+    double bezierY(double s) {
+      final mt = 1 - s;
+      return mt * mt * mt * y1 + 3 * mt * mt * s * cy1 + 3 * mt * s * s * cy2 + s * s * s * y2;
+    }
+
+    // Target X based on normalized time t
+    final targetX = x1 + t * (x2 - x1);
+
+    // Binary search for bezier parameter s ∈ [0,1] where bezierX(s) ≈ targetX.
+    // 16 iterations → error < (x2-x1)/65536, well below float precision.
+    double sLo = 0.0, sHi = 1.0;
+    for (int i = 0; i < 16; i++) {
+      final sMid = (sLo + sHi) * 0.5;
+      if (bezierX(sMid) < targetX) {
+        sLo = sMid;
+      } else {
+        sHi = sMid;
+      }
+    }
+
+    return bezierY((sLo + sHi) * 0.5);
   }
 
   /// Convert normalized value to display value

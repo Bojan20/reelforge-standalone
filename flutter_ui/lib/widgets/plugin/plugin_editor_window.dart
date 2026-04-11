@@ -69,7 +69,7 @@ class _PluginEditorWindowState extends State<PluginEditorWindow> {
                       _buildTitleBar(instance, provider),
 
                       // Plugin content area
-                      _buildEditorArea(instance, width, height),
+                      _buildEditorArea(instance, provider, width, height),
                     ],
                   ),
                   // Resize handle (bottom-right corner)
@@ -204,8 +204,7 @@ class _PluginEditorWindowState extends State<PluginEditorWindow> {
     );
   }
 
-  Widget _buildEditorArea(PluginInstance instance, double width, double height) {
-    final provider = context.read<PluginProvider>();
+  Widget _buildEditorArea(PluginInstance instance, PluginProvider provider, double width, double height) {
     final params = provider.getPluginParams(instance.instanceId);
 
     return Container(

@@ -399,9 +399,10 @@ fn extract_param_string<'a>(stage_str: &'a str, _param: &str) -> Option<&'a str>
 /// Generate simple UUID-like string
 fn uuid_simple() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
+    // BUG#43: unwrap_or_default() guards against system clock before UNIX_EPOCH
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap()
+        .unwrap_or_default()
         .as_nanos();
     format!("trace-{:x}", now)
 }

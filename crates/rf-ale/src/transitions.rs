@@ -531,6 +531,13 @@ impl TransitionRegistry {
         registry.register(TransitionProfile::feature_enter());
         registry.register(TransitionProfile::feature_exit());
 
+        debug_assert_eq!(
+            registry.profiles.len(),
+            5,
+            "with_builtins() must register exactly 5 profiles, but found {}",
+            registry.profiles.len()
+        );
+
         registry
     }
 

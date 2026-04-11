@@ -167,11 +167,13 @@ class _GridLinesPainter extends CustomPainter {
       final t = i * interval;
       if (t < 0) continue;
 
-      // Skip if this line will be drawn by a higher-level grid
-      // Use index-based check: t is a multiple of skipInterval when
-      // (i * interval) / skipInterval is close to integer
-      final skipRatio = t / skipInterval;
-      if ((skipRatio - skipRatio.roundToDouble()).abs() < 0.0001) continue;
+      // BUG#47: Skip if this line will be drawn by a higher-level grid.
+      // Use integer modulo instead of floating-point tolerance — the FP approach
+      // fails for bar 10000+ because 0.0001 is too tight relative to FP error at
+      // large t values (e.g., 10000 * 0.001 = 10.0 but FP gives 9.9999...).
+      // skipInterval is always an integer multiple of interval, so the ratio is exact.
+      final skipStride = (skipInterval / interval).round();
+      if (skipStride > 0 && i % skipStride == 0) continue;
 
       final x = ((t - scrollOffset) * zoom).roundToDouble() + 0.5;
       if (x >= 0 && x <= size.width) {

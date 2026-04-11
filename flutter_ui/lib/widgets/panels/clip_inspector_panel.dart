@@ -9,6 +9,7 @@
 ///
 /// Design: Cubase/Logic Pro style inspector sidebar
 
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../models/timeline_models.dart';
 import '../../src/rust/native_ffi.dart';
@@ -875,10 +876,15 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
     return '${db >= 0 ? '+' : ''}${db.toStringAsFixed(1)} dB';
   }
 
-  double _log10(double x) => x > 0 ? (logE(x) / logE(10)) : double.negativeInfinity;
+  // BUG#51: Replace Taylor-series log approximation with dart:math (full double precision)
+  double _log10(double x) => x > 0 ? math.log(x) / math.ln10 : double.negativeInfinity;
+
+  // Legacy methods kept but unused — replaced by _log10 above using dart:math
+  @Deprecated('Use dart:math log() via _log10 instead')
   double logE(double x) => x > 0 ? _ln(x) : double.negativeInfinity;
+  @Deprecated('Use dart:math log() instead')
   double _ln(double x) {
-    // Simple natural log approximation
+    // Old Taylor-series approximation — precision error >±0.1dB at extreme values
     if (x <= 0) return double.negativeInfinity;
     double result = 0;
     while (x > 2) {

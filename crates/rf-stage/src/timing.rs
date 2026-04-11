@@ -227,6 +227,11 @@ impl TimingResolver {
         profiles.insert(TimingProfile::Mobile, TimingConfig::mobile());
         profiles.insert(TimingProfile::Instant, TimingConfig::instant());
 
+        debug_assert!(
+            profiles.contains_key(&TimingProfile::Normal),
+            "TimingResolver::new() must insert TimingProfile::Normal"
+        );
+
         Self { profiles }
     }
 
@@ -243,9 +248,17 @@ impl TimingResolver {
     /// Resolve timing for a trace
     pub fn resolve(&self, trace: &StageTrace, profile: TimingProfile) -> TimedStageTrace {
         let config = self.profiles.get(&profile).unwrap_or_else(|| {
+            debug_assert!(
+                self.profiles.contains_key(&TimingProfile::Normal),
+                "TimingProfile::Normal is missing from TimingResolver; \
+                 resolve() fell back to Normal but it was not registered"
+            );
             self.profiles
                 .get(&TimingProfile::Normal)
-                .expect("Normal profile must exist")
+                .unwrap_or_else(|| self.profiles.values().next().expect(
+                    "TimingResolver has no profiles at all; \
+                     cannot resolve timing without at least one registered profile"
+                ))
         });
 
         let mut timed_events = Vec::with_capacity(trace.events.len());

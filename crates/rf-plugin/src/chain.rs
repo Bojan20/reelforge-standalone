@@ -513,11 +513,11 @@ impl ZeroCopyChain {
     /// Reset chain state
     pub fn reset(&mut self) {
         for slot in &self.slots {
-            if let Some(mut plugin) = slot.plugin.try_write() {
-                // Deactivate and reactivate to reset
-                let _ = plugin.deactivate();
-                let _ = plugin.activate();
-            }
+            // BUG#53: use blocking write() instead of try_write() — silent failure on
+            // lock contention would leave plugins active, causing state corruption.
+            let mut plugin = slot.plugin.write();
+            let _ = plugin.deactivate();
+            let _ = plugin.activate();
         }
 
         self.buffer_pool.clear_all();

@@ -16,6 +16,7 @@ use parking_lot::{Mutex, RwLock};
 use rtrb::{Consumer, Producer, RingBuffer};
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 use crate::action::{ActionPriority, ActionType, MiddlewareAction};
 use crate::event::MiddlewareEvent;
@@ -175,8 +176,8 @@ pub struct EventManagerShared {
     rtpc_definitions: RwLock<HashMap<u32, RtpcDefinition>>,
     /// Command producer (protected by Mutex for thread-safe access)
     command_tx: Mutex<Producer<EventCommand>>,
-    /// Sample rate
-    sample_rate: u32,
+    /// Sample rate (AtomicU32 so engine_set_sample_rate() can update it from any thread — BUG#3)
+    sample_rate: AtomicU32,
     /// Active instance count (for UI queries)
     active_count: std::sync::atomic::AtomicUsize,
 }
@@ -201,7 +202,12 @@ unsafe impl Sync for EventManagerHandle {}
 impl EventManagerHandle {
     /// Get sample rate
     pub fn sample_rate(&self) -> u32 {
-        self.shared.sample_rate
+        self.shared.sample_rate.load(Ordering::Relaxed)
+    }
+
+    /// Update sample rate at runtime (BUG#3: syncs EventManager SR when engine SR changes)
+    pub fn set_sample_rate(&self, sample_rate: u32) {
+        self.shared.sample_rate.store(sample_rate, Ordering::Relaxed);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -610,7 +616,7 @@ impl EventManagerProcessor {
                     interpolation_ms,
                 } => {
                     let frames =
-                        (interpolation_ms as f32 * self.shared.sample_rate as f32 / 1000.0) as u64;
+                        (interpolation_ms as f32 * self.shared.sample_rate.load(Ordering::Relaxed) as f32 / 1000.0) as u64;
 
                     // Get default value from RTPC definition, or 0.0
                     let default_value = self
@@ -649,7 +655,7 @@ impl EventManagerProcessor {
                         .unwrap_or(0.0);
 
                     let frames =
-                        (interpolation_ms as f32 * self.shared.sample_rate as f32 / 1000.0) as u64;
+                        (interpolation_ms as f32 * self.shared.sample_rate.load(Ordering::Relaxed) as f32 / 1000.0) as u64;
 
                     if let Some(go) = game_object {
                         if let Some(val) = self.object_rtpcs.get_mut(&(go, rtpc_id)) {
@@ -664,7 +670,7 @@ impl EventManagerProcessor {
                     volume,
                     fade_ms,
                 } => {
-                    let frames = (fade_ms as f32 * self.shared.sample_rate as f32 / 1000.0) as u64;
+                    let frames = (fade_ms as f32 * self.shared.sample_rate.load(Ordering::Relaxed) as f32 / 1000.0) as u64;
                     let entry = self
                         .bus_volumes
                         .entry(bus_id)
@@ -744,7 +750,7 @@ impl EventManagerProcessor {
             instance.callback_id = Some(cb);
         }
         instance.user_data = user_data;
-        instance.schedule_actions(&event, self.shared.sample_rate);
+        instance.schedule_actions(&event, self.shared.sample_rate.load(Ordering::Relaxed));
 
         // Send callback
         if let Some(cb_id) = callback_id {
@@ -770,7 +776,7 @@ impl EventManagerProcessor {
     }
 
     fn execute_stop_playing_id(&mut self, playing_id: PlayingId, fade_ms: u32) {
-        let fade_frames = (fade_ms as f32 * self.shared.sample_rate as f32 / 1000.0) as u64;
+        let fade_frames = (fade_ms as f32 * self.shared.sample_rate.load(Ordering::Relaxed) as f32 / 1000.0) as u64;
 
         if let Some(inst) = self
             .instances
@@ -787,7 +793,7 @@ impl EventManagerProcessor {
         game_object: Option<GameObjectId>,
         fade_ms: u32,
     ) {
-        let fade_frames = (fade_ms as f32 * self.shared.sample_rate as f32 / 1000.0) as u64;
+        let fade_frames = (fade_ms as f32 * self.shared.sample_rate.load(Ordering::Relaxed) as f32 / 1000.0) as u64;
 
         for inst in &mut self.instances {
             if inst.event_id == event_id
@@ -799,7 +805,7 @@ impl EventManagerProcessor {
     }
 
     fn execute_stop_all(&mut self, game_object: Option<GameObjectId>, fade_ms: u32) {
-        let fade_frames = (fade_ms as f32 * self.shared.sample_rate as f32 / 1000.0) as u64;
+        let fade_frames = (fade_ms as f32 * self.shared.sample_rate.load(Ordering::Relaxed) as f32 / 1000.0) as u64;
 
         for inst in &mut self.instances {
             if game_object.is_none() || Some(inst.game_object) == game_object {
@@ -822,7 +828,7 @@ impl EventManagerProcessor {
 
     fn execute_pending_actions(&mut self, executed: &mut Vec<ExecutedAction>) {
         let current_frame = self.current_frame;
-        let sample_rate = self.shared.sample_rate;
+        let sample_rate = self.shared.sample_rate.load(Ordering::Relaxed);
 
         // Build RTPC value map for condition checking (current values only)
         let rtpc_values: HashMap<u32, f32> = self
@@ -1012,7 +1018,7 @@ pub fn create_event_manager(sample_rate: u32) -> (EventManagerHandle, EventManag
         switch_groups: RwLock::new(HashMap::new()),
         rtpc_definitions: RwLock::new(HashMap::new()),
         command_tx: Mutex::new(command_tx),
-        sample_rate,
+        sample_rate: AtomicU32::new(sample_rate),
         active_count: std::sync::atomic::AtomicUsize::new(0),
     });
 

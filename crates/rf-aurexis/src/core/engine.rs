@@ -346,11 +346,11 @@ impl AurexisEngine {
             .center_occupancy(self.config.collision.center_zone_width);
         map.voices_redistributed = redistributions.len() as u32;
 
-        // Aggregate ducking bias from all redistributed voices
-        if !redistributions.is_empty() {
-            let total_duck: f64 = redistributions.iter().map(|r| r.duck_db).sum();
-            map.ducking_bias_db = total_duck / redistributions.len() as f64;
-        }
+        // Aggregate ducking bias from all redistributed voices.
+        // `.max(1)` on the denominator makes division safe even when the vec is
+        // empty, so removing or reordering surrounding guards can never produce NaN.
+        let total_duck: f64 = redistributions.iter().map(|r| r.duck_db).sum();
+        map.ducking_bias_db = total_duck / redistributions.len().max(1) as f64;
 
         // ─── STAGE 7: ATTENTION ───
         let attention = self.attention_engine.compute_vector();

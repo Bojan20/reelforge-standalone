@@ -181,8 +181,7 @@ impl DeterministicReplayCore {
         };
 
         let _ = outputs; // consumed for hashing
-        self.last_trace = Some(trace);
-        self.last_trace.as_ref().unwrap()
+        self.last_trace.insert(trace)
     }
 
     /// Replay a recorded trace and verify determinism.
@@ -221,8 +220,7 @@ impl DeterministicReplayCore {
             replay_final_hash,
         };
 
-        self.last_result = Some(result);
-        self.last_result.as_ref().unwrap()
+        self.last_result.insert(result)
     }
 
     /// Reset state.

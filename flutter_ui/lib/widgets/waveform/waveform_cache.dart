@@ -125,6 +125,16 @@ class WaveformTextureCache {
     // Calculate image size (width * height * 4 bytes per pixel RGBA)
     final sizeBytes = image.width * image.height * 4;
 
+    // BUG#46: Reject images that are individually larger than the cache budget.
+    // Without this guard a single oversized texture would bypass eviction and
+    // let the cache grow without bound (one entry > maxCacheSizeBytes, while
+    // loop evicts everything else but still adds the giant image).
+    if (sizeBytes > maxCacheSizeBytes) {
+      // Image is too large to ever fit — dispose and skip caching
+      image.dispose();
+      return;
+    }
+
     // Evict old entries if needed
     while (_currentCacheSizeBytes + sizeBytes > maxCacheSizeBytes && _cache.isNotEmpty) {
       _evictOldest();

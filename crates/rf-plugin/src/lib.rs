@@ -564,10 +564,10 @@ impl PluginHost {
     pub fn unload_plugin(&self, instance_id: &str) -> PluginResult<()> {
         let mut instances = self.instances.write();
         if let Some(instance) = instances.remove(instance_id) {
-            // Deactivate before dropping
-            if let Some(mut inst) = instance.try_write() {
-                let _ = inst.deactivate();
-            }
+            // BUG#53: use blocking write() — try_write() would silently skip deactivate()
+            // on lock contention, leaving the plugin active with dangling state.
+            // This is a non-audio-thread call so blocking is safe.
+            let _ = instance.write().deactivate();
         }
         Ok(())
     }

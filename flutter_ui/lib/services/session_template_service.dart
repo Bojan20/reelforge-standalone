@@ -44,7 +44,7 @@ class TrackTemplate {
   Map<String, dynamic> toJson() => {
     'name': name,
     'type': type.index,
-    'outputBus': outputBus.index,
+    'outputBus': outputBus.engineIndex,
     'volume': volume,
     'pan': pan,
     'colorIndex': colorIndex,
@@ -55,7 +55,10 @@ class TrackTemplate {
     return TrackTemplate(
       name: json['name'] as String? ?? 'Track',
       type: TrackType.values[json['type'] as int? ?? 0],
-      outputBus: OutputBus.values[json['outputBus'] as int? ?? 0],
+      outputBus: OutputBus.values.firstWhere(
+        (b) => b.engineIndex == (json['outputBus'] as int? ?? 0),
+        orElse: () => OutputBus.master,
+      ),
       volume: (json['volume'] as num?)?.toDouble() ?? 1.0,
       pan: (json['pan'] as num?)?.toDouble() ?? 0.0,
       colorIndex: json['colorIndex'] as int? ?? 0,

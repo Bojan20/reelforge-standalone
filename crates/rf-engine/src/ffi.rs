@@ -2905,7 +2905,10 @@ pub extern "C" fn engine_set_sample_rate(sample_rate: u32) -> i32 {
         VIDEO_ENGINE.write().set_sample_rate(sr_enum);
     }
 
-    log::info!("Project sample rate set to {}Hz (PlaybackEngine, ClickTrack, VideoEngine synced)", sample_rate);
+    // BUG#3: sync EventManager so event timing (fades, schedules) uses correct SR
+    event_handle().set_sample_rate(sample_rate);
+
+    log::info!("Project sample rate set to {}Hz (PlaybackEngine, ClickTrack, VideoEngine, EventManager synced)", sample_rate);
     1
 }
 

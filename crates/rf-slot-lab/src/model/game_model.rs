@@ -50,9 +50,12 @@ pub struct GameModel {
 }
 
 impl GameModel {
-    /// Create a new game model with required fields
+    /// Create a new game model with required fields.
+    ///
+    /// Uses safe defaults (5×3 grid, RTP=0.96). In debug builds, asserts that the
+    /// resulting model passes validation — BUG#50 guard.
     pub fn new(name: impl Into<String>, id: impl Into<String>) -> Self {
-        Self {
+        let model = Self {
             info: GameInfo::new(name, id),
             grid: GridSpec::default(),
             symbols: SymbolSetConfig::default(),
@@ -62,12 +65,25 @@ impl GameModel {
             timing: TimingConfig::default(),
             mode: GameMode::default(),
             math: None,
-        }
+        };
+        // BUG#50: assert invariants in debug mode — catches bad defaults early
+        debug_assert!(model.validate().is_ok(), "GameModel::new() produced invalid model: {:?}", model.validate());
+        model
+    }
+
+    /// Create a new game model, validating the result.
+    ///
+    /// Returns `Err` if the model constructed from defaults is somehow invalid.
+    /// Prefer this over `new()` when constructing from user-supplied name/id.
+    pub fn try_new(name: impl Into<String>, id: impl Into<String>) -> Result<Self, GameModelError> {
+        let model = Self::new(name, id);
+        model.validate()?;
+        Ok(model)
     }
 
     /// Create a standard 5x3 game
     pub fn standard_5x3(name: impl Into<String>, id: impl Into<String>) -> Self {
-        Self {
+        let model = Self {
             info: GameInfo::new(name, id),
             grid: GridSpec::standard_5x3(),
             symbols: SymbolSetConfig::Standard,
@@ -80,7 +96,10 @@ impl GameModel {
             timing: TimingConfig::normal(),
             mode: GameMode::GddOnly,
             math: None,
-        }
+        };
+        // BUG#50: assert invariants in debug mode
+        debug_assert!(model.validate().is_ok(), "GameModel::standard_5x3() produced invalid model: {:?}", model.validate());
+        model
     }
 
     /// Builder: set grid

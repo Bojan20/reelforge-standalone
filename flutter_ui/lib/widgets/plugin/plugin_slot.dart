@@ -328,6 +328,7 @@ class _BypassButtonState extends State<_BypassButton> {
       onTap: () {
         final newState = !_bypassed;
         setState(() => _bypassed = newState);
+        if (!context.mounted) return;
         context.read<PluginProvider>().setInsertBypass(
           widget.trackId,
           widget.slotIndex,

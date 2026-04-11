@@ -28,6 +28,10 @@ class _ScriptConsoleState extends State<ScriptConsole> with SingleTickerProvider
   final _inputController = TextEditingController();
   final _scrollController = ScrollController();
   final _inputFocusNode = FocusNode();
+  // BUG#52: Caps prevent unbounded memory growth in long sessions
+  static const int _maxHistoryEntries = 10000;
+  static const int _maxCommandHistory = 500;
+
   final List<_ConsoleEntry> _history = [];
   final List<String> _commandHistory = [];
   int _historyIndex = -1;
@@ -58,9 +62,17 @@ class _ScriptConsoleState extends State<ScriptConsole> with SingleTickerProvider
     super.dispose();
   }
 
+  /// Append a console entry, evicting oldest if over cap (BUG#52)
+  void _appendEntry(_ConsoleEntry entry) {
+    _history.add(entry);
+    if (_history.length > _maxHistoryEntries) {
+      _history.removeRange(0, _history.length - _maxHistoryEntries);
+    }
+  }
+
   void _addSystemMessage(String message) {
     setState(() {
-      _history.add(_ConsoleEntry(
+      _appendEntry(_ConsoleEntry(
         text: message,
         type: _EntryType.system,
       ));
@@ -70,7 +82,7 @@ class _ScriptConsoleState extends State<ScriptConsole> with SingleTickerProvider
 
   void _addInput(String input) {
     setState(() {
-      _history.add(_ConsoleEntry(
+      _appendEntry(_ConsoleEntry(
         text: '> $input',
         type: _EntryType.input,
       ));
@@ -80,7 +92,7 @@ class _ScriptConsoleState extends State<ScriptConsole> with SingleTickerProvider
   void _addOutput(String output) {
     if (output.isEmpty) return;
     setState(() {
-      _history.add(_ConsoleEntry(
+      _appendEntry(_ConsoleEntry(
         text: output,
         type: _EntryType.output,
       ));
@@ -89,7 +101,7 @@ class _ScriptConsoleState extends State<ScriptConsole> with SingleTickerProvider
 
   void _addError(String error) {
     setState(() {
-      _history.add(_ConsoleEntry(
+      _appendEntry(_ConsoleEntry(
         text: error,
         type: _EntryType.error,
       ));
@@ -111,9 +123,12 @@ class _ScriptConsoleState extends State<ScriptConsole> with SingleTickerProvider
   Future<void> _executeCode(String code) async {
     if (code.trim().isEmpty) return;
 
-    // Add to command history
+    // Add to command history (BUG#52: cap to _maxCommandHistory entries)
     if (_commandHistory.isEmpty || _commandHistory.last != code) {
       _commandHistory.add(code);
+      if (_commandHistory.length > _maxCommandHistory) {
+        _commandHistory.removeAt(0);
+      }
     }
     _historyIndex = -1;
 
