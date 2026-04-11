@@ -566,6 +566,10 @@ pub trait InsertProcessor: Send + Sync {
     /// Set sample rate
     fn set_sample_rate(&mut self, sample_rate: f64);
 
+    /// Sync host BPM — BUG#7 FIX: called on processor creation and tempo changes.
+    /// Default: no-op. Override in tempo-synced processors (delay, compressor, etc.)
+    fn sync_bpm(&mut self, _bpm: f64) {}
+
     /// Get number of parameters
     fn num_params(&self) -> usize {
         0

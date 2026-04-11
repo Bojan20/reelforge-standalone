@@ -7402,8 +7402,12 @@ pub extern "C" fn insert_load_processor(
             name
         );
 
-        if let Some(processor) = crate::dsp_wrappers::create_processor_extended(&name, sample_rate)
+        if let Some(mut processor) = crate::dsp_wrappers::create_processor_extended(&name, sample_rate)
         {
+            // BUG#7 FIX: sync current project BPM immediately on creation
+            let current_bpm = PLAYBACK_ENGINE.position.get_tempo().unwrap_or(120.0);
+            processor.sync_bpm(current_bpm);
+
             let success = if track_id == 0 {
                 // Master bus uses dedicated master_insert chain
                 PLAYBACK_ENGINE.load_master_insert(slot_index, processor)

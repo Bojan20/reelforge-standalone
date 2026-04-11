@@ -1778,6 +1778,11 @@ impl InsertProcessor for CompressorWrapper {
         self.comp.set_sample_rate(sample_rate);
     }
 
+    // BUG#7 FIX: sync project BPM to compressor on creation/tempo change
+    fn sync_bpm(&mut self, bpm: f64) {
+        self.comp.set_host_bpm(bpm);
+    }
+
     fn num_params(&self) -> usize {
         25
     }
@@ -2884,6 +2889,11 @@ impl InsertProcessor for ReverbWrapper {
         use rf_dsp::ProcessorConfig;
         self.sample_rate = sample_rate;
         self.reverb.set_sample_rate(sample_rate);
+    }
+
+    // BUG#7 FIX: sync project BPM to reverb predelay on creation/tempo change
+    fn sync_bpm(&mut self, bpm: f64) {
+        self.reverb.set_predelay_bpm(bpm);
     }
 
     fn latency(&self) -> LatencySamples {
@@ -4264,6 +4274,12 @@ impl InsertProcessor for DelayWrapper {
         self.freeze_write_pos = 0;
         self.freeze_buf_l.fill(0.0);
         self.freeze_buf_r.fill(0.0);
+    }
+
+    // BUG#7 FIX: sync project BPM to delay on creation/tempo change
+    fn sync_bpm(&mut self, bpm: f64) {
+        self.params[40] = bpm;
+        self.delay.set_bpm(bpm);
     }
 
     fn set_sample_rate(&mut self, sample_rate: f64) {

@@ -291,9 +291,13 @@ impl ScriptEngine {
     /// - Execute system commands
     /// - Read/write arbitrary files
     /// - Modify running program state
+    ///
+    /// BUG#29: This function is intentionally dead code — production code always uses
+    /// `new()` with the restricted sandbox (COROUTINE | STRING | UTF8 | TABLE | MATH).
+    /// DO NOT call this for user-loaded scripts.
     #[allow(dead_code)]
     pub fn new_unsafe() -> ScriptResult<Self> {
-        // SAFETY: This is explicitly unsafe and should only be used for trusted scripts
+        // SAFETY: This is explicitly unsafe and should only be used for trusted internal scripts
         let lua = unsafe { Lua::unsafe_new_with(mlua::StdLib::ALL, mlua::LuaOptions::default()) };
         let (action_tx, action_rx) = bounded(256);
         let context = Arc::new(RwLock::new(ScriptContext::default()));
