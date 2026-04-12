@@ -2597,7 +2597,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     );
 
     final clipBus = bus ?? poolFile.defaultBus;
-    final clipId = clipInfo?.clipId ?? 'clip-${DateTime.now().millisecondsSinceEpoch}';
+    // Use unique ID suffix (poolFile.id) to prevent collision when same file is
+    // dragged twice within the same millisecond in mock mode (native mode uses
+    // engine-assigned integer IDs which are always unique).
+    final clipId = clipInfo?.clipId ?? 'clip-${DateTime.now().millisecondsSinceEpoch}-${poolFile.id}';
 
     // Get real waveform from engine (or fallback to pool waveform, then FFI file generation)
     Float32List? waveform = poolFile.waveform;

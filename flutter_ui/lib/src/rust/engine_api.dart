@@ -285,7 +285,11 @@ class EngineApi {
       // Without this, audio thread won't be running and position won't advance
       final streamStarted = _ffi.startPlayback();
       if (!streamStarted) {
-        // Removed debug print
+        // Audio device unavailable or stream failed to start — do not set
+        // isPlaying=true because the engine is not actually running.
+        // The UI will remain in a stopped state; the user can retry or
+        // switch audio devices. Silent failure is better than a stuck UI.
+        return;
       }
       _ffi.play();
     }
