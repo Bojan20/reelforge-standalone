@@ -798,6 +798,33 @@ class AleProvider extends ChangeNotifier {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // CONTEXT CREATION
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Add a new context to the ALE engine and local profile.
+  bool addContext(String id, {String? name, String? description}) {
+    if (!_initialized) return false;
+
+    final ctx = AleContext(
+      id: id,
+      name: name ?? id,
+      description: description,
+    );
+
+    final result = _ffi.aleAddContextJson(jsonEncode(ctx.toJson()));
+    if (result != 0) return false;
+
+    if (_profile != null) {
+      final updatedContexts = Map<String, AleContext>.from(_profile!.contexts);
+      updatedContexts[id] = ctx;
+      _profile = _profile!.copyWith(contexts: updatedContexts);
+      notifyListeners();
+    }
+
+    return true;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // RULE MANAGEMENT
   // ═══════════════════════════════════════════════════════════════════════════
 

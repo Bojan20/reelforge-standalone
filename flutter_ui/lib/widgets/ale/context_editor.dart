@@ -378,7 +378,14 @@ class _ContextEditorState extends State<ContextEditor> {
           ),
           ElevatedButton(
             onPressed: () {
-              // TODO: Implement context creation via FFI
+              final id = idController.text.trim();
+              final name = nameController.text.trim();
+              if (id.isNotEmpty) {
+                context.read<AleProvider>().addContext(
+                  id,
+                  name: name.isNotEmpty ? name : null,
+                );
+              }
               Navigator.pop(context);
             },
             style: ElevatedButton.styleFrom(
