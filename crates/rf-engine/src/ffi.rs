@@ -24152,10 +24152,15 @@ pub extern "C" fn fx_container_load_path_processor(
 
         let sample_rate = PLAYBACK_ENGINE.sample_rate() as f64;
 
-        let processor = match crate::dsp_wrappers::create_processor_extended(&name, sample_rate) {
+        let mut processor = match crate::dsp_wrappers::create_processor_extended(&name, sample_rate) {
             Some(p) => p,
             None => return 0,
         };
+
+        // BUG#7 FIX: sync current project BPM on FX container processor creation
+        // (same fix applied to load_track_insert and load_bus_insert paths)
+        let current_bpm = PLAYBACK_ENGINE.position.get_tempo().unwrap_or(120.0);
+        processor.sync_bpm(current_bpm);
 
         let path_id = crate::fx_container::PathId(path_index as u8);
 

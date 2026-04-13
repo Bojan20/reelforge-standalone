@@ -187,6 +187,36 @@ class _RoutingMatrixPanelState extends State<RoutingMatrixPanel> {
     return _connections.firstWhereOrNull((c) => c.sourceId == trackId && c.targetId == busId);
   }
 
+  /// BUG#37 FIX: DFS cycle detection before accepting a new routing connection.
+  ///
+  /// Builds a directed graph from all enabled connections and checks whether
+  /// adding [fromId → toId] would introduce a cycle. Returns true if a cycle
+  /// would be created (connection must be rejected).
+  ///
+  /// Complexity: O(V + E) — negligible for typical DAW routing graphs (≤256 nodes).
+  bool _wouldCreateCycle(int fromId, int toId) {
+    // Build adjacency list from existing enabled connections
+    final Map<int, List<int>> graph = {};
+    for (final conn in _connections) {
+      if (!conn.enabled) continue;
+      graph.putIfAbsent(conn.sourceId, () => []).add(conn.targetId);
+    }
+    // Tentatively add the new edge
+    graph.putIfAbsent(fromId, () => []).add(toId);
+
+    // DFS from toId — if we can reach fromId, adding fromId→toId creates a cycle
+    final visited = <int>{};
+    final stack = <int>[toId];
+    while (stack.isNotEmpty) {
+      final node = stack.removeLast();
+      if (node == fromId) return true; // cycle detected
+      if (!visited.add(node)) continue; // already visited
+      final neighbors = graph[node];
+      if (neighbors != null) stack.addAll(neighbors);
+    }
+    return false;
+  }
+
   void _toggleConnection(int trackId, int busId) {
     setState(() {
       final existingIdx = _connections.indexWhere(
@@ -198,7 +228,19 @@ class _RoutingMatrixPanelState extends State<RoutingMatrixPanel> {
         final existing = _connections[existingIdx];
         _connections[existingIdx] = existing.copyWith(enabled: !existing.enabled);
       } else {
-        // Create new
+        // BUG#37 FIX: reject connection that would create a feedback loop
+        if (_wouldCreateCycle(trackId, busId)) {
+          // Surface error via toast — no console available (CLAUDE.md rule)
+          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+            const SnackBar(
+              content: Text('Routing loop detected — connection rejected'),
+              duration: Duration(seconds: 2),
+              backgroundColor: Color(0xFFD32F2F),
+            ),
+          );
+          return;
+        }
+        // Create new connection
         _connections.add(RoutingConnection(
           sourceId: trackId,
           targetId: busId,

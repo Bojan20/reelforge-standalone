@@ -31,7 +31,9 @@ pub fn seed_to_range(seed: u64, offset: u32, min: f64, max: f64) -> f64 {
     buf[0..8].copy_from_slice(&seed.to_le_bytes());
     buf[8..12].copy_from_slice(&offset.to_le_bytes());
     let sub_seed = aurexis_hash(&buf);
-    let normalized = (sub_seed as f64) / (u64::MAX as f64); // 0.0-1.0
+    // BUG#42 FIX: u64::MAX rounds up to 2^64 in IEEE 754, causing non-uniform distribution.
+    // Use top 53 bits (f64 mantissa width) and exact power-of-two divisor for perfect [0,1) range.
+    let normalized = (sub_seed >> 11) as f64 * (1.0 / (1u64 << 53) as f64);
     min + normalized * (max - min)
 }
 
