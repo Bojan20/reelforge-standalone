@@ -773,7 +773,17 @@ impl EventManagerProcessor {
                         }
                     }
                     crate::event::MaxInstanceBehavior::DiscardLowestPriority => {
-                        // TODO: Implement priority-based discard
+                        // EventInstance doesn't carry an explicit priority value —
+                        // use start_frame as a proxy: oldest instance = lowest priority.
+                        // Stop the active instance with the smallest start_frame.
+                        if let Some(oldest) = self
+                            .instances
+                            .iter_mut()
+                            .filter(|i| i.event_id == event_id && i.state.is_active())
+                            .min_by_key(|i| i.start_frame)
+                        {
+                            oldest.start_stopping(0);
+                        }
                     }
                     crate::event::MaxInstanceBehavior::IgnoreLimit => {}
                 }
