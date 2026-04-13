@@ -3,6 +3,8 @@
 /// Main panel for Adaptive Layer Engine with all sub-components.
 /// Provides context management, signal monitoring, rule editing, and layer control.
 
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -614,16 +616,98 @@ class _AlePanelState extends State<AlePanel>
     }
   }
 
+  Future<void> _loadProfileFromFile(AleProvider ale) async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['json', 'ale'],
+      dialogTitle: 'Load ALE Profile',
+    );
+    if (result == null || result.files.isEmpty) return;
+
+    final path = result.files.single.path;
+    if (path == null) return;
+
+    try {
+      final json = await File(path).readAsString();
+      final success = ale.loadProfile(json);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(success ? 'Profile loaded' : 'Failed to load profile'),
+            backgroundColor: success ? Colors.green : Colors.red,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading profile: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _saveProfileToFile(AleProvider ale) async {
+    final json = ale.exportProfile();
+    if (json == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No profile to save'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+      return;
+    }
+
+    final path = await FilePicker.platform.saveFile(
+      dialogTitle: 'Save ALE Profile',
+      fileName: 'ale_profile.json',
+      type: FileType.custom,
+      allowedExtensions: ['json'],
+    );
+    if (path == null) return;
+
+    try {
+      await File(path).writeAsString(json);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile saved'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving profile: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
   void _handleProfileAction(String action, AleProvider ale) {
     switch (action) {
       case 'new':
         ale.createNewProfile(gameName: 'New Game');
         break;
       case 'load':
-        // TODO: Show file picker
+        _loadProfileFromFile(ale);
         break;
       case 'save':
-        // TODO: Show save dialog
+        _saveProfileToFile(ale);
         break;
       case 'export':
         final json = ale.exportProfile();
