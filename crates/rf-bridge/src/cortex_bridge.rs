@@ -1264,6 +1264,8 @@ impl BridgeRustHandle {
             }
             BridgePayload::TransportTempo { bpm } => {
                 PLAYBACK_ENGINE.position.set_tempo(*bpm);
+                // BUG#7: propagate new BPM to all tempo-synced insert processors
+                PLAYBACK_ENGINE.sync_bpm_all_inserts(*bpm);
                 CortexResponse::ok(request.id, ResponseData::Bool(true))
             }
             _ => CortexResponse::error(request.id, 4001, "Unknown realtime payload"),

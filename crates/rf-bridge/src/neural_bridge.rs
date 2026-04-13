@@ -750,6 +750,8 @@ impl NeuralBridge {
             "set_tempo" => {
                 let bpm = p["bpm"].as_f64().unwrap_or(120.0);
                 PLAYBACK_ENGINE.position.set_tempo(bpm);
+                // BUG#7: propagate new BPM to all tempo-synced insert processors
+                PLAYBACK_ENGINE.sync_bpm_all_inserts(bpm);
                 BridgeResponse::ok(cid, start.elapsed())
             }
             "set_loop" => {
