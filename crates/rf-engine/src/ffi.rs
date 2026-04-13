@@ -424,7 +424,7 @@ fn validate_audio_buffer(ptr: *const f64, frames: usize, context: &str) -> bool 
 
     // Check for potential overflow
     let byte_size = frames.checked_mul(std::mem::size_of::<f64>());
-    if byte_size.is_none() || byte_size.unwrap() > MAX_FFI_BUFFER_SIZE {
+    if !byte_size.map_or(false, |s| s <= MAX_FFI_BUFFER_SIZE) {
         log::warn!("FFI {} buffer size overflow", context);
         return false;
     }
@@ -1877,7 +1877,7 @@ pub extern "C" fn engine_get_waveform_peaks_in_range(
         unsafe {
             for (i, peak) in peaks.iter().take(count).enumerate() {
                 // SAFETY: i < count <= max_peaks/2, so i*2+1 < max_peaks
-                let idx = i.checked_mul(2).expect("overflow in peak index");
+                let Some(idx) = i.checked_mul(2) else { continue };
                 *out_peaks.add(idx) = peak.min;
                 *out_peaks.add(idx + 1) = peak.max;
             }
@@ -2093,7 +2093,7 @@ pub extern "C" fn engine_query_waveform_tiles_batch(
                 let out_offset = total_written as usize;
                 for (i, b) in buckets.iter().enumerate() {
                     // SAFETY: capacity check above ensures out_offset + i*3+2 < out_capacity
-                    let idx = i.checked_mul(3).unwrap_or(0);
+                    let Some(idx) = i.checked_mul(3) else { continue };
                     *out_data.add(out_offset + idx) = b.min;
                     *out_data.add(out_offset + idx + 1) = b.max;
                     *out_data.add(out_offset + idx + 2) = b.rms;
@@ -2103,7 +2103,7 @@ pub extern "C" fn engine_query_waveform_tiles_batch(
                 // Fill with zeros for missing clip
                 for i in 0..num_pixels as usize {
                     let base = total_written as usize;
-                    let idx = i.checked_mul(3).unwrap_or(0);
+                    let Some(idx) = i.checked_mul(3) else { continue };
                     *out_data.add(base + idx) = 0.0;
                     *out_data.add(base + idx + 1) = 0.0;
                     *out_data.add(base + idx + 2) = 0.0;
@@ -4040,9 +4040,14 @@ pub extern "C" fn click_get_pan() -> f64 {
 }
 
 /// Set click tempo (BPM) — thread-safe
+/// BUG#7 FIX: Also syncs BPM to playback position and all insert processors
 #[unsafe(no_mangle)]
 pub extern "C" fn click_set_tempo(bpm: f64) {
     CLICK_TRACK.read().set_tempo(bpm);
+    // BUG#7 FIX: Keep playback position tempo in sync
+    PLAYBACK_ENGINE.position.set_tempo(bpm);
+    // BUG#7 FIX: Propagate BPM to all tempo-synced insert processors
+    PLAYBACK_ENGINE.sync_bpm_all_inserts(bpm);
 }
 
 /// Get click tempo (BPM)
@@ -7752,7 +7757,7 @@ pub extern "C" fn insert_get_metering_json(track_id: u32, slot_index: u32) -> *m
             });
 
             let json_str = serde_json::to_string(&json).unwrap_or_default();
-            match CString::new(json_str) { Ok(s) => s.into_raw(), Err(_) => CString::new("{}").unwrap().into_raw() }
+            match CString::new(json_str) { Ok(s) => s.into_raw(), Err(_) => CString::new("{}").unwrap_or_else(|_| CString::new("{}").expect("static")).into_raw() }
         } else {
             std::ptr::null_mut()
         }
@@ -7803,8 +7808,12 @@ pub extern "C" fn bus_insert_load_processor(
             name
         );
 
-        if let Some(processor) = crate::dsp_wrappers::create_processor_extended(&name, sample_rate)
+        if let Some(mut processor) = crate::dsp_wrappers::create_processor_extended(&name, sample_rate)
         {
+            // BUG#7 FIX: sync current project BPM immediately on creation
+            let current_bpm = PLAYBACK_ENGINE.position.get_tempo().unwrap_or(120.0);
+            processor.sync_bpm(current_bpm);
+
             let success = PLAYBACK_ENGINE.load_bus_insert(bus_id, slot_index, processor);
             log::info!(
                 "[BusInsert FFI] Loaded '{}' into bus {} slot {} -> success={}",
@@ -17261,7 +17270,7 @@ pub extern "C" fn plugin_get_info_json(index: u32) -> *mut c_char {
         );
         CString::new(json).unwrap_or_default().into_raw()
     } else {
-        CString::new("null").unwrap().into_raw()
+        CString::new("null").unwrap_or_else(|_| CString::new("null").expect("static")).into_raw()
     }
 }
 
@@ -17270,13 +17279,13 @@ pub extern "C" fn plugin_get_info_json(index: u32) -> *mut c_char {
 #[unsafe(no_mangle)]
 pub extern "C" fn plugin_get_all_params_json(instance_id: *const c_char) -> *mut c_char {
     if instance_id.is_null() {
-        return CString::new("[]").unwrap().into_raw();
+        return CString::new("[]").unwrap_or_else(|_| CString::new("[]").expect("static")).into_raw();
     }
 
     let id_str = unsafe {
         match std::ffi::CStr::from_ptr(instance_id).to_str() {
             Ok(s) => s,
-            Err(_) => return CString::new("[]").unwrap().into_raw(),
+            Err(_) => return CString::new("[]").unwrap_or_else(|_| CString::new("[]").expect("static")).into_raw(),
         }
     };
 
@@ -17306,7 +17315,7 @@ pub extern "C" fn plugin_get_all_params_json(instance_id: *const c_char) -> *mut
         let json = format!("[{}]", entries.join(","));
         CString::new(json).unwrap_or_default().into_raw()
     } else {
-        CString::new("[]").unwrap().into_raw()
+        CString::new("[]").unwrap_or_else(|_| CString::new("[]").expect("static")).into_raw()
     }
 }
 
@@ -17380,10 +17389,10 @@ pub extern "C" fn plugin_preset_load_factory(instance_id: *const c_char, index: 
 /// Caller must free with plugin_free_string
 #[unsafe(no_mangle)]
 pub extern "C" fn plugin_presets_get_all_json(instance_id: *const c_char) -> *mut c_char {
-    if instance_id.is_null() { return CString::new("[]").unwrap().into_raw(); }
+    if instance_id.is_null() { return CString::new("[]").unwrap_or_else(|_| CString::new("[]").expect("static")).into_raw(); }
     let id_str = unsafe {
         match std::ffi::CStr::from_ptr(instance_id).to_str() {
-            Ok(s) => s, Err(_) => return CString::new("[]").unwrap().into_raw(),
+            Ok(s) => s, Err(_) => return CString::new("[]").unwrap_or_else(|_| CString::new("[]").expect("static")).into_raw(),
         }
     };
 
@@ -17402,7 +17411,7 @@ pub extern "C" fn plugin_presets_get_all_json(instance_id: *const c_char) -> *mu
         json.push(']');
         CString::new(json).unwrap_or_default().into_raw()
     } else {
-        CString::new("[]").unwrap().into_raw()
+        CString::new("[]").unwrap_or_else(|_| CString::new("[]").expect("static")).into_raw()
     }
 }
 
@@ -17416,7 +17425,7 @@ pub extern "C" fn plugin_host_init() -> i32 {
 /// Placeholder FFI function (referenced by Dart bindings but not yet implemented)
 #[unsafe(no_mangle)]
 pub extern "C" fn my_ffi_function() -> *mut c_char {
-    CString::new("{}").unwrap().into_raw()
+    CString::new("{}").unwrap_or_else(|_| CString::new("{}").expect("static")).into_raw()
 }
 
 /// Get list of active plugin instances as JSON
@@ -17425,7 +17434,7 @@ pub extern "C" fn my_ffi_function() -> *mut c_char {
 pub extern "C" fn plugin_get_instances_json() -> *mut c_char {
     // Note: PluginHost doesn't expose instances directly,
     // would need to track in FFI layer. Return empty for now.
-    CString::new("[]").unwrap().into_raw()
+    CString::new("[]").unwrap_or_else(|_| CString::new("[]").expect("static")).into_raw()
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -19109,7 +19118,7 @@ pub extern "C" fn audio_pool_get_info(clip_id: u64) -> *mut c_char {
         );
         CString::new(json).unwrap_or_default().into_raw()
     } else {
-        CString::new("null").unwrap().into_raw()
+        CString::new("null").unwrap_or_else(|_| CString::new("null").expect("static")).into_raw()
     }
 }
 
@@ -19137,7 +19146,7 @@ pub extern "C" fn audio_pool_memory_usage() -> u64 {
 pub extern "C" fn audio_get_metadata(path: *const c_char) -> *mut c_char {
     let path_str = match unsafe { cstr_to_string(path) } {
         Some(s) => s,
-        None => return CString::new("").unwrap().into_raw(),
+        None => return CString::new("").unwrap_or_else(|_| CString::new("").expect("static")).into_raw(),
     };
 
     // Use symphonia to read metadata without decoding full audio
@@ -19147,7 +19156,7 @@ pub extern "C" fn audio_get_metadata(path: *const c_char) -> *mut c_char {
 
     let file = match File::open(&path_str) {
         Ok(f) => f,
-        Err(_) => return CString::new("").unwrap().into_raw(),
+        Err(_) => return CString::new("").unwrap_or_else(|_| CString::new("").expect("static")).into_raw(),
     };
 
     let mss = MediaSourceStream::new(Box::new(file), Default::default());
@@ -19166,13 +19175,13 @@ pub extern "C" fn audio_get_metadata(path: *const c_char) -> *mut c_char {
         &Default::default(),
     ) {
         Ok(p) => p,
-        Err(_) => return CString::new("").unwrap().into_raw(),
+        Err(_) => return CString::new("").unwrap_or_else(|_| CString::new("").expect("static")).into_raw(),
     };
 
     let mut format = probed.format;
     let track = match format.default_track() {
         Some(t) => t.clone(),
-        None => return CString::new("").unwrap().into_raw(),
+        None => return CString::new("").unwrap_or_else(|_| CString::new("").expect("static")).into_raw(),
     };
 
     let codec_params = &track.codec_params;
@@ -19302,13 +19311,13 @@ pub extern "C" fn audio_pool_register_instant(path: *const c_char) -> u64 {
 pub extern "C" fn audio_pool_register_batch(paths_json: *const c_char) -> *mut c_char {
     let json_str = match unsafe { cstr_to_string(paths_json) } {
         Some(s) => s,
-        None => return CString::new("[]").unwrap().into_raw(),
+        None => return CString::new("[]").unwrap_or_else(|_| CString::new("[]").expect("static")).into_raw(),
     };
 
     // Parse JSON array of paths
     let paths: Vec<String> = match serde_json::from_str(&json_str) {
         Ok(p) => p,
-        Err(_) => return CString::new("[]").unwrap().into_raw(),
+        Err(_) => return CString::new("[]").unwrap_or_else(|_| CString::new("[]").expect("static")).into_raw(),
     };
 
     let mut ids = Vec::with_capacity(paths.len());
@@ -20993,7 +21002,7 @@ pub extern "C" fn video_get_frame(
                 *out_size = frame.data.len() as u64;
             }
 
-            // Copy frame data to heap-allocated buffer
+            // Convert to boxed slice (guarantees capacity == len), then transfer ownership
             let mut data = frame.data.into_boxed_slice();
             let ptr = data.as_mut_ptr();
             std::mem::forget(data);
@@ -21015,7 +21024,8 @@ pub extern "C" fn video_get_frame(
 pub extern "C" fn video_free_frame(data: *mut u8, size: u64) {
     if !data.is_null() && size > 0 {
         unsafe {
-            let _ = Box::from_raw(std::ptr::slice_from_raw_parts_mut(data, size as usize));
+            // Reconstruct Vec with capacity == len (guaranteed by into_boxed_slice in video_get_frame)
+            let _ = Vec::from_raw_parts(data, size as usize, size as usize);
         }
     }
 }

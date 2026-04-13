@@ -1435,7 +1435,7 @@ class MixerProvider extends ChangeNotifier {
     // Update engine
     if (channel.trackIndex != null) {
       NativeFFI.instance.vcaAssignTrack(
-        int.parse(vcaId.replaceAll('vca_', '')),
+        _parseId(vcaId),
         channel.trackIndex!,
       );
     }
@@ -2473,7 +2473,7 @@ class MixerProvider extends ChangeNotifier {
     _vcas[id] = vca.copyWith(level: clampedLevel);
 
     // Update engine VCA
-    final engineId = int.tryParse(id.replaceAll('vca_', '')) ?? 0;
+    final engineId = _parseId(id);
     NativeFFI.instance.vcaSetLevel(engineId, clampedLevel);
 
     // Pro Tools VCA behavior: VCA level acts as a trim multiplier on member tracks.
@@ -2490,7 +2490,7 @@ class MixerProvider extends ChangeNotifier {
     final newMuted = !vca.muted;
     _vcas[id] = vca.copyWith(muted: newMuted);
 
-    final engineId = int.tryParse(id.replaceAll('vca_', '')) ?? 0;
+    final engineId = _parseId(id);
     NativeFFI.instance.vcaSetMute(engineId, newMuted);
 
     // Propagate mute to all member tracks
@@ -2506,7 +2506,7 @@ class MixerProvider extends ChangeNotifier {
     final newSoloed = !vca.soloed;
     _vcas[id] = vca.copyWith(soloed: newSoloed);
 
-    final engineId = int.tryParse(id.replaceAll('vca_', '')) ?? 0;
+    final engineId = _parseId(id);
     NativeFFI.instance.vcaSetSolo(engineId, newSoloed);
 
     // Propagate solo via SIP — VCA solo means solo all member tracks
@@ -2853,7 +2853,7 @@ class MixerProvider extends ChangeNotifier {
     if (slotIndex < 0 || slotIndex >= channel.inserts.length) return;
 
     // Get track ID for FFI
-    final trackId = int.tryParse(channelId.replaceAll('ch_', '')) ?? 0;
+    final trackId = _parseId(channelId);
 
     // Send bypass state to Rust engine
     NativeFFI.instance.insertSetBypass(trackId, slotIndex, bypassed);
@@ -2872,7 +2872,7 @@ class MixerProvider extends ChangeNotifier {
     if (channel == null) return;
     if (slotIndex < 0 || slotIndex >= channel.inserts.length) return;
 
-    final trackId = int.tryParse(channelId.replaceAll('ch_', '')) ?? 0;
+    final trackId = _parseId(channelId);
     final clampedMix = wetDry.clamp(0.0, 1.0);
     NativeFFI.instance.insertSetMix(trackId, slotIndex, clampedMix);
   }
@@ -2884,7 +2884,7 @@ class MixerProvider extends ChangeNotifier {
     if (channel == null) return;
     if (slotIndex < 0 || slotIndex >= channel.inserts.length) return;
 
-    final trackId = int.tryParse(channelId.replaceAll('ch_', '')) ?? 0;
+    final trackId = _parseId(channelId);
     final clampedMix = wetDry.clamp(0.0, 1.0);
     NativeFFI.instance.insertSetMix(trackId, slotIndex, clampedMix);
 

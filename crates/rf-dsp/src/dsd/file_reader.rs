@@ -576,7 +576,9 @@ impl<R: Read + Seek> SacdExtractor<R> {
 
         self.toc = Some(toc);
 
-        Ok(self.toc.as_ref().unwrap())
+        Ok(self.toc.as_ref().ok_or_else(|| {
+            DsdError::InvalidFormat("Failed to initialize SACD TOC".into())
+        })?)
     }
 
     /// Extract track as DSD stream
@@ -589,7 +591,9 @@ impl<R: Read + Seek> SacdExtractor<R> {
             self.read_toc()?;
         }
 
-        let toc = self.toc.as_ref().unwrap();
+        let toc = self.toc.as_ref().ok_or_else(|| {
+            DsdError::InvalidFormat("SACD TOC not available after read".into())
+        })?;
 
         let track = toc
             .tracks
@@ -602,13 +606,20 @@ impl<R: Read + Seek> SacdExtractor<R> {
         self.reader
             .seek(SeekFrom::Start(track.start_sector as u64 * SECTOR_SIZE))?;
 
-        // Read track data
-        let data_size = track.length_sectors as usize * SECTOR_SIZE as usize;
+        // Read track data (checked arithmetic to prevent overflow)
+        let data_size = (track.length_sectors as usize)
+            .checked_mul(SECTOR_SIZE as usize)
+            .ok_or_else(|| {
+                DsdError::InvalidFormat(format!(
+                    "Track data size overflow: {} sectors * {} bytes",
+                    track.length_sectors, SECTOR_SIZE
+                ))
+            })?;
         let mut data = vec![0u8; data_size];
         self.reader.read_exact(&mut data)?;
 
         // Determine channel count
-        let channels = match config {
+        let channels: u8 = match config {
             SacdChannelConfig::Stereo => 2,
             SacdChannelConfig::Surround51 => 6,
             SacdChannelConfig::Surround71 => 8,
@@ -635,7 +646,9 @@ impl<R: Read + Seek> SacdExtractor<R> {
             self.read_toc()?;
         }
 
-        Ok(self.toc.as_ref().unwrap().tracks.clone())
+        Ok(self.toc.as_ref().ok_or_else(|| {
+            DsdError::InvalidFormat("SACD TOC not available after read".into())
+        })?.tracks.clone())
     }
 
     /// Check if ISO has stereo layer
@@ -644,7 +657,9 @@ impl<R: Read + Seek> SacdExtractor<R> {
             self.read_toc()?;
         }
 
-        Ok(self.toc.as_ref().unwrap().has_stereo)
+        Ok(self.toc.as_ref().ok_or_else(|| {
+            DsdError::InvalidFormat("SACD TOC not available after read".into())
+        })?.has_stereo)
     }
 
     /// Check if ISO has multichannel layer
@@ -653,7 +668,9 @@ impl<R: Read + Seek> SacdExtractor<R> {
             self.read_toc()?;
         }
 
-        Ok(self.toc.as_ref().unwrap().has_multichannel)
+        Ok(self.toc.as_ref().ok_or_else(|| {
+            DsdError::InvalidFormat("SACD TOC not available after read".into())
+        })?.has_multichannel)
     }
 }
 

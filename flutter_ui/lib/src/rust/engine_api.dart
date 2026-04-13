@@ -809,7 +809,7 @@ class EngineApi {
     int lodLevel = 0,
   }) async {
     if (!_useMock) {
-      final nativeClipId = int.tryParse(clipId);
+      final nativeClipId = _parseClipId(clipId);
       if (nativeClipId != null) {
         final peaks = _ffi.getWaveformPeaks(nativeClipId, lodLevel: lodLevel);
         if (peaks.isNotEmpty) {
@@ -832,7 +832,7 @@ class EngineApi {
     required double startTime,
   }) {
     if (!_useMock) {
-      final nativeClipId = int.tryParse(clipId);
+      final nativeClipId = _parseClipId(clipId);
       final nativeTrackId = int.tryParse(targetTrackId);
       if (nativeClipId != null && nativeTrackId != null) {
         _ffi.moveClip(nativeClipId, nativeTrackId, startTime);
@@ -849,7 +849,7 @@ class EngineApi {
     required double sourceOffset,
   }) {
     if (!_useMock) {
-      final nativeClipId = int.tryParse(clipId);
+      final nativeClipId = _parseClipId(clipId);
       if (nativeClipId != null) {
         _ffi.resizeClip(nativeClipId, startTime, duration, sourceOffset);
         return;
@@ -864,7 +864,7 @@ class EngineApi {
     required double atTime,
   }) {
     if (!_useMock) {
-      final nativeClipId = int.tryParse(clipId);
+      final nativeClipId = _parseClipId(clipId);
       if (nativeClipId != null) {
         final newId = _ffi.splitClip(nativeClipId, atTime);
         if (newId != 0) {
@@ -879,7 +879,7 @@ class EngineApi {
   /// Returns new clip ID or null on failure
   String? duplicateClip(String clipId) {
     if (!_useMock) {
-      final nativeClipId = int.tryParse(clipId);
+      final nativeClipId = _parseClipId(clipId);
       if (nativeClipId != null) {
         final newId = _ffi.duplicateClip(nativeClipId);
         if (newId != 0) {
@@ -893,7 +893,7 @@ class EngineApi {
   /// Delete a clip
   void deleteClip(String clipId) {
     if (!_useMock) {
-      final nativeClipId = int.tryParse(clipId);
+      final nativeClipId = _parseClipId(clipId);
       if (nativeClipId != null) {
         _ffi.deleteClip(nativeClipId);
         return;
@@ -904,7 +904,7 @@ class EngineApi {
   /// Set clip gain
   void setClipGain(String clipId, double gain) {
     if (!_useMock) {
-      final nativeClipId = int.tryParse(clipId);
+      final nativeClipId = _parseClipId(clipId);
       if (nativeClipId != null) {
         _ffi.setClipGain(nativeClipId, gain);
         return;
@@ -915,7 +915,7 @@ class EngineApi {
   /// Set clip mute state
   void setClipMuted(String clipId, bool muted) {
     if (!_useMock) {
-      final nativeClipId = int.tryParse(clipId);
+      final nativeClipId = _parseClipId(clipId);
       if (nativeClipId != null) {
         _ffi.setClipMuted(nativeClipId, muted);
         return;
@@ -926,7 +926,7 @@ class EngineApi {
   /// Set clip loop enabled
   void setClipLoopEnabled(String clipId, bool enabled) {
     if (!_useMock) {
-      final nativeClipId = int.tryParse(clipId);
+      final nativeClipId = _parseClipId(clipId);
       if (nativeClipId != null) {
         _ffi.setClipLoopEnabled(nativeClipId, enabled);
         return;
@@ -937,7 +937,7 @@ class EngineApi {
   /// Set clip loop count (0 = infinite, 1+ = specific iterations)
   void setClipLoopCount(String clipId, int count) {
     if (!_useMock) {
-      final nativeClipId = int.tryParse(clipId);
+      final nativeClipId = _parseClipId(clipId);
       if (nativeClipId != null) {
         _ffi.setClipLoopCount(nativeClipId, count);
         return;
@@ -948,7 +948,7 @@ class EngineApi {
   /// Set clip loop crossfade in seconds
   void setClipLoopCrossfade(String clipId, double crossfadeSecs) {
     if (!_useMock) {
-      final nativeClipId = int.tryParse(clipId);
+      final nativeClipId = _parseClipId(clipId);
       if (nativeClipId != null) {
         _ffi.setClipLoopCrossfade(nativeClipId, crossfadeSecs);
         return;
@@ -959,7 +959,7 @@ class EngineApi {
   /// Set clip loop start boundary in samples
   void setClipLoopStart(String clipId, int startSamples) {
     if (!_useMock) {
-      final nativeClipId = int.tryParse(clipId);
+      final nativeClipId = _parseClipId(clipId);
       if (nativeClipId != null) {
         _ffi.setClipLoopStart(nativeClipId, startSamples);
         return;
@@ -970,7 +970,7 @@ class EngineApi {
   /// Set clip loop end boundary in samples (0 = full clip)
   void setClipLoopEnd(String clipId, int endSamples) {
     if (!_useMock) {
-      final nativeClipId = int.tryParse(clipId);
+      final nativeClipId = _parseClipId(clipId);
       if (nativeClipId != null) {
         _ffi.setClipLoopEnd(nativeClipId, endSamples);
         return;
@@ -981,7 +981,7 @@ class EngineApi {
   /// Set clip per-iteration gain factor (1.0 = unity)
   void setClipIterationGain(String clipId, double factor) {
     if (!_useMock) {
-      final nativeClipId = int.tryParse(clipId);
+      final nativeClipId = _parseClipId(clipId);
       if (nativeClipId != null) {
         _ffi.setClipIterationGain(nativeClipId, factor);
         return;
@@ -992,7 +992,7 @@ class EngineApi {
   /// Set clip loop random start range in seconds
   void setClipLoopRandomStart(String clipId, double rangeSecs) {
     if (!_useMock) {
-      final nativeClipId = int.tryParse(clipId);
+      final nativeClipId = _parseClipId(clipId);
       if (nativeClipId != null) {
         _ffi.setClipLoopRandomStart(nativeClipId, rangeSecs);
         return;
@@ -1003,7 +1003,7 @@ class EngineApi {
   /// SmartTempo: Detect tempo from clip audio
   TempoDetectionResult detectClipTempo(String clipId, {double minBpm = 60.0, double maxBpm = 200.0}) {
     if (!_useMock) {
-      final nativeClipId = int.tryParse(clipId);
+      final nativeClipId = _parseClipId(clipId);
       if (nativeClipId != null) {
         return _ffi.detectClipTempo(nativeClipId, minBpm: minBpm, maxBpm: maxBpm);
       }
@@ -1091,7 +1091,7 @@ class EngineApi {
   /// fxType: 0=Gain, 1=Compressor, 2=Limiter, 3=Gate, 4=Saturation, etc.
   String? addClipFx(String clipId, int fxType) {
     if (!_useMock) {
-      final nativeClipId = int.tryParse(clipId);
+      final nativeClipId = _parseClipId(clipId);
       if (nativeClipId != null) {
         final slotId = _ffi.addClipFx(nativeClipId, fxType);
         if (slotId != 0) {
@@ -1105,7 +1105,7 @@ class EngineApi {
   /// Remove FX from a clip
   bool removeClipFx(String clipId, String slotId) {
     if (!_useMock) {
-      final nativeClipId = int.tryParse(clipId);
+      final nativeClipId = _parseClipId(clipId);
       final nativeSlotId = int.tryParse(slotId);
       if (nativeClipId != null && nativeSlotId != null) {
         return _ffi.removeClipFx(nativeClipId, nativeSlotId);
@@ -1117,7 +1117,7 @@ class EngineApi {
   /// Bypass/enable a clip FX slot
   bool setClipFxBypass(String clipId, String slotId, bool bypass) {
     if (!_useMock) {
-      final nativeClipId = int.tryParse(clipId);
+      final nativeClipId = _parseClipId(clipId);
       final nativeSlotId = int.tryParse(slotId);
       if (nativeClipId != null && nativeSlotId != null) {
         return _ffi.setClipFxBypass(nativeClipId, nativeSlotId, bypass);
@@ -1129,7 +1129,7 @@ class EngineApi {
   /// Bypass/enable entire clip FX chain
   bool setClipFxChainBypass(String clipId, bool bypass) {
     if (!_useMock) {
-      final nativeClipId = int.tryParse(clipId);
+      final nativeClipId = _parseClipId(clipId);
       if (nativeClipId != null) {
         return _ffi.setClipFxChainBypass(nativeClipId, bypass);
       }
@@ -1140,7 +1140,7 @@ class EngineApi {
   /// Set clip FX slot wet/dry mix (0.0-1.0)
   bool setClipFxWetDry(String clipId, String slotId, double wetDry) {
     if (!_useMock) {
-      final nativeClipId = int.tryParse(clipId);
+      final nativeClipId = _parseClipId(clipId);
       final nativeSlotId = int.tryParse(slotId);
       if (nativeClipId != null && nativeSlotId != null) {
         return _ffi.setClipFxWetDry(nativeClipId, nativeSlotId, wetDry);
@@ -1152,7 +1152,7 @@ class EngineApi {
   /// Set clip FX chain input gain (dB)
   bool setClipFxInputGain(String clipId, double gainDb) {
     if (!_useMock) {
-      final nativeClipId = int.tryParse(clipId);
+      final nativeClipId = _parseClipId(clipId);
       if (nativeClipId != null) {
         return _ffi.setClipFxInputGain(nativeClipId, gainDb);
       }
@@ -1163,7 +1163,7 @@ class EngineApi {
   /// Set clip FX chain output gain (dB)
   bool setClipFxOutputGain(String clipId, double gainDb) {
     if (!_useMock) {
-      final nativeClipId = int.tryParse(clipId);
+      final nativeClipId = _parseClipId(clipId);
       if (nativeClipId != null) {
         return _ffi.setClipFxOutputGain(nativeClipId, gainDb);
       }
@@ -1174,7 +1174,7 @@ class EngineApi {
   /// Set Gain FX parameters
   bool setClipFxGainParams(String clipId, String slotId, double db, double pan) {
     if (!_useMock) {
-      final nativeClipId = int.tryParse(clipId);
+      final nativeClipId = _parseClipId(clipId);
       final nativeSlotId = int.tryParse(slotId);
       if (nativeClipId != null && nativeSlotId != null) {
         return _ffi.setClipFxGainParams(nativeClipId, nativeSlotId, db, pan);
@@ -1193,7 +1193,7 @@ class EngineApi {
     required double releaseMs,
   }) {
     if (!_useMock) {
-      final nativeClipId = int.tryParse(clipId);
+      final nativeClipId = _parseClipId(clipId);
       final nativeSlotId = int.tryParse(slotId);
       if (nativeClipId != null && nativeSlotId != null) {
         return _ffi.setClipFxCompressorParams(
@@ -1212,7 +1212,7 @@ class EngineApi {
   /// Set Limiter FX parameters
   bool setClipFxLimiterParams(String clipId, String slotId, double ceilingDb) {
     if (!_useMock) {
-      final nativeClipId = int.tryParse(clipId);
+      final nativeClipId = _parseClipId(clipId);
       final nativeSlotId = int.tryParse(slotId);
       if (nativeClipId != null && nativeSlotId != null) {
         return _ffi.setClipFxLimiterParams(nativeClipId, nativeSlotId, ceilingDb);
@@ -1230,7 +1230,7 @@ class EngineApi {
     required double releaseMs,
   }) {
     if (!_useMock) {
-      final nativeClipId = int.tryParse(clipId);
+      final nativeClipId = _parseClipId(clipId);
       final nativeSlotId = int.tryParse(slotId);
       if (nativeClipId != null && nativeSlotId != null) {
         return _ffi.setClipFxGateParams(
@@ -1253,7 +1253,7 @@ class EngineApi {
     required double mix,
   }) {
     if (!_useMock) {
-      final nativeClipId = int.tryParse(clipId);
+      final nativeClipId = _parseClipId(clipId);
       final nativeSlotId = int.tryParse(slotId);
       if (nativeClipId != null && nativeSlotId != null) {
         return _ffi.setClipFxSaturationParams(nativeClipId, nativeSlotId, drive, mix);
@@ -1265,7 +1265,7 @@ class EngineApi {
   /// Move FX slot to new position in chain
   bool moveClipFx(String clipId, String slotId, int newIndex) {
     if (!_useMock) {
-      final nativeClipId = int.tryParse(clipId);
+      final nativeClipId = _parseClipId(clipId);
       final nativeSlotId = int.tryParse(slotId);
       if (nativeClipId != null && nativeSlotId != null) {
         return _ffi.moveClipFx(nativeClipId, nativeSlotId, newIndex);
@@ -1289,7 +1289,7 @@ class EngineApi {
   /// Clear all FX from a clip
   bool clearClipFx(String clipId) {
     if (!_useMock) {
-      final nativeClipId = int.tryParse(clipId);
+      final nativeClipId = _parseClipId(clipId);
       if (nativeClipId != null) {
         return _ffi.clearClipFx(nativeClipId);
       }

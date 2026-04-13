@@ -426,6 +426,13 @@ impl InsertSlot {
     }
 
     /// Set sample rate
+    /// BUG#7 FIX: Sync BPM to processor (no-op if slot is empty)
+    pub fn sync_bpm(&mut self, bpm: f64) {
+        if let Some(ref mut processor) = self.processor {
+            processor.sync_bpm(bpm);
+        }
+    }
+
     pub fn set_sample_rate(&mut self, sample_rate: f64) {
         self.sample_rate = sample_rate;
         self.bypass_coeff = Self::calculate_bypass_coeff(sample_rate);
@@ -772,6 +779,17 @@ impl InsertChain {
             slot.set_sample_rate(sample_rate);
         }
         self.update_latency();
+    }
+
+    /// BUG#7 FIX: Sync BPM to all loaded processors in this chain.
+    /// Called when project tempo changes so delay/compressor/reverb stay in sync.
+    pub fn sync_bpm(&mut self, bpm: f64) {
+        for slot in &mut self.pre_slots {
+            slot.sync_bpm(bpm);
+        }
+        for slot in &mut self.post_slots {
+            slot.sync_bpm(bpm);
+        }
     }
 
     /// Reset all processors

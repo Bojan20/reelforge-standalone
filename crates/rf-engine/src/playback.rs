@@ -2716,6 +2716,27 @@ impl PlaybackEngine {
         }
     }
 
+    /// BUG#7 FIX: Sync BPM to all insert processors across all tracks, buses, and master.
+    /// Called when project tempo changes so tempo-synced effects stay in sync.
+    pub fn sync_bpm_all_inserts(&self, bpm: f64) {
+        // Sync all track insert chains
+        if let Some(mut chains) = self.insert_chains.try_write() {
+            for chain in chains.values_mut() {
+                chain.sync_bpm(bpm);
+            }
+        }
+        // Sync all bus insert chains
+        if let Some(mut bus_inserts) = self.bus_inserts.try_write() {
+            for chain in bus_inserts.iter_mut() {
+                chain.sync_bpm(bpm);
+            }
+        }
+        // Sync master insert chain
+        if let Some(mut master) = self.master_insert.try_write() {
+            master.sync_bpm(bpm);
+        }
+    }
+
     /// Get total insert latency for track
     pub fn get_track_insert_latency(&self, track_id: u64) -> usize {
         self.insert_chains
