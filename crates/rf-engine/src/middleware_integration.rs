@@ -174,6 +174,12 @@ impl PlayingVoice {
         }
     }
 
+    /// Seek to a sample position, clamping to valid range
+    fn seek_to_sample(&mut self, sample: u64) {
+        let len = self.asset.samples_l.len() as u64;
+        self.position = if len > 0 { sample.min(len - 1) } else { 0 };
+    }
+
     /// Start fade-out to stop
     fn start_stop(&mut self, fade_frames: u64) {
         self.stopping = true;
@@ -367,6 +373,13 @@ impl ActionExecutor {
                 } => {
                     self.execute_set_volume(bus_id, target_volume);
                 }
+                ExecutedAction::Seek {
+                    playing_id,
+                    voice_ids: _,
+                    position_secs,
+                } => {
+                    self.execute_seek(playing_id, position_secs, self.sample_rate);
+                }
                 ExecutedAction::SetState { .. }
                 | ExecutedAction::SetSwitch { .. }
                 | ExecutedAction::SetRtpc { .. }
@@ -439,6 +452,15 @@ impl ActionExecutor {
     fn execute_stop_all(&mut self, fade_frames: u64) {
         for voice in &mut self.voices {
             voice.start_stop(fade_frames);
+        }
+    }
+
+    fn execute_seek(&mut self, playing_id: u64, position_secs: f32, sample_rate: u32) {
+        let target_sample = (position_secs * sample_rate as f32) as u64;
+        for voice in self.voices.iter_mut() {
+            if voice.playing_id == playing_id && !voice.finished {
+                voice.seek_to_sample(target_sample);
+            }
         }
     }
 

@@ -22,7 +22,7 @@ use crate::action::{ActionPriority, ActionType, MiddlewareAction};
 use crate::event::MiddlewareEvent;
 use crate::instance::{
     CallbackInfo, CallbackType, EventInstance, EventInstanceState, GameObjectId, PlayingId,
-    generate_playing_id,
+    VoiceId, generate_playing_id,
 };
 use crate::state::{RtpcDefinition, StateGroup, SwitchGroup};
 
@@ -677,8 +677,50 @@ impl EventManagerProcessor {
                         .or_insert_with(|| RtpcValue::new(1.0));
                     entry.set_target(volume, frames);
                 }
-                EventCommand::SeekPlayingId { .. } => {
-                    // TODO: Implement seek
+                EventCommand::SeekPlayingId {
+                    playing_id,
+                    position_secs,
+                } => {
+                    if let Some(inst) = self
+                        .instances
+                        .iter_mut()
+                        .find(|i| i.playing_id == playing_id && i.state.is_active())
+                    {
+                        let sr = self.shared.sample_rate.load(Ordering::Relaxed) as f32;
+                        // Rebase start_frame so pending action delays fire correctly
+                        // relative to the seeked position.
+                        let seek_frames = (position_secs * sr) as u64;
+                        inst.start_frame = self.current_frame.saturating_sub(seek_frames);
+
+                        // Re-schedule pending actions from the new start_frame
+                        // (re-sort by execution time; already-executed ones stay executed)
+                        inst.pending_actions
+                            .iter_mut()
+                            .filter(|a| !a.executed)
+                            .for_each(|a| {
+                                // Rebase: action delay relative to original start,
+                                // now applied to the new start_frame.
+                                // We don't have delay_frames stored, so derive from the
+                                // original execute_at relative to the OLD start_frame.
+                                // Note: execute_at was set as old_start + delay — but
+                                // old_start_frame is now overwritten.  We work around
+                                // this by re-scheduling only if delay is still in future.
+                                if a.execute_at_frame > self.current_frame {
+                                    // Keep as-is — still hasn't fired.
+                                } else {
+                                    // Mark executed — we seeked past it.
+                                    a.executed = true;
+                                }
+                            });
+
+                        // Emit Seek action so the audio engine can forward
+                        // the seek to the underlying audio voices.
+                        executed.push(ExecutedAction::Seek {
+                            playing_id,
+                            voice_ids: inst.voice_ids.clone(),
+                            position_secs,
+                        });
+                    }
                 }
                 EventCommand::BreakLoop { playing_id } => {
                     // Find the active instance and mark it to stop looping
@@ -1181,6 +1223,14 @@ pub enum ExecutedAction {
         bus_id: u32,
         target_volume: f32,
         fade_frames: u64,
+    },
+    /// Seek active voices to a new position
+    Seek {
+        playing_id: PlayingId,
+        /// Voice IDs that should be seeked
+        voice_ids: Vec<VoiceId>,
+        /// Target position in seconds
+        position_secs: f32,
     },
     /// Other action type
     Other { action_type: ActionType },

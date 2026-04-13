@@ -6266,6 +6266,20 @@ pub extern "C" fn engine_start_playback() -> i32 {
                                     };
                                 }
                             }
+                            ExecutedAction::Seek {
+                                playing_id,
+                                voice_ids: _,
+                                position_secs,
+                            } => {
+                                let target = (position_secs * device_sample_rate as f32) as u64;
+                                for voice in middleware_voices
+                                    .iter_mut()
+                                    .filter(|v| v.playing_id == playing_id && !v.finished)
+                                {
+                                    let len = voice.asset.samples_l.len() as u64;
+                                    voice.position = if len > 0 { target.min(len - 1) } else { 0 };
+                                }
+                            }
                             _ => {} // Other actions handled elsewhere
                         }
                     }
