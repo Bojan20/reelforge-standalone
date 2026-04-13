@@ -1472,6 +1472,21 @@ pub extern "C" fn slot_lab_scenario_load(id: *const c_char) -> i32 {
     let registry = SCENARIO_REGISTRY.read();
     match registry.create_playback(id_str) {
         Some(playback) => {
+            // BUG#63: Validate scenario dimensions against the active GameModel before
+            // accepting it. A SpecificGrid outcome with wrong reel/row count would silently
+            // produce out-of-bounds access or incorrect win evaluation during playback.
+            let engine_guard = ENGINE_V2.read();
+            if let Some(ref engine) = *engine_guard {
+                if let Err(e) = playback.scenario().validate_against(engine.model()) {
+                    log::warn!(
+                        "slot_lab_scenario_load: Scenario '{}' failed validation: {:?}",
+                        id_str, e
+                    );
+                    return 0;
+                }
+            }
+            drop(engine_guard);
+
             *ACTIVE_PLAYBACK.write() = Some(playback);
             log::info!("slot_lab_scenario_load: Loaded scenario '{}'", id_str);
             1
