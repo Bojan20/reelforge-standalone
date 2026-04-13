@@ -313,36 +313,113 @@ impl AmbisonicDecoder {
         points
     }
 
-    /// Compute VBAP gains for position
+    /// Compute VBAP gains for position.
+    ///
+    /// BUG#34 FIX: Implements proper 3-speaker VBAP via Cramer's rule instead of
+    /// the previous nearest-speaker approximation.  Finds the 3 angularly-closest
+    /// speakers (by dot-product on the unit sphere), then solves `L·g = p` where
+    /// L's columns are the speaker unit vectors and p is the normalised source
+    /// direction.  Falls back to nearest-speaker if the selected triplet is
+    /// degenerate (co-planar speakers or fewer than 3 speakers available).
     fn compute_vbap_gains(position: &Position3D, speakers: &[&Speaker]) -> Vec<f32> {
-        let num_speakers = speakers.len();
-        let mut gains = vec![0.0f32; num_speakers];
+        let n = speakers.len();
+        let mut gains = vec![0.0f32; n];
 
-        // Simplified VBAP: find nearest speaker and neighbors
-        let mut min_dist = f32::MAX;
-        let mut nearest_idx = 0;
+        if n == 0 {
+            return gains;
+        }
+        if n == 1 {
+            gains[0] = 1.0;
+            return gains;
+        }
 
-        for (i, spk) in speakers.iter().enumerate() {
-            let dist = position.distance_to(&spk.position);
-            if dist < min_dist {
-                min_dist = dist;
-                nearest_idx = i;
+        // Normalise the source direction vector
+        let src_len = (position.x * position.x
+            + position.y * position.y
+            + position.z * position.z)
+            .sqrt();
+        if src_len < f32::EPSILON {
+            gains[0] = 1.0;
+            return gains;
+        }
+        let src = [position.x / src_len, position.y / src_len, position.z / src_len];
+
+        // Build normalised speaker unit vectors and find the 3 nearest by dot product
+        let unit_vecs: Vec<[f32; 3]> = speakers
+            .iter()
+            .map(|spk| {
+                let l = (spk.position.x * spk.position.x
+                    + spk.position.y * spk.position.y
+                    + spk.position.z * spk.position.z)
+                    .sqrt()
+                    .max(f32::EPSILON);
+                [spk.position.x / l, spk.position.y / l, spk.position.z / l]
+            })
+            .collect();
+
+        // Dot product on unit sphere — higher = closer
+        let mut dots: Vec<(f32, usize)> = unit_vecs
+            .iter()
+            .enumerate()
+            .map(|(i, v)| (v[0] * src[0] + v[1] * src[1] + v[2] * src[2], i))
+            .collect();
+        dots.sort_unstable_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+
+        // Try the top-3 nearest speakers as the VBAP triplet
+        if n >= 3 {
+            let i0 = dots[0].1;
+            let i1 = dots[1].1;
+            let i2 = dots[2].1;
+
+            let c0 = unit_vecs[i0];
+            let c1 = unit_vecs[i1];
+            let c2 = unit_vecs[i2];
+
+            if let Some([g0, g1, g2]) = Self::vbap_solve3(c0, c1, c2, src) {
+                // All gains non-negative — source is inside the triplet
+                if g0 >= -1e-4 && g1 >= -1e-4 && g2 >= -1e-4 {
+                    let g0 = g0.max(0.0);
+                    let g1 = g1.max(0.0);
+                    let g2 = g2.max(0.0);
+                    let energy = (g0 * g0 + g1 * g1 + g2 * g2).sqrt().max(f32::EPSILON);
+                    gains[i0] = g0 / energy;
+                    gains[i1] = g1 / energy;
+                    gains[i2] = g2 / energy;
+                    return gains;
+                }
             }
         }
 
-        // Simple panning to nearest speaker
-        // Full VBAP would use triangulation
-        gains[nearest_idx] = 1.0;
-
-        // Normalize
-        let sum: f32 = gains.iter().map(|g| g * g).sum::<f32>().sqrt();
-        if sum > 0.0 {
-            for g in &mut gains {
-                *g /= sum;
-            }
-        }
-
+        // Fallback: nearest speaker (degenerate or fewer than 3 speakers)
+        let nearest = dots[0].1;
+        gains[nearest] = 1.0;
         gains
+    }
+
+    /// Solve the VBAP 3-speaker system using Cramer's rule.
+    ///
+    /// Computes `g = L⁻¹ · p` where L = [c0 | c1 | c2] (column matrix of
+    /// speaker unit vectors) and p is the normalised source direction.
+    /// Returns `None` if the matrix is singular (det ≈ 0).
+    #[inline]
+    fn vbap_solve3(c0: [f32; 3], c1: [f32; 3], c2: [f32; 3], p: [f32; 3]) -> Option<[f32; 3]> {
+        let det = Self::det3(c0, c1, c2);
+        if det.abs() < 1e-6 {
+            return None;
+        }
+        let inv = 1.0 / det;
+        let g0 = Self::det3(p, c1, c2) * inv;
+        let g1 = Self::det3(c0, p, c2) * inv;
+        let g2 = Self::det3(c0, c1, p) * inv;
+        Some([g0, g1, g2])
+    }
+
+    /// 3 × 3 determinant, columns supplied as arrays.
+    #[inline]
+    fn det3(c0: [f32; 3], c1: [f32; 3], c2: [f32; 3]) -> f32 {
+        c0[0] * (c1[1] * c2[2] - c2[1] * c1[2])
+            - c1[0] * (c0[1] * c2[2] - c2[1] * c0[2])
+            + c2[0] * (c0[1] * c1[2] - c1[1] * c0[2])
     }
 
     /// Simple lowpass filter for LFE

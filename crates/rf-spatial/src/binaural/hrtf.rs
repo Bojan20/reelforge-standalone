@@ -114,11 +114,15 @@ impl HrtfDatabase {
         Some(low.lerp(&high, el_t))
     }
 
-    /// Get spherically interpolated HRIR (higher quality)
+    /// Get spherically interpolated HRIR (higher quality).
+    ///
+    /// BUG#35 FIX: Uses inverse-distance-weighted blending of the 3 nearest
+    /// HRTF grid points (same as get_vbap below) rather than bilinear interpolation
+    /// on the flat az/el grid.  This avoids the ITD/ILD artefacts that bilinear
+    /// interpolation introduces for off-grid directions near the poles, where
+    /// the equi-angular grid becomes very dense.
     fn get_spherical(&self, azimuth: f32, elevation: f32) -> Option<HrirPair> {
-        // For simplicity, fall back to bilinear
-        // Full implementation would use spherical barycentric coordinates
-        self.get_bilinear(azimuth, elevation)
+        self.get_vbap(azimuth, elevation)
     }
 
     /// Get VBAP-style interpolated HRIR
