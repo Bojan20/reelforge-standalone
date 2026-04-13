@@ -1072,17 +1072,84 @@ impl MultiResolutionStretcher {
         }
     }
 
-    /// Split signal into frequency bands
+    /// Split signal into frequency bands using 2nd-order Butterworth biquad crossovers.
+    ///
+    /// Band 0 (bass)  → LP at BASS_CUTOFF
+    /// Band 1 (mids)  → HP at BASS_CUTOFF, then LP at TREBLE_CUTOFF
+    /// Band 2 (highs) → HP at TREBLE_CUTOFF
+    ///
+    /// For N=3 bands and two crossover frequencies (fc0=200 Hz, fc1=4000 Hz):
+    ///   bass  = LP(fc0, input)
+    ///   rest  = HP(fc0, input)
+    ///   mids  = LP(fc1, rest)
+    ///   highs = HP(fc1, rest)
     fn split_bands(&self, input: &[f64]) -> Vec<Vec<f64>> {
-        // Use Linkwitz-Riley crossover filters
-        // For simplicity, using simple biquad filters here
         let len = input.len();
-        let mut bands = vec![vec![0.0; len]; self.bands.len()];
+        let n = self.bands.len();
+        if n == 0 || len == 0 {
+            return vec![input.to_vec()];
+        }
 
-        // Simple frequency splitting using running averages
-        // In production, use proper crossover filters
-        bands[0] = input.to_vec(); // For now, process full signal
-        // TODO: Implement proper crossover filtering
+        // Helper: process a 2nd-order Butterworth LP or HP biquad over the input.
+        // Uses Direct Form I (stateful within this call, not persisted across blocks —
+        // sufficient for offline/block stretching; for real-time use, state should be stored).
+        fn biquad_filter(input: &[f64], fc: f64, sr: f64, is_hp: bool) -> Vec<f64> {
+            use std::f64::consts::PI;
+            let omega = 2.0 * PI * fc / sr;
+            let k = omega.tan();
+            let sqrt2 = std::f64::consts::SQRT_2;
+            let norm = 1.0 / (k * k + k / sqrt2 + 1.0); // Q=1/√2 (Butterworth)
+
+            let (b0, b1, b2) = if is_hp {
+                let b = norm;
+                (b, -2.0 * b, b)
+            } else {
+                let b = k * k * norm;
+                (b, 2.0 * b, b)
+            };
+            let a1 = 2.0 * (k * k - 1.0) * norm;
+            let a2 = (k * k - k / sqrt2 + 1.0) * norm;
+
+            let mut out = vec![0.0; input.len()];
+            let (mut x1, mut x2) = (0.0_f64, 0.0_f64);
+            let (mut y1, mut y2) = (0.0_f64, 0.0_f64);
+
+            for (i, &x0) in input.iter().enumerate() {
+                let y0 = b0 * x0 + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+                out[i] = y0;
+                x2 = x1; x1 = x0;
+                y2 = y1; y1 = y0;
+            }
+            out
+        }
+
+        let sr = self.sample_rate;
+
+        if n == 1 {
+            // Single band — pass through
+            return vec![input.to_vec()];
+        } else if n == 2 {
+            let fc = self.bands[0].freq_high;
+            let bass = biquad_filter(input, fc, sr, false);
+            let highs = biquad_filter(input, fc, sr, true);
+            return vec![bass, highs];
+        }
+
+        // n ≥ 3: use two crossover points
+        let fc0 = self.bands[0].freq_high; // BASS_CUTOFF
+        let fc1 = self.bands[1].freq_high; // TREBLE_CUTOFF
+
+        let bass = biquad_filter(input, fc0, sr, false); // LP at fc0
+        let rest = biquad_filter(input, fc0, sr, true);  // HP at fc0
+        let mids = biquad_filter(&rest, fc1, sr, false); // LP at fc1 of rest
+        let highs = biquad_filter(&rest, fc1, sr, true); // HP at fc1 of rest
+
+        let mut bands = vec![bass, mids, highs];
+
+        // Any additional bands above n=3 get the highs signal (edge case)
+        for _ in 3..n {
+            bands.push(vec![0.0; len]);
+        }
 
         bands
     }
