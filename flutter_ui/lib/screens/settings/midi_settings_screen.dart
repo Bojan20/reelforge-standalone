@@ -9,6 +9,7 @@
 
 import 'package:flutter/material.dart';
 import '../../theme/fluxforge_theme.dart';
+import '../../src/rust/native_ffi.dart';
 
 /// MIDI device info
 class MidiDeviceInfo {
@@ -17,6 +18,8 @@ class MidiDeviceInfo {
   final bool isInput;
   final bool isOutput;
   final bool isEnabled;
+  /// Index in the scanned device list — used for FFI connect calls
+  final int deviceIndex;
 
   MidiDeviceInfo({
     required this.id,
@@ -24,6 +27,7 @@ class MidiDeviceInfo {
     this.isInput = false,
     this.isOutput = false,
     this.isEnabled = false,
+    this.deviceIndex = 0,
   });
 
   MidiDeviceInfo copyWith({bool? isEnabled}) {
@@ -33,6 +37,7 @@ class MidiDeviceInfo {
       isInput: isInput,
       isOutput: isOutput,
       isEnabled: isEnabled ?? this.isEnabled,
+      deviceIndex: deviceIndex,
     );
   }
 }
@@ -66,65 +71,95 @@ class _MidiSettingsScreenState extends State<MidiSettingsScreen> {
   Future<void> _loadDevices() async {
     setState(() => _isLoading = true);
 
-    // TODO: Call Rust FFI to get actual MIDI devices
-    // For now, mock data
-    await Future.delayed(const Duration(milliseconds: 300));
+    try {
+      final ffi = NativeFFI.instance;
 
-    _inputDevices = [
-      MidiDeviceInfo(
-        id: 'midi-in-1',
-        name: 'IAC Driver Bus 1',
-        isInput: true,
-        isEnabled: true,
-      ),
-      MidiDeviceInfo(
-        id: 'midi-in-2',
-        name: 'USB MIDI Keyboard',
-        isInput: true,
-        isEnabled: false,
-      ),
-      MidiDeviceInfo(
-        id: 'midi-in-3',
-        name: 'Network Session 1',
-        isInput: true,
-        isEnabled: false,
-      ),
-    ];
+      // Trigger OS-level device enumeration
+      ffi.midiScanInputDevices();
+      ffi.midiScanOutputDevices();
 
-    _outputDevices = [
-      MidiDeviceInfo(
-        id: 'midi-out-1',
-        name: 'IAC Driver Bus 1',
-        isOutput: true,
-        isEnabled: true,
-      ),
-      MidiDeviceInfo(
-        id: 'midi-out-2',
-        name: 'USB MIDI Interface',
-        isOutput: true,
-        isEnabled: false,
-      ),
-    ];
+      // Build input list — preserve enabled state for devices already in our list
+      final inputNames = ffi.midiGetAllInputDevices();
+      _inputDevices = List.generate(inputNames.length, (i) {
+        final prev = _inputDevices.where((d) => d.name == inputNames[i]).firstOrNull;
+        return MidiDeviceInfo(
+          id: 'midi-in-$i',
+          name: inputNames[i],
+          isInput: true,
+          deviceIndex: i,
+          isEnabled: prev?.isEnabled ?? false,
+        );
+      });
+
+      // Build output list
+      final outputNames = ffi.midiGetAllOutputDevices();
+      _outputDevices = List.generate(outputNames.length, (i) {
+        final prev = _outputDevices.where((d) => d.name == outputNames[i]).firstOrNull;
+        return MidiDeviceInfo(
+          id: 'midi-out-$i',
+          name: outputNames[i],
+          isOutput: true,
+          deviceIndex: i,
+          isEnabled: prev?.isEnabled ?? false,
+        );
+      });
+    } catch (_) {
+      // FFI unavailable — empty list, user sees honest "no devices" state
+      _inputDevices = [];
+      _outputDevices = [];
+    }
 
     setState(() => _isLoading = false);
   }
 
   void _toggleInputDevice(int index) {
+    final device = _inputDevices[index];
+    final enabling = !device.isEnabled;
+
     setState(() {
-      _inputDevices[index] = _inputDevices[index].copyWith(
-        isEnabled: !_inputDevices[index].isEnabled,
-      );
+      _inputDevices[index] = device.copyWith(isEnabled: enabling);
     });
-    // TODO: Call Rust FFI to enable/disable device
+
+    try {
+      final ffi = NativeFFI.instance;
+      if (enabling) {
+        ffi.midiConnectInput(device.deviceIndex);
+      } else {
+        // Disconnect all, then reconnect the ones still enabled
+        ffi.midiDisconnectAllInputs();
+        for (final d in _inputDevices) {
+          if (d.deviceIndex != device.deviceIndex && d.isEnabled) {
+            ffi.midiConnectInput(d.deviceIndex);
+          }
+        }
+      }
+    } catch (_) {
+      // FFI unavailable — optimistic local state is fine
+    }
   }
 
   void _toggleOutputDevice(int index) {
+    final device = _outputDevices[index];
+    final enabling = !device.isEnabled;
+
+    // Only one output at a time — disable all others when enabling a new one
     setState(() {
-      _outputDevices[index] = _outputDevices[index].copyWith(
-        isEnabled: !_outputDevices[index].isEnabled,
-      );
+      _outputDevices = [
+        for (int i = 0; i < _outputDevices.length; i++)
+          _outputDevices[i].copyWith(isEnabled: (i == index) ? enabling : false),
+      ];
     });
-    // TODO: Call Rust FFI to enable/disable device
+
+    try {
+      final ffi = NativeFFI.instance;
+      if (enabling) {
+        ffi.midiConnectOutput(device.deviceIndex);
+      } else {
+        ffi.midiDisconnectOutput();
+      }
+    } catch (_) {
+      // FFI unavailable — optimistic local state is fine
+    }
   }
 
   @override
