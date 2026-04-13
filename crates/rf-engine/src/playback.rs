@@ -5599,6 +5599,19 @@ impl PlaybackEngine {
         // Cubase-style: when any track is soloed, only soloed tracks are audible
         let solo_active = self.track_manager.is_solo_active();
 
+        // ═══ LOCK COALESCING (BUG#14 fix) ═══
+        // Acquire shared mutable state ONCE for the entire track loop.
+        // Previously, try_write() was called per-track (pre-fader + post-fader + multi-channel read
+        // + stereo imager) = 4× N_tracks lock acquisitions per audio frame. If the UI held any
+        // write lock (e.g., loading a plugin), ALL processing was silently skipped → no reverb/EQ.
+        // Now: single try_write() per resource at the top. If it fails, processing is skipped
+        // for one frame (graceful degradation), but we avoid N×4 contention windows.
+        let mut insert_chains_guard = self.insert_chains.try_write();
+        let mut stereo_imagers_guard = self.stereo_imagers.try_write();
+        let mut track_meters_guard = self.track_meters.try_write();
+        let mut track_lufs_guard = self.track_lufs_meters.try_write();
+        let mut delay_comp_guard = self.delay_comp.try_write();
+
         // Process each track → route to its bus
         // DashMap iter() returns references that auto-release shard locks
         for entry in self.track_manager.tracks.iter() {
@@ -5828,10 +5841,11 @@ impl PlaybackEngine {
 
             // Process track insert chain (pre-fader inserts applied before volume)
             // NOTE: Param changes already consumed at start of process() via consume_insert_param_changes()
-            if let Some(mut chains) = self.insert_chains.try_write()
-                && let Some(chain) = chains.get_mut(&track.id.0)
-            {
-                chain.process_pre_fader(track_l, track_r);
+            // Uses insert_chains_guard acquired once at top of process() (BUG#14 fix)
+            if let Some(ref mut chains) = insert_chains_guard {
+                if let Some(chain) = chains.get_mut(&track.id.0) {
+                    chain.process_pre_fader(track_l, track_r);
+                }
             }
 
             // === PFL TAP POINT (Pre-Fade Listen) ===
@@ -6003,8 +6017,9 @@ impl PlaybackEngine {
             // ═══ PER-TRACK STEREO IMAGER (post-pan, pre-post-inserts) ═══
             // SSL canonical signal flow: Fader → Pan → **StereoImager** → Post-Inserts
             // Width, M/S processing, balance, rotation applied here
-            if let Some(mut imagers) = self.stereo_imagers.try_write()
-                && let Some(imager) = imagers.get_mut(&(track.id.0 as u32)) {
+            // Uses stereo_imagers_guard acquired once at top of process() (BUG#14 fix)
+            if let Some(ref mut imagers) = stereo_imagers_guard {
+                if let Some(imager) = imagers.get_mut(&(track.id.0 as u32)) {
                     use rf_dsp::StereoProcessor;
                     for i in 0..frames {
                         let (l, r) = imager.process_sample(track_l[i], track_r[i]);
@@ -6012,18 +6027,20 @@ impl PlaybackEngine {
                         track_r[i] = r;
                     }
                 }
+            }
 
             // Process track insert chain (post-fader inserts applied after volume)
-            // Use try_write to avoid blocking audio thread - skip inserts if lock contended
-            if let Some(mut chains) = self.insert_chains.try_write()
-                && let Some(chain) = chains.get_mut(&track.id.0)
-            {
-                chain.process_post_fader(track_l, track_r);
+            // Uses insert_chains_guard acquired once at top of process() (BUG#14 fix)
+            if let Some(ref mut chains) = insert_chains_guard {
+                if let Some(chain) = chains.get_mut(&track.id.0) {
+                    chain.process_post_fader(track_l, track_r);
+                }
             }
 
             // Apply delay compensation for tracks with lower latency than max
             // This aligns all tracks in time regardless of plugin latency
-            if let Some(mut dc) = self.delay_comp.try_write() {
+            // Uses delay_comp_guard acquired once at top of process() (BUG#14 fix)
+            if let Some(ref mut dc) = delay_comp_guard {
                 dc.process(track.id.0 as u32, track_l, track_r);
             }
 
@@ -6080,12 +6097,13 @@ impl PlaybackEngine {
 
             // Calculate per-track stereo metering (post-fader, post-insert)
             // Includes: peak L/R, RMS L/R, correlation + LUFS
-            if let Some(mut meters) = self.track_meters.try_write() {
+            // Uses coalesced guards acquired once at top of process() (BUG#14 fix)
+            if let Some(ref mut meters) = track_meters_guard {
                 let meter = meters.entry(track.id.0).or_insert_with(TrackMeter::empty);
                 meter.update(&track_l[..frames], &track_r[..frames], decay);
 
                 // Per-track LUFS metering
-                if let Some(mut lufs_meters) = self.track_lufs_meters.try_write() {
+                if let Some(ref mut lufs_meters) = track_lufs_guard {
                     let lufs = lufs_meters.entry(track.id.0).or_insert_with(|| {
                         LufsMeter::new(self.sample_rate() as f64)
                     });
@@ -6115,8 +6133,8 @@ impl PlaybackEngine {
                 bus_buffers.add_to_bus(track.output_bus_for_channel(0), track_l, track_r);
 
                 // Route additional channel pairs from PinConnector output buffers.
-                // Single try_read() scope — atomic view of insert chain state.
-                if let Some(chains) = self.insert_chains.try_read()
+                // Uses insert_chains_guard acquired once at top of process() (BUG#14 fix)
+                if let Some(ref chains) = insert_chains_guard
                     && let Some(chain) = chains.get(&track.id.0) {
                         // Find multi-channel plugin (last loaded slot with >2 channels)
                         let mut plugin_channels = 2u8;
@@ -6147,6 +6165,14 @@ impl PlaybackEngine {
                     }
             }
         }
+
+        // Release coalesced guards — no longer needed after track loop.
+        // Minimizes hold duration so UI plugin load/remove is unblocked sooner.
+        drop(insert_chains_guard);
+        drop(stereo_imagers_guard);
+        drop(track_meters_guard);
+        drop(track_lufs_guard);
+        drop(delay_comp_guard);
 
         // ═══════════════════════════════════════════════════════════════════════
         // BUS INSERT CHAINS + SUMMING TO MASTER
@@ -6260,8 +6286,12 @@ impl PlaybackEngine {
             }
         }
 
+        // Acquire master insert chain ONCE for pre+post fader (BUG#14 lock coalescing)
+        // Previously acquired twice (pre-fader + post-fader) = 2 contention windows.
+        let mut master_insert_guard = self.master_insert.try_write();
+
         // Apply master insert chain (pre-fader)
-        if let Some(mut master_insert) = self.master_insert.try_write() {
+        if let Some(ref mut master_insert) = master_insert_guard {
             master_insert.process_pre_fader(output_l, output_r);
         }
 
@@ -6283,9 +6313,12 @@ impl PlaybackEngine {
         }
 
         // Apply master insert chain (post-fader)
-        if let Some(mut master_insert) = self.master_insert.try_write() {
+        if let Some(ref mut master_insert) = master_insert_guard {
             master_insert.process_post_fader(output_l, output_r);
         }
+
+        // Release master insert guard before metering section
+        drop(master_insert_guard);
 
         // ═══ MASTER CHANNEL DELAY (Independent L/R — Cubase/Pro Tools style) ═══
         // Applied after all processing, before metering.

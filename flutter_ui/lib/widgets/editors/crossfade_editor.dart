@@ -631,10 +631,8 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
           // Duration text input
           SizedBox(
             width: 80,
-            child: TextField(
-              controller: TextEditingController(
-                text: '${(_config.duration * 1000).toStringAsFixed(0)} ms',
-              ),
+            child: TextFormField(
+              initialValue: '${(_config.duration * 1000).toStringAsFixed(0)} ms',
               style: TextStyle(
                 fontSize: 12,
                 color: FluxForgeTheme.textPrimary,
@@ -651,7 +649,7 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
                   borderSide: BorderSide(color: FluxForgeTheme.borderSubtle),
                 ),
               ),
-              onSubmitted: (value) {
+              onFieldSubmitted: (value) {
                 final ms = double.tryParse(value.replaceAll(' ms', ''));
                 if (ms != null) {
                   _updateConfig(_config.copyWith(duration: ms / 1000));

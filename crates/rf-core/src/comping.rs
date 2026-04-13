@@ -443,7 +443,7 @@ impl CompState {
     pub fn add_comp_region(&mut self, region: CompRegion) {
         self.comp_regions.push(region);
         self.comp_regions
-            .sort_by(|a, b| a.start_time.partial_cmp(&b.start_time).unwrap());
+            .sort_by(|a, b| a.start_time.partial_cmp(&b.start_time).unwrap_or(std::cmp::Ordering::Equal));
         self.mode = CompMode::Comp;
     }
 

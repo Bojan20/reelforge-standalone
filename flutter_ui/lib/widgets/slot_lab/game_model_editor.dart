@@ -1012,8 +1012,8 @@ class _GameModelEditorState extends State<GameModelEditor>
           SizedBox(
             width: 80,
             height: 28,
-            child: TextField(
-              controller: TextEditingController(text: value),
+            child: TextFormField(
+              initialValue: value,
               style: const TextStyle(color: Colors.white, fontSize: 12),
               decoration: InputDecoration(
                 contentPadding: const EdgeInsets.symmetric(horizontal: 8),
@@ -1172,8 +1172,8 @@ class _GameModelEditorState extends State<GameModelEditor>
               children: [
                 SizedBox(
                   width: 60,
-                  child: TextField(
-                    controller: TextEditingController(text: minMult.toString()),
+                  child: TextFormField(
+                    initialValue: minMult.toString(),
                     style: const TextStyle(color: Colors.white, fontSize: 12),
                     textAlign: TextAlign.center,
                     decoration: _compactInputDecoration('Min'),
@@ -1190,8 +1190,8 @@ class _GameModelEditorState extends State<GameModelEditor>
                 ),
                 SizedBox(
                   width: 60,
-                  child: TextField(
-                    controller: TextEditingController(text: maxMult?.toString() ?? '∞'),
+                  child: TextFormField(
+                    initialValue: maxMult?.toString() ?? '∞',
                     style: const TextStyle(color: Colors.white, fontSize: 12),
                     textAlign: TextAlign.center,
                     decoration: _compactInputDecoration('Max'),

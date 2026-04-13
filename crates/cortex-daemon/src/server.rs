@@ -103,7 +103,13 @@ async fn run_ws_server(
     cmd_rx: mpsc::UnboundedReceiver<BrowserCommand>,
     state: Arc<DaemonState>,
 ) {
-    let addr: SocketAddr = format!("127.0.0.1:{}", port).parse().unwrap();
+    let addr: SocketAddr = match format!("127.0.0.1:{}", port).parse() {
+        Ok(a) => a,
+        Err(e) => {
+            log::error!("Invalid address for port {}: {}", port, e);
+            return;
+        }
+    };
     let listener = match TcpListener::bind(addr).await {
         Ok(l) => l,
         Err(e) => {
@@ -297,7 +303,13 @@ async fn handle_browser_message(text: &str, state: &Arc<DaemonState>) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 async fn run_http_api(port: u16, state: Arc<DaemonState>) {
-    let addr: SocketAddr = format!("127.0.0.1:{}", port).parse().unwrap();
+    let addr: SocketAddr = match format!("127.0.0.1:{}", port).parse() {
+        Ok(a) => a,
+        Err(e) => {
+            log::error!("Invalid HTTP API address for port {}: {}", port, e);
+            return;
+        }
+    };
     let listener = match TcpListener::bind(addr).await {
         Ok(l) => l,
         Err(e) => {

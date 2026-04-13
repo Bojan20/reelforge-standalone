@@ -421,7 +421,7 @@ impl LraCalculator {
         }
 
         let mut sorted = self.short_term_values.clone();
-        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         // Remove bottom 10% and top 5%
         let low_idx = sorted.len() / 10;

@@ -233,9 +233,8 @@ class _MacroConfigEditorState extends State<MacroConfigEditor> {
         Expanded(
           child: SizedBox(
             height: 24,
-            child: TextField(
-              controller: TextEditingController(text: value)
-                ..selection = TextSelection.collapsed(offset: value.length),
+            child: TextFormField(
+              initialValue: value,
               style: const TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
               decoration: InputDecoration(
                 hintText: hint,
@@ -456,8 +455,8 @@ class _MacroConfigEditorState extends State<MacroConfigEditor> {
             SizedBox(
               width: 100,
               height: 24,
-              child: TextField(
-                controller: TextEditingController(text: _seed.toString()),
+              child: TextFormField(
+                initialValue: _seed.toString(),
                 style: const TextStyle(
                   color: FluxForgeTheme.textSecondary,
                   fontSize: 11,

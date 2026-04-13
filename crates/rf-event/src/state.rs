@@ -367,7 +367,7 @@ impl RtpcCurve {
             curve,
         });
         self.points
-            .sort_by(|a, b| a.rtpc_value.partial_cmp(&b.rtpc_value).unwrap());
+            .sort_by(|a, b| a.rtpc_value.partial_cmp(&b.rtpc_value).unwrap_or(std::cmp::Ordering::Equal));
     }
 
     /// Evaluate curve at given RTPC value
@@ -1026,7 +1026,7 @@ impl BlendContainer {
         self.children.push(child);
         // Sort by RTPC start for consistent evaluation
         self.children
-            .sort_by(|a, b| a.rtpc_start.partial_cmp(&b.rtpc_start).unwrap());
+            .sort_by(|a, b| a.rtpc_start.partial_cmp(&b.rtpc_start).unwrap_or(std::cmp::Ordering::Equal));
     }
 
     /// Remove child by ID
@@ -1832,7 +1832,7 @@ impl MusicSegment {
             marker_type,
         });
         self.markers
-            .sort_by(|a, b| a.position_bars.partial_cmp(&b.position_bars).unwrap());
+            .sort_by(|a, b| a.position_bars.partial_cmp(&b.position_bars).unwrap_or(std::cmp::Ordering::Equal));
     }
 
     /// Convert bars to seconds

@@ -194,7 +194,9 @@ impl MemoryBudgetManager {
         }
 
         // Get mutable reference again after free_space
-        let bank = self.banks.get_mut(bank_id).unwrap();
+        let Some(bank) = self.banks.get_mut(bank_id) else {
+            return false;
+        };
         bank.is_loaded = true;
         bank.actual_size_bytes = needed_bytes;
         bank.last_used = Some(Instant::now());

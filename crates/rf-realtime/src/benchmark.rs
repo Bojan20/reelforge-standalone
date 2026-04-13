@@ -298,7 +298,7 @@ impl Profiler {
         }
 
         // Sort by average time descending
-        components.sort_by(|a, b| b.avg_time_us.partial_cmp(&a.avg_time_us).unwrap());
+        components.sort_by(|a, b| b.avg_time_us.partial_cmp(&a.avg_time_us).unwrap_or(std::cmp::Ordering::Equal));
 
         PerformanceReport {
             cpu_usage: self.cpu_usage(),

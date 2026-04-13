@@ -652,7 +652,7 @@ impl LoudnessMeter {
             return 0.0;
         }
 
-        loudnesses.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        loudnesses.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         // 10th to 95th percentile
         let low_idx = (loudnesses.len() as f64 * 0.10) as usize;

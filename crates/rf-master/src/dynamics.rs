@@ -313,8 +313,8 @@ impl MultibandDynamics {
         let mut bands_r = vec![right];
 
         for crossover in &mut self.crossovers {
-            let last_l = bands_l.pop().unwrap();
-            let last_r = bands_r.pop().unwrap();
+            let Some(last_l) = bands_l.pop() else { break };
+            let Some(last_r) = bands_r.pop() else { break };
 
             let ((low_l, low_r), (high_l, high_r)) = crossover.process(last_l, last_r);
 

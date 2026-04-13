@@ -8,6 +8,7 @@
 import 'package:flutter/material.dart';
 import '../controllers/mixer/mixer_view_controller.dart';
 import '../models/mixer_view_models.dart';
+import '../theme/fluxforge_theme.dart';
 import '../widgets/mixer/mixer_status_bar.dart';
 import '../widgets/mixer/mixer_top_bar.dart';
 import '../widgets/mixer/ultimate_mixer.dart';
@@ -158,7 +159,7 @@ class _MixerScreenState extends State<MixerScreen> {
     return Material(
       type: MaterialType.transparency,
       child: Container(
-        color: const Color(0xFF0A0A0C),
+        color: FluxForgeTheme.bgDeepest,
         child: Column(
           children: [
             // Top bar
@@ -276,7 +277,7 @@ class _MixerScreenState extends State<MixerScreen> {
     return Container(
       width: kMasterStripWidth,
       decoration: BoxDecoration(
-        color: const Color(0xFF0E0E12),
+        color: FluxForgeTheme.bgDeep,
         border: Border(
           left: BorderSide(
             color: const Color(0xFFFFD700).withOpacity(0.2),

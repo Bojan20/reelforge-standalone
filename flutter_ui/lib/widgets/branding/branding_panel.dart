@@ -533,8 +533,8 @@ class _BrandingPanelState extends State<BrandingPanel> with SingleTickerProvider
             ),
           ),
           Expanded(
-            child: TextField(
-              controller: TextEditingController(text: value),
+            child: TextFormField(
+              initialValue: value,
               style: const TextStyle(fontSize: 11, color: Colors.white),
               decoration: InputDecoration(
                 isDense: true,

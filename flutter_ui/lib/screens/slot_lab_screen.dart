@@ -2965,6 +2965,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       if (newEntries.isEmpty) return;
 
       // ⚡ INSTANT: Add to pool immediately
+      if (!mounted) return;
       setState(() {
         _audioPool.addAll(newEntries);
       });
@@ -3028,6 +3029,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
       if (newEntries.isEmpty) return;
 
+      if (!mounted) return;
       setState(() {
         _audioPool.addAll(newEntries);
       });
@@ -6749,6 +6751,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     final mapper = StageAudioMapper(mw, _ffi);
 
     for (int i = 0; i < events.length; i++) {
+      if (!mounted) return;
       final event = events[i];
 
       // Fire stage event to provider
@@ -6788,6 +6791,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     final stageProvider = context.read<StageProvider>();
 
     for (int i = 0; i < count; i++) {
+      if (!mounted) return;
       // Random outcome based on volatility
       final outcome = _generateRandomOutcome();
       _triggerScenario(outcome);

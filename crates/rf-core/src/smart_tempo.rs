@@ -394,7 +394,7 @@ impl TempoDetector {
             let win_start = i.saturating_sub(median_window / 2);
             let win_end = (i + median_window / 2 + 1).min(num_frames);
             let mut local_window: Vec<f64> = odf_values[win_start..win_end].to_vec();
-            local_window.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            local_window.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
             let median = local_window[local_window.len() / 2];
 
             let threshold = (median * threshold_mult).max(min_odf);
@@ -524,7 +524,7 @@ impl TempoDetector {
             }
         }
 
-        candidates.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        candidates.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         candidates.truncate(5);
 
         if candidates.is_empty() {
@@ -543,7 +543,7 @@ impl TempoDetector {
         // Use peak-to-median ratio of comb scores as confidence metric
         let max_score = comb_scores.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
         let mut sorted_scores = comb_scores.clone();
-        sorted_scores.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sorted_scores.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
         let _median_score = sorted_scores[sorted_scores.len() / 2];
 
         // Also compute mean of positive scores
@@ -679,7 +679,7 @@ impl TempoDetector {
         let (peak_bin, &peak_val) = histogram
             .iter()
             .enumerate()
-            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             .unwrap_or((num_bins / 2, &0.0));
 
         let normalized = peak_bin as f64 / (num_bins - 1) as f64;
@@ -923,7 +923,8 @@ impl SmartTempo {
         self.detector.reset();
         self.detector.process(audio);
         self.detection = Some(self.detector.analyze());
-        self.detection.as_ref().unwrap()
+        // SAFETY: Just assigned Some above
+        self.detection.as_ref().expect("detection was just set to Some")
     }
 
     /// Apply detected tempo based on mode

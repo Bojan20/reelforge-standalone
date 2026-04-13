@@ -43,7 +43,9 @@ pub fn start(port: u16) -> bool {
         return false; // Already running
     }
 
-    *PORT.lock().unwrap() = port;
+    if let Ok(mut p) = PORT.lock() {
+        *p = port;
+    }
 
     let socket = match UdpSocket::bind(format!("0.0.0.0:{}", port)) {
         Ok(s) => s,
@@ -93,7 +95,7 @@ pub fn is_running() -> bool {
 
 /// Get current port
 pub fn get_port() -> u16 {
-    *PORT.lock().unwrap()
+    PORT.lock().map(|p| *p).unwrap_or(8000)
 }
 
 /// Process an OSC packet (may contain bundle or single message)

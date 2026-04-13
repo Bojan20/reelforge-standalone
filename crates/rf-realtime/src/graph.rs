@@ -231,7 +231,9 @@ impl ProcessingGraph {
             in_degree.insert(id, 0);
         }
         for conn in &self.connections {
-            *in_degree.get_mut(&conn.to_node).unwrap() += 1;
+            if let Some(degree) = in_degree.get_mut(&conn.to_node) {
+                *degree += 1;
+            }
         }
 
         // Find all nodes with no incoming edges
@@ -270,7 +272,9 @@ impl ProcessingGraph {
                 // Decrease in-degree of neighbors
                 for conn in &self.connections {
                     if conn.from_node == id {
-                        let degree = in_degree.get_mut(&conn.to_node).unwrap();
+                        let Some(degree) = in_degree.get_mut(&conn.to_node) else {
+                            continue;
+                        };
                         *degree -= 1;
                         if *degree == 0 {
                             queue.push(conn.to_node);

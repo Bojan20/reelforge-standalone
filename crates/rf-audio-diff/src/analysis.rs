@@ -164,7 +164,7 @@ fn compute_time_domain_metrics(
             .fold(0.0, f64::max);
         let peak_diff_sample = channel_metrics
             .iter()
-            .max_by(|a, b| a.peak_diff.partial_cmp(&b.peak_diff).unwrap())
+            .max_by(|a, b| a.peak_diff.partial_cmp(&b.peak_diff).unwrap_or(std::cmp::Ordering::Equal))
             .map(|m| m.peak_diff_sample)
             .unwrap_or(0);
 
@@ -291,7 +291,7 @@ fn compute_spectral_metrics(
         frame_diffs.iter().map(|(avg, _, _, _, _)| avg).sum::<f64>() / num_frames as f64;
     let (_, max_spectral_diff_db, _, max_diff_freq, _) = frame_diffs
         .iter()
-        .max_by(|(_, a, _, _, _), (_, b, _, _, _)| a.partial_cmp(b).unwrap())
+        .max_by(|(_, a, _, _, _), (_, b, _, _, _)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
         .copied()
         .unwrap_or((0.0, 0.0, 0.0, 0.0, 0));
     let avg_phase_diff = frame_diffs

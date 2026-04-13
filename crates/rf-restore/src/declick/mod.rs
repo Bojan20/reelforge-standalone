@@ -453,7 +453,7 @@ impl Decrackle {
                 self.median_buffer.push(audio[j]);
             }
 
-            self.median_buffer.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            self.median_buffer.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
             audio[i] = self.median_buffer[half];
         }
     }

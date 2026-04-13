@@ -315,7 +315,9 @@ impl FeatureChapter for JackpotChapter {
             return Vec::new();
         }
 
-        let tier = self.state.won_tier.unwrap();
+        let Some(tier) = self.state.won_tier else {
+            return Vec::new();
+        };
         let tier_enum = self.tier_to_enum(tier);
         let amount = self.state.won_amount;
         let mut events = Vec::with_capacity(6);

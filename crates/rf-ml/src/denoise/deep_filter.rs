@@ -412,7 +412,7 @@ impl DeepFilterNet {
         self.input_buffer.push(input);
 
         while self.input_buffer.has_frame() {
-            let frame = self.input_buffer.pop_frame().unwrap();
+            let Some(frame) = self.input_buffer.pop_frame() else { break };
 
             // Apply analysis window
             for (i, &s) in frame.data.iter().enumerate() {

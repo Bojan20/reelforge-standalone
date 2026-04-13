@@ -335,7 +335,7 @@ impl MasteringAnalyzer {
             return 0.0;
         }
 
-        block_levels.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        block_levels.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         // 10-90 percentile range
         let low_idx = block_levels.len() / 10;
@@ -393,7 +393,7 @@ impl MasteringAnalyzer {
             return 0.0;
         }
 
-        levels.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        levels.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         // 10-95 percentile range
         let low_idx = levels.len() / 10;

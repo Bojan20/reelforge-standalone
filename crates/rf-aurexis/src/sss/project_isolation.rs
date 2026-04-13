@@ -190,7 +190,8 @@ impl ProjectIsolation {
         if self.active_project_id.is_none() {
             self.active_project_id = Some(id.clone());
         }
-        self.projects.get(&id).unwrap()
+        // SAFETY: Just inserted above
+        self.projects.get(&id).expect("project was just inserted")
     }
 
     /// Get active project.

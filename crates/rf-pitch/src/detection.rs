@@ -464,15 +464,29 @@ impl PitchDetector {
     /// Detect pitch in frame
     pub fn detect(&mut self, samples: &[f32]) -> PitchResult<Option<(f32, f32)>> {
         match self.algorithm {
-            DetectionAlgorithm::Yin => self.yin.as_mut().unwrap().detect(samples),
+            DetectionAlgorithm::Yin => self
+                .yin
+                .as_mut()
+                .ok_or_else(|| PitchError::FftError("Yin detector not initialized".into()))?
+                .detect(samples),
             DetectionAlgorithm::ProbabilisticYin => {
-                let candidates = self.pyin.as_mut().unwrap().detect_candidates(samples)?;
+                let candidates = self
+                    .pyin
+                    .as_mut()
+                    .ok_or_else(|| PitchError::FftError("PYin detector not initialized".into()))?
+                    .detect_candidates(samples)?;
                 Ok(candidates.first().copied())
             }
-            DetectionAlgorithm::Harmonic => self.harmonic.as_mut().unwrap().detect(samples),
-            DetectionAlgorithm::Fusion | DetectionAlgorithm::Neural => {
-                self.fusion.as_mut().unwrap().detect(samples)
-            }
+            DetectionAlgorithm::Harmonic => self
+                .harmonic
+                .as_mut()
+                .ok_or_else(|| PitchError::FftError("Harmonic detector not initialized".into()))?
+                .detect(samples),
+            DetectionAlgorithm::Fusion | DetectionAlgorithm::Neural => self
+                .fusion
+                .as_mut()
+                .ok_or_else(|| PitchError::FftError("Fusion detector not initialized".into()))?
+                .detect(samples),
         }
     }
 }

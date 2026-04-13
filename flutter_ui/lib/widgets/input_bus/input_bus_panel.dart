@@ -161,8 +161,8 @@ class _InputBusPanelState extends State<InputBusPanel> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Name field
-              TextField(
-                controller: TextEditingController(text: name),
+              TextFormField(
+                initialValue: name,
                 decoration: const InputDecoration(
                   labelText: 'Bus Name',
                   border: OutlineInputBorder(),

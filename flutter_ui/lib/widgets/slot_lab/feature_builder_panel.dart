@@ -803,8 +803,8 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
         );
 
       case BlockOptionType.text:
-        return TextField(
-          controller: TextEditingController(text: option.value as String? ?? ''),
+        return TextFormField(
+          initialValue: option.value as String? ?? '',
           style: const TextStyle(color: Colors.white, fontSize: 12),
           decoration: InputDecoration(
             isDense: true,

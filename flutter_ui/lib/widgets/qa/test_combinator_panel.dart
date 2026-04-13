@@ -14,6 +14,7 @@ class TestCombinatorPanel extends StatefulWidget {
 class _TestCombinatorPanelState extends State<TestCombinatorPanel> {
   final _service = TestCombinatorService.instance;
   final _selectedDimensions = <TestDimension>{};
+  final _suiteNameController = TextEditingController(text: 'Test Suite');
   TestSuite? _currentSuite;
   String _suiteName = 'Test Suite';
   bool _isGenerating = false;
@@ -26,6 +27,12 @@ class _TestCombinatorPanelState extends State<TestCombinatorPanel> {
       TestDimension.winTier,
       TestDimension.feature,
     ]);
+  }
+
+  @override
+  void dispose() {
+    _suiteNameController.dispose();
+    super.dispose();
   }
 
   void _generateSuite() {
@@ -175,7 +182,7 @@ class _TestCombinatorPanelState extends State<TestCombinatorPanel> {
               border: OutlineInputBorder(),
             ),
             onChanged: (value) => _suiteName = value,
-            controller: TextEditingController(text: _suiteName),
+            controller: _suiteNameController,
           ),
           const SizedBox(height: 16),
 

@@ -1317,8 +1317,8 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
             // Event name
             Padding(
               padding: const EdgeInsets.all(8),
-              child: TextField(
-                controller: TextEditingController(text: selectedEvent.name),
+              child: TextFormField(
+                initialValue: selectedEvent.name,
                 style: const TextStyle(fontSize: 12, color: Colors.white),
                 decoration: InputDecoration(
                   isDense: true,
@@ -1332,7 +1332,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                   hintText: 'Event name',
                   hintStyle: const TextStyle(color: Colors.white24),
                 ),
-                onSubmitted: (value) {
+                onFieldSubmitted: (value) {
                   middleware.updateCompositeEvent(
                     selectedEvent.copyWith(name: value),
                   );
@@ -1889,8 +1889,8 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                                   color: Colors.white.withOpacity(0.05),
                                   borderRadius: BorderRadius.circular(3),
                                 ),
-                                child: TextField(
-                                  controller: TextEditingController(text: layer.targetAudioPath ?? ''),
+                                child: TextFormField(
+                                  initialValue: layer.targetAudioPath ?? '',
                                   style: const TextStyle(fontSize: 9, color: Colors.white70),
                                   decoration: const InputDecoration(
                                     hintText: 'Event name to target...',
@@ -1899,7 +1899,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                                     isDense: true,
                                     contentPadding: EdgeInsets.symmetric(vertical: 4),
                                   ),
-                                  onSubmitted: (v) {
+                                  onFieldSubmitted: (v) {
                                     final middleware = context.read<MiddlewareProvider>();
                                     middleware.updateEventLayer(
                                       event.id,

@@ -523,7 +523,7 @@ impl FluxForgeAudio {
             .iter()
             .enumerate()
             .filter(|(_, v)| v.event_id == event_id && v.state == PlaybackState::Playing)
-            .min_by(|(_, a), (_, b)| a.start_time.partial_cmp(&b.start_time).unwrap())
+            .min_by(|(_, a), (_, b)| a.start_time.partial_cmp(&b.start_time).unwrap_or(std::cmp::Ordering::Equal))
             .map(|(i, _)| i)
         {
             let voice = self.voices.remove(idx);
@@ -538,14 +538,14 @@ impl FluxForgeAudio {
                 .iter()
                 .enumerate()
                 .filter(|(_, v)| v.state == PlaybackState::Playing)
-                .min_by(|(_, a), (_, b)| a.start_time.partial_cmp(&b.start_time).unwrap())
+                .min_by(|(_, a), (_, b)| a.start_time.partial_cmp(&b.start_time).unwrap_or(std::cmp::Ordering::Equal))
                 .map(|(i, _)| i),
             VoiceStealMode::Quietest => self
                 .voices
                 .iter()
                 .enumerate()
                 .filter(|(_, v)| v.state == PlaybackState::Playing)
-                .min_by(|(_, a), (_, b)| a.volume.partial_cmp(&b.volume).unwrap())
+                .min_by(|(_, a), (_, b)| a.volume.partial_cmp(&b.volume).unwrap_or(std::cmp::Ordering::Equal))
                 .map(|(i, _)| i),
             VoiceStealMode::LowestPriority => self
                 .voices

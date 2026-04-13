@@ -204,7 +204,7 @@ Finalna verzija: 500+ source fajlova, 34 Rust crate-a, 57 widget direktorijuma �
 - BIG_WIN_START/END su `mus_` (music bus), NE `sfx_`
 
 **QA bagovi:**
-- BUG #9 CRITICAL: Mrtav kod `_onAudioDroppedOnStage()` direktno poziva `registerEvent()` (`slot_lab_screen.dart:13153,13177`)
+- BUG #9 FIXED: Mrtav kod `_onAudioDroppedOnStage()` uklonjen — metoda vise ne postoji u kodu
 
 ---
 
@@ -764,7 +764,7 @@ Orchestrator (Agent 0)
 | 6 | CRITICAL | MixerArchitect | replaceAll ID parsing u setTrackName | `mixer_provider.dart` |
 | 7 | CRITICAL | DSPSpecialist | BPM hardkodiran 120.0 u 4 DSP struct-a | `delay.rs:521,982`, `dynamics.rs:602`, `reverb.rs:2636` |
 | 8 | CRITICAL | BuildOps | edition = "2024" — ne kompajlira na stable | `Cargo.toml:51` |
-| 9 | CRITICAL | SlotLabEvents | Mrtav kod _onAudioDroppedOnStage() — registerEvent() bypass | `slot_lab_screen.dart:13153,13177` |
+| 9 | ~~FIXED~~ | SlotLabEvents | ~~Mrtav kod _onAudioDroppedOnStage() — uklonjen~~ | N/A |
 
 ### VISOKI (8 bagova)
 

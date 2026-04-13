@@ -111,7 +111,7 @@ impl CoverageReport {
         files.sort_by(|a, b| {
             a.line_coverage_percent()
                 .partial_cmp(&b.line_coverage_percent())
-                .unwrap()
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
 
         for file in files {
@@ -180,7 +180,7 @@ impl CoverageReport {
         files.sort_by(|a, b| {
             a.line_coverage_percent()
                 .partial_cmp(&b.line_coverage_percent())
-                .unwrap()
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
 
         for file in files {

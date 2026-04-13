@@ -312,7 +312,7 @@ impl PolyphonicAnalyzer {
                 let cents_diff = 1200.0 * (freq / voice.frequency).abs().log2();
                 if cents_diff < tolerance_cents {
                     let score = mag / (cents_diff + 1.0);
-                    if best_match.is_none() || score > best_match.unwrap().1 {
+                    if best_match.map_or(true, |(_, best_score)| score > best_score) {
                         best_match = Some((i, score));
                     }
                 }

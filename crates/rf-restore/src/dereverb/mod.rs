@@ -301,7 +301,7 @@ impl Dereverb {
         if let Some((peak_idx, &peak_val)) = energies
             .iter()
             .enumerate()
-            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
         {
             // Find -60dB point
             let threshold = peak_val * 0.001; // -60dB
