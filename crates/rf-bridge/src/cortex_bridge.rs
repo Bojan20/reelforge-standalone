@@ -1205,15 +1205,39 @@ impl BridgeRustHandle {
     }
 
     fn handle_realtime(&self, request: &CortexRequest) -> CortexResponse {
+        use rf_engine::ffi::PLAYBACK_ENGINE;
+
         // Transport commands — routed with highest priority.
         match &request.payload {
-            BridgePayload::TransportPlay
-            | BridgePayload::TransportStop
-            | BridgePayload::TransportPause
-            | BridgePayload::TransportSeek { .. }
-            | BridgePayload::TransportLoop { .. }
-            | BridgePayload::TransportTempo { .. } => {
-                // TODO: wire to actual transport API
+            BridgePayload::TransportPlay => {
+                PLAYBACK_ENGINE.play();
+                CortexResponse::ok(request.id, ResponseData::Bool(true))
+            }
+            BridgePayload::TransportStop => {
+                PLAYBACK_ENGINE.stop();
+                CortexResponse::ok(request.id, ResponseData::Bool(true))
+            }
+            BridgePayload::TransportPause => {
+                PLAYBACK_ENGINE.pause();
+                CortexResponse::ok(request.id, ResponseData::Bool(true))
+            }
+            BridgePayload::TransportSeek { position_samples } => {
+                let sr = PLAYBACK_ENGINE.position.sample_rate() as f64;
+                let secs = *position_samples as f64 / sr.max(1.0);
+                PLAYBACK_ENGINE.seek(secs);
+                CortexResponse::ok(request.id, ResponseData::Bool(true))
+            }
+            BridgePayload::TransportLoop { start, end, enabled } => {
+                let sr = PLAYBACK_ENGINE.position.sample_rate() as f64;
+                PLAYBACK_ENGINE.position.set_loop(
+                    *start as f64 / sr.max(1.0),
+                    *end as f64 / sr.max(1.0),
+                    *enabled,
+                );
+                CortexResponse::ok(request.id, ResponseData::Bool(true))
+            }
+            BridgePayload::TransportTempo { bpm } => {
+                PLAYBACK_ENGINE.position.set_tempo(*bpm);
                 CortexResponse::ok(request.id, ResponseData::Bool(true))
             }
             _ => CortexResponse::error(request.id, 4001, "Unknown realtime payload"),
