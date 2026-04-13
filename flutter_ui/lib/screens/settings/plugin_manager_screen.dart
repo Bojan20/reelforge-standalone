@@ -8,6 +8,7 @@
 
 import 'package:flutter/material.dart';
 import '../../theme/fluxforge_theme.dart';
+import '../../src/rust/native_ffi.dart';
 
 /// Plugin format types (internal to this screen)
 enum _PluginFormat { vst3, au, clap, vst2 }
@@ -104,68 +105,45 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
     super.dispose();
   }
 
+  /// Map NativePluginType → _PluginFormat
+  _PluginFormat _nativeTypeToFormat(NativePluginType type) {
+    switch (type) {
+      case NativePluginType.vst3:
+        return _PluginFormat.vst3;
+      case NativePluginType.clap:
+        return _PluginFormat.clap;
+      case NativePluginType.audioUnit:
+        return _PluginFormat.au;
+      case NativePluginType.lv2:
+      case NativePluginType.internal:
+        return _PluginFormat.vst2;
+    }
+  }
+
+  /// Map NativePluginInfo → _PluginInfo
+  _PluginInfo _nativeToPluginInfo(NativePluginInfo native) {
+    return _PluginInfo(
+      id: native.id,
+      name: native.name,
+      vendor: native.vendor,
+      version: native.version,
+      format: _nativeTypeToFormat(native.type),
+      path: native.path,
+      isInstrument: native.category == NativePluginCategory.instrument,
+      isEnabled: true,
+    );
+  }
+
   Future<void> _loadPlugins() async {
     setState(() => _isLoading = true);
 
-    // TODO: Call Rust FFI to get actual plugins
-    await Future.delayed(const Duration(milliseconds: 300));
-
-    _plugins = [
-      _PluginInfo(
-        id: 'ff-q-64',
-        name: 'FF-Q 64',
-        vendor: 'FluxForge',
-        version: '1.0',
-        format: _PluginFormat.vst3,
-        path: '/Library/Audio/Plug-Ins/VST3/FF-Q 64.vst3',
-        isInstrument: false,
-      ),
-      _PluginInfo(
-        id: 'ff-c',
-        name: 'FF-C',
-        vendor: 'FluxForge',
-        version: '1.0',
-        format: _PluginFormat.vst3,
-        path: '/Library/Audio/Plug-Ins/VST3/FF-C.vst3',
-        isInstrument: false,
-      ),
-      _PluginInfo(
-        id: 'serum',
-        name: 'Serum',
-        vendor: 'Xfer Records',
-        version: '1.363',
-        format: _PluginFormat.vst3,
-        path: '/Library/Audio/Plug-Ins/VST3/Serum.vst3',
-        isInstrument: true,
-      ),
-      _PluginInfo(
-        id: 'vital',
-        name: 'Vital',
-        vendor: 'Matt Tytel',
-        version: '1.5.5',
-        format: _PluginFormat.clap,
-        path: '/Library/Audio/Plug-Ins/CLAP/Vital.clap',
-        isInstrument: true,
-      ),
-      _PluginInfo(
-        id: 'soundtoys-decapitator',
-        name: 'Decapitator',
-        vendor: 'Soundtoys',
-        version: '5.4',
-        format: _PluginFormat.au,
-        path: '/Library/Audio/Plug-Ins/Components/Decapitator.component',
-        isInstrument: false,
-      ),
-      _PluginInfo(
-        id: 'valhalla-room',
-        name: 'ValhallaRoom',
-        vendor: 'Valhalla DSP',
-        version: '1.6.5',
-        format: _PluginFormat.vst3,
-        path: '/Library/Audio/Plug-Ins/VST3/ValhallaRoom.vst3',
-        isInstrument: false,
-      ),
-    ];
+    try {
+      final nativePlugins = NativeFFI.instance.pluginGetAll();
+      _plugins = nativePlugins.map(_nativeToPluginInfo).toList();
+    } catch (_) {
+      // FFI unavailable (e.g. dylib not loaded in tests) — start empty
+      _plugins = [];
+    }
 
     _scanPaths = [
       '/Library/Audio/Plug-Ins/VST3',
@@ -181,44 +159,53 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
   Future<void> _scanPlugins() async {
     setState(() {
       _isScanning = true;
-      _scanProgress = 0;
-      _scanStatus = 'Scanning...';
+      _scanProgress = 0.0;
+      _scanStatus = 'Scanning plugin directories...';
     });
 
-    // Simulate scanning
-    for (int i = 0; i <= 100; i += 5) {
-      await Future.delayed(const Duration(milliseconds: 50));
+    try {
+      // Kick off Rust scan (blocking FFI — runs synchronously in Rust, returns count)
+      final count = await Future(() => NativeFFI.instance.pluginScanAll());
+
+      setState(() => _scanProgress = 0.7);
+
+      // Reload fresh list from cache
+      await _loadPlugins();
+
+      setState(() => _scanProgress = 1.0);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Scan complete — $count plugin(s) found'),
+            backgroundColor: FluxForgeTheme.accentGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Plugin scan failed: $e'),
+            backgroundColor: FluxForgeTheme.accentRed,
+          ),
+        );
+      }
+    } finally {
       setState(() {
-        _scanProgress = i / 100;
-        _scanStatus = 'Scanning: ${_scanPaths[i % _scanPaths.length]}';
+        _isScanning = false;
+        _scanStatus = '';
       });
-    }
-
-    // Reload plugins after scan
-    await _loadPlugins();
-
-    setState(() {
-      _isScanning = false;
-      _scanStatus = '';
-    });
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Found ${_plugins.length} plugins'),
-          backgroundColor: FluxForgeTheme.accentGreen,
-        ),
-      );
     }
   }
 
   void _togglePlugin(int index) {
+    // Optimistic local toggle — FFI enable/disable not yet exposed in Rust bridge
     setState(() {
       _plugins[index] = _plugins[index].copyWith(
         isEnabled: !_plugins[index].isEnabled,
       );
     });
-    // TODO: Call Rust FFI to enable/disable plugin
   }
 
   List<_PluginInfo> get _filteredPlugins {

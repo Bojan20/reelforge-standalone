@@ -2,15 +2,19 @@
 //
 // Centralized controller for timeline state and operations.
 // Handles playback, editing, zoom, grid, markers.
+// Playback is wired to PLAYBACK_ENGINE via SlotLabTrackBridge.
 
 import 'package:flutter/foundation.dart';
 import '../../models/timeline/timeline_state.dart';
 import '../../models/timeline/audio_region.dart';
 import '../../models/timeline/stage_marker.dart';
 import '../../services/waveform_cache.dart';
+import '../../services/slotlab_track_bridge.dart';
 
 class TimelineController extends ChangeNotifier {
   TimelineState _state = const TimelineState();
+
+  final SlotLabTrackBridge _bridge = SlotLabTrackBridge.instance;
 
   TimelineState get state => _state;
 
@@ -21,22 +25,26 @@ class TimelineController extends ChangeNotifier {
   void play() {
     _state = _state.copyWith(isPlaying: true);
     notifyListeners();
-    // TODO: Start audio engine playback
+    // Wire to PLAYBACK_ENGINE via SlotLabTrackBridge
+    _bridge.play(fromPosition: _state.playheadPosition);
   }
 
   void pause() {
     _state = _state.copyWith(isPlaying: false);
     notifyListeners();
-    // TODO: Pause audio engine
+    // Wire to PLAYBACK_ENGINE via SlotLabTrackBridge
+    _bridge.pause();
   }
 
   void stop() {
+    final stopPos = _state.loopStart ?? 0.0;
     _state = _state.copyWith(
       isPlaying: false,
-      playheadPosition: _state.loopStart ?? 0.0,
+      playheadPosition: stopPos,
     );
     notifyListeners();
-    // TODO: Stop audio engine
+    // Wire to PLAYBACK_ENGINE via SlotLabTrackBridge
+    _bridge.stop();
   }
 
   void togglePlayback() {
@@ -48,11 +56,21 @@ class TimelineController extends ChangeNotifier {
   }
 
   void seek(double timeSeconds) {
-    _state = _state.copyWith(
-      playheadPosition: timeSeconds.clamp(0.0, _state.totalDuration),
-    );
+    final clamped = timeSeconds.clamp(0.0, _state.totalDuration);
+    _state = _state.copyWith(playheadPosition: clamped);
     notifyListeners();
-    // TODO: Seek audio engine
+    // Wire to PLAYBACK_ENGINE via SlotLabTrackBridge
+    _bridge.seek(clamped);
+  }
+
+  /// Sync playhead from engine (call on timer tick)
+  void syncFromEngine() {
+    if (!_state.isPlaying) return;
+    final pos = _bridge.currentPosition;
+    if ((pos - _state.playheadPosition).abs() > 0.001) {
+      _state = _state.copyWith(playheadPosition: pos);
+      notifyListeners();
+    }
   }
 
   void toggleLoop() {
