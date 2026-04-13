@@ -1166,9 +1166,23 @@ impl BridgeRustHandle {
         match &request.payload {
             BridgePayload::GetCortexHealth => {
                 let score = crate::cortex_ffi::cortex_health_score();
+                // Wire awareness dimensions from the latest cortex snapshot
+                let dimensions = crate::cortex_shared()
+                    .and_then(|s| s.latest_awareness.lock().clone())
+                    .map(|snap| vec![
+                        ("throughput".into(),    snap.dimensions.throughput),
+                        ("reliability".into(),   snap.dimensions.reliability),
+                        ("responsiveness".into(),snap.dimensions.responsiveness),
+                        ("coverage".into(),      snap.dimensions.coverage),
+                        ("cognition".into(),     snap.dimensions.cognition),
+                        ("efficiency".into(),    snap.dimensions.efficiency),
+                        ("coherence".into(),     snap.dimensions.coherence),
+                        ("vision".into(),        snap.dimensions.vision),
+                    ])
+                    .unwrap_or_default();
                 CortexResponse::ok(request.id, ResponseData::CortexHealth {
                     score,
-                    dimensions: Vec::new(), // TODO: wire awareness dims
+                    dimensions,
                 })
             }
             BridgePayload::GetProjectInfo => {
@@ -1323,21 +1337,75 @@ impl BridgeRustHandle {
     }
 
     fn handle_cortex(&self, request: &CortexRequest) -> CortexResponse {
+        use rf_cortex::signal::{SignalKind, SignalOrigin, SignalUrgency};
+
         match &request.payload {
-            BridgePayload::CortexEmitSignal { origin: _, urgency: _, kind: _, data: _ } => {
-                // TODO: wire to cortex_handle().signal()
-                CortexResponse::ok(request.id, ResponseData::Bool(true))
+            BridgePayload::CortexEmitSignal { origin, urgency, kind, data } => {
+                // Parse origin string → SignalOrigin (Bridge as fallback)
+                let sig_origin = match origin.as_str() {
+                    "audio_engine"   => SignalOrigin::AudioEngine,
+                    "dsp_pipeline"   => SignalOrigin::DspPipeline,
+                    "mixer_bus"      => SignalOrigin::MixerBus,
+                    "plugin_host"    => SignalOrigin::PluginHost,
+                    "transport"      => SignalOrigin::Transport,
+                    "timeline"       => SignalOrigin::Timeline,
+                    "slot_lab"       => SignalOrigin::SlotLab,
+                    "user"           => SignalOrigin::User,
+                    _                => SignalOrigin::Bridge,
+                };
+                // Parse urgency u8 → SignalUrgency
+                let sig_urgency = match urgency {
+                    0 => SignalUrgency::Ambient,
+                    1 => SignalUrgency::Normal,
+                    2 => SignalUrgency::Elevated,
+                    3 => SignalUrgency::Critical,
+                    _ => SignalUrgency::Emergency,
+                };
+                // Map kind string → SignalKind (Custom for unknown)
+                let sig_kind = match kind.as_str() {
+                    "heartbeat"     => SignalKind::Heartbeat,
+                    "user_action"   => SignalKind::UserInteraction { action: data.clone() },
+                    _               => SignalKind::Custom { tag: kind.clone(), data: data.clone() },
+                };
+
+                let delivered = crate::cortex_handle()
+                    .map(|h| h.signal(sig_origin, sig_urgency, sig_kind))
+                    .unwrap_or(false);
+                CortexResponse::ok(request.id, ResponseData::Bool(delivered))
             }
-            BridgePayload::CortexGetPatterns { limit: _ } => {
-                // TODO: wire to cortex pattern engine
-                CortexResponse::ok(request.id, ResponseData::Json("[]".into()))
+            BridgePayload::CortexGetPatterns { limit } => {
+                // Return recent recognized patterns from the cortex pattern log
+                let patterns: Vec<serde_json::Value> = crate::cortex_shared()
+                    .map(|s| {
+                        s.recent_patterns
+                            .lock()
+                            .iter()
+                            .take(*limit as usize)
+                            .map(|p| serde_json::json!({
+                                "name": p.name,
+                                "severity": p.severity,
+                                "description": p.description,
+                            }))
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                let json = serde_json::to_string(&patterns).unwrap_or_else(|_| "[]".into());
+                CortexResponse::ok(request.id, ResponseData::Json(json))
             }
             BridgePayload::CortexGetImmune => {
                 CortexResponse::ok(request.id, ResponseData::Json("{}".into()))
             }
-            BridgePayload::CortexTriggerReflex { reflex_name: _ } => {
-                // TODO: wire to reflex arc
-                CortexResponse::ok(request.id, ResponseData::Bool(true))
+            BridgePayload::CortexTriggerReflex { reflex_name } => {
+                // Trigger a reflex by emitting a UserInteraction signal naming the reflex.
+                // The cortex reflex arc will fire any reflex whose condition matches.
+                let delivered = crate::cortex_handle()
+                    .map(|h| h.signal(
+                        SignalOrigin::User,
+                        SignalUrgency::Elevated,
+                        SignalKind::UserInteraction { action: format!("reflex:{}", reflex_name) },
+                    ))
+                    .unwrap_or(false);
+                CortexResponse::ok(request.id, ResponseData::Bool(delivered))
             }
             _ => CortexResponse::error(request.id, 8001, "Unknown cortex payload"),
         }
