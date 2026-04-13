@@ -137,7 +137,7 @@ static PROJECT_STATE: LazyLock<ProjectState> = LazyLock::new(ProjectState::new);
 /// Click track / metronome
 pub(crate) static CLICK_TRACK: LazyLock<RwLock<crate::click::ClickTrack>> = LazyLock::new(|| RwLock::new(crate::click::ClickTrack::new(48000)));
 /// Export engine (Phase 12)
-static EXPORT_ENGINE: LazyLock<crate::export::ExportEngine> = LazyLock::new(|| crate::export::ExportEngine::new(
+pub static EXPORT_ENGINE: LazyLock<crate::export::ExportEngine> = LazyLock::new(|| crate::export::ExportEngine::new(
         Arc::clone(&PLAYBACK_ENGINE),
         Arc::clone(&TRACK_MANAGER),
     ));

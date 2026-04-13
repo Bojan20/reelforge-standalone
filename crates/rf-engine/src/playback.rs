@@ -6663,24 +6663,74 @@ impl PlaybackEngine {
                     }
                 }
             }
-            TargetType::Bus | TargetType::Master => {
-                // TODO: Apply bus/master volume when unified routing integrated
-                log::trace!(
-                    "Bus/Master automation not yet implemented: type={:?}, id={}, param={}, value={}",
-                    param_id.target_type,
-                    track_id,
-                    param_id.param_name,
-                    change.value
-                );
+            TargetType::Bus => {
+                // Apply bus volume/pan/mute via atomic bus_states.
+                // track_id encodes the bus index (0=Master, 1=Music, 2=SFX, 3=Voice, 4=Ambience, 5=Aux)
+                let bus_idx = track_id as usize;
+                match param_id.param_name.as_str() {
+                    "volume" => {
+                        // Automation 0-1 → bus volume 0-1.5 (headroom above unity)
+                        self.set_bus_volume(bus_idx, change.value * 1.5);
+                    }
+                    "pan" => {
+                        // Automation 0-1 → pan -1..+1
+                        self.set_bus_pan(bus_idx, change.value * 2.0 - 1.0);
+                    }
+                    "mute" => {
+                        self.set_bus_mute(bus_idx, change.value > 0.5);
+                    }
+                    _ => {
+                        log::trace!(
+                            "Unknown bus parameter: bus={}, param={}",
+                            bus_idx, param_id.param_name
+                        );
+                    }
+                }
+            }
+            TargetType::Master => {
+                // Apply master volume (track_id is unused for master — always bus idx 0)
+                match param_id.param_name.as_str() {
+                    "volume" => {
+                        // Automation 0-1 → master volume 0-1.5
+                        self.set_master_volume(change.value * 1.5);
+                    }
+                    _ => {
+                        log::trace!(
+                            "Unknown master parameter: param={}",
+                            param_id.param_name
+                        );
+                    }
+                }
             }
             TargetType::Clip => {
-                // TODO: Apply clip parameters (gain, pitch, etc.)
-                log::trace!(
-                    "Clip automation not yet implemented: clip={}, param={}, value={}",
-                    track_id,
-                    param_id.param_name,
-                    change.value
-                );
+                // Apply clip gain/pitch via lock-free DashMap update_clip.
+                // track_id is repurposed as clip_id for TargetType::Clip.
+                let clip_id = crate::track_manager::ClipId(track_id as u64);
+                match param_id.param_name.as_str() {
+                    "gain" => {
+                        // Automation 0-1 → clip gain 0-2.0 (0dB = 1.0)
+                        self.track_manager.update_clip(clip_id, |c| {
+                            c.gain = (change.value * 2.0).clamp(0.0, 2.0);
+                        });
+                    }
+                    "pitch" => {
+                        // Automation 0-1 → pitch shift -24..+24 semitones
+                        self.track_manager.update_clip(clip_id, |c| {
+                            c.pitch_shift = change.value * 48.0 - 24.0;
+                        });
+                    }
+                    "mute" => {
+                        self.track_manager.update_clip(clip_id, |c| {
+                            c.muted = change.value > 0.5;
+                        });
+                    }
+                    _ => {
+                        log::trace!(
+                            "Unknown clip parameter: clip={}, param={}",
+                            track_id, param_id.param_name
+                        );
+                    }
+                }
             }
         }
     }

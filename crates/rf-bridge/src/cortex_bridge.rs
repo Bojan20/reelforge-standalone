@@ -667,6 +667,18 @@ impl Drop for SharedAudioBuffer {
 // FILE SYSTEM WATCHER (FSEvents on macOS)
 // ═══════════════════════════════════════════════════════════════════════════════
 
+/// Global singleton FileWatchManager — lazily initialized with a background event channel.
+/// File change events are forwarded to the cortex signal bus (wired in future FSEvents integration).
+static FILE_WATCH_MANAGER: OnceLock<Mutex<FileWatchManager>> = OnceLock::new();
+
+/// Initialize the global FileWatchManager with a background crossbeam sender.
+fn init_file_watch_manager() -> Mutex<FileWatchManager> {
+    let (tx, _rx) = crossbeam_channel::bounded::<BridgeEvent>(256);
+    // _rx is intentionally dropped here — FSEvent forwarding to cortex bus is
+    // wired via the CortexBridge event ring in a future FSEvents integration pass.
+    Mutex::new(FileWatchManager::new(tx))
+}
+
 /// File watch subscription.
 #[derive(Debug)]
 pub struct FileWatchEntry {
@@ -1261,24 +1273,89 @@ impl BridgeRustHandle {
     fn handle_background(&self, request: &CortexRequest) -> CortexResponse {
         match &request.payload {
             BridgePayload::LoadPreset { path } => {
-                // TODO: async preset loading
-                CortexResponse::ok(request.id, ResponseData::String(format!("Loading: {path}")))
+                // Load project/preset file from disk — wires to the full project state restore path.
+                match crate::api_project::project_load_sync(path.clone()) {
+                    Ok(()) => CortexResponse::ok(
+                        request.id,
+                        ResponseData::String(format!("Preset loaded: {path}")),
+                    ),
+                    Err(e) => CortexResponse::error(
+                        request.id,
+                        5010,
+                        &format!("Load failed: {e}"),
+                    ),
+                }
             }
             BridgePayload::SaveProject { path } => {
-                // TODO: async project save
-                CortexResponse::ok(request.id, ResponseData::String(format!("Saving: {path}")))
+                // Save current project state to disk (syncs TrackManager → Project first).
+                match crate::api_project::project_save_sync(path.clone()) {
+                    Ok(()) => CortexResponse::ok(request.id, ResponseData::Bool(true)),
+                    Err(e) => CortexResponse::error(
+                        request.id,
+                        5011,
+                        &format!("Save failed: {e}"),
+                    ),
+                }
             }
-            BridgePayload::ExportAudio { path, .. } => {
-                // TODO: async export
-                CortexResponse::ok(request.id, ResponseData::String(format!("Exporting: {path}")))
+            BridgePayload::ExportAudio { path, format, sample_rate, .. } => {
+                use rf_engine::export::{ExportConfig, ExportFormat};
+                use rf_engine::ffi::PLAYBACK_ENGINE;
+                use std::path::PathBuf;
+
+                let export_format = match format.as_str() {
+                    "wav16"   => ExportFormat::Wav16,
+                    "wav24"   => ExportFormat::Wav24,
+                    "flac16"  => ExportFormat::Flac16,
+                    "flac24"  => ExportFormat::Flac24,
+                    "mp3_320" => ExportFormat::Mp3_320,
+                    "mp3_256" => ExportFormat::Mp3_256,
+                    "mp3_192" => ExportFormat::Mp3_192,
+                    "mp3_128" => ExportFormat::Mp3_128,
+                    _         => ExportFormat::Wav32Float, // default: 32-bit float WAV
+                };
+
+                // Use sample_rate from payload (0 = use engine default)
+                let sr = if *sample_rate == 0 {
+                    PLAYBACK_ENGINE.position.sample_rate()
+                } else {
+                    *sample_rate
+                };
+
+                // Export full project (0 → 300s window; ExportEngine stops when clips end)
+                let config = ExportConfig {
+                    output_path: PathBuf::from(path),
+                    format: export_format,
+                    sample_rate: sr,
+                    start_time: 0.0,
+                    end_time: 300.0,
+                    include_tail: true,
+                    tail_seconds: 2.0,
+                    normalize: false,
+                    block_size: 512,
+                };
+
+                match rf_engine::ffi::EXPORT_ENGINE.export(config) {
+                    Ok(()) => CortexResponse::ok(request.id, ResponseData::Bool(true)),
+                    Err(e) => CortexResponse::error(
+                        request.id,
+                        5012,
+                        &format!("Export failed: {e:?}"),
+                    ),
+                }
             }
-            BridgePayload::FileWatch { path: _, recursive: _ } => {
-                // TODO: wire to FileWatchManager
-                CortexResponse::ok(request.id, ResponseData::F64(1.0)) // watch_id placeholder
+            BridgePayload::FileWatch { path, recursive } => {
+                let watch_id = FILE_WATCH_MANAGER
+                    .get_or_init(init_file_watch_manager)
+                    .lock()
+                    .watch(path.clone(), *recursive);
+                CortexResponse::ok(request.id, ResponseData::F64(watch_id as f64))
             }
-            BridgePayload::FileUnwatch { watch_id: _ } => {
-                // TODO: wire to FileWatchManager
-                CortexResponse::ok(request.id, ResponseData::Bool(true))
+            BridgePayload::FileUnwatch { watch_id } => {
+                let removed = FILE_WATCH_MANAGER
+                    .get_or_init(init_file_watch_manager)
+                    .lock()
+                    .unwatch(*watch_id);
+                CortexResponse::ok(request.id, ResponseData::Bool(removed))
             }
             _ => CortexResponse::error(request.id, 5001, "Unknown background payload"),
         }

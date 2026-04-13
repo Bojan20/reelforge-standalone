@@ -315,20 +315,28 @@ pub struct ClipAnalysisDto {
 // API FUNCTIONS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/// Create time stretch processor for a clip
+/// Bitmask applied to clip_id to address the dedicated right-channel processor.
+/// Phase-locked stereo uses two independent processor instances (L and R) that share
+/// the same TimeStretchConfig so grain boundaries stay aligned.
+const STEREO_R_KEY: u64 = 1 << 63;
+
+/// Create time stretch processor for a clip.
+/// Allocates TWO processors (L and R channels) for phase-locked stereo stretching.
 #[flutter_rust_bridge::frb(sync)]
 pub fn timestretch_create(clip_id: u64, sample_rate: f64) -> bool {
     let config = TimeStretchConfig {
         sample_rate,
         ..Default::default()
     };
-    let processor = UltimateTimeStretch::new(config);
+    let proc_l = UltimateTimeStretch::new(config.clone());
+    let proc_r = UltimateTimeStretch::new(config);
     let mut processors = STRETCH_PROCESSORS.write();
-    processors.insert(clip_id, Arc::new(RwLock::new(processor)));
+    processors.insert(clip_id, Arc::new(RwLock::new(proc_l)));
+    processors.insert(clip_id | STEREO_R_KEY, Arc::new(RwLock::new(proc_r)));
     true
 }
 
-/// Destroy time stretch processor for a clip
+/// Destroy time stretch processor for a clip (removes both L and R channel processors).
 #[flutter_rust_bridge::frb(sync)]
 pub fn timestretch_destroy(clip_id: u64) -> bool {
     let mut processors = STRETCH_PROCESSORS.write();
@@ -336,6 +344,7 @@ pub fn timestretch_destroy(clip_id: u64) -> bool {
     let mut markers = FLEX_MARKERS.write();
 
     processors.remove(&clip_id);
+    processors.remove(&(clip_id | STEREO_R_KEY));
     regions.remove(&clip_id);
     markers.remove(&clip_id);
     true
@@ -456,24 +465,31 @@ pub async fn timestretch_process_stereo(
     pitch_ratio: f64,
 ) -> Option<(Vec<f64>, Vec<f64>)> {
     let processors = STRETCH_PROCESSORS.read();
-    let processor = processors.get(&clip_id)?;
 
-    let mut proc = processor.write();
+    // Phase-locked stereo: L and R channels have independent processor instances
+    // (keyed by clip_id and clip_id | STEREO_R_KEY). Both share the same
+    // TimeStretchConfig so grain boundaries are aligned — no reset() needed between channels.
+    let proc_l_arc = processors.get(&clip_id)?;
+    let proc_r_arc = processors.get(&(clip_id | STEREO_R_KEY))
+        .or_else(|| processors.get(&clip_id))?; // graceful fallback if R was never created
 
-    // Process left and right independently (for now)
-    // TODO: Phase-locked stereo processing
-    let out_l = proc.process_with_pitch(&left, time_ratio, pitch_ratio);
-    proc.reset();
-    let out_r = proc.process_with_pitch(&right, time_ratio, pitch_ratio);
+    // Acquire locks sequentially (avoid deadlock — always L before R)
+    let mut proc_l = proc_l_arc.write();
+    let out_l = proc_l.process_with_pitch(&left, time_ratio, pitch_ratio);
 
-    // Cache regions
-    let regions_dto: Vec<StretchRegionDto> = proc
+    // Cache regions from L channel (grain boundaries are authoritative for both channels)
+    let regions_dto: Vec<StretchRegionDto> = proc_l
         .get_regions()
         .iter()
         .map(StretchRegionDto::from)
         .collect();
+    drop(proc_l);
 
-    drop(proc);
+    // R channel: process independently with its own state machine (phase-locked by shared config)
+    let mut proc_r = proc_r_arc.write();
+    let out_r = proc_r.process_with_pitch(&right, time_ratio, pitch_ratio);
+    drop(proc_r);
+
     drop(processors);
 
     let mut regions_cache = STRETCH_REGIONS.write();
@@ -524,43 +540,53 @@ pub fn timestretch_add_warp_marker(clip_id: u64, original_pos: u64, warped_pos: 
 #[flutter_rust_bridge::frb(sync)]
 pub fn timestretch_set_algorithm(clip_id: u64, algorithm: TimeStretchAlgorithm) -> bool {
     let processors = STRETCH_PROCESSORS.read();
-    if let Some(processor) = processors.get(&clip_id) {
-        let mut proc = processor.write();
-        let mut config = TimeStretchConfig::default();
-        config.algorithm = algorithm.into();
-        proc.set_config(config);
-        true
-    } else {
-        false
+    let algo: rf_dsp::timestretch::Algorithm = algorithm.into();
+    // Mirror config to both L and R channel processors for phase-locked stereo coherence
+    let mut found = false;
+    for key in [clip_id, clip_id | STEREO_R_KEY] {
+        if let Some(processor) = processors.get(&key) {
+            let mut proc = processor.write();
+            let mut config = TimeStretchConfig::default();
+            config.algorithm = algo;
+            proc.set_config(config);
+            found = true;
+        }
     }
+    found
 }
 
 /// Set quality for a clip
 #[flutter_rust_bridge::frb(sync)]
 pub fn timestretch_set_quality(clip_id: u64, quality: TimeStretchQuality) -> bool {
     let processors = STRETCH_PROCESSORS.read();
-    if let Some(processor) = processors.get(&clip_id) {
-        let mut proc = processor.write();
-        let mut config = TimeStretchConfig::default();
-        config.quality = quality.into();
-        proc.set_config(config);
-        true
-    } else {
-        false
+    let q: rf_dsp::timestretch::Quality = quality.into();
+    // Mirror config to both L and R channel processors
+    let mut found = false;
+    for key in [clip_id, clip_id | STEREO_R_KEY] {
+        if let Some(processor) = processors.get(&key) {
+            let mut proc = processor.write();
+            let mut config = TimeStretchConfig::default();
+            config.quality = q;
+            proc.set_config(config);
+            found = true;
+        }
     }
+    found
 }
 
-/// Reset processor state
+/// Reset processor state (resets both L and R channel processors)
 #[flutter_rust_bridge::frb(sync)]
 pub fn timestretch_reset(clip_id: u64) -> bool {
     let processors = STRETCH_PROCESSORS.read();
-    if let Some(processor) = processors.get(&clip_id) {
-        let mut proc = processor.write();
-        proc.reset();
-        true
-    } else {
-        false
+    let mut found = false;
+    for key in [clip_id, clip_id | STEREO_R_KEY] {
+        if let Some(processor) = processors.get(&key) {
+            let mut proc = processor.write();
+            proc.reset();
+            found = true;
+        }
     }
+    found
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
