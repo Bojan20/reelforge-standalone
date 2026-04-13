@@ -307,6 +307,21 @@ class AleRule {
     };
   }
 
+  AleRule copyWith({bool? enabled}) {
+    return AleRule(
+      id: id,
+      name: name,
+      signalId: signalId,
+      op: op,
+      value: value,
+      action: action,
+      actionValue: actionValue,
+      contexts: contexts,
+      priority: priority,
+      enabled: enabled ?? this.enabled,
+    );
+  }
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'name': name,
@@ -504,6 +519,26 @@ class AleProfile {
       rules: rulesJson.map((r) => AleRule.fromJson(r as Map<String, dynamic>)).toList(),
       transitions: transitionsJson.map((k, v) => MapEntry(k, AleTransitionProfile.fromJson(v as Map<String, dynamic>))),
       stability: stabilityJson != null ? AleStabilityConfig.fromJson(stabilityJson) : const AleStabilityConfig(),
+    );
+  }
+
+  AleProfile copyWith({
+    String? version,
+    String? author,
+    String? gameName,
+    Map<String, AleContext>? contexts,
+    List<AleRule>? rules,
+    Map<String, AleTransitionProfile>? transitions,
+    AleStabilityConfig? stability,
+  }) {
+    return AleProfile(
+      version: version ?? this.version,
+      author: author ?? this.author,
+      gameName: gameName ?? this.gameName,
+      contexts: contexts ?? this.contexts,
+      rules: rules ?? this.rules,
+      transitions: transitions ?? this.transitions,
+      stability: stability ?? this.stability,
     );
   }
 
@@ -760,6 +795,39 @@ class AleProvider extends ChangeNotifier {
   double getSignalNormalized(String signalId) {
     if (!_initialized) return 0.0;
     return _ffi.aleGetSignalNormalized(signalId);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // RULE MANAGEMENT
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Toggle a rule's enabled state.
+  /// Implementation: remove + re-add with new enabled flag (Rust ALE has no
+  /// in-place patch API — aleRemoveRule + aleAddRuleJson is the correct path).
+  bool toggleRuleEnabled(String ruleId, bool enabled) {
+    if (!_initialized || _profile == null) return false;
+
+    final rule = _profile!.rules.cast<AleRule?>().firstWhere(
+      (r) => r?.id == ruleId,
+      orElse: () => null,
+    );
+    if (rule == null) return false;
+
+    // Remove old rule from engine
+    _ffi.aleRemoveRule(ruleId);
+
+    // Re-add with toggled enabled state
+    final updated = rule.copyWith(enabled: enabled);
+    final result = _ffi.aleAddRuleJson(jsonEncode(updated.toJson()));
+    if (result != 0) return false;
+
+    // Sync local profile
+    final updatedRules = _profile!.rules.map((r) {
+      return r.id == ruleId ? updated : r;
+    }).toList();
+    _profile = _profile!.copyWith(rules: updatedRules);
+    notifyListeners();
+    return true;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

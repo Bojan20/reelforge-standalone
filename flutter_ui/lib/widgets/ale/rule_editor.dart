@@ -228,7 +228,7 @@ class _RuleEditorState extends State<RuleEditor> {
             });
           },
           onToggle: (enabled) {
-            // TODO: Implement rule enable/disable via FFI
+            context.read<AleProvider>().toggleRuleEnabled(rule.id, enabled);
           },
         );
       },
