@@ -139,7 +139,7 @@ unsafe extern "C" fn urid_unmap_callback(_handle: *mut c_void, urid: u32) -> *co
         // Return pointer to CString in a thread-local (stable for duration of plugin call)
         thread_local! {
             static UNMAP_BUF: std::cell::RefCell<std::ffi::CString> =
-                std::cell::RefCell::new(std::ffi::CString::new("").unwrap());
+                std::cell::RefCell::new(std::ffi::CString::default());
         }
         let uri = map.id_to_uri[idx].clone();
         UNMAP_BUF.with(|buf| {
@@ -794,8 +794,8 @@ impl Lv2PluginInstance {
         });
 
         // Feature URIs (must outlive the plugin — stored in struct)
-        let map_uri = std::ffi::CString::new("http://lv2plug.in/ns/ext/urid#map").unwrap();
-        let unmap_uri = std::ffi::CString::new("http://lv2plug.in/ns/ext/urid#unmap").unwrap();
+        let map_uri = std::ffi::CString::new("http://lv2plug.in/ns/ext/urid#map").unwrap_or_default();
+        let unmap_uri = std::ffi::CString::new("http://lv2plug.in/ns/ext/urid#unmap").unwrap_or_default();
 
         // CRITICAL: Feature structs MUST be heap-allocated (Box) because plugins
         // may cache feature pointers beyond instantiate(). Stack pointers = UB.

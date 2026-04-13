@@ -627,10 +627,10 @@ impl ClapPluginInstance {
         let factory = unsafe { &*(factory_ptr as *const ClapPluginFactory) };
 
         // Create host info
-        let host_name = std::ffi::CString::new("FluxForge Studio").unwrap();
-        let host_vendor = std::ffi::CString::new("FluxForge").unwrap();
-        let host_url = std::ffi::CString::new("https://fluxforge.studio").unwrap();
-        let host_version = std::ffi::CString::new("1.0.0").unwrap();
+        let host_name = std::ffi::CString::new("FluxForge Studio").unwrap_or_default();
+        let host_vendor = std::ffi::CString::new("FluxForge").unwrap_or_default();
+        let host_url = std::ffi::CString::new("https://fluxforge.studio").unwrap_or_default();
+        let host_version = std::ffi::CString::new("1.0.0").unwrap_or_default();
 
         let host_info = Box::new(ClapHostInfo {
             clap_version: CLAP_VERSION,

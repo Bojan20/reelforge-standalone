@@ -188,8 +188,14 @@ impl PitchSegment {
             return 0.0;
         }
 
-        let first = self.contour.first().unwrap().1.as_midi();
-        let last = self.contour.last().unwrap().1.as_midi();
+        let first = match self.contour.first() {
+            Some(c) => c.1.as_midi(),
+            None => return 0.0,
+        };
+        let last = match self.contour.last() {
+            Some(c) => c.1.as_midi(),
+            None => return 0.0,
+        };
         (last - first) * 100.0 // In cents
     }
 }
@@ -523,7 +529,10 @@ impl PitchDetector {
 
         // Estimate rate from zero crossings
         // Each full cycle has 2 zero crossings
-        let duration_samples = pitches.last().unwrap().0 - pitches.first().unwrap().0;
+        let duration_samples = match (pitches.last(), pitches.first()) {
+            (Some(last), Some(first)) => last.0 - first.0,
+            _ => return (0.0, 0.0),
+        };
         let duration_sec = duration_samples as f64 / 48000.0; // Assume 48kHz
         let rate = if duration_sec > 0.0 {
             zero_crossings as f64 / (2.0 * duration_sec)

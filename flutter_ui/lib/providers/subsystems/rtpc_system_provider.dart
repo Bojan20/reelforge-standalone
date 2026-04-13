@@ -1503,9 +1503,9 @@ class RtpcSystemProvider extends ChangeNotifier {
   /// Import object RTPCs from JSON
   void objectRtpcsFromJson(Map<String, dynamic> json) {
     for (final entry in json.entries) {
-      final gameObjectId = int.parse(entry.key);
+      final gameObjectId = int.tryParse(entry.key) ?? 0;
       final rtpcs = (entry.value as Map<String, dynamic>).map(
-        (rk, rv) => MapEntry(int.parse(rk), (rv as num).toDouble()),
+        (rk, rv) => MapEntry(int.tryParse(rk) ?? 0, (rv as num).toDouble()),
       );
       _objectRtpcs[gameObjectId] = rtpcs;
     }

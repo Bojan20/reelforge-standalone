@@ -110,12 +110,16 @@ extern "C" fn scan_callback(
     let name_str = unsafe { CStr::from_ptr(name) }
         .to_string_lossy()
         .to_string();
-    PLUGINS.lock().unwrap().push(PluginEntry {
-        name: name_str,
-        comp_type,
-        subtype,
-        mfr_code,
-    });
+    if let Ok(mut plugins) = PLUGINS.lock() {
+        plugins.push(PluginEntry {
+            name: name_str,
+            comp_type,
+            subtype,
+            mfr_code,
+        });
+    } else {
+        eprintln!("[rf-plugin-host] PLUGINS lock poisoned in scan_callback");
+    }
 }
 
 extern "C" fn gui_ready_callback(
@@ -181,7 +185,13 @@ extern "C" fn gui_ready_callback(
 
         // Store raw pointer; Retained::into_raw transfers ownership (prevents drop/release)
         let raw: *const NSWindow = Retained::into_raw(window);
-        *WINDOW.lock().unwrap() = Some(SendPtr(raw as *mut AnyObject));
+        match WINDOW.lock() {
+            Ok(mut w) => *w = Some(SendPtr(raw as *mut AnyObject)),
+            Err(e) => {
+                eprintln!("[rf-plugin-host] WINDOW lock poisoned: {}", e);
+                *e.into_inner() = Some(SendPtr(raw as *mut AnyObject));
+            }
+        }
     }
 
     send_response("ok", "GUI opened");
@@ -189,7 +199,13 @@ extern "C" fn gui_ready_callback(
 
 /// NSTimer callback — polls for stdin commands
 unsafe extern "C" fn timer_fired(_this: *mut AnyObject, _sel: Sel, _timer: *mut AnyObject) {
-    let commands: Vec<Command> = COMMANDS.lock().unwrap().drain(..).collect();
+    let commands: Vec<Command> = match COMMANDS.lock() {
+        Ok(mut cmds) => cmds.drain(..).collect(),
+        Err(e) => {
+            eprintln!("[rf-plugin-host] COMMANDS lock poisoned in timer_fired");
+            e.into_inner().drain(..).collect()
+        }
+    };
 
     for cmd in commands {
         match cmd.cmd.as_str() {
@@ -202,7 +218,13 @@ unsafe extern "C" fn timer_fired(_this: *mut AnyObject, _sel: Sel, _timer: *mut 
                     .collect::<Vec<_>>()
                     .join(" ");
 
-                let plugins = PLUGINS.lock().unwrap();
+                let plugins = match PLUGINS.lock() {
+                    Ok(p) => p,
+                    Err(e) => {
+                        eprintln!("[rf-plugin-host] PLUGINS lock poisoned");
+                        e.into_inner()
+                    }
+                };
                 let found = plugins.iter().find(|p| {
                     let norm = p
                         .name
@@ -244,11 +266,21 @@ unsafe extern "C" fn timer_fired(_this: *mut AnyObject, _sel: Sel, _timer: *mut 
                 }
             }
             "close" => {
-                if let Some(SendPtr(raw)) = WINDOW.lock().unwrap().take() {
+                let win_ptr = match WINDOW.lock() {
+                    Ok(mut w) => w.take(),
+                    Err(e) => {
+                        eprintln!("[rf-plugin-host] WINDOW lock poisoned in close");
+                        e.into_inner().take()
+                    }
+                };
+                if let Some(SendPtr(raw)) = win_ptr {
                     unsafe {
                         // Reconstruct Retained from raw pointer, close, then let it drop (release)
-                        let window: Retained<NSWindow> = Retained::from_raw(raw.cast()).unwrap();
-                        window.close();
+                        if let Some(window) = Retained::<NSWindow>::from_raw(raw.cast()) {
+                            window.close();
+                        } else {
+                            eprintln!("[rf-plugin-host] Failed to reconstruct NSWindow from raw pointer");
+                        }
                     }
                 }
                 unsafe {
@@ -277,7 +309,7 @@ fn main() {
         au_host_scan_plugins(std::ptr::null_mut(), scan_callback);
     }
 
-    let count = PLUGINS.lock().unwrap().len();
+    let count = PLUGINS.lock().map(|p| p.len()).unwrap_or(0);
     send_response("ok", &format!("ready, {} plugins", count));
 
     // Stdin reader thread
@@ -291,7 +323,13 @@ fn main() {
                     }
                     match serde_json::from_str::<Command>(&line) {
                         Ok(cmd) => {
-                            COMMANDS.lock().unwrap().push(cmd);
+                            match COMMANDS.lock() {
+                                Ok(mut cmds) => cmds.push(cmd),
+                                Err(e) => {
+                                    eprintln!("[rf-plugin-host] COMMANDS lock poisoned in stdin reader");
+                                    e.into_inner().push(cmd);
+                                }
+                            }
                         }
                         Err(e) => {
                             eprintln!("[rf-plugin-host] Parse error: {}", e);
@@ -302,16 +340,31 @@ fn main() {
             }
         }
         eprintln!("[rf-plugin-host] stdin closed");
-        COMMANDS.lock().unwrap().push(Command {
-            cmd: "close".to_string(),
-            plugin_name: String::new(),
-        });
+        match COMMANDS.lock() {
+            Ok(mut cmds) => cmds.push(Command {
+                cmd: "close".to_string(),
+                plugin_name: String::new(),
+            }),
+            Err(e) => {
+                eprintln!("[rf-plugin-host] COMMANDS lock poisoned on stdin close");
+                e.into_inner().push(Command {
+                    cmd: "close".to_string(),
+                    plugin_name: String::new(),
+                });
+            }
+        }
     });
 
     // Timer for polling stdin commands on main thread
     unsafe {
-        let superclass = AnyClass::get(c"NSObject").unwrap();
-        let mut builder = ClassBuilder::new(c"RFTimerTarget", superclass).unwrap();
+        let Some(superclass) = AnyClass::get(c"NSObject") else {
+            eprintln!("[rf-plugin-host] FATAL: NSObject class not found");
+            return;
+        };
+        let Some(mut builder) = ClassBuilder::new(c"RFTimerTarget", superclass) else {
+            eprintln!("[rf-plugin-host] FATAL: Failed to create RFTimerTarget class");
+            return;
+        };
         builder.add_method(
             sel!(timerFired:),
             timer_fired as unsafe extern "C" fn(*mut AnyObject, Sel, *mut AnyObject),

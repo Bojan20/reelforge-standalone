@@ -219,7 +219,9 @@ impl RoomMeasurement {
         }
 
         // FFT
-        self.fft.process(&mut windowed, &mut self.spectrum).unwrap();
+        if self.fft.process(&mut windowed, &mut self.spectrum).is_err() {
+            return;
+        }
 
         // Accumulate magnitude
         for (i, c) in self.spectrum.iter().enumerate() {
@@ -320,7 +322,7 @@ impl RoomMeasurement {
 
         // Sort by magnitude (most problematic first)
         self.room_modes
-            .sort_by(|a, b| b.magnitude_db.partial_cmp(&a.magnitude_db).unwrap());
+            .sort_by(|a, b| b.magnitude_db.partial_cmp(&a.magnitude_db).unwrap_or(std::cmp::Ordering::Equal));
     }
 
     fn smooth_1_3_octave(&self, db: &[f64]) -> Vec<f64> {

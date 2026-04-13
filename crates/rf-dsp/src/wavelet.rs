@@ -490,7 +490,16 @@ impl CWT {
         let mut signal_padded = vec![0.0; fft_size];
         signal_padded[..n].copy_from_slice(signal);
         let mut signal_fft = vec![Complex::new(0.0, 0.0); fft_size / 2 + 1];
-        fft.process(&mut signal_padded, &mut signal_fft).unwrap();
+        let empty_result = CWTResult {
+            scalogram: Vec::new(),
+            scales: self.scales.clone(),
+            frequencies: Vec::new(),
+            sample_rate: self.sample_rate,
+        };
+
+        if fft.process(&mut signal_padded, &mut signal_fft).is_err() {
+            return empty_result;
+        }
 
         // Compute scalogram
         let mut scalogram = Vec::with_capacity(self.scales.len());
@@ -509,7 +518,9 @@ impl CWT {
 
             // IFFT
             let mut result = vec![0.0; fft_size];
-            ifft.process(&mut product, &mut result).unwrap();
+            if ifft.process(&mut product, &mut result).is_err() {
+                continue;
+            }
 
             // Normalize and extract
             let norm = 1.0 / (fft_size as f64);

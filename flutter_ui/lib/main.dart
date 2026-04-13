@@ -7,7 +7,6 @@
 // - Rust audio engine via flutter_rust_bridge
 
 import 'package:flutter/material.dart';
-import 'package:get_it/get_it.dart';
 import 'package:provider/provider.dart';
 import 'theme/fluxforge_theme.dart';
 import 'screens/engine_connected_layout.dart';
@@ -78,7 +77,6 @@ import 'services/crdt_sync_service.dart';
 import 'services/cortex_vision_service.dart';
 import 'services/cortex_intelligence_loop.dart';
 import 'providers/cortex_provider.dart';
-import 'src/rust/native_ffi.dart';
 import 'utils/path_validator.dart';
 import 'dart:io';
 import 'package:path/path.dart' as p;
@@ -193,107 +191,150 @@ class FluxForgeApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        // All providers are GetIt singletons per CLAUDE.md:
+        // "Provideri MORAJU biti GetIt singletoni" (FFI resource sharing)
+
         // Rust Engine (core audio backend)
-        ChangeNotifierProvider(create: (_) => EngineProvider()),
+        ChangeNotifierProvider<EngineProvider>.value(value: sl<EngineProvider>()),
 
         // Core playback state
-        ChangeNotifierProvider(create: (_) => TimelinePlaybackProvider()),
+        ChangeNotifierProvider<TimelinePlaybackProvider>.value(
+          value: sl<TimelinePlaybackProvider>(),
+        ),
 
         // Mixer and DSP routing
-        ChangeNotifierProvider(create: (_) => MixerDSPProvider()),
+        ChangeNotifierProvider<MixerDSPProvider>.value(value: sl<MixerDSPProvider>()),
 
         // Real-time metering
-        ChangeNotifierProvider(create: (_) => MeterProvider()),
+        ChangeNotifierProvider<MeterProvider>.value(value: sl<MeterProvider>()),
 
         // Pro DAW Mixer state
-        ChangeNotifierProvider(create: (_) => MixerProvider()),
+        ChangeNotifierProvider<MixerProvider>.value(value: sl<MixerProvider>()),
 
         // Editor mode (DAW/Middleware)
-        ChangeNotifierProvider(create: (_) => EditorModeProvider()),
+        ChangeNotifierProvider<EditorModeProvider>.value(
+          value: sl<EditorModeProvider>(),
+        ),
 
         // Keyboard shortcuts
-        ChangeNotifierProvider(create: (_) => GlobalShortcutsProvider()),
+        ChangeNotifierProvider<GlobalShortcutsProvider>.value(
+          value: sl<GlobalShortcutsProvider>(),
+        ),
 
         // Undo/Redo history
-        ChangeNotifierProvider(create: (_) => ProjectHistoryProvider()),
+        ChangeNotifierProvider<ProjectHistoryProvider>.value(
+          value: sl<ProjectHistoryProvider>(),
+        ),
 
         // Auto-save
-        ChangeNotifierProvider(create: (_) => AutoSaveProvider()),
+        ChangeNotifierProvider<AutoSaveProvider>.value(value: sl<AutoSaveProvider>()),
 
         // Recent Projects
-        ChangeNotifierProvider(create: (_) => RecentProjectsProvider()),
+        ChangeNotifierProvider<RecentProjectsProvider>.value(
+          value: sl<RecentProjectsProvider>(),
+        ),
 
         // Audio export
-        ChangeNotifierProvider(create: (_) => AudioExportProvider()),
+        ChangeNotifierProvider<AudioExportProvider>.value(
+          value: sl<AudioExportProvider>(),
+        ),
 
         // Session persistence
-        ChangeNotifierProvider(create: (_) => SessionPersistenceProvider()),
+        ChangeNotifierProvider<SessionPersistenceProvider>.value(
+          value: sl<SessionPersistenceProvider>(),
+        ),
 
         // Input Bus System
-        ChangeNotifierProvider(create: (_) => InputBusProvider()),
+        ChangeNotifierProvider<InputBusProvider>.value(value: sl<InputBusProvider>()),
 
         // Recording System
-        ChangeNotifierProvider(create: (_) => RecordingProvider()),
+        ChangeNotifierProvider<RecordingProvider>.value(value: sl<RecordingProvider>()),
 
         // Unified Routing System
-        ChangeNotifierProvider(create: (_) => RoutingProvider()),
+        ChangeNotifierProvider<RoutingProvider>.value(value: sl<RoutingProvider>()),
 
         // Pro Tools-Style Keyboard Focus Mode
-        ChangeNotifierProvider(create: (_) => KeyboardFocusProvider()),
+        ChangeNotifierProvider<KeyboardFocusProvider>.value(
+          value: sl<KeyboardFocusProvider>(),
+        ),
 
         // Pro Tools-Style Edit Modes (Shuffle/Slip/Spot/Grid)
-        ChangeNotifierProvider(create: (_) => EditModeProProvider()),
+        ChangeNotifierProvider<EditModeProProvider>.value(
+          value: sl<EditModeProProvider>(),
+        ),
 
         // Smart Tool (Context-Aware Tool Selection)
-        ChangeNotifierProvider(create: (_) => SmartToolProvider()),
+        ChangeNotifierProvider<SmartToolProvider>.value(value: sl<SmartToolProvider>()),
 
         // Razor Editing (Cubase-style range selection)
-        ChangeNotifierProvider(create: (_) => RazorEditProvider()),
+        ChangeNotifierProvider<RazorEditProvider>.value(value: sl<RazorEditProvider>()),
 
         // Direct Offline Processing
-        ChangeNotifierProvider(create: (_) => DirectOfflineProcessingProvider()),
+        ChangeNotifierProvider<DirectOfflineProcessingProvider>.value(
+          value: sl<DirectOfflineProcessingProvider>(),
+        ),
 
         // Parameter Modulators (LFO, Envelope Follower, Step, Random)
-        ChangeNotifierProvider(create: (_) => ModulatorProvider()),
+        ChangeNotifierProvider<ModulatorProvider>.value(value: sl<ModulatorProvider>()),
 
         // Arranger Track (Cubase-style section-based arrangement)
-        ChangeNotifierProvider(create: (_) => ArrangerTrackProvider()),
+        ChangeNotifierProvider<ArrangerTrackProvider>.value(
+          value: sl<ArrangerTrackProvider>(),
+        ),
 
         // Chord Track (Cubase-style chord intelligence)
-        ChangeNotifierProvider(create: (_) => ChordTrackProvider()),
+        ChangeNotifierProvider<ChordTrackProvider>.value(value: sl<ChordTrackProvider>()),
 
         // Expression Maps (Cubase-style MIDI articulation switching)
-        ChangeNotifierProvider(create: (_) => ExpressionMapProvider()),
+        ChangeNotifierProvider<ExpressionMapProvider>.value(
+          value: sl<ExpressionMapProvider>(),
+        ),
 
         // Macro Controls (Multi-parameter control knobs)
-        ChangeNotifierProvider(create: (_) => MacroControlProvider()),
+        ChangeNotifierProvider<MacroControlProvider>.value(
+          value: sl<MacroControlProvider>(),
+        ),
 
         // Track Versions (Cubase-style track playlists)
-        ChangeNotifierProvider(create: (_) => TrackVersionsProvider()),
+        ChangeNotifierProvider<TrackVersionsProvider>.value(
+          value: sl<TrackVersionsProvider>(),
+        ),
 
         // Clip Gain Envelope (Per-clip gain automation)
-        ChangeNotifierProvider(create: (_) => ClipGainEnvelopeProvider()),
+        ChangeNotifierProvider<ClipGainEnvelopeProvider>.value(
+          value: sl<ClipGainEnvelopeProvider>(),
+        ),
 
         // Logical Editor (Cubase-style batch operations)
-        ChangeNotifierProvider(create: (_) => LogicalEditorProvider()),
+        ChangeNotifierProvider<LogicalEditorProvider>.value(
+          value: sl<LogicalEditorProvider>(),
+        ),
 
         // Groove Quantize (Humanization and groove templates)
-        ChangeNotifierProvider(create: (_) => GrooveQuantizeProvider()),
+        ChangeNotifierProvider<GrooveQuantizeProvider>.value(
+          value: sl<GrooveQuantizeProvider>(),
+        ),
 
         // Audio Alignment (VocAlign-style alignment)
-        ChangeNotifierProvider(create: (_) => AudioAlignmentProvider()),
+        ChangeNotifierProvider<AudioAlignmentProvider>.value(
+          value: sl<AudioAlignmentProvider>(),
+        ),
 
         // Scale Assistant (Cubase-style key/scale helper)
-        ChangeNotifierProvider(create: (_) => ScaleAssistantProvider()),
+        ChangeNotifierProvider<ScaleAssistantProvider>.value(
+          value: sl<ScaleAssistantProvider>(),
+        ),
 
         // Error Handling
-        ChangeNotifierProvider(create: (_) => ErrorProvider()),
+        ChangeNotifierProvider<ErrorProvider>.value(value: sl<ErrorProvider>()),
 
         // Plugin Browser & Hosting
-        ChangeNotifierProvider(create: (_) => PluginProvider()),
+        ChangeNotifierProvider<PluginProvider>.value(value: sl<PluginProvider>()),
 
         // Control Room (Studio Monitoring)
-        ChangeNotifierProvider(create: (_) => ControlRoomProvider()),
+        ChangeNotifierProvider<ControlRoomProvider>.value(
+          value: sl<ControlRoomProvider>(),
+        ),
 
         // Middleware (States, Switches, RTPC, Ducking, Containers, Music System)
         ChangeNotifierProvider<MiddlewareProvider>.value(
@@ -301,10 +342,12 @@ class FluxForgeApp extends StatelessWidget {
         ),
 
         // Stage Ingest System (Legacy — uses Dart models)
-        ChangeNotifierProvider(create: (_) => StageProvider()),
+        ChangeNotifierProvider<StageProvider>.value(value: sl<StageProvider>()),
 
         // Stage Ingest System (New — FFI-based with rf-stage/rf-ingest/rf-connector)
-        ChangeNotifierProvider(create: (_) => StageIngestProvider(NativeFFI.instance)),
+        ChangeNotifierProvider<StageIngestProvider>.value(
+          value: sl<StageIngestProvider>(),
+        ),
 
         // Slot Lab (Synthetic Slot Engine) — MUST use GetIt singleton, not new instance
         ChangeNotifierProvider<SlotLabProvider>.value(
@@ -316,7 +359,7 @@ class FluxForgeApp extends StatelessWidget {
 
         // Slot Lab Project (V6 Layout state) — MUST use GetIt singleton, not new instance
         ChangeNotifierProvider<SlotLabProjectProvider>.value(
-          value: GetIt.instance<SlotLabProjectProvider>(),
+          value: sl<SlotLabProjectProvider>(),
         ),
 
         // Adaptive Layer Engine (ALE) — MUST use GetIt singleton, not new instance
@@ -333,14 +376,16 @@ class FluxForgeApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: AudioAssetManager.instance),
 
         // Soundbank Building System
-        ChangeNotifierProvider(create: (_) => SoundbankProvider(NativeFFI.instance)),
+        ChangeNotifierProvider<SoundbankProvider>.value(
+          value: sl<SoundbankProvider>(),
+        ),
 
         // Event Registry (Stage → Audio mapping)
         ChangeNotifierProvider.value(value: EventRegistry.instance),
 
         // Feature Builder Provider (P13) — MUST use GetIt singleton, not new instance
         ChangeNotifierProvider<FeatureBuilderProvider>.value(
-          value: GetIt.instance<FeatureBuilderProvider>(),
+          value: sl<FeatureBuilderProvider>(),
         ),
 
         // Custom Event Provider (SlotLab CUSTOM tab) — GetIt singleton
@@ -355,13 +400,13 @@ class FluxForgeApp extends StatelessWidget {
 
         // Video System — GetIt singletons
         ChangeNotifierProvider<VideoProvider>.value(
-          value: GetIt.instance<VideoProvider>(),
+          value: sl<VideoProvider>(),
         ),
         ChangeNotifierProvider<VideoExportService>.value(
-          value: GetIt.instance<VideoExportService>(),
+          value: sl<VideoExportService>(),
         ),
         ChangeNotifierProvider<VideoPlaybackService>.value(
-          value: GetIt.instance<VideoPlaybackService>(),
+          value: sl<VideoPlaybackService>(),
         ),
       ],
       child: RepaintBoundary(

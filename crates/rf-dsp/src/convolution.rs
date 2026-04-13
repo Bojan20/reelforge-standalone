@@ -173,10 +173,10 @@ impl ConvolutionChannel {
                 };
 
                 // Find FFT for this size (guaranteed to exist since unique_sizes was built from sizes)
-                let size_idx = unique_sizes
-                    .iter()
-                    .position(|&s| s == size)
-                    .expect("partition size must exist in unique_sizes");
+                let size_idx = match unique_sizes.iter().position(|&s| s == size) {
+                    Some(idx) => idx,
+                    None => return Partition::new(&vec![0.0; size], &fft_forward[0]),
+                };
 
                 // Pad segment to partition size
                 let mut padded = vec![0.0; size];

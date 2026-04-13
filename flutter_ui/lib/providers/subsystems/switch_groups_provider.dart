@@ -185,9 +185,9 @@ class SwitchGroupsProvider extends ChangeNotifier {
   void objectSwitchesFromJson(Map<String, dynamic> json) {
     _objectSwitches.clear();
     for (final entry in json.entries) {
-      final gameObjectId = int.parse(entry.key);
+      final gameObjectId = int.tryParse(entry.key) ?? 0;
       final switches = (entry.value as Map<String, dynamic>).map(
-        (gk, sv) => MapEntry(int.parse(gk), sv as int),
+        (gk, sv) => MapEntry(int.tryParse(gk) ?? 0, sv as int),
       );
       _objectSwitches[gameObjectId] = switches;
     }

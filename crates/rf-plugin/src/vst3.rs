@@ -39,8 +39,14 @@ fn register_plugin_window_classes() {
     REGISTERED.call_once(|| {
         unsafe {
             // --- FFPluginWindow: NSWindow that always accepts key/main ---
-            let ns_window = AnyClass::get(c"NSWindow").unwrap();
-            let mut window_builder = ClassBuilder::new(c"FFPluginWindow", ns_window).unwrap();
+            let Some(ns_window) = AnyClass::get(c"NSWindow") else {
+                eprintln!("[FluxForge] FATAL: NSWindow class not found in ObjC runtime");
+                return;
+            };
+            let Some(mut window_builder) = ClassBuilder::new(c"FFPluginWindow", ns_window) else {
+                eprintln!("[FluxForge] FATAL: Failed to create FFPluginWindow class builder");
+                return;
+            };
 
             unsafe extern "C" fn can_become_key(_this: *mut AnyObject, _sel: Sel) -> Bool {
                 Bool::YES
@@ -83,11 +89,14 @@ fn register_plugin_window_classes() {
                         }
                     }
                     // Call super
-                    let superclass = AnyClass::get(c"NSWindow").unwrap();
-                    let send_event_sel = sel!(sendEvent:);
-                    let imp: unsafe extern "C" fn(*mut AnyObject, Sel, *mut AnyObject) =
-                        std::mem::transmute(superclass.instance_method(send_event_sel).unwrap().implementation());
-                    imp(this, send_event_sel, event);
+                    if let Some(superclass) = AnyClass::get(c"NSWindow") {
+                        let send_event_sel = sel!(sendEvent:);
+                        if let Some(method) = superclass.instance_method(send_event_sel) {
+                            let imp: unsafe extern "C" fn(*mut AnyObject, Sel, *mut AnyObject) =
+                                std::mem::transmute(method.implementation());
+                            imp(this, send_event_sel, event);
+                        }
+                    }
                 }
             }
 
@@ -108,8 +117,14 @@ fn register_plugin_window_classes() {
             // --- FFPluginContainerView: NSView with acceptsFirstMouse ---
             // Without this, first click on non-key window just focuses it
             // but does NOT deliver mouseDown to the plugin view.
-            let ns_view = AnyClass::get(c"NSView").unwrap();
-            let mut view_builder = ClassBuilder::new(c"FFPluginContainerView", ns_view).unwrap();
+            let Some(ns_view) = AnyClass::get(c"NSView") else {
+                eprintln!("[FluxForge] FATAL: NSView class not found in ObjC runtime");
+                return;
+            };
+            let Some(mut view_builder) = ClassBuilder::new(c"FFPluginContainerView", ns_view) else {
+                eprintln!("[FluxForge] FATAL: Failed to create FFPluginContainerView class builder");
+                return;
+            };
 
             unsafe extern "C" fn accepts_first_mouse(_this: *mut AnyObject, _sel: Sel, _event: *mut AnyObject) -> Bool {
                 Bool::YES
@@ -180,7 +195,10 @@ unsafe fn create_plugin_window(view_ptr: *mut c_void, width: f64, height: f64, t
         );
 
         // FFPluginWindow: canBecomeKeyWindow/canBecomeMainWindow -> YES
-        let window_cls = AnyClass::get(c"FFPluginWindow").unwrap();
+        let Some(window_cls) = AnyClass::get(c"FFPluginWindow") else {
+            eprintln!("[FluxForge] FFPluginWindow class not registered, cannot create plugin window");
+            return;
+        };
         let window: *mut AnyObject = msg_send![window_cls, alloc];
         let window: *mut AnyObject = msg_send![window,
             initWithContentRect: rect,
@@ -217,7 +235,11 @@ unsafe fn create_plugin_window(view_ptr: *mut c_void, width: f64, height: f64, t
 
         let _: () = msg_send![window, setAcceptsMouseMovedEvents: Bool::YES];
 
-        let nsapp: *mut AnyObject = msg_send![AnyClass::get(c"NSApplication").unwrap(), sharedApplication];
+        let Some(ns_app_class) = AnyClass::get(c"NSApplication") else {
+            eprintln!("[FluxForge] NSApplication class not found");
+            return;
+        };
+        let nsapp: *mut AnyObject = msg_send![ns_app_class, sharedApplication];
         #[allow(deprecated)]
         let _: () = msg_send![nsapp, activateIgnoringOtherApps: Bool::YES];
 

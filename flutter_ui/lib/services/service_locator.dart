@@ -112,6 +112,43 @@ import 'video_export_service.dart';
 import 'video_playback_service.dart';
 import '../providers/custom_event_provider.dart';
 import '../providers/cortex_provider.dart';
+import '../providers/engine_provider.dart';
+import '../providers/timeline_playback_provider.dart';
+import '../providers/mixer_dsp_provider.dart';
+import '../providers/meter_provider.dart';
+import '../providers/mixer_provider.dart';
+import '../providers/editor_mode_provider.dart';
+import '../providers/global_shortcuts_provider.dart';
+import '../providers/project_history_provider.dart';
+import '../providers/auto_save_provider.dart';
+import '../providers/recent_projects_provider.dart';
+import '../providers/audio_export_provider.dart';
+import '../providers/session_persistence_provider.dart';
+import '../providers/input_bus_provider.dart';
+import '../providers/recording_provider.dart';
+import '../providers/routing_provider.dart';
+import '../providers/keyboard_focus_provider.dart';
+import '../providers/edit_mode_pro_provider.dart';
+import '../providers/smart_tool_provider.dart';
+import '../providers/razor_edit_provider.dart';
+import '../providers/direct_offline_processing_provider.dart';
+import '../providers/modulator_provider.dart';
+import '../providers/arranger_track_provider.dart';
+import '../providers/chord_track_provider.dart';
+import '../providers/expression_map_provider.dart';
+import '../providers/macro_control_provider.dart';
+import '../providers/track_versions_provider.dart';
+import '../providers/clip_gain_envelope_provider.dart';
+import '../providers/logical_editor_provider.dart';
+import '../providers/groove_quantize_provider.dart';
+import '../providers/audio_alignment_provider.dart';
+import '../providers/scale_assistant_provider.dart';
+import '../providers/error_provider.dart';
+import '../providers/plugin_provider.dart';
+import '../providers/control_room_provider.dart';
+import '../providers/stage_provider.dart';
+import '../providers/stage_ingest_provider.dart';
+import '../providers/soundbank_provider.dart';
 import 'extension_sdk_service.dart';
 
 /// Global service locator instance
@@ -624,6 +661,86 @@ class ServiceLocator {
     // =============================================================================
     sl.registerLazySingleton<CortexProvider>(
       () => CortexProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 10: DAW Core Providers (GetIt singletons — CLAUDE.md mandate)
+    // These were previously created via ChangeNotifierProvider(create:) in main.dart.
+    // Per CLAUDE.md: "Provideri MORAJU biti GetIt singletoni" to prevent
+    // FFI resource duplication in Split View Lower Zone.
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<EngineProvider>(() => EngineProvider());
+    sl.registerLazySingleton<TimelinePlaybackProvider>(
+      () => TimelinePlaybackProvider(),
+    );
+    sl.registerLazySingleton<MixerDSPProvider>(() => MixerDSPProvider());
+    sl.registerLazySingleton<MeterProvider>(() => MeterProvider());
+    sl.registerLazySingleton<MixerProvider>(() => MixerProvider());
+    sl.registerLazySingleton<EditorModeProvider>(() => EditorModeProvider());
+    sl.registerLazySingleton<GlobalShortcutsProvider>(
+      () => GlobalShortcutsProvider(),
+    );
+    sl.registerLazySingleton<ProjectHistoryProvider>(
+      () => ProjectHistoryProvider(),
+    );
+    sl.registerLazySingleton<AutoSaveProvider>(() => AutoSaveProvider());
+    sl.registerLazySingleton<RecentProjectsProvider>(
+      () => RecentProjectsProvider(),
+    );
+    sl.registerLazySingleton<AudioExportProvider>(() => AudioExportProvider());
+    sl.registerLazySingleton<SessionPersistenceProvider>(
+      () => SessionPersistenceProvider(),
+    );
+    sl.registerLazySingleton<InputBusProvider>(() => InputBusProvider());
+    sl.registerLazySingleton<RecordingProvider>(() => RecordingProvider());
+    sl.registerLazySingleton<RoutingProvider>(() => RoutingProvider());
+    sl.registerLazySingleton<KeyboardFocusProvider>(
+      () => KeyboardFocusProvider(),
+    );
+    sl.registerLazySingleton<EditModeProProvider>(() => EditModeProProvider());
+    sl.registerLazySingleton<SmartToolProvider>(() => SmartToolProvider());
+    sl.registerLazySingleton<RazorEditProvider>(() => RazorEditProvider());
+    sl.registerLazySingleton<DirectOfflineProcessingProvider>(
+      () => DirectOfflineProcessingProvider(),
+    );
+    sl.registerLazySingleton<ModulatorProvider>(() => ModulatorProvider());
+    sl.registerLazySingleton<ArrangerTrackProvider>(
+      () => ArrangerTrackProvider(),
+    );
+    sl.registerLazySingleton<ChordTrackProvider>(() => ChordTrackProvider());
+    sl.registerLazySingleton<ExpressionMapProvider>(
+      () => ExpressionMapProvider(),
+    );
+    sl.registerLazySingleton<MacroControlProvider>(
+      () => MacroControlProvider(),
+    );
+    sl.registerLazySingleton<TrackVersionsProvider>(
+      () => TrackVersionsProvider(),
+    );
+    sl.registerLazySingleton<ClipGainEnvelopeProvider>(
+      () => ClipGainEnvelopeProvider(),
+    );
+    sl.registerLazySingleton<LogicalEditorProvider>(
+      () => LogicalEditorProvider(),
+    );
+    sl.registerLazySingleton<GrooveQuantizeProvider>(
+      () => GrooveQuantizeProvider(),
+    );
+    sl.registerLazySingleton<AudioAlignmentProvider>(
+      () => AudioAlignmentProvider(),
+    );
+    sl.registerLazySingleton<ScaleAssistantProvider>(
+      () => ScaleAssistantProvider(),
+    );
+    sl.registerLazySingleton<ErrorProvider>(() => ErrorProvider());
+    sl.registerLazySingleton<PluginProvider>(() => PluginProvider());
+    sl.registerLazySingleton<ControlRoomProvider>(() => ControlRoomProvider());
+    sl.registerLazySingleton<StageProvider>(() => StageProvider());
+    sl.registerLazySingleton<StageIngestProvider>(
+      () => StageIngestProvider(sl<NativeFFI>()),
+    );
+    sl.registerLazySingleton<SoundbankProvider>(
+      () => SoundbankProvider(sl<NativeFFI>()),
     );
 
     // Initialize plugin alternatives registry

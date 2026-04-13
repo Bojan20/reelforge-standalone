@@ -1027,7 +1027,8 @@ class ExpressionMapProvider extends ChangeNotifier {
     if (json['trackAssignments'] != null) {
       final assignments = json['trackAssignments'] as Map<String, dynamic>;
       for (final entry in assignments.entries) {
-        _trackAssignments[int.parse(entry.key)] = entry.value as String;
+        final trackId = int.tryParse(entry.key) ?? 0;
+        _trackAssignments[trackId] = entry.value as String;
       }
     }
 

@@ -436,7 +436,7 @@ fn get_sample_rates(device_id: AudioDeviceID) -> Vec<f64> {
         .copied()
         .collect();
 
-    rates.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    rates.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
     rates.dedup();
 
     if rates.is_empty() {
