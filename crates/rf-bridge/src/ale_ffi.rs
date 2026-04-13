@@ -22,7 +22,8 @@ use std::ptr;
 use std::sync::atomic::{AtomicU8, Ordering};
 
 use rf_ale::{
-    AleProfile, Context, LayerId, MetricSignals, Rule, StabilityConfig, TransitionProfile,
+    ActiveTransition, AleProfile, Context, LayerId, MetricSignals, Rule, StabilityConfig,
+    TransitionProfile,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -47,6 +48,12 @@ struct AleState {
     current_level: LayerId,
     target_level: Option<LayerId>,
     transition_progress: f32,
+    /// Whether a context transition is actively in progress
+    in_transition: bool,
+    /// Context ID we are transitioning towards
+    pending_context_id: String,
+    /// Live transition state (None when not transitioning)
+    active_transition: Option<ActiveTransition>,
     playing: bool,
     manual_override: bool,
     active_rule: Option<String>,
@@ -244,12 +251,131 @@ pub extern "C" fn ale_switch_context_with_trigger(
     }
     drop(profile_guard);
 
-    // Update state
+    // ── Resolve transition profile ────────────────────────────────────────
+    let transition_profile: TransitionProfile = {
+        let profile_guard = CURRENT_PROFILE.read();
+        if let Some(ref profile) = *profile_guard {
+            // Priority: explicit trigger → "default" → built-in default
+            let found = _trigger_opt
+                .as_deref()
+                .and_then(|t| profile.transitions.get(t))
+                .or_else(|| profile.transitions.get("default"))
+                .cloned();
+            found.unwrap_or_default()
+        } else {
+            TransitionProfile::default()
+        }
+    };
+
+    // ── Compute musical sync delay ────────────────────────────────────────
+    use rf_engine::ffi::PLAYBACK_ENGINE;
+    let bpm = PLAYBACK_ENGINE.position.get_tempo().unwrap_or(120.0);
+    let pos_secs = PLAYBACK_ENGINE.position.seconds();
+    // Beat position in the bar (fractional beats, 4/4 assumed)
+    let beat_duration_secs = 60.0 / bpm;
+    let current_beat = (pos_secs / beat_duration_secs) as f32;
+    let beat_duration_ms = (beat_duration_secs * 1000.0) as f32;
+    let beats_per_bar: u8 = 4;
+    let sync_delay_ms = transition_profile.calculate_sync_delay(
+        current_beat,
+        beats_per_bar,
+        beat_duration_ms,
+    );
+
+    // ── Determine layer indices for crossfade ─────────────────────────────
+    let from_level = ENGINE_STATE.read().current_level;
+    let to_level: LayerId = {
+        let profile_guard = CURRENT_PROFILE.read();
+        profile_guard
+            .as_ref()
+            .and_then(|p| p.contexts.get(&ctx_str))
+            .and_then(|c| c.layers.first())
+            .map(|l| l.index)
+            .unwrap_or(0)
+    };
+
+    // ── Current wall-clock timestamp (ms since UNIX epoch) ─────────────────
+    let now_ms: u64 = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+
+    // ── Build active transition ───────────────────────────────────────────
+    let active = ActiveTransition::new(
+        from_level,
+        to_level,
+        transition_profile,
+        now_ms,
+        sync_delay_ms,
+    );
+
+    // ── Commit state ──────────────────────────────────────────────────────
     let mut state = ENGINE_STATE.write();
-    state.context_id = ctx_str;
-    // TODO: Implement proper transition logic
-    log::info!("ale_switch_context: Switched to '{}'", state.context_id);
+
+    if sync_delay_ms == 0 && active.profile.sync_mode == rf_ale::SyncMode::Immediate {
+        // No sync wait — apply context switch instantly and let tick drive fade
+        state.context_id = ctx_str.clone();
+    }
+    // Always record the pending context so ale_tick can finalise the switch
+    state.pending_context_id = ctx_str.clone();
+    state.in_transition = true;
+    state.target_level = Some(to_level);
+    state.transition_progress = 0.0;
+    state.active_transition = Some(active);
+
+    log::info!(
+        "ale_switch_context_with_trigger: Transitioning → '{}' (sync_delay={}ms, from_L{}→L{})",
+        ctx_str,
+        sync_delay_ms,
+        from_level + 1,
+        to_level + 1,
+    );
     1
+}
+
+/// Tick the ALE engine — must be called periodically (e.g. every ~16ms from Flutter)
+///
+/// Advances active context transitions using wall-clock time.
+/// When a transition completes, the pending context is applied and transition state cleared.
+///
+/// `timestamp_ms` — current monotonic timestamp in milliseconds (UNIX epoch ms)
+/// Returns 1 if a transition completed this tick, 0 otherwise.
+#[unsafe(no_mangle)]
+pub extern "C" fn ale_tick(timestamp_ms: u64) -> i32 {
+    let mut state = ENGINE_STATE.write();
+    state.timestamp_ms = timestamp_ms;
+
+    if !state.in_transition {
+        return 0;
+    }
+
+    // Update transition, extracting values before borrowing state again
+    let (progress, completed) = if let Some(ref mut transition) = state.active_transition {
+        transition.update(timestamp_ms);
+        (transition.progress, transition.is_complete())
+    } else {
+        // Stale in_transition flag — clean up
+        (0.0, true)
+    };
+    state.transition_progress = progress;
+
+    if completed {
+        // Finalise: move pending context to current
+        let pending = std::mem::take(&mut state.pending_context_id);
+        if let Some(ref t) = state.active_transition {
+            state.current_level = t.to_level;
+        }
+        state.context_id = pending;
+        state.target_level = None;
+        state.transition_progress = 0.0;
+        state.in_transition = false;
+        state.active_transition = None;
+
+        log::info!("ale_tick: Transition complete → '{}'", state.context_id);
+        1
+    } else {
+        0
+    }
 }
 
 /// Add a context to the current profile
@@ -424,6 +550,8 @@ pub extern "C" fn ale_get_state_json() -> *mut c_char {
         "current_level": state.current_level,
         "target_level": state.target_level,
         "transition_progress": state.transition_progress,
+        "in_transition": state.in_transition,
+        "pending_context_id": state.pending_context_id,
         "playing": state.playing,
         "manual_override": state.manual_override,
         "active_rule": state.active_rule,
@@ -686,13 +814,23 @@ pub extern "C" fn ale_get_transitions_json() -> *mut c_char {
 
 /// Get current layer volumes as JSON
 /// Returns {"volumes": [v0, v1, v2, v3, v4, v5, v6, v7], "active": n}
+/// During a transition, blends from_volume/to_volume across the two layers.
 #[unsafe(no_mangle)]
 pub extern "C" fn ale_get_layer_volumes_json() -> *mut c_char {
     let state = ENGINE_STATE.read();
     let current = state.current_level as usize;
 
     let mut volumes = [0.0f32; 8];
-    if current < 8 {
+    if state.in_transition {
+        if let Some(ref t) = state.active_transition {
+            let from = t.from_level as usize;
+            let to = t.to_level as usize;
+            if from < 8 { volumes[from] = t.from_volume(); }
+            if to < 8   { volumes[to]   = t.to_volume();   }
+        } else if current < 8 {
+            volumes[current] = 1.0;
+        }
+    } else if current < 8 {
         volumes[current] = 1.0;
     }
 

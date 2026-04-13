@@ -8,6 +8,8 @@
 /// - Syntax highlighting (basic)
 
 import 'dart:async';
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -469,8 +471,31 @@ class _ScriptConsoleState extends State<ScriptConsole> with SingleTickerProvider
               const SizedBox(width: 8),
               IconButton(
                 icon: Icon(Icons.folder_open, size: 18, color: FluxForgeTheme.textSecondary),
-                onPressed: () {
-                  // TODO: Open file picker to load script
+                onPressed: () async {
+                  final result = await FilePicker.platform.pickFiles(
+                    type: FileType.custom,
+                    allowedExtensions: ['lua', 'txt', 'js'],
+                    dialogTitle: 'Load Script',
+                  );
+                  if (result != null && result.files.single.path != null) {
+                    try {
+                      final content = await File(result.files.single.path!).readAsString();
+                      _inputController.text = content;
+                      _inputController.selection = TextSelection.collapsed(
+                        offset: content.length,
+                      );
+                      _inputFocusNode.requestFocus();
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Failed to load script: $e'),
+                            backgroundColor: Colors.red.shade700,
+                          ),
+                        );
+                      }
+                    }
+                  }
                 },
                 tooltip: 'Load Script',
               ),

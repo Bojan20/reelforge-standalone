@@ -11,6 +11,7 @@
 
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
 
@@ -133,10 +134,28 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
   bool _showPreview = true;
   Set<String> _favoriteIds = {};
 
+  static const _kFavoritesKey = 'track_template_favorites';
+
   @override
   void initState() {
     super.initState();
     _loadTemplates();
+    _loadPersistedFavorites();
+  }
+
+  Future<void> _loadPersistedFavorites() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getStringList(_kFavoritesKey);
+    if (stored != null && stored.isNotEmpty && mounted) {
+      setState(() {
+        _favoriteIds = stored.toSet();
+      });
+    }
+  }
+
+  Future<void> _persistFavorites() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_kFavoritesKey, _favoriteIds.toList());
   }
 
   void _loadTemplates() {
@@ -144,7 +163,7 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
     final list = jsonDecode(json) as List;
     setState(() {
       _templates = list.map((e) => TrackTemplateData.fromJson(e)).toList();
-      // Track favorites locally
+      // Seed from FFI isFavorite, but persisted prefs override on next frame
       _favoriteIds = _templates.where((t) => t.isFavorite).map((t) => t.id).toSet();
     });
   }
@@ -214,7 +233,7 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
         _favoriteIds.add(template.id);
       }
     });
-    // TODO: Persist to FFI
+    _persistFavorites();
   }
 
   void _createTrackFromTemplate(TrackTemplateData template) {

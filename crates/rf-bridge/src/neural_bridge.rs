@@ -596,50 +596,245 @@ impl NeuralBridge {
     // ═══════════════════════════════════════════════════════════════════════
 
     fn route_audio(&self, intent: &BridgeIntent) -> BridgeResponse {
-        // Audio commands go through existing rtrb ring buffer for RT safety.
-        // The intent.payload is parsed to construct DspCommand and pushed.
-        // This preserves zero-allocation on the audio thread.
+        // Audio DSP commands: parse JSON payload → DspCommand → push to rtrb.
+        // The audio thread consumes from the ring buffer with zero allocation.
+        use crate::command_queue::send_command;
+        use crate::dsp_commands::{
+            AnalyzerMode, DspCommand, FilterSlope, FilterType, PhaseMode, StereoPlacement,
+        };
+
         let start = Instant::now();
         let cid = intent.correlation_id;
 
-        // For now, delegate to existing DSP command system
-        // TODO: Parse intent.payload JSON → DspCommand → push to rtrb
-        match intent.action.as_str() {
-            "ping" => BridgeResponse::ok(cid, start.elapsed()),
-            _ => BridgeResponse::error(
+        // Helper: parse payload JSON once
+        let p: serde_json::Value = serde_json::from_str(&intent.payload)
+            .unwrap_or(serde_json::Value::Null);
+
+        // Convenience extractors with sensible defaults
+        let u32_f = |k: &str| p[k].as_u64().unwrap_or(0) as u32;
+        let u8_f  = |k: &str| p[k].as_u64().unwrap_or(0) as u8;
+        let f64_f = |k: &str, d: f64| p[k].as_f64().unwrap_or(d);
+        let bool_f = |k: &str| p[k].as_bool().unwrap_or(false);
+
+        let cmd_opt: Option<DspCommand> = match intent.action.as_str() {
+            // ── EQ band ────────────────────────────────────────────────────
+            "eq_set_band" => Some(DspCommand::EqSetBand {
+                track_id:    u32_f("track_id"),
+                band_index:  u8_f("band_index"),
+                freq:        f64_f("freq", 1000.0),
+                gain_db:     f64_f("gain_db", 0.0),
+                q:           f64_f("q", 0.707),
+                filter_type: FilterType::from(u8_f("filter_type")),
+                slope:       FilterSlope::from(u8_f("slope")),
+                stereo:      StereoPlacement::from(u8_f("stereo")),
+            }),
+            "eq_enable_band" => Some(DspCommand::EqEnableBand {
+                track_id:   u32_f("track_id"),
+                band_index: u8_f("band_index"),
+                enabled:    bool_f("enabled"),
+            }),
+            "eq_solo_band" => Some(DspCommand::EqSoloBand {
+                track_id:   u32_f("track_id"),
+                band_index: u8_f("band_index"),
+                solo:       bool_f("solo"),
+            }),
+            "eq_set_frequency" => Some(DspCommand::EqSetFrequency {
+                track_id:   u32_f("track_id"),
+                band_index: u8_f("band_index"),
+                freq:       f64_f("freq", 1000.0),
+            }),
+            "eq_set_gain" => Some(DspCommand::EqSetGain {
+                track_id:   u32_f("track_id"),
+                band_index: u8_f("band_index"),
+                gain_db:    f64_f("gain_db", 0.0),
+            }),
+            "eq_set_q" => Some(DspCommand::EqSetQ {
+                track_id:   u32_f("track_id"),
+                band_index: u8_f("band_index"),
+                q:          f64_f("q", 0.707),
+            }),
+            "eq_set_filter_type" => Some(DspCommand::EqSetFilterType {
+                track_id:    u32_f("track_id"),
+                band_index:  u8_f("band_index"),
+                filter_type: FilterType::from(u8_f("filter_type")),
+            }),
+            "eq_bypass" => Some(DspCommand::EqBypass {
+                track_id: u32_f("track_id"),
+                bypass:   bool_f("bypass"),
+            }),
+            "eq_set_phase_mode" => Some(DspCommand::EqSetPhaseMode {
+                track_id:     u32_f("track_id"),
+                mode:         PhaseMode::from(u8_f("mode")),
+                hybrid_blend: f64_f("hybrid_blend", 0.0),
+            }),
+            "eq_set_output_gain" => Some(DspCommand::EqSetOutputGain {
+                track_id: u32_f("track_id"),
+                gain_db:  f64_f("gain_db", 0.0),
+            }),
+            "eq_set_auto_gain" => Some(DspCommand::EqSetAutoGain {
+                track_id: u32_f("track_id"),
+                enabled:  bool_f("enabled"),
+            }),
+            "eq_set_analyzer_mode" => Some(DspCommand::EqSetAnalyzerMode {
+                track_id: u32_f("track_id"),
+                mode:     AnalyzerMode::from(u8_f("mode")),
+            }),
+            // ── Metering requests ──────────────────────────────────────────
+            "request_spectrum" => Some(DspCommand::RequestSpectrum {
+                track_id: u32_f("track_id"),
+            }),
+            "request_correlation" => Some(DspCommand::RequestCorrelation {
+                track_id: u32_f("track_id"),
+            }),
+            "request_lufs" => Some(DspCommand::RequestLufs {
+                track_id: u32_f("track_id"),
+            }),
+            "request_goniometer" => Some(DspCommand::RequestGoniometer {
+                track_id:   u32_f("track_id"),
+                num_points: p["num_points"].as_u64().unwrap_or(512) as u16,
+            }),
+            // ── Ping ──────────────────────────────────────────────────────
+            "ping" => return BridgeResponse::ok(cid, start.elapsed()),
+            _ => None,
+        };
+
+        match cmd_opt {
+            Some(cmd) => {
+                if send_command(cmd) {
+                    BridgeResponse::ok(cid, start.elapsed())
+                } else {
+                    BridgeResponse::error(
+                        cid,
+                        BridgeStatus::Backpressure,
+                        "DSP ring buffer full".into(),
+                        start.elapsed(),
+                    )
+                }
+            }
+            None => BridgeResponse::error(
                 cid,
                 BridgeStatus::UnknownAction,
-                format!("Audio action '{}' not yet routed", intent.action),
+                format!("Unknown audio action '{}'", intent.action),
                 start.elapsed(),
             ),
         }
     }
 
     fn route_transport(&self, intent: &BridgeIntent) -> BridgeResponse {
+        use rf_engine::ffi::PLAYBACK_ENGINE;
+
         let start = Instant::now();
         let cid = intent.correlation_id;
 
+        let p: serde_json::Value = serde_json::from_str(&intent.payload)
+            .unwrap_or(serde_json::Value::Null);
+
         match intent.action.as_str() {
+            "play" => {
+                PLAYBACK_ENGINE.play();
+                BridgeResponse::ok(cid, start.elapsed())
+            }
+            "stop" => {
+                PLAYBACK_ENGINE.stop();
+                BridgeResponse::ok(cid, start.elapsed())
+            }
+            "pause" => {
+                PLAYBACK_ENGINE.pause();
+                BridgeResponse::ok(cid, start.elapsed())
+            }
+            "seek" => {
+                let position_secs = p["position_secs"].as_f64().unwrap_or(0.0);
+                PLAYBACK_ENGINE.seek(position_secs);
+                BridgeResponse::ok(cid, start.elapsed())
+            }
+            "set_tempo" => {
+                let bpm = p["bpm"].as_f64().unwrap_or(120.0);
+                PLAYBACK_ENGINE.position.set_tempo(bpm);
+                BridgeResponse::ok(cid, start.elapsed())
+            }
+            "set_loop" => {
+                let start_secs = p["start_secs"].as_f64().unwrap_or(0.0);
+                let end_secs   = p["end_secs"].as_f64().unwrap_or(0.0);
+                let enabled    = p["enabled"].as_bool().unwrap_or(false);
+                PLAYBACK_ENGINE.position.set_loop(start_secs, end_secs, enabled);
+                BridgeResponse::ok(cid, start.elapsed())
+            }
+            "get_position" => {
+                let pos = PLAYBACK_ENGINE.position.seconds();
+                let data = format!(r#"{{"position_secs":{:.6}}}"#, pos);
+                BridgeResponse::ok_with_data(cid, data, start.elapsed())
+            }
+            "get_tempo" => {
+                let bpm = PLAYBACK_ENGINE.position.get_tempo().unwrap_or(120.0);
+                let data = format!(r#"{{"bpm":{:.2}}}"#, bpm);
+                BridgeResponse::ok_with_data(cid, data, start.elapsed())
+            }
             "ping" => BridgeResponse::ok(cid, start.elapsed()),
             _ => BridgeResponse::error(
                 cid,
                 BridgeStatus::UnknownAction,
-                format!("Transport action '{}' not yet routed", intent.action),
+                format!("Unknown transport action '{}'", intent.action),
                 start.elapsed(),
             ),
         }
     }
 
     fn route_mixer(&self, intent: &BridgeIntent) -> BridgeResponse {
+        use crate::command_queue::send_command;
+        use crate::dsp_commands::DspCommand;
+
         let start = Instant::now();
         let cid = intent.correlation_id;
 
-        match intent.action.as_str() {
-            "ping" => BridgeResponse::ok(cid, start.elapsed()),
-            _ => BridgeResponse::error(
+        let p: serde_json::Value = serde_json::from_str(&intent.payload)
+            .unwrap_or(serde_json::Value::Null);
+
+        let u32_f = |k: &str| p[k].as_u64().unwrap_or(0) as u32;
+        let f64_f = |k: &str, d: f64| p[k].as_f64().unwrap_or(d);
+        let bool_f = |k: &str| p[k].as_bool().unwrap_or(false);
+
+        let cmd_opt: Option<DspCommand> = match intent.action.as_str() {
+            "track_volume" | "set_volume" => Some(DspCommand::TrackSetVolume {
+                track_id: u32_f("track_id"),
+                volume:   f64_f("volume", 1.0),
+            }),
+            "track_pan" | "set_pan" => Some(DspCommand::TrackSetPan {
+                track_id: u32_f("track_id"),
+                pan:      f64_f("pan", 0.0),
+            }),
+            "track_mute" | "set_mute" => Some(DspCommand::TrackSetMute {
+                track_id: u32_f("track_id"),
+                muted:    bool_f("muted"),
+            }),
+            "track_solo" | "set_solo" => Some(DspCommand::TrackSetSolo {
+                track_id: u32_f("track_id"),
+                solo:     bool_f("solo"),
+            }),
+            "track_bus" | "set_bus" => Some(DspCommand::TrackSetBus {
+                track_id: u32_f("track_id"),
+                bus_id:   p["bus_id"].as_u64().unwrap_or(0) as u8,
+            }),
+            "ping" => return BridgeResponse::ok(cid, start.elapsed()),
+            _ => None,
+        };
+
+        match cmd_opt {
+            Some(cmd) => {
+                if send_command(cmd) {
+                    BridgeResponse::ok(cid, start.elapsed())
+                } else {
+                    BridgeResponse::error(
+                        cid,
+                        BridgeStatus::Backpressure,
+                        "DSP ring buffer full".into(),
+                        start.elapsed(),
+                    )
+                }
+            }
+            None => BridgeResponse::error(
                 cid,
                 BridgeStatus::UnknownAction,
-                format!("Mixer action '{}' not yet routed", intent.action),
+                format!("Unknown mixer action '{}'", intent.action),
                 start.elapsed(),
             ),
         }

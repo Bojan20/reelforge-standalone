@@ -4379,11 +4379,51 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
         onClear: () {
           slotLab?.clearStages();
         },
-        onExport: () {
-          // Export stages to JSON
+        onExport: () async {
           final stages = slotLab?.lastStages ?? [];
-          if (stages.isNotEmpty) {
-            // TODO: Show export dialog
+          if (stages.isEmpty) return;
+
+          // Build exportable JSON structure
+          final exportData = {
+            'version': '1.0',
+            'exported_at': DateTime.now().toIso8601String(),
+            'stage_count': stages.length,
+            'stages': stages.map((s) => {
+              'type': s.stageType,
+              'timestamp_ms': s.timestampMs,
+              'payload': s.payload,
+              'raw': s.rawStage,
+            }).toList(),
+          };
+
+          final jsonString = const JsonEncoder.withIndent('  ').convert(exportData);
+
+          try {
+            final result = await NativeFilePicker.saveFileCompat(
+              dialogTitle: 'Export Stages',
+              fileName: 'slotlab_stages_${DateTime.now().millisecondsSinceEpoch}.json',
+              allowedExtensions: ['json'],
+            );
+
+            if (result != null && context.mounted) {
+              await File(result).writeAsString(jsonString);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('✅ Exported ${stages.length} stages'),
+                  backgroundColor: Colors.green[700],
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Export failed: $e'),
+                  backgroundColor: Colors.red[700],
+                ),
+              );
+            }
           }
         },
       ),
