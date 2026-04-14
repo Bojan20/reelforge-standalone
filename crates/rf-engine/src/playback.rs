@@ -113,6 +113,10 @@ thread_local! {
     /// Thread-local per-voice mono audio for spatial AudioObject construction
     /// 32 voices × 8192 frames max = 262144 f32 pre-allocated
     static SPATIAL_VOICE_MONO: RefCell<Vec<f32>> = RefCell::new(vec![0.0; 262144]);
+    /// Thread-local bus-to-bus routing accum buffers (6 buses × L/R)
+    /// Heap-allocated to support any block size without stack overflow or truncation
+    static BUS_ACCUM_L: RefCell<Vec<Vec<f64>>> = RefCell::new(Vec::new());
+    static BUS_ACCUM_R: RefCell<Vec<Vec<f64>>> = RefCell::new(Vec::new());
 }
 
 use crate::audio_import::{AudioImporter, ImportedAudio};
@@ -6535,12 +6539,24 @@ impl PlaybackEngine {
         // After processing a child bus, its output is accumulated here before
         // being added to the parent bus buffer. This avoids aliasing issues
         // with get_bus_mut() on the same BusBuffers struct.
-        // Uses stack with capped frame count (max 1024 per bus) to stay under 96KB total.
-        // At 48kHz/256-block: frames=256 → 6×256×8×2 = 24KB. Safe for audio stack.
-        let capped_frames = frames.min(1024);
-        let mut bus_route_accum_l: [[f64; 1024]; 6] = [[0.0; 1024]; 6];
-        let mut bus_route_accum_r: [[f64; 1024]; 6] = [[0.0; 1024]; 6];
+        // Thread-local heap buffers: zero-alloc after first call, supports any block size.
         let mut bus_has_accum: [bool; 6] = [false; 6];
+        BUS_ACCUM_L.with(|cell| {
+            let mut v = cell.borrow_mut();
+            if v.len() < 6 { v.resize_with(6, || vec![0.0; frames]); }
+            for buf in v.iter_mut() {
+                if buf.len() < frames { buf.resize(frames, 0.0); }
+                for x in buf[..frames].iter_mut() { *x = 0.0; }
+            }
+        });
+        BUS_ACCUM_R.with(|cell| {
+            let mut v = cell.borrow_mut();
+            if v.len() < 6 { v.resize_with(6, || vec![0.0; frames]); }
+            for buf in v.iter_mut() {
+                if buf.len() < frames { buf.resize(frames, 0.0); }
+                for x in buf[..frames].iter_mut() { *x = 0.0; }
+            }
+        });
 
         // Acquire stereo imagers ONCE for entire bus loop
         let mut bus_imagers_guard = self.bus_stereo_imagers.try_write();
@@ -6568,10 +6584,14 @@ impl PlaybackEngine {
             // Add accumulated audio from child buses that routed to this bus
             if bus_has_accum[bus_idx] {
                 let (bus_l, bus_r) = bus_buffers.get_bus_mut(bus);
-                for i in 0..capped_frames {
-                    bus_l[i] += bus_route_accum_l[bus_idx][i];
-                    bus_r[i] += bus_route_accum_r[bus_idx][i];
-                }
+                BUS_ACCUM_L.with(|cell| {
+                    let v = cell.borrow();
+                    for i in 0..frames { bus_l[i] += v[bus_idx][i]; }
+                });
+                BUS_ACCUM_R.with(|cell| {
+                    let v = cell.borrow();
+                    for i in 0..frames { bus_r[i] += v[bus_idx][i]; }
+                });
             }
 
             // Get mutable bus buffer for InsertChain processing
@@ -6652,10 +6672,14 @@ impl PlaybackEngine {
                     // Hierarchical: accumulate into target bus's accum buffer.
                     // The target bus will pick this up when it's processed later.
                     if target_idx < 6 && target_idx != bus_idx {
-                        for i in 0..capped_frames {
-                            bus_route_accum_l[target_idx][i] += bus_l[i];
-                            bus_route_accum_r[target_idx][i] += bus_r[i];
-                        }
+                        BUS_ACCUM_L.with(|cell| {
+                            let mut v = cell.borrow_mut();
+                            for i in 0..frames { v[target_idx][i] += bus_l[i]; }
+                        });
+                        BUS_ACCUM_R.with(|cell| {
+                            let mut v = cell.borrow_mut();
+                            for i in 0..frames { v[target_idx][i] += bus_r[i]; }
+                        });
                         bus_has_accum[target_idx] = true;
                     } else {
                         // Self-routing or invalid target: fall back to master
