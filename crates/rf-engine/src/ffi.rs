@@ -3165,8 +3165,8 @@ pub extern "C" fn engine_track_report_latency(track_id: u64, latency_samples: u3
 /// Get compensation delay for a track (in samples)
 /// Returns the computed compensation delay the engine applies
 #[unsafe(no_mangle)]
-pub extern "C" fn engine_track_get_compensation_delay(track_id: u64) -> u32 {
-    PLAYBACK_ENGINE.get_track_compensation_delay(track_id) as u32
+pub extern "C" fn engine_track_get_compensation_delay(track_id: u64) -> u64 {
+    PLAYBACK_ENGINE.get_track_compensation_delay(track_id) as u64
 }
 
 /// Enable/disable automatic delay compensation
@@ -18121,6 +18121,8 @@ impl BounceState {
 }
 
 static BOUNCE_STATE: LazyLock<BounceState> = LazyLock::new(BounceState::new);
+/// Monotonic time base for bounce ETA — immune to NTP/DST clock adjustments
+static BOUNCE_EPOCH: LazyLock<std::time::Instant> = LazyLock::new(std::time::Instant::now);
 
 /// Start bounce/export — renders full mixdown on background thread
 /// Uses PLAYBACK_ENGINE.process_offline() for true live-matching output.
@@ -18157,16 +18159,15 @@ pub extern "C" fn bounce_start(
     BOUNCE_STATE.reset();
     BOUNCE_STATE.is_active.store(true, Ordering::SeqCst);
     BOUNCE_STATE.total_samples.store(total_samples as u64, Ordering::Relaxed);
+    // Store monotonic time (immune to NTP/DST adjustments)
     BOUNCE_STATE.start_time_ns.store(
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_nanos() as u64,
+        BOUNCE_EPOCH.elapsed().as_nanos() as u64,
         Ordering::Relaxed,
     );
-    if let Ok(mut guard) = BOUNCE_STATE.output_path.lock() {
-        *guard = Some(PathBuf::from(&path_str));
-    }
+    // Use lock().unwrap_or_else to recover from poison — bounce must store output path
+    let mut guard = BOUNCE_STATE.output_path.lock().unwrap_or_else(|e| e.into_inner());
+    *guard = Some(PathBuf::from(&path_str));
+    drop(guard);
 
     let bd = bit_depth;
     let do_normalize = normalize != 0;
@@ -18279,10 +18280,7 @@ pub extern "C" fn bounce_was_cancelled() -> i32 {
 pub extern "C" fn bounce_get_speed_factor() -> f32 {
     let processed = BOUNCE_STATE.processed_samples.load(Ordering::Relaxed) as f64;
     let start_ns = BOUNCE_STATE.start_time_ns.load(Ordering::Relaxed);
-    let now_ns = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos() as u64;
+    let now_ns = BOUNCE_EPOCH.elapsed().as_nanos() as u64;
     let elapsed_secs = (now_ns.saturating_sub(start_ns)) as f64 / 1_000_000_000.0;
     let sr = PLAYBACK_ENGINE.sample_rate() as f64;
     if elapsed_secs > 0.01 && sr > 0.0 {
@@ -18298,10 +18296,7 @@ pub extern "C" fn bounce_get_eta() -> f32 {
     let processed = BOUNCE_STATE.processed_samples.load(Ordering::Relaxed) as f64;
     let total = BOUNCE_STATE.total_samples.load(Ordering::Relaxed) as f64;
     let start_ns = BOUNCE_STATE.start_time_ns.load(Ordering::Relaxed);
-    let now_ns = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos() as u64;
+    let now_ns = BOUNCE_EPOCH.elapsed().as_nanos() as u64;
     let elapsed = (now_ns.saturating_sub(start_ns)) as f64 / 1_000_000_000.0;
     if processed > 0.0 && total > 0.0 {
         let remaining = total - processed;
@@ -18333,9 +18328,9 @@ pub extern "C" fn bounce_is_active() -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn bounce_clear() {
     BOUNCE_STATE.reset();
-    if let Ok(mut guard) = BOUNCE_STATE.output_path.lock() {
-        *guard = None;
-    }
+    let mut guard = BOUNCE_STATE.output_path.lock().unwrap_or_else(|e| e.into_inner());
+    *guard = None;
+    drop(guard);
 }
 
 /// Get output path from last bounce
@@ -18343,10 +18338,9 @@ pub extern "C" fn bounce_clear() {
 /// Caller must free the returned string
 #[unsafe(no_mangle)]
 pub extern "C" fn bounce_get_output_path() -> *mut c_char {
-    BOUNCE_STATE.output_path
-        .lock()
-        .ok()
-        .and_then(|g| g.as_ref().and_then(|p| p.to_str()).map(String::from))
+    let guard = BOUNCE_STATE.output_path.lock().unwrap_or_else(|e| e.into_inner());
+    guard.as_ref()
+        .and_then(|p| p.to_str())
         .and_then(|s| CString::new(s).ok())
         .map(|cs| cs.into_raw())
         .unwrap_or(std::ptr::null_mut())

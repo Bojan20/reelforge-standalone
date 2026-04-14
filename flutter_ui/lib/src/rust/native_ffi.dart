@@ -3632,7 +3632,7 @@ class NativeFFI {
 
     // Delay compensation
     _trackReportLatency = _lib.lookupFunction<Void Function(Uint64, Uint32), void Function(int, int)>('engine_track_report_latency');
-    _trackGetCompensationDelay = _lib.lookupFunction<Uint32 Function(Uint64), int Function(int)>('engine_track_get_compensation_delay');
+    _trackGetCompensationDelay = _lib.lookupFunction<Uint64 Function(Uint64), int Function(int)>('engine_track_get_compensation_delay');
     _setDelayCompensationEnabled = _lib.lookupFunction<Void Function(Int32), void Function(int)>('engine_set_delay_compensation_enabled');
     _isDelayCompensationEnabled = _lib.lookupFunction<Int32 Function(), int Function()>('engine_is_delay_compensation_enabled');
 
