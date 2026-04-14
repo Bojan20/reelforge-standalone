@@ -3609,24 +3609,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       _clips.addAll(newSplitClips);
     });
 
-    // Register undo
+    // Register undo (UI-level only — engine clips can't be recreated after delete)
+    final postDeleteClips = List<timeline.TimelineClip>.from(_clips);
     UiUndoManager.instance.record(GenericUndoAction(
       description: ripple ? 'Cut Time range' : 'Delete range',
       onExecute: () {
-        // Redo: re-apply same operation (simplified: restore the post-state)
-        setState(() {
-          _clips = List.from(_clips); // trigger rebuild
-        });
+        setState(() { _clips = List.from(postDeleteClips); });
       },
       onUndo: () {
-        setState(() {
-          _clips = List.from(originalClips);
-        });
-        // Re-sync clips to engine
-        for (final clip in originalClips) {
-          engine.moveClip(clipId: clip.id, targetTrackId: clip.trackId, startTime: clip.startTime);
-          engine.resizeClip(clipId: clip.id, startTime: clip.startTime, duration: clip.duration, sourceOffset: clip.sourceOffset);
-        }
+        setState(() { _clips = List.from(originalClips); });
       },
     ));
   }
@@ -3715,18 +3706,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       _clips.addAll(secondNewClips);
     });
 
-    // Register undo
+    // Register undo (UI-level only — consistent with other undo patterns)
+    final postSplitClips = List<timeline.TimelineClip>.from(_clips);
     UiUndoManager.instance.record(GenericUndoAction(
       description: 'Split at range boundaries',
       onExecute: () {
-        setState(() { _clips = List.from(_clips); });
+        setState(() { _clips = List.from(postSplitClips); });
       },
       onUndo: () {
         setState(() { _clips = List.from(originalClips); });
-        for (final clip in originalClips) {
-          engine.moveClip(clipId: clip.id, targetTrackId: clip.trackId, startTime: clip.startTime);
-          engine.resizeClip(clipId: clip.id, startTime: clip.startTime, duration: clip.duration, sourceOffset: clip.sourceOffset);
-        }
       },
     ));
   }
@@ -3777,18 +3765,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       }).toList();
     });
 
-    // Register undo
+    // Register undo (UI-level only — engine clips can't be recreated after delete)
+    final postCropClips = List<timeline.TimelineClip>.from(_clips);
     UiUndoManager.instance.record(GenericUndoAction(
       description: 'Crop to range',
       onExecute: () {
-        setState(() { _clips = List.from(_clips); });
+        setState(() { _clips = List.from(postCropClips); });
       },
       onUndo: () {
         setState(() { _clips = List.from(originalClips); });
-        for (final clip in originalClips) {
-          engine.moveClip(clipId: clip.id, targetTrackId: clip.trackId, startTime: clip.startTime);
-          engine.resizeClip(clipId: clip.id, startTime: clip.startTime, duration: clip.duration, sourceOffset: clip.sourceOffset);
-        }
       },
     ));
   }
@@ -3890,18 +3875,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       });
     }
 
-    // Register undo
+    // Register undo (UI-level only — consistent with split/delete undo pattern)
+    final postGlueClips = List<timeline.TimelineClip>.from(_clips);
     UiUndoManager.instance.record(GenericUndoAction(
       description: 'Glue clips',
       onExecute: () {
-        setState(() { _clips = List.from(_clips); });
+        setState(() { _clips = List.from(postGlueClips); });
       },
       onUndo: () {
         setState(() { _clips = List.from(originalClips); });
-        for (final clip in originalClips) {
-          engine.moveClip(clipId: clip.id, targetTrackId: clip.trackId, startTime: clip.startTime);
-          engine.resizeClip(clipId: clip.id, startTime: clip.startTime, duration: clip.duration, sourceOffset: clip.sourceOffset);
-        }
       },
     ));
   }
