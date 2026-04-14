@@ -5748,18 +5748,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
               _onSendClick(channelId, sendIndex);
             },
             onChannelInsertBypassToggle: (channelId, slotIndex, bypassed) {
+              // BUG#20 FIX: MixerProvider is SSoT — FFI + UI state via provider
               final trackId = _busIdToTrackId(channelId);
               NativeFFI.instance.insertSetBypass(trackId, slotIndex, bypassed);
-              // Update MixerProvider (SSoT for Channel Tab)
-              context.read<MixerProvider>().updateInsertBypass(channelId, slotIndex, bypassed);
-              // Sync _busInserts for mixer consistency
-              final bchain = _busInserts[channelId];
-              if (bchain != null && slotIndex < bchain.slots.length) {
-                setState(() {
-                  _busInserts[channelId] = bchain.updateSlot(
-                    slotIndex, bchain.slots[slotIndex].copyWith(bypassed: bypassed));
-                });
-              }
+              context.read<MixerProvider>().updateInsertBypassUiOnly(channelId, slotIndex, bypassed);
               // Sync DspChainProvider so floating editor windows reflect bypass state
               DspChainProvider.instance.setNodeBypassUiOnly(trackId, slotIndex, bypassed);
             },
@@ -5775,24 +5767,17 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
               context.read<MixerProvider>().updateInsertWetDryRealtime(channelId, slotIndex, wetDry);
             },
             onChannelInsertRemove: (channelId, slotIndex) {
+              // BUG#20 FIX: MixerProvider is SSoT — FFI + UI state via provider
               final trackId = _busIdToTrackId(channelId);
               NativeFFI.instance.insertUnloadSlot(trackId, slotIndex);
-              // Update MixerProvider (SSoT for Channel Tab)
               context.read<MixerProvider>().removeInsert(channelId, slotIndex);
-              // Sync _busInserts for mixer consistency
-              final bchain = _busInserts[channelId];
-              if (bchain != null) {
-                setState(() {
-                  _busInserts[channelId] = bchain.removePlugin(slotIndex);
-                });
-              }
               _syncDspChainRemove(trackId, slotIndex);
             },
             onChannelInsertOpenEditor: (channelId, slotIndex) {
               // Always use _openProcessorEditor path — it syncs DspChainProvider
               // before opening the editor, ensuring correct slotIndex mapping.
-              final insertChain = _busInserts[channelId];
-              if (insertChain != null && slotIndex < insertChain.slots.length) {
+              final insertChain = _getInsertChain(channelId);
+              if (slotIndex < insertChain.slots.length) {
                 final slot = insertChain.slots[slotIndex];
                 if (!slot.isEmpty && slot.plugin != null) {
                   _openProcessorEditor(channelId, slotIndex, slot.plugin!);
@@ -9110,11 +9095,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     final channelId = 'ch_${track.id}';
     final channel = mixerProvider.getChannel(channelId);
 
-    // Get insert chain
-    if (!_busInserts.containsKey(channelId)) {
-      _busInserts[channelId] = InsertChain(channelId: channelId);
-    }
-    final insertChain = _busInserts[channelId]!;
+    // BUG#20 FIX: derive insert chain from MixerProvider (SSoT)
+    final insertChain = _getInsertChain(channelId);
 
     // Convert volume from linear (0-1.5) to dB
     // Formula: dB = 20 * log10(linear), where linear=1.0 -> 0dB
@@ -9173,11 +9155,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       meterR: channel?.rmsR ?? 0.0,
       peakL: channel?.peakL ?? 0.0,
       peakR: channel?.peakR ?? 0.0,
-      // Read inserts from MixerProvider (SSoT with wetDry, bypass, etc.)
-      // Fallback to _busInserts for backwards compat if MixerProvider has no inserts
-      inserts: (channel != null && channel.inserts.any((s) => !s.isEmpty))
-          ? channel.inserts
-          : insertChain.slots.map((slot) => InsertSlot(
+      // BUG#20 FIX: read inserts from MixerProvider (SSoT)
+      inserts: channel?.inserts ?? insertChain.slots.map((slot) => InsertSlot(
               id: '${channelId}_${slot.index}',
               name: slot.plugin?.displayName ?? '',
               type: slot.plugin?.category.name ?? 'empty',
@@ -9201,10 +9180,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     const channelId = 'master';
 
     // Get or create insert chain for master
-    if (!_busInserts.containsKey(channelId)) {
-      _busInserts[channelId] = InsertChain(channelId: channelId);
-    }
-    final insertChain = _busInserts[channelId]!;
+    // BUG#20 FIX: derive insert chain from MixerProvider (SSoT)
+    final insertChain = _getInsertChain(channelId);
 
     // Convert volume from linear (0-1.5) to dB
     final volumeLinear = master.volume;
@@ -9270,10 +9247,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     if (bus == null) return null;
 
     // Get or create insert chain
-    if (!_busInserts.containsKey(busId)) {
-      _busInserts[busId] = InsertChain(channelId: busId);
-    }
-    final insertChain = _busInserts[busId]!;
+    // BUG#20 FIX: derive insert chain from MixerProvider (SSoT)
+    final insertChain = _getInsertChain(busId);
 
     // Convert volume from linear to dB
     final volumeLinear = bus.volume;
@@ -9324,11 +9299,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   Widget _buildMixerContent(dynamic metering, bool isPlaying) {
     // Convert InsertChain to ProInsertSlot list
     List<ProInsertSlot> _getInserts(String channelId) {
-      // Auto-create insert chain for any channel
-      if (!_busInserts.containsKey(channelId)) {
-        _busInserts[channelId] = InsertChain(channelId: channelId);
-      }
-      final chain = _busInserts[channelId]!;
+      // BUG#20 FIX: derive insert chain from MixerProvider (SSoT)
+      final chain = _getInsertChain(channelId);
       return chain.slots.map((slot) => ProInsertSlot(
         id: '${channelId}_${slot.index}',
         name: slot.plugin?.displayName,
@@ -9451,7 +9423,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     return mixerProvider.buses.map((bus) {
       final busId = bus.id;
 
-      final busInsertChain = _busInserts[busId]?.slots ?? [];
+      final busInsertChain = _getInsertChain(busId).slots;
       final busInserts = busInsertChain.map((slot) => ultimate.InsertData(
         index: slot.index,
         pluginName: slot.plugin?.shortName ?? slot.plugin?.name,
@@ -9562,7 +9534,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       final (rmsL, rmsR) = EngineApi.instance.getTrackRmsStereo(engineTrackId);
       final correlation = EngineApi.instance.getTrackCorrelation(engineTrackId);
 
-      final channelInserts = _busInserts[ch.id]?.slots ?? [];
+      final channelInserts = _getInsertChain(ch.id).slots;
       final inserts = channelInserts.map((slot) => ultimate.InsertData(
         index: slot.index,
         pluginName: slot.plugin?.shortName ?? slot.plugin?.name,
@@ -9597,7 +9569,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       ));
     }
 
-    final masterInsertChain = _busInserts['master']?.slots ?? [];
+    final masterInsertChain = _getInsertChain('master').slots;
     final masterInserts = masterInsertChain.map((slot) => ultimate.InsertData(
       index: slot.index,
       pluginName: slot.plugin?.shortName ?? slot.plugin?.name,
@@ -9846,7 +9818,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           final (peakL, peakR) = EngineApi.instance.getTrackPeakStereo(engineTrackId);
           final (rmsL, rmsR) = EngineApi.instance.getTrackRmsStereo(engineTrackId);
           final correlation = EngineApi.instance.getTrackCorrelation(engineTrackId);
-          final channelInserts = _busInserts[ch.id]?.slots ?? [];
+          final channelInserts = _getInsertChain(ch.id).slots;
           final inserts = channelInserts.map((slot) => ultimate.InsertData(
             index: slot.index,
             pluginName: slot.plugin?.shortName ?? slot.plugin?.name,
@@ -9890,7 +9862,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           color: FluxForgeTheme.warningOrange,
           volume: _busVolumes['master'] ?? 1.0, pan: mp.master.pan,
           muted: _busMuted['master'] ?? false, soloed: false,
-          inserts: (_busInserts['master']?.slots ?? []).map((slot) => ultimate.InsertData(
+          inserts: (_getInsertChain('master').slots).map((slot) => ultimate.InsertData(
             index: slot.index,
             pluginName: slot.plugin?.shortName ?? slot.plugin?.name,
             bypassed: slot.bypassed, isPreFader: slot.isPreFader,
@@ -10526,7 +10498,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       final correlation = EngineApi.instance.getTrackCorrelation(engineTrackId);
 
       // Get inserts for this channel
-      final channelInserts = _busInserts[ch.id]?.slots ?? [];
+      final channelInserts = _getInsertChain(ch.id).slots;
       final inserts = channelInserts.map((slot) => ultimate.InsertData(
         index: slot.index,
         pluginName: slot.plugin?.shortName ?? slot.plugin?.name,
@@ -10571,7 +10543,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     // Buses will be created dynamically when needed
 
     // Master channel inserts
-    final masterInsertChain = _busInserts['master']?.slots ?? [];
+    final masterInsertChain = _getInsertChain('master').slots;
     final masterInserts = masterInsertChain.map((slot) => ultimate.InsertData(
       index: slot.index,
       pluginName: slot.plugin?.shortName ?? slot.plugin?.name,
@@ -10845,7 +10817,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       final busId = name.toLowerCase();
 
       // Get inserts for this bus
-      final busInsertChain = _busInserts[busId]?.slots ?? [];
+      final busInsertChain = _getInsertChain(busId).slots;
       final busInserts = busInsertChain.map((slot) => ultimate.InsertData(
         index: slot.index,
         pluginName: slot.plugin?.shortName ?? slot.plugin?.name,
@@ -10877,7 +10849,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     }
 
     // Master channel inserts
-    final masterInsertChain = _busInserts['master']?.slots ?? [];
+    final masterInsertChain = _getInsertChain('master').slots;
     final masterInserts = masterInsertChain.map((slot) => ultimate.InsertData(
       index: slot.index,
       pluginName: slot.plugin?.shortName ?? slot.plugin?.name,
@@ -10976,11 +10948,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
   /// Handle insert click from Ultimate Mixer
   void _handleUltimateMixerInsertClick(String channelId, int insertIndex) async {
-    // Ensure insert chain exists for this channel
-    if (!_busInserts.containsKey(channelId)) {
-      _busInserts[channelId] = InsertChain(channelId: channelId);
-    }
-    final chain = _busInserts[channelId]!;
+    // BUG#20 FIX: derive insert chain from MixerProvider (SSoT)
+    final chain = _getInsertChain(channelId);
     if (insertIndex >= chain.slots.length) return;
     final currentSlot = chain.slots[insertIndex];
     final isPreFader = currentSlot.isPreFader;
@@ -11028,18 +10997,16 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       if (result == 'open') {
         _openProcessorEditor(channelId, insertIndex, currentSlot.plugin!);
       } else if (result == 'bypass') {
-        setState(() {
-          _busInserts[channelId] = chain.toggleBypass(insertIndex);
-        });
-        // Sync bypass to engine FFI
+        // BUG#20 FIX: MixerProvider is SSoT — bypass via provider + FFI
         final trackId = _busIdToTrackId(channelId);
         final newBypass = !currentSlot.bypassed;
         NativeFFI.instance.insertSetBypass(trackId, insertIndex, newBypass);
+        context.read<MixerProvider>().updateInsertBypassUiOnly(channelId, insertIndex, newBypass);
       } else if (result == 'replace') {
         final plugin = await showPluginSelector(context: context, channelName: channelName, slotIndex: insertIndex, isPreFader: isPreFader);
         if (plugin != null) {
-          setState(() { _busInserts[channelId] = chain.setPlugin(insertIndex, plugin); });
-          // Load new processor into engine audio path
+          // BUG#20 FIX: MixerProvider is SSoT — load via provider + FFI
+          context.read<MixerProvider>().loadInsert(channelId, insertIndex, plugin.id, plugin.displayName, plugin.category.name);
           final trackId = _busIdToTrackId(channelId);
           if (plugin.format == PluginFormat.internal) {
             final processorName = _pluginIdToProcessorName(plugin.id);
@@ -11051,18 +11018,18 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           }
         }
       } else if (result == 'remove') {
-        setState(() { _busInserts[channelId] = chain.removePlugin(insertIndex); });
-        // Unload processor from engine audio path
+        // BUG#20 FIX: MixerProvider is SSoT — remove via provider + FFI
         final trackId = _busIdToTrackId(channelId);
         NativeFFI.instance.insertUnloadSlot(trackId, insertIndex);
-        // Sync DspChainProvider — remove stale node
+        context.read<MixerProvider>().removeInsert(channelId, insertIndex);
         _syncDspChainRemove(trackId, insertIndex);
       }
     } else {
       // Empty slot - show plugin selector
       final plugin = await showPluginSelector(context: context, channelName: channelName, slotIndex: insertIndex, isPreFader: isPreFader);
       if (plugin != null) {
-        setState(() { _busInserts[channelId] = chain.setPlugin(insertIndex, plugin); });
+        // BUG#20 FIX: MixerProvider is SSoT — load via provider + FFI
+        context.read<MixerProvider>().loadInsert(channelId, insertIndex, plugin.id, plugin.displayName, plugin.category.name);
 
         // Ensure insert chain exists and load processor into engine
         final trackId = _busIdToTrackId(channelId);
@@ -11169,16 +11136,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   final Map<String, double> _busPan = {};
   final Map<String, double> _busPanRight = {};
 
-  // Insert chains per bus — master pre-initialized, others added dynamically
-  final Map<String, InsertChain> _busInserts = {
-    'master': InsertChain(
-      channelId: 'master',
-      slots: List.generate(12, (i) => InsertState(
-        index: i,
-        isPreFader: i < 8, // 8 pre-fader + 4 post-fader
-      )),
-    ),
-  };
+  // BUG#20 FIX: _busInserts removed as independent state.
+  // Insert chains are now derived from MixerProvider (single source of truth).
+  // Use _getInsertChain(channelId) to get InsertChain for any channel/bus/master.
+  InsertChain _getInsertChain(String channelId) {
+    return context.read<MixerProvider>().getInsertChain(channelId);
+  }
 
   void _onBusVolumeChange(String busId, double volume) {
     // Cubase-style: 0.0 = -inf, 1.0 = 0dB, 2.0 = +6dB
@@ -11568,14 +11531,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         mixerProvider.setChannelInserts(targetBusId, inserts);
       }
 
-      // Sync _busInserts so mixer strip shows the plugin
-      if (!_busInserts.containsKey(targetBusId)) {
-        _busInserts[targetBusId] = InsertChain(channelId: targetBusId);
-      }
-      final plugin = _pluginForDspNodeType(result.effectType!);
-      if (plugin != null) {
-        _busInserts[targetBusId] = _busInserts[targetBusId]!.setPlugin(0, plugin);
-      }
+      // BUG#20 FIX: MixerProvider.setChannelInserts above is SSoT — no separate _busInserts sync needed
     } else {
       // Route to existing bus
       targetBusId = result.existingBusId!;
@@ -11627,14 +11583,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     SlotDestinationType type,
     String? targetId,
   ) {
-    final chain = _busInserts[busId];
-    if (chain == null) return;
-
+    // BUG#20 FIX: MixerProvider is SSoT for inserts
     if (targetId == null) {
       // Clear slot
-      setState(() {
-        _busInserts[busId] = chain.removePlugin(slotIndex);
-      });
+      context.read<MixerProvider>().removeInsert(busId, slotIndex);
       return;
     }
 
@@ -11643,13 +11595,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         // Insert plugin - map name to PluginInfo
         final pluginInfo = _getPluginInfoByName(targetId);
         if (pluginInfo != null) {
-          setState(() {
-            _busInserts[busId] = chain.setPlugin(slotIndex, pluginInfo);
-            // Auto-open EQ editor
-            if (pluginInfo.category == PluginCategory.eq) {
-              _activeLowerTab = 'eq';
-            }
-          });
+          context.read<MixerProvider>().loadInsert(busId, slotIndex, pluginInfo.id, pluginInfo.displayName, pluginInfo.category.name);
+          // Auto-open EQ editor
+          if (pluginInfo.category == PluginCategory.eq) {
+            setState(() { _activeLowerTab = 'eq'; });
+          }
         }
         break;
 
@@ -11729,9 +11679,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   }
 
   void _onInsertClick(String busId, int insertIndex) async {
-    // Get current insert state
-    final chain = _busInserts[busId];
-    if (chain == null) return;
+    // BUG#20 FIX: derive insert chain from MixerProvider (SSoT)
+    final chain = _getInsertChain(busId);
+    if (insertIndex >= chain.slots.length) return;
 
     final currentSlot = chain.slots[insertIndex];
     final isPreFader = insertIndex < 4;
@@ -11816,16 +11766,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         // Open processor editor in floating window
         _openProcessorEditor(busId, insertIndex, currentSlot.plugin!);
       } else if (result == 'bypass') {
-        // Toggle bypass
+        // BUG#20 FIX: MixerProvider is SSoT — bypass via provider + FFI
         final newBypass = !currentSlot.bypassed;
-        setState(() {
-          _busInserts[busId] = chain.toggleBypass(insertIndex);
-        });
-        // Sync to engine FFI
         final trackId = _busIdToTrackId(busId);
         NativeFFI.instance.insertSetBypass(trackId, insertIndex, newBypass);
-        // Sync MixerProvider for Channel Tab
-        context.read<MixerProvider>().updateInsertBypass(busId, insertIndex, newBypass);
+        context.read<MixerProvider>().updateInsertBypassUiOnly(busId, insertIndex, newBypass);
       } else if (result == 'replace') {
         // Show plugin selector for replacement
         final plugin = await showPluginSelector(
@@ -11835,10 +11780,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           isPreFader: isPreFader,
         );
         if (plugin != null) {
-          setState(() {
-            _busInserts[busId] = chain.setPlugin(insertIndex, plugin);
-          });
-          // Load new processor into engine audio path
+          // BUG#20 FIX: MixerProvider is SSoT — load via provider + FFI
+          context.read<MixerProvider>().loadInsert(busId, insertIndex, plugin.id, plugin.displayName, plugin.category.name);
           final trackId = _busIdToTrackId(busId);
           if (plugin.format == PluginFormat.internal) {
             final processorName = _pluginIdToProcessorName(plugin.id);
@@ -11848,21 +11791,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           } else {
             NativeFFI.instance.pluginInsertLoad(trackId, plugin.id);
           }
-          // Sync MixerProvider for Channel Tab
-          context.read<MixerProvider>().loadInsert(busId, insertIndex, plugin.id, plugin.displayName, plugin.category.name);
         }
       } else if (result == 'remove') {
-        // Remove plugin from UI state
-        setState(() {
-          _busInserts[busId] = chain.removePlugin(insertIndex);
-        });
-        // Unload processor from engine audio path
+        // BUG#20 FIX: MixerProvider is SSoT — remove via provider + FFI
         final trackId = _busIdToTrackId(busId);
         NativeFFI.instance.insertUnloadSlot(trackId, insertIndex);
-        // Sync DspChainProvider — remove stale node
-        _syncDspChainRemove(trackId, insertIndex);
-        // Sync MixerProvider for Channel Tab
         context.read<MixerProvider>().removeInsert(busId, insertIndex);
+        _syncDspChainRemove(trackId, insertIndex);
       }
     } else {
       // Empty slot - show plugin selector
@@ -11874,9 +11809,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       );
 
       if (plugin != null) {
-        setState(() {
-          _busInserts[busId] = chain.setPlugin(insertIndex, plugin);
-        });
+        // BUG#20 FIX: MixerProvider is SSoT — load via provider + FFI
+        context.read<MixerProvider>().loadInsert(busId, insertIndex, plugin.id, plugin.displayName, plugin.category.name);
 
         // Ensure insert chain exists in engine FFI
         final trackId = _busIdToTrackId(busId);
@@ -11894,9 +11828,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
         // Sync DspChainProvider UI state (processor already loaded via FFI above)
         _syncDspChainAdd(trackId, insertIndex, plugin);
-
-        // Sync MixerProvider for Channel Tab
-        context.read<MixerProvider>().loadInsert(busId, insertIndex, plugin.id, plugin.displayName, plugin.category.name);
 
         // Auto-open processor editor for newly inserted plugin
         _openProcessorEditor(busId, insertIndex, plugin);
@@ -12094,8 +12025,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   /// Find which insert slot contains an EQ for given channel
   /// Returns slot index (0-7) or -1 if not found
   int _findEqSlotForChannel(String channelId) {
-    final chain = _busInserts[channelId];
-    if (chain == null) return -1;
+    // BUG#20 FIX: derive insert chain from MixerProvider (SSoT)
+    final chain = _getInsertChain(channelId);
 
     for (int i = 0; i < chain.slots.length; i++) {
       final slot = chain.slots[i];

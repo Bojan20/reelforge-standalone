@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import '../src/rust/native_ffi.dart';
 import '../src/rust/engine_api.dart';
 import '../models/layout_models.dart' show InsertSlot;
+import '../models/plugin_models.dart' show InsertChain, InsertState, PluginInfo, PluginCategory, PluginFormat;
 import '../models/mixer_undo_actions.dart';
 import 'dsp_chain_provider.dart';
 import 'undo_manager.dart';
@@ -2882,8 +2883,10 @@ class MixerProvider extends ChangeNotifier {
   // ═══════════════════════════════════════════════════════════════════════════
 
   /// Update insert bypass state
+  /// BUG#20 FIX: handles channels, buses, auxes, and master (not just _channels).
   void updateInsertBypass(String channelId, int slotIndex, bool bypassed) {
-    final channel = _channels[channelId];
+    final isMaster = channelId == 'master';
+    final channel = isMaster ? _master : (_channels[channelId] ?? _buses[channelId] ?? _auxes[channelId]);
     if (channel == null) return;
     if (slotIndex < 0 || slotIndex >= channel.inserts.length) return;
 
@@ -2896,7 +2899,40 @@ class MixerProvider extends ChangeNotifier {
     // Update UI state
     final inserts = List<InsertSlot>.from(channel.inserts);
     inserts[slotIndex] = inserts[slotIndex].copyWith(bypassed: bypassed);
-    _channels[channelId] = channel.copyWith(inserts: inserts);
+    final updated = channel.copyWith(inserts: inserts);
+    if (isMaster) {
+      _master = updated;
+    } else if (_channels.containsKey(channelId)) {
+      _channels[channelId] = updated;
+    } else if (_buses.containsKey(channelId)) {
+      _buses[channelId] = updated;
+    } else if (_auxes.containsKey(channelId)) {
+      _auxes[channelId] = updated;
+    }
+    notifyListeners();
+  }
+
+  /// BUG#20 FIX: Update insert bypass — UI state only, no FFI.
+  /// Used by callers that handle FFI themselves (engine_connected_layout.dart
+  /// uses _busIdToTrackId which has proper bus→engine mapping).
+  void updateInsertBypassUiOnly(String channelId, int slotIndex, bool bypassed) {
+    final isMaster = channelId == 'master';
+    final channel = isMaster ? _master : (_channels[channelId] ?? _buses[channelId] ?? _auxes[channelId]);
+    if (channel == null) return;
+    if (slotIndex < 0 || slotIndex >= channel.inserts.length) return;
+
+    final inserts = List<InsertSlot>.from(channel.inserts);
+    inserts[slotIndex] = inserts[slotIndex].copyWith(bypassed: bypassed);
+    final updated = channel.copyWith(inserts: inserts);
+    if (isMaster) {
+      _master = updated;
+    } else if (_channels.containsKey(channelId)) {
+      _channels[channelId] = updated;
+    } else if (_buses.containsKey(channelId)) {
+      _buses[channelId] = updated;
+    } else if (_auxes.containsKey(channelId)) {
+      _auxes[channelId] = updated;
+    }
     notifyListeners();
   }
 
@@ -2955,8 +2991,10 @@ class MixerProvider extends ChangeNotifier {
 
   /// Remove insert (replace with empty slot) — UI state only.
   /// FFI unload is handled by the caller (engine_connected_layout.dart).
+  /// BUG#20 FIX: handles channels, buses, auxes, and master (not just _channels).
   void removeInsert(String channelId, int slotIndex) {
-    final channel = _channels[channelId];
+    final isMaster = channelId == 'master';
+    final channel = isMaster ? _master : (_channels[channelId] ?? _buses[channelId] ?? _auxes[channelId]);
     if (channel == null) return;
     if (slotIndex < 0 || slotIndex >= channel.inserts.length) return;
 
@@ -2965,14 +3003,25 @@ class MixerProvider extends ChangeNotifier {
     // BUG#10 FIX: preserve existing isPreFader from slot (was set correctly on load)
     final isPreFader = slotIndex < MixerChannel.preFaderThreshold(channel.type);
     inserts[slotIndex] = InsertSlot.empty(slotIndex, isPreFader: isPreFader);
-    _channels[channelId] = channel.copyWith(inserts: inserts);
+    final updated = channel.copyWith(inserts: inserts);
+    if (isMaster) {
+      _master = updated;
+    } else if (_channels.containsKey(channelId)) {
+      _channels[channelId] = updated;
+    } else if (_buses.containsKey(channelId)) {
+      _buses[channelId] = updated;
+    } else if (_auxes.containsKey(channelId)) {
+      _auxes[channelId] = updated;
+    }
     notifyListeners();
   }
 
   /// Load plugin into insert slot — UI state only.
   /// FFI load is handled by the caller (engine_connected_layout.dart).
+  /// BUG#20 FIX: handles channels, buses, auxes, and master (not just _channels).
   void loadInsert(String channelId, int slotIndex, String pluginId, String pluginName, String pluginType) {
-    final channel = _channels[channelId];
+    final isMaster = channelId == 'master';
+    final channel = isMaster ? _master : (_channels[channelId] ?? _buses[channelId] ?? _auxes[channelId]);
     if (channel == null) return;
     if (slotIndex < 0 || slotIndex >= channel.inserts.length) return;
 
@@ -2988,7 +3037,16 @@ class MixerProvider extends ChangeNotifier {
       bypassed: false,
       wetDry: 1.0,
     );
-    _channels[channelId] = channel.copyWith(inserts: inserts);
+    final updated = channel.copyWith(inserts: inserts);
+    if (isMaster) {
+      _master = updated;
+    } else if (_channels.containsKey(channelId)) {
+      _channels[channelId] = updated;
+    } else if (_buses.containsKey(channelId)) {
+      _buses[channelId] = updated;
+    } else if (_auxes.containsKey(channelId)) {
+      _auxes[channelId] = updated;
+    }
     notifyListeners();
   }
 
@@ -3034,6 +3092,65 @@ class MixerProvider extends ChangeNotifier {
   List<InsertSlot> getInserts(String channelId) {
     final channel = _channels[channelId];
     return channel?.inserts ?? [];
+  }
+
+  /// BUG#20 FIX: Get InsertChain derived from MixerProvider state.
+  /// Single source of truth — replaces direct _busInserts usage.
+  /// Handles channels, buses, auxes, and master.
+  InsertChain getInsertChain(String channelId) {
+    final isMaster = channelId == 'master';
+    final channel = isMaster ? _master : (_channels[channelId] ?? _buses[channelId] ?? _auxes[channelId]);
+    if (channel == null) {
+      return InsertChain(channelId: channelId);
+    }
+
+    final slots = <InsertState>[];
+    for (int i = 0; i < channel.inserts.length; i++) {
+      final slot = channel.inserts[i];
+      slots.add(InsertState(
+        index: i,
+        plugin: slot.isEmpty ? null : PluginInfo(
+          id: slot.id,
+          name: slot.name,
+          category: _categoryFromType(slot.type),
+          vendor: 'FluxForge Studio',
+          format: PluginFormat.internal,
+        ),
+        bypassed: slot.bypassed,
+        isPreFader: slot.isPreFader,
+      ));
+    }
+
+    // Pad to at least 8 slots (or 12 for master)
+    final targetSlots = isMaster ? 12 : 8;
+    final maxPre = MixerChannel.preFaderThreshold(channel.type);
+    while (slots.length < targetSlots) {
+      slots.add(InsertState(
+        index: slots.length,
+        isPreFader: slots.length < maxPre,
+      ));
+    }
+
+    return InsertChain(channelId: channelId, slots: slots);
+  }
+
+  /// Map insert type string to PluginCategory
+  static PluginCategory _categoryFromType(String type) {
+    switch (type) {
+      case 'eq': return PluginCategory.eq;
+      case 'dynamics':
+      case 'compressor':
+      case 'limiter':
+      case 'gate':
+        return PluginCategory.dynamics;
+      case 'reverb': return PluginCategory.reverb;
+      case 'delay': return PluginCategory.delay;
+      case 'modulation': return PluginCategory.modulation;
+      case 'saturation': return PluginCategory.saturation;
+      case 'filter': return PluginCategory.filter;
+      case 'utility': return PluginCategory.utility;
+      default: return PluginCategory.external_;
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
