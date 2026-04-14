@@ -8257,6 +8257,33 @@ impl PlaybackEngine {
                 if let Some(stretcher) = stretchers.get_mut(&clip.id.0) {
                     self.diag_stretcher_hit.fetch_add(1, Ordering::Relaxed);
 
+                    // Per-segment pitch: if warp markers have per-segment pitch_semitones,
+                    // update the stretcher to reflect the current segment's pitch.
+                    // We look up which segment the block START falls in (O(log N)).
+                    // Segment pitch stacks on top of clip.pitch_shift.
+                    // Signalsmith handles smooth transitions — no click artifacts at
+                    // segment boundaries since we update at block granularity (typically
+                    // 256-1024 samples = 5-21ms), same as Ableton Live's warp engine.
+                    if clip.warp_state.enabled && !clip.warp_state.segments.is_empty() {
+                        // Block start relative to clip in seconds
+                        let block_start_clip_sec = (start_sample as i64 - clip_start_sample) as f64 / sample_rate;
+                        // Lookup segment for block start position
+                        if let Some((seg_idx, _)) = clip.warp_state.lookup_segment(block_start_clip_sec) {
+                            if let Some(seg) = clip.warp_state.segments.get(seg_idx) {
+                                // Always update pitch when crossing segments.
+                                // Without unconditional set, a segment with pitch=0
+                                // after a segment with pitch=+5 would KEEP the old +5
+                                // because no one calls set_pitch_semitones(0.0).
+                                let total_pitch = clip.pitch_shift + seg.pitch_semitones;
+                                stretcher.set_pitch_semitones(total_pitch);
+                            }
+                        } else {
+                            // Position is outside warp segment range (before first or after last marker).
+                            // Reset to global clip pitch so we don't carry stale per-segment pitch.
+                            stretcher.set_pitch_semitones(clip.pitch_shift);
+                        }
+                    }
+
                     // Signalsmith processes stereo interleaved internally
                     stretcher.process(
                         &pv_l[..frames], &pv_r[..frames],
