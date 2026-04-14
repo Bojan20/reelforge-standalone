@@ -259,10 +259,17 @@ impl AutomationLane {
         }
 
         // Find surrounding points
-        let idx = self
+        // CRITICAL: distinguish Ok(exact) from Err(insert) so we can return the
+        // exact point's value directly for ALL curve types, including Step.
+        // unwrap_or_else(|i| i) loses this distinction and causes Step curve to
+        // return p1.value (previous point) instead of the exact point's own value.
+        let idx = match self
             .points
             .binary_search_by_key(&time_samples, |p| p.time_samples)
-            .unwrap_or_else(|i| i);
+        {
+            Ok(exact) => return self.points[exact].value, // Exact match → direct return
+            Err(insert) => insert,
+        };
 
         if idx == 0 {
             return self.points[0].value;
@@ -1814,13 +1821,37 @@ impl AutomationEngine {
         let end_sample = start_sample + block_size as u64;
         let mut changes = Vec::new();
 
-        // Collect all automation points in this block
         for (param_id, lane) in lanes.iter() {
-            if !lane.enabled {
+            if !lane.enabled || lane.points.is_empty() {
                 continue;
             }
 
-            for point in lane.points_in_range(start_sample, end_sample) {
+            // Emit block-start value: if there's an exact point at start_sample use it
+            // directly (critical for Step curves — value_at() returns p1.value for Step,
+            // which is the value BEFORE the jump, not the jump itself).
+            // Otherwise use interpolated value for smooth Linear/Bezier/S-Curve ramps.
+            // partition_point is O(log n) binary search — audio-thread safe.
+            let exact_idx = lane.points.partition_point(|p| p.time_samples < start_sample);
+            let block_start_value = if lane.points.get(exact_idx)
+                .map(|p| p.time_samples == start_sample)
+                .unwrap_or(false)
+            {
+                // Exact point at block boundary — use its value directly (Step + all curves)
+                lane.points[exact_idx].value
+            } else {
+                // No point at start_sample — interpolate between surrounding points
+                lane.value_at(start_sample)
+            };
+
+            changes.push(AutomationChange {
+                sample_offset: 0,
+                param_id: param_id.clone(),
+                value: block_start_value,
+            });
+
+            // Emit exact points STRICTLY AFTER start_sample for sample-accurate jumps
+            // within the block. start_sample itself is handled above (no duplication).
+            for point in lane.points_in_range(start_sample + 1, end_sample) {
                 changes.push(AutomationChange {
                     sample_offset: (point.time_samples - start_sample) as usize,
                     param_id: param_id.clone(),

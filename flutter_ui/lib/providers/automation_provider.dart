@@ -108,6 +108,27 @@ class TouchedParam {
   });
 }
 
+/// Discovered automatable parameter from plugin
+class AutomatableParamInfo {
+  final int paramIndex;
+  final int paramId;
+  final String name;
+  final String unit;
+  final double min;
+  final double max;
+  final double defaultValue;
+
+  const AutomatableParamInfo({
+    required this.paramIndex,
+    required this.paramId,
+    required this.name,
+    required this.unit,
+    required this.min,
+    required this.max,
+    required this.defaultValue,
+  });
+}
+
 /// Plugin parameter identifier for automation lanes
 class PluginParamId {
   final int trackId;
@@ -127,6 +148,20 @@ class PluginParamId {
 
   /// Human-readable param name for FFI (matches Rust ParamId format)
   String get paramName => 'param_$paramIndex';
+
+  /// Create from discovered param info
+  factory PluginParamId.fromDiscovered({
+    required int trackId,
+    required int slot,
+    required AutomatableParamInfo info,
+  }) {
+    return PluginParamId(
+      trackId: trackId,
+      slot: slot,
+      paramIndex: info.paramIndex,
+      displayName: info.name,
+    );
+  }
 
   @override
   bool operator ==(Object other) =>
@@ -625,6 +660,100 @@ class AutomationProvider extends ChangeNotifier {
   /// Check if a plugin parameter is touched
   bool isPluginParamTouched(PluginParamId param) {
     return _touchedParams.containsKey(param.laneKey);
+  }
+
+  // ============ Plugin Param Discovery ============
+
+  /// Cached automatable params per plugin instance
+  final Map<String, List<AutomatableParamInfo>> _discoveredParams = {};
+
+  /// Discover all automatable parameters for a loaded plugin.
+  /// Uses existing NativeFFI.pluginGetAllParams() + filters by automatable flag.
+  /// Returns cached result on subsequent calls for same instance.
+  List<AutomatableParamInfo> discoverPluginParams(String instanceId) {
+    if (_discoveredParams.containsKey(instanceId)) {
+      return _discoveredParams[instanceId]!;
+    }
+
+    final allParams = _ffi.pluginGetAllParams(instanceId);
+    final params = <AutomatableParamInfo>[];
+
+    for (var i = 0; i < allParams.length; i++) {
+      final p = allParams[i];
+      if (p.automatable) {
+        params.add(AutomatableParamInfo(
+          paramIndex: i,
+          paramId: p.id,
+          name: p.name,
+          unit: p.unit,
+          min: p.min,
+          max: p.max,
+          defaultValue: p.defaultValue,
+        ));
+      }
+    }
+
+    _discoveredParams[instanceId] = params;
+    return params;
+  }
+
+  /// Create automation lane for a specific discovered plugin param.
+  /// Creates lane in Rust engine via existing C FFI, shows in UI.
+  void createPluginParamLane({
+    required int trackId,
+    required int slot,
+    required AutomatableParamInfo param,
+  }) {
+    final paramId = PluginParamId.fromDiscovered(
+      trackId: trackId,
+      slot: slot,
+      info: param,
+    );
+
+    // Create local lane and show it
+    final key = paramId.laneKey;
+    _lanes[key] = AutomationLane(
+      trackId: trackId,
+      paramName: paramId.paramName,
+    );
+    _lanes[key] = _lanes[key]!.copyWith(visible: true);
+
+    notifyListeners();
+  }
+
+  /// Bulk-create lanes for ALL automatable params of a plugin.
+  /// Used for "Show All Automation" action.
+  int createAllPluginLanes({
+    required int trackId,
+    required int slot,
+    required String instanceId,
+  }) {
+    final params = discoverPluginParams(instanceId);
+    var created = 0;
+
+    for (final param in params) {
+      final paramId = PluginParamId.fromDiscovered(
+        trackId: trackId,
+        slot: slot,
+        info: param,
+      );
+      final key = paramId.laneKey;
+      if (!_lanes.containsKey(key)) {
+        _lanes[key] = AutomationLane(
+          trackId: trackId,
+          paramName: paramId.paramName,
+        );
+        created++;
+      }
+    }
+
+    notifyListeners();
+    return created;
+  }
+
+  /// Clear discovered params cache (call when plugin is unloaded)
+  void clearDiscoveredParams(String instanceId) {
+    _discoveredParams.remove(instanceId);
   }
 
   // ============ Utility ============

@@ -3278,6 +3278,11 @@ pub fn plugin_get_categories() -> Vec<String> {
 // ═══════════════════════════════════════════════════════════════════════════
 // AUTOMATION ENGINE FFI
 // ═══════════════════════════════════════════════════════════════════════════
+// NOTE: Plugin param discovery for automation uses the C FFI path:
+//   - Flutter calls NativeFFI.pluginGetAllParams(instanceId) → plugin_get_all_params_json C export
+//   - Dart AutomationProvider.discoverPluginParams() filters by automatable flag
+//   - Dart creates lanes via createPluginParamLane() (UI) + automationAddPluginPoint FFI (Rust)
+//   - flutter_rust_bridge api.rs is NOT used for this flow (NativeFFI is raw C FFI, not FRB)
 
 /// Automation target type for Flutter
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
