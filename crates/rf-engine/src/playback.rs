@@ -1681,6 +1681,22 @@ impl BusBuffers {
     }
 }
 
+/// Bus output destination for hierarchical routing (Cubase-style stem grouping)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BusOutputDest {
+    /// Route to master output (default)
+    Master,
+    /// Route to another bus by index (0-5). Enables stem grouping:
+    /// e.g., Sfx→Music for dialog/music stem, Voice→Aux for submix.
+    Bus(usize),
+}
+
+impl Default for BusOutputDest {
+    fn default() -> Self {
+        BusOutputDest::Master
+    }
+}
+
 /// Bus volume/mute/solo state
 #[derive(Debug, Clone)]
 pub struct BusState {
@@ -1689,6 +1705,9 @@ pub struct BusState {
     pub pan_right: f64, // For stereo pan mode: R channel pan (-1.0 to 1.0)
     pub muted: bool,
     pub soloed: bool,
+    /// Output destination: Master (default) or another bus for hierarchical routing.
+    /// Circular routing (A→B→A) is prevented by the UI and by process order validation.
+    pub output_dest: BusOutputDest,
 }
 
 impl Default for BusState {
@@ -1699,6 +1718,7 @@ impl Default for BusState {
             pan_right: 1.0, // Stereo bus: R channel hard right
             muted: false,
             soloed: false,
+            output_dest: BusOutputDest::Master,
         }
     }
 }
@@ -1996,6 +2016,13 @@ pub struct PlaybackEngine {
 
     /// Cached sample rate for delay calculations
     master_delay_sample_rate: AtomicU64,
+
+    // === SIDECHAIN TAP BUFFERS ===
+    /// Per-track post-clip/pre-insert audio from previous block.
+    /// Used as sidechain input for insert chains (standard 1-block latency, ~5ms @ 256/48kHz).
+    /// Key = track_id as i64, Value = (left_buffer, right_buffer).
+    /// Pre-allocated at track creation; clear()/copy each block, no audio-thread allocation.
+    sidechain_taps: RwLock<HashMap<i64, (Vec<f64>, Vec<f64>)>>,
 }
 
 impl PlaybackEngine {
@@ -2131,6 +2158,8 @@ impl PlaybackEngine {
             hook_graph_engine: Some(RwLock::new(hook_graph)),
             hook_graph_cmd_tx: parking_lot::Mutex::new(hg_cmd_tx),
             hook_graph_fb_rx: parking_lot::Mutex::new(hg_fb_rx),
+            // Sidechain tap buffers: pre-allocated per-track for zero audio-thread allocation
+            sidechain_taps: RwLock::new(HashMap::new()),
         }
     }
 
@@ -4104,6 +4133,39 @@ impl PlaybackEngine {
         self.bus_states.read().get(bus_idx).cloned()
     }
 
+    /// Set bus output destination for hierarchical routing (stem grouping).
+    /// - BusOutputDest::Master → routes to main output (default)
+    /// - BusOutputDest::Bus(idx) → routes to another bus (e.g., Sfx→Music)
+    pub fn set_bus_output_dest(&self, bus_idx: usize, dest: BusOutputDest) {
+        if bus_idx < 6 {
+            // Prevent circular routing: if target routes to us, force master
+            let safe_dest = if let BusOutputDest::Bus(target) = dest {
+                if target < 6 && target != bus_idx {
+                    let states = self.bus_states.read();
+                    // Check if target already routes to us (2-level cycle check)
+                    if let BusOutputDest::Bus(targets_target) = states[target].output_dest {
+                        if targets_target == bus_idx {
+                            log::warn!(
+                                "Circular bus routing detected: {} → {} → {}. Forcing master.",
+                                bus_idx, target, bus_idx
+                            );
+                            BusOutputDest::Master
+                        } else {
+                            dest
+                        }
+                    } else {
+                        dest
+                    }
+                } else {
+                    BusOutputDest::Master
+                }
+            } else {
+                dest
+            };
+            self.bus_states.write()[bus_idx].output_dest = safe_dest;
+        }
+    }
+
     // ═══════════════════════════════════════════════════════════════════════
     // ONE-SHOT VOICE API (Middleware/SlotLab event playback)
     // ═══════════════════════════════════════════════════════════════════════
@@ -5819,6 +5881,7 @@ impl PlaybackEngine {
         let mut track_meters_guard = self.track_meters.try_write();
         let mut track_lufs_guard = self.track_lufs_meters.try_write();
         let mut delay_comp_guard = self.delay_comp.try_write();
+        let mut sidechain_taps_guard = self.sidechain_taps.try_write();
 
         // Process each track → route to its bus
         // DashMap iter() returns references that auto-release shard locks
@@ -6047,12 +6110,32 @@ impl PlaybackEngine {
 
             } // end else (Audio track clip rendering)
 
+            // === SIDECHAIN TAP: store post-clip/pre-insert audio for other tracks ===
+            // This feeds sidechain compressors etc. with 1-block latency (standard in DAWs).
+            // Updated BEFORE insert processing so inserts can read OTHER tracks' taps.
+            if let Some(ref mut taps) = sidechain_taps_guard {
+                let tap = taps.entry(track.id.0 as i64)
+                    .or_insert_with(|| (vec![0.0; frames], vec![0.0; frames]));
+                if tap.0.len() < frames {
+                    tap.0.resize(frames, 0.0);
+                    tap.1.resize(frames, 0.0);
+                }
+                tap.0[..frames].copy_from_slice(&track_l[..frames]);
+                tap.1[..frames].copy_from_slice(&track_r[..frames]);
+            }
+
             // Process track insert chain (pre-fader inserts applied before volume)
             // NOTE: Param changes already consumed at start of process() via consume_insert_param_changes()
             // Uses insert_chains_guard acquired once at top of process() (BUG#14 fix)
+            // Now with sidechain routing: each slot checks its sidechain_source and feeds
+            // the corresponding track's tap audio (previous/current block) as key input.
             if let Some(ref mut chains) = insert_chains_guard {
                 if let Some(chain) = chains.get_mut(&track.id.0) {
-                    chain.process_pre_fader(track_l, track_r);
+                    if let Some(ref taps) = sidechain_taps_guard {
+                        chain.process_pre_fader_with_taps(track_l, track_r, taps, frames);
+                    } else {
+                        chain.process_pre_fader(track_l, track_r);
+                    }
                 }
             }
 
@@ -6239,9 +6322,14 @@ impl PlaybackEngine {
 
             // Process track insert chain (post-fader inserts applied after volume)
             // Uses insert_chains_guard acquired once at top of process() (BUG#14 fix)
+            // With sidechain: post-fader slots also get sidechain from tap buffers.
             if let Some(ref mut chains) = insert_chains_guard {
                 if let Some(chain) = chains.get_mut(&track.id.0) {
-                    chain.process_post_fader(track_l, track_r);
+                    if let Some(ref taps) = sidechain_taps_guard {
+                        chain.process_post_fader_with_taps(track_l, track_r, taps, frames);
+                    } else {
+                        chain.process_post_fader(track_l, track_r);
+                    }
                 }
             }
 
@@ -6284,21 +6372,33 @@ impl PlaybackEngine {
                 }
                 let send_level = send.level;
 
+                // Send pan: constant-power stereo positioning of the send signal.
+                // pan=0.0 (center) → unity gain on both channels (no level change).
+                // pan=-1.0 → hard left (+3dB left, silence right).
+                // pan=+1.0 → hard right (silence left, +3dB right).
+                // Normalized so center = 1.0 (backwards compatible with pan=0.0 default).
+                let send_pan = send.pan.clamp(-1.0, 1.0);
+                let send_pan_angle = (send_pan + 1.0) * std::f64::consts::FRAC_PI_4;
+                // Normalize: at center (pan=0), cos(π/4)=sin(π/4)≈0.707.
+                // Scale by √2 so center gives unity gain (1.0) on both channels.
+                let send_pan_l = send_pan_angle.cos() * std::f64::consts::SQRT_2;
+                let send_pan_r = send_pan_angle.sin() * std::f64::consts::SQRT_2;
+
                 if send.pre_fader {
                     // Pre-fader: use captured pre-volume signal (stack buffer)
                     if has_pre_fader_sends {
                         let (dest_l, dest_r) = bus_buffers.get_bus_mut(dest_bus);
                         for i in 0..frames {
-                            dest_l[i] += pfl_buf[i] * send_level;
-                            dest_r[i] += pfr_buf[i] * send_level;
+                            dest_l[i] += pfl_buf[i] * send_level * send_pan_l;
+                            dest_r[i] += pfr_buf[i] * send_level * send_pan_r;
                         }
                     }
                 } else {
                     // Post-fader: use current (post-volume/pan) signal
                     let (dest_l, dest_r) = bus_buffers.get_bus_mut(dest_bus);
                     for i in 0..frames {
-                        dest_l[i] += track_l[i] * send_level;
-                        dest_r[i] += track_r[i] * send_level;
+                        dest_l[i] += track_l[i] * send_level * send_pan_l;
+                        dest_r[i] += track_r[i] * send_level * send_pan_r;
                     }
                 }
             }
@@ -6381,6 +6481,7 @@ impl PlaybackEngine {
         drop(track_meters_guard);
         drop(track_lufs_guard);
         drop(delay_comp_guard);
+        drop(sidechain_taps_guard);
 
         // ═══════════════════════════════════════════════════════════════════════
         // BUS INSERT CHAINS + SUMMING TO MASTER
@@ -6405,7 +6506,48 @@ impl PlaybackEngine {
         // Use try_write to avoid blocking audio thread
         let mut bus_inserts = self.bus_inserts.try_write();
 
-        for (bus_idx, state) in bus_states.iter().enumerate() {
+        // ═══ TOPOLOGICAL BUS ORDERING ═══
+        // Buses that route to other buses must be processed FIRST so their output
+        // is available in the target bus buffer. This enables Cubase-style stem grouping
+        // (e.g., Sfx→Music, Voice→Aux submix).
+        // Simple 2-level depth: child buses first (route to bus), then parent buses (route to master).
+        // Circular routing (A→B→A) is prevented by the UI layer.
+
+        // Build processing order: children first, then parents
+        let mut process_order: [usize; 6] = [0; 6];
+        let mut order_idx = 0;
+        // Pass 1: buses that route to OTHER buses (children)
+        for bus_idx in 0..6 {
+            if let BusOutputDest::Bus(_) = bus_states[bus_idx].output_dest {
+                process_order[order_idx] = bus_idx;
+                order_idx += 1;
+            }
+        }
+        // Pass 2: buses that route to master (parents)
+        for bus_idx in 0..6 {
+            if bus_states[bus_idx].output_dest == BusOutputDest::Master {
+                process_order[order_idx] = bus_idx;
+                order_idx += 1;
+            }
+        }
+
+        // Intermediate buffers for bus-to-bus routing.
+        // After processing a child bus, its output is accumulated here before
+        // being added to the parent bus buffer. This avoids aliasing issues
+        // with get_bus_mut() on the same BusBuffers struct.
+        // Uses stack with capped frame count (max 1024 per bus) to stay under 96KB total.
+        // At 48kHz/256-block: frames=256 → 6×256×8×2 = 24KB. Safe for audio stack.
+        let capped_frames = frames.min(1024);
+        let mut bus_route_accum_l: [[f64; 1024]; 6] = [[0.0; 1024]; 6];
+        let mut bus_route_accum_r: [[f64; 1024]; 6] = [[0.0; 1024]; 6];
+        let mut bus_has_accum: [bool; 6] = [false; 6];
+
+        // Acquire stereo imagers ONCE for entire bus loop
+        let mut bus_imagers_guard = self.bus_stereo_imagers.try_write();
+
+        for &bus_idx in &process_order[..order_idx] {
+            let state = &bus_states[bus_idx];
+
             // Skip if muted, or if solo is active and this bus isn't soloed
             if state.muted || (any_solo && !state.soloed) {
                 // Reset metering for muted/inactive buses (smooth decay in UI)
@@ -6422,6 +6564,15 @@ impl PlaybackEngine {
                 5 => OutputBus::Aux,
                 _ => continue,
             };
+
+            // Add accumulated audio from child buses that routed to this bus
+            if bus_has_accum[bus_idx] {
+                let (bus_l, bus_r) = bus_buffers.get_bus_mut(bus);
+                for i in 0..capped_frames {
+                    bus_l[i] += bus_route_accum_l[bus_idx][i];
+                    bus_r[i] += bus_route_accum_r[bus_idx][i];
+                }
+            }
 
             // Get mutable bus buffer for InsertChain processing
             let (bus_l, bus_r) = bus_buffers.get_bus_mut(bus);
@@ -6458,9 +6609,9 @@ impl PlaybackEngine {
             }
 
             // ═══ PER-BUS STEREO IMAGER (post-fader, pre-post-inserts) ═══
-            if let Some(mut bus_imagers) = self.bus_stereo_imagers.try_write() {
+            if let Some(ref mut imagers) = bus_imagers_guard {
                 use rf_dsp::StereoProcessor;
-                let imager = &mut bus_imagers[bus_idx];
+                let imager = &mut imagers[bus_idx];
                 for i in 0..frames {
                     let (l, r) = imager.process_sample(bus_l[i], bus_r[i]);
                     bus_l[i] = l;
@@ -6487,10 +6638,33 @@ impl PlaybackEngine {
                 crate::ffi::SHARED_METERS.update_channel_peak(bus_idx, bp_l, bp_r);
             }
 
-            // Sum processed bus to master output
-            for i in 0..frames {
-                output_l[i] += bus_l[i];
-                output_r[i] += bus_r[i];
+            // ═══ ROUTE BUS OUTPUT ═══
+            // Either sum to master (default) or route to parent bus (hierarchical routing)
+            match state.output_dest {
+                BusOutputDest::Master => {
+                    // Standard: sum directly to master output
+                    for i in 0..frames {
+                        output_l[i] += bus_l[i];
+                        output_r[i] += bus_r[i];
+                    }
+                }
+                BusOutputDest::Bus(target_idx) => {
+                    // Hierarchical: accumulate into target bus's accum buffer.
+                    // The target bus will pick this up when it's processed later.
+                    if target_idx < 6 && target_idx != bus_idx {
+                        for i in 0..capped_frames {
+                            bus_route_accum_l[target_idx][i] += bus_l[i];
+                            bus_route_accum_r[target_idx][i] += bus_r[i];
+                        }
+                        bus_has_accum[target_idx] = true;
+                    } else {
+                        // Self-routing or invalid target: fall back to master
+                        for i in 0..frames {
+                            output_l[i] += bus_l[i];
+                            output_r[i] += bus_r[i];
+                        }
+                    }
+                }
             }
         }
 

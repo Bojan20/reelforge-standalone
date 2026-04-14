@@ -859,6 +859,15 @@ pub extern "C" fn engine_set_send_muted(track_id: u64, send_index: u32, muted: i
     1
 }
 
+/// Set send pan (-1.0 left to 1.0 right)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_set_send_pan(track_id: u64, send_index: u32, pan: f64) -> i32 {
+    TRACK_MANAGER.update_track(TrackId(track_id), |track| {
+        track.set_send_pan(send_index as usize, pan);
+    });
+    1
+}
+
 /// Reorder tracks
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_reorder_tracks(track_ids: *const u64, count: usize) -> i32 {
@@ -2983,6 +2992,21 @@ pub extern "C" fn engine_set_bus_mute(bus_idx: i32, muted: i32) {
 pub extern "C" fn engine_set_bus_solo(bus_idx: i32, soloed: i32) {
     if (0..6).contains(&bus_idx) {
         PLAYBACK_ENGINE.set_bus_solo(bus_idx as usize, soloed != 0);
+    }
+}
+
+/// Set bus output destination for hierarchical routing.
+/// target = -1 → route to master (default)
+/// target = 0-5 → route to another bus (stem grouping)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_set_bus_output(bus_idx: i32, target: i32) {
+    if (0..6).contains(&bus_idx) {
+        let dest = if target >= 0 && target < 6 && target != bus_idx {
+            crate::playback::BusOutputDest::Bus(target as usize)
+        } else {
+            crate::playback::BusOutputDest::Master
+        };
+        PLAYBACK_ENGINE.set_bus_output_dest(bus_idx as usize, dest);
     }
 }
 

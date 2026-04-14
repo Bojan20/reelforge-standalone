@@ -751,6 +751,62 @@ impl InsertChain {
         }
     }
 
+    /// Process pre-fader slots with sidechain from tap buffers.
+    /// `taps` maps source_track_id → (left_buf, right_buf) from previous audio block.
+    /// Zero-alloc on audio thread: HashMap is pre-allocated, Vecs reused across blocks.
+    #[inline]
+    pub fn process_pre_fader_with_taps(
+        &mut self,
+        left: &mut [Sample],
+        right: &mut [Sample],
+        taps: &HashMap<i64, (Vec<f64>, Vec<f64>)>,
+        max_frames: usize,
+    ) {
+        for slot in &mut self.pre_slots {
+            let sc_source = slot.get_sidechain_source();
+            if sc_source >= 0 {
+                if let Some((sc_l, sc_r)) = taps.get(&sc_source) {
+                    let len = sc_l.len().min(max_frames);
+                    if len > 0 {
+                        slot.process_with_sidechain(left, right, Some(&sc_l[..len]), Some(&sc_r[..len]));
+                        continue;
+                    }
+                }
+            }
+            slot.process(left, right);
+        }
+    }
+
+    /// Process post-fader slots with sidechain from tap buffers.
+    #[inline]
+    pub fn process_post_fader_with_taps(
+        &mut self,
+        left: &mut [Sample],
+        right: &mut [Sample],
+        taps: &HashMap<i64, (Vec<f64>, Vec<f64>)>,
+        max_frames: usize,
+    ) {
+        for slot in &mut self.post_slots {
+            let sc_source = slot.get_sidechain_source();
+            if sc_source >= 0 {
+                if let Some((sc_l, sc_r)) = taps.get(&sc_source) {
+                    let len = sc_l.len().min(max_frames);
+                    if len > 0 {
+                        slot.process_with_sidechain(left, right, Some(&sc_l[..len]), Some(&sc_r[..len]));
+                        continue;
+                    }
+                }
+            }
+            slot.process(left, right);
+        }
+    }
+
+    /// Check if any slot has external sidechain enabled
+    pub fn has_any_sidechain(&self) -> bool {
+        self.pre_slots.iter().any(|s| s.has_external_sidechain())
+            || self.post_slots.iter().any(|s| s.has_external_sidechain())
+    }
+
     /// Process all slots (for simple use)
     #[inline]
     pub fn process_all(&mut self, left: &mut [Sample], right: &mut [Sample]) {

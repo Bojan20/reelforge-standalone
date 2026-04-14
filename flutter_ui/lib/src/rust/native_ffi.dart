@@ -237,6 +237,8 @@ typedef EngineSetSendPreFaderNative = Int32 Function(Uint64 trackId, Uint32 send
 typedef EngineSetSendPreFaderDart = int Function(int trackId, int sendIndex, int preFader);
 typedef EngineSetSendMutedNative = Int32 Function(Uint64 trackId, Uint32 sendIndex, Int32 muted);
 typedef EngineSetSendMutedDart = int Function(int trackId, int sendIndex, int muted);
+typedef EngineSetSendPanNative = Int32 Function(Uint64 trackId, Uint32 sendIndex, Double pan);
+typedef EngineSetSendPanDart = int Function(int trackId, int sendIndex, double pan);
 
 // P1.12: Batch track operations
 typedef EngineBatchSetTrackVolumesNative = IntPtr Function(Pointer<Uint64> trackIds, Pointer<Double> volumes, IntPtr count);
@@ -2573,6 +2575,7 @@ class NativeFFI {
   late final EngineSetSendDestinationDart _setSendDestination;
   late final EngineSetSendPreFaderDart _setSendPreFader;
   late final EngineSetSendMutedDart _setSendMuted;
+  late final EngineSetSendPanDart _setSendPan;
   late final EngineGetTrackCountDart _getTrackCount;
   late final EngineGetTrackPeakDart _getTrackPeak;
   late final EngineGetTrackPeakStereoDart _getTrackPeakStereo;
@@ -3454,6 +3457,7 @@ class NativeFFI {
     _setSendDestination = _lib.lookupFunction<EngineSetSendDestinationNative, EngineSetSendDestinationDart>('engine_set_send_destination');
     _setSendPreFader = _lib.lookupFunction<EngineSetSendPreFaderNative, EngineSetSendPreFaderDart>('engine_set_send_pre_fader');
     _setSendMuted = _lib.lookupFunction<EngineSetSendMutedNative, EngineSetSendMutedDart>('engine_set_send_muted');
+    _setSendPan = _lib.lookupFunction<EngineSetSendPanNative, EngineSetSendPanDart>('engine_set_send_pan');
     _getTrackCount = _lib.lookupFunction<EngineGetTrackCountNative, EngineGetTrackCountDart>('engine_get_track_count');
     _getTrackPeak = _lib.lookupFunction<EngineGetTrackPeakNative, EngineGetTrackPeakDart>('engine_get_track_peak');
     _getTrackPeakStereo = _lib.lookupFunction<EngineGetTrackPeakStereoNative, EngineGetTrackPeakStereoDart>('engine_get_track_peak_stereo');
@@ -4563,6 +4567,12 @@ class NativeFFI {
   bool setSendMuted(int trackId, int sendIndex, bool muted) {
     if (!_loaded) return false;
     return _setSendMuted(trackId, sendIndex, muted ? 1 : 0) != 0;
+  }
+
+  /// Set send pan (-1.0 left to 1.0 right)
+  bool setSendPan(int trackId, int sendIndex, double pan) {
+    if (!_loaded) return false;
+    return _setSendPan(trackId, sendIndex, pan) != 0;
   }
 
   /// Get track count

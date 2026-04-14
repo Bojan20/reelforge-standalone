@@ -578,6 +578,9 @@ pub enum TrackType {
 pub struct TrackSendSlot {
     /// Send level (0.0 to 1.0)
     pub level: f64,
+    /// Send pan (-1.0 left to 1.0 right, 0.0 = center)
+    /// Applies constant-power pan to the send signal before routing to destination bus.
+    pub pan: f64,
     /// Pre-fader send (true) or post-fader (false)
     pub pre_fader: bool,
     /// Muted state
@@ -740,6 +743,13 @@ impl Track {
     pub fn set_send_muted(&mut self, send_index: usize, muted: bool) {
         if send_index < MAX_TRACK_SENDS {
             self.sends[send_index].muted = muted;
+        }
+    }
+
+    /// Set send pan (-1.0 left to 1.0 right)
+    pub fn set_send_pan(&mut self, send_index: usize, pan: f64) {
+        if send_index < MAX_TRACK_SENDS {
+            self.sends[send_index].pan = pan.clamp(-1.0, 1.0);
         }
     }
 
