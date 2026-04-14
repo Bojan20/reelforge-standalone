@@ -3144,6 +3144,43 @@ pub extern "C" fn engine_get_lufs_meters(
     }
 }
 
+/// Reset integrated LUFS meter (keeps momentary/short-term running)
+/// Call when user clicks "Reset" in loudness meter UI
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_reset_lufs_integrated() {
+    PLAYBACK_ENGINE.reset_lufs_integrated();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// DELAY COMPENSATION FFI
+// ═══════════════════════════════════════════════════════════════════════
+
+/// Report plugin latency for a track (in samples), triggers auto-recalculation
+/// Called from Flutter ProcessorLatencyCompensation service
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_track_report_latency(track_id: u64, latency_samples: u32) {
+    PLAYBACK_ENGINE.report_track_latency(track_id, latency_samples as usize);
+}
+
+/// Get compensation delay for a track (in samples)
+/// Returns the computed compensation delay the engine applies
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_track_get_compensation_delay(track_id: u64) -> u32 {
+    PLAYBACK_ENGINE.get_track_compensation_delay(track_id) as u32
+}
+
+/// Enable/disable automatic delay compensation
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_set_delay_compensation_enabled(enabled: i32) {
+    PLAYBACK_ENGINE.set_delay_compensation_enabled(enabled != 0);
+}
+
+/// Check if delay compensation is enabled
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_is_delay_compensation_enabled() -> i32 {
+    if PLAYBACK_ENGINE.is_delay_compensation_enabled() { 1 } else { 0 }
+}
+
 /// Get true peak meters (left, right)
 /// Returns values in dBTP per ITU-R BS.1770-4 (4x oversampled)
 /// Reads from SHARED_METERS (single source of truth for all metering)

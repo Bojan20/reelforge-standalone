@@ -9,6 +9,7 @@
 /// → System delays Track 2 by +200ms for alignment
 
 import 'package:flutter/foundation.dart';
+import '../src/rust/native_ffi.dart';
 
 /// Processor with latency info
 class ProcessorLatencyInfo {
@@ -141,8 +142,8 @@ class ProcessorLatencyCompensation extends ChangeNotifier {
 
       _trackStates[trackId] = state.copyWith(compensationDelay: compensation);
 
-      // Apply compensation via FFI (TODO: Add FFI function)
-      // NativeFFI.instance.trackSetCompensationDelay(trackId, compensation);
+      // Report track latency to engine — engine recalculates compensation internally
+      NativeFFI.instance.trackReportLatency(trackId, state.totalLatencySamples);
     }
   }
 
@@ -151,8 +152,8 @@ class ProcessorLatencyCompensation extends ChangeNotifier {
     for (final trackId in _trackStates.keys) {
       _trackStates[trackId] = _trackStates[trackId]!.copyWith(compensationDelay: 0);
 
-      // Remove compensation via FFI
-      // NativeFFI.instance.trackSetCompensationDelay(trackId, 0);
+      // Report zero latency to engine — clears compensation
+      NativeFFI.instance.trackReportLatency(trackId, 0);
     }
   }
 

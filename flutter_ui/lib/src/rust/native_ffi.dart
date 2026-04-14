@@ -2739,11 +2739,18 @@ class NativeFFI {
   late final EngineGetBusPeakDart _getBusPeak;
   late final EngineGetRmsMetersDart _getRmsMeters;
   late final EngineGetLufsMetersDart _getLufsMeters;
+  late final void Function() _resetLufsIntegrated;
   late final EngineGetTruePeakMetersDart _getTruePeakMeters;
   late final EngineGetCorrelationDart _getCorrelation;
   late final EngineGetStereoBalanceDart _getStereoBalance;
   late final EngineGetDynamicRangeDart _getDynamicRange;
   late final EngineGetMasterSpectrumDart _getMasterSpectrum;
+
+  // Delay compensation
+  late final void Function(int, int) _trackReportLatency;
+  late final int Function(int) _trackGetCompensationDelay;
+  late final void Function(int) _setDelayCompensationEnabled;
+  late final int Function() _isDelayCompensationEnabled;
 
   // Shared memory metering (zero-latency)
   late final MeteringGetSharedBufferPtrDart _meteringGetSharedBufferPtr;
@@ -3616,11 +3623,18 @@ class NativeFFI {
     _getBusPeak = _lib.lookupFunction<EngineGetBusPeakNative, EngineGetBusPeakDart>('engine_get_bus_peak');
     _getRmsMeters = _lib.lookupFunction<EngineGetRmsMetersNative, EngineGetRmsMetersDart>('engine_get_rms_meters');
     _getLufsMeters = _lib.lookupFunction<EngineGetLufsMetersNative, EngineGetLufsMetersDart>('engine_get_lufs_meters');
+    _resetLufsIntegrated = _lib.lookupFunction<Void Function(), void Function()>('engine_reset_lufs_integrated');
     _getTruePeakMeters = _lib.lookupFunction<EngineGetTruePeakMetersNative, EngineGetTruePeakMetersDart>('engine_get_true_peak_meters');
     _getCorrelation = _lib.lookupFunction<EngineGetCorrelationNative, EngineGetCorrelationDart>('metering_get_master_correlation');
     _getStereoBalance = _lib.lookupFunction<EngineGetStereoBalanceNative, EngineGetStereoBalanceDart>('metering_get_master_balance');
     _getDynamicRange = _lib.lookupFunction<EngineGetDynamicRangeNative, EngineGetDynamicRangeDart>('metering_get_master_dynamic_range');
     _getMasterSpectrum = _lib.lookupFunction<EngineGetMasterSpectrumNative, EngineGetMasterSpectrumDart>('metering_get_master_spectrum');
+
+    // Delay compensation
+    _trackReportLatency = _lib.lookupFunction<Void Function(Uint64, Uint32), void Function(int, int)>('engine_track_report_latency');
+    _trackGetCompensationDelay = _lib.lookupFunction<Uint32 Function(Uint64), int Function(int)>('engine_track_get_compensation_delay');
+    _setDelayCompensationEnabled = _lib.lookupFunction<Void Function(Int32), void Function(int)>('engine_set_delay_compensation_enabled');
+    _isDelayCompensationEnabled = _lib.lookupFunction<Int32 Function(), int Function()>('engine_is_delay_compensation_enabled');
 
     // Shared memory metering (zero-latency)
     _meteringGetSharedBufferPtr = _lib.lookupFunction<MeteringGetSharedBufferPtrNative, MeteringGetSharedBufferPtrDart>('metering_get_shared_buffer_ptr');
@@ -5907,6 +5921,40 @@ class NativeFFI {
       calloc.free(shortPtr);
       calloc.free(integratedPtr);
     }
+  }
+
+  /// Reset integrated LUFS meter (keeps momentary/short-term running)
+  void resetLufsIntegrated() {
+    if (!_loaded) return;
+    _resetLufsIntegrated();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // DELAY COMPENSATION
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// Report plugin latency for a track (in samples), triggers auto-recalculation
+  void trackReportLatency(int trackId, int latencySamples) {
+    if (!_loaded) return;
+    _trackReportLatency(trackId, latencySamples);
+  }
+
+  /// Get compensation delay for a track (in samples)
+  int trackGetCompensationDelay(int trackId) {
+    if (!_loaded) return 0;
+    return _trackGetCompensationDelay(trackId);
+  }
+
+  /// Enable/disable automatic delay compensation
+  void setDelayCompensationEnabled(bool enabled) {
+    if (!_loaded) return;
+    _setDelayCompensationEnabled(enabled ? 1 : 0);
+  }
+
+  /// Check if delay compensation is enabled
+  bool isDelayCompensationEnabled() {
+    if (!_loaded) return false;
+    return _isDelayCompensationEnabled() != 0;
   }
 
   /// Get True Peak meter values (left, right) in dBTP

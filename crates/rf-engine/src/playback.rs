@@ -3023,6 +3023,13 @@ impl PlaybackEngine {
         self.delay_comp.read().is_enabled()
     }
 
+    /// Report plugin latency for a track (from Flutter UI), triggers recalculation
+    pub fn report_track_latency(&self, track_id: u64, latency_samples: usize) {
+        let mut dc = self.delay_comp.write();
+        dc.register_node(track_id as u32);
+        dc.report_latency(track_id as u32, latency_samples);
+    }
+
     /// Update delay compensation for a track based on its insert chain latency
     pub fn update_track_delay_compensation(&self, track_id: u64) {
         let latency = self.get_track_insert_latency(track_id);
@@ -3612,6 +3619,14 @@ impl PlaybackEngine {
             f64::from_bits(self.lufs_short.load(Ordering::Relaxed)),
             f64::from_bits(self.lufs_integrated.load(Ordering::Relaxed)),
         )
+    }
+
+    /// Reset integrated LUFS meter (keeps momentary/short-term running)
+    pub fn reset_lufs_integrated(&self) {
+        if let Some(mut meter) = self.lufs_meter.try_write() {
+            meter.reset_integrated();
+        }
+        self.lufs_integrated.store((-70.0_f64).to_bits(), Ordering::Relaxed);
     }
 
     /// Get true peak values (left, right) in dBTP
