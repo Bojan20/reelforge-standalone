@@ -315,6 +315,17 @@ class EngineProvider extends ChangeNotifier {
       // deserialization (#[serde(skip)]) so must be rebuilt before first playback.
       // Without this, warp markers exist but audio plays un-warped after load.
       NativeFFI.instance.engineEnsureAllWarpSegments();
+      // BUG#7 FIX: Propagate project BPM to all tempo-synced DSP insert chains.
+      // DSP effects (delay LFO, ping-pong delay, reverb pre-delay, compressor
+      // side-chain) initialize with a hardcoded default of 120 BPM. After a
+      // project load the engine transport has the correct tempo, but the DSP
+      // insert chains don't know about it until clickSetTempo() is called.
+      // Without this, tempo-synced effects use 120 BPM regardless of project BPM.
+      _transport = engine.transport;
+      final ffi = NativeFFI.instance;
+      if (ffi.isLoaded && _transport.tempo > 0) {
+        ffi.clickSetTempo(_transport.tempo);
+      }
       notifyListeners();
     }
     return success;
