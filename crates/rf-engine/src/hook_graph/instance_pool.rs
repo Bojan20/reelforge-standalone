@@ -5,7 +5,6 @@
 
 use super::audio_node::{AudioBuffer, AudioNode};
 use super::compiled_graph::CompiledAudioGraph;
-use super::voice_manager::VoiceManager;
 use std::collections::HashMap;
 
 const MAX_INSTANCES: usize = 50;
@@ -32,7 +31,7 @@ pub struct GraphInstance {
 }
 
 impl GraphInstance {
-    fn new(id: u32, max_block_size: usize) -> Self {
+    fn new(id: u32, _max_block_size: usize) -> Self {
         Self {
             id,
             state: InstanceState::Pooled,

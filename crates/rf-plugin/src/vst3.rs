@@ -1372,7 +1372,7 @@ unsafe extern "C" {
     fn au_host_close();
     fn au_host_scan_plugins(
         user_data: *mut std::ffi::c_void,
-        callback: extern "C" fn(
+        callback: unsafe extern "C" fn(
             *mut std::ffi::c_void,
             *const std::os::raw::c_char,
             *const std::os::raw::c_char,

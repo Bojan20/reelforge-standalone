@@ -8,7 +8,7 @@ pub struct WeightedEntry {
 
 pub struct RandomContainer {
     entries: Vec<WeightedEntry>,
-    total_weight: f32,
+    _total_weight: f32,
     avoid_last_n: usize,
     history: Vec<usize>,
     seed: u64,
@@ -20,10 +20,10 @@ impl RandomContainer {
         let entries: Vec<_> = weights.iter().enumerate()
             .map(|(i, &w)| WeightedEntry { index: i, weight: w.max(0.001) })
             .collect();
-        let total_weight = entries.iter().map(|e| e.weight).sum();
+        let _total_weight = entries.iter().map(|e| e.weight).sum();
         Self {
             entries,
-            total_weight,
+            _total_weight,
             avoid_last_n,
             history: Vec::with_capacity(avoid_last_n + 1),
             seed,

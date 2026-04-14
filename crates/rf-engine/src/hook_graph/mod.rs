@@ -28,13 +28,11 @@ pub mod containers;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use parking_lot::RwLock;
-
 use crate::audio_import::ImportedAudio;
 use crate::track_manager::OutputBus;
 
-use self::audio_node::{AudioBuffer, AudioNode, NodeContext};
-use self::compiled_graph::{AudioNodeType, CompiledAudioGraph};
+use self::audio_node::AudioBuffer;
+use self::compiled_graph::CompiledAudioGraph;
 use self::instance_pool::GraphInstancePool;
 use self::voice_manager::{VoiceManager, VoicePriority};
 
@@ -118,7 +116,7 @@ pub struct HookGraphEngine {
     /// Feedback ring buffer (Rust → Dart)
     fb_tx: parking_lot::Mutex<rtrb::Producer<GraphFeedback>>,
     /// Pre-allocated audio buffers for node processing
-    node_buffers: Vec<AudioBuffer>,
+    _node_buffers: Vec<AudioBuffer>,
     /// Sample rate
     sample_rate: u32,
     /// Active flag
@@ -132,7 +130,7 @@ impl HookGraphEngine {
         cmd_rx: rtrb::Consumer<GraphCommand>,
         fb_tx: rtrb::Producer<GraphFeedback>,
     ) -> Self {
-        let node_buffers = (0..16)
+        let _node_buffers = (0..16)
             .map(|_| AudioBuffer::new(max_block_size))
             .collect();
 
@@ -143,7 +141,7 @@ impl HookGraphEngine {
             rtpc_values: HashMap::new(),
             cmd_rx: parking_lot::Mutex::new(cmd_rx),
             fb_tx: parking_lot::Mutex::new(fb_tx),
-            node_buffers,
+            _node_buffers,
             sample_rate,
             active: true,
         }
