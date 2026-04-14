@@ -1365,13 +1365,16 @@ impl BridgeRustHandle {
 
     fn handle_stream(&self, request: &CortexRequest) -> CortexResponse {
         match &request.payload {
-            BridgePayload::StreamSubscribe { filter_origins: _, min_urgency: _ } => {
-                // TODO: create NeuralBus subscription, pipe to event ring
-                let sub_id = next_request_id();
+            BridgePayload::StreamSubscribe { filter_origins, min_urgency } => {
+                let sub_id = crate::cortex_shared()
+                    .map(|s| s.request_subscribe(filter_origins.clone(), *min_urgency))
+                    .unwrap_or(0);
                 CortexResponse::ok(request.id, ResponseData::F64(sub_id as f64))
             }
-            BridgePayload::StreamUnsubscribe { subscription_id: _ } => {
-                // TODO: remove subscription
+            BridgePayload::StreamUnsubscribe { subscription_id } => {
+                if let Some(s) = crate::cortex_shared() {
+                    s.request_unsubscribe(*subscription_id);
+                }
                 CortexResponse::ok(request.id, ResponseData::Bool(true))
             }
             _ => CortexResponse::error(request.id, 6001, "Unknown stream payload"),

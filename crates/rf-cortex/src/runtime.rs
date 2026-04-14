@@ -156,6 +156,23 @@ pub struct SharedCortexState {
     pub event_buffer: Mutex<VecDeque<CortexEvent>>,
     /// Total events ever pushed (for milestone tracking).
     pub total_events_pushed: portable_atomic::AtomicU64,
+    // ═══ STREAM SUBSCRIPTIONS (NeuralBus → Flutter) ═══
+    /// Pending subscribe requests from CortexBridge.
+    pub stream_subscribe_requests: Mutex<Vec<StreamSubscribeRequest>>,
+    /// Pending unsubscribe requests from CortexBridge.
+    pub stream_unsubscribe_requests: Mutex<Vec<u64>>,
+    /// Outbound signals for active subscriptions (sub_id, serialized signal).
+    pub stream_signals: Mutex<VecDeque<(u64, String)>>,
+    /// Next subscription ID counter.
+    pub next_subscription_id: portable_atomic::AtomicU64,
+}
+
+/// Request to create a NeuralBus subscription.
+#[derive(Debug, Clone)]
+pub struct StreamSubscribeRequest {
+    pub id: u64,
+    pub filter_origins: Vec<String>,
+    pub min_urgency: u8,
 }
 
 impl SharedCortexState {
@@ -176,6 +193,10 @@ impl SharedCortexState {
             vision_last_report_ms: portable_atomic::AtomicU64::new(0),
             event_buffer: Mutex::new(VecDeque::with_capacity(EVENT_BUFFER_CAPACITY)),
             total_events_pushed: portable_atomic::AtomicU64::new(0),
+            stream_subscribe_requests: Mutex::new(Vec::new()),
+            stream_unsubscribe_requests: Mutex::new(Vec::new()),
+            stream_signals: Mutex::new(VecDeque::with_capacity(1024)),
+            next_subscription_id: portable_atomic::AtomicU64::new(1),
         }
     }
 
@@ -203,6 +224,37 @@ impl SharedCortexState {
     /// Number of pending events.
     pub fn pending_event_count(&self) -> usize {
         self.event_buffer.lock().len()
+    }
+
+    /// Request a new stream subscription. Returns the subscription ID.
+    pub fn request_subscribe(&self, filter_origins: Vec<String>, min_urgency: u8) -> u64 {
+        let id = self.next_subscription_id.fetch_add(1, portable_atomic::Ordering::Relaxed);
+        self.stream_subscribe_requests.lock().push(StreamSubscribeRequest {
+            id,
+            filter_origins,
+            min_urgency,
+        });
+        id
+    }
+
+    /// Request removal of a stream subscription.
+    pub fn request_unsubscribe(&self, subscription_id: u64) {
+        self.stream_unsubscribe_requests.lock().push(subscription_id);
+    }
+
+    /// Drain stream signals for a specific subscription (or all if sub_id=0).
+    pub fn drain_stream_signals(&self, sub_id: u64) -> Vec<(u64, String)> {
+        let mut buf = self.stream_signals.lock();
+        if sub_id == 0 {
+            buf.drain(..).collect()
+        } else {
+            let matching: Vec<_> = buf.iter()
+                .filter(|(id, _)| *id == sub_id)
+                .cloned()
+                .collect();
+            buf.retain(|(id, _)| *id != sub_id);
+            matching
+        }
     }
 }
 
@@ -260,6 +312,8 @@ impl CortexRuntime {
         let mut prev_reflex_actions: u64 = 0;
         let mut prev_commands: u64 = 0;
         let mut prev_milestone: u64 = 0; // signals / 1000
+        let mut stream_subscriptions: std::collections::HashMap<u64, crate::bus::Synapse> =
+            std::collections::HashMap::new();
 
         while !shutdown.load(Ordering::Relaxed) {
             // Drain inbox → feed into cortex
@@ -419,6 +473,73 @@ impl CortexRuntime {
 
             // Update reflex stats (every tick is fine — small data)
             *shared.reflex_stats.lock() = cortex.reflex_stats();
+
+            // ═══ STREAM SUBSCRIPTION MANAGEMENT ═══
+            // Process subscribe/unsubscribe requests from CortexBridge
+            {
+                use crate::bus::SignalFilter;
+                use crate::signal::{SignalOrigin, SignalUrgency};
+
+                // Process new subscriptions
+                let requests: Vec<_> = shared.stream_subscribe_requests.lock().drain(..).collect();
+                for req in requests {
+                    let origins: Option<Vec<SignalOrigin>> = if req.filter_origins.is_empty() {
+                        None
+                    } else {
+                        Some(req.filter_origins.iter().map(|o| match o.as_str() {
+                            "audio_engine" => SignalOrigin::AudioEngine,
+                            "dsp_pipeline" => SignalOrigin::DspPipeline,
+                            "mixer_bus"    => SignalOrigin::MixerBus,
+                            "plugin_host"  => SignalOrigin::PluginHost,
+                            "transport"    => SignalOrigin::Transport,
+                            "timeline"     => SignalOrigin::Timeline,
+                            "slot_lab"     => SignalOrigin::SlotLab,
+                            "user"         => SignalOrigin::User,
+                            "cortex"       => SignalOrigin::Cortex,
+                            "midi"         => SignalOrigin::Midi,
+                            _              => SignalOrigin::Bridge,
+                        }).collect())
+                    };
+                    let min_urgency = match req.min_urgency {
+                        0 => SignalUrgency::Ambient,
+                        1 => SignalUrgency::Normal,
+                        2 => SignalUrgency::Elevated,
+                        3 => SignalUrgency::Critical,
+                        _ => SignalUrgency::Emergency,
+                    };
+                    let filter = SignalFilter { origins, min_urgency };
+                    let synapse = cortex.subscribe(
+                        format!("stream_sub_{}", req.id),
+                        filter,
+                    );
+                    stream_subscriptions.insert(req.id, synapse);
+                }
+
+                // Process unsubscriptions
+                let unsubs: Vec<_> = shared.stream_unsubscribe_requests.lock().drain(..).collect();
+                for sub_id in unsubs {
+                    stream_subscriptions.remove(&sub_id);
+                }
+
+                // Drain signals from active subscriptions
+                if !stream_subscriptions.is_empty() {
+                    let mut out = shared.stream_signals.lock();
+                    for (&sub_id, synapse) in &stream_subscriptions {
+                        for signal in synapse.drain() {
+                            let json = serde_json::json!({
+                                "origin": format!("{:?}", signal.origin),
+                                "urgency": format!("{:?}", signal.urgency),
+                                "kind": format!("{:?}", signal.kind),
+                                "id": signal.id,
+                            }).to_string();
+                            out.push_back((sub_id, json));
+                            if out.len() >= 1024 {
+                                out.pop_front();
+                            }
+                        }
+                    }
+                }
+            }
 
             thread::sleep(TICK_INTERVAL);
         }
