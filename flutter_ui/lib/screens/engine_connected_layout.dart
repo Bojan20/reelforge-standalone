@@ -86,6 +86,7 @@ import '../models/event_folder_models.dart' show EventFolder;
 import '../models/slot_audio_events.dart' show SlotCompositeEvent, SlotEventLayer, sortEventsHierarchically;
 import '../widgets/common/audio_waveform_picker_dialog.dart';
 import '../models/timeline_models.dart' as timeline;
+import '../widgets/timeline/selection_range.dart';
 import '../theme/fluxforge_theme.dart';
 import '../widgets/layout/left_zone.dart' show LeftZoneTab;
 import '../widgets/layout/project_tree.dart' show ProjectTreeNode, TreeItemType;
@@ -3481,6 +3482,316 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   // ═══════════════════════════════════════════════════════════════════════════
   // AUTO-CROSSFADE SYSTEM
   // ═══════════════════════════════════════════════════════════════════════════
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P2: RANGE SELECTION OPERATIONS — Cubase/Logic Range Tool
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Delete Range: remove content within [range] on [trackIds].
+  /// If [ripple], close the gap by sliding subsequent clips left (Cut Time).
+  void _executeRangeDelete(TimeSelection range, Set<String> trackIds, {required bool ripple}) {
+    if (!range.isValid || trackIds.isEmpty) return;
+
+    final rangeStart = range.start;
+    final rangeEnd = range.end;
+    final rangeDuration = range.duration;
+
+    // Snapshot for undo
+    final originalClips = List<timeline.TimelineClip>.from(_clips);
+
+    // 1) Find clips that overlap the range on affected tracks
+    final clipsInRange = _clips.where((c) =>
+      trackIds.contains(c.trackId) &&
+      c.startTime < rangeEnd &&
+      (c.startTime + c.duration) > rangeStart
+    ).toList();
+
+    final clipsToRemove = <String>{}; // completely consumed by range
+    final clipsToTrim = <MapEntry<String, timeline.TimelineClip>>{}; // partially affected
+    final newSplitClips = <timeline.TimelineClip>[]; // right-side remainder after split
+
+    for (final clip in clipsInRange) {
+      final clipEnd = clip.startTime + clip.duration;
+
+      if (clip.startTime >= rangeStart && clipEnd <= rangeEnd) {
+        // Clip fully inside range → delete
+        clipsToRemove.add(clip.id);
+        engine.deleteClip(clip.id);
+        WaveformCache().remove(clip.id);
+      } else if (clip.startTime < rangeStart && clipEnd > rangeEnd) {
+        // Range cuts through middle of clip → split into left + right
+        // Left part: original clip trimmed to rangeStart
+        final leftDuration = rangeStart - clip.startTime;
+        final leftClip = clip.copyWith(duration: leftDuration, fadeOut: 0);
+        clipsToTrim.add(MapEntry(clip.id, leftClip));
+
+        // Right part: new clip starting at rangeEnd (or abutting left clip if ripple)
+        final rightOffset = clip.sourceOffset + (rangeEnd - clip.startTime);
+        final rightDuration = clipEnd - rangeEnd;
+        final rightId = '${clip.id}_rng_${DateTime.now().millisecondsSinceEpoch}';
+        // ripple: right part starts immediately after left (closing the gap)
+        // non-ripple: right part stays at rangeEnd (gap preserved)
+        final rightStart = ripple ? rangeStart : rangeEnd;
+        final rightClip = clip.copyWith(
+          id: rightId,
+          startTime: rightStart,
+          duration: rightDuration,
+          sourceOffset: rightOffset,
+          fadeIn: 0,
+        );
+        newSplitClips.add(rightClip);
+
+        // Engine: trim original + create right
+        engine.splitClip(clipId: clip.id, atTime: rangeStart);
+        // The split creates a right clip in engine — we need to tell engine about the gap removal
+        if (ripple) {
+          // After split, move the right portion left by rangeDuration
+          engine.moveClip(clipId: rightId, targetTrackId: clip.trackId, startTime: rightClip.startTime);
+        }
+      } else if (clip.startTime < rangeStart) {
+        // Clip extends past range start but ends within range → trim right edge
+        final newDuration = rangeStart - clip.startTime;
+        clipsToTrim.add(MapEntry(clip.id, clip.copyWith(duration: newDuration, fadeOut: 0)));
+        // Engine resize
+        engine.resizeClip(clipId: clip.id, startTime: clip.startTime, duration: newDuration, sourceOffset: clip.sourceOffset);
+      } else {
+        // Clip starts within range but extends past rangeEnd → trim left edge
+        final trimAmount = rangeEnd - clip.startTime;
+        final newStart = ripple ? rangeStart : rangeEnd; // If ripple, shift left
+        final newDuration = clip.duration - trimAmount;
+        final newOffset = clip.sourceOffset + trimAmount;
+        clipsToTrim.add(MapEntry(clip.id, clip.copyWith(
+          startTime: newStart,
+          duration: newDuration,
+          sourceOffset: newOffset,
+          fadeIn: 0,
+        )));
+        engine.resizeClip(clipId: clip.id, startTime: newStart, duration: newDuration, sourceOffset: newOffset);
+      }
+    }
+
+    // 2) If ripple (Cut Time): slide ALL clips after rangeEnd left by rangeDuration
+    final rippleMoves = <MapEntry<String, double>>[];
+    if (ripple) {
+      for (final clip in _clips) {
+        if (!trackIds.contains(clip.trackId)) continue;
+        if (clipsToRemove.contains(clip.id)) continue;
+        if (clipsToTrim.any((e) => e.key == clip.id)) continue;
+        if (newSplitClips.any((c) => c.id == clip.id)) continue;
+        if (clip.startTime >= rangeEnd) {
+          final newStart = (clip.startTime - rangeDuration).clamp(0.0, double.infinity);
+          rippleMoves.add(MapEntry(clip.id, newStart));
+          engine.moveClip(clipId: clip.id, targetTrackId: clip.trackId, startTime: newStart);
+        }
+      }
+    }
+
+    // 3) Apply state changes
+    setState(() {
+      // Remove fully deleted clips
+      _clips = _clips.where((c) => !clipsToRemove.contains(c.id)).toList();
+
+      // Apply trims
+      _clips = _clips.map((c) {
+        final trimEntry = clipsToTrim.cast<MapEntry<String, timeline.TimelineClip>?>().firstWhere(
+          (e) => e?.key == c.id, orElse: () => null);
+        if (trimEntry != null) return trimEntry.value;
+
+        // Apply ripple moves
+        final rippleEntry = rippleMoves.cast<MapEntry<String, double>?>().firstWhere(
+          (e) => e?.key == c.id, orElse: () => null);
+        if (rippleEntry != null) return c.copyWith(startTime: rippleEntry.value);
+
+        return c;
+      }).toList();
+
+      // Add new split clips
+      _clips.addAll(newSplitClips);
+    });
+
+    // Register undo
+    UiUndoManager.instance.record(GenericUndoAction(
+      description: ripple ? 'Cut Time range' : 'Delete range',
+      onExecute: () {
+        // Redo: re-apply same operation (simplified: restore the post-state)
+        setState(() {
+          _clips = List.from(_clips); // trigger rebuild
+        });
+      },
+      onUndo: () {
+        setState(() {
+          _clips = List.from(originalClips);
+        });
+        // Re-sync clips to engine
+        for (final clip in originalClips) {
+          engine.moveClip(clipId: clip.id, targetTrackId: clip.trackId, startTime: clip.startTime);
+          engine.resizeClip(clipId: clip.id, startTime: clip.startTime, duration: clip.duration, sourceOffset: clip.sourceOffset);
+        }
+      },
+    ));
+  }
+
+  /// Split at Range Boundaries: split all clips at range.start and range.end
+  void _executeRangeSplit(TimeSelection range, Set<String> trackIds) {
+    if (!range.isValid || trackIds.isEmpty) return;
+
+    final rangeStart = range.start;
+    final rangeEnd = range.end;
+
+    // Snapshot for undo
+    final originalClips = List<timeline.TimelineClip>.from(_clips);
+
+    // Collect clips that cross the boundaries
+    final clipsToSplit = _clips.where((c) =>
+      trackIds.contains(c.trackId)
+    ).toList();
+
+    final newClips = <timeline.TimelineClip>[];
+    final modifiedClips = <String, timeline.TimelineClip>{};
+
+    for (final clip in clipsToSplit) {
+      final clipEnd = clip.startTime + clip.duration;
+
+      // Split at rangeStart if boundary is inside clip
+      if (rangeStart > clip.startTime && rangeStart < clipEnd) {
+        final leftDuration = rangeStart - clip.startTime;
+        modifiedClips[clip.id] = clip.copyWith(duration: leftDuration, fadeOut: 0);
+
+        // Create right portion
+        final rightId = '${clip.id}_spl_s_${DateTime.now().millisecondsSinceEpoch}';
+        final rightClip = clip.copyWith(
+          id: rightId,
+          startTime: rangeStart,
+          duration: clipEnd - rangeStart,
+          sourceOffset: clip.sourceOffset + leftDuration,
+          fadeIn: 0,
+        );
+        newClips.add(rightClip);
+
+        engine.splitClip(clipId: clip.id, atTime: rangeStart);
+      }
+    }
+
+    // Apply first split, then check for rangeEnd splits on new state
+    setState(() {
+      _clips = _clips.map((c) {
+        if (modifiedClips.containsKey(c.id)) return modifiedClips[c.id]!;
+        return c;
+      }).toList();
+      _clips.addAll(newClips);
+    });
+
+    // Second pass: split at rangeEnd
+    final secondNewClips = <timeline.TimelineClip>[];
+    final secondModified = <String, timeline.TimelineClip>{};
+
+    for (final clip in _clips) {
+      if (!trackIds.contains(clip.trackId)) continue;
+      final clipEnd = clip.startTime + clip.duration;
+
+      if (rangeEnd > clip.startTime && rangeEnd < clipEnd) {
+        final leftDuration = rangeEnd - clip.startTime;
+        secondModified[clip.id] = clip.copyWith(duration: leftDuration, fadeOut: 0);
+
+        final rightId = '${clip.id}_spl_e_${DateTime.now().millisecondsSinceEpoch}';
+        final rightClip = clip.copyWith(
+          id: rightId,
+          startTime: rangeEnd,
+          duration: clipEnd - rangeEnd,
+          sourceOffset: clip.sourceOffset + leftDuration,
+          fadeIn: 0,
+        );
+        secondNewClips.add(rightClip);
+
+        engine.splitClip(clipId: clip.id, atTime: rangeEnd);
+      }
+    }
+
+    setState(() {
+      _clips = _clips.map((c) {
+        if (secondModified.containsKey(c.id)) return secondModified[c.id]!;
+        return c;
+      }).toList();
+      _clips.addAll(secondNewClips);
+    });
+
+    // Register undo
+    UiUndoManager.instance.record(GenericUndoAction(
+      description: 'Split at range boundaries',
+      onExecute: () {
+        setState(() { _clips = List.from(_clips); });
+      },
+      onUndo: () {
+        setState(() { _clips = List.from(originalClips); });
+        for (final clip in originalClips) {
+          engine.moveClip(clipId: clip.id, targetTrackId: clip.trackId, startTime: clip.startTime);
+          engine.resizeClip(clipId: clip.id, startTime: clip.startTime, duration: clip.duration, sourceOffset: clip.sourceOffset);
+        }
+      },
+    ));
+  }
+
+  /// Crop to Range: keep only content within range, delete everything outside on affected tracks
+  void _executeRangeCrop(TimeSelection range, Set<String> trackIds) {
+    if (!range.isValid || trackIds.isEmpty) return;
+
+    final rangeStart = range.start;
+    final rangeEnd = range.end;
+
+    // Snapshot for undo
+    final originalClips = List<timeline.TimelineClip>.from(_clips);
+
+    final clipsToRemove = <String>{};
+    final clipsToTrim = <String, timeline.TimelineClip>{};
+
+    for (final clip in _clips) {
+      if (!trackIds.contains(clip.trackId)) continue;
+      final clipEnd = clip.startTime + clip.duration;
+
+      if (clipEnd <= rangeStart || clip.startTime >= rangeEnd) {
+        // Clip completely outside range → delete
+        clipsToRemove.add(clip.id);
+        engine.deleteClip(clip.id);
+        WaveformCache().remove(clip.id);
+      } else {
+        // Clip overlaps range — trim to range boundaries
+        final newStart = clip.startTime < rangeStart ? rangeStart : clip.startTime;
+        final newEnd = clipEnd > rangeEnd ? rangeEnd : clipEnd;
+        final trimLeft = newStart - clip.startTime;
+
+        if (trimLeft > 0.001 || (clipEnd - newEnd) > 0.001) {
+          clipsToTrim[clip.id] = clip.copyWith(
+            startTime: newStart,
+            duration: newEnd - newStart,
+            sourceOffset: clip.sourceOffset + trimLeft,
+          );
+          engine.resizeClip(clipId: clip.id, startTime: newStart, duration: newEnd - newStart, sourceOffset: clip.sourceOffset + trimLeft);
+        }
+      }
+    }
+
+    setState(() {
+      _clips = _clips.where((c) => !clipsToRemove.contains(c.id)).map((c) {
+        if (clipsToTrim.containsKey(c.id)) return clipsToTrim[c.id]!;
+        return c;
+      }).toList();
+    });
+
+    // Register undo
+    UiUndoManager.instance.record(GenericUndoAction(
+      description: 'Crop to range',
+      onExecute: () {
+        setState(() { _clips = List.from(_clips); });
+      },
+      onUndo: () {
+        setState(() { _clips = List.from(originalClips); });
+        for (final clip in originalClips) {
+          engine.moveClip(clipId: clip.id, targetTrackId: clip.trackId, startTime: clip.startTime);
+          engine.resizeClip(clipId: clip.id, startTime: clip.startTime, duration: clip.duration, sourceOffset: clip.sourceOffset);
+        }
+      },
+    ));
+  }
 
   /// Create a crossfade at a split point between two adjacent clips.
   /// Called automatically after any split operation to create a smooth transition.
@@ -7426,6 +7737,24 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           },
         ));
       },
+
+      // ═══════════════════════════════════════════════════════════════════════
+      // P2: RANGE SELECTION OPERATIONS (Cubase/Logic Range Tool)
+      // ═══════════════════════════════════════════════════════════════════════
+
+      onRangeDelete: (range, trackIds) {
+        _executeRangeDelete(range, trackIds, ripple: false);
+      },
+      onRangeSplit: (range, trackIds) {
+        _executeRangeSplit(range, trackIds);
+      },
+      onRangeCrop: (range, trackIds) {
+        _executeRangeCrop(range, trackIds);
+      },
+      onRangeCutTime: (range, trackIds) {
+        _executeRangeDelete(range, trackIds, ripple: true);
+      },
+
       // Warp marker callbacks
       onClipWarpMarkerMove: (clipId, markerId, newTimelinePos) {
         final numericClipId = int.tryParse(clipId.replaceAll(RegExp(r'[^0-9]'), ''));

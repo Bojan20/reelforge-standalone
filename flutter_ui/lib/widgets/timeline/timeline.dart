@@ -31,6 +31,7 @@ import 'track_lane.dart';
 import 'automation_lane.dart';
 import 'comping_lane.dart';
 import '../../providers/smart_tool_provider.dart';
+import 'selection_range.dart' hide snapToGrid;
 
 class Timeline extends StatefulWidget {
   /// Tracks
@@ -133,6 +134,18 @@ class Timeline extends StatefulWidget {
   final void Function(String clipId, double position)? onClipDuplicateToPosition;
   /// Shift+Delete: ripple delete — delete clip and close gap (Cubase Cut Time style)
   final ValueChanged<String>? onClipRippleDelete;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // RANGE SELECTION OPERATIONS (Cubase/Logic Range Tool)
+  // ═══════════════════════════════════════════════════════════════════════════
+  /// Delete content within range on affected tracks (Delete key with range active)
+  final void Function(TimeSelection range, Set<String> trackIds)? onRangeDelete;
+  /// Split clips at range start and end boundaries (Cmd+Shift+B)
+  final void Function(TimeSelection range, Set<String> trackIds)? onRangeSplit;
+  /// Crop: keep only content within range, delete rest (Cmd+Shift+C)
+  final void Function(TimeSelection range, Set<String> trackIds)? onRangeCrop;
+  /// Cut Time: delete range and close gap — ripple all tracks (Shift+Ctrl+X)
+  final void Function(TimeSelection range, Set<String> trackIds)? onRangeCutTime;
   /// Warp marker moved within a clip (per-frame)
   final void Function(String clipId, int markerId, double newTimelinePos)? onClipWarpMarkerMove;
   /// Warp marker drag ended (for undo)
@@ -322,6 +335,10 @@ class Timeline extends StatefulWidget {
     this.onClipShuffleMove,
     this.onClipDuplicateToPosition,
     this.onClipRippleDelete,
+    this.onRangeDelete,
+    this.onRangeSplit,
+    this.onRangeCrop,
+    this.onRangeCutTime,
     this.onClipWarpMarkerMove,
     this.onClipWarpMarkerMoveEnd,
     this.onClipWarpMarkerCreate,
@@ -455,6 +472,10 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
   bool _isRubberBandSelecting = false;
   Offset? _rubberBandStart;
   Offset? _rubberBandEnd;
+
+  // P2: Range selection state (Cubase Range Tool)
+  TimeSelection? _rangeSelection;
+  Set<String> _rangeAffectedTrackIds = {};
 
   // Track header drag-select state (lasso select tracks by dragging over headers)
   bool _isHeaderDragSelecting = false;
@@ -1097,7 +1118,42 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
   void _handleRubberBandEnd(DragEndDetails details) {
     if (!_isRubberBandSelecting) return;
 
-    // Calculate selected clips
+    final activeTool = widget.smartToolProvider?.activeTool ?? TimelineEditTool.smart;
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // P2: RANGE SELECTION MODE — create persistent TimeSelection
+    // ═══════════════════════════════════════════════════════════════════════
+    if (activeTool == TimelineEditTool.rangeSelect && _rubberBandStart != null && _rubberBandEnd != null) {
+      final startX = math.min(_rubberBandStart!.dx, _rubberBandEnd!.dx) - _headerWidth;
+      final endX = math.max(_rubberBandStart!.dx, _rubberBandEnd!.dx) - _headerWidth;
+      final startY = math.min(_rubberBandStart!.dy, _rubberBandEnd!.dy) - _rulerHeight;
+      final endY = math.max(_rubberBandStart!.dy, _rubberBandEnd!.dy) - _rulerHeight;
+
+      final timeStart = widget.scrollOffset + startX / _effectiveZoom;
+      final timeEnd = widget.scrollOffset + endX / _effectiveZoom;
+
+      // Determine affected tracks
+      final trackIndexStart = _trackIndexFromLocalY(startY);
+      final trackIndexEnd = _trackIndexFromLocalY(endY);
+      final affectedTracks = <String>{};
+      for (int i = math.max(0, trackIndexStart); i <= math.min(_visibleTracks.length - 1, trackIndexEnd); i++) {
+        affectedTracks.add(_visibleTracks[i].id);
+      }
+
+      final selection = TimeSelection(start: timeStart, end: timeEnd).normalized();
+      if (selection.isValid && affectedTracks.isNotEmpty) {
+        setState(() {
+          _rangeSelection = selection;
+          _rangeAffectedTrackIds = affectedTracks;
+          _isRubberBandSelecting = false;
+          _rubberBandStart = null;
+          _rubberBandEnd = null;
+        });
+        return;
+      }
+    }
+
+    // Normal rubber band: select clips
     final selectedClipIds = _getClipsInRubberBand();
 
     // Notify parent about selections
@@ -1263,6 +1319,117 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
         ),
       ),
     );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P2: RANGE SELECTION OVERLAY (Cubase-style blue highlight)
+  // ═══════════════════════════════════════════════════════════════════════════
+  Widget _buildRangeSelectionOverlay() {
+    if (_rangeSelection == null || !_rangeSelection!.isValid || _rangeAffectedTrackIds.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final sel = _rangeSelection!;
+    final startX = (sel.start - widget.scrollOffset) * _effectiveZoom + _headerWidth;
+    final endX = (sel.end - widget.scrollOffset) * _effectiveZoom + _headerWidth;
+
+    if (endX <= _headerWidth || startX >= _containerWidth) return const SizedBox.shrink();
+
+    final clampedStartX = startX.clamp(_headerWidth, _containerWidth);
+    final clampedEndX = endX.clamp(_headerWidth, _containerWidth);
+
+    // Calculate Y range from affected tracks
+    double topY = double.infinity;
+    double bottomY = 0;
+    double accumulated = _rulerHeight + _toolbarHeight;
+    final scrollY = _verticalScrollController.hasClients ? _verticalScrollController.offset : 0.0;
+
+    for (int i = 0; i < _visibleTracks.length; i++) {
+      final h = _visibleTracks[i].height > 0 ? _visibleTracks[i].height : _defaultTrackHeight;
+      final trackTop = accumulated - scrollY;
+      final trackBottom = trackTop + h;
+
+      if (_rangeAffectedTrackIds.contains(_visibleTracks[i].id)) {
+        if (trackTop < topY) topY = trackTop;
+        if (trackBottom > bottomY) bottomY = trackBottom;
+      }
+      accumulated += h;
+    }
+
+    if (topY >= bottomY) return const SizedBox.shrink();
+
+    return Positioned(
+      left: clampedStartX,
+      top: topY,
+      width: clampedEndX - clampedStartX,
+      height: bottomY - topY,
+      child: IgnorePointer(
+        child: Container(
+          decoration: BoxDecoration(
+            color: FluxForgeTheme.accentBlue.withValues(alpha: 0.18),
+            border: Border.all(
+              color: FluxForgeTheme.accentBlue.withValues(alpha: 0.7),
+              width: 1.5,
+            ),
+          ),
+          child: Stack(
+            children: [
+              // Left boundary line
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                child: Container(width: 2, color: FluxForgeTheme.accentBlue),
+              ),
+              // Right boundary line
+              Positioned(
+                right: 0,
+                top: 0,
+                bottom: 0,
+                child: Container(width: 2, color: FluxForgeTheme.accentBlue),
+              ),
+              // Duration label (centered top)
+              if (clampedEndX - clampedStartX > 50)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 2,
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: FluxForgeTheme.bgDeepest.withValues(alpha: 0.92),
+                        borderRadius: BorderRadius.circular(3),
+                        border: Border.all(color: FluxForgeTheme.accentBlue.withValues(alpha: 0.6)),
+                      ),
+                      child: Text(
+                        _formatRangeDuration(sel.duration),
+                        style: FluxForgeTheme.monoSmall.copyWith(
+                          fontSize: 9,
+                          color: FluxForgeTheme.accentBlue,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatRangeDuration(double seconds) {
+    if (seconds < 1) {
+      return '${(seconds * 1000).round()} ms';
+    } else if (seconds < 60) {
+      return '${seconds.toStringAsFixed(2)} s';
+    } else {
+      final mins = (seconds / 60).floor();
+      final secs = seconds % 60;
+      return '${mins}:${secs.toStringAsFixed(1).padLeft(4, '0')}';
+    }
   }
 
   void _handlePlayheadDrag(DragUpdateDetails details) {
@@ -1589,17 +1756,58 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
       return KeyEventResult.handled;
     }
 
-    // Escape - Deselect
+    // Escape - Clear range selection first, then deselect clips
     if (!isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.escape) {
+      if (_rangeSelection != null) {
+        setState(() { _rangeSelection = null; _rangeAffectedTrackIds = {}; });
+        return KeyEventResult.handled;
+      }
       widget.onDeselect?.call();
       return KeyEventResult.handled;
     }
 
-    // Delete/Backspace - Delete selected clip
+    // ═══════════════════════════════════════════════════════════════════════
+    // P2: RANGE SELECTION OPERATIONS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // Shift+Ctrl+X — Cut Time (delete range + close gap, Cubase style)
+    if (isCmd && isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyX) {
+      if (_rangeSelection != null && _rangeSelection!.isValid && _rangeAffectedTrackIds.isNotEmpty) {
+        widget.onRangeCutTime?.call(_rangeSelection!, _rangeAffectedTrackIds);
+        setState(() { _rangeSelection = null; _rangeAffectedTrackIds = {}; });
+        return KeyEventResult.handled;
+      }
+    }
+
+    // Cmd+Shift+B — Split at range boundaries
+    if (isCmd && isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyB) {
+      if (_rangeSelection != null && _rangeSelection!.isValid && _rangeAffectedTrackIds.isNotEmpty) {
+        widget.onRangeSplit?.call(_rangeSelection!, _rangeAffectedTrackIds);
+        return KeyEventResult.handled;
+      }
+    }
+
+    // Cmd+Shift+C — Crop to range (keep only content within range)
+    if (isCmd && isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyC) {
+      if (_rangeSelection != null && _rangeSelection!.isValid && _rangeAffectedTrackIds.isNotEmpty) {
+        widget.onRangeCrop?.call(_rangeSelection!, _rangeAffectedTrackIds);
+        setState(() { _rangeSelection = null; _rangeAffectedTrackIds = {}; });
+        return KeyEventResult.handled;
+      }
+    }
+
+    // Delete/Backspace - Delete selected clip or range content
     // Shift+Delete = Ripple Delete (delete + close gap, Cubase style)
     // Plain Delete = Normal delete (leave gap)
     if (!isCmd && (event.logicalKey == LogicalKeyboardKey.delete ||
             event.logicalKey == LogicalKeyboardKey.backspace)) {
+      // Range selection active → Delete Range
+      if (_rangeSelection != null && _rangeSelection!.isValid && _rangeAffectedTrackIds.isNotEmpty) {
+        widget.onRangeDelete?.call(_rangeSelection!, _rangeAffectedTrackIds);
+        setState(() { _rangeSelection = null; _rangeAffectedTrackIds = {}; });
+        return KeyEventResult.handled;
+      }
+      // No range — fall back to clip delete
       if (selectedClip != null) {
         if (isShift) {
           widget.onClipRippleDelete?.call(selectedClip.id);
@@ -2766,6 +2974,9 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
 
                           // P1.6: Rubber band selection overlay
                           _buildRubberBandOverlay(),
+
+                          // P2: Range selection persistent overlay
+                          _buildRangeSelectionOverlay(),
                         ],
                       ),
                     ),
