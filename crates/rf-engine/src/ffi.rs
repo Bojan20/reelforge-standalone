@@ -12,6 +12,7 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)] // FFI functions receive raw pointers from C/Dart
 
 use std::sync::LazyLock;
+use std::sync::atomic::AtomicU64;
 use parking_lot::RwLock;
 use std::ffi::{CStr, CString, c_char};
 use std::path::{Path, PathBuf};
@@ -18041,15 +18042,56 @@ pub extern "C" fn audio_get_latency_ms() -> f64 {
 
 use std::sync::Mutex;
 
-static BOUNCE_RENDERER: LazyLock<Mutex<Option<rf_file::OfflineRenderer>>> = LazyLock::new(|| Mutex::new(None));
-static BOUNCE_OUTPUT_PATH: LazyLock<Mutex<Option<PathBuf>>> = LazyLock::new(|| Mutex::new(None));
+/// Bounce state — shared between FFI and background render thread
+struct BounceState {
+    progress: AtomicU64,     // 0.0-100.0 as f64 bits
+    peak_level: AtomicU64,   // peak in dBFS as f64 bits
+    is_complete: AtomicBool,
+    was_cancelled: AtomicBool,
+    cancel_flag: AtomicBool,
+    is_active: AtomicBool,
+    output_path: Mutex<Option<PathBuf>>,
+    start_time_ns: AtomicU64,
+    total_samples: AtomicU64,
+    processed_samples: AtomicU64,
+}
 
-/// Start bounce/export
-/// Returns 1 on success, 0 on failure
+impl BounceState {
+    fn new() -> Self {
+        Self {
+            progress: AtomicU64::new(0.0_f64.to_bits()),
+            peak_level: AtomicU64::new(0.0_f64.to_bits()),
+            is_complete: AtomicBool::new(false),
+            was_cancelled: AtomicBool::new(false),
+            cancel_flag: AtomicBool::new(false),
+            is_active: AtomicBool::new(false),
+            output_path: Mutex::new(None),
+            start_time_ns: AtomicU64::new(0),
+            total_samples: AtomicU64::new(0),
+            processed_samples: AtomicU64::new(0),
+        }
+    }
+
+    fn reset(&self) {
+        self.progress.store(0.0_f64.to_bits(), Ordering::Relaxed);
+        self.peak_level.store(0.0_f64.to_bits(), Ordering::Relaxed);
+        self.is_complete.store(false, Ordering::Relaxed);
+        self.was_cancelled.store(false, Ordering::Relaxed);
+        self.cancel_flag.store(false, Ordering::Relaxed);
+        self.total_samples.store(0, Ordering::Relaxed);
+        self.processed_samples.store(0, Ordering::Relaxed);
+    }
+}
+
+static BOUNCE_STATE: LazyLock<BounceState> = LazyLock::new(BounceState::new);
+
+/// Start bounce/export — renders full mixdown on background thread
+/// Uses PLAYBACK_ENGINE.process_offline() for true live-matching output.
+/// Returns 1 on success (thread started), 0 on failure.
 #[unsafe(no_mangle)]
 pub extern "C" fn bounce_start(
     output_path: *const c_char,
-    format: u8,            // 0=WAV, 1=FLAC, 2=MP3
+    _format: u8,           // 0=WAV, 1=FLAC, 2=MP3 (currently WAV only)
     bit_depth: u8,         // 16, 24, 32
     sample_rate: u32,      // 0 = project rate
     start_time: f64,       // seconds
@@ -18057,183 +18099,204 @@ pub extern "C" fn bounce_start(
     normalize: i32,        // 1=true, 0=false
     normalize_target: f64, // dBFS (e.g., -0.1)
 ) -> i32 {
-    if output_path.is_null() {
-        return 0;
-    }
+    if output_path.is_null() { return 0; }
+    if BOUNCE_STATE.is_active.load(Ordering::Relaxed) { return 0; } // Already bouncing
 
     let path_str = unsafe {
         match CStr::from_ptr(output_path).to_str() {
-            Ok(s) => s,
+            Ok(s) => s.to_string(),
             Err(_) => return 0,
         }
     };
 
-    let path = PathBuf::from(path_str);
+    let sr = if sample_rate == 0 { PLAYBACK_ENGINE.sample_rate() } else { sample_rate };
+    let start_sample = (start_time * sr as f64) as usize;
+    let end_sample = (end_time * sr as f64) as usize;
+    // Add 2s tail for reverb/delay
+    let tail_samples = (2.0 * sr as f64) as usize;
+    let total_samples = (end_sample - start_sample) + tail_samples;
 
-    // Convert format
-    let audio_format = match format {
-        0 => rf_file::AudioFormat::Wav,
-        1 => rf_file::AudioFormat::Flac,
-        2 => rf_file::AudioFormat::Mp3,
-        _ => rf_file::AudioFormat::Wav,
-    };
-
-    // Convert bit depth
-    let bit_depth_enum = match bit_depth {
-        16 => rf_file::BitDepth::Int16,
-        24 => rf_file::BitDepth::Int24,
-        32 => rf_file::BitDepth::Float32,
-        _ => rf_file::BitDepth::Int24,
-    };
-
-    // Get sample rate from playback engine if 0
-    let source_sample_rate = if sample_rate == 0 {
-        PLAYBACK_ENGINE.sample_rate()
-    } else {
-        sample_rate
-    };
-
-    // Convert time to samples
-    let start_samples = (start_time * source_sample_rate as f64) as u64;
-    let end_samples = (end_time * source_sample_rate as f64) as u64;
-
-    let export_format = rf_file::ExportFormat {
-        format: audio_format,
-        bit_depth: bit_depth_enum,
-        sample_rate: if sample_rate == 0 { 0 } else { sample_rate },
-        bitrate: 320, // High quality MP3
-        dither: rf_file::DitherType::Triangular,
-        noise_shape: rf_file::NoiseShapeType::ModifiedE,
-        normalize: normalize != 0,
-        normalize_target,
-        allow_clip: false,
-    };
-
-    let config = rf_file::BounceConfig {
-        output_path: path.clone(),
-        export_format,
-        region: rf_file::BounceRegion {
-            start_samples,
-            end_samples,
-            include_tail: true,
-            tail_secs: 2.0,
-        },
-        source_sample_rate,
-        num_channels: 2,
-        offline: true,
-        block_size: 1024,
-    };
-
-    let renderer = rf_file::OfflineRenderer::new(config);
-
-    // Store renderer (use ok() to handle poisoned mutex gracefully)
-    if let Ok(mut guard) = BOUNCE_RENDERER.lock() {
-        *guard = Some(renderer);
-    } else {
-        return 0;
-    }
-    if let Ok(mut guard) = BOUNCE_OUTPUT_PATH.lock() {
-        *guard = Some(path);
-    } else {
-        return 0;
+    // Reset and activate
+    BOUNCE_STATE.reset();
+    BOUNCE_STATE.is_active.store(true, Ordering::SeqCst);
+    BOUNCE_STATE.total_samples.store(total_samples as u64, Ordering::Relaxed);
+    BOUNCE_STATE.start_time_ns.store(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos() as u64,
+        Ordering::Relaxed,
+    );
+    if let Ok(mut guard) = BOUNCE_STATE.output_path.lock() {
+        *guard = Some(PathBuf::from(&path_str));
     }
 
-    1
+    let bd = bit_depth;
+    let do_normalize = normalize != 0;
+    let norm_target = normalize_target;
+
+    // Spawn background render thread
+    std::thread::Builder::new()
+        .name("bounce-render".into())
+        .spawn(move || {
+            let block_size: usize = 1024;
+            let mut all_l = Vec::with_capacity(total_samples);
+            let mut all_r = Vec::with_capacity(total_samples);
+            let mut block_l = vec![0.0f64; block_size];
+            let mut block_r = vec![0.0f64; block_size];
+            let mut peak: f64 = 0.0;
+            let mut processed: usize = 0;
+
+            // Render block-by-block using the full engine path
+            let mut current_sample = start_sample;
+            let render_end = start_sample + total_samples;
+
+            while current_sample < render_end {
+                // Check cancellation
+                if BOUNCE_STATE.cancel_flag.load(Ordering::Relaxed) {
+                    BOUNCE_STATE.was_cancelled.store(true, Ordering::Relaxed);
+                    BOUNCE_STATE.is_active.store(false, Ordering::SeqCst);
+                    return;
+                }
+
+                let frames = block_size.min(render_end - current_sample);
+                block_l[..frames].fill(0.0);
+                block_r[..frames].fill(0.0);
+
+                PLAYBACK_ENGINE.process_offline(
+                    current_sample,
+                    &mut block_l[..frames],
+                    &mut block_r[..frames],
+                );
+
+                // Track peak and accumulate
+                for i in 0..frames {
+                    peak = peak.max(block_l[i].abs()).max(block_r[i].abs());
+                    all_l.push(block_l[i]);
+                    all_r.push(block_r[i]);
+                }
+
+                current_sample += frames;
+                processed += frames;
+
+                // Update progress atomics
+                let pct = (processed as f64 / total_samples as f64) * 100.0;
+                BOUNCE_STATE.progress.store(pct.to_bits(), Ordering::Relaxed);
+                BOUNCE_STATE.processed_samples.store(processed as u64, Ordering::Relaxed);
+                let peak_db = if peak > 0.0 { 20.0 * peak.log10() } else { -120.0 };
+                BOUNCE_STATE.peak_level.store(peak_db.to_bits(), Ordering::Relaxed);
+            }
+
+            // Normalize if requested
+            if do_normalize && peak > 0.0 {
+                let target_linear = 10.0_f64.powf(norm_target / 20.0);
+                let gain = (target_linear / peak).min(10.0); // Cap at +20dB
+                for s in all_l.iter_mut() { *s *= gain; }
+                for s in all_r.iter_mut() { *s *= gain; }
+            }
+
+            // Write WAV
+            let path = PathBuf::from(&path_str);
+            if let Some(parent) = path.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+
+            let write_result = match bd {
+                16 => crate::freeze::OfflineRenderer::write_wav_16bit(&path, &all_l, &all_r, sr),
+                32 => crate::freeze::OfflineRenderer::write_wav_f32(&path, &all_l, &all_r, sr),
+                _ => crate::freeze::OfflineRenderer::write_wav_24bit(&path, &all_l, &all_r, sr),
+            };
+
+            if write_result.is_err() {
+                BOUNCE_STATE.was_cancelled.store(true, Ordering::Relaxed);
+            }
+
+            BOUNCE_STATE.progress.store(100.0_f64.to_bits(), Ordering::Relaxed);
+            BOUNCE_STATE.is_complete.store(true, Ordering::SeqCst);
+            BOUNCE_STATE.is_active.store(false, Ordering::SeqCst);
+        })
+        .map(|_| 1)
+        .unwrap_or(0)
 }
 
 /// Get bounce progress (0.0 - 100.0)
 #[unsafe(no_mangle)]
 pub extern "C" fn bounce_get_progress() -> f32 {
-    BOUNCE_RENDERER
-        .lock()
-        .ok()
-        .and_then(|g| g.as_ref().map(|r| r.progress().percent))
-        .unwrap_or(0.0)
+    f64::from_bits(BOUNCE_STATE.progress.load(Ordering::Relaxed)) as f32
 }
 
 /// Check if bounce is complete
 #[unsafe(no_mangle)]
 pub extern "C" fn bounce_is_complete() -> i32 {
-    BOUNCE_RENDERER
-        .lock()
-        .ok()
-        .and_then(|g| {
-            g.as_ref()
-                .map(|r| if r.progress().is_complete { 1 } else { 0 })
-        })
-        .unwrap_or(0)
+    if BOUNCE_STATE.is_complete.load(Ordering::Relaxed) { 1 } else { 0 }
 }
 
 /// Check if bounce was cancelled
 #[unsafe(no_mangle)]
 pub extern "C" fn bounce_was_cancelled() -> i32 {
-    BOUNCE_RENDERER
-        .lock()
-        .ok()
-        .and_then(|g| {
-            g.as_ref()
-                .map(|r| if r.progress().was_cancelled { 1 } else { 0 })
-        })
-        .unwrap_or(0)
+    if BOUNCE_STATE.was_cancelled.load(Ordering::Relaxed) { 1 } else { 0 }
 }
 
 /// Get bounce speed factor (x realtime)
 #[unsafe(no_mangle)]
 pub extern "C" fn bounce_get_speed_factor() -> f32 {
-    BOUNCE_RENDERER
-        .lock()
-        .ok()
-        .and_then(|g| g.as_ref().map(|r| r.progress().speed_factor))
-        .unwrap_or(1.0)
+    let processed = BOUNCE_STATE.processed_samples.load(Ordering::Relaxed) as f64;
+    let start_ns = BOUNCE_STATE.start_time_ns.load(Ordering::Relaxed);
+    let now_ns = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos() as u64;
+    let elapsed_secs = (now_ns.saturating_sub(start_ns)) as f64 / 1_000_000_000.0;
+    let sr = PLAYBACK_ENGINE.sample_rate() as f64;
+    if elapsed_secs > 0.01 && sr > 0.0 {
+        ((processed / sr) / elapsed_secs) as f32
+    } else {
+        1.0
+    }
 }
 
 /// Get bounce ETA (seconds remaining)
 #[unsafe(no_mangle)]
 pub extern "C" fn bounce_get_eta() -> f32 {
-    BOUNCE_RENDERER
-        .lock()
-        .ok()
-        .and_then(|g| g.as_ref().map(|r| r.progress().eta_secs))
-        .unwrap_or(0.0)
+    let processed = BOUNCE_STATE.processed_samples.load(Ordering::Relaxed) as f64;
+    let total = BOUNCE_STATE.total_samples.load(Ordering::Relaxed) as f64;
+    let start_ns = BOUNCE_STATE.start_time_ns.load(Ordering::Relaxed);
+    let now_ns = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos() as u64;
+    let elapsed = (now_ns.saturating_sub(start_ns)) as f64 / 1_000_000_000.0;
+    if processed > 0.0 && total > 0.0 {
+        let remaining = total - processed;
+        ((remaining / processed) * elapsed) as f32
+    } else {
+        0.0
+    }
 }
 
-/// Get bounce peak level
+/// Get bounce peak level (dBFS)
 #[unsafe(no_mangle)]
 pub extern "C" fn bounce_get_peak_level() -> f32 {
-    BOUNCE_RENDERER
-        .lock()
-        .ok()
-        .and_then(|g| g.as_ref().map(|r| r.progress().peak_level))
-        .unwrap_or(0.0)
+    f64::from_bits(BOUNCE_STATE.peak_level.load(Ordering::Relaxed)) as f32
 }
 
 /// Cancel bounce
 #[unsafe(no_mangle)]
 pub extern "C" fn bounce_cancel() {
-    if let Ok(guard) = BOUNCE_RENDERER.lock()
-        && let Some(ref renderer) = *guard
-    {
-        renderer.cancel();
-    }
+    BOUNCE_STATE.cancel_flag.store(true, Ordering::SeqCst);
 }
 
 /// Check if bounce is active
 #[unsafe(no_mangle)]
 pub extern "C" fn bounce_is_active() -> i32 {
-    BOUNCE_RENDERER
-        .lock()
-        .ok()
-        .map(|g| if g.is_some() { 1 } else { 0 })
-        .unwrap_or(0)
+    if BOUNCE_STATE.is_active.load(Ordering::Relaxed) { 1 } else { 0 }
 }
 
 /// Clear bounce state (call after complete/cancelled)
 #[unsafe(no_mangle)]
 pub extern "C" fn bounce_clear() {
-    if let Ok(mut guard) = BOUNCE_RENDERER.lock() {
-        *guard = None;
-    }
-    if let Ok(mut guard) = BOUNCE_OUTPUT_PATH.lock() {
+    BOUNCE_STATE.reset();
+    if let Ok(mut guard) = BOUNCE_STATE.output_path.lock() {
         *guard = None;
     }
 }
@@ -18243,7 +18306,7 @@ pub extern "C" fn bounce_clear() {
 /// Caller must free the returned string
 #[unsafe(no_mangle)]
 pub extern "C" fn bounce_get_output_path() -> *mut c_char {
-    BOUNCE_OUTPUT_PATH
+    BOUNCE_STATE.output_path
         .lock()
         .ok()
         .and_then(|g| g.as_ref().and_then(|p| p.to_str()).map(String::from))
@@ -23691,7 +23754,7 @@ pub extern "C" fn engine_get_active_section() -> u8 {
 //   - No locks (atomics only)
 //   - Memory-safe via repr(C) layout
 
-use std::sync::atomic::{AtomicU32, AtomicU64};
+use std::sync::atomic::AtomicU32;
 
 /// Shared meter buffer - single contiguous memory region
 /// Layout: repr(C) ensures predictable memory layout for FFI

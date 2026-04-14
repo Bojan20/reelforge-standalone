@@ -4332,10 +4332,74 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     );
 
     if (result != null) {
-      _showSnackBar('Bounce started: ${result.format.name} '
-          '(${result.startTime.toStringAsFixed(1)}s → ${result.endTime.toStringAsFixed(1)}s)');
-      // TODO: Trigger actual bounce via ExportService when engine offline render is wired
+      // Get output file path via native save dialog
+      final ext = result.format == AudioFormat.wav ? 'wav'
+          : result.format == AudioFormat.flac ? 'flac'
+          : result.format == AudioFormat.mp3 ? 'mp3'
+          : 'wav';
+      final suggestedName = 'bounce_${DateTime.now().millisecondsSinceEpoch}.$ext';
+      final savePath = await NativeFilePicker.saveFile(
+        suggestedName: suggestedName,
+        fileType: ext,
+      );
+      if (savePath == null) return; // User cancelled
+
+      // Map bit depth
+      final bitDepth = result.bitDepth == 16 ? 16 : result.bitDepth == 32 ? 32 : 24;
+      // Map format code
+      final formatCode = result.format == AudioFormat.flac ? 1
+          : result.format == AudioFormat.mp3 ? 2
+          : 0;
+      // Normalization
+      final normalize = result.normalizeMode.index != 0; // 0 = none
+      final normalizeTarget = result.normalizeTarget;
+
+      final ffi = NativeFFI.instance;
+      final started = ffi.bounceStart(
+        savePath,
+        formatCode,
+        bitDepth,
+        result.sampleRate,
+        result.startTime,
+        result.endTime,
+        normalize,
+        normalizeTarget,
+      );
+
+      if (started == 0) {
+        _showSnackBar('Bounce failed to start');
+        return;
+      }
+
+      _showSnackBar('Bouncing: ${result.format.name} $bitDepth-bit → $savePath');
+
+      // Poll progress until complete
+      _pollBounceProgress(savePath);
     }
+  }
+
+  /// Poll bounce progress and show completion
+  void _pollBounceProgress(String outputPath) {
+    Timer.periodic(const Duration(milliseconds: 200), (timer) {
+      if (!mounted) { timer.cancel(); return; }
+      final ffi = NativeFFI.instance;
+      final progress = ffi.bounceGetProgress();
+
+      if (ffi.bounceIsComplete()) {
+        timer.cancel();
+        final peakDb = ffi.bounceGetPeakLevel();
+        final speed = ffi.bounceGetSpeedFactor();
+        ffi.bounceClear();
+        _showSnackBar('Bounce complete! Peak: ${peakDb.toStringAsFixed(1)} dB · '
+            '${speed.toStringAsFixed(1)}x realtime');
+      } else if (ffi.bounceWasCancelled()) {
+        timer.cancel();
+        ffi.bounceClear();
+        _showSnackBar('Bounce cancelled');
+      } else if (progress > 0) {
+        // Optional: could update a progress indicator here
+      }
+    });
   }
 
   /// Render in place dialog
