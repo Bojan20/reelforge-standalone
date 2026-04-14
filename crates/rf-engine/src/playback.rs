@@ -1986,6 +1986,14 @@ pub struct PlaybackEngine {
     master_delay_buf_r: RwLock<Vec<f64>>,
     /// Write position for delay buffers
     master_delay_write_pos: AtomicUsize,
+    // === HOOK GRAPH ENGINE ===
+    /// Hook Graph audio-rate engine (processes graph voices on audio thread)
+    hook_graph_engine: Option<RwLock<crate::hook_graph::HookGraphEngine>>,
+    /// Hook Graph command ring buffer producer (Dart → Rust)
+    hook_graph_cmd_tx: parking_lot::Mutex<rtrb::Producer<crate::hook_graph::GraphCommand>>,
+    /// Hook Graph feedback ring buffer consumer (Rust → Dart)
+    hook_graph_fb_rx: parking_lot::Mutex<rtrb::Consumer<crate::hook_graph::GraphFeedback>>,
+
     /// Cached sample rate for delay calculations
     master_delay_sample_rate: AtomicU64,
 }
@@ -2001,6 +2009,11 @@ impl PlaybackEngine {
         // Create advanced loop system ring buffers
         let (loop_cmd_tx, loop_cmd_rx) = rtrb::RingBuffer::<crate::loop_manager::LoopCommand>::new(256);
         let (loop_cb_tx, loop_cb_rx) = rtrb::RingBuffer::<crate::loop_manager::LoopCallback>::new(512);
+
+        // Create hook graph engine ring buffers
+        let (hg_cmd_tx, hg_cmd_rx) = rtrb::RingBuffer::<crate::hook_graph::GraphCommand>::new(512);
+        let (hg_fb_tx, hg_fb_rx) = rtrb::RingBuffer::<crate::hook_graph::GraphFeedback>::new(512);
+        let hook_graph = crate::hook_graph::HookGraphEngine::new(sample_rate, 1024, hg_cmd_rx, hg_fb_tx);
 
         Self {
             track_manager,
@@ -2115,6 +2128,9 @@ impl PlaybackEngine {
             master_delay_buf_r: RwLock::new(vec![0.0_f64; 8192]),
             master_delay_write_pos: AtomicUsize::new(0),
             master_delay_sample_rate: AtomicU64::new((sample_rate as f64).to_bits()),
+            hook_graph_engine: Some(RwLock::new(hook_graph)),
+            hook_graph_cmd_tx: parking_lot::Mutex::new(hg_cmd_tx),
+            hook_graph_fb_rx: parking_lot::Mutex::new(hg_fb_rx),
         }
     }
 
@@ -4923,6 +4939,26 @@ impl PlaybackEngine {
     // ADVANCED LOOP SYSTEM (Wwise-grade)
     // ═══════════════════════════════════════════════════════════════════════
 
+    /// Get Hook Graph command producer (for FFI/Dart to send graph commands).
+    pub fn hook_graph_cmd_producer(&self) -> &parking_lot::Mutex<rtrb::Producer<crate::hook_graph::GraphCommand>> {
+        &self.hook_graph_cmd_tx
+    }
+
+    /// Get Hook Graph feedback consumer (for FFI/Dart to read feedback).
+    pub fn hook_graph_fb_consumer(&self) -> &parking_lot::Mutex<rtrb::Consumer<crate::hook_graph::GraphFeedback>> {
+        &self.hook_graph_fb_rx
+    }
+
+    /// Get Hook Graph engine diagnostics.
+    pub fn hook_graph_active_voices(&self) -> usize {
+        self.hook_graph_engine.as_ref()
+            .and_then(|e| e.try_read())
+            .map(|e| e.active_voice_count())
+            .unwrap_or(0)
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+
     /// Initialize the advanced loop system.
     pub fn loop_system_init(&self) {
         self.loop_initialized.store(true, Ordering::Release);
@@ -5429,6 +5465,15 @@ impl PlaybackEngine {
                     }
                     crate::ffi::SHARED_METERS.update_channel_peak(bus_idx, bp_l, bp_r);
                 }
+            }
+        }
+
+        // === HOOK GRAPH ENGINE ===
+        // Process graph commands and render graph voices into output.
+        // Runs regardless of transport state (same as one-shot voices).
+        if let Some(ref hg_engine) = self.hook_graph_engine {
+            if let Some(mut engine) = hg_engine.try_write() {
+                engine.process(output_l, output_r, frames);
             }
         }
 
