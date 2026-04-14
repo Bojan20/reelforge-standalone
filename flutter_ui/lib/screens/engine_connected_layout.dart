@@ -86,6 +86,7 @@ import '../models/event_folder_models.dart' show EventFolder;
 import '../models/slot_audio_events.dart' show SlotCompositeEvent, SlotEventLayer, sortEventsHierarchically;
 import '../widgets/common/audio_waveform_picker_dialog.dart';
 import '../models/timeline_models.dart' as timeline;
+import '../models/comping_models.dart';
 import '../widgets/timeline/selection_range.dart';
 import '../theme/fluxforge_theme.dart';
 import '../widgets/layout/left_zone.dart' show LeftZoneTab;
@@ -309,6 +310,17 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   List<timeline.TimelineMarker> _markers = [];
   List<timeline.Crossfade> _crossfades = [];
   timeline.LoopRegion? _loopRegion;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CYCLE RECORDING STATE (auto-take-lane creation)
+  // ═══════════════════════════════════════════════════════════════════════════
+  bool _cycleRecordingActive = false;
+  int _lastCycleCount = 0;
+  Timer? _cycleMonitorTimer;
+  /// Track IDs that were armed when cycle recording started
+  final Set<String> _cycleArmedTrackIds = {};
+  /// Previous recording state (for edge detection)
+  bool _wasRecording = false;
 
   /// Drag preview state — stored separately from _clips to preserve
   /// source-of-truth on drag cancel. Composited into selectedClip for
@@ -1040,6 +1052,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     DspChainProvider.instance.onWetDrySyncToMixer = null;
     // Cancel resize throttle timer
     _resizeThrottleTimer?.cancel();
+    // Cancel cycle recording monitor
+    _cycleMonitorTimer?.cancel();
     // Dispose ScrollController
     _middlewareTimelineScrollController.dispose();
     // Dispose Middleware ↔ DAW Sync Controller
@@ -4345,6 +4359,159 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     }
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CYCLE RECORDING — Auto Take Lane Creation (Logic Pro/Cubase style)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Called when recording starts — check if loop is active for cycle recording
+  void _onRecordingStarted() {
+    final engine = context.read<EngineProvider>();
+    final loopEnabled = engine.transport.loopEnabled;
+
+    if (!loopEnabled || _loopRegion == null) return;
+
+    // Find armed tracks
+    _cycleArmedTrackIds.clear();
+    for (final track in _tracks) {
+      if (track.armed) {
+        _cycleArmedTrackIds.add(track.id);
+      }
+    }
+    if (_cycleArmedTrackIds.isEmpty) return;
+
+    // Enable cycle recording
+    final ffi = NativeFFI.instance;
+    ffi.cycleSetRange(_loopRegion!.start, _loopRegion!.end);
+    ffi.cycleSetEnabled(true);
+    ffi.cycleResetCounter();
+    _lastCycleCount = 0;
+    _cycleRecordingActive = true;
+
+    // Initialize comp state on armed tracks (create first lane)
+    setState(() {
+      _tracks = _tracks.map((t) {
+        if (!_cycleArmedTrackIds.contains(t.id)) return t;
+        final comp = (t.compState ?? CompState(trackId: t.id))
+            .createLane(name: 'Take 1');
+        return t.copyWith(
+          compState: comp.copyWith(
+            isRecording: true,
+            recordingStartTime: _loopRegion!.start,
+            lanesExpanded: true,
+          ),
+        );
+      }).toList();
+    });
+
+    // Start polling cycle counter (100ms interval — responsive without flooding)
+    _cycleMonitorTimer?.cancel();
+    _cycleMonitorTimer = Timer.periodic(
+      const Duration(milliseconds: 100),
+      (_) => _checkCycleBoundary(),
+    );
+  }
+
+  /// Called when recording stops — finalize cycle recording
+  void _onRecordingStopped() {
+    if (!_cycleRecordingActive) return;
+
+    _cycleMonitorTimer?.cancel();
+    _cycleMonitorTimer = null;
+    _cycleRecordingActive = false;
+
+    final ffi = NativeFFI.instance;
+    ffi.cycleSetEnabled(false);
+
+    // Finalize comp state on armed tracks
+    setState(() {
+      _tracks = _tracks.map((t) {
+        if (!_cycleArmedTrackIds.contains(t.id)) return t;
+        if (t.compState == null) return t;
+        return t.copyWith(
+          compState: t.compState!.copyWith(
+            isRecording: false,
+            recordingStartTime: null,
+          ),
+        );
+      }).toList();
+    });
+
+    _cycleArmedTrackIds.clear();
+    _lastCycleCount = 0;
+  }
+
+  /// Polled during cycle recording — detect cycle boundary crossing
+  void _checkCycleBoundary() {
+    if (!_cycleRecordingActive || !mounted) return;
+
+    final ffi = NativeFFI.instance;
+    final currentCycle = ffi.cycleGetCurrent();
+
+    if (currentCycle > _lastCycleCount) {
+      // Cycle boundary crossed — new take started
+      _lastCycleCount = currentCycle;
+      _onCycleBoundaryCrossed(currentCycle);
+    }
+  }
+
+  /// Handle cycle boundary — create new lane + take from previous cycle
+  void _onCycleBoundaryCrossed(int cycleNumber) {
+    if (_loopRegion == null) return;
+
+    final ffi = NativeFFI.instance;
+    final cycleStart = _loopRegion!.start;
+    final cycleDuration = _loopRegion!.end - _loopRegion!.start;
+
+    setState(() {
+      _tracks = _tracks.map((t) {
+        if (!_cycleArmedTrackIds.contains(t.id)) return t;
+        if (t.compState == null) return t;
+
+        var comp = t.compState!;
+        final trackIdInt = int.tryParse(t.id) ?? 0;
+
+        // Get recorded file path from recording provider
+        final recordingProvider = context.read<RecordingProvider>();
+        final recordedPath = recordingProvider.getRecordingPath(trackIdInt) ?? '';
+
+        // Create take for previous cycle
+        final take = Take(
+          id: 'take_${t.id}_${cycleNumber}',
+          laneId: comp.activeLane?.id ?? '',
+          trackId: t.id,
+          takeNumber: comp.nextTakeNumber,
+          startTime: cycleStart,
+          duration: cycleDuration,
+          sourcePath: recordedPath,
+          sourceDuration: cycleDuration,
+          recordedAt: DateTime.now(),
+        );
+
+        // Add take to current lane
+        comp = comp.addTake(take);
+
+        // Create new lane for next cycle
+        final nextLaneName = 'Take ${comp.nextTakeNumber}';
+        comp = comp.createLane(name: nextLaneName);
+
+        // Activate new lane
+        final newLaneIndex = comp.lanes.length - 1;
+        comp = comp.setActiveLane(newLaneIndex);
+
+        // Sync to engine
+        ffi.compingCreateLane(trackIdInt);
+        ffi.compingAddTake(
+          trackIdInt,
+          recordedPath,
+          cycleStart,
+          cycleDuration,
+        );
+
+        return t.copyWith(compState: comp);
+      }).toList();
+    });
+  }
+
   /// Show Audio Pool panel in lower zone
   void _handleShowAudioPool() {
     setState(() {
@@ -6902,7 +7069,18 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     // to avoid rebuilding entire timeline on every provider change.
     return Selector<EngineProvider, ({double position, bool isRecording})>(
       selector: (_, engine) => (position: engine.transport.positionSeconds, isRecording: engine.transport.isRecording),
-      builder: (context, data, child) => timeline_widget.Timeline(
+      builder: (context, data, child) {
+      // Detect recording state transitions for cycle recording
+      if (data.isRecording && !_wasRecording) {
+        // Recording just started
+        WidgetsBinding.instance.addPostFrameCallback((_) => _onRecordingStarted());
+      } else if (!data.isRecording && _wasRecording) {
+        // Recording just stopped
+        WidgetsBinding.instance.addPostFrameCallback((_) => _onRecordingStopped());
+      }
+      _wasRecording = data.isRecording;
+
+      return timeline_widget.Timeline(
       tracks: _tracks,
       clips: _filteredClips, // Event-filtered clips
       markers: _markers,
@@ -8381,7 +8559,63 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           NativeFFI.instance.automationClearLane(trackIdInt, lane.parameterName.toLowerCase());
         }
       },
-    ),
+      // Comping callbacks — cycle recording take lanes
+      onTrackCompingToggle: (trackId) {
+        setState(() {
+          _tracks = _tracks.map((t) {
+            if (t.id == trackId) {
+              final comp = t.compState ?? CompState(trackId: trackId);
+              return t.copyWith(
+                compState: comp.copyWith(lanesExpanded: !comp.lanesExpanded),
+              );
+            }
+            return t;
+          }).toList();
+        });
+      },
+      onCompingLaneActivate: (trackId, laneIndex) {
+        setState(() {
+          _tracks = _tracks.map((t) {
+            if (t.id == trackId && t.compState != null) {
+              return t.copyWith(compState: t.compState!.setActiveLane(laneIndex));
+            }
+            return t;
+          }).toList();
+        });
+        final trackIdInt = int.tryParse(trackId) ?? 0;
+        NativeFFI.instance.compingSetActiveLane(trackIdInt, laneIndex);
+      },
+      onCompingLaneMuteToggle: (trackId, laneId) {
+        setState(() {
+          _tracks = _tracks.map((t) {
+            if (t.id == trackId && t.compState != null) {
+              final updatedLanes = t.compState!.lanes.map((l) {
+                if (l.id == laneId) return l.copyWith(muted: !l.muted);
+                return l;
+              }).toList();
+              return t.copyWith(compState: t.compState!.copyWith(lanes: updatedLanes));
+            }
+            return t;
+          }).toList();
+        });
+      },
+      onCompingLaneDelete: (trackId, laneId) {
+        setState(() {
+          _tracks = _tracks.map((t) {
+            if (t.id == trackId && t.compState != null) {
+              final updatedLanes = t.compState!.lanes.where((l) => l.id != laneId).toList();
+              return t.copyWith(compState: t.compState!.copyWith(lanes: updatedLanes));
+            }
+            return t;
+          }).toList();
+        });
+        // Sync delete to engine
+        final trackIdInt = int.tryParse(trackId) ?? 0;
+        final laneIdInt = int.tryParse(laneId) ?? 0;
+        NativeFFI.instance.compingDeleteLane(trackIdInt, laneIdInt);
+      },
+    );
+    }, // Close builder function
     ); // Close Selector wrapper
   }
 
