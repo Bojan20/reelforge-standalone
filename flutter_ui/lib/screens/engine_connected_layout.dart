@@ -4298,7 +4298,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   }
 
   /// Bounce to disk dialog
-  void _handleBounce() async {
+  /// [selectionStart] and [selectionEnd] are optional — null means full project
+  void _handleBounce({double? selectionStart, double? selectionEnd}) async {
     final engine = context.read<EngineProvider>();
     final projectDuration = engine.project.sampleRate > 0
         ? engine.project.durationSamples / engine.project.sampleRate
@@ -4308,11 +4309,18 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       context,
       projectStart: 0,
       projectEnd: projectDuration,
+      selectionStart: selectionStart,
+      selectionEnd: selectionEnd,
+      loopRegion: _loopRegion != null
+          ? (_loopRegion!.start, _loopRegion!.end)
+          : null,
       projectSampleRate: engine.project.sampleRate > 0 ? engine.project.sampleRate.toInt() : 48000,
     );
 
     if (result != null) {
-      _showSnackBar('Bounce started with options: ${result.format.name}');
+      _showSnackBar('Bounce started: ${result.format.name} '
+          '(${result.startTime.toStringAsFixed(1)}s → ${result.endTime.toStringAsFixed(1)}s)');
+      // TODO: Trigger actual bounce via ExportService when engine offline render is wired
     }
   }
 
@@ -6924,6 +6932,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       onImportAudio: _openFilePicker,
       // Export audio shortcut (Alt+Cmd+E)
       onExportAudio: _handleExportAudio,
+      // Bounce selection shortcut (Cmd+B)
+      onBounceSelection: (selStart, selEnd) =>
+          _handleBounce(selectionStart: selStart, selectionEnd: selEnd),
       // File shortcuts (Cmd+S, Cmd+Shift+S, Cmd+O, Cmd+N)
       onSave: () => _handleSaveProject(context.read<EngineProvider>()),
       onSaveAs: () => _handleSaveProjectAs(context.read<EngineProvider>()),
@@ -8114,11 +8125,52 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         _updateTrackById(trackId, (t) => t.copyWith(inputMonitor: newMonitor));
         context.read<MixerProvider>().setInputMonitor('ch_$trackId', newMonitor);
       },
-      // Marker callback
+      // Marker callbacks
       onMarkerClick: (markerId) {
         final marker = _markers.firstWhere((m) => m.id == markerId);
         final engine = context.read<EngineProvider>();
         engine.seek(marker.time);
+      },
+      onMarkerAdd: (time) {
+        final ffi = NativeFFI.instance;
+        final markerCount = _markers.length + 1;
+        final markerId = ffi.addMarker('Marker $markerCount', time, 0xFFFF9040);
+        if (markerId > 0) {
+          setState(() {
+            _markers = List.from(_markers)
+              ..add(timeline.TimelineMarker(
+                id: markerId.toString(),
+                time: time,
+                name: 'Marker $markerCount',
+                color: const Color(0xFFFF9040),
+              ));
+          });
+        }
+      },
+      onMarkerDelete: (markerId) {
+        final numId = int.tryParse(markerId);
+        if (numId != null) {
+          final ffi = NativeFFI.instance;
+          ffi.deleteMarker(numId);
+        }
+        setState(() {
+          _markers = _markers.where((m) => m.id != markerId).toList();
+        });
+      },
+      onMarkerRename: (markerId, newName) {
+        setState(() {
+          _markers = _markers.map((m) {
+            if (m.id == markerId) {
+              return timeline.TimelineMarker(
+                id: m.id,
+                time: m.time,
+                name: newName,
+                color: m.color,
+              );
+            }
+            return m;
+          }).toList();
+        });
       },
       // Crossfade callbacks
       onCrossfadeUpdate: (crossfadeId, duration) {
@@ -8290,7 +8342,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 parameter: parameter,
                 parameterName: _getParameterName(parameter),
                 points: [],
-                mode: AutomationMode.read,
+                mode: AutomationMode.touch, // Touch mode: click to add points (Read blocks editing)
                 color: _getParameterColor(parameter),
               );
               return t.copyWith(

@@ -163,6 +163,12 @@ class Timeline extends StatefulWidget {
   final ValueChanged<String>? onClipCopy;
   final VoidCallback? onClipPaste;
   final ValueChanged<String>? onMarkerClick;
+  /// Add marker at time position (Cmd+M)
+  final void Function(double time)? onMarkerAdd;
+  /// Delete marker (right-click → delete)
+  final ValueChanged<String>? onMarkerDelete;
+  /// Rename marker
+  final void Function(String markerId, String newName)? onMarkerRename;
 
   /// Stage markers from game engine (shown on ruler)
   final List<StageMarker> stageMarkers;
@@ -208,6 +214,10 @@ class Timeline extends StatefulWidget {
 
   /// Export audio callback (Alt+Cmd+E)
   final VoidCallback? onExportAudio;
+
+  /// Bounce selection callback (Cmd+B)
+  /// Passes optional selection bounds (start, end) — null means full project
+  final void Function(double? selectionStart, double? selectionEnd)? onBounceSelection;
 
   /// File operations (⌘S, ⌘⇧S, ⌘O, ⌘N)
   final VoidCallback? onSave;
@@ -351,6 +361,9 @@ class Timeline extends StatefulWidget {
     this.onClipCopy,
     this.onClipPaste,
     this.onMarkerClick,
+    this.onMarkerAdd,
+    this.onMarkerDelete,
+    this.onMarkerRename,
     this.stageMarkers = const [],
     this.onStageMarkerClick,
     this.onTempoChange,
@@ -370,6 +383,7 @@ class Timeline extends StatefulWidget {
     this.onFileDrop,
     this.onImportAudio,
     this.onExportAudio,
+    this.onBounceSelection,
     this.onSave,
     this.onSaveAs,
     this.onOpen,
@@ -1623,6 +1637,79 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
   }
 
   /// Auto-scroll timeline so [time] is visible (centered if offscreen)
+  // ═══════════════════════════════════════════════════════════════════════
+  // MARKER CONTEXT MENU & RENAME
+  // ═══════════════════════════════════════════════════════════════════════
+
+  void _showMarkerContextMenu(BuildContext ctx, TimelineMarker marker, Offset globalPos) {
+    showMenu(
+      context: ctx,
+      position: RelativeRect.fromLTRB(globalPos.dx, globalPos.dy, globalPos.dx + 1, globalPos.dy + 1),
+      items: [
+        PopupMenuItem(
+          onTap: () => _showMarkerRenameDialog(ctx, marker),
+          child: const Row(
+            children: [
+              Icon(Icons.edit, size: 14),
+              SizedBox(width: 8),
+              Text('Rename', style: TextStyle(fontSize: 12)),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          onTap: () => widget.onMarkerDelete?.call(marker.id),
+          child: const Row(
+            children: [
+              Icon(Icons.delete_outline, size: 14, color: Colors.redAccent),
+              SizedBox(width: 8),
+              Text('Delete', style: TextStyle(fontSize: 12, color: Colors.redAccent)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showMarkerRenameDialog(BuildContext ctx, TimelineMarker marker) {
+    final controller = TextEditingController(text: marker.name);
+    showDialog(
+      context: ctx,
+      builder: (context) => AlertDialog(
+        title: const Text('Rename Marker', style: TextStyle(fontSize: 14)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Marker name',
+            isDense: true,
+          ),
+          onSubmitted: (value) {
+            if (value.trim().isNotEmpty) {
+              widget.onMarkerRename?.call(marker.id, value.trim());
+            }
+            Navigator.of(context).pop();
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              final value = controller.text.trim();
+              if (value.isNotEmpty) {
+                widget.onMarkerRename?.call(marker.id, value);
+              }
+              Navigator.of(context).pop();
+            },
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _scrollToTime(double time) {
     final visibleStart = widget.scrollOffset;
     final visibleEnd = visibleStart + _containerWidth / _effectiveZoom;
@@ -1698,6 +1785,31 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
     // Alt+Cmd+E - Export Audio
     if (isCmd && isAlt && !isShift && event.logicalKey == LogicalKeyboardKey.keyE) {
       widget.onExportAudio?.call();
+      return KeyEventResult.handled;
+    }
+
+    // Cmd+B - Bounce Selection (Cubase/Logic style)
+    // Priority: range selection > selected clips > full project
+    if (isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyB) {
+      double? selStart;
+      double? selEnd;
+
+      // 1. Active range selection takes priority
+      if (_rangeSelection != null && _rangeSelection!.isValid) {
+        final norm = _rangeSelection!.normalized();
+        selStart = norm.start;
+        selEnd = norm.end;
+      } else {
+        // 2. Selected clips — use combined bounds
+        final selectedClips = widget.clips.where((c) => c.selected).toList();
+        if (selectedClips.isNotEmpty) {
+          selStart = selectedClips.map((c) => c.startTime).reduce(math.min);
+          selEnd = selectedClips.map((c) => c.endTime).reduce(math.max);
+        }
+        // 3. No selection — null means full project (handled by parent)
+      }
+
+      widget.onBounceSelection?.call(selStart, selEnd);
       return KeyEventResult.handled;
     }
 
@@ -1848,6 +1960,12 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
           return KeyEventResult.handled;
         }
       }
+    }
+
+    // Cmd+M - Add marker at playhead (Cubase/Logic style)
+    if (isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyM) {
+      widget.onMarkerAdd?.call(widget.playheadPosition);
+      return KeyEventResult.handled;
     }
 
     // M key - Mute selected track
@@ -2871,6 +2989,13 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                                 onTap: () {
                                   widget.onPlayheadChange?.call(marker.time);
                                   widget.onMarkerClick?.call(marker.id);
+                                },
+                                onSecondaryTapDown: (details) {
+                                  _showMarkerContextMenu(context, marker, details.globalPosition);
+                                },
+                                onDoubleTap: () {
+                                  // Double-click to rename marker inline
+                                  _showMarkerRenameDialog(context, marker);
                                 },
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,

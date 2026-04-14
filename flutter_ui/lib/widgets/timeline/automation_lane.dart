@@ -311,6 +311,11 @@ class _AutomationLaneState extends State<AutomationLane> {
   bool _showValueTooltip = false;
   final FocusNode _focusNode = FocusNode();
 
+  /// Whether the lane is in an editable mode (not read-only or off)
+  bool get _isEditable =>
+      widget.data.mode != AutomationMode.off &&
+      widget.data.mode != AutomationMode.read;
+
   double _timeAtX(double x) {
     return widget.scrollOffset + x / widget.zoom;
   }
@@ -589,47 +594,68 @@ class _AutomationLaneState extends State<AutomationLane> {
           color: FluxForgeTheme.bgDeepest.withValues(alpha: 0.5),
           child: Stack(
             children: [
-              // Automation curve
+              // Automation curve — drawing surface
               Positioned.fill(
-                child: GestureDetector(
-                  onTapDown: (details) {
-                    _focusNode.requestFocus();
-                    // Double-tap to add point
-                    if (widget.data.mode != AutomationMode.off &&
-                        widget.data.mode != AutomationMode.read) {
-                      _addPoint(details.localPosition.dx, details.localPosition.dy);
-                    }
-                  },
-                  onPanStart: (details) {
-                    if (widget.data.mode == AutomationMode.write) {
-                      _isDrawing = true;
-                      _lastDrawPosition = details.localPosition;
-                    }
-                  },
-                  onPanUpdate: (details) {
-                    if (_isDrawing && _lastDrawPosition != null) {
-                      _addPoint(details.localPosition.dx, details.localPosition.dy);
-                      _lastDrawPosition = details.localPosition;
-                    }
-                  },
-                  onPanEnd: (_) {
-                    _isDrawing = false;
-                    _lastDrawPosition = null;
-                  },
-                  child: CustomPaint(
-                    painter: _AutomationCurvePainter(
-                      data: widget.data,
-                      zoom: widget.zoom,
-                      scrollOffset: widget.scrollOffset,
-                      selectedPoints: _selectedPoints,
+                child: MouseRegion(
+                  cursor: _isEditable
+                      ? SystemMouseCursors.precise
+                      : SystemMouseCursors.basic,
+                  child: GestureDetector(
+                    onTapDown: (details) {
+                      _focusNode.requestFocus();
+                      // Click to add point (all editable modes: write, touch, latch)
+                      if (_isEditable) {
+                        _addPoint(details.localPosition.dx, details.localPosition.dy);
+                      }
+                    },
+                    onPanStart: (details) {
+                      // Freehand draw in Write mode, or fine-draw in Touch/Latch
+                      if (_isEditable) {
+                        _isDrawing = true;
+                        _lastDrawPosition = details.localPosition;
+                        // Add first point immediately
+                        _addPoint(details.localPosition.dx, details.localPosition.dy);
+                      }
+                    },
+                    onPanUpdate: (details) {
+                      if (_isDrawing && _lastDrawPosition != null) {
+                        // Throttle: only add point if moved enough (avoid flooding)
+                        final dx = (details.localPosition.dx - _lastDrawPosition!.dx).abs();
+                        if (dx >= 3.0) { // ~3px minimum distance between drawn points
+                          _addPoint(details.localPosition.dx, details.localPosition.dy);
+                          _lastDrawPosition = details.localPosition;
+                        }
+                      }
+                    },
+                    onPanEnd: (_) {
+                      _isDrawing = false;
+                      _lastDrawPosition = null;
+                    },
+                    child: CustomPaint(
+                      painter: _AutomationCurvePainter(
+                        data: widget.data,
+                        zoom: widget.zoom,
+                        scrollOffset: widget.scrollOffset,
+                        selectedPoints: _selectedPoints,
+                      ),
                     ),
                   ),
                 ),
               ),
 
-              // Automation points (interactive)
-              for (final point in widget.data.points)
-                _buildPointWidget(point),
+              // Automation points (interactive) — IgnorePointer during drawing
+              Positioned.fill(
+                child: IgnorePointer(
+                  ignoring: _isDrawing, // While drawing, points don't intercept gestures
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      for (final point in widget.data.points)
+                        _buildPointWidget(point),
+                    ],
+                  ),
+                ),
+              ),
 
               // Lane header
               Positioned(
