@@ -9,9 +9,13 @@
 // - Cmd+D: Duplicate
 // - M: Mute
 // - And many more...
+//
+// Supports runtime key remapping via SharedPreferences ('custom_shortcuts')
 
+import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // ============ Types ============
 
@@ -238,6 +242,18 @@ class GlobalShortcutsProvider extends ChangeNotifier {
   ShortcutAction actions = ShortcutAction();
   bool enabled = true;
 
+  /// Runtime shortcut map — starts as copy of kShortcuts, overridden by user prefs
+  Map<String, ShortcutDef> _runtimeShortcuts = Map.from(kShortcuts);
+
+  /// Reverse lookup: key combo → action ID (built from _runtimeShortcuts)
+  final Map<String, String> _keyToAction = {};
+
+  /// Custom (user-remapped) shortcuts only
+  final Map<String, ShortcutDef> _customShortcuts = {};
+
+  /// Whether custom shortcuts have been loaded from disk
+  bool _customLoaded = false;
+
   void setActions(ShortcutAction newActions) {
     actions = newActions;
     notifyListeners();
@@ -248,7 +264,219 @@ class GlobalShortcutsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Load custom shortcuts from SharedPreferences and rebuild dispatch map
+  Future<void> loadCustomShortcuts() async {
+    if (_customLoaded) return;
+    _customLoaded = true;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final json = prefs.getString('custom_shortcuts');
+      if (json != null && json.isNotEmpty) {
+        final map = jsonDecode(json) as Map<String, dynamic>;
+        for (final entry in map.entries) {
+          final data = entry.value as Map<String, dynamic>;
+          final modData = data['mod'] as Map<String, dynamic>?;
+          _customShortcuts[entry.key] = ShortcutDef(
+            key: data['key'] as String? ?? '',
+            display: data['display'] as String? ?? '',
+            mod: modData != null ? ShortcutModifiers(
+              ctrl: modData['ctrl'] as bool? ?? false,
+              shift: modData['shift'] as bool? ?? false,
+              alt: modData['alt'] as bool? ?? false,
+              meta: modData['meta'] as bool? ?? false,
+              cmd: modData['cmd'] as bool? ?? false,
+            ) : null,
+          );
+        }
+      }
+    } catch (_) {
+      // Corrupted prefs — use defaults
+    }
+
+    _rebuildRuntimeMap();
+  }
+
+  /// Remap a shortcut at runtime (from settings screen)
+  void remapShortcut(String actionId, ShortcutDef newDef) {
+    _customShortcuts[actionId] = newDef;
+    _rebuildRuntimeMap();
+    _saveCustomShortcuts();
+    notifyListeners();
+  }
+
+  /// Reset a shortcut to default
+  void resetShortcut(String actionId) {
+    _customShortcuts.remove(actionId);
+    _rebuildRuntimeMap();
+    _saveCustomShortcuts();
+    notifyListeners();
+  }
+
+  /// Reset all shortcuts to defaults
+  void resetAllShortcuts() {
+    _customShortcuts.clear();
+    _rebuildRuntimeMap();
+    _saveCustomShortcuts();
+    notifyListeners();
+  }
+
+  /// Get current shortcut for an action (custom or default)
+  ShortcutDef? getShortcut(String actionId) {
+    return _customShortcuts[actionId] ?? kShortcuts[actionId];
+  }
+
+  /// Whether a shortcut has been customized
+  bool isCustomized(String actionId) => _customShortcuts.containsKey(actionId);
+
+  /// Build key combo string for reverse lookup
+  static String _comboKey(String key, {bool cmd = false, bool shift = false, bool alt = false}) {
+    final parts = <String>[];
+    if (cmd) parts.add('cmd');
+    if (shift) parts.add('shift');
+    if (alt) parts.add('alt');
+    parts.add(key.toLowerCase());
+    return parts.join('+');
+  }
+
+  /// Rebuild reverse lookup map from runtime shortcuts
+  void _rebuildRuntimeMap() {
+    _runtimeShortcuts = Map.from(kShortcuts);
+    _runtimeShortcuts.addAll(_customShortcuts);
+
+    _keyToAction.clear();
+    for (final entry in _runtimeShortcuts.entries) {
+      final def = entry.value;
+      final combo = _comboKey(
+        def.key,
+        cmd: def.mod?.cmd ?? false,
+        shift: def.mod?.shift ?? false,
+        alt: def.mod?.alt ?? false,
+      );
+      _keyToAction[combo] = entry.key;
+    }
+  }
+
+  /// Persist custom shortcuts to SharedPreferences
+  Future<void> _saveCustomShortcuts() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (_customShortcuts.isEmpty) {
+        await prefs.remove('custom_shortcuts');
+        return;
+      }
+      final map = <String, dynamic>{};
+      for (final entry in _customShortcuts.entries) {
+        map[entry.key] = {
+          'key': entry.value.key,
+          'display': entry.value.display,
+          'mod': {
+            'ctrl': entry.value.mod?.ctrl ?? false,
+            'shift': entry.value.mod?.shift ?? false,
+            'alt': entry.value.mod?.alt ?? false,
+            'meta': entry.value.mod?.meta ?? false,
+            'cmd': entry.value.mod?.cmd ?? false,
+          },
+        };
+      }
+      await prefs.setString('custom_shortcuts', jsonEncode(map));
+    } catch (_) {
+      // Non-critical — shortcuts still work in memory
+    }
+  }
+
+  /// Get callback for action ID from ShortcutAction
+  VoidCallback? _getCallback(String actionId) {
+    return switch (actionId) {
+      'playPause' => actions.onPlayPause,
+      'stop' => actions.onStop,
+      'record' => actions.onRecord,
+      'save' => actions.onSave,
+      'saveAs' => actions.onSaveAs,
+      'open' => actions.onOpen,
+      'new' => actions.onNew,
+      'export' => actions.onExport,
+      'undo' => actions.onUndo,
+      'redo' => actions.onRedo,
+      'delete' => actions.onDelete,
+      'deselect' => actions.onDeselect,
+      'selectAll' => actions.onSelectAll,
+      'cut' => actions.onCut,
+      'copy' => actions.onCopy,
+      'paste' => actions.onPaste,
+      'duplicate' => actions.onDuplicate,
+      'split' => actions.onSplit,
+      'trim' => actions.onTrim,
+      'mute' => actions.onMute,
+      'solo' => actions.onSolo,
+      'arm' => actions.onArm,
+      'zoomIn' => actions.onZoomIn,
+      'zoomOut' => actions.onZoomOut,
+      'zoomToFit' => actions.onZoomToFit,
+      'zoomToSelection' => actions.onZoomToSelection,
+      'expandLoopToContent' => actions.onExpandLoopToContent,
+      'setLoopFromSelection' => actions.onSetLoopFromSelection,
+      'goToStart' => actions.onGoToStart,
+      'goToEnd' => actions.onGoToEnd,
+      'goToLeftLocator' => actions.onGoToLeftLocator,
+      'goToRightLocator' => actions.onGoToRightLocator,
+      'nudgeLeft' => actions.onNudgeLeft,
+      'nudgeRight' => actions.onNudgeRight,
+      'toggleSnap' => actions.onToggleSnap,
+      'toggleMetronome' => actions.onToggleMetronome,
+      'toggleMixer' => actions.onToggleMixer,
+      'toggleInspector' => actions.onToggleInspector,
+      'toggleBrowser' => actions.onToggleBrowser,
+      'addTrack' => actions.onAddTrack,
+      'removeTrack' => actions.onRemoveTrack,
+      'bounce' => actions.onBounce,
+      'normalize' => actions.onNormalize,
+      'reverse' => actions.onReverse,
+      'fadeIn' => actions.onFadeIn,
+      'fadeOut' => actions.onFadeOut,
+      'crossfade' => actions.onCrossfade,
+      'quantize' => actions.onQuantize,
+      'preferences' => actions.onPreferences,
+      'fullscreen' => actions.onFullscreen,
+      'escape' => actions.onDeselect,
+      'logicalEditor' => actions.onShowLogicalEditor,
+      'scaleAssistant' => actions.onShowScaleAssistant,
+      'grooveQuantize' => actions.onShowGrooveQuantize,
+      'audioAlignment' => actions.onShowAudioAlignment,
+      'trackVersions' => actions.onShowTrackVersions,
+      'macroControls' => actions.onShowMacroControls,
+      'clipGainEnvelope' => actions.onShowClipGainEnvelope,
+      'toggleLeftPanel' => actions.onToggleLeftPanel,
+      'toggleRightPanel' => actions.onToggleRightPanel,
+      'toggleLowerPanel' => actions.onToggleLowerPanel,
+      'showAudioPool' => actions.onShowAudioPool,
+      'showMarkers' => actions.onShowMarkers,
+      'showMidiEditor' => actions.onShowMidiEditor,
+      'resetLayout' => actions.onResetLayout,
+      'importJSON' => actions.onImportJSON,
+      'exportJSON' => actions.onExportJSON,
+      'importAudioFolder' => actions.onImportAudioFolder,
+      'importAudioFiles' => actions.onImportAudioFiles,
+      'batchExport' => actions.onBatchExport,
+      'exportPresets' => actions.onExportPresets,
+      'bounceToFile' => actions.onBounceToFile,
+      'renderInPlace' => actions.onRenderInPlace,
+      'projectSettings' => actions.onProjectSettings,
+      'trackTemplates' => actions.onTrackTemplates,
+      'versionHistory' => actions.onVersionHistory,
+      'freezeSelectedTracks' => actions.onFreezeSelectedTracks,
+      'validateProject' => actions.onValidateProject,
+      'buildProject' => actions.onBuildProject,
+      'audioSettings' => actions.onAudioSettings,
+      'midiSettings' => actions.onMidiSettings,
+      'pluginManager' => actions.onPluginManager,
+      'keyboardShortcuts' => actions.onKeyboardShortcuts,
+      _ => null,
+    };
+  }
+
   /// Handle a key event and dispatch to appropriate action
+  /// Uses data-driven lookup from _keyToAction map (supports runtime remapping)
   KeyEventResult handleKeyEvent(KeyEvent event) {
     if (!enabled) return KeyEventResult.ignored;
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
@@ -280,6 +508,27 @@ class GlobalShortcutsProvider extends ChangeNotifier {
     if (actions.onCustom?.call(keyLabel.toLowerCase(), mod) == true) {
       return KeyEventResult.handled;
     }
+
+    // Lazy-load custom shortcuts on first key event
+    if (!_customLoaded) {
+      loadCustomShortcuts(); // async, but builds map synchronously on completion
+      _rebuildRuntimeMap(); // ensure defaults are mapped immediately
+    }
+
+    // Data-driven dispatch: look up key combo → action ID → callback
+    if (_keyToAction.isNotEmpty) {
+      final combo = _comboKey(keyLabel, cmd: isCmd, shift: isShift, alt: isAlt);
+      final actionId = _keyToAction[combo];
+      if (actionId != null) {
+        final callback = _getCallback(actionId);
+        if (callback != null) {
+          callback();
+          return KeyEventResult.handled;
+        }
+      }
+    }
+
+    // Fallback: hard-coded dispatch (backwards compatibility until full migration)
 
     // Space - Play/Pause
     if (key == LogicalKeyboardKey.space && !isCmd && !isAlt) {

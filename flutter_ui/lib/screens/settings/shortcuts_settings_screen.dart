@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'package:provider/provider.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../../providers/global_shortcuts_provider.dart';
 
@@ -550,6 +551,14 @@ class _ShortcutsSettingsScreenState extends State<ShortcutsSettingsScreen> {
     );
 
     _saveCustomShortcuts();
+    // Sync to runtime provider — shortcuts take effect immediately
+    if (mounted) {
+      try {
+        context.read<GlobalShortcutsProvider>().remapShortcut(entry.id, entry.customDef!);
+      } catch (_) {
+        // Provider may not be available in all contexts
+      }
+    }
     setState(() => _editingId = null);
   }
 
@@ -779,6 +788,10 @@ class _ShortcutsSettingsScreenState extends State<ShortcutsSettingsScreen> {
                   onPressed: () {
                     entry.customDef = null;
                     _saveCustomShortcuts();
+                    // Sync reset to runtime provider
+                    try {
+                      context.read<GlobalShortcutsProvider>().resetShortcut(entry.id);
+                    } catch (_) {}
                     setState(() {});
                   },
                 ),
