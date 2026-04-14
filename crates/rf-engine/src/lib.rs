@@ -97,6 +97,9 @@ pub mod streaming;
 // Phase 19: Spatial Audio (3D / Binaural / Atmos)
 pub mod spatial_manager;
 
+// Dynamic Hook Graph System — graph-based audio event engine
+pub mod hook_graph;
+
 // Phase 14: Wave Cache (Multi-Resolution Waveform Caching)
 pub mod wave_cache;
 

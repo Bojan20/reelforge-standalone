@@ -108,6 +108,11 @@ thread_local! {
     static STRETCH_OUT_R: RefCell<Vec<f64>> = RefCell::new(vec![0.0; 8192]);
     /// Thread-local scratch buffer for per-sample gain (Signalsmith stretch path)
     static STRETCH_GAIN_SCRATCH: RefCell<Vec<f64>> = RefCell::new(vec![0.0; 8192]);
+    /// Thread-local scratch buffer for spatial HRTF render output (f32 interleaved stereo)
+    static SPATIAL_OUTPUT_BUF: RefCell<Vec<f32>> = RefCell::new(vec![0.0; 16384]);
+    /// Thread-local per-voice mono audio for spatial AudioObject construction
+    /// 32 voices × 8192 frames max = 262144 f32 pre-allocated
+    static SPATIAL_VOICE_MONO: RefCell<Vec<f32>> = RefCell::new(vec![0.0; 262144]);
 }
 
 use crate::audio_import::{AudioImporter, ImportedAudio};
@@ -988,6 +993,9 @@ pub struct OneShotVoice {
     engine_sample_rate: u32,
     /// Per-voice resample quality — adaptive, can be degraded under CPU pressure
     voice_resample_mode: ResampleMode,
+    /// Spatial source ID — when Some, voice bypasses pan law and routes through
+    /// SpatialManager HRTF pipeline instead of normal bus routing.
+    spatial_source_id: Option<u32>,
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1086,6 +1094,7 @@ impl OneShotVoice {
             // Engine sample rate for SRC (set on activate)
             engine_sample_rate: 48000,
             voice_resample_mode: ResampleMode::PLAYBACK,
+            spatial_source_id: None,
         }
     }
 
@@ -1127,6 +1136,7 @@ impl OneShotVoice {
         self.phase_invert = false;
         self.meter_peak_l = 0.0;
         self.meter_peak_r = 0.0;
+        self.spatial_source_id = None;
         // Reset to current global quality (not stale mode from previous voice)
         let mode = playback_resample_mode();
         self.voice_resample_mode = if mode.is_r8brain() {
@@ -1397,59 +1407,49 @@ impl OneShotVoice {
             };
             let (src_l, src_r) = (interp_l * gain, interp_r * gain);
 
-            // Apply panning — Pro Tools style stereo balance
-            //
-            // For mono source: equal-power pan positions signal in stereo field
-            // For stereo source: balance-style pan preserves stereo width
-            //   pan=0 → full stereo (L=src_l, R=src_r)
-            //   pan=-1 → hard left (L=src_l+src_r, R=0)
-            //   pan=+1 → hard right (L=0, R=src_l+src_r)
             let mut sample_l: f64;
             let mut sample_r: f64;
 
-            if channels_src > 1 {
-                // Stereo source: Pro Tools dual-pan mode
-                // pan controls L channel placement, pan_right controls R channel placement
-                // Default: pan=-1 (L hard left), pan_right=+1 (R hard right) = stereo pass-through
-                // Each channel is independently panned using equal-power law:
-                //   angle = (pan_value + 1) * π/4  → L_gain = cos(angle), R_gain = sin(angle)
-                let pan_l_angle = (self.pan + 1.0) as f64 * std::f64::consts::FRAC_PI_4;
-                let pan_r_angle = (self.pan_right + 1.0) as f64 * std::f64::consts::FRAC_PI_4;
-
-                // L channel → positioned by self.pan
-                let l_to_left = pan_l_angle.cos();
-                let l_to_right = pan_l_angle.sin();
-
-                // R channel → positioned by self.pan_right
-                let r_to_left = pan_r_angle.cos();
-                let r_to_right = pan_r_angle.sin();
-
-                // Mix: output = L_channel * L_panning + R_channel * R_panning
-                sample_l = (src_l as f64) * l_to_left + (src_r as f64) * r_to_left;
-                sample_r = (src_l as f64) * l_to_right + (src_r as f64) * r_to_right;
+            if self.spatial_source_id.is_some() {
+                // Spatial HRTF mode: output mono sum — SpatialManager handles spatialization
+                let mono = if channels_src > 1 {
+                    (src_l as f64 + src_r as f64) * 0.5
+                } else {
+                    src_l as f64
+                };
+                sample_l = mono;
+                sample_r = mono;
             } else {
-                // Mono source: equal-power panning
-                sample_l = (src_l * pan_l) as f64;
-                sample_r = (src_r * pan_r) as f64;
-            }
+                // Apply panning — Pro Tools style stereo balance
+                if channels_src > 1 {
+                    let pan_l_angle = (self.pan + 1.0) as f64 * std::f64::consts::FRAC_PI_4;
+                    let pan_r_angle = (self.pan_right + 1.0) as f64 * std::f64::consts::FRAC_PI_4;
+                    let l_to_left = pan_l_angle.cos();
+                    let l_to_right = pan_l_angle.sin();
+                    let r_to_left = pan_r_angle.cos();
+                    let r_to_right = pan_r_angle.sin();
+                    sample_l = (src_l as f64) * l_to_left + (src_r as f64) * r_to_left;
+                    sample_r = (src_l as f64) * l_to_right + (src_r as f64) * r_to_right;
+                } else {
+                    sample_l = (src_l * pan_l) as f64;
+                    sample_r = (src_r * pan_r) as f64;
+                }
 
-            // Stereo width via mid/side processing
-            // width=0: mono (mid only), width=1: normal, width=2: extra wide (side boosted)
-            // Energy compensation for w>1: comp = 1/(0.5 + 0.5*w) prevents overs
-            if (self.stereo_width - 1.0).abs() > 0.01 {
-                let mid = (sample_l + sample_r) * 0.5;
-                let side = (sample_l - sample_r) * 0.5;
-                let w = self.stereo_width as f64;
-                // Apply width with energy compensation for w > 1.0
-                let comp = if w > 1.0 { 1.0 / (0.5 + 0.5 * w) } else { 1.0 };
-                sample_l = (mid + side * w) * comp;
-                sample_r = (mid - side * w) * comp;
-            }
+                // Stereo width via mid/side processing
+                if (self.stereo_width - 1.0).abs() > 0.01 {
+                    let mid = (sample_l + sample_r) * 0.5;
+                    let side = (sample_l - sample_r) * 0.5;
+                    let w = self.stereo_width as f64;
+                    let comp = if w > 1.0 { 1.0 / (0.5 + 0.5 * w) } else { 1.0 };
+                    sample_l = (mid + side * w) * comp;
+                    sample_r = (mid - side * w) * comp;
+                }
 
-            // Phase invert (polarity flip Ø)
-            if self.phase_invert {
-                sample_l = -sample_l;
-                sample_r = -sample_r;
+                // Phase invert (polarity flip Ø)
+                if self.phase_invert {
+                    sample_l = -sample_l;
+                    sample_r = -sample_r;
+                }
             }
 
             // Per-voice peak metering (before bus mix — track THIS voice only)
@@ -1557,6 +1557,15 @@ pub enum OneShotCommand {
     SetPhaseInvert { id: u64, invert: bool },
     /// Real-time mute toggle for active voice
     SetMute { id: u64, muted: bool },
+    /// Play a voice with 3D spatial positioning (HRTF binaural rendering)
+    PlaySpatial {
+        id: u64,
+        audio: Arc<ImportedAudio>,
+        volume: f32,
+        bus: OutputBus,
+        source: PlaybackSource,
+        spatial_source_id: u32,
+    },
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -4284,6 +4293,52 @@ impl PlaybackEngine {
         }
     }
 
+    /// Play a one-shot voice with 3D spatial positioning through HRTF binaural rendering.
+    /// The voice audio bypasses pan law and routes through SpatialManager instead.
+    /// `spatial_source_id` must be pre-registered via `spatial_set_source_position()`.
+    pub fn play_one_shot_spatial(
+        &self,
+        path: &str,
+        volume: f32,
+        bus_id: u32,
+        source: PlaybackSource,
+        spatial_source_id: u32,
+    ) -> u64 {
+        let audio = match self.cache.load(path) {
+            Some(a) => a,
+            None => {
+                log::warn!("[PlaybackEngine] Failed to load spatial audio: {}", path);
+                return 0;
+            }
+        };
+
+        let bus = match bus_id {
+            0 => OutputBus::Sfx,
+            1 => OutputBus::Music,
+            2 => OutputBus::Sfx,
+            3 => OutputBus::Voice,
+            4 => OutputBus::Ambience,
+            5 => OutputBus::Aux,
+            _ => OutputBus::Sfx,
+        };
+
+        let id = self.next_one_shot_id.fetch_add(1, Ordering::Relaxed);
+
+        if let Some(mut tx) = self.one_shot_cmd_tx.try_lock() {
+            let _ = tx.push(OneShotCommand::PlaySpatial {
+                id,
+                audio,
+                volume,
+                bus,
+                source,
+                spatial_source_id,
+            });
+            id
+        } else {
+            0
+        }
+    }
+
     /// Stop a specific one-shot voice
     pub fn stop_one_shot(&self, voice_id: u64) {
         if let Some(mut tx) = self.one_shot_cmd_tx.try_lock() {
@@ -4638,6 +4693,20 @@ impl PlaybackEngine {
                         voice.muted = muted;
                     }
                 }
+                OneShotCommand::PlaySpatial {
+                    id,
+                    audio,
+                    volume,
+                    bus,
+                    source,
+                    spatial_source_id,
+                } => {
+                    if let Some(voice) = voices.iter_mut().find(|v| !v.active) {
+                        voice.activate(id, audio, volume, 0.0, bus, source);
+                        voice.spatial_source_id = Some(spatial_source_id);
+                        voice.engine_sample_rate = self.sample_rate();
+                    }
+                }
             }
         }
     }
@@ -4693,7 +4762,11 @@ impl PlaybackEngine {
                 let mut cumulative_us: u64 = 0;
                 let mut degraded_count: u32 = 0;
 
-                for voice in voices.iter_mut() {
+                // Spatial HRTF: track which voices need batch rendering
+                let mut spatial_voice_indices: Vec<(usize, u32)> = Vec::new();
+                let mut spatial_voice_count: usize = 0;
+
+                for (voice_idx, voice) in voices.iter_mut().enumerate() {
                     if !voice.active {
                         continue;
                     }
@@ -4736,11 +4809,93 @@ impl PlaybackEngine {
 
                     cumulative_us += voice_start.elapsed().as_micros() as u64;
 
-                    // Route to bus
-                    bus_buffers.add_to_bus(voice.bus, &guard_l[..frames], &guard_r[..frames]);
+                    if voice.spatial_source_id.is_some() {
+                        // Spatial voice — collect mono audio for HRTF batch render
+                        // (fill_buffer already output mono when spatial_source_id is Some)
+                        spatial_voice_indices.push((voice_idx, voice.spatial_source_id.unwrap()));
+                        // Copy mono audio (L channel = mono sum) into spatial voice buffer
+                        let offset = spatial_voice_count * frames;
+                        SPATIAL_VOICE_MONO.with(|buf| {
+                            let mut mono_buf = buf.borrow_mut();
+                            if mono_buf.len() < offset + frames {
+                                mono_buf.resize(offset + frames, 0.0);
+                            }
+                            for i in 0..frames {
+                                mono_buf[offset + i] = guard_l[i] as f32;
+                            }
+                        });
+                        spatial_voice_count += 1;
+                    } else {
+                        // Normal voice — route to bus (existing path)
+                        bus_buffers.add_to_bus(voice.bus, &guard_l[..frames], &guard_r[..frames]);
+                    }
 
                     if !still_playing {
                         voice.deactivate();
+                    }
+                }
+
+                // ═══ SPATIAL HRTF BATCH RENDER ═══
+                // All spatial voices collected — render through SpatialManager in one pass
+                if spatial_voice_count > 0 {
+                    if let Some(mut spatial) = crate::spatial_manager::SPATIAL_MANAGER.try_write() {
+                        SPATIAL_VOICE_MONO.with(|mono_buf| {
+                            SPATIAL_OUTPUT_BUF.with(|out_buf| {
+                                let mono = mono_buf.borrow();
+                                let mut output = out_buf.borrow_mut();
+                                let out_channels = spatial.output_channels();
+                                let out_size = frames * out_channels;
+                                if output.len() < out_size {
+                                    output.resize(out_size, 0.0);
+                                }
+                                output[..out_size].fill(0.0);
+
+                                // Build AudioObjects from pre-collected mono audio
+                                let mut objects = Vec::with_capacity(spatial_voice_count);
+                                for (idx, (_voice_idx, source_id)) in spatial_voice_indices.iter().enumerate() {
+                                    let offset = idx * frames;
+                                    let audio_slice = &mono[offset..offset + frames];
+                                    objects.push(rf_spatial::AudioObject {
+                                        id: *source_id,
+                                        name: String::new(),
+                                        position: spatial.source_position(*source_id)
+                                            .unwrap_or(rf_spatial::Position3D::origin()),
+                                        size: 0.0,
+                                        gain: spatial.source_gain(*source_id),
+                                        audio: audio_slice.to_vec(),
+                                        sample_rate: sample_rate,
+                                        automation: None,
+                                    });
+                                }
+
+                                if spatial.render(&objects, &mut output[..out_size], out_channels).is_ok() {
+                                    // Mix HRTF output into master bus (stereo)
+                                    let (master_l, master_r) = bus_buffers.master_mut();
+                                    for i in 0..frames {
+                                        master_l[i] += output[i * 2] as f64;
+                                        master_r[i] += output[i * 2 + 1] as f64;
+                                    }
+                                }
+                            });
+                        });
+                    } else {
+                        // SpatialManager lock contended — fall back to center-pan bus routing
+                        for (voice_idx, _source_id) in &spatial_voice_indices {
+                            SPATIAL_VOICE_MONO.with(|mono_buf| {
+                                let mono = mono_buf.borrow();
+                                let idx = spatial_voice_indices.iter()
+                                    .position(|(vi, _)| vi == voice_idx)
+                                    .unwrap_or(0);
+                                let offset = idx * frames;
+                                let bus = voices[*voice_idx].bus;
+                                let (bus_l, bus_r) = bus_buffers.get_bus_mut(bus);
+                                for i in 0..frames {
+                                    let s = mono[offset + i] as f64;
+                                    bus_l[i] += s;
+                                    bus_r[i] += s;
+                                }
+                            });
+                        }
                     }
                 }
 
