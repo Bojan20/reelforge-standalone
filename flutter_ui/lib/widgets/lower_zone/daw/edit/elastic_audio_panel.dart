@@ -191,7 +191,16 @@ class _ElasticAudioPanelState extends State<ElasticAudioPanel> {
 
   void _onApply() {
     if (!_engineCreated) return;
-    _ffi.elasticApplyToClip(_trackId);
+    final ok = _ffi.elasticApplyToClip(_trackId);
+    if (!ok) {
+      // Engine returned failure — do not fire action callback (state is unchanged)
+      assert(() {
+        // ignore: avoid_print
+        print('[ElasticAudioPanel] elasticApplyToClip failed for track $_trackId');
+        return true;
+      }());
+      return;
+    }
     widget.onAction?.call('elasticApply', {
       'trackId': _trackId,
       'pitch': _pitchSemitones + _fineCents / 100.0,
@@ -224,6 +233,7 @@ class _ElasticAudioPanelState extends State<ElasticAudioPanel> {
       _snapshotFormants = _preserveFormants;
       _snapshotTransients = _preserveTransients;
     }
+    if (!mounted) return;
     setState(() {
       final tmpP = _pitchSemitones;
       final tmpC = _fineCents;

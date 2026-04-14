@@ -474,10 +474,13 @@ int32_t au_render_process(
 void au_render_set_param(void* handle, uint32_t param_id, float value) {
     if (!handle) return;
     AURenderCtx* ctx = (AURenderCtx*)handle;
-    AudioUnitSetParameter(ctx->au,
-                          (AudioUnitParameterID)param_id,
-                          kAudioUnitScope_Global, 0,
-                          value, 0 /* immediate */);
+    OSStatus st = AudioUnitSetParameter(ctx->au,
+                                        (AudioUnitParameterID)param_id,
+                                        kAudioUnitScope_Global, 0,
+                                        value, 0 /* immediate */);
+    if (st != noErr) {
+        NSLog(@"[au_render] SetParameter param_id=%u value=%.4f failed: %d", param_id, value, (int)st);
+    }
 }
 
 // Get plugin latency in samples (call from non-audio thread).

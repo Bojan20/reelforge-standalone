@@ -282,8 +282,13 @@ class _AudioWarpingPanelState extends State<AudioWarpingPanel> {
     if (!_engineCreated || _applying) return;
     setState(() => _applying = true);
     // Destructive apply — commits time-stretch to clip audio
-    NativeFFI.instance.elasticApplyToClip(_trackId);
-    // Brief visual feedback
+    final ok = NativeFFI.instance.elasticApplyToClip(_trackId);
+    if (!ok) {
+      // Engine returned failure — bail out without resetting UI state
+      if (mounted) setState(() => _applying = false);
+      return;
+    }
+    // Brief visual feedback before resetting controls
     await Future.delayed(const Duration(milliseconds: 400));
     if (mounted) {
       setState(() {

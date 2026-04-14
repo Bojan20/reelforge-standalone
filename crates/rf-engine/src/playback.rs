@@ -8265,8 +8265,12 @@ impl PlaybackEngine {
                     // segment boundaries since we update at block granularity (typically
                     // 256-1024 samples = 5-21ms), same as Ableton Live's warp engine.
                     if clip.warp_state.enabled && !clip.warp_state.segments.is_empty() {
-                        // Block start relative to clip in seconds
-                        let block_start_clip_sec = (start_sample as i64 - clip_start_sample) as f64 / sample_rate;
+                        // Block start relative to clip in seconds.
+                        // SAFE CAST: clamp start_sample to i64::MAX before cast to avoid wrapping
+                        // on extremely long projects (>384h at 48kHz). Use saturating subtraction
+                        // so positions before clip start yield 0.0 instead of huge negative values.
+                        let start_sample_i64 = start_sample.min(i64::MAX as u64) as i64;
+                        let block_start_clip_sec = (start_sample_i64 - clip_start_sample).max(0) as f64 / sample_rate;
                         // Lookup segment for block start position
                         if let Some((seg_idx, _)) = clip.warp_state.lookup_segment(block_start_clip_sec) {
                             if let Some(seg) = clip.warp_state.segments.get(seg_idx) {

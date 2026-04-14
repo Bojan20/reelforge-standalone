@@ -311,6 +311,10 @@ class EngineProvider extends ChangeNotifier {
     final success = await engine.loadProject(path);
     if (success) {
       _project = engine.project;
+      // Rebuild warp segments for all clips — they are skipped during JSON
+      // deserialization (#[serde(skip)]) so must be rebuilt before first playback.
+      // Without this, warp markers exist but audio plays un-warped after load.
+      NativeFFI.instance.engineEnsureAllWarpSegments();
       notifyListeners();
     }
     return success;
