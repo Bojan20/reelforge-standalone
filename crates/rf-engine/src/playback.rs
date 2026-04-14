@@ -5633,8 +5633,9 @@ impl PlaybackEngine {
                     });
                 });
 
-                // Process master insert chain
-                if let Some(mut master_insert) = self.master_insert.try_write() {
+                // Process master insert chain (coalesced lock — single try_write for pre+post)
+                let mut master_insert_guard = self.master_insert.try_write();
+                if let Some(ref mut master_insert) = master_insert_guard {
                     master_insert.process_pre_fader(output_l, output_r);
                 }
 
@@ -5644,9 +5645,10 @@ impl PlaybackEngine {
                     output_r[i] *= master;
                 }
 
-                if let Some(mut master_insert) = self.master_insert.try_write() {
+                if let Some(ref mut master_insert) = master_insert_guard {
                     master_insert.process_post_fader(output_l, output_r);
                 }
+                drop(master_insert_guard);
 
                 // Anti-click: apply fade-out ramp during the last 480 samples of tail
                 if new_remaining < tail_fade_samples {
@@ -6527,9 +6529,9 @@ impl PlaybackEngine {
                 order_idx += 1;
             }
         }
-        // Pass 2: buses that route to master (parents)
+        // Pass 2: all remaining buses (route to master or unrecognized state)
         for bus_idx in 0..6 {
-            if bus_states[bus_idx].output_dest == BusOutputDest::Master {
+            if !process_order[..order_idx].contains(&bus_idx) {
                 process_order[order_idx] = bus_idx;
                 order_idx += 1;
             }
@@ -6736,14 +6738,17 @@ impl PlaybackEngine {
             // Only process if at least one channel has non-zero delay
             if delay_l_ms > 0.001 || delay_r_ms > 0.001 {
                 let sr = f64::from_bits(self.master_delay_sample_rate.load(Ordering::Relaxed));
-                let delay_l_samples = (delay_l_ms * sr / 1000.0) as usize;
-                let delay_r_samples = (delay_r_ms * sr / 1000.0) as usize;
+                let delay_l_samples_raw = (delay_l_ms * sr / 1000.0) as usize;
+                let delay_r_samples_raw = (delay_r_ms * sr / 1000.0) as usize;
 
                 if let (Some(mut buf_l), Some(mut buf_r)) = (
                     self.master_delay_buf_l.try_write(),
                     self.master_delay_buf_r.try_write(),
                 ) {
                     let buf_size = buf_l.len(); // 8192
+                    // Clamp delay to buf_size to prevent arithmetic underflow
+                    let delay_l_samples = delay_l_samples_raw.min(buf_size);
+                    let delay_r_samples = delay_r_samples_raw.min(buf_size);
                     let mut wp = self.master_delay_write_pos.load(Ordering::Relaxed);
 
                     for i in 0..frames {
