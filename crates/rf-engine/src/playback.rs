@@ -5587,12 +5587,19 @@ impl PlaybackEngine {
                             sr.resize(frames, 0.0);
                         }
 
+                        // Acquire sidechain taps for tail processing (last known values)
+                        let tail_taps = self.sidechain_taps.try_read();
+
                         // Process track insert chains with silence (per-track reverb tails)
                         if let Some(mut chains) = self.insert_chains.try_write() {
                             for (_track_id, chain) in chains.iter_mut() {
                                 sl[..frames].fill(0.0);
                                 sr[..frames].fill(0.0);
-                                chain.process_pre_fader(&mut sl[..frames], &mut sr[..frames]);
+                                if let Some(ref taps) = tail_taps {
+                                    chain.process_pre_fader_with_taps(&mut sl[..frames], &mut sr[..frames], taps, frames);
+                                } else {
+                                    chain.process_pre_fader(&mut sl[..frames], &mut sr[..frames]);
+                                }
                                 for i in 0..frames {
                                     output_l[i] += sl[i];
                                     output_r[i] += sr[i];
@@ -5611,8 +5618,13 @@ impl PlaybackEngine {
                                 sl[..frames].fill(0.0);
                                 sr[..frames].fill(0.0);
 
-                                bus_inserts[bus_idx]
-                                    .process_pre_fader(&mut sl[..frames], &mut sr[..frames]);
+                                if let Some(ref taps) = tail_taps {
+                                    bus_inserts[bus_idx]
+                                        .process_pre_fader_with_taps(&mut sl[..frames], &mut sr[..frames], taps, frames);
+                                } else {
+                                    bus_inserts[bus_idx]
+                                        .process_pre_fader(&mut sl[..frames], &mut sr[..frames]);
+                                }
 
                                 let volume = bus_states[bus_idx].volume;
                                 for i in 0..frames {
@@ -5620,8 +5632,13 @@ impl PlaybackEngine {
                                     sr[i] *= volume;
                                 }
 
-                                bus_inserts[bus_idx]
-                                    .process_post_fader(&mut sl[..frames], &mut sr[..frames]);
+                                if let Some(ref taps) = tail_taps {
+                                    bus_inserts[bus_idx]
+                                        .process_post_fader_with_taps(&mut sl[..frames], &mut sr[..frames], taps, frames);
+                                } else {
+                                    bus_inserts[bus_idx]
+                                        .process_post_fader(&mut sl[..frames], &mut sr[..frames]);
+                                }
 
                                 for i in 0..frames {
                                     output_l[i] += sl[i];
@@ -5630,13 +5647,19 @@ impl PlaybackEngine {
                             }
                             } // if let Some(bus_states)
                         }
+                        drop(tail_taps);
                     });
                 });
 
                 // Process master insert chain (coalesced lock — single try_write for pre+post)
                 let mut master_insert_guard = self.master_insert.try_write();
+                let tail_sidechain_taps = self.sidechain_taps.try_read();
                 if let Some(ref mut master_insert) = master_insert_guard {
-                    master_insert.process_pre_fader(output_l, output_r);
+                    if let Some(ref taps) = tail_sidechain_taps {
+                        master_insert.process_pre_fader_with_taps(output_l, output_r, taps, frames);
+                    } else {
+                        master_insert.process_pre_fader(output_l, output_r);
+                    }
                 }
 
                 let master = self.master_volume();
@@ -5646,9 +5669,14 @@ impl PlaybackEngine {
                 }
 
                 if let Some(ref mut master_insert) = master_insert_guard {
-                    master_insert.process_post_fader(output_l, output_r);
+                    if let Some(ref taps) = tail_sidechain_taps {
+                        master_insert.process_post_fader_with_taps(output_l, output_r, taps, frames);
+                    } else {
+                        master_insert.process_post_fader(output_l, output_r);
+                    }
                 }
                 drop(master_insert_guard);
+                drop(tail_sidechain_taps);
 
                 // Anti-click: apply fade-out ramp during the last 480 samples of tail
                 if new_remaining < tail_fade_samples {
@@ -6511,6 +6539,9 @@ impl PlaybackEngine {
         // Process each bus's InsertChain before summing to master
         // Use try_write to avoid blocking audio thread
         let mut bus_inserts = self.bus_inserts.try_write();
+        // Re-acquire sidechain taps (immutable) for bus insert sidechain routing
+        // (e.g. voice track ducking music bus via sidechain compressor on bus)
+        let bus_sidechain_taps = self.sidechain_taps.try_read();
 
         // ═══ TOPOLOGICAL BUS ORDERING ═══
         // Buses that route to other buses must be processed FIRST so their output
@@ -6601,8 +6632,13 @@ impl PlaybackEngine {
 
             // ═══ BUS INSERT CHAIN (PRE-FADER) ═══
             // Process inserts BEFORE bus fader — affects sends, allows gain staging
+            // Sidechain-aware: bus inserts can receive sidechain from any track tap
             if let Some(ref mut inserts) = bus_inserts {
-                inserts[bus_idx].process_pre_fader(bus_l, bus_r);
+                if let Some(ref taps) = bus_sidechain_taps {
+                    inserts[bus_idx].process_pre_fader_with_taps(bus_l, bus_r, taps, frames);
+                } else {
+                    inserts[bus_idx].process_pre_fader(bus_l, bus_r);
+                }
             }
 
             // Apply bus volume and dual-pan (fader stage)
@@ -6643,8 +6679,13 @@ impl PlaybackEngine {
 
             // ═══ BUS INSERT CHAIN (POST-FADER) ═══
             // Process inserts AFTER bus fader — typical EQ/Compressor placement
+            // Sidechain-aware: same tap access as pre-fader
             if let Some(ref mut inserts) = bus_inserts {
-                inserts[bus_idx].process_post_fader(bus_l, bus_r);
+                if let Some(ref taps) = bus_sidechain_taps {
+                    inserts[bus_idx].process_post_fader_with_taps(bus_l, bus_r, taps, frames);
+                } else {
+                    inserts[bus_idx].process_post_fader(bus_l, bus_r);
+                }
             }
 
             // ═══ PER-BUS PEAK METERING ═══
@@ -6698,9 +6739,13 @@ impl PlaybackEngine {
         // Previously acquired twice (pre-fader + post-fader) = 2 contention windows.
         let mut master_insert_guard = self.master_insert.try_write();
 
-        // Apply master insert chain (pre-fader)
+        // Apply master insert chain (pre-fader) — sidechain-aware
         if let Some(ref mut master_insert) = master_insert_guard {
-            master_insert.process_pre_fader(output_l, output_r);
+            if let Some(ref taps) = bus_sidechain_taps {
+                master_insert.process_pre_fader_with_taps(output_l, output_r, taps, frames);
+            } else {
+                master_insert.process_pre_fader(output_l, output_r);
+            }
         }
 
         // Apply master volume
@@ -6720,13 +6765,18 @@ impl PlaybackEngine {
             }
         }
 
-        // Apply master insert chain (post-fader)
+        // Apply master insert chain (post-fader) — sidechain-aware
         if let Some(ref mut master_insert) = master_insert_guard {
-            master_insert.process_post_fader(output_l, output_r);
+            if let Some(ref taps) = bus_sidechain_taps {
+                master_insert.process_post_fader_with_taps(output_l, output_r, taps, frames);
+            } else {
+                master_insert.process_post_fader(output_l, output_r);
+            }
         }
 
-        // Release master insert guard before metering section
+        // Release guards before metering section
         drop(master_insert_guard);
+        drop(bus_sidechain_taps);
 
         // ═══ MASTER CHANNEL DELAY (Independent L/R — Cubase/Pro Tools style) ═══
         // Applied after all processing, before metering.
@@ -7796,9 +7846,10 @@ impl PlaybackEngine {
         // Drop local bus_buffers (free memory) before taking master_insert lock
         drop(bus_buffers);
 
-        // Master processing
+        // Master processing — sidechain-aware (offline uses blocking read)
         let mut master_insert = self.master_insert.write();
-        master_insert.process_pre_fader(output_l, output_r);
+        let offline_taps = self.sidechain_taps.read();
+        master_insert.process_pre_fader_with_taps(output_l, output_r, &offline_taps, frames);
 
         let master = self.master_volume();
         for i in 0..frames {
@@ -7806,7 +7857,8 @@ impl PlaybackEngine {
             output_r[i] *= master;
         }
 
-        master_insert.process_post_fader(output_l, output_r);
+        master_insert.process_post_fader_with_taps(output_l, output_r, &offline_taps, frames);
+        drop(offline_taps);
     }
 
     /// Process a single track offline (for stems export)
@@ -7926,11 +7978,13 @@ impl PlaybackEngine {
             }
         }
 
-        // Apply track insert chain
+        // Apply track insert chain — sidechain-aware (offline uses blocking read)
         let mut insert_chains = self.insert_chains.write();
         if let Some(chain) = insert_chains.get_mut(&track_id) {
-            chain.process_pre_fader(output_l, output_r);
-            chain.process_post_fader(output_l, output_r);
+            let offline_taps = self.sidechain_taps.read();
+            chain.process_pre_fader_with_taps(output_l, output_r, &offline_taps, frames);
+            chain.process_post_fader_with_taps(output_l, output_r, &offline_taps, frames);
+            drop(offline_taps);
         }
     }
 
