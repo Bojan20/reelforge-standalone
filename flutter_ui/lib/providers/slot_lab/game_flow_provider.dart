@@ -16,6 +16,7 @@ import 'package:flutter/foundation.dart';
 import '../../models/game_flow_models.dart';
 import '../../src/rust/native_ffi.dart' show SlotLabSpinResult;
 import '../../services/event_registry.dart';
+import '../../services/hook_graph/hook_graph_service.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // FEATURE EXECUTOR — Abstract interface for feature-specific logic
@@ -400,6 +401,101 @@ class GameFlowProvider extends ChangeNotifier {
     _currentState = newState;
     onStateChanged?.call(oldState, newState);
     notifyListeners();
+
+    // Hook graph: emit feature enter/exit events
+    _emitStateTransitionEvent(oldState, newState, context);
+  }
+
+  /// Emit win tier hook event based on spin result.
+  void _emitWinTierEvent(SlotLabSpinResult result) {
+    final ratio = result.winRatio;
+    final data = <String, dynamic>{
+      'winAmount': result.totalWin,
+      'bet': result.bet,
+      'ratio': ratio,
+      'multiplier': result.multiplier,
+    };
+
+    if (ratio <= 0) {
+      _emitHookEvent('no_win', data: data);
+    } else if (ratio < 2.0) {
+      _emitHookEvent('win_line_small', data: data);
+    } else if (ratio < 10.0) {
+      _emitHookEvent('win_line_medium', data: data);
+    } else if (ratio < 50.0) {
+      _emitHookEvent('win_line_big', data: data);
+    } else {
+      _emitHookEvent('win_line_mega', data: data);
+    }
+
+    // Scatter / bonus events
+    if (result.featureTriggered) {
+      _emitHookEvent('bonus_trigger', data: data);
+    }
+
+    // Update RTPC: excitement tracks win ratio (capped at 1.0)
+    final excitement = (ratio / 50.0).clamp(0.0, 1.0);
+    try {
+      HookGraphService.instance.setRtpc('excitement', excitement);
+      HookGraphService.instance.setRtpc('win_multiplier', result.multiplier);
+    } catch (_) {}
+  }
+
+  /// Emit feature enter/exit hook events on state transition.
+  void _emitStateTransitionEvent(
+    GameFlowState from,
+    GameFlowState to,
+    Map<String, dynamic>? ctx,
+  ) {
+    final data = <String, dynamic>{
+      'from': from.name,
+      'to': to.name,
+      ...?ctx,
+    };
+
+    // Enter events
+    switch (to) {
+      case GameFlowState.freeSpins:
+        _emitHookEvent('feature_enter_freespins', data: data);
+        try {
+          HookGraphService.instance.setGameState('gameMode', 'freeSpins');
+        } catch (_) {}
+      case GameFlowState.holdAndWin:
+        _emitHookEvent('feature_enter_holdandwin', data: data);
+        try {
+          HookGraphService.instance.setGameState('gameMode', 'holdAndWin');
+        } catch (_) {}
+      case GameFlowState.cascading:
+        _emitHookEvent('feature_enter_cascading', data: data);
+      case GameFlowState.bonusGame:
+        _emitHookEvent('bonus_trigger', data: data);
+      case GameFlowState.baseGame:
+        try {
+          HookGraphService.instance.setGameState('gameMode', 'base');
+        } catch (_) {}
+      default:
+        break;
+    }
+
+    // Exit events (firing for the old state)
+    switch (from) {
+      case GameFlowState.freeSpins:
+        if (to != GameFlowState.freeSpins) {
+          _emitHookEvent('feature_exit_freespins', data: data);
+          try {
+            HookGraphService.instance.clearGameState('gameMode');
+          } catch (_) {}
+        }
+      case GameFlowState.holdAndWin:
+        _emitHookEvent('feature_exit_holdandwin', data: data);
+        try {
+          HookGraphService.instance.clearGameState('gameMode');
+        } catch (_) {}
+      case GameFlowState.cascading:
+        _emitHookEvent('feature_exit_cascading', data: data);
+      default:
+        break;
+    }
   }
 
   /// Start a spin from base game (or current state if feature spin)
@@ -407,6 +503,10 @@ class GameFlowProvider extends ChangeNotifier {
     if (_currentState == GameFlowState.idle) {
       _transitionTo(GameFlowState.baseGame);
     }
+    _emitHookEvent('spin_start', data: {
+      'state': _currentState.name,
+      'isFreeSpin': _currentState == GameFlowState.freeSpins,
+    });
   }
 
   /// Process spin result — evaluate triggers and manage state
@@ -422,6 +522,9 @@ class GameFlowProvider extends ChangeNotifier {
       coinSymbolId: _coinSymbolId,
       wildSymbolId: _wildSymbolId,
     );
+
+    // Hook graph: emit win tier event based on win/bet ratio
+    _emitWinTierEvent(result);
 
     // Step 1: If in a feature, step the feature executor
     if (_currentState.isFeature) {
@@ -866,6 +969,16 @@ class GameFlowProvider extends ChangeNotifier {
       } catch (_) {
         // EventRegistry may not be initialized
       }
+    }
+  }
+
+  /// Emit a hook graph event — fires ALONGSIDE the existing audio stage system.
+  /// Never throws: hook graph is best-effort, audio stage is authoritative.
+  void _emitHookEvent(String eventId, {Map<String, dynamic>? data}) {
+    try {
+      HookGraphService.instance.emitEvent(eventId, data: data);
+    } catch (_) {
+      // HookGraphService may not be initialized in all contexts
     }
   }
 

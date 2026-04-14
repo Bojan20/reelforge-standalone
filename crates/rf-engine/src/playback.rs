@@ -4957,6 +4957,14 @@ impl PlaybackEngine {
             .unwrap_or(0)
     }
 
+    /// Get active graph instance count from the Hook Graph engine.
+    pub fn hook_graph_active_instance_count(&self) -> usize {
+        self.hook_graph_engine.as_ref()
+            .and_then(|e| e.try_read())
+            .map(|e| e.active_instance_count())
+            .unwrap_or(0)
+    }
+
     // ═══════════════════════════════════════════════════════════════════════
 
     /// Initialize the advanced loop system.

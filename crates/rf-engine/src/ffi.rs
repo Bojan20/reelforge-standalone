@@ -25447,3 +25447,155 @@ pub extern "C" fn spatial_set_sample_rate(sample_rate: u32) -> i32 {
     crate::spatial_manager::SPATIAL_MANAGER.write().set_sample_rate(sample_rate);
     1
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HOOK GRAPH ENGINE FFI — Phase 3 (Dart↔Rust bridge)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Closes the critical gap: Dart ControlRateExecutor could not push commands
+// to Rust HookGraphEngine. These FFI functions push commands via the
+// lock-free rtrb ring buffer owned by PlaybackEngine.
+//
+// Voice playback uses the existing engine_playback_play_to_bus pipeline —
+// NOT the ring buffer — because that path is proven and latency-optimized.
+// The ring buffer is for graph-level control: RTPC, bus volumes, DSP graph
+// loading, instance lifecycle.
+
+/// Push an RTPC (Real-Time Parameter Control) update to the hook graph engine.
+///
+/// `param_id` — unique parameter hash (Dart side: `paramName.hashCode`)
+/// `value`    — new double value [-∞..+∞]
+///
+/// Non-blocking. Returns 1 if enqueued, 0 if ring buffer is full.
+#[unsafe(no_mangle)]
+pub extern "C" fn hook_graph_set_rtpc(param_id: u32, value: f64) -> i32 {
+    use crate::hook_graph::GraphCommand;
+    let mut tx = match PLAYBACK_ENGINE.hook_graph_cmd_producer().try_lock() {
+        Some(tx) => tx,
+        None => return 0,
+    };
+    match tx.push(GraphCommand::SetRTPC { param_id, value }) {
+        Ok(_) => 1,
+        Err(_) => 0,
+    }
+}
+
+/// Push a bus volume command to the hook graph engine.
+///
+/// `bus_id` — OutputBus ordinal (0=Sfx,1=Music,2=Voice,3=Ambience,4=Aux,5=Master)
+/// `volume` — linear gain [0.0..4.0]
+///
+/// Returns 1 if enqueued, 0 if ring buffer is full.
+#[unsafe(no_mangle)]
+pub extern "C" fn hook_graph_set_bus_volume(bus_id: u8, volume: f32) -> i32 {
+    use crate::hook_graph::GraphCommand;
+    use crate::track_manager::OutputBus;
+
+    let bus = OutputBus::from(bus_id as u32);
+    let mut tx = match PLAYBACK_ENGINE.hook_graph_cmd_producer().try_lock() {
+        Some(tx) => tx,
+        None => return 0,
+    };
+    match tx.push(GraphCommand::SetBusVolume { bus, volume }) {
+        Ok(_) => 1,
+        Err(_) => 0,
+    }
+}
+
+/// Stop a specific voice with a fade.
+///
+/// `voice_id` — ID returned by engine_playback_play_to_bus
+/// `fade_ms`  — fade-out duration in milliseconds (0 = immediate)
+///
+/// Returns 1 if enqueued, 0 if ring buffer is full.
+#[unsafe(no_mangle)]
+pub extern "C" fn hook_graph_stop_voice(voice_id: u64, fade_ms: u32) -> i32 {
+    use crate::hook_graph::GraphCommand;
+    let mut tx = match PLAYBACK_ENGINE.hook_graph_cmd_producer().try_lock() {
+        Some(tx) => tx,
+        None => return 0,
+    };
+    match tx.push(GraphCommand::StopVoice { voice_id, fade_ms }) {
+        Ok(_) => 1,
+        Err(_) => 0,
+    }
+}
+
+/// Stop all voices associated with a graph instance.
+///
+/// `instance_id` — graph instance ID
+/// `fade_ms`     — fade-out in milliseconds
+///
+/// Returns 1 if enqueued, 0 if ring buffer is full.
+#[unsafe(no_mangle)]
+pub extern "C" fn hook_graph_stop_instance(instance_id: u32, fade_ms: u32) -> i32 {
+    use crate::hook_graph::GraphCommand;
+    let mut tx = match PLAYBACK_ENGINE.hook_graph_cmd_producer().try_lock() {
+        Some(tx) => tx,
+        None => return 0,
+    };
+    match tx.push(GraphCommand::StopGraph { instance_id, fade_ms }) {
+        Ok(_) => 1,
+        Err(_) => 0,
+    }
+}
+
+/// Returns the number of currently active voices in the hook graph engine.
+#[unsafe(no_mangle)]
+pub extern "C" fn hook_graph_active_voices() -> u32 {
+    PLAYBACK_ENGINE.hook_graph_active_voices() as u32
+}
+
+/// Returns the number of active graph instances in the hook graph engine.
+#[unsafe(no_mangle)]
+pub extern "C" fn hook_graph_active_instances() -> u32 {
+    PLAYBACK_ENGINE.hook_graph_active_instance_count() as u32
+}
+
+/// Poll feedback events from the hook graph engine as a JSON string.
+///
+/// Drains up to `max_events` from the feedback ring buffer.
+/// Returns a JSON array of event objects:
+/// `[{"type":"voice_started","voice_id":42,"instance_id":1}, ...]`
+///
+/// Caller must free the returned string with `engine_free_string`.
+/// Returns a valid JSON array (possibly empty `[]`) — never null.
+#[unsafe(no_mangle)]
+pub extern "C" fn hook_graph_poll_feedback(max_events: u32) -> *mut c_char {
+    use crate::hook_graph::GraphFeedback;
+
+    let fb_rx = PLAYBACK_ENGINE.hook_graph_fb_consumer();
+    let mut rx = match fb_rx.try_lock() {
+        Some(rx) => rx,
+        None => return string_to_cstr("[]"),
+    };
+
+    let mut events: Vec<String> = Vec::new();
+    let limit = max_events.min(64) as usize;
+
+    while events.len() < limit {
+        match rx.pop() {
+            Ok(fb) => {
+                let json = match fb {
+                    GraphFeedback::VoiceStarted { voice_id, instance_id } => {
+                        format!(r#"{{"type":"voice_started","voice_id":{voice_id},"instance_id":{instance_id}}}"#)
+                    }
+                    GraphFeedback::VoiceStopped { voice_id } => {
+                        format!(r#"{{"type":"voice_stopped","voice_id":{voice_id}}}"#)
+                    }
+                    GraphFeedback::GraphDone { instance_id } => {
+                        format!(r#"{{"type":"graph_done","instance_id":{instance_id}}}"#)
+                    }
+                    GraphFeedback::NodeError { instance_id, node_id } => {
+                        format!(r#"{{"type":"node_error","instance_id":{instance_id},"node_id":{node_id}}}"#)
+                    }
+                };
+                events.push(json);
+            }
+            Err(_) => break, // Ring empty
+        }
+    }
+
+    let json = format!("[{}]", events.join(","));
+    string_to_cstr(&json)
+}

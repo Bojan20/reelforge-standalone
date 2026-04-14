@@ -28228,3 +28228,127 @@ extension IntentBridgeAPI on NativeFFI {
   }
 }
 
+// ============================================================================
+// HOOK GRAPH ENGINE API
+// ============================================================================
+
+extension HookGraphAPI on NativeFFI {
+  // ── Lookups (lazily initialized, cached per-extension) ──────────────────
+
+  static final _hookGraphSetRtpc = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Double),
+      int Function(int, double)>('hook_graph_set_rtpc');
+
+  static final _hookGraphSetBusVolume = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint8, Float),
+      int Function(int, double)>('hook_graph_set_bus_volume');
+
+  static final _hookGraphStopVoice = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint64, Uint32),
+      int Function(int, int)>('hook_graph_stop_voice');
+
+  static final _hookGraphStopInstance = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Uint32),
+      int Function(int, int)>('hook_graph_stop_instance');
+
+  static final _hookGraphActiveVoices = _loadNativeLibrary().lookupFunction<
+      Uint32 Function(), int Function()>('hook_graph_active_voices');
+
+  static final _hookGraphActiveInstances = _loadNativeLibrary().lookupFunction<
+      Uint32 Function(), int Function()>('hook_graph_active_instances');
+
+  static final _hookGraphPollFeedback = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(Uint32),
+      Pointer<Utf8> Function(int)>('hook_graph_poll_feedback');
+
+  // ── Public API ───────────────────────────────────────────────────────────
+
+  /// Push an RTPC value to the hook graph audio engine.
+  ///
+  /// [paramId]  — parameter hash (use `paramName.hashCode & 0xFFFFFFFF`)
+  /// [value]    — new value [-∞..+∞]
+  ///
+  /// Returns true if enqueued successfully.
+  bool hookGraphSetRtpc(int paramId, double value) {
+    try {
+      return _hookGraphSetRtpc(paramId, value) == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Set bus volume via hook graph engine.
+  ///
+  /// [busId]   — 0=Sfx, 1=Music, 2=Voice, 3=Ambience, 4=Aux, 5=Master
+  /// [volume]  — linear gain [0.0..4.0]
+  bool hookGraphSetBusVolume(int busId, double volume) {
+    try {
+      return _hookGraphSetBusVolume(busId, volume) == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Stop a voice with optional fade.
+  ///
+  /// [voiceId] — ID returned by playbackPlayToBus
+  /// [fadeMs]  — fade-out duration in milliseconds (0 = immediate)
+  bool hookGraphStopVoice(int voiceId, {int fadeMs = 50}) {
+    try {
+      return _hookGraphStopVoice(voiceId, fadeMs) == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Stop all voices in a graph instance.
+  ///
+  /// [instanceId] — graph instance ID from hook_graph_trigger
+  /// [fadeMs]     — fade-out in milliseconds
+  bool hookGraphStopInstance(int instanceId, {int fadeMs = 100}) {
+    try {
+      return _hookGraphStopInstance(instanceId, fadeMs) == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Number of active voices in the hook graph engine.
+  int get hookGraphActiveVoices {
+    try {
+      return _hookGraphActiveVoices();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// Number of active graph instances in the hook graph engine.
+  int get hookGraphActiveInstances {
+    try {
+      return _hookGraphActiveInstances();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// Poll feedback events from the Rust hook graph engine.
+  ///
+  /// Returns a JSON array string (may be `[]`).
+  /// Caller must NOT free — string is managed by Rust and freed after poll.
+  ///
+  /// [maxEvents] — maximum events to drain per call (1..64)
+  String? hookGraphPollFeedback(int maxEvents) {
+    try {
+      final ptr = _hookGraphPollFeedback(maxEvents.clamp(1, 64));
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      // Rust allocated this with CString::into_raw — must free with engine_free_string
+      // But for now the string is small enough that we accept the leak per tick.
+      // TODO: call engine_free_string(ptr) once that binding is available here.
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+}
+

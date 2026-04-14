@@ -150,6 +150,7 @@ import '../providers/stage_provider.dart';
 import '../providers/stage_ingest_provider.dart';
 import '../providers/soundbank_provider.dart';
 import 'extension_sdk_service.dart';
+import 'hook_graph/hook_graph_service.dart';
 
 /// Global service locator instance
 final GetIt sl = GetIt.instance;
@@ -169,6 +170,15 @@ class ServiceLocator {
     // LAYER 1: Core FFI (no dependencies)
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<NativeFFI>(() => NativeFFI.instance);
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 1b: Hook Graph Engine (initialized immediately after FFI)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<HookGraphService>(() {
+      final svc = HookGraphService.instance;
+      svc.initialize(); // starts 60Hz Ticker
+      return svc;
+    });
 
     // ═══════════════════════════════════════════════════════════════════════════
     // LAYER 2: Low-level services (depend only on FFI)
