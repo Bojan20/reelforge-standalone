@@ -329,8 +329,25 @@ impl ScriptEngine {
         let (action_tx, action_rx) = bounded(256);
         let context = Arc::new(RwLock::new(ScriptContext::default()));
 
-        // BUG#40: unsafe engine also needs a counter (no hook set, but field required for consistency)
+        // BUG#40 FIX: unsafe engine also needs instruction count hook to prevent infinite loops
         let instruction_count = Arc::new(AtomicU64::new(0));
+        {
+            let counter = Arc::clone(&instruction_count);
+            lua.set_hook(
+                HookTriggers::new().every_nth_instruction(10_000),
+                move |_lua, _dbg| {
+                    let count = counter.fetch_add(10_000, Ordering::Relaxed);
+                    if count >= MAX_SCRIPT_INSTRUCTIONS {
+                        Err(mlua::Error::RuntimeError(format!(
+                            "script execution limit exceeded ({} instructions)",
+                            MAX_SCRIPT_INSTRUCTIONS
+                        )))
+                    } else {
+                        Ok(VmState::Continue)
+                    }
+                },
+            );
+        }
 
         let engine = Self {
             lua,

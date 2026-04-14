@@ -125,6 +125,17 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
   late TabController _tabController;
   String? _expandedBlockId;
 
+  // BUG#16 fix: Persistent controllers for block option text fields
+  final Map<String, TextEditingController> _blockOptionControllers = {};
+
+  TextEditingController _getBlockOptionController(String optionId, String value) {
+    final existing = _blockOptionControllers[optionId];
+    if (existing != null) return existing;
+    final controller = TextEditingController(text: value);
+    _blockOptionControllers[optionId] = controller;
+    return controller;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -134,6 +145,9 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
   @override
   void dispose() {
     _tabController.dispose();
+    for (final c in _blockOptionControllers.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -804,7 +818,7 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
 
       case BlockOptionType.text:
         return TextFormField(
-          initialValue: option.value as String? ?? '',
+          controller: _getBlockOptionController(option.id, option.value as String? ?? ''),
           style: const TextStyle(color: Colors.white, fontSize: 12),
           decoration: InputDecoration(
             isDense: true,

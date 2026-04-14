@@ -131,6 +131,8 @@ static METADATA_THREAD_POOL: LazyLock<rayon::ThreadPool> = LazyLock::new(|| rayo
         .build()
         .expect("Failed to create metadata thread pool"));
 pub static PLAYBACK_ENGINE: LazyLock<Arc<PlaybackEngine>> = LazyLock::new(|| Arc::new(PlaybackEngine::new(Arc::clone(&TRACK_MANAGER), 48000)));
+/// Last import error message (thread-safe error tracking for FFI)
+static LAST_IMPORT_ERROR: LazyLock<RwLock<Option<String>>> = LazyLock::new(|| RwLock::new(None));
 static UNDO_MANAGER: LazyLock<RwLock<UndoManager>> = LazyLock::new(|| RwLock::new(UndoManager::new(500)));
 /// Project dirty state tracking
 static PROJECT_STATE: LazyLock<ProjectState> = LazyLock::new(ProjectState::new);
@@ -1351,14 +1353,16 @@ fn engine_import_audio_inner(path: *const c_char, track_id: u64, start_time: f64
 
     eprintln!("[FFI Import] STEP 2: Path string: {}", path_str);
 
+    // Clear previous error
+    *LAST_IMPORT_ERROR.write() = None;
+
     // SECURITY: Validate path to prevent path traversal attacks
     let validated_path = match validate_file_path(&path_str) {
         Some(p) => p,
         None => {
-            eprintln!(
-                "[FFI Import] ERROR: Path validation failed (possible path traversal): {}",
-                path_str
-            );
+            let msg = format!("Path validation failed (possible path traversal): {}", path_str);
+            eprintln!("[FFI Import] ERROR: {}", msg);
+            *LAST_IMPORT_ERROR.write() = Some(msg);
             return 0;
         }
     };
@@ -1367,7 +1371,9 @@ fn engine_import_audio_inner(path: *const c_char, track_id: u64, start_time: f64
 
     // SECURITY: Validate start_time
     if !validate_dsp_float(start_time, 0.0, 86400.0, "import_start_time") {
-        eprintln!("[FFI Import] ERROR: Invalid start_time: {}", start_time);
+        let msg = format!("Invalid start_time: {}", start_time);
+        eprintln!("[FFI Import] ERROR: {}", msg);
+        *LAST_IMPORT_ERROR.write() = Some(msg);
         return 0;
     }
 
@@ -1389,10 +1395,9 @@ fn engine_import_audio_inner(path: *const c_char, track_id: u64, start_time: f64
             Arc::new(audio)
         }
         Err(e) => {
-            eprintln!(
-                "[FFI Import] ERROR: Failed to import '{}': {:?}",
-                path_str, e
-            );
+            let msg = format!("Failed to import '{}': {:?}", path_str, e);
+            eprintln!("[FFI Import] ERROR: {}", msg);
+            *LAST_IMPORT_ERROR.write() = Some(msg);
             return 0;
         }
     };
@@ -1484,11 +1489,24 @@ fn engine_import_audio_inner(path: *const c_char, track_id: u64, start_time: f64
     clip_id.0
 }
 
-/// Get import error message (caller must free with engine_free_string)
+/// Get import error message (caller must free with engine_free_string).
+/// Returns null if no error occurred.
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_get_last_import_error() -> *mut c_char {
-    // TODO: Implement error tracking
-    ptr::null_mut()
+    let guard = LAST_IMPORT_ERROR.read();
+    match guard.as_ref() {
+        Some(msg) => match CString::new(msg.as_str()) {
+            Ok(cs) => cs.into_raw(),
+            Err(_) => ptr::null_mut(),
+        },
+        None => ptr::null_mut(),
+    }
+}
+
+/// Clear the last import error.
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_clear_last_import_error() {
+    *LAST_IMPORT_ERROR.write() = None;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -18802,16 +18820,21 @@ pub extern "C" fn plugin_insert_get_mix(channel_id: u64, slot_index: u32) -> f32
 
 /// Get plugin insert slot latency in samples
 #[unsafe(no_mangle)]
-pub extern "C" fn plugin_insert_get_latency(_channel_id: u64, _slot_index: u32) -> i32 {
-    // TODO: Integrate with RoutingGraph
+pub extern "C" fn plugin_insert_get_latency(channel_id: u64, slot_index: u32) -> i32 {
+    // Query the insert chain for this track's specific slot latency
+    let chains = PLAYBACK_ENGINE.get_track_insert_chain(crate::track_manager::TrackId(channel_id)).read();
+    if let Some(chain) = chains.get(&channel_id) {
+        if let Some(slot) = chain.slot(slot_index as usize) {
+            return slot.latency() as i32;
+        }
+    }
     0
 }
 
 /// Get total insert chain latency for a channel
 #[unsafe(no_mangle)]
-pub extern "C" fn plugin_insert_chain_latency(_channel_id: u64) -> i32 {
-    // TODO: Integrate with RoutingGraph to get chain.latency()
-    0
+pub extern "C" fn plugin_insert_chain_latency(channel_id: u64) -> i32 {
+    PLAYBACK_ENGINE.get_track_insert_latency(channel_id) as i32
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

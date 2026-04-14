@@ -193,7 +193,12 @@ class _SoundbankPanelState extends State<SoundbankPanel>
           ),
         ],
       ),
-    );
+    ).then((_) {
+      // BUG#16 fix: Dispose controllers after dialog closes
+      nameController.dispose();
+      descController.dispose();
+      authorController.dispose();
+    });
   }
 
   void _confirmDeleteBank(BuildContext context, SoundbankProvider provider, String bankId) {

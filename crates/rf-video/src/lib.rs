@@ -12,7 +12,8 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::Duration;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{Duration, Instant};
 
 use crossbeam_channel::Sender;
 use parking_lot::Mutex;
@@ -408,6 +409,10 @@ pub struct VideoEngine {
     playhead: u64,
     /// Thumbnail generator
     thumbnails: ThumbnailGenerator,
+    /// Skipped frames counter (sync metric)
+    skipped_frames: AtomicU64,
+    /// Last decode latency in microseconds (stored as u64 bits of f32)
+    last_decode_latency_us: AtomicU64,
 }
 
 impl VideoEngine {
@@ -418,6 +423,8 @@ impl VideoEngine {
             sample_rate,
             playhead: 0,
             thumbnails: ThumbnailGenerator::new(),
+            skipped_frames: AtomicU64::new(0),
+            last_decode_latency_us: AtomicU64::new(0),
         }
     }
 
@@ -488,7 +495,22 @@ impl VideoEngine {
                 if let Some(frame) = clip.frame_at_position(self.playhead, self.sample_rate)
                     && let Some(player) = self.players.get_mut(&clip.id)
                 {
-                    return player.get_frame(frame);
+                    let start = Instant::now();
+                    let result = player.get_frame(frame);
+                    let elapsed_us = start.elapsed().as_micros() as u64;
+                    self.last_decode_latency_us.store(elapsed_us, Ordering::Relaxed);
+
+                    // Track skipped frames: if we jumped more than 1 frame, count the gap
+                    let current = player.current_frame();
+                    if current > 0 {
+                        let expected_next = current;
+                        if frame > expected_next + 1 {
+                            let skipped = frame - expected_next - 1;
+                            self.skipped_frames.fetch_add(skipped, Ordering::Relaxed);
+                        }
+                    }
+
+                    return result;
                 }
             }
         }
@@ -537,14 +559,17 @@ impl VideoEngine {
 
     /// Get frames skipped (sync metric)
     pub fn frames_skipped(&self) -> u32 {
-        // TODO: Track actual skipped frames during playback
-        0
+        self.skipped_frames.load(Ordering::Relaxed) as u32
+    }
+
+    /// Reset skipped frames counter
+    pub fn reset_skipped_frames(&self) {
+        self.skipped_frames.store(0, Ordering::Relaxed);
     }
 
     /// Get decode latency in ms (sync metric)
     pub fn decode_latency_ms(&self) -> f32 {
-        // TODO: Track actual decode latency
-        0.0
+        self.last_decode_latency_us.load(Ordering::Relaxed) as f32 / 1000.0
     }
 
     /// Generate thumbnails for clip

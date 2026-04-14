@@ -146,6 +146,7 @@ class _InputBusPanelState extends State<InputBusPanel> {
     String name = 'Input ${context.read<InputBusProvider>().busCount + 1}';
     bool isStereo = true;
     int hwChannel = 0;
+    final nameController = TextEditingController(text: name);
 
     final result = await showDialog<bool>(
       context: context,
@@ -162,7 +163,7 @@ class _InputBusPanelState extends State<InputBusPanel> {
             children: [
               // Name field
               TextFormField(
-                initialValue: name,
+                controller: nameController,
                 decoration: const InputDecoration(
                   labelText: 'Bus Name',
                   border: OutlineInputBorder(),
@@ -237,6 +238,8 @@ class _InputBusPanelState extends State<InputBusPanel> {
         ),
       ),
     );
+
+    nameController.dispose();
 
     if (result == true && context.mounted) {
       final provider = context.read<InputBusProvider>();

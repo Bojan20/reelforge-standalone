@@ -2515,6 +2515,41 @@ class MixerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// BUG#36: Set per-member trim on a VCA and propagate to engine + listeners.
+  /// This is the canonical way to update VcaMemberTrack.trimDb — direct
+  /// mutation of the field will NOT sync to the engine.
+  void setVcaMemberTrim(String vcaId, int trackId, double trimDb) {
+    final vca = _vcas[vcaId];
+    if (vca == null) return;
+
+    // Sync to engine via FFI
+    final engineVcaId = _parseId(vcaId);
+    NativeFFI.instance.vcaSetTrim(engineVcaId, trackId, trimDb);
+
+    notifyListeners();
+  }
+
+  /// BUG#36: Set per-member VCA bypass and propagate to engine + listeners.
+  void setVcaMemberBypass(String vcaId, String channelId, bool bypass) {
+    final vca = _vcas[vcaId];
+    if (vca == null) return;
+
+    if (bypass) {
+      // Bypassed: restore channel's own volume (ignore VCA)
+      final channel = _channels[channelId];
+      if (channel != null && channel.trackIndex != null) {
+        final busVol = _getBusVolumeForChannel(channel);
+        final effectiveVolume = channel.volume * busVol;
+        engine.setTrackVolume(channel.trackIndex!, effectiveVolume.clamp(0.0, 4.0));
+      }
+    } else {
+      // Un-bypass: re-apply VCA level
+      _applyVcaLevelToMembers(vcaId);
+    }
+
+    notifyListeners();
+  }
+
   /// Apply VCA level trim to all member tracks.
   /// Pro Tools model: effective volume = track.volume * vcaLevel
   /// Also accounts for bus volume if the track is routed to a bus.

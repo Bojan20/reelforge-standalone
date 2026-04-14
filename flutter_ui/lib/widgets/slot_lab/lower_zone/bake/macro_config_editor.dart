@@ -32,6 +32,11 @@ class _MacroConfigEditorState extends State<MacroConfigEditor> {
   bool _verbose = false;
   bool _showYaml = false;
 
+  // BUG#16 fix: Persistent controllers for text fields
+  late TextEditingController _macroNameController;
+  late TextEditingController _gameIdController;
+  late TextEditingController _seedController;
+
   // Available steps from provider
   List<FluxMacroStepInfo> get _availableSteps => _provider.steps;
 
@@ -47,11 +52,17 @@ class _MacroConfigEditorState extends State<MacroConfigEditor> {
   void initState() {
     super.initState();
     _provider.addListener(_onProviderChanged);
+    _macroNameController = TextEditingController(text: _macroName);
+    _gameIdController = TextEditingController(text: _gameId);
+    _seedController = TextEditingController(text: _seed.toString());
   }
 
   @override
   void dispose() {
     _provider.removeListener(_onProviderChanged);
+    _macroNameController.dispose();
+    _gameIdController.dispose();
+    _seedController.dispose();
     super.dispose();
   }
 
@@ -157,10 +168,10 @@ class _MacroConfigEditorState extends State<MacroConfigEditor> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Macro name
-          _buildFieldRow('Macro', _macroName, (v) => setState(() => _macroName = v)),
+          _buildFieldRow('Macro', _macroNameController, (v) => setState(() => _macroName = v)),
           const SizedBox(height: 8),
           // Game ID
-          _buildFieldRow('Game ID', _gameId, (v) => setState(() => _gameId = v),
+          _buildFieldRow('Game ID', _gameIdController, (v) => setState(() => _gameId = v),
               hint: 'e.g. GoldenPantheon'),
           const SizedBox(height: 8),
           // Volatility
@@ -219,7 +230,7 @@ class _MacroConfigEditorState extends State<MacroConfigEditor> {
     );
   }
 
-  Widget _buildFieldRow(String label, String value, ValueChanged<String> onChanged,
+  Widget _buildFieldRow(String label, TextEditingController controller, ValueChanged<String> onChanged,
       {String? hint}) {
     return Row(
       children: [
@@ -234,7 +245,7 @@ class _MacroConfigEditorState extends State<MacroConfigEditor> {
           child: SizedBox(
             height: 24,
             child: TextFormField(
-              initialValue: value,
+              controller: controller,
               style: const TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
               decoration: InputDecoration(
                 hintText: hint,
@@ -456,7 +467,7 @@ class _MacroConfigEditorState extends State<MacroConfigEditor> {
               width: 100,
               height: 24,
               child: TextFormField(
-                initialValue: _seed.toString(),
+                controller: _seedController,
                 style: const TextStyle(
                   color: FluxForgeTheme.textSecondary,
                   fontSize: 11,

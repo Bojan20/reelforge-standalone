@@ -531,7 +531,10 @@ impl TransitionRegistry {
         registry.register(TransitionProfile::feature_enter());
         registry.register(TransitionProfile::feature_exit());
 
-        debug_assert_eq!(
+        // BUG#60 FIX: use assert (not debug_assert) so release builds also catch
+        // registration failures — a missing profile is a logic error, not a
+        // recoverable condition.
+        assert_eq!(
             registry.profiles.len(),
             5,
             "with_builtins() must register exactly 5 profiles, but found {}",

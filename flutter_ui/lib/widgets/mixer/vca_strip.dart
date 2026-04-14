@@ -25,20 +25,38 @@ enum VcaLinkMode {
 }
 
 /// VCA member track data
+/// BUG#36: trimDb and bypassVca are now final — all mutations must go through
+/// MixerProvider.setVcaMemberTrim / setVcaMemberBypass so state stays in sync.
 class VcaMemberTrack {
   final int id;
   final String name;
   final Color color;
-  double trimDb;
-  bool bypassVca;
+  final double trimDb;
+  final bool bypassVca;
 
-  VcaMemberTrack({
+  const VcaMemberTrack({
     required this.id,
     required this.name,
     this.color = const Color(0xFF4a9eff),
     this.trimDb = 0.0,
     this.bypassVca = false,
   });
+
+  VcaMemberTrack copyWith({
+    int? id,
+    String? name,
+    Color? color,
+    double? trimDb,
+    bool? bypassVca,
+  }) {
+    return VcaMemberTrack(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      color: color ?? this.color,
+      trimDb: trimDb ?? this.trimDb,
+      bypassVca: bypassVca ?? this.bypassVca,
+    );
+  }
 }
 
 /// Complete VCA data

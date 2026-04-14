@@ -8,9 +8,10 @@
 //! - ml_cancel, ml_set_execution_provider, ml_get_error
 
 use std::ffi::{c_char, CString};
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-use std::sync::OnceLock;
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU8, Ordering};
+use std::sync::{Arc, OnceLock};
 
+use crossbeam_channel::{Receiver, Sender};
 use parking_lot::RwLock;
 
 /// ML model registry entry.
@@ -19,6 +20,154 @@ struct MlModel {
     model_type: &'static str,
     available: bool,
     size_mb: u32,
+}
+
+/// Commands sent to ML processing threads.
+enum MlCommand {
+    /// Begin processing with input/output paths and model-specific params
+    Process {
+        input_path: String,
+        output_path: String,
+        /// Model-specific parameter (strength for denoise, stems_mask for separate, unused for enhance)
+        param: f64,
+    },
+    /// Cancel current processing
+    Cancel,
+    /// Shut down the thread
+    Shutdown,
+}
+
+/// Thread state: 0=idle, 1=running, 2=stopped, 3=error
+const THREAD_IDLE: u8 = 0;
+const THREAD_RUNNING: u8 = 1;
+const THREAD_STOPPED: u8 = 2;
+const THREAD_ERROR: u8 = 3;
+
+/// Handle to a spawned ML processing thread.
+struct MlThreadHandle {
+    /// Command sender
+    cmd_tx: Sender<MlCommand>,
+    /// Thread state (Arc-shared with the spawned thread)
+    state: Arc<AtomicU8>,
+}
+
+impl MlThreadHandle {
+    /// Spawn a named ML processing thread with catch_unwind panic handler.
+    fn spawn(name: &str, model_name: &'static str) -> Self {
+        let (cmd_tx, cmd_rx): (Sender<MlCommand>, Receiver<MlCommand>) =
+            crossbeam_channel::bounded(4);
+        let state = Arc::new(AtomicU8::new(THREAD_IDLE));
+        let state_ref = Arc::clone(&state);
+        let thread_name = name.to_string();
+
+        std::thread::Builder::new()
+            .name(thread_name.clone())
+            .spawn(move || {
+                let state_ref = &*state_ref;
+                log::info!("ML thread '{}' started for model {}", thread_name, model_name);
+
+                loop {
+                    let cmd = match cmd_rx.recv() {
+                        Ok(cmd) => cmd,
+                        Err(_) => {
+                            log::info!("ML thread '{}': channel closed, exiting", thread_name);
+                            state_ref.store(THREAD_STOPPED, Ordering::Release);
+                            break;
+                        }
+                    };
+
+                    match cmd {
+                        MlCommand::Process { input_path, output_path, param } => {
+                            state_ref.store(THREAD_RUNNING, Ordering::Release);
+                            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                                log::info!(
+                                    "ML thread '{}': processing {} -> {} (param={:.2})",
+                                    thread_name, input_path, output_path, param
+                                );
+
+                                // Update global progress state
+                                if let Some(ml) = ml_state() {
+                                    *ml.phase.write() = format!("Processing with {}...", model_name);
+                                    *ml.progress.write() = 0.1;
+                                }
+
+                                // NOTE: Actual ML model inference would happen here.
+                                // When model weights are available, this is where we:
+                                // 1. Load audio from input_path into ring buffer
+                                // 2. Run inference through the ML model
+                                // 3. Write processed output to output_path
+                                // For now, log and simulate completion.
+
+                                log::info!(
+                                    "ML thread '{}': {} inference would run here (no weights loaded)",
+                                    thread_name, model_name
+                                );
+
+                                if let Some(ml) = ml_state() {
+                                    *ml.progress.write() = 1.0;
+                                    *ml.phase.write() = "Complete".into();
+                                    ml.processing.store(false, Ordering::Release);
+                                }
+                            }));
+
+                            match result {
+                                Ok(()) => {
+                                    state_ref.store(THREAD_IDLE, Ordering::Release);
+                                }
+                                Err(panic_info) => {
+                                    let msg = if let Some(s) = panic_info.downcast_ref::<&str>() {
+                                        s.to_string()
+                                    } else if let Some(s) = panic_info.downcast_ref::<String>() {
+                                        s.clone()
+                                    } else {
+                                        "unknown panic".to_string()
+                                    };
+                                    log::error!(
+                                        "ML thread '{}' panicked during processing: {}",
+                                        thread_name, msg
+                                    );
+                                    state_ref.store(THREAD_ERROR, Ordering::Release);
+                                    if let Some(ml) = ml_state() {
+                                        *ml.error.write() = Some(format!("Internal error in {}: {}", model_name, msg));
+                                        ml.processing.store(false, Ordering::Release);
+                                        *ml.phase.write() = "Error".into();
+                                    }
+                                }
+                            }
+                        }
+                        MlCommand::Cancel => {
+                            log::info!("ML thread '{}': cancel received", thread_name);
+                            if let Some(ml) = ml_state() {
+                                ml.processing.store(false, Ordering::Release);
+                                *ml.phase.write() = "Cancelled".into();
+                            }
+                            state_ref.store(THREAD_IDLE, Ordering::Release);
+                        }
+                        MlCommand::Shutdown => {
+                            log::info!("ML thread '{}': shutdown received", thread_name);
+                            state_ref.store(THREAD_STOPPED, Ordering::Release);
+                            break;
+                        }
+                    }
+                }
+            })
+            .unwrap_or_else(|e| {
+                log::error!("Failed to spawn ML thread '{}': {}", name, e);
+                panic!("Critical: cannot spawn ML thread '{}'", name);
+            });
+
+        Self { cmd_tx, state }
+    }
+
+    /// Send a command to the thread (non-blocking best-effort).
+    fn send(&self, cmd: MlCommand) -> bool {
+        self.cmd_tx.try_send(cmd).is_ok()
+    }
+
+    /// Get thread state.
+    fn thread_state(&self) -> u8 {
+        self.state.load(Ordering::Acquire)
+    }
 }
 
 /// Global ML state.
@@ -30,6 +179,10 @@ struct MlState {
     current_model: RwLock<String>,
     error: RwLock<Option<String>>,
     execution_provider: AtomicU32, // 0=CPU, 1=CUDA, 2=TensorRT, 3=CoreML
+    /// Processing threads — one per model type
+    thread_denoise: MlThreadHandle,
+    thread_separate: MlThreadHandle,
+    thread_enhance: MlThreadHandle,
 }
 
 static ML_STATE: OnceLock<MlState> = OnceLock::new();
@@ -45,6 +198,11 @@ fn ml_state() -> Option<&'static MlState> {
 /// Initialize ML engine. Registers available models.
 #[unsafe(no_mangle)]
 pub extern "C" fn ml_init() {
+    // Spawn processing threads before creating state
+    let thread_denoise = MlThreadHandle::spawn("ff-ml-denoise", "DeepFilterNet3");
+    let thread_separate = MlThreadHandle::spawn("ff-ml-separate", "HTDemucs");
+    let thread_enhance = MlThreadHandle::spawn("ff-ml-enhance", "aTENNuate-SSM");
+
     let _ = ML_STATE.set(MlState {
         models: vec![
             MlModel {
@@ -90,15 +248,22 @@ pub extern "C" fn ml_init() {
         current_model: RwLock::new(String::new()),
         error: RwLock::new(None),
         execution_provider: AtomicU32::new(0), // CPU default
+        thread_denoise,
+        thread_separate,
+        thread_enhance,
     });
-    log::info!("ML FFI: Initialized with {} models", ML_STATE.get().map_or(0, |s| s.models.len()));
+    log::info!("ML FFI: Initialized with {} models, 3 processing threads spawned", ML_STATE.get().map_or(0, |s| s.models.len()));
 }
 
 /// Reset ML engine state. Cancels any processing.
 #[unsafe(no_mangle)]
 pub extern "C" fn ml_reset() {
     if let Some(state) = ml_state() {
-        state.processing.store(false, Ordering::Relaxed);
+        // Cancel any in-flight processing on all threads
+        let _ = state.thread_denoise.send(MlCommand::Cancel);
+        let _ = state.thread_separate.send(MlCommand::Cancel);
+        let _ = state.thread_enhance.send(MlCommand::Cancel);
+        state.processing.store(false, Ordering::Release);
         *state.progress.write() = 0.0;
         *state.phase.write() = String::new();
         *state.current_model.write() = String::new();
@@ -197,14 +362,16 @@ pub extern "C" fn ml_denoise_start(
         strength
     );
 
-    // TODO: Spawn actual DeepFilterNet processing thread
-    // For now, mark as ready so Flutter pipeline is unblocked
-    // Real implementation will use rf_ml::denoise::DeepFilterNet
-
-    // Simulate completion for now
-    *state.progress.write() = 1.0;
-    *state.phase.write() = "Complete".into();
-    state.processing.store(false, Ordering::Relaxed);
+    // Dispatch to DeepFilterNet processing thread
+    if !state.thread_denoise.send(MlCommand::Process {
+        input_path: _input,
+        output_path: _output,
+        param: strength as f64,
+    }) {
+        *state.error.write() = Some("Failed to send command to denoise thread".into());
+        state.processing.store(false, Ordering::Release);
+        return 0;
+    }
 
     1
 }
@@ -255,10 +422,16 @@ pub extern "C" fn ml_separate_start(
         model_name, stems_mask
     );
 
-    // TODO: Spawn actual HTDemucs processing thread
-    *state.progress.write() = 1.0;
-    *state.phase.write() = "Complete".into();
-    state.processing.store(false, Ordering::Relaxed);
+    // Dispatch to HTDemucs processing thread (stems_mask as param)
+    if !state.thread_separate.send(MlCommand::Process {
+        input_path: _input,
+        output_path: _output,
+        param: stems_mask as f64,
+    }) {
+        *state.error.write() = Some("Failed to send command to separation thread".into());
+        state.processing.store(false, Ordering::Release);
+        return 0;
+    }
 
     1
 }
@@ -297,10 +470,16 @@ pub extern "C" fn ml_enhance_voice_start(
 
     log::info!("ML FFI: Voice enhancement started");
 
-    // TODO: Spawn actual aTENNuate processing thread
-    *state.progress.write() = 1.0;
-    *state.phase.write() = "Complete".into();
-    state.processing.store(false, Ordering::Relaxed);
+    // Dispatch to aTENNuate processing thread
+    if !state.thread_enhance.send(MlCommand::Process {
+        input_path: _input,
+        output_path: _output,
+        param: 0.0,
+    }) {
+        *state.error.write() = Some("Failed to send command to voice enhancement thread".into());
+        state.processing.store(false, Ordering::Release);
+        return 0;
+    }
 
     1
 }
@@ -371,8 +550,12 @@ pub extern "C" fn ml_get_error() -> *mut c_char {
 #[unsafe(no_mangle)]
 pub extern "C" fn ml_cancel() -> i32 {
     let Some(state) = ml_state() else { return 0 };
-    if state.processing.load(Ordering::Relaxed) {
-        state.processing.store(false, Ordering::Relaxed);
+    if state.processing.load(Ordering::Acquire) {
+        // Send cancel to all threads — only the active one will act on it
+        let _ = state.thread_denoise.send(MlCommand::Cancel);
+        let _ = state.thread_separate.send(MlCommand::Cancel);
+        let _ = state.thread_enhance.send(MlCommand::Cancel);
+        state.processing.store(false, Ordering::Release);
         *state.phase.write() = "Cancelled".into();
         log::info!("ML FFI: Processing cancelled");
         1

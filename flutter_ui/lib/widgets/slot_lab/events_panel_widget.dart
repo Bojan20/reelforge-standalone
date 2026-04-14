@@ -106,6 +106,11 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
   final TextEditingController _editController = TextEditingController();
   final FocusNode _editFocusNode = FocusNode();
 
+  // BUG#16 fix: Persistent controllers for event detail fields
+  final TextEditingController _eventNameController = TextEditingController();
+  final Map<String, TextEditingController> _layerTargetControllers = {};
+  String? _eventNameControllerBoundTo;
+
   // Layer property editing state (SL-RP-P0.3)
   Set<String> _expandedLayerIds = {};
 
@@ -163,7 +168,24 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
     _editController.dispose();
     _editFocusNode.removeListener(_onEditFocusChanged);
     _editFocusNode.dispose();
+    _eventNameController.dispose();
+    for (final c in _layerTargetControllers.values) {
+      c.dispose();
+    }
     super.dispose();
+  }
+
+  TextEditingController _getLayerTargetController(SlotEventLayer layer) {
+    final key = layer.id;
+    final existing = _layerTargetControllers[key];
+    final value = layer.targetAudioPath ?? '';
+    if (existing != null) {
+      if (existing.text != value) existing.text = value;
+      return existing;
+    }
+    final controller = TextEditingController(text: value);
+    _layerTargetControllers[key] = controller;
+    return controller;
   }
 
   void _onEditFocusChanged() {
@@ -1310,15 +1332,23 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
           return _buildEmptyState('Event not found', 'Select another event');
         }
         final middleware = context.read<MiddlewareProvider>();
+        // Sync event name controller when selected event changes
+        if (_eventNameControllerBoundTo != selectedEvent.id) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _eventNameController.text = selectedEvent.name;
+              _eventNameControllerBoundTo = selectedEvent.id;
+            }
+          });
+        }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _buildSectionHeader('SELECTED EVENT', null),
-            // Event name
             Padding(
               padding: const EdgeInsets.all(8),
               child: TextFormField(
-                initialValue: selectedEvent.name,
+                controller: _eventNameController,
                 style: const TextStyle(fontSize: 12, color: Colors.white),
                 decoration: InputDecoration(
                   isDense: true,
@@ -1890,7 +1920,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                                   borderRadius: BorderRadius.circular(3),
                                 ),
                                 child: TextFormField(
-                                  initialValue: layer.targetAudioPath ?? '',
+                                  controller: _getLayerTargetController(layer),
                                   style: const TextStyle(fontSize: 9, color: Colors.white70),
                                   decoration: const InputDecoration(
                                     hintText: 'Event name to target...',

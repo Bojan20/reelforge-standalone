@@ -189,6 +189,9 @@ class _BrandingPanelState extends State<BrandingPanel> with SingleTickerProvider
   String? _selectedConfigId;
   BrandingConfig? _editingConfig;
 
+  // BUG#16 fix: Persistent controllers for text fields (avoid rebuild leak)
+  final Map<String, TextEditingController> _textControllers = {};
+
   @override
   void initState() {
     super.initState();
@@ -204,9 +207,20 @@ class _BrandingPanelState extends State<BrandingPanel> with SingleTickerProvider
     }
   }
 
+  TextEditingController _getOrCreateController(String key, String value) {
+    final existing = _textControllers[key];
+    if (existing != null) return existing;
+    final controller = TextEditingController(text: value);
+    _textControllers[key] = controller;
+    return controller;
+  }
+
   @override
   void dispose() {
     _tabController.dispose();
+    for (final c in _textControllers.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -521,6 +535,7 @@ class _BrandingPanelState extends State<BrandingPanel> with SingleTickerProvider
   }
 
   Widget _buildTextField(String label, String value, ValueChanged<String> onChanged) {
+    final controller = _getOrCreateController(label, value);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -534,7 +549,7 @@ class _BrandingPanelState extends State<BrandingPanel> with SingleTickerProvider
           ),
           Expanded(
             child: TextFormField(
-              initialValue: value,
+              controller: controller,
               style: const TextStyle(fontSize: 11, color: Colors.white),
               decoration: InputDecoration(
                 isDense: true,

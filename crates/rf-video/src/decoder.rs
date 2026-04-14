@@ -381,10 +381,11 @@ pub mod ffmpeg_backend {
         time_base: ffmpeg_next::Rational,
     }
 
-    // SAFETY: FfmpegDecoder is only accessed behind a Mutex<VideoDecoder> in VideoPlayer.
-    // All FFmpeg contexts are single-threaded but we guarantee exclusive access via Mutex.
+    // SAFETY: FfmpegDecoder ownership can be transferred across threads (Send) because
+    // VideoPlayer wraps it in Arc<Mutex<VideoDecoder>> which guarantees exclusive access.
+    // BUG#27 FIX: Sync removed — FFmpeg contexts are NOT thread-safe; concurrent access
+    // must go through the Mutex in VideoPlayer, not via a blanket Sync impl.
     unsafe impl Send for FfmpegDecoder {}
-    unsafe impl Sync for FfmpegDecoder {}
 
     impl FfmpegDecoder {
         pub fn open(path: &Path) -> VideoResult<Self> {

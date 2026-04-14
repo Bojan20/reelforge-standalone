@@ -30,11 +30,21 @@ class _SchemaMigrationPanelState extends State<SchemaMigrationPanel> {
   MigrationResult? _lastResult;
   bool _showHistory = false;
 
+  /// BUG#39 FIX: Strict schema version detection — no silent fallback to 1.
+  /// If project data exists but has no recognisable version field, surface an
+  /// error instead of silently treating it as version 1.
   int get _currentProjectVersion {
     if (widget.projectData == null) return currentSchemaVersion;
-    return widget.projectData!['schema_version'] as int? ??
-        widget.projectData!['version'] as int? ??
-        1;
+    final data = widget.projectData!;
+    final schemaVersion = data['schema_version'] as int?;
+    if (schemaVersion != null) return schemaVersion;
+    final version = data['version'] as int?;
+    if (version != null) return version;
+    // Neither field present — this is a data integrity issue, not a v1 project.
+    throw StateError(
+      'Project data has no "schema_version" or "version" field. '
+      'Cannot determine schema version — refusing to guess.',
+    );
   }
 
   bool get _needsMigration {

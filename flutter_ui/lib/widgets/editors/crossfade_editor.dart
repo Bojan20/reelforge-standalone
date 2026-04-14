@@ -208,15 +208,26 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
   late CrossfadeConfig _config;
   bool _showWaveforms = true;
   bool _abComparison = false;
+  late TextEditingController _durationController;
 
   @override
   void initState() {
     super.initState();
     _config = widget.initialConfig;
+    _durationController = TextEditingController(
+      text: '${(_config.duration * 1000).toStringAsFixed(0)} ms',
+    );
+  }
+
+  @override
+  void dispose() {
+    _durationController.dispose();
+    super.dispose();
   }
 
   void _updateConfig(CrossfadeConfig config) {
     setState(() => _config = config);
+    _durationController.text = '${(config.duration * 1000).toStringAsFixed(0)} ms';
     widget.onConfigChanged?.call(config);
   }
 
@@ -632,7 +643,7 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
           SizedBox(
             width: 80,
             child: TextFormField(
-              initialValue: '${(_config.duration * 1000).toStringAsFixed(0)} ms',
+              controller: _durationController,
               style: TextStyle(
                 fontSize: 12,
                 color: FluxForgeTheme.textPrimary,

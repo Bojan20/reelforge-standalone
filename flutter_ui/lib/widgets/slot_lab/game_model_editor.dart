@@ -52,6 +52,9 @@ class _GameModelEditorState extends State<GameModelEditor>
   final _providerController = TextEditingController();
   final _rtpController = TextEditingController();
 
+  // BUG#16 fix: Persistent controllers for config rows and win tier fields
+  final Map<String, TextEditingController> _configRowControllers = {};
+
   // Grid
   int _reels = 5;
   int _rows = 3;
@@ -76,6 +79,14 @@ class _GameModelEditorState extends State<GameModelEditor>
     _loadModel(widget.initialModel ?? _createDefaultModel());
   }
 
+  TextEditingController _getConfigRowController(String key, String value) {
+    final existing = _configRowControllers[key];
+    if (existing != null) return existing;
+    final controller = TextEditingController(text: value);
+    _configRowControllers[key] = controller;
+    return controller;
+  }
+
   @override
   void dispose() {
     _tabController.dispose();
@@ -83,6 +94,9 @@ class _GameModelEditorState extends State<GameModelEditor>
     _idController.dispose();
     _providerController.dispose();
     _rtpController.dispose();
+    for (final c in _configRowControllers.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -1001,6 +1015,7 @@ class _GameModelEditorState extends State<GameModelEditor>
   }
 
   Widget _buildConfigRow(String label, String value, ValueChanged<String> onChanged) {
+    final controller = _getConfigRowController(label, value);
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -1013,7 +1028,7 @@ class _GameModelEditorState extends State<GameModelEditor>
             width: 80,
             height: 28,
             child: TextFormField(
-              initialValue: value,
+              controller: controller,
               style: const TextStyle(color: Colors.white, fontSize: 12),
               decoration: InputDecoration(
                 contentPadding: const EdgeInsets.symmetric(horizontal: 8),
@@ -1173,7 +1188,7 @@ class _GameModelEditorState extends State<GameModelEditor>
                 SizedBox(
                   width: 60,
                   child: TextFormField(
-                    initialValue: minMult.toString(),
+                    controller: _getConfigRowController('winTier_${id}_min', minMult.toString()),
                     style: const TextStyle(color: Colors.white, fontSize: 12),
                     textAlign: TextAlign.center,
                     decoration: _compactInputDecoration('Min'),
@@ -1191,7 +1206,7 @@ class _GameModelEditorState extends State<GameModelEditor>
                 SizedBox(
                   width: 60,
                   child: TextFormField(
-                    initialValue: maxMult?.toString() ?? '∞',
+                    controller: _getConfigRowController('winTier_${id}_max', maxMult?.toString() ?? '∞'),
                     style: const TextStyle(color: Colors.white, fontSize: 12),
                     textAlign: TextAlign.center,
                     decoration: _compactInputDecoration('Max'),
