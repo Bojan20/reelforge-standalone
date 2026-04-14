@@ -2037,6 +2037,24 @@ pub struct PlaybackEngine {
     sidechain_taps: RwLock<HashMap<i64, (Vec<f64>, Vec<f64>)>>,
 }
 
+/// Soft-clip a single sample with smooth knee transition.
+/// Below `knee_start`: pass-through. Above: smooth blend into normalized tanh.
+/// Continuous and smooth — no audible artifacts at transition point.
+#[inline(always)]
+fn soft_clip_sample(x: f64, knee_start: f64, knee_range: f64, tanh_norm: f64) -> f64 {
+    let abs_x = x.abs();
+    if abs_x <= knee_start {
+        x // Below knee: linear pass-through
+    } else {
+        // Blend factor: 0.0 at knee_start, 1.0 at abs_x=1.0+
+        let blend = ((abs_x - knee_start) / knee_range).min(1.0);
+        // Saturated value: tanh normalized so tanh(1.0)/tanh(1.0) = 1.0
+        let saturated = x.tanh() / tanh_norm;
+        // Smooth crossfade: linear * (1-blend) + saturated * blend
+        x * (1.0 - blend) + saturated * blend
+    }
+}
+
 impl PlaybackEngine {
     pub fn new(track_manager: Arc<TrackManager>, sample_rate: u32) -> Self {
         // Create single ring buffer and split into tx/rx
@@ -6848,17 +6866,20 @@ impl PlaybackEngine {
             }
         }
 
-        // ═══ MASTER SOFT CLIPPER (tanh saturation — prevents digital clipping) ═══
-        // Applied as final safety net before metering. Transparent below 0dBFS,
-        // provides smooth saturation above. User-toggleable via FFI.
-        // tanh(x) ≈ x for |x| < 0.5, smoothly approaches ±1.0 for |x| > 1.0
+        // ═══ MASTER SOFT CLIPPER (smooth saturation — prevents digital clipping) ═══
+        // Soft-knee tanh clipper with seamless transition at threshold.
+        // Below knee_start (0.85): pass-through. Above: smooth blend into tanh.
+        // Continuous first derivative — no click/pop at transition point.
+        // tanh is scaled so tanh(1.0) maps to 1.0 at the output: out = tanh(x) / tanh(1.0)
         if self.master_soft_clip_enabled.load(Ordering::Relaxed) {
+            const KNEE_START: f64 = 0.85;
+            const KNEE_RANGE: f64 = 1.0 - KNEE_START; // 0.15
+            // tanh(1.0) ≈ 0.7616 — normalize so unit input → unit output
+            let tanh_norm = 1.0_f64.tanh();
+
             for i in 0..frames {
-                let l = output_l[i];
-                let r = output_r[i];
-                // Only apply saturation when signal exceeds threshold (branchless-friendly)
-                if l.abs() > 1.0 { output_l[i] = l.tanh(); }
-                if r.abs() > 1.0 { output_r[i] = r.tanh(); }
+                output_l[i] = soft_clip_sample(output_l[i], KNEE_START, KNEE_RANGE, tanh_norm);
+                output_r[i] = soft_clip_sample(output_r[i], KNEE_START, KNEE_RANGE, tanh_norm);
             }
         }
 
@@ -7897,6 +7918,7 @@ impl PlaybackEngine {
         // ═══ BUS INSERT PROCESSING (offline — mirrors live path) ═══
         // Apply bus inserts + volume/pan for each bus before summing to master.
         // Without this, offline exports miss all bus EQ/compression/effects.
+        // Uses topological ordering (children first) to match live path behavior.
         {
             let mut bus_inserts = self.bus_inserts.write();
             let bus_states = self.bus_states.read();
@@ -7907,11 +7929,39 @@ impl PlaybackEngine {
                 OutputBus::Voice, OutputBus::Ambience, OutputBus::Aux,
             ];
 
-            for (bus_idx, &bus) in buses.iter().enumerate() {
+            // Topological ordering: children (route to bus) first, then parents (route to master)
+            let mut process_order: [usize; 6] = [0; 6];
+            let mut order_idx = 0;
+            for bus_idx in 0..6 {
+                if let BusOutputDest::Bus(_) = bus_states[bus_idx].output_dest {
+                    process_order[order_idx] = bus_idx;
+                    order_idx += 1;
+                }
+            }
+            for bus_idx in 0..6 {
+                if !process_order[..order_idx].contains(&bus_idx) {
+                    process_order[order_idx] = bus_idx;
+                    order_idx += 1;
+                }
+            }
+
+            // Accum buffers for bus-to-bus routing (offline can heap-alloc freely)
+            let mut accum_l: Vec<Vec<f64>> = (0..6).map(|_| vec![0.0; frames]).collect();
+            let mut accum_r: Vec<Vec<f64>> = (0..6).map(|_| vec![0.0; frames]).collect();
+            let mut has_accum = [false; 6];
+
+            for &bus_idx in &process_order[..order_idx] {
                 let state = &bus_states[bus_idx];
                 if state.muted { continue; }
 
+                let bus = buses[bus_idx];
                 let (bus_l, bus_r) = bus_buffers.get_bus_mut(bus);
+
+                // Add accumulated child bus audio
+                if has_accum[bus_idx] {
+                    for i in 0..frames { bus_l[i] += accum_l[bus_idx][i]; }
+                    for i in 0..frames { bus_r[i] += accum_r[bus_idx][i]; }
+                }
 
                 // Pre-fader inserts
                 bus_inserts[bus_idx].process_pre_fader_with_taps(bus_l, bus_r, &offline_taps, frames);
@@ -7938,10 +7988,23 @@ impl PlaybackEngine {
 
                 // Post-fader inserts
                 bus_inserts[bus_idx].process_post_fader_with_taps(bus_l, bus_r, &offline_taps, frames);
+
+                // Route: bus-to-bus or direct to master sum
+                match state.output_dest {
+                    BusOutputDest::Bus(target_idx) if target_idx < 6 && target_idx != bus_idx => {
+                        for i in 0..frames { accum_l[target_idx][i] += bus_l[i]; }
+                        for i in 0..frames { accum_r[target_idx][i] += bus_r[i]; }
+                        has_accum[target_idx] = true;
+                        // Zero this bus so sum_to_master doesn't double-count it
+                        bus_l.iter_mut().for_each(|x| *x = 0.0);
+                        bus_r.iter_mut().for_each(|x| *x = 0.0);
+                    }
+                    _ => {} // Master-routed buses get summed by sum_to_master() below
+                }
             }
         }
 
-        // Sum all buses to master
+        // Sum all buses to master (only master-routed buses have non-zero data)
         bus_buffers.sum_to_master();
 
         // Copy master to output
