@@ -1,0 +1,98 @@
+{
+  "id": "template_cascade_audio",
+  "name": "Cascade Audio Sequence",
+  "description": "Complete cascade/tumble audio flow: symbol removal → drop → refill → re-evaluation. Progressive intensity based on cascade depth.",
+  "version": 1,
+  "nodes": [
+    {
+      "id": "entry_1",
+      "type": "EventEntry",
+      "position": {"x": 100, "y": 300},
+      "parameters": {}
+    },
+    {
+      "id": "cascade_1",
+      "type": "CascadeStep",
+      "position": {"x": 350, "y": 300},
+      "parameters": {
+        "megaChainThreshold": 5,
+        "removalDelayMs": 300,
+        "fillDelayMs": 250,
+        "intensityScale": "logarithmic"
+      }
+    },
+    {
+      "id": "play_removal",
+      "type": "PlaySound",
+      "position": {"x": 650, "y": 150},
+      "parameters": {
+        "assetPath": "audio/cascade/symbol_remove.wav",
+        "bus": "sfx",
+        "priority": "normal"
+      }
+    },
+    {
+      "id": "play_drop",
+      "type": "PlaySound",
+      "position": {"x": 650, "y": 275},
+      "parameters": {
+        "assetPath": "audio/cascade/symbol_drop.wav",
+        "bus": "sfx",
+        "priority": "normal"
+      }
+    },
+    {
+      "id": "play_fill",
+      "type": "PlaySound",
+      "position": {"x": 650, "y": 400},
+      "parameters": {
+        "assetPath": "audio/cascade/symbol_fill.wav",
+        "bus": "sfx",
+        "priority": "normal"
+      }
+    },
+    {
+      "id": "play_mega_chain",
+      "type": "PlaySound",
+      "position": {"x": 650, "y": 525},
+      "parameters": {
+        "assetPath": "audio/cascade/mega_chain.wav",
+        "bus": "music",
+        "priority": "high"
+      }
+    },
+    {
+      "id": "gate_mega",
+      "type": "Gate",
+      "position": {"x": 450, "y": 525},
+      "parameters": {}
+    },
+    {
+      "id": "play_complete",
+      "type": "PlaySound",
+      "position": {"x": 900, "y": 300},
+      "parameters": {
+        "assetPath": "audio/cascade/cascade_end.wav",
+        "bus": "sfx",
+        "priority": "normal"
+      }
+    }
+  ],
+  "connections": [
+    {"id": "c1", "from": {"node": "entry_1", "port": "trigger"}, "to": {"node": "cascade_1", "port": "trigger"}},
+    {"id": "c2", "from": {"node": "cascade_1", "port": "removal"}, "to": {"node": "play_removal", "port": "trigger"}},
+    {"id": "c3", "from": {"node": "cascade_1", "port": "drop"}, "to": {"node": "play_drop", "port": "trigger"}},
+    {"id": "c4", "from": {"node": "cascade_1", "port": "fill"}, "to": {"node": "play_fill", "port": "trigger"}},
+    {"id": "c5", "from": {"node": "cascade_1", "port": "complete"}, "to": {"node": "play_complete", "port": "trigger"}},
+    {"id": "c6", "from": {"node": "cascade_1", "port": "complete"}, "to": {"node": "gate_mega", "port": "trigger"}},
+    {"id": "c7", "from": {"node": "cascade_1", "port": "isMegaChain"}, "to": {"node": "gate_mega", "port": "open"}},
+    {"id": "c8", "from": {"node": "gate_mega", "port": "out"}, "to": {"node": "play_mega_chain", "port": "trigger"}},
+    {"id": "c9", "from": {"node": "cascade_1", "port": "intensity"}, "to": {"node": "play_removal", "port": "volume"}},
+    {"id": "c10", "from": {"node": "cascade_1", "port": "intensity"}, "to": {"node": "play_drop", "port": "volume"}}
+  ],
+  "metadata": {
+    "template": true,
+    "category": "slot_cascade",
+    "tags": ["cascade", "tumble", "avalanche", "chain", "symbols"]
+  }
+}

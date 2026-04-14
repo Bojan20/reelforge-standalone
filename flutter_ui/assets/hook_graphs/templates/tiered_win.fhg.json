@@ -1,0 +1,125 @@
+{
+  "id": "template_tiered_win",
+  "name": "Tiered Win Celebration",
+  "description": "Routes win events through tier detection to appropriate celebration sounds. Supports WIN_1 through WIN_5 + Big Win with escalating audio intensity.",
+  "version": 1,
+  "nodes": [
+    {
+      "id": "entry_1",
+      "type": "EventEntry",
+      "position": {"x": 100, "y": 300},
+      "parameters": {}
+    },
+    {
+      "id": "win_tier_1",
+      "type": "WinTier",
+      "position": {"x": 350, "y": 300},
+      "parameters": {
+        "tier1Threshold": 1.0,
+        "tier2Threshold": 3.0,
+        "tier3Threshold": 5.0,
+        "tier4Threshold": 10.0,
+        "tier5Threshold": 15.0,
+        "bigWinThreshold": 20.0
+      }
+    },
+    {
+      "id": "play_win1",
+      "type": "PlaySound",
+      "position": {"x": 650, "y": 100},
+      "parameters": {
+        "assetPath": "audio/wins/win_tier_1.wav",
+        "bus": "sfx",
+        "priority": "normal"
+      }
+    },
+    {
+      "id": "play_win2",
+      "type": "PlaySound",
+      "position": {"x": 650, "y": 200},
+      "parameters": {
+        "assetPath": "audio/wins/win_tier_2.wav",
+        "bus": "sfx",
+        "priority": "normal"
+      }
+    },
+    {
+      "id": "play_win3",
+      "type": "PlaySound",
+      "position": {"x": 650, "y": 300},
+      "parameters": {
+        "assetPath": "audio/wins/win_tier_3.wav",
+        "bus": "sfx",
+        "priority": "high"
+      }
+    },
+    {
+      "id": "play_win4",
+      "type": "PlaySound",
+      "position": {"x": 650, "y": 400},
+      "parameters": {
+        "assetPath": "audio/wins/win_tier_4.wav",
+        "bus": "music",
+        "priority": "high"
+      }
+    },
+    {
+      "id": "play_win5",
+      "type": "PlaySound",
+      "position": {"x": 650, "y": 500},
+      "parameters": {
+        "assetPath": "audio/wins/win_tier_5.wav",
+        "bus": "music",
+        "priority": "high"
+      }
+    },
+    {
+      "id": "play_bigwin",
+      "type": "PlaySound",
+      "position": {"x": 650, "y": 600},
+      "parameters": {
+        "assetPath": "audio/wins/big_win_fanfare.wav",
+        "bus": "music",
+        "priority": "critical",
+        "looping": false
+      }
+    },
+    {
+      "id": "rollup_1",
+      "type": "Rollup",
+      "position": {"x": 900, "y": 600},
+      "parameters": {
+        "durationMs": 4000.0,
+        "acceleration": "easeOut"
+      }
+    },
+    {
+      "id": "play_rollup_tick",
+      "type": "PlaySound",
+      "position": {"x": 1150, "y": 600},
+      "parameters": {
+        "assetPath": "audio/wins/rollup_tick.wav",
+        "bus": "sfx",
+        "priority": "normal"
+      }
+    }
+  ],
+  "connections": [
+    {"id": "c1", "from": {"node": "entry_1", "port": "trigger"}, "to": {"node": "win_tier_1", "port": "trigger"}},
+    {"id": "c2", "from": {"node": "entry_1", "port": "eventData"}, "to": {"node": "win_tier_1", "port": "winAmount"}},
+    {"id": "c3", "from": {"node": "win_tier_1", "port": "win1"}, "to": {"node": "play_win1", "port": "trigger"}},
+    {"id": "c4", "from": {"node": "win_tier_1", "port": "win2"}, "to": {"node": "play_win2", "port": "trigger"}},
+    {"id": "c5", "from": {"node": "win_tier_1", "port": "win3"}, "to": {"node": "play_win3", "port": "trigger"}},
+    {"id": "c6", "from": {"node": "win_tier_1", "port": "win4"}, "to": {"node": "play_win4", "port": "trigger"}},
+    {"id": "c7", "from": {"node": "win_tier_1", "port": "win5"}, "to": {"node": "play_win5", "port": "trigger"}},
+    {"id": "c8", "from": {"node": "win_tier_1", "port": "bigWin"}, "to": {"node": "play_bigwin", "port": "trigger"}},
+    {"id": "c9", "from": {"node": "win_tier_1", "port": "bigWin"}, "to": {"node": "rollup_1", "port": "trigger"}},
+    {"id": "c10", "from": {"node": "win_tier_1", "port": "multiplier"}, "to": {"node": "rollup_1", "port": "winAmount"}},
+    {"id": "c11", "from": {"node": "rollup_1", "port": "tick"}, "to": {"node": "play_rollup_tick", "port": "trigger"}}
+  ],
+  "metadata": {
+    "template": true,
+    "category": "slot_win",
+    "tags": ["win", "celebration", "tier", "rollup", "big-win"]
+  }
+}
