@@ -90,6 +90,10 @@ class ClipWidget extends StatefulWidget {
   final void Function(int markerId, double originalPos, double finalPos)? onWarpMarkerMoveEnd;
   /// Double-click at position to create warp marker (timelinePos in seconds relative to clip)
   final ValueChanged<double>? onWarpMarkerCreate;
+  /// Quantize warp markers to grid (gridInterval seconds, strength 0-1)
+  final void Function(double gridInterval, double strength)? onWarpQuantize;
+  /// Create warp markers from detected transients then quantize to grid
+  final VoidCallback? onWarpToTempo;
   final bool snapEnabled;
   final double snapValue;
   final double tempo;
@@ -132,6 +136,8 @@ class ClipWidget extends StatefulWidget {
     this.onWarpMarkerMove,
     this.onWarpMarkerMoveEnd,
     this.onWarpMarkerCreate,
+    this.onWarpQuantize,
+    this.onWarpToTempo,
     this.snapEnabled = false,
     this.snapValue = 1,
     this.tempo = 120,
@@ -157,6 +163,7 @@ class _ClipWidgetState extends State<ClipWidget> {
   bool _timeStretchFromLeft = false; // Which edge initiated the stretch
   double _timeStretchOrigDuration = 0; // Original duration at drag start
   bool _isEditing = false;
+  int? _draggingWarpMarkerId; // Currently dragged warp marker (for overlay guide)
 
   // Smart Tool — last hit test result for cursor + drag routing
   SmartToolHitResult? _smartToolHitResult;
@@ -358,6 +365,37 @@ class _ClipWidgetState extends State<ClipWidget> {
             ],
           ),
         ),
+        // ═══ Warp / Quantize (Phase 5) ═══
+        if (clip.warpEnabled) ...[
+          const PopupMenuDivider(),
+          PopupMenuItem(
+            value: 'warp_quantize',
+            enabled: clip.warpMarkers.isNotEmpty && !clip.locked,
+            child: Row(
+              children: [
+                Icon(Icons.grid_on, size: 18,
+                  color: clip.warpMarkers.isNotEmpty && !clip.locked
+                      ? FluxForgeTheme.accentGreen : FluxForgeTheme.textTertiary),
+                const SizedBox(width: 8),
+                const Text('Quantize Warp Markers'),
+                const Spacer(),
+                Text('Q', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 12)),
+              ],
+            ),
+          ),
+          PopupMenuItem(
+            value: 'warp_to_tempo',
+            enabled: !clip.locked,
+            child: Row(
+              children: [
+                Icon(Icons.music_note, size: 18,
+                  color: !clip.locked ? FluxForgeTheme.accentOrange : FluxForgeTheme.textTertiary),
+                const SizedBox(width: 8),
+                const Text('Warp to Tempo'),
+              ],
+            ),
+          ),
+        ],
         const PopupMenuDivider(),
         PopupMenuItem(
           value: 'delete',
@@ -396,6 +434,17 @@ class _ClipWidgetState extends State<ClipWidget> {
           break;
         case 'fx':
           widget.onOpenFxEditor?.call();
+          break;
+        case 'warp_quantize':
+          if (!clip.locked && clip.warpMarkers.isNotEmpty) {
+            // Quantize to beat grid: gridInterval = 60/tempo * snapValue
+            final beatDuration = 60.0 / widget.tempo;
+            final gridInterval = beatDuration * widget.snapValue;
+            widget.onWarpQuantize?.call(gridInterval, 1.0);
+          }
+          break;
+        case 'warp_to_tempo':
+          if (!clip.locked) widget.onWarpToTempo?.call();
           break;
         case 'delete':
           if (!clip.locked) widget.onDelete?.call();
@@ -1380,15 +1429,16 @@ class _ClipWidgetState extends State<ClipWidget> {
                   ),
                 ),
 
-              // ═══ Warp markers + transient display ═══
+              // ═══ Warp markers + transient display (Phase 4 enhanced) ═══
               if (clip.warpEnabled && width > 30) ...[
-                // Visual overlay (non-interactive)
+                // Visual overlay: stretch regions, transient markers, warp lines
                 Positioned.fill(
                   child: CustomPaint(
                     painter: _WarpOverlayPainter(
                       markers: clip.warpMarkers,
                       transients: clip.warpTransients,
                       clipDuration: clip.duration,
+                      draggingMarkerId: _draggingWarpMarkerId,
                     ),
                   ),
                 ),
@@ -1399,14 +1449,20 @@ class _ClipWidgetState extends State<ClipWidget> {
                       left: (marker.timelinePos / clip.duration * width) - 6,
                       top: 0,
                       width: 12,
-                      height: math.max(16, widget.trackHeight * 0.4), // scale with track height
+                      height: math.max(16, widget.trackHeight * 0.4),
                       child: _WarpMarkerDragHandle(
                         markerId: marker.id,
                         initialTimelinePos: marker.timelinePos,
                         clipDuration: clip.duration,
                         zoom: widget.zoom,
+                        snapEnabled: widget.snapEnabled,
+                        snapValue: widget.snapValue,
+                        tempo: widget.tempo,
                         onMove: widget.onWarpMarkerMove,
                         onMoveEnd: widget.onWarpMarkerMoveEnd,
+                        onDragStateChanged: (id) {
+                          setState(() => _draggingWarpMarkerId = id);
+                        },
                       ),
                     ),
                 // Double-tap on warp zone (top 20px) creates new marker
@@ -3542,16 +3598,25 @@ class _WarpMarkerDragHandle extends StatefulWidget {
   final double initialTimelinePos;
   final double clipDuration;
   final double zoom;
+  final double snapValue;
+  final double tempo;
+  final bool snapEnabled;
   final void Function(int markerId, double newTimelinePos)? onMove;
   final void Function(int markerId, double originalPos, double finalPos)? onMoveEnd;
+  /// Notifies parent which marker is being dragged (for overlay painter guide)
+  final ValueChanged<int?>? onDragStateChanged;
 
   const _WarpMarkerDragHandle({
     required this.markerId,
     required this.initialTimelinePos,
     required this.clipDuration,
     required this.zoom,
+    this.snapValue = 1.0,
+    this.tempo = 120.0,
+    this.snapEnabled = false,
     this.onMove,
     this.onMoveEnd,
+    this.onDragStateChanged,
   });
 
   @override
@@ -3563,6 +3628,14 @@ class _WarpMarkerDragHandleState extends State<_WarpMarkerDragHandle> {
   double _originalPos = 0;
   bool _isDragging = false;
 
+  double _snapTime(double time) {
+    if (!widget.snapEnabled) return time;
+    final beatDuration = 60.0 / widget.tempo;
+    final gridDuration = beatDuration * widget.snapValue;
+    if (gridDuration <= 0) return time;
+    return (time / gridDuration).round() * gridDuration;
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -3571,11 +3644,14 @@ class _WarpMarkerDragHandleState extends State<_WarpMarkerDragHandle> {
         _originalPos = widget.initialTimelinePos;
         _accumulatedPos = widget.initialTimelinePos;
         _isDragging = true;
+        widget.onDragStateChanged?.call(widget.markerId);
       },
       onHorizontalDragUpdate: (details) {
         if (!_isDragging) return;
         final deltaSec = details.delta.dx / widget.zoom;
-        _accumulatedPos = (_accumulatedPos + deltaSec).clamp(0.0, widget.clipDuration);
+        var newPos = (_accumulatedPos + deltaSec).clamp(0.0, widget.clipDuration);
+        newPos = _snapTime(newPos);
+        _accumulatedPos = newPos;
         widget.onMove?.call(widget.markerId, _accumulatedPos);
       },
       onHorizontalDragEnd: (_) {
@@ -3583,8 +3659,12 @@ class _WarpMarkerDragHandleState extends State<_WarpMarkerDragHandle> {
           widget.onMoveEnd?.call(widget.markerId, _originalPos, _accumulatedPos);
         }
         _isDragging = false;
+        widget.onDragStateChanged?.call(null);
       },
-      onHorizontalDragCancel: () => _isDragging = false,
+      onHorizontalDragCancel: () {
+        _isDragging = false;
+        widget.onDragStateChanged?.call(null);
+      },
       child: const MouseRegion(
         cursor: SystemMouseCursors.resizeColumn,
         child: SizedBox.expand(),
@@ -3594,30 +3674,44 @@ class _WarpMarkerDragHandleState extends State<_WarpMarkerDragHandle> {
 }
 
 /// Warp overlay painter: transient markers (gray dots) + warp markers (cyan lines)
-/// + stretch region coloring (cyan=compressed, orange=expanded)
+/// + stretch region coloring (blue=compressed, orange=expanded) with intensity
+/// proportional to stretch ratio. Phase 4 visualization upgrade.
 class _WarpOverlayPainter extends CustomPainter {
   final List<WarpMarkerData> markers;
   final List<double> transients;
   final double clipDuration;
+  /// Currently dragged marker ID (shows source-position guide line)
+  final int? draggingMarkerId;
 
   // Pre-allocated paints (avoid GC in paint loop)
-  static final _expandPaint = Paint()..color = const Color(0x15FF9850);
-  static final _compressPaint = Paint()..color = const Color(0x1550D0FF);
   static final _transientPaint = Paint()
     ..color = const Color(0x60FFFFFF)
     ..style = PaintingStyle.fill;
   static final _markerPaint = Paint()
     ..color = const Color(0xAA50D0FF)
-    ..strokeWidth = 1.0;
+    ..strokeWidth = 1.5;
   static final _lockedPaint = Paint()
     ..color = const Color(0x60FFFFFF)
     ..strokeWidth = 1.0;
+  static final _quantizedPaint = Paint()
+    ..color = const Color(0xAA50FF98)
+    ..strokeWidth = 1.5;
   static final _diamondPaint = Paint()..color = const Color(0xCC50D0FF);
+  static final _lockedDiamondPaint = Paint()..color = const Color(0x80FFFFFF);
+  static final _quantizedDiamondPaint = Paint()..color = const Color(0xCC50FF98);
+  static final _sourceGuidePaint = Paint()
+    ..color = const Color(0x60FF9850)
+    ..strokeWidth = 1.0
+    ..style = PaintingStyle.stroke;
+  static final _sourceGuideDashPaint = Paint()
+    ..color = const Color(0x40FF9850)
+    ..strokeWidth = 1.0;
 
   _WarpOverlayPainter({
     required this.markers,
     required this.transients,
     required this.clipDuration,
+    this.draggingMarkerId,
   });
 
   @override
@@ -3625,7 +3719,7 @@ class _WarpOverlayPainter extends CustomPainter {
     if (clipDuration <= 0) return;
     final pxPerSec = size.width / clipDuration;
 
-    // Draw stretch regions between markers (colored bands)
+    // Draw stretch regions between markers (colored bands with intensity)
     if (markers.length >= 2) {
       for (int i = 0; i < markers.length - 1; i++) {
         final m0 = markers[i];
@@ -3635,13 +3729,47 @@ class _WarpOverlayPainter extends CustomPainter {
         if (sourceLen <= 0 || timelineLen <= 0) continue;
         final ratio = timelineLen / sourceLen;
 
-        if ((ratio - 1.0).abs() > 0.05) {
+        if ((ratio - 1.0).abs() > 0.02) {
           final x0 = m0.timelinePos * pxPerSec;
           final x1 = m1.timelinePos * pxPerSec;
-          canvas.drawRect(
-            Rect.fromLTRB(x0.clamp(0.0, size.width), 0, x1.clamp(0.0, size.width), size.height),
-            ratio > 1.0 ? _expandPaint : _compressPaint,
+          final regionWidth = x1 - x0;
+          if (regionWidth < 1) continue;
+
+          // Intensity proportional to how much stretch/compress
+          // ratio < 1.0 = compressed (blue), ratio > 1.0 = expanded (orange)
+          final isExpanded = ratio > 1.0;
+          final deviation = (ratio - 1.0).abs().clamp(0.0, 2.0);
+          // Alpha scales: subtle at 2%, strong at 50%+ deviation
+          final alpha = (0.08 + deviation * 0.25).clamp(0.0, 0.45);
+
+          final regionColor = isExpanded
+              ? Color.fromRGBO(255, 152, 80, alpha)   // orange for expand
+              : Color.fromRGBO(80, 170, 255, alpha);  // blue for compress
+
+          final regionPaint = Paint()
+            ..color = regionColor
+            ..style = PaintingStyle.fill;
+
+          final rect = Rect.fromLTRB(
+            x0.clamp(0.0, size.width), 0,
+            x1.clamp(0.0, size.width), size.height,
           );
+          canvas.drawRect(rect, regionPaint);
+
+          // Top/bottom edge lines for region boundaries
+          final edgeColor = isExpanded
+              ? Color.fromRGBO(255, 152, 80, (alpha * 1.5).clamp(0.0, 0.6))
+              : Color.fromRGBO(80, 170, 255, (alpha * 1.5).clamp(0.0, 0.6));
+          final edgePaint = Paint()
+            ..color = edgeColor
+            ..strokeWidth = 0.5;
+          canvas.drawLine(Offset(x0, 0), Offset(x1, 0), edgePaint);
+          canvas.drawLine(Offset(x0, size.height), Offset(x1, size.height), edgePaint);
+
+          // Ratio label for wide-enough regions
+          if (regionWidth > 35) {
+            _drawRegionRatioLabel(canvas, x0, regionWidth, size.height, ratio, isExpanded);
+          }
         }
       }
     }
@@ -3651,32 +3779,114 @@ class _WarpOverlayPainter extends CustomPainter {
       final x = t * pxPerSec;
       if (x < 0 || x > size.width) continue;
       final path = Path()
-        ..moveTo(x - 2, 0)
-        ..lineTo(x + 2, 0)
-        ..lineTo(x, 4)
+        ..moveTo(x - 2.5, 0)
+        ..lineTo(x + 2.5, 0)
+        ..lineTo(x, 5)
         ..close();
       canvas.drawPath(path, _transientPaint);
     }
 
-    // Draw warp marker lines (cyan vertical) + diamond handles
+    // Draw warp marker lines + diamond handles
     for (final m in markers) {
       final x = m.timelinePos * pxPerSec;
-      if (x < 0 || x > size.width) continue;
-      canvas.drawLine(
-        Offset(x, 0),
-        Offset(x, size.height),
-        m.locked ? _lockedPaint : _markerPaint,
-      );
+      if (x < -5 || x > size.width + 5) continue;
+
+      // Choose paint based on marker kind
+      final Paint linePaint;
+      final Paint handlePaint;
+      if (m.locked) {
+        linePaint = _lockedPaint;
+        handlePaint = _lockedDiamondPaint;
+      } else if (m.kind == WarpMarkerKind.quantized) {
+        linePaint = _quantizedPaint;
+        handlePaint = _quantizedDiamondPaint;
+      } else {
+        linePaint = _markerPaint;
+        handlePaint = _diamondPaint;
+      }
+
+      // Vertical marker line
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), linePaint);
+
+      // Source position guide (dashed) when dragging this marker
+      if (draggingMarkerId == m.id && m.sourcePos != m.timelinePos) {
+        final srcX = m.sourcePos * pxPerSec;
+        if (srcX >= 0 && srcX <= size.width) {
+          // Draw dashed vertical line at source position
+          const dashLen = 3.0;
+          const gapLen = 3.0;
+          double y = 0;
+          while (y < size.height) {
+            final endY = (y + dashLen).clamp(0.0, size.height);
+            canvas.drawLine(Offset(srcX, y), Offset(srcX, endY), _sourceGuideDashPaint);
+            y += dashLen + gapLen;
+          }
+          // Arrow from source to current position
+          final midY = size.height * 0.6;
+          canvas.drawLine(Offset(srcX, midY), Offset(x, midY), _sourceGuidePaint);
+        }
+      }
+
+      // Diamond handle at top
       if (!m.locked) {
         final diamond = Path()
           ..moveTo(x, 2)
-          ..lineTo(x + 3, 6)
-          ..lineTo(x, 10)
-          ..lineTo(x - 3, 6)
+          ..lineTo(x + 4, 7)
+          ..lineTo(x, 12)
+          ..lineTo(x - 4, 7)
           ..close();
-        canvas.drawPath(diamond, _diamondPaint);
+        canvas.drawPath(diamond, handlePaint);
+        // White outline when dragging
+        if (draggingMarkerId == m.id) {
+          canvas.drawPath(diamond, Paint()
+            ..color = const Color(0xCCFFFFFF)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.0);
+        }
+      } else {
+        // Lock indicator (small square) for locked markers
+        canvas.drawRect(
+          Rect.fromCenter(center: Offset(x, 7), width: 6, height: 6),
+          handlePaint,
+        );
       }
     }
+  }
+
+  void _drawRegionRatioLabel(Canvas canvas, double x, double width,
+      double height, double ratio, bool isExpanded) {
+    final text = '${(ratio * 100).toStringAsFixed(0)}%';
+    final color = isExpanded
+        ? const Color(0xFFFF9850)
+        : const Color(0xFF50AAFF);
+
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          color: color,
+          fontSize: 8,
+          fontWeight: FontWeight.bold,
+          fontFamily: 'JetBrains Mono',
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    textPainter.layout();
+
+    final textX = x + (width - textPainter.width) / 2;
+    final textY = (height - textPainter.height) / 2;
+
+    // Background pill for readability
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(textX - 3, textY - 1, textPainter.width + 6, textPainter.height + 2),
+        const Radius.circular(2),
+      ),
+      Paint()..color = const Color(0xCC08080C),
+    );
+
+    textPainter.paint(canvas, Offset(textX, textY));
   }
 
   @override
@@ -3684,6 +3894,7 @@ class _WarpOverlayPainter extends CustomPainter {
     if (clipDuration != oldDelegate.clipDuration) return true;
     if (markers.length != oldDelegate.markers.length) return true;
     if (transients.length != oldDelegate.transients.length) return true;
+    if (draggingMarkerId != oldDelegate.draggingMarkerId) return true;
     // Deep compare markers (WarpMarkerData has == operator)
     for (int i = 0; i < markers.length; i++) {
       if (markers[i] != oldDelegate.markers[i]) return true;

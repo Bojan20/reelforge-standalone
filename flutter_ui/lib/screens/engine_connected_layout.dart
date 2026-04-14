@@ -7401,6 +7401,74 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           ));
         }
       },
+      // Phase 5: Quantize warp markers to grid
+      onClipWarpQuantize: (clipId, gridInterval, strength) {
+        final numericClipId = int.tryParse(clipId.replaceAll(RegExp(r'[^0-9]'), ''));
+        if (numericClipId == null) return;
+        // Snapshot pre-quantize state for undo
+        final preState = NativeFFI.instance.clipGetWarpState(numericClipId);
+        NativeFFI.instance.clipWarpQuantize(numericClipId, gridInterval, strength);
+        _refreshClipWarpState(clipId);
+        if (preState != null) {
+          UiUndoManager.instance.record(GenericUndoAction(
+            description: 'Quantize Warp Markers',
+            onExecute: () {
+              NativeFFI.instance.clipWarpQuantize(numericClipId, gridInterval, strength);
+              _refreshClipWarpState(clipId);
+            },
+            onUndo: () {
+              // Restore each marker to pre-quantize position
+              for (final m in preState.markers) {
+                NativeFFI.instance.clipMoveWarpMarker(numericClipId, m.id, m.timelinePos);
+              }
+              _refreshClipWarpState(clipId);
+            },
+          ));
+        }
+      },
+      // Phase 5: Warp to tempo — detect transients, create markers, quantize to grid
+      onClipWarpToTempo: (clipId) {
+        final numericClipId = int.tryParse(clipId.replaceAll(RegExp(r'[^0-9]'), ''));
+        if (numericClipId == null) return;
+        // Snapshot pre-warp state for undo
+        final preState = NativeFFI.instance.clipGetWarpState(numericClipId);
+        // Step 1: Detect transients if not already detected
+        NativeFFI.instance.clipDetectTransients(numericClipId);
+        // Step 2: Create warp markers from transients
+        NativeFFI.instance.clipWarpCreateFromTransients(numericClipId);
+        // Step 3: Quantize to beat grid
+        final currentTempo = context.read<EngineProvider>().transport.tempo;
+        final beatDuration = 60.0 / currentTempo;
+        NativeFFI.instance.clipWarpQuantize(numericClipId, beatDuration, 1.0);
+        _refreshClipWarpState(clipId);
+        UiUndoManager.instance.record(GenericUndoAction(
+          description: 'Warp to Tempo',
+          onExecute: () {
+            NativeFFI.instance.clipDetectTransients(numericClipId);
+            NativeFFI.instance.clipWarpCreateFromTransients(numericClipId);
+            NativeFFI.instance.clipWarpQuantize(numericClipId, beatDuration, 1.0);
+            _refreshClipWarpState(clipId);
+          },
+          onUndo: () {
+            if (preState != null) {
+              // Remove all current markers and restore pre-warp state
+              final currentState = NativeFFI.instance.clipGetWarpState(numericClipId);
+              if (currentState != null) {
+                for (final m in currentState.markers) {
+                  NativeFFI.instance.clipRemoveWarpMarker(numericClipId, m.id);
+                }
+              }
+              for (final m in preState.markers) {
+                NativeFFI.instance.clipAddWarpMarker(
+                  numericClipId, m.sourcePos, m.timelinePos,
+                  m.kind,
+                );
+              }
+              _refreshClipWarpState(clipId);
+            }
+          },
+        ));
+      },
       // Track callbacks - SYNC both _tracks AND MixerProvider
       onTrackMuteToggle: (trackId) {
         final idx = _tracks.indexWhere((t) => t.id == trackId);
