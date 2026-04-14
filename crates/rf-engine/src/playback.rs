@@ -2010,6 +2010,8 @@ pub struct PlaybackEngine {
     master_delay_buf_r: RwLock<Vec<f64>>,
     /// Write position for delay buffers
     master_delay_write_pos: AtomicUsize,
+    /// Master soft-clipper enable (tanh saturation at 0dBFS — prevents digital clipping)
+    master_soft_clip_enabled: AtomicBool,
     // === HOOK GRAPH ENGINE ===
     /// Hook Graph audio-rate engine (processes graph voices on audio thread)
     hook_graph_engine: Option<RwLock<crate::hook_graph::HookGraphEngine>>,
@@ -2158,6 +2160,7 @@ impl PlaybackEngine {
             master_delay_buf_l: RwLock::new(vec![0.0_f64; 8192]),
             master_delay_buf_r: RwLock::new(vec![0.0_f64; 8192]),
             master_delay_write_pos: AtomicUsize::new(0),
+            master_soft_clip_enabled: AtomicBool::new(true), // ON by default — safety net
             master_delay_sample_rate: AtomicU64::new((sample_rate as f64).to_bits()),
             hook_graph_engine: Some(RwLock::new(hook_graph)),
             hook_graph_cmd_tx: parking_lot::Mutex::new(hg_cmd_tx),
@@ -4076,6 +4079,16 @@ impl PlaybackEngine {
     /// Get right channel delay in milliseconds
     pub fn master_delay_r(&self) -> f64 {
         f64::from_bits(self.master_delay_r_ms.load(Ordering::Relaxed))
+    }
+
+    /// Enable/disable master soft clipper (tanh saturation at 0dBFS)
+    pub fn set_master_soft_clip(&self, enabled: bool) {
+        self.master_soft_clip_enabled.store(enabled, Ordering::Relaxed);
+    }
+
+    /// Check if master soft clipper is enabled
+    pub fn master_soft_clip_enabled(&self) -> bool {
+        self.master_soft_clip_enabled.load(Ordering::Relaxed)
     }
 
     /// Get current playback position in seconds (sample-accurate)
@@ -6821,6 +6834,20 @@ impl PlaybackEngine {
 
                     self.master_delay_write_pos.store(wp, Ordering::Relaxed);
                 }
+            }
+        }
+
+        // ═══ MASTER SOFT CLIPPER (tanh saturation — prevents digital clipping) ═══
+        // Applied as final safety net before metering. Transparent below 0dBFS,
+        // provides smooth saturation above. User-toggleable via FFI.
+        // tanh(x) ≈ x for |x| < 0.5, smoothly approaches ±1.0 for |x| > 1.0
+        if self.master_soft_clip_enabled.load(Ordering::Relaxed) {
+            for i in 0..frames {
+                let l = output_l[i];
+                let r = output_r[i];
+                // Only apply saturation when signal exceeds threshold (branchless-friendly)
+                if l.abs() > 1.0 { output_l[i] = l.tanh(); }
+                if r.abs() > 1.0 { output_r[i] = r.tanh(); }
             }
         }
 

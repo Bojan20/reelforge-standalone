@@ -3010,6 +3010,18 @@ pub extern "C" fn engine_set_bus_output(bus_idx: i32, target: i32) {
     }
 }
 
+/// Enable/disable master soft clipper (0 = off, 1 = on)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_set_master_soft_clip(enabled: i32) {
+    PLAYBACK_ENGINE.set_master_soft_clip(enabled != 0);
+}
+
+/// Get master soft clipper state (0 = off, 1 = on)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_get_master_soft_clip() -> i32 {
+    if PLAYBACK_ENGINE.master_soft_clip_enabled() { 1 } else { 0 }
+}
+
 /// Get bus volume
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_get_bus_volume(bus_idx: i32) -> f64 {

@@ -2576,6 +2576,8 @@ class NativeFFI {
   late final EngineSetSendPreFaderDart _setSendPreFader;
   late final EngineSetSendMutedDart _setSendMuted;
   late final EngineSetSendPanDart _setSendPan;
+  late final int Function(int) _setMasterSoftClip;
+  late final int Function() _getMasterSoftClip;
   late final EngineGetTrackCountDart _getTrackCount;
   late final EngineGetTrackPeakDart _getTrackPeak;
   late final EngineGetTrackPeakStereoDart _getTrackPeakStereo;
@@ -3458,6 +3460,8 @@ class NativeFFI {
     _setSendPreFader = _lib.lookupFunction<EngineSetSendPreFaderNative, EngineSetSendPreFaderDart>('engine_set_send_pre_fader');
     _setSendMuted = _lib.lookupFunction<EngineSetSendMutedNative, EngineSetSendMutedDart>('engine_set_send_muted');
     _setSendPan = _lib.lookupFunction<EngineSetSendPanNative, EngineSetSendPanDart>('engine_set_send_pan');
+    _setMasterSoftClip = _lib.lookupFunction<Int32 Function(Int32), int Function(int)>('engine_set_master_soft_clip');
+    _getMasterSoftClip = _lib.lookupFunction<Int32 Function(), int Function()>('engine_get_master_soft_clip');
     _getTrackCount = _lib.lookupFunction<EngineGetTrackCountNative, EngineGetTrackCountDart>('engine_get_track_count');
     _getTrackPeak = _lib.lookupFunction<EngineGetTrackPeakNative, EngineGetTrackPeakDart>('engine_get_track_peak');
     _getTrackPeakStereo = _lib.lookupFunction<EngineGetTrackPeakStereoNative, EngineGetTrackPeakStereoDart>('engine_get_track_peak_stereo');
@@ -4573,6 +4577,18 @@ class NativeFFI {
   bool setSendPan(int trackId, int sendIndex, double pan) {
     if (!_loaded) return false;
     return _setSendPan(trackId, sendIndex, pan) != 0;
+  }
+
+  /// Enable/disable master soft clipper (tanh saturation at 0dBFS)
+  void setMasterSoftClip(bool enabled) {
+    if (!_loaded) return;
+    _setMasterSoftClip(enabled ? 1 : 0);
+  }
+
+  /// Get master soft clipper state
+  bool getMasterSoftClip() {
+    if (!_loaded) return true;
+    return _getMasterSoftClip() != 0;
   }
 
   /// Get track count
