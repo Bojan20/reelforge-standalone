@@ -1491,25 +1491,41 @@ impl BridgeRustHandle {
     }
 
     fn handle_spatial(&self, request: &CortexRequest) -> CortexResponse {
+        use rf_engine::spatial_manager::{
+            spatial_configure_atmos, spatial_enable_binaural, spatial_set_attenuation,
+            spatial_set_listener, spatial_set_reverb_zone, spatial_set_source_position,
+        };
+
         match &request.payload {
-            BridgePayload::SpatialSetPosition { source_id: _, x: _, y: _, z: _ } => {
-                // TODO: wire to spatial audio engine
-                CortexResponse::ok(request.id, ResponseData::Bool(true))
+            BridgePayload::SpatialSetPosition { source_id, x, y, z } => {
+                let ok = spatial_set_source_position(*source_id, *x, *y, *z);
+                CortexResponse::ok(request.id, ResponseData::Bool(ok))
             }
-            BridgePayload::SpatialSetListener { x: _, y: _, z: _, yaw: _, pitch: _ } => {
-                CortexResponse::ok(request.id, ResponseData::Bool(true))
+            BridgePayload::SpatialSetListener { x, y, z, yaw, pitch } => {
+                let ok = spatial_set_listener(*x, *y, *z, *yaw, *pitch);
+                CortexResponse::ok(request.id, ResponseData::Bool(ok))
             }
-            BridgePayload::SpatialBinaural { enabled: _, hrtf_profile: _ } => {
-                CortexResponse::ok(request.id, ResponseData::Bool(true))
+            BridgePayload::SpatialBinaural { enabled, hrtf_profile } => {
+                // hrtf_profile: 0 = default synthetic HRTF, >0 = named profile slot
+                let profile = if *hrtf_profile > 0 {
+                    Some(format!("profile_{hrtf_profile}"))
+                } else {
+                    None
+                };
+                let ok = spatial_enable_binaural(*enabled, profile);
+                CortexResponse::ok(request.id, ResponseData::Bool(ok))
             }
-            BridgePayload::SpatialAtmosConfig { bed_channels: _, max_objects: _ } => {
-                CortexResponse::ok(request.id, ResponseData::Bool(true))
+            BridgePayload::SpatialAtmosConfig { bed_channels, max_objects } => {
+                let ok = spatial_configure_atmos(*bed_channels, *max_objects);
+                CortexResponse::ok(request.id, ResponseData::Bool(ok))
             }
-            BridgePayload::SpatialAttenuation { source_id: _, model: _, min_dist: _, max_dist: _ } => {
-                CortexResponse::ok(request.id, ResponseData::Bool(true))
+            BridgePayload::SpatialAttenuation { source_id, model, min_dist, max_dist } => {
+                let ok = spatial_set_attenuation(*source_id, *model, *min_dist, *max_dist);
+                CortexResponse::ok(request.id, ResponseData::Bool(ok))
             }
-            BridgePayload::SpatialReverbZone { zone_id: _, size: _, damping: _, mix: _ } => {
-                CortexResponse::ok(request.id, ResponseData::Bool(true))
+            BridgePayload::SpatialReverbZone { zone_id, size, damping, mix } => {
+                let ok = spatial_set_reverb_zone(*zone_id, *size, *damping, *mix);
+                CortexResponse::ok(request.id, ResponseData::Bool(ok))
             }
             _ => CortexResponse::error(request.id, 9001, "Unknown spatial payload"),
         }

@@ -10603,6 +10603,96 @@ extension SpatialAPI on NativeFFI {
   bool msProcessorSetMidGain(int trackId, double gainDb) => _msProcessorSetMidGain(trackId, gainDb.clamp(-24.0, 12.0)) == 1;
   bool msProcessorSetSideGain(int trackId, double gainDb) => _msProcessorSetSideGain(trackId, gainDb.clamp(-24.0, 12.0)) == 1;
   bool msProcessorReset(int trackId) => _msProcessorReset(trackId) == 1;
+
+  // ============================================================
+  // 3D SPATIAL AUDIO — Phase 19 (HRTF Binaural / Atmos / Surround)
+  // ============================================================
+
+  static final _spatialSetSourcePosition = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Float, Float, Float),
+      int Function(int, double, double, double)>('spatial_set_source_position');
+
+  static final _spatialRemoveSource = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32), int Function(int)>('spatial_remove_source');
+
+  static final _spatialSetListener = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Float, Float, Float, Float, Float),
+      int Function(double, double, double, double, double)>('spatial_set_listener');
+
+  static final _spatialEnableBinaural = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Int32, Uint8),
+      int Function(int, int)>('spatial_enable_binaural');
+
+  static final _spatialSetAttenuation = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Uint8, Float, Float),
+      int Function(int, int, double, double)>('spatial_set_attenuation');
+
+  static final _spatialConfigureAtmos = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint8, Uint16),
+      int Function(int, int)>('spatial_configure_atmos');
+
+  static final _spatialSetReverbZone = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Float, Float, Float),
+      int Function(int, double, double, double)>('spatial_set_reverb_zone');
+
+  static final _spatialSourceGain = _loadNativeLibrary().lookupFunction<
+      Float Function(Uint32), double Function(int)>('spatial_source_gain');
+
+  static final _spatialBinauralActive = _loadNativeLibrary().lookupFunction<
+      Int32 Function(), int Function()>('spatial_binaural_active');
+
+  /// Set 3D world position of an audio source.
+  ///
+  /// Coordinates: X = right, Y = forward, Z = up (meters).
+  bool spatialSetSourcePosition(int sourceId, double x, double y, double z) =>
+      _spatialSetSourcePosition(sourceId, x, y, z) == 1;
+
+  /// Remove source from spatial tracking (call on track delete).
+  bool spatialRemoveSource(int sourceId) => _spatialRemoveSource(sourceId) == 1;
+
+  /// Update listener pose for HRTF / Atmos rendering.
+  ///
+  /// [yaw]   — horizontal rotation degrees (0 = forward, +90 = right)
+  /// [pitch] — vertical rotation degrees (+90 = up, -90 = down)
+  bool spatialSetListener(double x, double y, double z, double yaw, double pitch) =>
+      _spatialSetListener(x, y, z, yaw, pitch) == 1;
+
+  /// Enable/disable binaural HRTF headphone rendering.
+  ///
+  /// [hrtfProfile] — 0 = synthetic default, 1+ = SOFA profile slot (future)
+  bool spatialEnableBinaural(bool enabled, {int hrtfProfile = 0}) =>
+      _spatialEnableBinaural(enabled ? 1 : 0, hrtfProfile) == 1;
+
+  /// Set distance attenuation for a source.
+  ///
+  /// [model] — 0=Linear, 1=Logarithmic, 2=InverseSquare
+  /// [minDist] — full-gain distance (meters)
+  /// [maxDist] — silence distance (meters)
+  bool spatialSetAttenuation(int sourceId, int model, double minDist, double maxDist) =>
+      _spatialSetAttenuation(sourceId, model, minDist, maxDist) == 1;
+
+  /// Configure Dolby Atmos bed + object renderer.
+  ///
+  /// [bedChannels] — 6=5.1, 8=7.1, 12=7.1.4
+  /// [maxObjects]  — max simultaneous objects (1..128)
+  bool spatialConfigureAtmos(int bedChannels, int maxObjects) =>
+      _spatialConfigureAtmos(bedChannels, maxObjects) == 1;
+
+  /// Register/update a reverb zone.
+  ///
+  /// [size]    — room size [0..1]
+  /// [damping] — high-freq damping [0..1]
+  /// [mix]     — wet/dry ratio [0..1]
+  bool spatialSetReverbZone(int zoneId, double size, double damping, double mix) =>
+      _spatialSetReverbZone(zoneId, size, damping, mix) == 1;
+
+  /// Get attenuated gain for a source at the current listener position.
+  ///
+  /// Returns linear gain [0.0..4.0]. Useful for UI distance metering.
+  double spatialSourceGain(int sourceId) => _spatialSourceGain(sourceId);
+
+  /// Returns true if binaural HRTF rendering is currently active.
+  bool get spatialBinauralActive => _spatialBinauralActive() == 1;
 }
 
 // ============================================================================

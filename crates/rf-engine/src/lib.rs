@@ -94,6 +94,9 @@ pub mod render_matrix;
 // Phase 13: Disk Streaming System
 pub mod streaming;
 
+// Phase 19: Spatial Audio (3D / Binaural / Atmos)
+pub mod spatial_manager;
+
 // Phase 14: Wave Cache (Multi-Resolution Waveform Caching)
 pub mod wave_cache;
 

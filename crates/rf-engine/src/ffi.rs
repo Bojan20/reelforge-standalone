@@ -2908,7 +2908,10 @@ pub extern "C" fn engine_set_sample_rate(sample_rate: u32) -> i32 {
     // BUG#3: sync EventManager so event timing (fades, schedules) uses correct SR
     event_handle().set_sample_rate(sample_rate);
 
-    log::info!("Project sample rate set to {}Hz (PlaybackEngine, ClickTrack, VideoEngine, EventManager synced)", sample_rate);
+    // Sync SpatialManager renderer so HRTF convolution buffers use correct SR
+    crate::spatial_manager::SPATIAL_MANAGER.write().set_sample_rate(sample_rate);
+
+    log::info!("Project sample rate set to {}Hz (PlaybackEngine, ClickTrack, VideoEngine, EventManager, SpatialManager synced)", sample_rate);
     1
 }
 
@@ -25309,4 +25312,138 @@ pub extern "C" fn sub_project_import_json(json: *const c_char) -> i32 {
         .to_string_lossy()
         .to_string();
     if TRACK_MANAGER.sub_projects_from_json(&json) { 1 } else { 0 }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SPATIAL AUDIO FFI — Phase 19
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Direct C-callable spatial API for Flutter.
+// Bypasses CortexBridge JSON serialization for real-time use cases
+// (head tracking, live panning) where sub-millisecond latency matters.
+//
+// For non-real-time commands (mode switching, zone config) use the
+// CortexBridge SpatialXxx payloads instead.
+
+/// Set 3D position of an audio source.
+///
+/// `source_id` — unique ID matching a track/object ID in rf-engine.
+/// Coordinates: X = right, Y = forward, Z = up (meters).
+/// Returns 1 on success.
+#[unsafe(no_mangle)]
+pub extern "C" fn spatial_set_source_position(
+    source_id: u32,
+    x: f32,
+    y: f32,
+    z: f32,
+) -> i32 {
+    crate::spatial_manager::spatial_set_source_position(source_id, x, y, z) as i32
+}
+
+/// Remove a source from spatial tracking.
+///
+/// Call when a track/object is deleted.
+/// Returns 1 on success.
+#[unsafe(no_mangle)]
+pub extern "C" fn spatial_remove_source(source_id: u32) -> i32 {
+    crate::spatial_manager::spatial_remove_source(source_id) as i32
+}
+
+/// Set listener pose.
+///
+/// `x/y/z` — listener world position (meters).
+/// `yaw`   — horizontal rotation in degrees (0 = forward, +90 = right).
+/// `pitch` — vertical rotation in degrees (+90 = up, -90 = down).
+/// Returns 1 on success.
+#[unsafe(no_mangle)]
+pub extern "C" fn spatial_set_listener(
+    x: f32,
+    y: f32,
+    z: f32,
+    yaw: f32,
+    pitch: f32,
+) -> i32 {
+    crate::spatial_manager::spatial_set_listener(x, y, z, yaw, pitch) as i32
+}
+
+/// Enable or disable binaural HRTF rendering.
+///
+/// `enabled`      — 1 = enable binaural, 0 = stereo passthrough.
+/// `hrtf_profile` — profile index (0 = synthetic default, 1+ = future SOFA slots).
+/// Returns 1 on success.
+#[unsafe(no_mangle)]
+pub extern "C" fn spatial_enable_binaural(enabled: i32, hrtf_profile: u8) -> i32 {
+    let profile = if hrtf_profile > 0 {
+        Some(format!("profile_{hrtf_profile}"))
+    } else {
+        None
+    };
+    crate::spatial_manager::spatial_enable_binaural(enabled != 0, profile) as i32
+}
+
+/// Set distance attenuation for a source.
+///
+/// `model` — 0=Linear, 1=Logarithmic, 2=InverseSquare.
+/// `min_dist` — distance at which gain = 1.0 (meters).
+/// `max_dist` — distance at which gain = 0.0 (meters).
+/// Returns 1 on success.
+#[unsafe(no_mangle)]
+pub extern "C" fn spatial_set_attenuation(
+    source_id: u32,
+    model: u8,
+    min_dist: f32,
+    max_dist: f32,
+) -> i32 {
+    crate::spatial_manager::spatial_set_attenuation(source_id, model, min_dist, max_dist) as i32
+}
+
+/// Configure Dolby Atmos renderer.
+///
+/// `bed_channels` — 6=5.1, 8=7.1, 12=7.1.4.
+/// `max_objects`  — maximum simultaneous Atmos objects (1..128).
+/// Returns 1 on success.
+#[unsafe(no_mangle)]
+pub extern "C" fn spatial_configure_atmos(bed_channels: u8, max_objects: u16) -> i32 {
+    crate::spatial_manager::spatial_configure_atmos(bed_channels, max_objects) as i32
+}
+
+/// Register a reverb zone.
+///
+/// `zone_id` — unique zone identifier.
+/// `size`    — room size [0.0..1.0].
+/// `damping` — high-frequency damping [0.0..1.0].
+/// `mix`     — wet/dry ratio [0.0..1.0].
+/// Returns 1 on success.
+#[unsafe(no_mangle)]
+pub extern "C" fn spatial_set_reverb_zone(
+    zone_id: u32,
+    size: f32,
+    damping: f32,
+    mix: f32,
+) -> i32 {
+    crate::spatial_manager::spatial_set_reverb_zone(zone_id, size, damping, mix) as i32
+}
+
+/// Query the attenuated gain for a source at current listener position.
+///
+/// Useful for UI metering (shows how loud a source sounds spatially).
+/// Returns linear gain [0.0..4.0], or 1.0 if source not registered.
+#[unsafe(no_mangle)]
+pub extern "C" fn spatial_source_gain(source_id: u32) -> f32 {
+    crate::spatial_manager::spatial_source_gain(source_id)
+}
+
+/// Returns 1 if binaural HRTF rendering is currently active, 0 otherwise.
+#[unsafe(no_mangle)]
+pub extern "C" fn spatial_binaural_active() -> i32 {
+    crate::spatial_manager::spatial_binaural_active() as i32
+}
+
+/// Update engine sample rate for spatial renderer.
+///
+/// Called automatically by engine_set_sample_rate — not needed in most cases.
+#[unsafe(no_mangle)]
+pub extern "C" fn spatial_set_sample_rate(sample_rate: u32) -> i32 {
+    crate::spatial_manager::SPATIAL_MANAGER.write().set_sample_rate(sample_rate);
+    1
 }
