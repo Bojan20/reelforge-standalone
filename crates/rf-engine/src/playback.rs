@@ -7813,6 +7813,10 @@ impl PlaybackEngine {
         let mut track_l = vec![0.0f64; frames];
         let mut track_r = vec![0.0f64; frames];
 
+        // Acquire insert chains and sidechain taps for offline track processing
+        let mut insert_chains = self.insert_chains.write();
+        let offline_sc_taps = self.sidechain_taps.read();
+
         // Collect crossfades for this time range (need owned copies for lifetime)
         let crossfades_snapshot: Vec<Crossfade> = self
             .track_manager
@@ -7874,6 +7878,11 @@ impl PlaybackEngine {
                 );
             }
 
+            // ═══ TRACK PRE-FADER INSERTS (offline) ═══
+            if let Some(chain) = insert_chains.get_mut(&track.id.0) {
+                chain.process_pre_fader_with_taps(&mut track_l, &mut track_r, &offline_sc_taps, frames);
+            }
+
             // Apply track volume and pan
             let track_volume = self.get_track_volume_with_automation(track);
             let vca_gain = self.get_vca_gain(track.id.0);
@@ -7881,25 +7890,20 @@ impl PlaybackEngine {
 
             // Pro Tools dual-pan for stereo, single pan for mono
             if track.is_stereo() {
-                // Dual pan: L channel controlled by pan, R channel by pan_right
-                // Constant power pan for each channel independently
                 let pan_l_angle = (track.pan + 1.0) * std::f64::consts::FRAC_PI_4;
-                let pan_l_l = pan_l_angle.cos(); // L channel to L output
-                let pan_l_r = pan_l_angle.sin(); // L channel to R output
-
+                let pan_l_l = pan_l_angle.cos();
+                let pan_l_r = pan_l_angle.sin();
                 let pan_r_angle = (track.pan_right + 1.0) * std::f64::consts::FRAC_PI_4;
-                let pan_r_l = pan_r_angle.cos(); // R channel to L output
-                let pan_r_r = pan_r_angle.sin(); // R channel to R output
+                let pan_r_l = pan_r_angle.cos();
+                let pan_r_r = pan_r_angle.sin();
 
                 for i in 0..frames {
                     let l_sample = track_l[i];
                     let r_sample = track_r[i];
-                    // Mix: L output = L*pan_l_l + R*pan_r_l, R output = L*pan_l_r + R*pan_r_r
                     track_l[i] = final_volume * (l_sample * pan_l_l + r_sample * pan_r_l);
                     track_r[i] = final_volume * (l_sample * pan_l_r + r_sample * pan_r_r);
                 }
             } else {
-                // Mono: single pan knob, standard constant power pan
                 let pan = track.pan;
                 let pan_angle = (pan + 1.0) * std::f64::consts::FRAC_PI_4;
                 let pan_l = pan_angle.cos();
@@ -7911,9 +7915,17 @@ impl PlaybackEngine {
                 }
             }
 
+            // ═══ TRACK POST-FADER INSERTS (offline) ═══
+            if let Some(chain) = insert_chains.get_mut(&track.id.0) {
+                chain.process_post_fader_with_taps(&mut track_l, &mut track_r, &offline_sc_taps, frames);
+            }
+
             // Route to bus
             bus_buffers.add_to_bus(track.output_bus, &track_l, &track_r);
         }
+
+        // Release track insert chains (bus inserts need separate write lock)
+        drop(insert_chains);
 
         // ═══ BUS INSERT PROCESSING (offline — mirrors live path) ═══
         // Apply bus inserts + volume/pan for each bus before summing to master.
@@ -7922,7 +7934,7 @@ impl PlaybackEngine {
         {
             let mut bus_inserts = self.bus_inserts.write();
             let bus_states = self.bus_states.read();
-            let offline_taps = self.sidechain_taps.read();
+            let mut bus_imagers = self.bus_stereo_imagers.try_write();
 
             let buses = [
                 OutputBus::Master, OutputBus::Music, OutputBus::Sfx,
@@ -7964,7 +7976,7 @@ impl PlaybackEngine {
                 }
 
                 // Pre-fader inserts
-                bus_inserts[bus_idx].process_pre_fader_with_taps(bus_l, bus_r, &offline_taps, frames);
+                bus_inserts[bus_idx].process_pre_fader_with_taps(bus_l, bus_r, &offline_sc_taps, frames);
 
                 // Bus volume + dual-pan (same math as live path)
                 let volume = state.volume;
@@ -7986,8 +7998,19 @@ impl PlaybackEngine {
                     bus_r[i] = comp_r * (l * l_to_r + r * r_to_r);
                 }
 
+                // Bus stereo imager (post-fader, pre-post-inserts — mirrors live path)
+                if let Some(ref mut imagers) = bus_imagers {
+                    use rf_dsp::StereoProcessor;
+                    let imager = &mut imagers[bus_idx];
+                    for i in 0..frames {
+                        let (l, r) = imager.process_sample(bus_l[i], bus_r[i]);
+                        bus_l[i] = l;
+                        bus_r[i] = r;
+                    }
+                }
+
                 // Post-fader inserts
-                bus_inserts[bus_idx].process_post_fader_with_taps(bus_l, bus_r, &offline_taps, frames);
+                bus_inserts[bus_idx].process_post_fader_with_taps(bus_l, bus_r, &offline_sc_taps, frames);
 
                 // Route: bus-to-bus or direct to master sum
                 match state.output_dest {
@@ -8017,8 +8040,7 @@ impl PlaybackEngine {
 
         // Master processing — sidechain-aware (offline uses blocking read)
         let mut master_insert = self.master_insert.write();
-        let offline_taps = self.sidechain_taps.read();
-        master_insert.process_pre_fader_with_taps(output_l, output_r, &offline_taps, frames);
+        master_insert.process_pre_fader_with_taps(output_l, output_r, &offline_sc_taps, frames);
 
         let master = self.master_volume();
         for i in 0..frames {
@@ -8026,8 +8048,50 @@ impl PlaybackEngine {
             output_r[i] *= master;
         }
 
-        master_insert.process_post_fader_with_taps(output_l, output_r, &offline_taps, frames);
-        drop(offline_taps);
+        // ═══ MASTER STEREO IMAGER (offline — mirrors live path) ═══
+        if let Some(mut master_imager) = self.master_stereo_imager.try_write() {
+            use rf_dsp::StereoProcessor;
+            for i in 0..frames {
+                let (l, r) = master_imager.process_sample(output_l[i], output_r[i]);
+                output_l[i] = l;
+                output_r[i] = r;
+            }
+        }
+
+        master_insert.process_post_fader_with_taps(output_l, output_r, &offline_sc_taps, frames);
+        drop(master_insert);
+        drop(offline_sc_taps);
+
+        // ═══ MASTER SOFT CLIPPER (offline — mirrors live path) ═══
+        if self.master_soft_clip_enabled.load(Ordering::Relaxed) {
+            const KNEE_START: f64 = 0.85;
+            const KNEE_RANGE: f64 = 1.0 - KNEE_START;
+            let tanh_norm = 1.0_f64.tanh();
+            for i in 0..frames {
+                output_l[i] = soft_clip_sample(output_l[i], KNEE_START, KNEE_RANGE, tanh_norm);
+                output_r[i] = soft_clip_sample(output_r[i], KNEE_START, KNEE_RANGE, tanh_norm);
+            }
+        }
+
+        // ═══ DC OFFSET FILTER (offline — mirrors live path) ═══
+        // Note: offline DC filter uses its own local state per call, not the atomic
+        // live state, to avoid interference between live and offline paths.
+        // This means DC removal starts fresh per offline render — acceptable since
+        // offline renders are typically long enough for the filter to converge.
+        {
+            let alpha = f64::from_bits(self.dc_filter_alpha.load(Ordering::Relaxed));
+            let mut state_l = 0.0_f64;
+            let mut state_r = 0.0_f64;
+            for i in 0..frames {
+                let new_l = output_l[i] - state_l;
+                state_l = output_l[i] - alpha * new_l;
+                output_l[i] = new_l;
+
+                let new_r = output_r[i] - state_r;
+                state_r = output_r[i] - alpha * new_r;
+                output_r[i] = new_r;
+            }
+        }
     }
 
     /// Process a single track offline (for stems export)
