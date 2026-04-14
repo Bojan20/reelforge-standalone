@@ -7325,6 +7325,107 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           }).toList();
         });
       },
+      // Alt+drag: duplicate clip at target position (Cubase style)
+      onClipDuplicateToPosition: (clipId, targetTime) {
+        final clip = _clips.firstWhere((c) => c.id == clipId, orElse: () => _clips.first);
+        if (clip.id != clipId) return;
+
+        final newClipId = engine.duplicateClip(clipId);
+        if (newClipId == null) return;
+
+        // Move the duplicate to the drag-target position
+        engine.moveClip(clipId: newClipId, targetTrackId: clip.trackId, startTime: targetTime);
+
+        final duplicatedClip = timeline.TimelineClip(
+          id: newClipId,
+          trackId: clip.trackId,
+          name: '${clip.name} (copy)',
+          startTime: targetTime,
+          duration: clip.duration,
+          color: clip.color,
+          waveform: clip.waveform,
+          sourceOffset: clip.sourceOffset,
+          sourceDuration: clip.sourceDuration,
+          eventId: clip.eventId,
+          channels: clip.channels,
+        );
+
+        setState(() => _clips.add(duplicatedClip));
+
+        // Register undo
+        UiUndoManager.instance.record(GenericUndoAction(
+          description: 'Alt+drag duplicate "${clip.name}"',
+          onExecute: () => setState(() => _clips.add(duplicatedClip)),
+          onUndo: () {
+            engine.deleteClip(newClipId);
+            WaveformCache().remove(newClipId);
+            setState(() => _clips = _clips.where((c) => c.id != newClipId).toList());
+          },
+        ));
+      },
+      // Shift+Delete: ripple delete — delete clip and close gap on same track
+      onClipRippleDelete: (clipId) {
+        if (_mwTimelineSyncController.isMwSyncedClip(clipId)) return;
+
+        final clip = _clips.firstWhere((c) => c.id == clipId, orElse: () => _clips.first);
+        if (clip.id != clipId) return;
+
+        final deletedStart = clip.startTime;
+        final deletedDuration = clip.duration;
+        final trackId = clip.trackId;
+
+        // Delete from engine first
+        engine.deleteClip(clipId);
+        WaveformCache().remove(clipId);
+
+        // Collect clips to slide left (startTime > deletedStart on same track)
+        final movedClips = <MapEntry<String, double>>[];
+        for (final c in _clips) {
+          if (c.trackId == trackId && c.id != clipId && c.startTime > deletedStart) {
+            final newStart = (c.startTime - deletedDuration).clamp(0.0, double.infinity);
+            movedClips.add(MapEntry(c.id, newStart));
+            engine.moveClip(clipId: c.id, targetTrackId: trackId, startTime: newStart);
+          }
+        }
+
+        setState(() {
+          _clips = _clips.where((c) => c.id != clipId).map((c) {
+            final moved = movedClips.firstWhere((m) => m.key == c.id, orElse: () => const MapEntry('', -1));
+            if (moved.value >= 0) return c.copyWith(startTime: moved.value);
+            return c;
+          }).toList();
+        });
+
+        // Register undo — restore clip and shift clips back right
+        UiUndoManager.instance.record(GenericUndoAction(
+          description: 'Ripple delete "${clip.name}"',
+          onExecute: () {
+            // Redo: delete again and slide left
+            engine.deleteClip(clipId);
+            for (final m in movedClips) {
+              engine.moveClip(clipId: m.key, targetTrackId: trackId, startTime: m.value);
+            }
+            setState(() {
+              _clips = _clips.where((c) => c.id != clipId).map((c) {
+                final moved = movedClips.firstWhere((mv) => mv.key == c.id, orElse: () => const MapEntry('', -1));
+                if (moved.value >= 0) return c.copyWith(startTime: moved.value);
+                return c;
+              }).toList();
+            });
+          },
+          onUndo: () {
+            // Undo: restore clip and slide clips back right
+            setState(() {
+              _clips.add(clip);
+              _clips = _clips.map((c) {
+                final moved = movedClips.firstWhere((m) => m.key == c.id, orElse: () => const MapEntry('', -1));
+                if (moved.value >= 0) return c.copyWith(startTime: c.startTime + deletedDuration);
+                return c;
+              }).toList();
+            });
+          },
+        ));
+      },
       // Warp marker callbacks
       onClipWarpMarkerMove: (clipId, markerId, newTimelinePos) {
         final numericClipId = int.tryParse(clipId.replaceAll(RegExp(r'[^0-9]'), ''));

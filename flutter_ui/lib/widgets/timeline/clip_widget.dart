@@ -66,6 +66,9 @@ class ClipWidget extends StatefulWidget {
   /// Context menu callbacks
   final VoidCallback? onDelete;
   final VoidCallback? onDuplicate;
+  /// Alt+drag: duplicate clip at new position (Cubase/Logic style)
+  /// Threshold-based: small movement (<8px total) = split, large = duplicate
+  final ValueChanged<double>? onDuplicateToPosition;
   final VoidCallback? onSplit;
   final VoidCallback? onMute;
   /// Called when clip audio is reversed (toggle)
@@ -125,6 +128,7 @@ class ClipWidget extends StatefulWidget {
     this.onOpenAudioEditor,
     this.onDelete,
     this.onDuplicate,
+    this.onDuplicateToPosition,
     this.onSplit,
     this.onMute,
     this.onReverse,
@@ -162,6 +166,12 @@ class _ClipWidgetState extends State<ClipWidget> {
   bool _isDraggingVolumeHandle = false; // Cubase volume handle (top-center)
   bool _isDraggingTimeStretch = false; // Logic Pro X Flex Time stretch
   bool _isDraggingLoopHandle = false; // Loop handle drag (extends clip duration)
+  // Alt+drag duplicate: true when Alt is held during drag
+  bool _isDuplicateDrag = false;
+  // Click time at onPanStart (for split when tiny movement with Alt)
+  double _duplicateDragClickTime = 0;
+  // Total drag distance for click vs drag disambiguation (>8px = real drag)
+  double _totalDragDistance = 0;
   double _loopDragStartDuration = 0; // Duration at drag start
   bool _timeStretchFromLeft = false; // Which edge initiated the stretch
   double _timeStretchOrigDuration = 0; // Original duration at drag start
@@ -658,19 +668,26 @@ class _ClipWidgetState extends State<ClipWidget> {
               final isAlt = _pointerDownAlt;
               final isShift = _pointerDownShift;
 
-              // Alt+click in Move zone = Split at cursor (Cubase)
+              // Alt+drag in Move zone = Duplicate clip (Cubase/Logic style)
+              // Threshold-based: < 8px total movement → treated as click → split
+              // > 8px movement → true drag → duplicate at new position
+              // Alt+click split is handled via onTap; onPanStart fires even for clicks
               if (mode == SmartToolMode.select && isAlt && !isShift) {
                 if (!clip.locked) {
+                  _dragStartTime = clip.startTime;
+                  _dragStartMouseX = details.globalPosition.dx;
+                  _dragStartMouseY = details.globalPosition.dy;
+                  _lastDragPosition = details.globalPosition;
+                  _wasCrossTrackDrag = false;
+                  _isDuplicateDrag = true;
+                  _totalDragDistance = 0.0;
                   var clickTime = clip.startTime + details.localPosition.dx / widget.zoom;
                   if (widget.snapEnabled) {
                     clickTime = applySnap(clickTime, true, widget.snapValue, widget.tempo, widget.allClips);
                   }
-                  if (widget.onSplitAtPosition != null) {
-                    widget.onSplitAtPosition!(clickTime);
-                  } else {
-                    widget.onPlayheadMove?.call(clickTime);
-                    widget.onSplit?.call();
-                  }
+                  _duplicateDragClickTime = clickTime;
+                  setState(() => _isDraggingMove = true);
+                  widget.onDragStart?.call(details.globalPosition, details.localPosition);
                 }
                 return;
               }
@@ -758,6 +775,23 @@ class _ClipWidgetState extends State<ClipWidget> {
               _dragStartSourceOffset = clip.sourceOffset;
               _dragStartMouseX = details.globalPosition.dx;
               setState(() => _isSlipEditing = true);
+            } else if (_pointerDownAlt && !_pointerDownShift && !clip.locked) {
+              // Alt+drag (non-smart-tool) = Duplicate clip (Cubase/Logic style)
+              // Smart-tool Alt is handled above in SmartToolMode.select block
+              _dragStartTime = clip.startTime;
+              _dragStartMouseX = details.globalPosition.dx;
+              _dragStartMouseY = details.globalPosition.dy;
+              _lastDragPosition = details.globalPosition;
+              _wasCrossTrackDrag = false;
+              _isDuplicateDrag = true;
+              _totalDragDistance = 0.0;
+              var clickTime = clip.startTime + details.localPosition.dx / widget.zoom;
+              if (widget.snapEnabled) {
+                clickTime = applySnap(clickTime, true, widget.snapValue, widget.tempo, widget.allClips);
+              }
+              _duplicateDragClickTime = clickTime;
+              setState(() => _isDraggingMove = true);
+              widget.onDragStart?.call(details.globalPosition, details.localPosition);
             } else {
               _dragStartTime = clip.startTime;
               _dragStartMouseX = details.globalPosition.dx;
@@ -773,6 +807,9 @@ class _ClipWidgetState extends State<ClipWidget> {
             }
           },
         onPanUpdate: (details) {
+          // Alt+drag duplicate: accumulate distance for click/drag disambiguation
+          if (_isDuplicateDrag) _totalDragDistance += details.delta.distance;
+
           // Smart Tool — handle trim drags via pan gesture
           if (_isDraggingLeftEdge && smartEnabled) {
             double rawNewStartTime = _dragStartTime + (details.globalPosition.dx - _dragStartMouseX) / widget.zoom;
@@ -979,12 +1016,28 @@ class _ClipWidgetState extends State<ClipWidget> {
             }
             // Always call onMove for same-track or if cross-track resulted in same track
             if (!_isCrossTrackDrag) {
-              // Shuffle mode: use shuffle callback to push adjacent clips
-              final editMode = smartTool.activeEditMode;
-              if (editMode == TimelineEditMode.shuffle && widget.onShuffleMove != null) {
-                widget.onShuffleMove!(_lastSnappedTime);
+              if (_isDuplicateDrag) {
+                // Alt+drag: threshold-based disambiguation
+                // > 8px total movement = true drag → duplicate at new position (Cubase Alt+drag)
+                // ≤ 8px = click → split at original click position (Cubase Alt+click)
+                if (_totalDragDistance > 8.0) {
+                  widget.onDuplicateToPosition?.call(_lastSnappedTime);
+                } else {
+                  // Tiny movement = Alt+click → split at cursor
+                  if (widget.onSplitAtPosition != null) {
+                    widget.onSplitAtPosition!(_duplicateDragClickTime);
+                  } else {
+                    widget.onSplit?.call();
+                  }
+                }
               } else {
-                widget.onMove?.call(_lastSnappedTime);
+                // Shuffle mode: use shuffle callback to push adjacent clips
+                final editMode = smartTool.activeEditMode;
+                if (editMode == TimelineEditMode.shuffle && widget.onShuffleMove != null) {
+                  widget.onShuffleMove!(_lastSnappedTime);
+                } else {
+                  widget.onMove?.call(_lastSnappedTime);
+                }
               }
             }
           }
@@ -993,6 +1046,8 @@ class _ClipWidgetState extends State<ClipWidget> {
           // Clear local state
           setState(() {
             _isDraggingMove = false;
+            _isDuplicateDrag = false;
+            _totalDragDistance = 0;
             _isSlipEditing = false;
             _isCrossTrackDrag = false;
             _wasCrossTrackDrag = false;
@@ -1015,6 +1070,8 @@ class _ClipWidgetState extends State<ClipWidget> {
           widget.onDragEnd?.call(_lastDragPosition);
           setState(() {
             _isDraggingMove = false;
+            _isDuplicateDrag = false;
+            _totalDragDistance = 0;
             _isSlipEditing = false;
             _isCrossTrackDrag = false;
             _wasCrossTrackDrag = false;

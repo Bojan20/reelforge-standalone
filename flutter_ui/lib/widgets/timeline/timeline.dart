@@ -129,6 +129,10 @@ class Timeline extends StatefulWidget {
   final void Function(String clipId, double position)? onClipSplitAtPosition;
   /// Shuffle mode: move clip and push adjacent clips
   final void Function(String clipId, double newStartTime)? onClipShuffleMove;
+  /// Alt+drag: duplicate clip at new position (Cubase/Logic style)
+  final void Function(String clipId, double position)? onClipDuplicateToPosition;
+  /// Shift+Delete: ripple delete — delete clip and close gap (Cubase Cut Time style)
+  final ValueChanged<String>? onClipRippleDelete;
   /// Warp marker moved within a clip (per-frame)
   final void Function(String clipId, int markerId, double newTimelinePos)? onClipWarpMarkerMove;
   /// Warp marker drag ended (for undo)
@@ -316,6 +320,8 @@ class Timeline extends StatefulWidget {
     this.onClipTimeStretchEnd,
     this.onClipSplitAtPosition,
     this.onClipShuffleMove,
+    this.onClipDuplicateToPosition,
+    this.onClipRippleDelete,
     this.onClipWarpMarkerMove,
     this.onClipWarpMarkerMoveEnd,
     this.onClipWarpMarkerCreate,
@@ -1590,10 +1596,16 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
     }
 
     // Delete/Backspace - Delete selected clip
+    // Shift+Delete = Ripple Delete (delete + close gap, Cubase style)
+    // Plain Delete = Normal delete (leave gap)
     if (!isCmd && (event.logicalKey == LogicalKeyboardKey.delete ||
             event.logicalKey == LogicalKeyboardKey.backspace)) {
       if (selectedClip != null) {
-        widget.onClipDelete?.call(selectedClip.id);
+        if (isShift) {
+          widget.onClipRippleDelete?.call(selectedClip.id);
+        } else {
+          widget.onClipDelete?.call(selectedClip.id);
+        }
         return KeyEventResult.handled;
       }
     }
@@ -1732,10 +1744,15 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
       final beatsPerSecond = widget.tempo / 60;
 
       // Alt+Arrow = nudge selected clip
+      // Cmd+Alt+Arrow = 1ms fine nudge (Pro Tools style)
+      // Alt+Shift+Arrow = 1 beat
+      // Alt+Arrow = 1/4 beat (default)
       if (isAlt && selectedClip != null && widget.onClipMove != null) {
-        final nudgeAmount = isShift
-            ? 1 / beatsPerSecond  // 1 beat
-            : 0.25 / beatsPerSecond;  // 1/4 beat
+        final nudgeAmount = isCmd
+            ? 0.001  // 1ms fine nudge (Cmd+Alt)
+            : isShift
+                ? 1 / beatsPerSecond  // 1 beat (Shift+Alt)
+                : 0.25 / beatsPerSecond;  // 1/4 beat (Alt only)
 
         if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
           final newTime = (selectedClip.startTime - nudgeAmount).clamp(0.0, double.infinity);
@@ -2086,6 +2103,8 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                     onClipTimeStretchEnd: widget.onClipTimeStretchEnd,
                     onClipSplitAtPosition: widget.onClipSplitAtPosition,
                     onClipShuffleMove: widget.onClipShuffleMove,
+                    onClipDuplicateToPosition: widget.onClipDuplicateToPosition,
+                    onClipRippleDelete: widget.onClipRippleDelete,
                     onClipWarpMarkerMove: widget.onClipWarpMarkerMove,
                     onClipWarpMarkerMoveEnd: widget.onClipWarpMarkerMoveEnd,
                     onClipWarpMarkerCreate: widget.onClipWarpMarkerCreate,
