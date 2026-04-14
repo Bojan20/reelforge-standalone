@@ -36,6 +36,7 @@ import '../../providers/slot_lab/stage_flow_provider.dart';
 import '../../providers/slot_lab/context_layer_provider.dart';
 import '../../providers/slot_lab/trigger_layer_provider.dart';
 import '../../providers/slot_lab/transition_system_provider.dart';
+import '../../providers/slot_lab/tempo_state_provider.dart';
 import '../../providers/slot_lab/slotlab_undo_provider.dart';
 import '../../providers/slot_lab_project_provider.dart';
 import '../../providers/energy_governance_provider.dart';
@@ -772,6 +773,8 @@ class ComprehensiveQaRunner {
         _sl.isRegistered<SimulationEngineProvider>());
     _assert(mod, 'TransitionSystemProvider registered',
         _sl.isRegistered<TransitionSystemProvider>());
+    _assert(mod, 'TempoStateProvider registered',
+        _sl.isRegistered<TempoStateProvider>());
     _assert(mod, 'SlotLabProjectProvider registered',
         _sl.isRegistered<SlotLabProjectProvider>());
     _assert(mod, 'FeatureComposerProvider registered',

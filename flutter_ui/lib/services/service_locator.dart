@@ -81,6 +81,7 @@ import '../providers/slot_lab/behavior_tree_provider.dart';
 import '../providers/slot_lab/state_gate_provider.dart';
 import '../providers/slot_lab/emotional_state_provider.dart';
 import '../providers/slot_lab/transition_system_provider.dart';
+import '../providers/slot_lab/tempo_state_provider.dart';
 import '../providers/slot_lab/priority_engine_provider.dart';
 import '../providers/slot_lab/orchestration_engine_provider.dart';
 import '../providers/slot_lab/ail_provider.dart';
@@ -440,6 +441,13 @@ class ServiceLocator {
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<TransitionSystemProvider>(
       () => TransitionSystemProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.11b: Tempo State Provider (Rust TempoStateEngine bridge)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<TempoStateProvider>(
+      () => TempoStateProvider(ffi: sl.get<NativeFFI>()),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
