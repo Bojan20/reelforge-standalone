@@ -13868,7 +13868,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                   setState(() => _loudnessTarget = target);
                 },
                 onResetIntegrated: () {
-                  // TODO: Call engine.resetLufsIntegrated()
+                  NativeFFI.instance.resetLufsIntegrated();
                 },
               ),
             ),
