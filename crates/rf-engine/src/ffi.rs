@@ -13705,6 +13705,7 @@ pub extern "C" fn clip_get_warp_state(clip_id: u64) -> *mut c_char {
                     "sourcePos": m.source_pos,
                     "timelinePos": m.timeline_pos,
                     "locked": m.locked,
+                    "pitchSemitones": m.pitch_semitones,
                     "type": match m.marker_type {
                         WarpMarkerType::Transient => 0,
                         WarpMarkerType::Manual => 1,
@@ -13773,6 +13774,20 @@ pub extern "C" fn clip_move_warp_marker(clip_id: u64, marker_id: u64, new_timeli
     }
     if let Some(mut clip) = TRACK_MANAGER.clips.get_mut(&ClipId(clip_id)) {
         if clip.warp_state.move_marker(WarpMarkerId(marker_id), new_timeline_pos) { 1 } else { 0 }
+    } else { 0 }
+}
+
+/// Set per-segment pitch shift on a warp marker (semitones, clamped to -24..+24).
+/// The pitch applies to the audio region AFTER this marker until the next one.
+/// Stacks with clip.pitch_shift in the audio thread.
+/// Returns 1 on success, 0 if clip/marker not found.
+#[unsafe(no_mangle)]
+pub extern "C" fn clip_set_warp_marker_pitch(clip_id: u64, marker_id: u64, semitones: f64) -> i32 {
+    if !semitones.is_finite() {
+        return 0;
+    }
+    if let Some(mut clip) = TRACK_MANAGER.clips.get_mut(&ClipId(clip_id)) {
+        if clip.warp_state.set_marker_pitch(WarpMarkerId(marker_id), semitones) { 1 } else { 0 }
     } else { 0 }
 }
 

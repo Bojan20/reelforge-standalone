@@ -91,6 +91,11 @@ pub struct WarpMarker {
     pub marker_type: WarpMarkerType,
     /// Locked — won't be moved by auto-quantize
     pub locked: bool,
+    /// Per-segment pitch shift in semitones (-24..+24).
+    /// Applied to the audio region AFTER this marker (until the next marker).
+    /// Stacks on top of clip.pitch_shift for combined effect.
+    #[serde(default)]
+    pub pitch_semitones: f64,
 }
 
 /// Pre-computed stretch segment between two adjacent warp markers.
@@ -108,6 +113,9 @@ pub struct SegmentStretch {
     /// Stretch ratio for this segment (timeline_len / source_len)
     /// > 1.0 = slower playback (stretched), < 1.0 = faster (compressed)
     pub stretch_ratio: f64,
+    /// Per-segment pitch shift in semitones, inherited from the START marker
+    /// of this segment. Stacks with clip.pitch_shift in the audio thread.
+    pub pitch_semitones: f64,
 }
 
 /// Per-clip warp state. Holds all warp markers and pre-computed segments.
@@ -156,6 +164,7 @@ impl ClipWarpState {
                     timeline_pos: 0.0,
                     marker_type: WarpMarkerType::Manual,
                     locked: true,
+                    pitch_semitones: 0.0,
                 },
                 WarpMarker {
                     id: WarpMarkerId(next_id()),
@@ -163,6 +172,7 @@ impl ClipWarpState {
                     timeline_pos: clip_duration,
                     marker_type: WarpMarkerType::Manual,
                     locked: true,
+                    pitch_semitones: 0.0,
                 },
             ],
             ..Default::default()
@@ -187,6 +197,7 @@ impl ClipWarpState {
             timeline_pos,
             marker_type,
             locked: false,
+            pitch_semitones: 0.0,
         };
         // Insert sorted by source_pos
         let idx = self.markers.partition_point(|m| m.source_pos < source_pos);
@@ -237,6 +248,21 @@ impl ClipWarpState {
         true
     }
 
+    /// Set the per-segment pitch shift on a warp marker.
+    /// `semitones` is clamped to [-24, +24].
+    /// Triggers segment rebuild so the audio thread immediately picks up the new pitch.
+    /// Returns false if the marker ID was not found.
+    pub fn set_marker_pitch(&mut self, id: WarpMarkerId, semitones: f64) -> bool {
+        match self.markers.iter_mut().find(|m| m.id == id) {
+            Some(m) => {
+                m.pitch_semitones = semitones.clamp(-24.0, 24.0);
+                self.rebuild_segments();
+                true
+            }
+            None => false,
+        }
+    }
+
     /// Rebuild pre-computed segments from markers. Called after any marker change.
     ///
     /// INVARIANT: After rebuild, segments have monotonically increasing timeline positions.
@@ -273,6 +299,9 @@ impl ClipWarpState {
                 timeline_start: m0.timeline_pos,
                 timeline_end: m1.timeline_pos,
                 stretch_ratio: ratio.clamp(0.1, 10.0),
+                // Per-segment pitch inherited from the START marker of this segment.
+                // Segment [i..i+1] uses pitch_semitones from marker[i].
+                pitch_semitones: m0.pitch_semitones,
             });
         }
     }
@@ -346,6 +375,7 @@ impl ClipWarpState {
                     timeline_pos,
                     marker_type: WarpMarkerType::Transient,
                     locked: false,
+                    pitch_semitones: 0.0,
                 });
                 // Rebuild after each insert to keep segments consistent for next interpolation
                 self.rebuild_segments();

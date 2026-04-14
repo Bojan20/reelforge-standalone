@@ -90,6 +90,8 @@ class ClipWidget extends StatefulWidget {
   final void Function(int markerId, double originalPos, double finalPos)? onWarpMarkerMoveEnd;
   /// Double-click at position to create warp marker (timelinePos in seconds relative to clip)
   final ValueChanged<double>? onWarpMarkerCreate;
+  /// Right-click → pitch preset on warp marker (markerId, semitones)
+  final void Function(int markerId, double semitones)? onWarpMarkerPitchChanged;
   /// Quantize warp markers to grid (gridInterval seconds, strength 0-1)
   final void Function(double gridInterval, double strength)? onWarpQuantize;
   /// Create warp markers from detected transients then quantize to grid
@@ -136,6 +138,7 @@ class ClipWidget extends StatefulWidget {
     this.onWarpMarkerMove,
     this.onWarpMarkerMoveEnd,
     this.onWarpMarkerCreate,
+    this.onWarpMarkerPitchChanged,
     this.onWarpQuantize,
     this.onWarpToTempo,
     this.snapEnabled = false,
@@ -1453,6 +1456,7 @@ class _ClipWidgetState extends State<ClipWidget> {
                       child: _WarpMarkerDragHandle(
                         markerId: marker.id,
                         initialTimelinePos: marker.timelinePos,
+                        pitchSemitones: marker.pitchSemitones,
                         clipDuration: clip.duration,
                         zoom: widget.zoom,
                         snapEnabled: widget.snapEnabled,
@@ -1460,6 +1464,7 @@ class _ClipWidgetState extends State<ClipWidget> {
                         tempo: widget.tempo,
                         onMove: widget.onWarpMarkerMove,
                         onMoveEnd: widget.onWarpMarkerMoveEnd,
+                        onPitchChanged: widget.onWarpMarkerPitchChanged,
                         onDragStateChanged: (id) {
                           setState(() => _draggingWarpMarkerId = id);
                         },
@@ -3596,6 +3601,8 @@ class _SmartToolZonePainter extends CustomPainter {
 class _WarpMarkerDragHandle extends StatefulWidget {
   final int markerId;
   final double initialTimelinePos;
+  /// Current pitch offset (semitones) for this marker's segment
+  final double pitchSemitones;
   final double clipDuration;
   final double zoom;
   final double snapValue;
@@ -3603,12 +3610,15 @@ class _WarpMarkerDragHandle extends StatefulWidget {
   final bool snapEnabled;
   final void Function(int markerId, double newTimelinePos)? onMove;
   final void Function(int markerId, double originalPos, double finalPos)? onMoveEnd;
+  /// Right-click → pitch preset selection
+  final void Function(int markerId, double semitones)? onPitchChanged;
   /// Notifies parent which marker is being dragged (for overlay painter guide)
   final ValueChanged<int?>? onDragStateChanged;
 
   const _WarpMarkerDragHandle({
     required this.markerId,
     required this.initialTimelinePos,
+    this.pitchSemitones = 0.0,
     required this.clipDuration,
     required this.zoom,
     this.snapValue = 1.0,
@@ -3616,6 +3626,7 @@ class _WarpMarkerDragHandle extends StatefulWidget {
     this.snapEnabled = false,
     this.onMove,
     this.onMoveEnd,
+    this.onPitchChanged,
     this.onDragStateChanged,
   });
 
@@ -3634,6 +3645,79 @@ class _WarpMarkerDragHandleState extends State<_WarpMarkerDragHandle> {
     final gridDuration = beatDuration * widget.snapValue;
     if (gridDuration <= 0) return time;
     return (time / gridDuration).round() * gridDuration;
+  }
+
+  void _showPitchMenu(BuildContext context, Offset globalPosition) {
+    const presets = <double>[-24, -12, -7, -5, -2, -1, 0, 1, 2, 5, 7, 12, 24];
+    final currentPitch = widget.pitchSemitones;
+
+    showMenu<double>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        globalPosition.dx, globalPosition.dy,
+        globalPosition.dx + 1, globalPosition.dy + 1,
+      ),
+      color: const Color(0xFF1C1C26),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+      items: [
+        PopupMenuItem<double>(
+          enabled: false,
+          height: 28,
+          child: Text(
+            'Segment Pitch',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: Colors.white54,
+              letterSpacing: 0.8,
+            ),
+          ),
+        ),
+        const PopupMenuDivider(height: 1),
+        ...presets.map((st) {
+          final isActive = (st - currentPitch).abs() < 0.05;
+          final label = st == 0
+              ? '0  (no pitch shift)'
+              : st > 0
+                  ? '+${st.toStringAsFixed(0)} st'
+                  : '${st.toStringAsFixed(0)} st';
+          return PopupMenuItem<double>(
+            value: st,
+            height: 32,
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 14,
+                  child: isActive
+                      ? const Icon(Icons.check, size: 12, color: Color(0xFF50D0FF))
+                      : null,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isActive
+                        ? const Color(0xFF50D0FF)
+                        : st == 0
+                            ? Colors.white70
+                            : st > 0
+                                ? const Color(0xFFFF9850)
+                                : const Color(0xFF50AAFF),
+                    fontFamily: 'JetBrains Mono',
+                    fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
+    ).then((selected) {
+      if (selected != null) {
+        widget.onPitchChanged?.call(widget.markerId, selected);
+      }
+    });
   }
 
   @override
@@ -3665,6 +3749,9 @@ class _WarpMarkerDragHandleState extends State<_WarpMarkerDragHandle> {
         _isDragging = false;
         widget.onDragStateChanged?.call(null);
       },
+      onSecondaryTapUp: widget.onPitchChanged != null
+          ? (details) => _showPitchMenu(context, details.globalPosition)
+          : null,
       child: const MouseRegion(
         cursor: SystemMouseCursors.resizeColumn,
         child: SizedBox.expand(),
@@ -3850,7 +3937,49 @@ class _WarpOverlayPainter extends CustomPainter {
           handlePaint,
         );
       }
+
+      // Pitch badge: shown below diamond when segment has non-zero pitch shift
+      if (m.hasPitch) {
+        _drawPitchBadge(canvas, x, size.height, m.pitchSemitones);
+      }
     }
+  }
+
+  void _drawPitchBadge(Canvas canvas, double x, double height, double semitones) {
+    final label = semitones > 0
+        ? '+${semitones.toStringAsFixed(semitones.truncateToDouble() == semitones ? 0 : 1)}'
+        : semitones.toStringAsFixed(semitones.truncateToDouble() == semitones ? 0 : 1);
+    final color = semitones > 0
+        ? const Color(0xFFFF9850)  // orange = pitch up
+        : const Color(0xFF50AAFF); // blue  = pitch down
+
+    final tp = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: TextStyle(
+          color: color,
+          fontSize: 7,
+          fontWeight: FontWeight.bold,
+          fontFamily: 'JetBrains Mono',
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+
+    // Position: just below diamond (y=14), centered on marker x
+    const badgeY = 14.0;
+    final badgeX = x - tp.width / 2;
+    if (badgeX < 0 || badgeX + tp.width > 9999) return; // skip if off-screen
+
+    // Dark pill background
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(badgeX - 2, badgeY - 1, tp.width + 4, tp.height + 2),
+        const Radius.circular(2),
+      ),
+      Paint()..color = const Color(0xCC08080C),
+    );
+    tp.paint(canvas, Offset(badgeX, badgeY));
   }
 
   void _drawRegionRatioLabel(Canvas canvas, double x, double width,

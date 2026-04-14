@@ -7476,6 +7476,31 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           },
         ));
       },
+      // Per-segment pitch: right-click on warp marker → set pitch for that segment
+      onClipWarpMarkerPitchChanged: (clipId, markerId, semitones) {
+        final numericClipId = int.tryParse(clipId.replaceAll(RegExp(r'[^0-9]'), ''));
+        if (numericClipId == null) return;
+        // Capture old pitch for undo
+        final sourceClip = _clips.firstWhere((c) => c.id == clipId, orElse: () => _clips.first);
+        if (sourceClip.id != clipId) return;
+        final oldMarker = sourceClip.warpMarkers.where((m) => m.id == markerId).firstOrNull;
+        final oldPitch = oldMarker?.pitchSemitones ?? 0.0;
+        // Apply immediately
+        NativeFFI.instance.clipSetWarpMarkerPitch(numericClipId, markerId, semitones);
+        _refreshClipWarpState(clipId);
+        // Undo support
+        UiUndoManager.instance.record(GenericUndoAction(
+          description: 'Set Warp Marker Pitch',
+          onExecute: () {
+            NativeFFI.instance.clipSetWarpMarkerPitch(numericClipId, markerId, semitones);
+            _refreshClipWarpState(clipId);
+          },
+          onUndo: () {
+            NativeFFI.instance.clipSetWarpMarkerPitch(numericClipId, markerId, oldPitch);
+            _refreshClipWarpState(clipId);
+          },
+        ));
+      },
       // Track callbacks - SYNC both _tracks AND MixerProvider
       onTrackMuteToggle: (trackId) {
         final idx = _tracks.indexWhere((t) => t.id == trackId);

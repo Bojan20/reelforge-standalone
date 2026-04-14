@@ -44,6 +44,10 @@ class WarpMarkerData {
   final double timelinePos;  // seconds on timeline relative to clip start
   final bool locked;
   final WarpMarkerKind kind;
+  /// Per-segment pitch shift in semitones (-24..+24).
+  /// Applied to audio region AFTER this marker (until next marker).
+  /// Stacks with clip-level pitch shift.
+  final double pitchSemitones;
 
   const WarpMarkerData({
     required this.id,
@@ -51,7 +55,11 @@ class WarpMarkerData {
     required this.timelinePos,
     this.locked = false,
     this.kind = WarpMarkerKind.manual,
+    this.pitchSemitones = 0.0,
   });
+
+  /// Whether this marker has a non-trivial per-segment pitch adjustment
+  bool get hasPitch => pitchSemitones.abs() > 0.05;
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -59,6 +67,7 @@ class WarpMarkerData {
     'timelinePos': timelinePos,
     'locked': locked,
     'type': kind.index,
+    'pitchSemitones': pitchSemitones,
   };
 
   factory WarpMarkerData.fromJson(Map<String, dynamic> json) => WarpMarkerData(
@@ -67,6 +76,22 @@ class WarpMarkerData {
     timelinePos: (json['timelinePos'] as num?)?.toDouble() ?? 0.0,
     locked: json['locked'] as bool? ?? false,
     kind: WarpMarkerKind.values[(json['type'] as int? ?? 1).clamp(0, 2)],
+    pitchSemitones: (json['pitchSemitones'] as num?)?.toDouble() ?? 0.0,
+  );
+
+  WarpMarkerData copyWith({
+    double? sourcePos,
+    double? timelinePos,
+    bool? locked,
+    WarpMarkerKind? kind,
+    double? pitchSemitones,
+  }) => WarpMarkerData(
+    id: id,
+    sourcePos: sourcePos ?? this.sourcePos,
+    timelinePos: timelinePos ?? this.timelinePos,
+    locked: locked ?? this.locked,
+    kind: kind ?? this.kind,
+    pitchSemitones: pitchSemitones ?? this.pitchSemitones,
   );
 
   @override
@@ -77,10 +102,11 @@ class WarpMarkerData {
           sourcePos == other.sourcePos &&
           timelinePos == other.timelinePos &&
           locked == other.locked &&
-          kind == other.kind;
+          kind == other.kind &&
+          pitchSemitones == other.pitchSemitones;
 
   @override
-  int get hashCode => Object.hash(id, sourcePos, timelinePos, locked, kind);
+  int get hashCode => Object.hash(id, sourcePos, timelinePos, locked, kind, pitchSemitones);
 }
 
 /// Clip on a timeline track

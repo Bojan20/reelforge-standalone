@@ -12052,6 +12052,9 @@ extension WarpMarkersAPI on NativeFFI {
       Int32 Function(Uint64), int Function(int)>('clip_warp_create_from_transients');
   static final _clipDetectTransients = _loadNativeLibrary().lookupFunction<
       Int32 Function(Uint64, Double), int Function(int, double)>('clip_detect_transients');
+  static final _clipSetWarpMarkerPitch = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint64, Uint64, Double),
+      int Function(int, int, double)>('clip_set_warp_marker_pitch');
 
   /// Enable/disable warp on a clip
   bool clipWarpEnable(int clipId, bool enable) =>
@@ -12083,6 +12086,10 @@ extension WarpMarkersAPI on NativeFFI {
   /// Detect transients in clip audio (offline). Returns count or -1 on error.
   int clipDetectTransients(int clipId, {double sensitivity = 1.5}) =>
       _clipDetectTransients(clipId, sensitivity);
+
+  /// Set per-segment pitch for a warp marker (-24..+24 semitones). Returns true on success.
+  bool clipSetWarpMarkerPitch(int clipId, int markerId, double semitones) =>
+      _clipSetWarpMarkerPitch(clipId, markerId, semitones.clamp(-24.0, 24.0)) == 1;
 
   static final _clipGetWarpState = _loadNativeLibrary().lookupFunction<
       Pointer<Utf8> Function(Uint64), Pointer<Utf8> Function(int)>('clip_get_warp_state');

@@ -81,6 +81,8 @@ class TrackLane extends StatefulWidget {
   final void Function(String clipId, double gridInterval, double strength)? onClipWarpQuantize;
   /// Warp to tempo: create markers from transients + quantize (Phase 5)
   final void Function(String clipId)? onClipWarpToTempo;
+  /// Right-click pitch preset on warp marker (clipId, markerId, semitones)
+  final void Function(String clipId, int markerId, double semitones)? onClipWarpMarkerPitchChanged;
   final void Function(String crossfadeId, double duration)? onCrossfadeUpdate;
   /// Full crossfade update with startTime and duration
   final void Function(String crossfadeId, double startTime, double duration)? onCrossfadeFullUpdate;
@@ -140,6 +142,7 @@ class TrackLane extends StatefulWidget {
     this.onClipWarpMarkerCreate,
     this.onClipWarpQuantize,
     this.onClipWarpToTempo,
+    this.onClipWarpMarkerPitchChanged,
     this.onCrossfadeUpdate,
     this.onCrossfadeFullUpdate,
     this.onCrossfadeDelete,
@@ -259,6 +262,8 @@ class _TrackLaneState extends State<TrackLane> with AutomaticKeepAliveClientMixi
                           widget.onClipWarpMarkerMoveEnd?.call(clip.id, markerId, origPos, finalPos),
                       onWarpMarkerCreate: (pos) =>
                           widget.onClipWarpMarkerCreate?.call(clip.id, pos),
+                      onWarpMarkerPitchChanged: (markerId, semitones) =>
+                          widget.onClipWarpMarkerPitchChanged?.call(clip.id, markerId, semitones),
                       onWarpQuantize: (gridInterval, strength) =>
                           widget.onClipWarpQuantize?.call(clip.id, gridInterval, strength),
                       onWarpToTempo: () =>

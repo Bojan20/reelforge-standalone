@@ -139,6 +139,8 @@ class Timeline extends StatefulWidget {
   final void Function(String clipId, double gridInterval, double strength)? onClipWarpQuantize;
   /// Warp to tempo: create markers from transients + quantize (Phase 5)
   final void Function(String clipId)? onClipWarpToTempo;
+  /// Right-click pitch preset on warp marker (clipId, markerId, semitones)
+  final void Function(String clipId, int markerId, double semitones)? onClipWarpMarkerPitchChanged;
   final ValueChanged<String>? onClipCopy;
   final VoidCallback? onClipPaste;
   final ValueChanged<String>? onMarkerClick;
@@ -319,6 +321,7 @@ class Timeline extends StatefulWidget {
     this.onClipWarpMarkerCreate,
     this.onClipWarpQuantize,
     this.onClipWarpToTempo,
+    this.onClipWarpMarkerPitchChanged,
     this.onClipCopy,
     this.onClipPaste,
     this.onMarkerClick,
@@ -2088,6 +2091,7 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                     onClipWarpMarkerCreate: widget.onClipWarpMarkerCreate,
                     onClipWarpQuantize: widget.onClipWarpQuantize,
                     onClipWarpToTempo: widget.onClipWarpToTempo,
+                    onClipWarpMarkerPitchChanged: widget.onClipWarpMarkerPitchChanged,
                     onPlayheadMove: widget.onPlayheadChange,
                     onCrossfadeUpdate: widget.onCrossfadeUpdate,
                     onCrossfadeFullUpdate: widget.onCrossfadeFullUpdate,
