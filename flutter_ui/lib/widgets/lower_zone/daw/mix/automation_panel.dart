@@ -488,20 +488,39 @@ class _AutomationPanelState extends State<AutomationPanel> {
   /// Build plugin parameter menu items for insert slots
   List<PopupMenuEntry<String>> _buildPluginParamMenuItems(int trackId) {
     final items = <PopupMenuEntry<String>>[];
+    final ffi = NativeFFI.instance;
+
     // Check slots 0-7 for loaded plugins
     for (int slot = 0; slot < 8; slot++) {
-      // Query param count via FFI — returns 0 if no plugin loaded
-      final paramCount = NativeFFI.instance.pluginGetParamCount('track_${trackId}_slot_$slot');
+      final instanceId = 'track_${trackId}_slot_$slot';
+      final paramCount = ffi.pluginGetParamCount(instanceId);
       if (paramCount <= 0) continue;
 
-      // Add divider before plugin section
-      items.add(const PopupMenuDivider());
+      // Use discovery to get real param names + automatable flag
+      final automatableParams = _provider.discoverPluginParams(instanceId);
+      if (automatableParams.isEmpty) continue;
 
-      // Show first 16 params max per slot to keep menu manageable
-      final displayCount = paramCount.clamp(0, 16);
-      for (int p = 0; p < displayCount; p++) {
-        final label = 'Plugin S$slot P$p';
-        items.add(PopupMenuItem(value: label, child: Text(label, style: const TextStyle(fontSize: 12))));
+      // Add divider + plugin slot header
+      items.add(const PopupMenuDivider());
+      items.add(PopupMenuItem(
+        enabled: false,
+        height: 24,
+        child: Text(
+          'Slot $slot — ${automatableParams.length} params',
+          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white54),
+        ),
+      ));
+
+      // Show up to 24 automatable params per slot
+      final displayCount = automatableParams.length.clamp(0, 24);
+      for (int i = 0; i < displayCount; i++) {
+        final param = automatableParams[i];
+        // Format: "Plugin S0 P3 (Filter Cutoff)" — parseable by _parsePluginParam
+        final label = 'Plugin S$slot P${param.paramIndex} (${param.name})';
+        items.add(PopupMenuItem(
+          value: label,
+          child: Text(label, style: const TextStyle(fontSize: 11)),
+        ));
       }
     }
     return items;
