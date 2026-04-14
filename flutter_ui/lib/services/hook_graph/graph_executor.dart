@@ -321,6 +321,52 @@ class ControlRateExecutor {
             fadeMs: fadeMs,
           ));
         }
+
+      case 'Delay':
+        // Tick-based delay gate.
+        // Parameters: delayTicks (integer, default 1)
+        // Behavior: waits N ticks after trigger fires before forwarding.
+        // State stored on wire as countdown integer.
+        final triggered = wires.isChanged(node.id, 'trigger', tick - 1);
+        final delayTicks = (node.parameters['delayTicks'] as num?)?.toInt() ?? 1;
+
+        if (triggered) {
+          // Arm countdown: write remaining ticks
+          wires.write(node.id, '_countdown', delayTicks, tick);
+        }
+
+        final countdown = wires.read<int>(node.id, '_countdown');
+        if (countdown != null && countdown > 0) {
+          final newCount = countdown - 1;
+          wires.write(node.id, '_countdown', newCount, tick);
+          if (newCount == 0) {
+            // Countdown reached zero — fire output trigger
+            wires.write(node.id, 'out', true, tick);
+          }
+        }
+
+      case 'SetParam':
+        // RTPC setter node: emits SetParamCommand to update audio parameters.
+        // Inputs: trigger (optional), paramName (from parameters), value (wire or param)
+        final triggered = node.parameters.containsKey('alwaysUpdate')
+            ? (node.parameters['alwaysUpdate'] as bool? ?? false)
+            : wires.isChanged(node.id, 'trigger', tick - 1);
+        if (triggered) {
+          final paramName = node.parameters['paramName'] as String? ?? '';
+          if (paramName.isNotEmpty) {
+            final value = wires.readOr<double>(node.id, 'value',
+                (node.parameters['defaultValue'] as num?)?.toDouble() ?? 0.0);
+            ctx.emitCommand(SetParamCommand(
+              nodeId: int.tryParse(node.id) ?? node.id.hashCode,
+              paramName: paramName,
+              value: value,
+            ));
+          }
+        }
+
+      default:
+        // Unknown node type — silently ignore (future-compatible)
+        break;
     }
   }
 

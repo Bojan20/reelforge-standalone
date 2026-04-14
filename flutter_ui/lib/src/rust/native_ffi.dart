@@ -28334,7 +28334,7 @@ extension HookGraphAPI on NativeFFI {
   /// Poll feedback events from the Rust hook graph engine.
   ///
   /// Returns a JSON array string (may be `[]`).
-  /// Caller must NOT free — string is managed by Rust and freed after poll.
+  /// Automatically frees the Rust-allocated string after conversion.
   ///
   /// [maxEvents] — maximum events to drain per call (1..64)
   String? hookGraphPollFeedback(int maxEvents) {
@@ -28342,9 +28342,9 @@ extension HookGraphAPI on NativeFFI {
       final ptr = _hookGraphPollFeedback(maxEvents.clamp(1, 64));
       if (ptr == nullptr) return null;
       final result = ptr.toDartString();
-      // Rust allocated this with CString::into_raw — must free with engine_free_string
-      // But for now the string is small enough that we accept the leak per tick.
-      // TODO: call engine_free_string(ptr) once that binding is available here.
+      // Free the Rust-allocated CString to prevent memory leak.
+      // engine_free_string is bound to `_freeString` in this class.
+      freeString(ptr);
       return result;
     } catch (_) {
       return null;

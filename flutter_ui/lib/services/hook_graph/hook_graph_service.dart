@@ -343,29 +343,45 @@ class HookGraphService {
 
   void _processFeedbackJson(String json) {
     // Parse events: [{"type":"voice_stopped","voice_id":42},...]
-    // Format is strictly controlled from Rust side — simple string search is safe
-    if (!json.contains('"voice_stopped"')) return;
+    // Format is strictly controlled from Rust side — simple string search is safe.
+    if (json == '[]' || json.isEmpty) return;
 
-    // Remove stopped voices from tracking
-    final stoppedRe = RegExp(r'"voice_id":(\d+)');
     final typeRe = RegExp(r'"type":"([^"]+)"');
+    final voiceIdRe = RegExp(r'"voice_id":(\d+)');
+    final instanceIdRe = RegExp(r'"instance_id":(\d+)');
 
-    // Split array elements by "}," pattern
-    final items = json.replaceAll('[', '').replaceAll(']', '').split('},');
+    // Split on "}," to get individual event objects
+    final items = json
+        .replaceAll('[', '')
+        .replaceAll(']', '')
+        .split('},');
 
     for (final item in items) {
       final typeMatch = typeRe.firstMatch(item);
       if (typeMatch == null) continue;
 
       final type = typeMatch.group(1);
-      if (type == 'voice_stopped') {
-        final idMatch = stoppedRe.firstMatch(item);
-        if (idMatch != null) {
-          final voiceId = int.tryParse(idMatch.group(1) ?? '');
-          if (voiceId != null) {
-            _activeVoices.remove(voiceId);
+      switch (type) {
+        case 'voice_stopped':
+          final idMatch = voiceIdRe.firstMatch(item);
+          if (idMatch != null) {
+            final voiceId = int.tryParse(idMatch.group(1) ?? '');
+            if (voiceId != null) _activeVoices.remove(voiceId);
           }
-        }
+
+        case 'voice_started':
+          // Already tracked at StartVoiceCommand dispatch — no action needed
+
+        case 'graph_done':
+          // Graph instance completed — could fire a completion callback
+          // Currently informational only
+          final instMatch = instanceIdRe.firstMatch(item);
+          final _ = instMatch?.group(1); // available for future use
+
+        case 'node_error':
+          // Node execution error — log if debug mode
+          // Production: silently ignore to avoid cascade failures
+          break;
       }
     }
   }
