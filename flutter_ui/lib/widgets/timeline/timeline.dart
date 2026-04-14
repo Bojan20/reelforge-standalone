@@ -114,6 +114,8 @@ class Timeline extends StatefulWidget {
   final ValueChanged<String>? onClipSplit;
   final ValueChanged<String>? onClipDuplicate;
   final ValueChanged<String>? onClipDelete;
+  /// Glue/merge selected clips on same track into one (Cmd+J / Glue tool click)
+  final VoidCallback? onClipGlue;
   /// Toggle clip mute (from Mute tool)
   final ValueChanged<String>? onClipMute;
   /// Toggle clip reverse (flip audio)
@@ -325,6 +327,7 @@ class Timeline extends StatefulWidget {
     this.onClipSplit,
     this.onClipDuplicate,
     this.onClipDelete,
+    this.onClipGlue,
     this.onClipMute,
     this.onClipReverse,
     this.onClipLoopToggle,
@@ -1736,6 +1739,12 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
       }
     }
 
+    // Cmd+J - Glue/Join selected clips (Cubase style)
+    if (isCmd && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyJ) {
+      widget.onClipGlue?.call();
+      return KeyEventResult.handled;
+    }
+
     // ═══════════════════════════════════════════════════════════════════════
     // TRACK SHORTCUTS (Cmd + key)
     // ═══════════════════════════════════════════════════════════════════════
@@ -2304,6 +2313,11 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                     onClipDelete: widget.onClipDelete,
                     onClipDuplicate: widget.onClipDuplicate,
                     onClipMute: widget.onClipMute,
+                    onClipGlue: (clipId) {
+                      // Glue tool click: select this clip, then trigger glue
+                      widget.onClipSelect?.call(clipId, false);
+                      widget.onClipGlue?.call();
+                    },
                     onClipReverse: widget.onClipReverse,
                     onClipLoopToggle: widget.onClipLoopToggle,
                     onClipLoopDurationChange: widget.onClipLoopDurationChange,

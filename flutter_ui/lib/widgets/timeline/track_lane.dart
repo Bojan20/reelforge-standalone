@@ -55,6 +55,8 @@ class TrackLane extends StatefulWidget {
   final ValueChanged<String>? onClipSplit;
   final ValueChanged<String>? onClipDelete;
   final ValueChanged<String>? onClipMute;
+  /// Glue this clip with next adjacent (Glue tool click)
+  final ValueChanged<String>? onClipGlue;
   /// Duplicate clip
   final ValueChanged<String>? onClipDuplicate;
   /// Reverse clip audio toggle
@@ -133,6 +135,7 @@ class TrackLane extends StatefulWidget {
     this.onClipSplit,
     this.onClipDelete,
     this.onClipMute,
+    this.onClipGlue,
     this.onClipDuplicate,
     this.onClipReverse,
     this.onClipLoopToggle,
@@ -251,6 +254,7 @@ class _TrackLaneState extends State<TrackLane> with AutomaticKeepAliveClientMixi
                       onDelete: () => widget.onClipDelete?.call(clip.id),
                       onDuplicate: () => widget.onClipDuplicate?.call(clip.id),
                       onMute: () => widget.onClipMute?.call(clip.id),
+                      onGlue: () => widget.onClipGlue?.call(clip.id),
                       onReverse: () => widget.onClipReverse?.call(clip.id),
                       onLoopToggle: () => widget.onClipLoopToggle?.call(clip.id),
                       onLoopDurationChange: (newDur) =>

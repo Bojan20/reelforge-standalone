@@ -71,6 +71,8 @@ class ClipWidget extends StatefulWidget {
   final ValueChanged<double>? onDuplicateToPosition;
   final VoidCallback? onSplit;
   final VoidCallback? onMute;
+  /// Called when Glue tool clicks this clip (glue with next adjacent)
+  final VoidCallback? onGlue;
   /// Called when clip audio is reversed (toggle)
   final VoidCallback? onReverse;
   /// Called when loop handle is toggled (Logic Pro X style)
@@ -131,6 +133,7 @@ class ClipWidget extends StatefulWidget {
     this.onDuplicateToPosition,
     this.onSplit,
     this.onMute,
+    this.onGlue,
     this.onReverse,
     this.onLoopToggle,
     this.onLoopDurationChange,
@@ -608,8 +611,9 @@ class _ClipWidgetState extends State<ClipWidget> {
                   widget.onMute?.call();
                   return;
                 case TimelineEditTool.glue:
-                  // Glue: select clip (glue requires two adjacent clips — handled at timeline level)
+                  // Glue tool click: select this clip + glue with next adjacent
                   widget.onSelect?.call(_pointerDownShift);
+                  widget.onGlue?.call();
                   return;
                 case TimelineEditTool.zoom:
                   // Zoom tool on clip: zoom in centered at click

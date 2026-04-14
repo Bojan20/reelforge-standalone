@@ -3793,6 +3793,119 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     ));
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P3: GLUE TOOL — Merge selected clips (Cubase Cmd+J / Glue tool Key 5)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Glue all selected clips on the same track into one merged clip.
+  /// Cubase behavior:
+  /// - If 1 clip selected: glue with next adjacent clip on same track
+  /// - If 2+ clips selected on same track: merge all into one
+  /// - Merged clip spans from earliest startTime to latest endTime
+  /// - sourceOffset preserved from earliest clip (works for split-then-glue workflow)
+  void _executeGlueSelectedClips() {
+    final selectedClips = _clips.where((c) => c.selected && !c.locked).toList();
+    if (selectedClips.isEmpty) return;
+
+    // Block glue on MW-synced clips
+    if (selectedClips.any((c) => _mwTimelineSyncController.isMwSyncedClip(c.id))) return;
+
+    // Group selected clips by track
+    final byTrack = <String, List<timeline.TimelineClip>>{};
+    for (final clip in selectedClips) {
+      byTrack.putIfAbsent(clip.trackId, () => []).add(clip);
+    }
+
+    // If only 1 clip selected, find next adjacent clip on same track
+    if (selectedClips.length == 1) {
+      final clip = selectedClips.first;
+      final clipEnd = clip.startTime + clip.duration;
+
+      // Find next clip on same track (closest start >= clipEnd, within 0.05s tolerance)
+      final sameTrackClips = _clips
+          .where((c) => c.trackId == clip.trackId && c.id != clip.id)
+          .toList()
+        ..sort((a, b) => a.startTime.compareTo(b.startTime));
+
+      timeline.TimelineClip? nextClip;
+      for (final c in sameTrackClips) {
+        if (c.startTime >= clipEnd - 0.05) {
+          nextClip = c;
+          break;
+        }
+      }
+
+      if (nextClip == null) return; // No adjacent clip to glue with
+      byTrack[clip.trackId] = [clip, nextClip];
+    }
+
+    // Snapshot for undo
+    final originalClips = List<timeline.TimelineClip>.from(_clips);
+
+    // Process each track group
+    for (final entry in byTrack.entries) {
+      final trackId = entry.key;
+      final clipsToGlue = entry.value..sort((a, b) => a.startTime.compareTo(b.startTime));
+
+      if (clipsToGlue.length < 2) continue;
+
+      // Determine merged clip bounds
+      final first = clipsToGlue.first;
+      final last = clipsToGlue.last;
+      final mergedStart = first.startTime;
+      final mergedEnd = last.startTime + last.duration;
+      final mergedDuration = mergedEnd - mergedStart;
+
+      // Keep the first clip as the merged clip, delete the rest
+      final mergedClip = first.copyWith(
+        duration: mergedDuration,
+        fadeOut: last.fadeOut, // preserve last clip's fade out
+        selected: true,
+      );
+
+      // Delete all clips except first from engine
+      final clipsToDelete = clipsToGlue.skip(1).toList();
+      for (final clip in clipsToDelete) {
+        engine.deleteClip(clip.id);
+        WaveformCache().remove(clip.id);
+        // Remove any crossfades involving these clips
+        _crossfades.removeWhere((xf) => xf.clipAId == clip.id || xf.clipBId == clip.id);
+      }
+
+      // Resize the first clip to cover merged range
+      engine.resizeClip(
+        clipId: first.id,
+        startTime: mergedStart,
+        duration: mergedDuration,
+        sourceOffset: first.sourceOffset,
+      );
+
+      // Update UI state
+      final deleteIds = clipsToDelete.map((c) => c.id).toSet();
+      setState(() {
+        _clips = _clips.where((c) => !deleteIds.contains(c.id)).map((c) {
+          if (c.id == first.id) return mergedClip;
+          return c;
+        }).toList();
+      });
+    }
+
+    // Register undo
+    UiUndoManager.instance.record(GenericUndoAction(
+      description: 'Glue clips',
+      onExecute: () {
+        setState(() { _clips = List.from(_clips); });
+      },
+      onUndo: () {
+        setState(() { _clips = List.from(originalClips); });
+        for (final clip in originalClips) {
+          engine.moveClip(clipId: clip.id, targetTrackId: clip.trackId, startTime: clip.startTime);
+          engine.resizeClip(clipId: clip.id, startTime: clip.startTime, duration: clip.duration, sourceOffset: clip.sourceOffset);
+        }
+      },
+    ));
+  }
+
   /// Create a crossfade at a split point between two adjacent clips.
   /// Called automatically after any split operation to create a smooth transition.
   /// The crossfade overlaps both clips by extending them slightly at the split boundary.
@@ -7437,6 +7550,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         setState(() {
           _clips = _clips.where((c) => c.id != clipId).toList();
         });
+      },
+      onClipGlue: () {
+        _executeGlueSelectedClips();
       },
       onClipMute: (clipId) {
         final clip = _clips.firstWhere((c) => c.id == clipId, orElse: () => _clips.first);
