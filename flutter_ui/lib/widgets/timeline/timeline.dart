@@ -1622,6 +1622,18 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
     widget.onTrackReorder?.call(globalOld, globalNew);
   }
 
+  /// Auto-scroll timeline so [time] is visible (centered if offscreen)
+  void _scrollToTime(double time) {
+    final visibleStart = widget.scrollOffset;
+    final visibleEnd = visibleStart + _containerWidth / _effectiveZoom;
+    // Already visible — no scroll needed
+    if (time >= visibleStart + 0.5 && time <= visibleEnd - 0.5) return;
+    // Center the time position in the viewport
+    final newScroll = (time - (_containerWidth / _effectiveZoom) * 0.3)
+        .clamp(0.0, (widget.totalDuration - _containerWidth / _effectiveZoom).clamp(0.0, double.infinity));
+    _notifyScrollChange(newScroll);
+  }
+
   KeyEventResult _handleKeyEvent(KeyEvent event) {
 
     // Keys that allow repeat (hold key for continuous adjustment)
@@ -1895,6 +1907,95 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
         widget.onLoopToggle?.call();
       }
       return KeyEventResult.handled;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // P4: KEYBOARD NAVIGATION (Cubase/Logic speed editing)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // Tab — jump to NEXT clip on selected track (select it + move playhead)
+    // Shift+Tab — jump to PREVIOUS clip
+    if (!isCmd && !isAlt && (event.logicalKey == LogicalKeyboardKey.tab)) {
+      final trackId = _selectedTrackId;
+      if (trackId != null) {
+        final trackClips = widget.clips
+            .where((c) => c.trackId == trackId)
+            .toList()
+          ..sort((a, b) => a.startTime.compareTo(b.startTime));
+
+        if (trackClips.isNotEmpty) {
+          final currentTime = widget.playheadPosition;
+          TimelineClip? target;
+
+          if (isShift) {
+            // Shift+Tab: previous clip (startTime < currentTime, closest)
+            for (int i = trackClips.length - 1; i >= 0; i--) {
+              if (trackClips[i].startTime < currentTime - 0.01) {
+                target = trackClips[i];
+                break;
+              }
+            }
+            // Wrap around: if no previous, go to last
+            target ??= trackClips.last;
+          } else {
+            // Tab: next clip (startTime > currentTime)
+            for (final c in trackClips) {
+              if (c.startTime > currentTime + 0.01) {
+                target = c;
+                break;
+              }
+            }
+            // Wrap around: if no next, go to first
+            target ??= trackClips.first;
+          }
+
+          // Select the target clip and move playhead to its start
+          widget.onClipSelect?.call(target.id, false);
+          widget.onPlayheadChange?.call(target.startTime);
+          // Auto-scroll to show the clip
+          _scrollToTime(target.startTime);
+          return KeyEventResult.handled;
+        }
+      }
+      return KeyEventResult.handled; // Consume Tab even if no track selected
+    }
+
+    // N — jump to next marker + move playhead (Cubase style)
+    // P — jump to previous marker
+    if (!isCmd && !isShift && !isAlt &&
+        (event.logicalKey == LogicalKeyboardKey.keyN ||
+         event.logicalKey == LogicalKeyboardKey.keyP)) {
+      if (widget.markers.isNotEmpty) {
+        final sortedMarkers = List<TimelineMarker>.from(widget.markers)
+          ..sort((a, b) => a.time.compareTo(b.time));
+        final currentTime = widget.playheadPosition;
+
+        TimelineMarker? target;
+        if (event.logicalKey == LogicalKeyboardKey.keyN) {
+          // Next marker
+          for (final m in sortedMarkers) {
+            if (m.time > currentTime + 0.01) {
+              target = m;
+              break;
+            }
+          }
+          target ??= sortedMarkers.first; // Wrap
+        } else {
+          // Previous marker
+          for (int i = sortedMarkers.length - 1; i >= 0; i--) {
+            if (sortedMarkers[i].time < currentTime - 0.01) {
+              target = sortedMarkers[i];
+              break;
+            }
+          }
+          target ??= sortedMarkers.last; // Wrap
+        }
+
+        widget.onPlayheadChange?.call(target.time);
+        widget.onMarkerClick?.call(target.id);
+        _scrollToTime(target.time);
+        return KeyEventResult.handled;
+      }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
