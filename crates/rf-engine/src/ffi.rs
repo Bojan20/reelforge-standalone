@@ -9316,54 +9316,63 @@ pub extern "C" fn elastic_reset(clip_id: u32) -> i32 {
     }
 }
 
-/// Apply time stretch to clip audio in IMPORTED_AUDIO
+/// Apply time stretch + pitch shift to clip audio in IMPORTED_AUDIO.
 ///
-/// Reads audio from IMPORTED_AUDIO, processes through elastic processor,
-/// and replaces the audio with the stretched result.
+/// Uses **Signalsmith Stretch** (MIT, quality ≈ Élastique Pro) instead of
+/// the old Phase Vocoder. This ensures the offline "Apply" result matches
+/// or exceeds the real-time preview quality.
 ///
-/// Returns 1 on success, 0 on error
+/// Signalsmith handles combined time stretch + pitch shift in one pass —
+/// no cascading artifacts from separate stretch→resample stages.
+///
+/// The stretch ratio and pitch are read from the ElasticPro config
+/// (set via elastic_pro_set_ratio / elastic_pro_set_pitch).
+///
+/// Returns 1 on success, 0 on error.
 #[unsafe(no_mangle)]
 pub extern "C" fn elastic_apply_to_clip(clip_id: u32) -> i32 {
-    // clip_id here is typically a track_id passed from Dart panels.
-    // Try ELASTIC_PROS first (used by elastic_pro_* API), then ELASTIC_PROCESSORS (old API)
-    let mut pros = ELASTIC_PROS.write();
-    let mut old_procs = ELASTIC_PROCESSORS.write();
-    let proc = if let Some(p) = pros.get_mut(&clip_id) {
-        p
-    } else if let Some(p) = old_procs.get_mut(&clip_id) {
-        p
-    } else {
-        eprintln!(
-            "[elastic_apply] No processor for clip {} (checked ELASTIC_PROS and ELASTIC_PROCESSORS)",
-            clip_id
-        );
-        return 0;
+    use signalsmith_stretch::Stretch;
+
+    // Read stretch params from ElasticPro config (set by UI sliders).
+    // Falls back to clip params if no ElasticPro instance exists.
+    let (stretch_ratio, pitch_semitones) = {
+        let pros = ELASTIC_PROS.read();
+        if let Some(p) = pros.get(&clip_id) {
+            (p.config().stretch_ratio, p.config().pitch_shift)
+        } else {
+            // No ElasticPro — read from clip directly
+            let tid = TrackId(clip_id as u64);
+            let clips = TRACK_MANAGER.get_clips_for_track(tid);
+            if let Some(c) = clips.first() {
+                (c.stretch_ratio, c.pitch_shift)
+            } else {
+                (1.0, 0.0)
+            }
+        }
     };
 
-    // Read audio from IMPORTED_AUDIO.
-    // Try direct clip_id first, then resolve track→first clip if not found.
+    // Nothing to do
+    if (stretch_ratio - 1.0).abs() < 0.001 && pitch_semitones.abs() < 0.01 {
+        eprintln!("[elastic_apply] No stretch/pitch change (ratio={:.3}, pitch={:.2}st) — skipping", stretch_ratio, pitch_semitones);
+        return 1;
+    }
+
+    // Resolve audio: try clip_id directly, then track→first clip
     let (audio, resolved_clip_id) = {
         let audio_map = IMPORTED_AUDIO.read();
         if let Some(a) = audio_map.get(&ClipId(clip_id as u64)) {
             (a.clone(), ClipId(clip_id as u64))
         } else {
-            // clip_id might actually be a track_id — resolve to first clip
             let clips = TRACK_MANAGER.get_clips_for_track(TrackId(clip_id as u64));
             if let Some(first_clip) = clips.first() {
                 if let Some(a) = audio_map.get(&first_clip.id) {
                     (a.clone(), first_clip.id)
                 } else {
-                    eprintln!(
-                        "[elastic_apply] No audio for clip {} (track {} has clip {} but no audio)",
-                        clip_id, clip_id, first_clip.id.0
-                    );
+                    eprintln!("[elastic_apply] No audio for clip {} (track has clip {} but no audio)", clip_id, first_clip.id.0);
                     return 0;
                 }
             } else {
-                eprintln!(
-                    "[elastic_apply] No audio for clip {} and no clips on track {}",
-                    clip_id, clip_id
-                );
+                eprintln!("[elastic_apply] No audio for clip {} and no clips on track {}", clip_id, clip_id);
                 return 0;
             }
         }
@@ -9377,51 +9386,128 @@ pub extern "C" fn elastic_apply_to_clip(clip_id: u32) -> i32 {
         return 0;
     }
 
-    // Convert f32 interleaved to f64 per-channel
-    let mut left_f64 = Vec::with_capacity(total_frames);
-    let mut right_f64 = Vec::with_capacity(total_frames);
+    // ─── Signalsmith Stretch offline processing ───────────────────────────
+    //
+    // Key insight: Signalsmith's process(input, output) uses the RATIO of
+    // output_length / input_length as the time stretch factor.
+    // Pitch shift is set via set_transpose_factor_semitones().
+    //
+    // Unlike the real-time path (where sinc resampler does time stretch and
+    // Signalsmith only compensates pitch), here Signalsmith does BOTH in one
+    // pass — no cascading artifacts.
 
-    for frame in 0..total_frames {
-        let idx = frame * channels;
-        if idx >= audio.samples.len() {
-            break;
-        }
-        left_f64.push(audio.samples[idx] as f64);
-        if channels > 1 && idx + 1 < audio.samples.len() {
-            right_f64.push(audio.samples[idx + 1] as f64);
-        }
-    }
+    let mut stretcher = Stretch::preset_default(2, sample_rate as u32);
+    stretcher.set_transpose_factor_semitones(pitch_semitones as f32, None);
 
-    // Process through elastic
-    proc.reset();
-    let (stretched_l, stretched_r) = if channels > 1 {
-        proc.process_stereo(&left_f64, &right_f64)
-    } else {
-        let stretched = proc.process(&left_f64);
-        (stretched.clone(), stretched)
-    };
-
-    let new_frames = stretched_l.len();
-    if new_frames == 0 {
-        eprintln!("[elastic_apply] Stretch produced 0 samples");
+    // Calculate output length
+    let output_total_frames = ((total_frames as f64) * stretch_ratio).round() as usize;
+    if output_total_frames == 0 {
+        eprintln!("[elastic_apply] Output would be 0 frames (ratio={:.3})", stretch_ratio);
         return 0;
     }
 
-    // Convert back to f32 interleaved
-    let mut new_samples = Vec::with_capacity(new_frames * channels);
-    for i in 0..new_frames {
-        new_samples.push(stretched_l[i].clamp(-1.0, 1.0) as f32);
-        if channels > 1 {
-            let r = if i < stretched_r.len() {
-                stretched_r[i]
-            } else {
-                0.0
-            };
-            new_samples.push(r.clamp(-1.0, 1.0) as f32);
-        }
+    // Convert f32 interleaved → f32 stereo interleaved for Signalsmith
+    // (Signalsmith works with f32 interleaved [L,R,L,R,...])
+    let mut input_interleaved = Vec::with_capacity(total_frames * 2);
+    for frame in 0..total_frames {
+        let idx = frame * channels;
+        if idx >= audio.samples.len() { break; }
+        let l = audio.samples[idx];
+        let r = if channels > 1 && idx + 1 < audio.samples.len() {
+            audio.samples[idx + 1]
+        } else {
+            l // mono → duplicate to stereo
+        };
+        input_interleaved.push(l);
+        input_interleaved.push(r);
     }
 
-    let new_duration = new_frames as f64 / sample_rate as f64;
+    let mut output_interleaved = vec![0.0f32; output_total_frames * 2];
+
+    // Process in blocks — Signalsmith streams internally.
+    // Block size determines quality/efficiency tradeoff.
+    // Larger blocks = better quality for offline (more spectral resolution).
+    let input_block = 4096usize;
+    let output_block = ((input_block as f64) * stretch_ratio).round() as usize;
+    let output_block = output_block.max(1);
+
+    // Flush Signalsmith's internal latency by pre-feeding silence
+    let latency = stretcher.input_latency() + stretcher.output_latency();
+    if latency > 0 {
+        let warmup_in = vec![0.0f32; latency * 2];
+        let warmup_out_len = ((latency as f64) * stretch_ratio).round() as usize;
+        let mut warmup_out = vec![0.0f32; warmup_out_len.max(1) * 2];
+        stretcher.process(&warmup_in, &mut warmup_out);
+    }
+
+    let mut in_pos = 0usize;
+    let mut out_pos = 0usize;
+
+    while in_pos < total_frames && out_pos < output_total_frames {
+        let in_remaining = total_frames - in_pos;
+        let out_remaining = output_total_frames - out_pos;
+
+        let in_frames = in_remaining.min(input_block);
+        // Scale output block proportionally to maintain consistent stretch ratio
+        let out_frames = ((in_frames as f64) * stretch_ratio).round() as usize;
+        let out_frames = out_frames.min(out_remaining).max(1);
+
+        let in_start = in_pos * 2;
+        let in_end = in_start + in_frames * 2;
+        let out_start = out_pos * 2;
+        let out_end = out_start + out_frames * 2;
+
+        if in_end > input_interleaved.len() || out_end > output_interleaved.len() {
+            break;
+        }
+
+        stretcher.process(
+            &input_interleaved[in_start..in_end],
+            &mut output_interleaved[out_start..out_end],
+        );
+
+        in_pos += in_frames;
+        out_pos += out_frames;
+    }
+
+    // Flush tail: feed silence blocks until all output frames are filled.
+    // Signalsmith has internal latency buffers — may need multiple flush blocks.
+    let tail_in = vec![0.0f32; input_block * 2];
+    let max_flush_iters = 16; // Safety limit to prevent infinite loop
+    let mut flush_iter = 0;
+    while out_pos < output_total_frames && flush_iter < max_flush_iters {
+        let tail_remaining = output_total_frames - out_pos;
+        let flush_out_frames = tail_remaining.min(output_block).max(1);
+        let tail_out_start = out_pos * 2;
+        let tail_out_end = (tail_out_start + flush_out_frames * 2).min(output_interleaved.len());
+        if tail_out_end <= tail_out_start { break; }
+
+        let flush_in_frames = ((flush_out_frames as f64) / stretch_ratio).round() as usize;
+        let flush_in_frames = flush_in_frames.max(1).min(input_block);
+
+        stretcher.process(
+            &tail_in[..flush_in_frames * 2],
+            &mut output_interleaved[tail_out_start..tail_out_end],
+        );
+        out_pos += flush_out_frames;
+        flush_iter += 1;
+    }
+
+    // Convert stereo interleaved f32 → output format
+    let new_frames = output_total_frames;
+    let mut new_samples = Vec::with_capacity(new_frames * channels);
+    for i in 0..new_frames {
+        let idx = i * 2;
+        if idx + 1 >= output_interleaved.len() { break; }
+        new_samples.push(output_interleaved[idx].clamp(-1.0, 1.0));
+        if channels > 1 {
+            new_samples.push(output_interleaved[idx + 1].clamp(-1.0, 1.0));
+        }
+        // mono: only take left channel (they're identical since we duplicated)
+    }
+
+    let actual_frames = new_samples.len() / channels;
+    let new_duration = actual_frames as f64 / sample_rate as f64;
 
     // Replace audio in IMPORTED_AUDIO
     let new_audio = Arc::new(ImportedAudio {
@@ -9429,7 +9515,7 @@ pub extern "C" fn elastic_apply_to_clip(clip_id: u32) -> i32 {
         sample_rate,
         channels: audio.channels,
         duration_secs: new_duration,
-        sample_count: new_frames,
+        sample_count: actual_frames,
         source_path: audio.source_path.clone(),
         name: audio.name.clone(),
         bit_depth: audio.bit_depth,
@@ -9439,8 +9525,8 @@ pub extern "C" fn elastic_apply_to_clip(clip_id: u32) -> i32 {
     IMPORTED_AUDIO.write().insert(resolved_clip_id, new_audio);
 
     eprintln!(
-        "[elastic_apply] clip {} stretched: {} → {} frames ({:.2}s → {:.2}s)",
-        clip_id, total_frames, new_frames, audio.duration_secs, new_duration
+        "[elastic_apply] Signalsmith: clip {} stretched {:.3}x + {:.1}st: {} → {} frames ({:.2}s → {:.2}s)",
+        clip_id, stretch_ratio, pitch_semitones, total_frames, actual_frames, audio.duration_secs, new_duration
     );
 
     1
