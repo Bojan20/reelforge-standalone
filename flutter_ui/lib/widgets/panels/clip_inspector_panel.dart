@@ -754,14 +754,16 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
               onPressed: () {
                 final clipId = _parseClipId(clip.id);
                 if (clipId != null) {
-                  // Quantize to 1/8 note at current tempo (default)
-                  // TODO: grid dropdown
-                  NativeFFI.instance.clipWarpQuantize(clipId, 0.25, 0.8);
+                  // Quantize to quarter-note grid at project tempo
+                  final projectTempo = NativeFFI.instance.clickGetTempo();
+                  final tempo = projectTempo > 0 ? projectTempo : 120.0;
+                  final beatDuration = 60.0 / tempo; // seconds per quarter note
+                  NativeFFI.instance.clipWarpQuantize(clipId, beatDuration, 0.8);
                   _refreshAndNotifyWarp(clip);
                 }
               },
               icon: const Icon(Icons.grid_on, size: 14),
-              label: Text('Quantize (${clip.warpMarkers.length} markers)', style: const TextStyle(fontSize: 11)),
+              label: Text('Quantize to Grid (${clip.warpMarkers.length} markers)', style: const TextStyle(fontSize: 11)),
               style: TextButton.styleFrom(
                 foregroundColor: FluxForgeTheme.accentOrange,
                 padding: const EdgeInsets.symmetric(vertical: 4),

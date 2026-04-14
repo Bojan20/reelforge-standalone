@@ -421,12 +421,19 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   Timer? _resizeThrottleTimer;
   Map<String, dynamic>? _pendingResize;
 
-  // Analysis state (Transient/Pitch detection)
+  // Analysis state (Transient/Pitch/BPM detection)
   double _transientSensitivity = 0.5;
   int _transientAlgorithm = 2; // 0=Energy, 1=Spectral, 2=Enhanced, 3=Onset, 4=ML
-  // Analysis state - used by transient/pitch detection UI
   double _detectedPitch = 0.0;
   int _detectedMidi = -1;
+  // SmartTempo BPM Detection state
+  double _detectedBpm = 0.0;
+  double _bpmConfidence = 0.0;
+  List<double> _bpmAlternatives = [];
+  bool _bpmStable = false;
+  bool _bpmAnalyzing = false;
+  double _bpmMinRange = 60.0;
+  double _bpmMaxRange = 200.0;
 
   // Clip Editor Hitpoint state (Cubase-style sample editor)
   List<clip_editor.Hitpoint> _clipHitpoints = [];
@@ -12498,22 +12505,38 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                         foregroundColor: FluxForgeTheme.textPrimary,
                       ),
                       onPressed: () {
-                        // Detect transients on selected clip via FFI
-                        final clipId = _selectedTrackIdInt;
-                        if (clipId <= 0) {
-                          _showSnackBar('No clip selected for transient detection');
+                        // Find selected clip — prefer selected, fallback to first
+                        final selectedClip = _clips.cast<timeline.TimelineClip?>()
+                            .firstWhere((c) => c?.selected == true, orElse: () => null)
+                            ?? (_clips.isNotEmpty ? _clips.first : null);
+                        if (selectedClip == null) {
+                          _showSnackBar('No clip selected — select a clip on the timeline first');
                           return;
                         }
+                        final numericClipId = int.tryParse(
+                            selectedClip.id.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+                        if (numericClipId <= 0) {
+                          _showSnackBar('Cannot detect transients: invalid clip ID');
+                          return;
+                        }
+                        // Enable warp on clip if not already
+                        if (!selectedClip.warpEnabled) {
+                          NativeFFI.instance.clipWarpEnable(numericClipId, true);
+                        }
+                        // Step 1: Detect transients (stored in Rust engine)
                         final count = NativeFFI.instance.clipDetectTransients(
-                          clipId,
+                          numericClipId,
                           sensitivity: _transientSensitivity * 3.0, // UI 0-1 → detection 0-3
                         );
                         if (count > 0) {
-                          _showSnackBar('Detected $count transients');
+                          // Step 2: Create warp markers from detected transients
+                          NativeFFI.instance.clipWarpCreateFromTransients(numericClipId);
+                          // Step 3: Sync to Dart model + redraw timeline overlay
+                          _refreshClipWarpState(selectedClip.id);
+                          _showSnackBar('${selectedClip.name}: $count transients → $count warp markers');
                         } else {
-                          _showSnackBar('No transients detected (try lowering sensitivity)');
+                          _showSnackBar('No transients detected — try lowering sensitivity');
                         }
-                        setState(() {});
                       },
                     ),
                   ),
@@ -12522,7 +12545,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             ),
           ),
           const SizedBox(width: 16),
-          // Pitch Detection Panel
+          // BPM Detection Panel (SmartTempo)
           Expanded(
             child: Container(
               padding: const EdgeInsets.all(16),
@@ -12534,67 +12557,107 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Header
                   Row(
                     children: [
-                      Icon(Icons.music_note, color: FluxForgeTheme.accentCyan, size: 18),
+                      Icon(Icons.speed, color: FluxForgeTheme.accentGreen, size: 18),
                       const SizedBox(width: 8),
                       Text(
-                        'Pitch Detection',
+                        'BPM Detection',
                         style: TextStyle(
                           color: FluxForgeTheme.textPrimary,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
+                      const Spacer(),
+                      if (_bpmStable && _detectedBpm > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: FluxForgeTheme.accentGreen.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(
+                            'STABLE',
+                            style: TextStyle(
+                              color: FluxForgeTheme.accentGreen,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Detects pitch in audio clips for:\n'
-                    '• Audio to MIDI conversion\n'
-                    '• Key detection\n'
-                    '• Melodyne-style editing',
-                    style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 12, height: 1.5),
-                  ),
-                  const SizedBox(height: 16),
-                  // Detected pitch display
+                  const SizedBox(height: 12),
+                  // Main BPM readout
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: FluxForgeTheme.bgVoid,
                       borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: _detectedBpm > 0
+                            ? FluxForgeTheme.accentGreen.withValues(alpha: 0.4)
+                            : FluxForgeTheme.borderSubtle,
+                      ),
                     ),
                     child: Row(
                       children: [
+                        // BPM value
                         Expanded(
+                          flex: 2,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Detected Pitch', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10)),
+                              Text('Detected BPM', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10)),
                               Text(
-                                _detectedPitch > 0 ? '${_detectedPitch.toStringAsFixed(1)} Hz' : '-- Hz',
+                                _detectedBpm > 0
+                                    ? _detectedBpm.toStringAsFixed(2)
+                                    : '--.-',
                                 style: TextStyle(
-                                  color: FluxForgeTheme.accentCyan,
-                                  fontSize: 20,
-                                  fontFamily: 'monospace',
+                                  color: _detectedBpm > 0
+                                      ? FluxForgeTheme.accentGreen
+                                      : FluxForgeTheme.textTertiary,
+                                  fontSize: 26,
+                                  fontFamily: 'JetBrains Mono',
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ],
                           ),
                         ),
+                        // Confidence
                         Expanded(
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              Text('MIDI Note', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10)),
+                              Text('Confidence', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10)),
+                              const SizedBox(height: 4),
+                              // Confidence bar
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(2),
+                                child: LinearProgressIndicator(
+                                  value: _bpmConfidence,
+                                  minHeight: 8,
+                                  backgroundColor: FluxForgeTheme.bgDeepest,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    _bpmConfidence > 0.7
+                                        ? FluxForgeTheme.accentGreen
+                                        : _bpmConfidence > 0.4
+                                            ? FluxForgeTheme.accentOrange
+                                            : FluxForgeTheme.accentRed,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
                               Text(
-                                _detectedMidi >= 0 ? _midiNoteToName(_detectedMidi) : '--',
+                                '${(_bpmConfidence * 100).toStringAsFixed(0)}%',
                                 style: TextStyle(
-                                  color: FluxForgeTheme.accentGreen,
-                                  fontSize: 20,
-                                  fontFamily: 'monospace',
-                                  fontWeight: FontWeight.bold,
+                                  color: FluxForgeTheme.textSecondary,
+                                  fontSize: 11,
+                                  fontFamily: 'JetBrains Mono',
                                 ),
                               ),
                             ],
@@ -12603,22 +12666,183 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                       ],
                     ),
                   ),
+                  // BPM range sliders
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Text('Min', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10)),
+                      Expanded(
+                        child: Slider(
+                          value: _bpmMinRange,
+                          min: 40.0,
+                          max: 160.0,
+                          divisions: 120,
+                          label: '${_bpmMinRange.toStringAsFixed(0)} BPM',
+                          activeColor: FluxForgeTheme.accentGreen,
+                          onChanged: (v) => setState(() => _bpmMinRange = v.clamp(40.0, _bpmMaxRange - 10)),
+                        ),
+                      ),
+                      Text('${_bpmMinRange.toStringAsFixed(0)}', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 10, fontFamily: 'JetBrains Mono')),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      Text('Max', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10)),
+                      Expanded(
+                        child: Slider(
+                          value: _bpmMaxRange,
+                          min: 60.0,
+                          max: 300.0,
+                          divisions: 240,
+                          label: '${_bpmMaxRange.toStringAsFixed(0)} BPM',
+                          activeColor: FluxForgeTheme.accentGreen,
+                          onChanged: (v) => setState(() => _bpmMaxRange = v.clamp(_bpmMinRange + 10, 300.0)),
+                        ),
+                      ),
+                      Text('${_bpmMaxRange.toStringAsFixed(0)}', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 10, fontFamily: 'JetBrains Mono')),
+                    ],
+                  ),
+                  // Alternatives (half/double tempo)
+                  if (_bpmAlternatives.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text('Alternatives', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10)),
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 6,
+                      children: _bpmAlternatives.take(3).map((alt) => GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _detectedBpm = alt;
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: FluxForgeTheme.bgDeepest,
+                            borderRadius: BorderRadius.circular(3),
+                            border: Border.all(color: FluxForgeTheme.borderSubtle),
+                          ),
+                          child: Text(
+                            alt.toStringAsFixed(1),
+                            style: TextStyle(
+                              color: FluxForgeTheme.accentGreen,
+                              fontSize: 11,
+                              fontFamily: 'JetBrains Mono',
+                            ),
+                          ),
+                        ),
+                      )).toList(),
+                    ),
+                  ],
                   const Spacer(),
-                  // Detect button
+                  // Action buttons
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
-                      icon: const Icon(Icons.piano, size: 16),
-                      label: const Text('Detect Pitch'),
+                      icon: _bpmAnalyzing
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.graphic_eq, size: 16),
+                      label: Text(_bpmAnalyzing ? 'Analyzing...' : 'Analyze BPM'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: FluxForgeTheme.accentCyan,
+                        backgroundColor: FluxForgeTheme.accentGreen,
                         foregroundColor: FluxForgeTheme.textPrimary,
                       ),
-                      onPressed: () {
-                        _showSnackBar('Pitch detection not yet available — requires ML inference engine');
+                      onPressed: _bpmAnalyzing ? null : () async {
+                        // Find selected clip — prefer selected, fallback to first
+                        final selectedClip = _clips.cast<timeline.TimelineClip?>()
+                            .firstWhere((c) => c?.selected == true, orElse: () => null)
+                            ?? (_clips.isNotEmpty ? _clips.first : null);
+                        if (selectedClip == null) {
+                          _showSnackBar('No clip selected — select a clip on the timeline first');
+                          return;
+                        }
+                        final numericClipId = int.tryParse(
+                            selectedClip.id.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+                        if (numericClipId <= 0) {
+                          _showSnackBar('Cannot analyze BPM: invalid clip ID');
+                          return;
+                        }
+                        setState(() => _bpmAnalyzing = true);
+                        try {
+                          // Run BPM detection on audio thread (may take ~50ms for long clips)
+                          final result = await Future(() => NativeFFI.instance.detectClipTempo(
+                            numericClipId,
+                            minBpm: _bpmMinRange,
+                            maxBpm: _bpmMaxRange,
+                            maxDownbeats: 0,
+                          ));
+                          setState(() {
+                            _detectedBpm = result.bpm;
+                            _bpmConfidence = result.confidence;
+                            _bpmStable = result.stable;
+                            _bpmAlternatives = result.alternatives;
+                            _bpmAnalyzing = false;
+                          });
+                          if (result.bpm > 0) {
+                            _showSnackBar('${selectedClip.name}: ${result.bpm.toStringAsFixed(2)} BPM (${(result.confidence * 100).toStringAsFixed(0)}% confidence)');
+                          } else {
+                            _showSnackBar('BPM detection failed — try a clip with clear rhythmic content');
+                          }
+                        } catch (e) {
+                          setState(() => _bpmAnalyzing = false);
+                          _showSnackBar('BPM detection error: $e');
+                        }
                       },
                     ),
                   ),
+                  if (_detectedBpm > 0) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            icon: const Icon(Icons.push_pin, size: 14),
+                            label: const Text('Set Project Tempo', style: TextStyle(fontSize: 11)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: FluxForgeTheme.accentGreen,
+                              side: BorderSide(color: FluxForgeTheme.accentGreen.withValues(alpha: 0.5)),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                            ),
+                            onPressed: () {
+                              NativeFFI.instance.clickSetTempo(_detectedBpm);
+                              _showSnackBar('Project tempo set to ${_detectedBpm.toStringAsFixed(2)} BPM');
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            icon: const Icon(Icons.grid_on, size: 14),
+                            label: const Text('Warp to BPM', style: TextStyle(fontSize: 11)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: FluxForgeTheme.accentOrange,
+                              side: BorderSide(color: FluxForgeTheme.accentOrange.withValues(alpha: 0.5)),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                            ),
+                            onPressed: () {
+                              final selectedClip = _clips.cast<timeline.TimelineClip?>()
+                                  .firstWhere((c) => c?.selected == true, orElse: () => null)
+                                  ?? (_clips.isNotEmpty ? _clips.first : null);
+                              if (selectedClip == null) return;
+                              final numericClipId = int.tryParse(
+                                  selectedClip.id.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+                              if (numericClipId <= 0) return;
+                              if (!selectedClip.warpEnabled) {
+                                NativeFFI.instance.clipWarpEnable(numericClipId, true);
+                              }
+                              // Detect → markers → quantize to detected BPM grid
+                              NativeFFI.instance.clipDetectTransients(numericClipId);
+                              NativeFFI.instance.clipWarpCreateFromTransients(numericClipId);
+                              final beatDuration = 60.0 / _detectedBpm;
+                              NativeFFI.instance.clipWarpQuantize(numericClipId, beatDuration, 1.0);
+                              _refreshClipWarpState(selectedClip.id);
+                              _showSnackBar('Warped "${selectedClip.name}" to ${_detectedBpm.toStringAsFixed(1)} BPM');
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),

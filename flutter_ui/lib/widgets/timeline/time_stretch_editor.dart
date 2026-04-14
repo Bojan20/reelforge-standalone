@@ -12,6 +12,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/fluxforge_theme.dart';
+import '../../src/rust/native_ffi.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TIME STRETCH EDITOR STATE
@@ -243,10 +244,21 @@ class TimeStretchEditor extends StatefulWidget {
   /// Called when edit mode changes
   final ValueChanged<bool>? onEditModeChanged;
 
-  /// Called to request BPM analysis
+  /// Called to request BPM analysis.
+  /// If null, TimeStretchEditor calls detectClipTempo() internally and emits
+  /// the result via onBpmDetected. This makes the widget self-contained.
   final VoidCallback? onAnalyzeBpm;
 
-  /// Called to quantize to grid
+  /// Called when BPM is detected internally (clip ID parsed from state.clipId)
+  final void Function(double bpm, double confidence)? onBpmDetected;
+
+  /// Called to detect transients and create warp markers.
+  /// If null, TimeStretchEditor calls FFI directly (self-contained mode).
+  final VoidCallback? onDetectTransients;
+
+  /// Called to quantize to grid.
+  /// If null, TimeStretchEditor calls clipWarpQuantize() internally using
+  /// the project tempo and widget.gridValue.
   final VoidCallback? onQuantizeToGrid;
 
   /// Called for real-time preview start
@@ -274,6 +286,8 @@ class TimeStretchEditor extends StatefulWidget {
     this.onStretchRatioChanged,
     this.onEditModeChanged,
     this.onAnalyzeBpm,
+    this.onBpmDetected,
+    this.onDetectTransients,
     this.onQuantizeToGrid,
     this.onPreviewStart,
     this.onPreviewUpdate,
@@ -623,6 +637,66 @@ class _TimeStretchEditorState extends State<TimeStretchEditor>
     );
   }
 
+  /// Parse numeric clip ID from state.clipId (e.g. "clip_42" → 42)
+  int? _parseClipId() {
+    final id = widget.state.clipId;
+    return int.tryParse(id.replaceAll(RegExp(r'[^0-9]'), ''));
+  }
+
+  /// Analyze BPM for current clip — self-contained FFI call or delegate to parent.
+  void _onAnalyzeBpm() {
+    if (widget.onAnalyzeBpm != null) {
+      widget.onAnalyzeBpm!();
+      return;
+    }
+    // Self-contained: detect tempo from clip audio directly
+    final clipId = _parseClipId();
+    if (clipId == null || clipId <= 0) return;
+    final result = NativeFFI.instance.detectClipTempo(
+      clipId,
+      minBpm: 60.0,
+      maxBpm: 200.0,
+    );
+    if (result.bpm > 0) {
+      widget.onBpmDetected?.call(result.bpm, result.confidence);
+    }
+  }
+
+  /// Detect transients and create warp markers — self-contained FFI call or delegate.
+  void _onDetectTransients() {
+    if (widget.onDetectTransients != null) {
+      widget.onDetectTransients!();
+      return;
+    }
+    // Self-contained: detect transients → warp markers via FFI
+    final clipId = _parseClipId();
+    if (clipId == null || clipId <= 0) return;
+    NativeFFI.instance.clipWarpEnable(clipId, true);
+    final count = NativeFFI.instance.clipDetectTransients(clipId);
+    if (count > 0) {
+      NativeFFI.instance.clipWarpCreateFromTransients(clipId);
+    }
+    // Note: UI refresh of warp markers handled by parent via _refreshClipWarpState
+  }
+
+  /// Quantize warp markers to grid — self-contained FFI call or delegate.
+  void _onQuantizeToGrid() {
+    if (widget.onQuantizeToGrid != null) {
+      widget.onQuantizeToGrid!();
+      return;
+    }
+    // Self-contained: quantize markers to project tempo grid
+    final clipId = _parseClipId();
+    if (clipId == null || clipId <= 0) return;
+    final projectTempo = NativeFFI.instance.clickGetTempo();
+    final tempo = projectTempo > 0 ? projectTempo : widget.tempo;
+    final beatDuration = 60.0 / tempo; // seconds per beat
+    final gridDuration = beatDuration * widget.gridValue; // e.g. 0.25 beats = 16th note
+    NativeFFI.instance.clipWarpQuantize(clipId, gridDuration, 1.0);
+    // UI refresh handled by parent — if fully standalone, markers won't update visually
+    // unless parent calls setState. Callback pattern is preferred.
+  }
+
   Widget _buildToolbar() {
     return Positioned(
       left: 14,
@@ -637,18 +711,26 @@ class _TimeStretchEditorState extends State<TimeStretchEditor>
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Detect Transients → create warp markers at onset positions
+            _ToolbarButton(
+              icon: Icons.flash_on,
+              tooltip: 'Detect Transients',
+              color: FluxForgeTheme.accentOrange,
+              onPressed: _onDetectTransients,
+            ),
+            const SizedBox(width: 4),
             // Analyze BPM
             _ToolbarButton(
               icon: Icons.graphic_eq,
               tooltip: 'Analyze BPM',
-              onPressed: widget.onAnalyzeBpm,
+              onPressed: _onAnalyzeBpm,
             ),
             const SizedBox(width: 4),
-            // Quantize
+            // Quantize warp markers to grid
             _ToolbarButton(
               icon: Icons.grid_on,
               tooltip: 'Quantize to Grid',
-              onPressed: widget.onQuantizeToGrid,
+              onPressed: widget.state.warpMarkers.isNotEmpty ? _onQuantizeToGrid : null,
             ),
             const SizedBox(width: 4),
             // Exit edit mode

@@ -27,8 +27,6 @@
 /// sl<HookGraphService>().setRtpc('excitement', 0.8);
 /// ```
 
-import 'dart:async';
-
 import 'package:flutter/scheduler.dart';
 
 import '../../src/rust/native_ffi.dart';
