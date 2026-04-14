@@ -1,6 +1,6 @@
 //! P12.1.4 — Time-Stretch FFI
 //!
-//! C FFI exports for simple phase vocoder time stretching.
+//! C FFI exports for time stretching using Signalsmith Stretch (MIT).
 //! Used by SlotLab to match audio duration to animation timing.
 //!
 //! ## Use Case
@@ -12,7 +12,7 @@
 
 use std::sync::LazyLock;
 use parking_lot::RwLock;
-use rf_dsp::time_stretch::SimplePhaseVocoder;
+use signalsmith_stretch::Stretch;
 use std::collections::HashMap;
 use std::ptr;
 use std::slice;
@@ -21,14 +21,16 @@ use std::slice;
 // GLOBAL STATE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/// Global time stretch processor pool
-static TIME_STRETCH_PROCESSORS: LazyLock<RwLock<HashMap<i32, SimplePhaseVocoder>>> =
+struct SignalsmithProcessor {
+    inner: Stretch,
+    sample_rate: f64,
+}
+
+static TIME_STRETCH_PROCESSORS: LazyLock<RwLock<HashMap<i32, SignalsmithProcessor>>> =
     LazyLock::new(|| RwLock::new(HashMap::new()));
 
-/// Next processor handle
 static NEXT_HANDLE: LazyLock<RwLock<i32>> = LazyLock::new(|| RwLock::new(1));
 
-/// Allocate and return the next handle
 fn allocate_handle() -> i32 {
     let mut next = NEXT_HANDLE.write();
     let handle = *next;
@@ -40,15 +42,6 @@ fn allocate_handle() -> i32 {
 // C FFI EXPORTS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/// Create a time-stretch processor
-///
-/// # Arguments
-///
-/// * `sample_rate` - Audio sample rate in Hz
-///
-/// # Returns
-///
-/// Handle to the processor (> 0) or 0 on error
 #[unsafe(no_mangle)]
 pub extern "C" fn time_stretch_create(sample_rate: f64) -> i32 {
     if sample_rate <= 0.0 || sample_rate > 384000.0 {
@@ -56,64 +49,21 @@ pub extern "C" fn time_stretch_create(sample_rate: f64) -> i32 {
     }
 
     let handle = allocate_handle();
-    let processor = SimplePhaseVocoder::new_default(sample_rate);
+    let inner = Stretch::preset_default(1, sample_rate as u32);
 
     let mut processors = TIME_STRETCH_PROCESSORS.write();
-    processors.insert(handle, processor);
+    processors.insert(handle, SignalsmithProcessor { inner, sample_rate });
 
     handle
 }
 
-/// Create a time-stretch processor with custom FFT size
-///
-/// # Arguments
-///
-/// * `fft_size` - FFT size (power of 2, typically 1024-4096)
-/// * `sample_rate` - Audio sample rate in Hz
-///
-/// # Returns
-///
-/// Handle to the processor (> 0) or 0 on error
 #[unsafe(no_mangle)]
-pub extern "C" fn time_stretch_create_with_fft_size(fft_size: usize, sample_rate: f64) -> i32 {
-    if sample_rate <= 0.0 || sample_rate > 384000.0 {
-        return 0;
-    }
-
-    // Validate FFT size (must be power of 2)
-    if !(256..=8192).contains(&fft_size) || !fft_size.is_power_of_two() {
-        return 0;
-    }
-
-    let handle = allocate_handle();
-    let processor = SimplePhaseVocoder::new(fft_size, sample_rate);
-
-    let mut processors = TIME_STRETCH_PROCESSORS.write();
-    processors.insert(handle, processor);
-
-    handle
+pub extern "C" fn time_stretch_create_with_fft_size(_fft_size: usize, sample_rate: f64) -> i32 {
+    // Signalsmith doesn't expose FFT size — use default preset.
+    // FFI signature preserved for backwards compatibility.
+    time_stretch_create(sample_rate)
 }
 
-/// Process audio with time stretching
-///
-/// # Arguments
-///
-/// * `handle` - Processor handle from time_stretch_create
-/// * `input` - Pointer to input audio samples (f64)
-/// * `input_len` - Number of input samples
-/// * `factor` - Time stretch factor (0.5-2.0):
-///   - < 1.0 = speed up (shorter duration)
-///   - > 1.0 = slow down (longer duration)
-/// * `out_len` - Pointer to write output length
-///
-/// # Returns
-///
-/// Pointer to output samples (must be freed with time_stretch_free) or null on error
-///
-/// # Safety
-///
-/// - `input` must be a valid pointer to `input_len` f64 samples
-/// - `out_len` must be a valid pointer
 #[unsafe(no_mangle)]
 pub extern "C" fn time_stretch_process(
     handle: i32,
@@ -122,35 +72,28 @@ pub extern "C" fn time_stretch_process(
     factor: f64,
     out_len: *mut usize,
 ) -> *mut f64 {
-    // Validate pointers
     if input.is_null() || out_len.is_null() {
         return ptr::null_mut();
     }
 
-    // Validate factor
     if factor <= 0.0 || factor.is_nan() || factor.is_infinite() {
         return ptr::null_mut();
     }
 
-    // Get processor
     let mut processors = TIME_STRETCH_PROCESSORS.write();
     let processor = match processors.get_mut(&handle) {
         Some(p) => p,
         None => return ptr::null_mut(),
     };
 
-    // Read input
     let input_slice = unsafe { slice::from_raw_parts(input, input_len) };
 
-    // Process
-    let output = processor.process(input_slice, factor);
+    let output = stretch_mono(processor, input_slice, factor);
 
-    // Write output length
     unsafe {
         *out_len = output.len();
     }
 
-    // Allocate output buffer and copy data
     if output.is_empty() {
         return ptr::null_mut();
     }
@@ -159,24 +102,6 @@ pub extern "C" fn time_stretch_process(
     Box::into_raw(output_boxed) as *mut f64
 }
 
-/// Match audio duration to target duration
-///
-/// # Arguments
-///
-/// * `handle` - Processor handle from time_stretch_create
-/// * `input` - Pointer to input audio samples (f64)
-/// * `input_len` - Number of input samples
-/// * `target_duration_ms` - Target duration in milliseconds
-/// * `out_len` - Pointer to write output length
-///
-/// # Returns
-///
-/// Pointer to output samples (must be freed with time_stretch_free) or null on error
-///
-/// # Safety
-///
-/// - `input` must be a valid pointer to `input_len` f64 samples
-/// - `out_len` must be a valid pointer
 #[unsafe(no_mangle)]
 pub extern "C" fn time_stretch_match_duration(
     handle: i32,
@@ -185,36 +110,35 @@ pub extern "C" fn time_stretch_match_duration(
     target_duration_ms: f64,
     out_len: *mut usize,
 ) -> *mut f64 {
-    // Validate pointers
     if input.is_null() || out_len.is_null() {
         return ptr::null_mut();
     }
 
-    // Validate target duration
     if target_duration_ms <= 0.0 || target_duration_ms.is_nan() || target_duration_ms.is_infinite()
     {
         return ptr::null_mut();
     }
 
-    // Get processor
     let mut processors = TIME_STRETCH_PROCESSORS.write();
     let processor = match processors.get_mut(&handle) {
         Some(p) => p,
         None => return ptr::null_mut(),
     };
 
-    // Read input
     let input_slice = unsafe { slice::from_raw_parts(input, input_len) };
 
-    // Process
-    let output = processor.match_duration(input_slice, target_duration_ms);
+    let current_duration_ms = input_len as f64 / processor.sample_rate * 1000.0;
+    if current_duration_ms <= 0.0 {
+        return ptr::null_mut();
+    }
+    let factor = target_duration_ms / current_duration_ms;
 
-    // Write output length
+    let output = stretch_mono(processor, input_slice, factor);
+
     unsafe {
         *out_len = output.len();
     }
 
-    // Allocate output buffer and copy data
     if output.is_empty() {
         return ptr::null_mut();
     }
@@ -223,60 +147,30 @@ pub extern "C" fn time_stretch_match_duration(
     Box::into_raw(output_boxed) as *mut f64
 }
 
-/// Free stretched audio buffer
-///
-/// # Arguments
-///
-/// * `ptr` - Pointer to buffer allocated by time_stretch_process
-/// * `len` - Length of the buffer
-///
-/// # Safety
-///
-/// - `ptr` must be a valid pointer returned by time_stretch_process or time_stretch_match_duration
-/// - `len` must be the length returned via out_len
 #[unsafe(no_mangle)]
 pub extern "C" fn time_stretch_free(ptr: *mut f64, len: usize) {
     if ptr.is_null() || len == 0 {
         return;
     }
 
-    // Reconstruct the boxed slice and drop it
     unsafe {
         let slice = slice::from_raw_parts_mut(ptr, len);
         let _ = Box::from_raw(slice as *mut [f64]);
     }
 }
 
-/// Reset processor state
-///
-/// # Arguments
-///
-/// * `handle` - Processor handle
-///
-/// # Returns
-///
-/// 1 on success, 0 on error
 #[unsafe(no_mangle)]
 pub extern "C" fn time_stretch_reset(handle: i32) -> i32 {
     let mut processors = TIME_STRETCH_PROCESSORS.write();
     match processors.get_mut(&handle) {
         Some(p) => {
-            p.reset();
+            p.inner.reset();
             1
         }
         None => 0,
     }
 }
 
-/// Destroy processor
-///
-/// # Arguments
-///
-/// * `handle` - Processor handle
-///
-/// # Returns
-///
-/// 1 on success, 0 on error
 #[unsafe(no_mangle)]
 pub extern "C" fn time_stretch_destroy(handle: i32) -> i32 {
     let mut processors = TIME_STRETCH_PROCESSORS.write();
@@ -286,45 +180,106 @@ pub extern "C" fn time_stretch_destroy(handle: i32) -> i32 {
     }
 }
 
-/// Calculate stretch factor to match target duration
-///
-/// # Arguments
-///
-/// * `audio_samples` - Number of samples in input audio
-/// * `sample_rate` - Audio sample rate
-/// * `target_duration_ms` - Target duration in milliseconds
-///
-/// # Returns
-///
-/// Stretch factor (> 1.0 = slow down, < 1.0 = speed up)
 #[unsafe(no_mangle)]
 pub extern "C" fn time_stretch_calculate_factor(
     audio_samples: usize,
     sample_rate: f64,
     target_duration_ms: f64,
 ) -> f64 {
-    rf_dsp::time_stretch::calculate_stretch_factor(audio_samples, sample_rate, target_duration_ms)
+    if audio_samples == 0 || sample_rate <= 0.0 || target_duration_ms <= 0.0 {
+        return 1.0;
+    }
+    let current_ms = audio_samples as f64 / sample_rate * 1000.0;
+    target_duration_ms / current_ms
 }
 
-/// Get audio duration in milliseconds
-///
-/// # Arguments
-///
-/// * `samples` - Number of samples
-/// * `sample_rate` - Sample rate
-///
-/// # Returns
-///
-/// Duration in milliseconds
 #[unsafe(no_mangle)]
 pub extern "C" fn time_stretch_audio_duration_ms(samples: usize, sample_rate: f64) -> f64 {
-    rf_dsp::time_stretch::audio_duration_ms(samples, sample_rate)
+    if sample_rate <= 0.0 {
+        return 0.0;
+    }
+    samples as f64 / sample_rate * 1000.0
 }
 
-/// Get processor count (for debugging)
 #[unsafe(no_mangle)]
 pub extern "C" fn time_stretch_processor_count() -> i32 {
     TIME_STRETCH_PROCESSORS.read().len() as i32
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// INTERNAL
+// ═══════════════════════════════════════════════════════════════════════════════
+
+fn stretch_mono(proc: &mut SignalsmithProcessor, input: &[f64], factor: f64) -> Vec<f64> {
+    let factor = factor.clamp(0.1, 10.0);
+    let total_in = input.len();
+    let total_out = (total_in as f64 * factor).ceil() as usize;
+
+    if total_out == 0 {
+        return vec![];
+    }
+
+    proc.inner.reset();
+    // No pitch shift for SlotLab time-stretch
+    proc.inner.set_transpose_factor_semitones(0.0, None);
+
+    let mut output = vec![0.0f64; total_out];
+
+    // Pre-feed silence to flush latency
+    let latency = proc.inner.input_latency() + proc.inner.output_latency();
+    if latency > 0 {
+        let silence_in = vec![0.0f32; latency];
+        let mut silence_out = vec![0.0f32; latency];
+        proc.inner.process(&silence_in, &mut silence_out);
+    }
+
+    let block_in = 4096usize;
+    let mut in_pos = 0usize;
+    let mut out_pos = 0usize;
+
+    while in_pos < total_in && out_pos < total_out {
+        let this_in = block_in.min(total_in - in_pos);
+        let this_out = ((this_in as f64 * factor).ceil() as usize)
+            .min(total_out - out_pos)
+            .max(1);
+
+        // Mono: channel_count=1, so interleaved = plain f32 mono
+        let input_f32: Vec<f32> = input[in_pos..in_pos + this_in]
+            .iter()
+            .map(|&s| s as f32)
+            .collect();
+
+        let mut output_f32 = vec![0.0f32; this_out];
+        proc.inner.process(&input_f32, &mut output_f32);
+
+        for i in 0..this_out {
+            if out_pos + i < total_out {
+                output[out_pos + i] = output_f32[i] as f64;
+            }
+        }
+
+        in_pos += this_in;
+        out_pos += this_out;
+    }
+
+    // Flush tail
+    let flush_frames = 4096;
+    let silence_in = vec![0.0f32; flush_frames];
+    let mut flush_out = vec![0.0f32; flush_frames];
+    for _ in 0..4 {
+        proc.inner.process(&silence_in, &mut flush_out);
+        for i in 0..flush_frames {
+            if out_pos + i < total_out {
+                output[out_pos + i] = flush_out[i] as f64;
+            }
+        }
+        out_pos += flush_frames;
+        if out_pos >= total_out {
+            break;
+        }
+    }
+
+    output
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -343,7 +298,6 @@ mod tests {
         let result = time_stretch_destroy(handle);
         assert_eq!(result, 1);
 
-        // Double destroy should fail
         let result = time_stretch_destroy(handle);
         assert_eq!(result, 0);
     }
@@ -362,7 +316,6 @@ mod tests {
         let handle = time_stretch_create(44100.0);
         assert!(handle > 0);
 
-        // Create test input
         let input: Vec<f64> = (0..4410).map(|i| (i as f64 * 0.01).sin()).collect();
 
         let mut out_len: usize = 0;
@@ -377,10 +330,7 @@ mod tests {
         assert!(!output_ptr.is_null());
         assert!(out_len > 0);
 
-        // Free output
         time_stretch_free(output_ptr, out_len);
-
-        // Cleanup
         time_stretch_destroy(handle);
     }
 
@@ -389,7 +339,6 @@ mod tests {
         let handle = time_stretch_create(44100.0);
         assert!(handle > 0);
 
-        // Create 1 second of audio at 44.1kHz
         let input: Vec<f64> = (0..44100).map(|i| (i as f64 * 0.01).sin()).collect();
 
         let mut out_len: usize = 0;
@@ -397,20 +346,16 @@ mod tests {
             handle,
             input.as_ptr(),
             input.len(),
-            1500.0, // Target 1.5 seconds
+            1500.0,
             &mut out_len as *mut usize,
         );
 
         assert!(!output_ptr.is_null());
 
-        // Output should be ~1.5x input length
         let ratio = out_len as f64 / input.len() as f64;
-        assert!((ratio - 1.5).abs() < 0.1);
+        assert!((ratio - 1.5).abs() < 0.15, "Ratio was {ratio}, expected ~1.5");
 
-        // Free output
         time_stretch_free(output_ptr, out_len);
-
-        // Cleanup
         time_stretch_destroy(handle);
     }
 

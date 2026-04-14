@@ -36,6 +36,9 @@ rf-script = { path = "../rf-script" }
 rf-pitch = { path = "../rf-pitch" }
 rf-ml = { path = "../rf-ml" }
 
+# Time stretching
+signalsmith-stretch = "0.1"
+
 # Audio I/O
 cpal.workspace = true
 
