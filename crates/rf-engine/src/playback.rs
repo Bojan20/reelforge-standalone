@@ -2012,6 +2012,12 @@ pub struct PlaybackEngine {
     master_delay_write_pos: AtomicUsize,
     /// Master soft-clipper enable (tanh saturation at 0dBFS — prevents digital clipping)
     master_soft_clip_enabled: AtomicBool,
+    /// DC offset filter state (1-pole high-pass at ~5Hz, per-channel)
+    /// Stored as AtomicU64 (f64 bits) for lock-free audio thread access
+    dc_filter_state_l: AtomicU64,
+    dc_filter_state_r: AtomicU64,
+    /// DC filter coefficient: alpha = 1 - (2π × 5Hz / sample_rate)
+    dc_filter_alpha: AtomicU64,
     // === HOOK GRAPH ENGINE ===
     /// Hook Graph audio-rate engine (processes graph voices on audio thread)
     hook_graph_engine: Option<RwLock<crate::hook_graph::HookGraphEngine>>,
@@ -2161,6 +2167,11 @@ impl PlaybackEngine {
             master_delay_buf_r: RwLock::new(vec![0.0_f64; 8192]),
             master_delay_write_pos: AtomicUsize::new(0),
             master_soft_clip_enabled: AtomicBool::new(true), // ON by default — safety net
+            dc_filter_state_l: AtomicU64::new(0.0_f64.to_bits()),
+            dc_filter_state_r: AtomicU64::new(0.0_f64.to_bits()),
+            dc_filter_alpha: AtomicU64::new(
+                (1.0 - (2.0 * std::f64::consts::PI * 5.0 / sample_rate as f64)).to_bits()
+            ),
             master_delay_sample_rate: AtomicU64::new((sample_rate as f64).to_bits()),
             hook_graph_engine: Some(RwLock::new(hook_graph)),
             hook_graph_cmd_tx: parking_lot::Mutex::new(hg_cmd_tx),
@@ -6851,6 +6862,27 @@ impl PlaybackEngine {
             }
         }
 
+        // ═══ DC OFFSET FILTER (1-pole high-pass at ~5Hz) ═══
+        // Removes accumulated DC drift from plugins, summing, or poorly encoded audio.
+        // Applied post-clipper, pre-metering. Formula: y[n] = x[n] - x_prev + alpha * y_prev
+        // At 5Hz cutoff / 48kHz SR: alpha ≈ 0.99935, negligible effect on audio.
+        {
+            let alpha = f64::from_bits(self.dc_filter_alpha.load(Ordering::Relaxed));
+            let mut state_l = f64::from_bits(self.dc_filter_state_l.load(Ordering::Relaxed));
+            let mut state_r = f64::from_bits(self.dc_filter_state_r.load(Ordering::Relaxed));
+            for i in 0..frames {
+                let new_l = output_l[i] - state_l;
+                state_l = output_l[i] - alpha * new_l;
+                output_l[i] = new_l;
+
+                let new_r = output_r[i] - state_r;
+                state_r = output_r[i] - alpha * new_r;
+                output_r[i] = new_r;
+            }
+            self.dc_filter_state_l.store(state_l.to_bits(), Ordering::Relaxed);
+            self.dc_filter_state_r.store(state_r.to_bits(), Ordering::Relaxed);
+        }
+
         // Calculate metering (after volume is applied)
         let prev_peak_l = f64::from_bits(self.peak_l.load(Ordering::Relaxed));
         let prev_peak_r = f64::from_bits(self.peak_r.load(Ordering::Relaxed));
@@ -7860,6 +7892,53 @@ impl PlaybackEngine {
 
             // Route to bus
             bus_buffers.add_to_bus(track.output_bus, &track_l, &track_r);
+        }
+
+        // ═══ BUS INSERT PROCESSING (offline — mirrors live path) ═══
+        // Apply bus inserts + volume/pan for each bus before summing to master.
+        // Without this, offline exports miss all bus EQ/compression/effects.
+        {
+            let mut bus_inserts = self.bus_inserts.write();
+            let bus_states = self.bus_states.read();
+            let offline_taps = self.sidechain_taps.read();
+
+            let buses = [
+                OutputBus::Master, OutputBus::Music, OutputBus::Sfx,
+                OutputBus::Voice, OutputBus::Ambience, OutputBus::Aux,
+            ];
+
+            for (bus_idx, &bus) in buses.iter().enumerate() {
+                let state = &bus_states[bus_idx];
+                if state.muted { continue; }
+
+                let (bus_l, bus_r) = bus_buffers.get_bus_mut(bus);
+
+                // Pre-fader inserts
+                bus_inserts[bus_idx].process_pre_fader_with_taps(bus_l, bus_r, &offline_taps, frames);
+
+                // Bus volume + dual-pan (same math as live path)
+                let volume = state.volume;
+                let pan_l_angle = (state.pan + 1.0) * std::f64::consts::FRAC_PI_4;
+                let pan_r_angle = (state.pan_right + 1.0) * std::f64::consts::FRAC_PI_4;
+                let l_to_l = pan_l_angle.cos();
+                let l_to_r = pan_l_angle.sin();
+                let r_to_l = pan_r_angle.cos();
+                let r_to_r = pan_r_angle.sin();
+                let sum_l_sq = l_to_l * l_to_l + r_to_l * r_to_l;
+                let sum_r_sq = l_to_r * l_to_r + r_to_r * r_to_r;
+                let comp_l = if sum_l_sq > 1.0 { 1.0 / sum_l_sq.sqrt() } else { 1.0 };
+                let comp_r = if sum_r_sq > 1.0 { 1.0 / sum_r_sq.sqrt() } else { 1.0 };
+
+                for i in 0..frames {
+                    let l = bus_l[i] * volume;
+                    let r = bus_r[i] * volume;
+                    bus_l[i] = comp_l * (l * l_to_l + r * r_to_l);
+                    bus_r[i] = comp_r * (l * l_to_r + r * r_to_r);
+                }
+
+                // Post-fader inserts
+                bus_inserts[bus_idx].process_post_fader_with_taps(bus_l, bus_r, &offline_taps, frames);
+            }
         }
 
         // Sum all buses to master
