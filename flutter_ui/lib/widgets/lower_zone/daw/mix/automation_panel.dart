@@ -211,9 +211,26 @@ class _AutomationPanelState extends State<AutomationPanel> {
                 onSelected: (value) {
                   setState(() {
                     _automationParameter = value;
-                    _activePluginParam = trackId != null
+                    final parsed = trackId != null
                         ? _parsePluginParam(value, trackId)
                         : null;
+                    _activePluginParam = parsed;
+
+                    // Auto-create lane when plugin param is selected
+                    // so it appears immediately in timeline and editor
+                    if (parsed != null) {
+                      // Find the matching AutomatableParamInfo for full metadata
+                      final instanceId = 'track_${parsed.trackId}_slot_${parsed.slot}';
+                      final params = _provider.discoverPluginParams(instanceId);
+                      final match = params.where((p) => p.paramIndex == parsed.paramIndex);
+                      if (match.isNotEmpty) {
+                        _provider.createPluginParamLane(
+                          trackId: parsed.trackId,
+                          slot: parsed.slot,
+                          param: match.first,
+                        );
+                      }
+                    }
                   });
                 },
                 child: Container(
