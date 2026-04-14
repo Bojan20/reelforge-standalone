@@ -9022,13 +9022,13 @@ pub extern "C" fn folder_set_color(folder_id: u64, color: u32) -> i32 {
 // ELASTIC PRO (TIME STRETCHING)
 // ═══════════════════════════════════════════════════════════════════════════
 
-static ELASTIC_PROCESSORS: LazyLock<parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::ElasticPro>>> = LazyLock::new(|| parking_lot::RwLock::new(std::collections::HashMap::new()));
+static ELASTIC_PROCESSORS: LazyLock<parking_lot::RwLock<std::collections::HashMap<u32, crate::signalsmith_elastic::SignalsmithElastic>>> = LazyLock::new(|| parking_lot::RwLock::new(std::collections::HashMap::new()));
 
 /// Create time stretch processor for clip
 #[unsafe(no_mangle)]
 pub extern "C" fn elastic_create(clip_id: u32, sample_rate: f64) -> i32 {
     let mut procs = ELASTIC_PROCESSORS.write();
-    procs.insert(clip_id, rf_dsp::ElasticPro::new(sample_rate));
+    procs.insert(clip_id, crate::signalsmith_elastic::SignalsmithElastic::new(sample_rate));
     1
 }
 
@@ -9325,31 +9325,38 @@ pub extern "C" fn elastic_reset(clip_id: u32) -> i32 {
 /// Signalsmith handles combined time stretch + pitch shift in one pass —
 /// no cascading artifacts from separate stretch→resample stages.
 ///
-/// The stretch ratio and pitch are read from the ElasticPro config
-/// (set via elastic_pro_set_ratio / elastic_pro_set_pitch).
+/// The full ElasticProConfig (stretch ratio, pitch, formants, transients,
+/// mode, quality, STN) is read from the ElasticPro instance
+/// (set via elastic_pro_set_* / UI sliders).
 ///
 /// Returns 1 on success, 0 on error.
 #[unsafe(no_mangle)]
 pub extern "C" fn elastic_apply_to_clip(clip_id: u32) -> i32 {
     use signalsmith_stretch::Stretch;
 
-    // Read stretch params from ElasticPro config (set by UI sliders).
+    // Read FULL config from ElasticPro (set by UI sliders).
     // Falls back to clip params if no ElasticPro instance exists.
-    let (stretch_ratio, pitch_semitones) = {
+    let config = {
         let pros = ELASTIC_PROS.read();
         if let Some(p) = pros.get(&clip_id) {
-            (p.config().stretch_ratio, p.config().pitch_shift)
+            p.config().clone()
         } else {
-            // No ElasticPro — read from clip directly
+            // No ElasticPro — build config from clip directly
             let tid = TrackId(clip_id as u64);
             let clips = TRACK_MANAGER.get_clips_for_track(tid);
             if let Some(c) = clips.first() {
-                (c.stretch_ratio, c.pitch_shift)
+                let mut cfg = rf_dsp::elastic_pro::ElasticProConfig::default();
+                cfg.stretch_ratio = c.stretch_ratio;
+                cfg.pitch_shift = c.pitch_shift;
+                cfg
             } else {
-                (1.0, 0.0)
+                rf_dsp::elastic_pro::ElasticProConfig::default()
             }
         }
     };
+
+    let stretch_ratio = config.stretch_ratio;
+    let pitch_semitones = config.pitch_shift;
 
     // Nothing to do
     if (stretch_ratio - 1.0).abs() < 0.001 && pitch_semitones.abs() < 0.01 {
@@ -9398,6 +9405,11 @@ pub extern "C" fn elastic_apply_to_clip(clip_id: u32) -> i32 {
 
     let mut stretcher = Stretch::preset_default(2, sample_rate as u32);
     stretcher.set_transpose_factor_semitones(pitch_semitones as f32, None);
+
+    // Apply formant preservation from config
+    if config.preserve_formants {
+        stretcher.set_formant_factor(1.0, true);
+    }
 
     // Calculate output length
     let output_total_frames = ((total_frames as f64) * stretch_ratio).round() as usize;
@@ -9525,8 +9537,11 @@ pub extern "C" fn elastic_apply_to_clip(clip_id: u32) -> i32 {
     IMPORTED_AUDIO.write().insert(resolved_clip_id, new_audio);
 
     eprintln!(
-        "[elastic_apply] Signalsmith: clip {} stretched {:.3}x + {:.1}st: {} → {} frames ({:.2}s → {:.2}s)",
-        clip_id, stretch_ratio, pitch_semitones, total_frames, actual_frames, audio.duration_secs, new_duration
+        "[elastic_apply] Signalsmith: clip {} stretched {:.3}x + {:.1}st [formants={} transients={} mode={:?} quality={:?}]: {} → {} frames ({:.2}s → {:.2}s)",
+        clip_id, stretch_ratio, pitch_semitones,
+        config.preserve_formants, config.preserve_transients,
+        config.mode, config.quality,
+        total_frames, actual_frames, audio.duration_secs, new_duration
     );
 
     1
