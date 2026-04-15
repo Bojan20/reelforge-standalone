@@ -109,6 +109,142 @@ open ~/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/Debug/
 - Toast ostaje (CLAUDE.md pravilo: korisnik nema konzolu)
 - Undo/Redo iz ASSIGN header-a ukloniti (prebačeno u ROW 2)
 
+## ⚡ Ultimativni promptovi (kratki → puna akcija)
+
+Kada Boki napiše jedan od ovih, znam TAČNO šta da uradim bez pitanja:
+
+---
+
+### `QA`
+```
+1. flutter analyze → mora 0 errors
+2. cargo test -p rf-aurexis → svi moraju proći
+3. cargo test -p rf-slot-lab → svi moraju proći
+4. cargo test -p rf-slot-builder → svi moraju proći
+Rezime: tabela sa statusom svakog
+```
+
+---
+
+### `BUILD`
+```
+Puna build procedura iz "Build procedura" sekcije.
+Ubija prethodnu instancu → cargo build --release → flutter analyze → xcodebuild → copy dylibs → open app
+```
+
+---
+
+### `ARCH N` ili `ARCH naziv`
+```
+Razvijam Part N iz HELIX_ULTIMATE_ARCHITECTURE.md ultimativno:
+1. Čitam SLOTLAB_VS_PLAYA_ANALYSIS.md — šta Playa ima, šta mi nemamo
+2. Čitam relevantne postojeće crate-ove
+3. Implementiram kompletan Rust modul sa svim scenarijima, nula rupa
+4. Pišem testove (100% pass rate pre commita)
+5. Komitujem i updateujem doc
+```
+
+---
+
+### `PLAYA`
+```
+1. Čitam SLOTLAB_VS_PLAYA_ANALYSIS.md kompletno
+2. Čitam IGT playa-core i playa-slot foldere (source + config)
+3. Ekstraktujem šta Playa radi bolje od nas
+4. Predlažem konkretne unapređenja za trenutni task
+5. Primenjujem ako Boki kaže "da"
+```
+
+---
+
+### `AUDIT`
+```
+Kompletan codebase audit:
+1. Sve STUB/TODO/FIXME lokacije — lista sa fajl:linija
+2. Placeholderi koji ne koriste FFI a trebaju (fake dart:math umesto Rust)
+3. Dead code / unreachable branches
+4. Nesinhronizovani provideri vs FFI
+5. Prioritizovana lista: KRITIČNO → VAŽNO → KOZMETIKA
+```
+
+---
+
+### `MOCKUP [opis]`
+```
+1. Kreiram ultra-futuristički interaktivni HTML/CSS/JS mockup
+2. Sve interakcije žive (hover, klik, keyboard)
+3. Otvaram u browseru odmah
+4. Svaki element ima jasnu namenu
+```
+
+---
+
+### `STATUS`
+```
+Trenutno stanje projekta:
+1. git log --oneline -10 (šta je urađeno)
+2. Otvoreni TODO-ji iz MASTER_TODO.md
+3. QA status (poslednji rezultati)
+4. Sledeći korak prema HELIX arhitekturi
+```
+
+---
+
+### `COMPLY [jurisdiction]` ili samo `COMPLY`
+```
+Pokrećem rf-slot-builder Validator na sve blueprinte:
+- UKGC, MGA, SE (ili samo [jurisdiction] ako specifikovan)
+- Generišem compliance manifest
+- Prijavljujem svaki CRITICAL finding sa predlogom fix-a
+```
+
+---
+
+### `BLUEPRINT [naziv slota]`
+```
+Generišem kompletan SlotBlueprint za [naziv]:
+1. Čitam Playa + industry best practice za taj tip slota
+2. Definiram StageFlow sa svim scenarijima
+3. MathConfig sa realnim industry parametrima
+4. AudioDna + compliance za UKGC+MGA
+5. Exportujem JSON + ComplianceManifest
+6. Komitujem
+```
+
+---
+
+### `IGT`
+```
+1. Čitam kompletno playa-core i playa-slot source foldere
+2. Tražim šta se promenilo / šta nismo iskoristili
+3. Updateujem SLOTLAB_VS_PLAYA_ANALYSIS.md
+4. Listu konkretnih uvida za sledeći task
+```
+
+---
+
+### `HELIX [broj]`
+```
+Isto kao ARCH ali specifično za HELIX engine modula:
+- Čita postojeće helix_*.rs fajlove
+- Nastavlja od tačke [broj] (1.1, 1.4, 2.x, 3.x...)
+- Zero rupa, futuristički, sve testirano
+```
+
+---
+
+### `SHIP`
+```
+Priprema za release:
+1. QA (flutter analyze + svi testovi)
+2. cargo build --release --all
+3. Version bump u Cargo.toml + pubspec.yaml
+4. Git tag + commit
+5. Izveštaj: šta je u ovom release-u
+```
+
+---
+
 ## Reference (on-demand)
 
 - `.claude/REVIEW_MODE.md` — review/audit procedura
