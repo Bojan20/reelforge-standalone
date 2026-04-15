@@ -8107,16 +8107,35 @@ pub extern "C" fn insert_open_editor(track_id: u32, slot_index: u32) -> i32 {
             return -1;
         }
 
-        // TODO: For now, just log the request. Plugin editor GUI requires
-        // platform-specific window handling which will be implemented
-        // in rf-plugin crate with nih-plug editor support
-        log::info!(
-            "insert_open_editor: Opening editor for track {} slot {} (stub - editor GUI pending)",
-            track_id,
-            slot_index
-        );
+        // Get processor name to try matching with PLUGIN_HOST instance
+        let proc_name = if track_id == 0 {
+            PLAYBACK_ENGINE.get_master_insert_name(slot_index)
+        } else {
+            PLAYBACK_ENGINE.get_track_insert_name(track_id as u64, slot_index)
+        };
 
-        // Return success - editor opening will be async in future implementation
+        if let Some(name) = proc_name {
+            // Try PLUGIN_HOST first — external plugins have native GUI
+            let host = PLUGIN_HOST.read();
+            if let Some(instance) = host.get_instance(&name) {
+                #[cfg(target_os = "macos")]
+                match instance.write().open_editor(std::ptr::null_mut()) {
+                    Ok(_) => {
+                        log::info!("insert_open_editor: Opened native GUI for '{}'", name);
+                        return 1;
+                    }
+                    Err(e) => {
+                        log::warn!("insert_open_editor: Native GUI failed for '{}': {:?}", name, e);
+                    }
+                }
+            }
+            log::info!(
+                "insert_open_editor: No native GUI for track {} slot {} ({}), use Flutter editor",
+                track_id, slot_index, name
+            );
+        }
+
+        // Return 0 = no native editor, Flutter should handle via internal editor UI
         0
     })
 }

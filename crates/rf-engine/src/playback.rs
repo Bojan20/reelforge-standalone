@@ -3596,6 +3596,23 @@ impl PlaybackEngine {
         }
     }
 
+    /// Get insert processor name by track and slot
+    pub fn get_track_insert_name(&self, track_id: u64, slot_index: usize) -> Option<String> {
+        let chains = self.insert_chains.read();
+        chains.get(&track_id)
+            .and_then(|chain| chain.slot(slot_index))
+            .filter(|slot| slot.is_loaded())
+            .map(|slot| slot.name().to_string())
+    }
+
+    /// Get master insert processor name by slot
+    pub fn get_master_insert_name(&self, slot_index: usize) -> Option<String> {
+        let chain = self.master_insert.read();
+        chain.slot(slot_index)
+            .filter(|slot| slot.is_loaded())
+            .map(|slot| slot.name().to_string())
+    }
+
     /// Get peak meter values (left, right) as linear amplitude
     pub fn get_peaks(&self) -> (f64, f64) {
         (

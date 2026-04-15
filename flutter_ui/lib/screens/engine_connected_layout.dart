@@ -6487,7 +6487,18 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
               if (slotIndex < insertChain.slots.length) {
                 final slot = insertChain.slots[slotIndex];
                 if (!slot.isEmpty && slot.plugin != null) {
-                  _openProcessorEditor(channelId, slotIndex, slot.plugin!);
+                  final plugin = slot.plugin!;
+                  // External plugin → open native GUI via PLUGIN_HOST
+                  if (plugin.format != PluginFormat.internal) {
+                    final ffi = NativeFFI.instance;
+                    final success = ffi.pluginOpenEditor(plugin.id, 0);
+                    if (!success) {
+                      _showSnackBar('Could not open plugin editor for ${plugin.name}');
+                    }
+                    return;
+                  }
+                  // Internal plugin → Flutter-side editor
+                  _openProcessorEditor(channelId, slotIndex, plugin);
                   return;
                 }
               }
@@ -6502,8 +6513,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                   slotIndex: slotIndex,
                   node: node,
                 );
-              } else {
-                NativeFFI.instance.insertOpenEditor(trackId, slotIndex);
               }
             },
             onChannelInsertReorder: (channelId, oldIndex, newIndex) {
