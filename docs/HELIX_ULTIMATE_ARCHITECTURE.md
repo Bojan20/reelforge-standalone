@@ -698,3 +698,115 @@ Audio DNA Structure:
 
 *Designed by Corti — FluxForge Studio CORTEX*
 *Architecture v1.5 — April 2026*
+
+---
+
+## Part VIII — FluxForge Slot Builder (IDEJE / STAVKE ZA RAZRADU)
+
+> *"Ne prodajemo audio middleware. Prodajemo mašinu za pravljenje slotova."*
+
+### Osnovna ideja
+
+FluxForge postaje **Slot Construction Kit** — modularna platforma na kojoj svaka kompanija gradi slot kakav želi, stage po stage, bez da piše engine od nule.
+
+---
+
+### Stavke za razradu
+
+#### 1. Stage = Atomska jedinica
+- Svaki stage je self-contained modul: **Math + Visual + Audio + Rules + Connections**
+- Korisnik drag-and-drop slaže stage-ove u flow
+- Stage flow primeri:
+  - `IDLE → SPIN_PRESS → REEL_SPIN → REEL_STOP → EVALUATE → WIN_PRESENT → ROLLUP → SETTLE`
+  - `FEATURE_TRIGGER → TRANSITION_IN → FEATURE_SPIN → FEATURE_EVAL → RETRIGGER? → FEATURE_END`
+- Svaki stage ima jasno definisane **ulaze, izlaze i parametre**
+- Stage-ovi se mogu **granati** (WIN? / NO_WIN? / CASCADE? / RETRIGGER?)
+
+#### 2. Modularna arhitektura
+```
+┌─────────────────────────────────────────────┐
+│           FLUXFORGE SLOT BUILDER            │
+│                                             │
+│  MATH MODULE ── STAGE MODULE ── AUDIO MODULE │
+│       │               │              │      │
+│  VISUAL MODULE ── COMPLIANCE ── EXPORT       │
+└─────────────────────────────────────────────┘
+```
+- Svaki modul radi samostalno — mogu se koristiti i bez ostalih
+- Moduli komuniciraju kroz HELIX Bus (već izgrađen)
+- Export target: Web (HTML5/WASM), Desktop, Mobile, iGaming platforms
+
+#### 3. Tri tipa korisnika
+- **Mala kompanija (3 dev):** uzme template, menja math + art + audio → slot za 2 nedelje
+- **Velika kompanija:** gradi custom stage-ove, čuva u internoj biblioteci, reuse 60-80%
+- **Indie studio:** kupuje stage-ove sa Marketplace-a, slaže unikatan slot od gotovih delova
+
+#### 4. Stage Biblioteka (ugrađene mehanike)
+- Classic 5x3, Megaways, Cluster Pays, Cascading Reels, Expanding Wilds...
+- Free Spins sa Retrigger, Buy Feature, Jackpot Wheel, Bonus Pick...
+- Svaka mehanika = gotov stage modul, parametrizovan
+
+#### 5. Marketplace
+- Community stage-ovi koje studiji prodaju/kupuju
+- FluxForge uzima % od transakcije
+- Rating sistem, preview, compliance badge
+- Indie studiji mogu profitabilno da prodaju mehanike koje su razvili
+
+#### 6. Visual Stage Builder (UI)
+- Node-based editor (kao blueprint u Unreal) za wiring stage-ova
+- Live preview — vidiš slot kako se ponaša dok ga gradiš
+- Math simulator ugrađen — testiraj RTP/volatilnost pre nego što napišeš liniju koda
+
+#### 7. DAW-to-Stage Pipeline
+- Producent taguje audio u Reaper/Logic/Ableton po stage-u
+- Export ide direktno u odgovarajući HELIX stage bez developer intervencije
+- Time-to-market: nedelje → sati
+
+#### 8. Compliance-by-Design
+- Svaki stage ima compliance layer
+- UKGC, MGA, ONJN, EGBA — per-jurisdiction ruleset na stage nivou
+- Auto-generisan compliance report pre submisije
+
+#### 9. Cross-Title Inheritance
+- Kompanija definiše **Audio DNA** (core sonic identity)
+- Svaki novi slot inherita DNA, dodaje varijacije
+- 200 igara = 1 brand sound sa hiljadama varijacija
+- Produkciona ušteda ~60%
+
+#### 10. Biznis model opcije
+- **SaaS:** mesečna pretplata po studiju (tier by slot output volume)
+- **Per-title license:** flat fee po deployovanoj igri
+- **Marketplace cut:** 15-30% od stage prodaje
+- **Enterprise:** white-label za velike operatere (IGT, Aristocrat, Novomatic tier)
+
+---
+
+### Šta već postoji u codebase-u
+
+| Komponenta | Status |
+|------------|--------|
+| HELIX Bus | ✅ izgrađen |
+| Audio DAG | ✅ izgrađen |
+| Stage system (rf-stage, 40+ tipova) | ✅ postoji |
+| Math integration | ✅ wired |
+| Compliance engine | ✅ izgrađen |
+| Predictive engine | ✅ izgrađen |
+| Visual Builder (HELIX UI) | 🔲 planiran |
+| Stage Marketplace | 🔲 ideja |
+| DAW Bridge | 🔲 ideja |
+| WASM Export | 🔲 ideja |
+
+---
+
+### Sledeći koraci (za razradu)
+
+- [ ] Definisati Stage API spec (šta svaki stage mora da eksponuje)
+- [ ] Dizajnirati Stage Builder UI (node editor)
+- [ ] Definisati Marketplace arhitekturu (auth, payment, versioning)
+- [ ] DAW Bridge protocol spec
+- [ ] Export pipeline (WASM target, platform adapters)
+- [ ] Biznis model detalji i pricing tier
+
+---
+
+*Ideje dodate 15. April 2026 — za dalju razradu*
