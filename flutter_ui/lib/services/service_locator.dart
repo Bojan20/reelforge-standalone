@@ -106,6 +106,7 @@ import '../providers/slot_lab/sss_provider.dart';
 import '../providers/slot_lab/neuro_audio_provider.dart';
 import '../providers/slot_lab/math_audio_bridge_provider.dart';
 import '../providers/slot_lab/rgai_provider.dart';
+import '../providers/slot_lab/ucp_export_provider.dart';
 import '../providers/slot_lab/game_flow_provider.dart';
 import '../providers/fluxmacro_provider.dart';
 import '../providers/slot_lab/stage_flow_provider.dart';
@@ -458,6 +459,13 @@ class ServiceLocator {
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<RgaiProvider>(
       () => RgaiProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.10d: UCP Export™ Provider (STUB5 — Universal Casino Protocol)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<UcpExportProvider>(
+      () => UcpExportProvider(),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════

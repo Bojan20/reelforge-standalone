@@ -23,6 +23,7 @@ import '../ucp/math_audio_bridge_panel.dart';
 import '../ucp/rgai_compliance_panel.dart';
 import '../ucp/debug_monitor_zone.dart';
 import '../ucp/export_zone.dart';
+import '../ucp/ucp_export_panel.dart';
 
 class SlotLabMonitorTabContent extends StatelessWidget {
   final SlotLabMonitorSubTab subTab;
@@ -43,6 +44,7 @@ class SlotLabMonitorTabContent extends StatelessWidget {
       SlotLabMonitorSubTab.rgai => const RgaiCompliancePanel(),
       SlotLabMonitorSubTab.debug => const DebugMonitorZone(),
       SlotLabMonitorSubTab.export => const ExportZone(),
+      SlotLabMonitorSubTab.ucpExport => const UcpExportPanel(),
       SlotLabMonitorSubTab.profiler => const EventProfilerPanel(),
       SlotLabMonitorSubTab.profilerAdv => const _ProfilerAdvancedWrapper(),
       SlotLabMonitorSubTab.evtDebug => const EventDebuggerPanel(),
