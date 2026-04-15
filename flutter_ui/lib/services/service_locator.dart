@@ -110,6 +110,7 @@ import '../providers/slot_lab/ucp_export_provider.dart';
 import '../providers/slot_lab/ab_test_provider.dart';
 import '../providers/slot_lab/neural_fingerprint_provider.dart';
 import '../providers/slot_lab/spatial_audio_provider.dart';
+import '../providers/slot_lab/ai_copilot_provider.dart';
 import '../providers/slot_lab/game_flow_provider.dart';
 import '../providers/fluxmacro_provider.dart';
 import '../providers/slot_lab/stage_flow_provider.dart';
@@ -490,6 +491,13 @@ class ServiceLocator {
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<SpatialAudioProvider>(
       () => SpatialAudioProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.10h: AI Co-Pilot™ Provider (STUB10 — Slot Audio AI Assistant)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<AiCopilotProvider>(
+      () => AiCopilotProvider(),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
