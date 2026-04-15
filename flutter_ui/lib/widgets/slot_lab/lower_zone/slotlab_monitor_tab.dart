@@ -18,6 +18,7 @@ import '../ucp/voice_priority_monitor.dart';
 import '../ucp/spectral_heatmap.dart';
 import '../ucp/fatigue_stability_dashboard.dart';
 import '../ucp/ail_panel_zone.dart';
+import '../ucp/neuro_audio_monitor.dart';
 import '../ucp/debug_monitor_zone.dart';
 import '../ucp/export_zone.dart';
 
@@ -35,6 +36,7 @@ class SlotLabMonitorTabContent extends StatelessWidget {
       SlotLabMonitorSubTab.spectral => const SpectralHeatmap(),
       SlotLabMonitorSubTab.fatigue => const FatigueStabilityDashboard(),
       SlotLabMonitorSubTab.ail => const AilPanelZone(),
+      SlotLabMonitorSubTab.neuro => const NeuroAudioMonitor(),
       SlotLabMonitorSubTab.debug => const DebugMonitorZone(),
       SlotLabMonitorSubTab.export => const ExportZone(),
       SlotLabMonitorSubTab.profiler => const EventProfilerPanel(),

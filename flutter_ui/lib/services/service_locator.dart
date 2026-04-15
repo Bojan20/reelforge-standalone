@@ -103,6 +103,7 @@ import '../providers/slot_lab/feature_composer_provider.dart';
 import '../providers/slot_lab/pacing_engine_provider.dart';
 import '../providers/slot_lab/gad_provider.dart';
 import '../providers/slot_lab/sss_provider.dart';
+import '../providers/slot_lab/neuro_audio_provider.dart';
 import '../providers/slot_lab/game_flow_provider.dart';
 import '../providers/fluxmacro_provider.dart';
 import '../providers/slot_lab/stage_flow_provider.dart';
@@ -434,6 +435,13 @@ class ServiceLocator {
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<EmotionalStateProvider>(
       () => EmotionalStateProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.10: NeuroAudio™ Provider (STUB1 — AI Player Behavioral Adaptation)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<NeuroAudioProvider>(
+      () => NeuroAudioProvider(),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════

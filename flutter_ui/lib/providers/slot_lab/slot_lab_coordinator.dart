@@ -33,7 +33,9 @@ import 'context_layer_provider.dart';
 import 'slotlab_notification_provider.dart';
 import 'game_flow_provider.dart';
 import 'game_flow_integration.dart';
+import 'neuro_audio_provider.dart';
 import '../../services/service_locator.dart';
+import '../../services/hook_graph/hook_graph_service.dart';
 
 // Re-export sub-providers for convenience
 export 'slot_engine_provider.dart';
@@ -136,6 +138,9 @@ class SlotLabCoordinator extends ChangeNotifier {
         stages,
       );
 
+      // NeuroAudio™ — feed behavioral signals from spin result
+      _feedNeuroAudio(result);
+
       // L3 Game Flow — DEFERRED: Don't evaluate triggers until reels stop
       // and scatter animation completes. slot_preview_widget calls
       // flushGameFlowResult() from _finalizeSpin() at the right time.
@@ -149,6 +154,53 @@ class SlotLabCoordinator extends ChangeNotifier {
     stageProvider.onAnticipationEnd = (reelIndex) {
       onAnticipationEnd?.call(reelIndex);
     };
+  }
+
+  /// Timestamp of last spin — for inter-spin pause tracking
+  DateTime? _lastSpinTime;
+
+  /// Feed spin result behavioral signals to NeuroAudio™ engine
+  void _feedNeuroAudio(SlotLabSpinResult result) {
+    try {
+      final neuro = sl<NeuroAudioProvider>();
+      if (!neuro.enabled) return;
+
+      final now = DateTime.now();
+
+      // Record inter-spin pause duration
+      if (_lastSpinTime != null) {
+        final pauseMs = now.difference(_lastSpinTime!).inMilliseconds.toDouble();
+        neuro.recordPauseDuration(pauseMs);
+      }
+      _lastSpinTime = now;
+
+      // Record bet size (normalized against max — use bet/100 as heuristic)
+      neuro.recordBetSize((result.bet / 100.0).clamp(0.0, 1.0));
+
+      // Record spin result (win multiplier)
+      final winMultiplier = result.bet > 0 ? result.totalWin / result.bet : 0.0;
+      neuro.recordSpinResult(winMultiplier);
+
+      // Record near-miss if detected by engine
+      if (result.nearMiss) {
+        neuro.recordNearMiss(2); // 2/3 scatters = near miss
+      }
+
+      // Write NeuroAudio parameters to RTPC system
+      _writeNeuroRtpc(neuro);
+    } catch (_) {
+      // NeuroAudioProvider not registered yet — silent
+    }
+  }
+
+  /// Write NeuroAudio output parameters to Hook Graph RTPC system
+  void _writeNeuroRtpc(NeuroAudioProvider neuro) {
+    try {
+      final hookGraph = sl<HookGraphService>();
+      hookGraph.setRtpcBatch(neuro.getRtpcValues());
+    } catch (_) {
+      // HookGraphService not registered — silent
+    }
   }
 
   void _onSubProviderChanged() {

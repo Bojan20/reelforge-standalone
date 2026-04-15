@@ -138,6 +138,15 @@ class RTPCManager {
     ('cascade_depth', 'Cascade Depth', 0.0, 20.0, 0.0),
     ('feature_proximity', 'Feature Proximity', 0.0, 1.0, 0.0),
     ('session_duration', 'Session Duration', 0.0, 3600.0, 0.0),
+    // NeuroAudio™ — AI behavioral adaptation parameters
+    ('neuro_arousal', 'NeuroAudio Arousal', 0.0, 1.0, 0.3),
+    ('neuro_valence', 'NeuroAudio Valence', -1.0, 1.0, 0.0),
+    ('neuro_engagement', 'NeuroAudio Engagement', 0.0, 1.0, 0.5),
+    ('neuro_tempo_mod', 'NeuroAudio Tempo', 0.7, 1.3, 1.0),
+    ('neuro_reverb_mod', 'NeuroAudio Reverb', 0.5, 2.0, 1.0),
+    ('neuro_compression_mod', 'NeuroAudio Compression', 0.5, 2.0, 1.0),
+    ('neuro_win_magnitude', 'NeuroAudio Win Magnitude', 0.3, 1.5, 1.0),
+    ('neuro_near_miss_tension', 'NeuroAudio Near-Miss', 0.0, 1.0, 0.5),
   ];
 
   RTPCManager() {
