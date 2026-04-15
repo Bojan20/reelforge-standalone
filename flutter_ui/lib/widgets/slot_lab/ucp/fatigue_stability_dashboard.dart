@@ -1,10 +1,49 @@
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
+import '../../../providers/aurexis_provider.dart';
 
 /// UCP-5: Fatigue/Stability Dashboard
 ///
-/// Displays fatigue index, session drift, and peak duration metrics.
-class FatigueStabilityDashboard extends StatelessWidget {
+/// Displays fatigue index, session drift, and peak session duration.
+/// All values are live from [AurexisProvider] — zero hardcoding.
+class FatigueStabilityDashboard extends StatefulWidget {
   const FatigueStabilityDashboard({super.key});
+
+  @override
+  State<FatigueStabilityDashboard> createState() => _FatigueStabilityDashboardState();
+}
+
+class _FatigueStabilityDashboardState extends State<FatigueStabilityDashboard> {
+  AurexisProvider? _provider;
+
+  @override
+  void initState() {
+    super.initState();
+    try {
+      _provider = GetIt.instance<AurexisProvider>();
+      _provider?.addListener(_onUpdate);
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    _provider?.removeListener(_onUpdate);
+    super.dispose();
+  }
+
+  void _onUpdate() {
+    if (mounted) setState(() {});
+  }
+
+  /// Fatigue index 0.0–1.0 from AUREXIS psychoacoustic fatigue model
+  double get _fatigue => _provider?.parameters.fatigueIndex ?? 0.0;
+
+  /// Session pan drift — absolute displacement 0.0–1.0
+  double get _drift => (_provider?.parameters.panDrift ?? 0.0).abs().clamp(0.0, 1.0);
+
+  /// Peak session duration in minutes (max 240 min = 4h)
+  double get _peakMinutes =>
+      ((_provider?.parameters.sessionDurationS ?? 0.0) / 60.0).clamp(0.0, 240.0);
 
   @override
   Widget build(BuildContext context) {
@@ -47,17 +86,21 @@ class FatigueStabilityDashboard extends StatelessWidget {
   Widget _buildMetrics() {
     return Row(
       children: [
-        _gauge('Fatigue', 0.0, 0.9, const Color(0xFFFFB74D)),
+        _gauge('Fatigue', _fatigue, 1.0, const Color(0xFFFFB74D)),
         const SizedBox(width: 6),
-        _gauge('Drift', 0.0, 1.0, const Color(0xFF42A5F5)),
+        _gauge('Drift', _drift, 1.0, const Color(0xFF42A5F5)),
         const SizedBox(width: 6),
-        _gauge('Peak', 0, 240, const Color(0xFFEF5350)),
+        _gauge('Peak', _peakMinutes, 240.0, const Color(0xFFEF5350)),
       ],
     );
   }
 
-  Widget _gauge(String label, num value, num max, Color color) {
-    final ratio = max > 0 ? (value / max).clamp(0.0, 1.0).toDouble() : 0.0;
+  Widget _gauge(String label, double value, double max, Color color) {
+    final ratio = max > 0 ? (value / max).clamp(0.0, 1.0) : 0.0;
+    final displayText = label == 'Peak'
+        ? '${value.toStringAsFixed(0)}m'
+        : value.toStringAsFixed(2);
+
     return Expanded(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -75,8 +118,8 @@ class FatigueStabilityDashboard extends StatelessWidget {
                 ),
               ),
               Text(
-                value is double ? value.toStringAsFixed(1) : '$value',
-                style: TextStyle(color: color, fontSize: 8, fontWeight: FontWeight.w600),
+                displayText,
+                style: TextStyle(color: color, fontSize: 7, fontWeight: FontWeight.w600),
               ),
             ],
           ),

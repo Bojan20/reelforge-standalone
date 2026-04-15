@@ -5,6 +5,7 @@ import '../../../providers/aurexis_provider.dart';
 /// UCP-2: Energy/Emotional Monitor Zone
 ///
 /// Displays 5 energy domains + emotional state + intensity from AUREXIS.
+/// All values are live from [AurexisProvider] — zero hardcoding.
 class EnergyEmotionalMonitor extends StatefulWidget {
   const EnergyEmotionalMonitor({super.key});
 
@@ -32,6 +33,70 @@ class _EnergyEmotionalMonitorState extends State<EnergyEmotionalMonitor> {
 
   void _onUpdate() {
     if (mounted) setState(() {});
+  }
+
+  // ═══ AUREXIS → Energy domain mappings ═══
+
+  /// Base energy: core audio density from AUREXIS engine
+  double get _baseEnergy => _provider?.parameters.energyDensity ?? 0.3;
+
+  /// Win energy: win multiplier normalized 0–20x → 0–1
+  double get _winEnergy =>
+      ((_provider?.winMultiplier ?? 0.0).clamp(0.0, 20.0) / 20.0);
+
+  /// Feature energy: escalation above neutral (1.0 = neutral, 4.0 = max)
+  double get _featureEnergy =>
+      ((_provider?.parameters.escalationMultiplier ?? 1.0) - 1.0).clamp(0.0, 3.0) / 3.0;
+
+  /// Jackpot energy: proximity to jackpot trigger 0–1
+  double get _jackpotEnergy => _provider?.jackpotProximity ?? 0.0;
+
+  /// Ambient energy: reverb/spatial depth 0–1
+  double get _ambientEnergy =>
+      (_provider?.parameters.reverbSendBias ?? 0.2).clamp(0.0, 1.0);
+
+  List<double> get _energyValues => [
+    _baseEnergy,
+    _winEnergy,
+    _featureEnergy,
+    _jackpotEnergy,
+    _ambientEnergy,
+  ];
+
+  // ═══ Emotional state derivation ═══
+
+  String get _emotionalState {
+    final p = _provider?.parameters;
+    final fatigue = p?.fatigueIndex ?? 0.0;
+    final jackpot = _provider?.jackpotProximity ?? 0.0;
+    final win = _provider?.winMultiplier ?? 0.0;
+    final escalation = p?.escalationMultiplier ?? 1.0;
+
+    if (fatigue > 0.75) return 'Fatigued';
+    if (win > 10.0) return 'Euphoric';
+    if (jackpot > 0.8) return 'Excited';
+    if (escalation > 2.5) return 'Hyped';
+    if (fatigue > 0.45) return 'Tired';
+    if (win > 2.0 || jackpot > 0.4) return 'Engaged';
+    return 'Neutral';
+  }
+
+  Color get _stateColor {
+    switch (_emotionalState) {
+      case 'Euphoric': return const Color(0xFFFFD700);
+      case 'Excited':  return const Color(0xFFEF5350);
+      case 'Hyped':    return const Color(0xFFFF7043);
+      case 'Engaged':  return const Color(0xFF66BB6A);
+      case 'Tired':    return const Color(0xFF90A4AE);
+      case 'Fatigued': return const Color(0xFFB0BEC5);
+      default:         return const Color(0xFF42A5F5);
+    }
+  }
+
+  /// Intensity: escalation above 1.0 mapped to 0–100%
+  int get _intensityPct {
+    final esc = _provider?.parameters.escalationMultiplier ?? 1.0;
+    return ((esc - 1.0).clamp(0.0, 3.0) / 3.0 * 100).round();
   }
 
   @override
@@ -75,16 +140,15 @@ class _EnergyEmotionalMonitorState extends State<EnergyEmotionalMonitor> {
   }
 
   Widget _buildEnergyBars() {
-    final domains = ['Base', 'Win', 'Feature', 'Jackpot', 'Ambient'];
-    final colors = [
-      const Color(0xFF42A5F5),
-      const Color(0xFF66BB6A),
-      const Color(0xFFFFB74D),
-      const Color(0xFFEF5350),
-      const Color(0xFF7E57C2),
+    const domains = ['Base', 'Win', 'Feature', 'Jackpot', 'Ambient'];
+    const colors = [
+      Color(0xFF42A5F5),
+      Color(0xFF66BB6A),
+      Color(0xFFFFB74D),
+      Color(0xFFEF5350),
+      Color(0xFF7E57C2),
     ];
-    // Use default values when provider not available
-    final values = [0.3, 0.0, 0.0, 0.0, 0.2];
+    final values = _energyValues;
 
     return Column(
       children: [
@@ -128,9 +192,9 @@ class _EnergyEmotionalMonitorState extends State<EnergyEmotionalMonitor> {
   Widget _buildEmotionalState() {
     return Row(
       children: [
-        _chip('Neutral', const Color(0xFF42A5F5)),
+        _chip(_emotionalState, _stateColor),
         const SizedBox(width: 4),
-        _chip('Intensity: 30%', const Color(0xFFFFB74D)),
+        _chip('Intensity: $_intensityPct%', const Color(0xFFFFB74D)),
       ],
     );
   }

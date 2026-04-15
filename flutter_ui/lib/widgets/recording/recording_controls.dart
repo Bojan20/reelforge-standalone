@@ -3,34 +3,15 @@
 /// Provides:
 /// - Record arm/disarm button
 /// - Record start/stop button
-/// - Input level meters
+/// - Input level meters (live via FFI channel strip when trackId provided)
 /// - Recording time display
 /// - Recording status indicator
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
+import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
-
-// Mock types until flutter_rust_bridge generates them
-class RecordingStatus {
-  final bool isRecording;
-  final bool isArmed;
-  final double durationSecs;
-  final int samplesRecorded;
-  final double peakLevel;
-  final int clipsDetected;
-  final String? outputPath;
-
-  RecordingStatus({
-    required this.isRecording,
-    required this.isArmed,
-    required this.durationSecs,
-    required this.samplesRecorded,
-    required this.peakLevel,
-    required this.clipsDetected,
-    this.outputPath,
-  });
-}
 
 class RecordingControls extends StatefulWidget {
   final VoidCallback? onRecordStart;
@@ -38,12 +19,18 @@ class RecordingControls extends StatefulWidget {
   final VoidCallback? onArmToggle;
   final bool showInputMeters;
 
+  /// Optional track ID for live FFI metering.
+  /// When provided, input levels are read from the Rust engine's
+  /// channel strip. When null, levels are zeroed while idle.
+  final int? trackId;
+
   const RecordingControls({
     super.key,
     this.onRecordStart,
     this.onRecordStop,
     this.onArmToggle,
     this.showInputMeters = true,
+    this.trackId,
   });
 
   @override
@@ -60,6 +47,8 @@ class _RecordingControlsState extends State<RecordingControls>
   Timer? _updateTimer;
   late AnimationController _blinkController;
 
+  NativeFFI? _ffi;
+
   @override
   void initState() {
     super.initState();
@@ -68,7 +57,13 @@ class _RecordingControlsState extends State<RecordingControls>
       duration: const Duration(milliseconds: 500),
     );
 
-    // Poll recording status
+    try {
+      _ffi = GetIt.instance<NativeFFI>();
+    } catch (_) {
+      _ffi = NativeFFI.instance;
+    }
+
+    // Poll recording status at 100ms (~10Hz)
     _updateTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
       _updateStatus();
     });
@@ -82,20 +77,38 @@ class _RecordingControlsState extends State<RecordingControls>
   }
 
   void _updateStatus() {
-    // TODO: Call Rust API
-    // final status = api.recordingGetStatus();
-    // final (levelL, levelR) = api.recordingGetInputLevels();
+    if (!mounted) return;
 
-    // Mock data for now
-    if (_isRecording) {
-      setState(() {
-        _duration += 0.1;
-        _inputLevelL = 0.3 + (DateTime.now().millisecondsSinceEpoch % 100) / 200;
-        _inputLevelR = 0.25 + (DateTime.now().millisecondsSinceEpoch % 100) / 250;
-      });
+    double levelL = 0.0;
+    double levelR = 0.0;
+
+    if (_isRecording || _isArmed) {
+      final tid = widget.trackId;
+      if (tid != null && _ffi != null) {
+        // Live FFI input levels from channel strip
+        try {
+          final meter = _ffi!.getTrackMeter(tid);
+          // Use RMS for smooth metering, peak for clip detection
+          levelL = (meter.rmsL + 60.0) / 60.0; // −60dBFS..0dBFS → 0..1
+          levelR = (meter.rmsR + 60.0) / 60.0;
+          levelL = levelL.clamp(0.0, 1.0);
+          levelR = levelR.clamp(0.0, 1.0);
+        } catch (_) {
+          levelL = 0.0;
+          levelR = 0.0;
+        }
+      }
     }
 
-    // Blink when armed
+    setState(() {
+      if (_isRecording) {
+        _duration += 0.1; // +100ms per poll tick
+      }
+      _inputLevelL = levelL;
+      _inputLevelR = levelR;
+    });
+
+    // Blink when armed, not recording
     if (_isArmed && !_isRecording) {
       if (!_blinkController.isAnimating) {
         _blinkController.repeat(reverse: true);

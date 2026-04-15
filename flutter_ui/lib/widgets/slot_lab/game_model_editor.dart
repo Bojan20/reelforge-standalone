@@ -14,9 +14,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/fluxforge_theme.dart';
-// FFI bindings will be used when integrating with provider
-// import '../../src/rust/native_ffi.dart';
-// import '../../src/rust/slot_lab_v2_ffi.dart';
+// FFI integration handled via SlotEngineProvider.updateGameModel → slotLabV2InitWithModelJson
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // GAME MODEL EDITOR

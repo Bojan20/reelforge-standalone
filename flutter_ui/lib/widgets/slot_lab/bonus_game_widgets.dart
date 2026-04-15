@@ -733,13 +733,21 @@ class _JackpotTickerWidgetState extends State<JackpotTickerWidget> {
     super.initState();
     _displayValues.addAll(widget.tiers.map((t) => t.value));
 
-    // Ticker animation — increment values slightly for progressive feel
+    // Ticker animation — progressive growth per tier.
+    // Growth rates are INVERSELY proportional to tier size:
+    //   Mini  (i=0) grows fastest  — small jackpot, frequent contribution
+    //   Minor (i=1) grows slower
+    //   Major (i=2) grows very slow
+    //   Grand (i=3) grows slowest  — rare, huge jackpot
+    // At 50ms interval: Mini ≈ +0.60/s, Minor ≈ +0.20/s, Major ≈ +0.06/s, Grand ≈ +0.02/s
+    const _tierGrowthRates = [0.030, 0.010, 0.003, 0.001];
+
     _tickerTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
       if (!mounted) return;
       setState(() {
         for (int i = 0; i < _displayValues.length; i++) {
-          // Small random increment
-          _displayValues[i] += 0.01 + (i * 0.005);
+          final rate = i < _tierGrowthRates.length ? _tierGrowthRates[i] : 0.001;
+          _displayValues[i] += rate;
         }
       });
     });
