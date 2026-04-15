@@ -24,6 +24,7 @@ pub mod voice_manager;
 pub mod instance_pool;
 pub mod dsp_nodes;
 pub mod containers;
+pub mod helix_graph;
 
 use std::collections::HashMap;
 use std::sync::Arc;
