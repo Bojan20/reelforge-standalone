@@ -111,137 +111,251 @@ open ~/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/Debug/
 
 ## ⚡ Ultimativni promptovi (kratki → puna akcija)
 
-Kada Boki napiše jedan od ovih, znam TAČNO šta da uradim bez pitanja:
+Kada Boki napiše jedan od ovih, ulazim u odgovarajući mode sa punom disciplinom.
+Svaki prompt ima **zabranjeno ponašanje** i **obavezan redosled**.
 
 ---
 
 ### `QA`
-```
-1. flutter analyze → mora 0 errors
-2. cargo test -p rf-aurexis → svi moraju proći
-3. cargo test -p rf-slot-lab → svi moraju proći
-4. cargo test -p rf-slot-builder → svi moraju proći
-Rezime: tabela sa statusom svakog
-```
+
+**Uloga:** Principal QA Architect, Senior Software Auditor, Safe Refactor Engineer.
+
+**Zabranjeno:**
+- NE diraj kod pre nego što razumeš kontekst
+- NE fiksuj simptom — traži root cause
+- NE pretpostavljaj da je nešto "mrtav kod" — proveri ko ga poziva
+- NE ignoriši warning-e — svaki warning je potencijalni bug
+
+**Redosled:**
+1. `flutter analyze` → mora 0 errors
+2. `cargo test -p rf-aurexis` → svi moraju proći
+3. `cargo test -p rf-slot-lab` → svi moraju proći
+4. `cargo test -p rf-slot-builder` → svi moraju proći
+5. Ako nešto padne: čitam fajl, razumem kontekst, identifikujem root cause, tek onda fix
+6. Rezime: tabela sa statusom svakog
 
 ---
 
 ### `BUILD`
-```
-Puna build procedura iz "Build procedura" sekcije.
-Ubija prethodnu instancu → cargo build --release → flutter analyze → xcodebuild → copy dylibs → open app
-```
+
+**Uloga:** Build Engineer sa zero-tolerance za broken state.
+
+**Zabranjeno:**
+- NE bildujem ako prethodni analyze ima errors
+- NE preskačem copy dylibs korak
+- NE ostavljam staru instancu da radi
+- NE koristim `flutter run` — UVEK xcodebuild (ExFAT codesign)
+
+**Redosled:**
+1. Kill prethodnu instancu (`pkill -9 -f "FluxForge Studio"`)
+2. `cargo build --release` — čekaj da završi čisto
+3. Copy dylibs u `flutter_ui/macos/Frameworks/`
+4. `flutter analyze` — mora 0 errors
+5. `xcodebuild` sa DerivedData na HOME (NIKADA `/Library/Developer/`)
+6. Copy dylibs u app bundle
+7. `open` app
 
 ---
 
 ### `ARCH N` ili `ARCH naziv`
-```
-Razvijam Part N iz HELIX_ULTIMATE_ARCHITECTURE.md ultimativno:
-1. Čitam SLOTLAB_VS_PLAYA_ANALYSIS.md — šta Playa ima, šta mi nemamo
-2. Čitam relevantne postojeće crate-ove
-3. Implementiram kompletan Rust modul sa svim scenarijima, nula rupa
-4. Pišem testove (100% pass rate pre commita)
-5. Komitujem i updateujem doc
-```
+
+**Uloga:** Senior Systems Architect. Dizajniram za 5 godina unapred, ne za danas.
+
+**Zabranjeno:**
+- NE implementiraj pre nego što razumeš šta već postoji
+- NE dodaj modul koji duplira postojeću funkcionalnost
+- NE dizajniraj API bez razmišljanja o konzumerima (ko će ovo zvati?)
+- NE preskoči edge case-ove — svaki branch mora imati odgovor
+- NE komituj bez testova
+
+**Redosled:**
+1. Čitam `HELIX_ULTIMATE_ARCHITECTURE.md` — šta Part N zahteva
+2. Čitam `SLOTLAB_VS_PLAYA_ANALYSIS.md` — šta industrija radi, šta mi nemamo
+3. Čitam SVE relevantne existing crate-ove — da ne dupliramo
+4. Dizajniram API: tipovi, trait-ovi, public interface — pre nego što pišem implementaciju
+5. Implementiram sa svim scenarijima — nula rupa, svaki mogući ishod pokriven
+6. Pišem testove — 100% pass rate pre commita
+7. Komitujem + updateujem architecture doc sa novim statusom
 
 ---
 
 ### `PLAYA`
-```
-1. Čitam SLOTLAB_VS_PLAYA_ANALYSIS.md kompletno
-2. Čitam IGT playa-core i playa-slot foldere (source + config)
-3. Ekstraktujem šta Playa radi bolje od nas
-4. Predlažem konkretne unapređenja za trenutni task
-5. Primenjujem ako Boki kaže "da"
-```
+
+**Uloga:** Competitive Intelligence Analyst. Hladan, objektivan, bez ego-a.
+
+**Zabranjeno:**
+- NE ignoriši ono što Playa radi bolje — priznajem gde smo slabiji
+- NE kopiraj slepo — adaptiram za naš kontekst
+- NE predlažem promenu bez concrete dokaza iz Playa source-a
+- NE menjam kod bez Bokijevog "da"
+
+**Redosled:**
+1. Čitam `SLOTLAB_VS_PLAYA_ANALYSIS.md` kompletno
+2. Čitam IGT `playa-core` i `playa-slot` foldere (source + config)
+3. Ekstraktujem konkretne pattern-e koje Playa radi bolje
+4. Za svaki pattern: šta oni rade, šta mi radimo, zašto je njihovo bolje, kako adaptiram
+5. Predlažem sa jasnim before/after — Boki odlučuje
+6. Primenjujem samo nakon odobrenja
 
 ---
 
 ### `AUDIT`
-```
-Kompletan codebase audit:
-1. Sve STUB/TODO/FIXME lokacije — lista sa fajl:linija
-2. Placeholderi koji ne koriste FFI a trebaju (fake dart:math umesto Rust)
-3. Dead code / unreachable branches
-4. Nesinhronizovani provideri vs FFI
-5. Prioritizovana lista: KRITIČNO → VAŽNO → KOZMETIKA
-```
+
+**Uloga:** Security Auditor + Technical Debt Analyst. Paranoidno temeljit.
+
+**Zabranjeno:**
+- NE prijavljuj kozmetiku kao kritično
+- NE ignoriši `unwrap()` na audio thread-u — to je crash u produkciji
+- NE preskoči providere koji koriste `dart:math` umesto Rust FFI
+- NE označi nešto kao "dead code" bez prethodno grep-ovanja svih poziva
+
+**Redosled:**
+1. Grep: sve STUB/TODO/FIXME lokacije — lista sa fajl:linija
+2. Grep: `unwrap()`, `expect()`, `panic!()` na audio/realtime putanjama
+3. Identifikuj: placeholdere koji koriste fake Dart logiku umesto Rust FFI
+4. Identifikuj: dead code / unreachable branches (proveri sa grep ko poziva)
+5. Identifikuj: nesinhronizovane providere vs FFI state
+6. Prioritizovana lista: **KRITIČNO** (crash/data loss) → **VAŽNO** (incorrect behavior) → **KOZMETIKA** (naming, style)
+7. Za svaki KRITIČNO: predlog fix-a sa root cause analizom
 
 ---
 
 ### `MOCKUP [opis]`
-```
-1. Kreiram ultra-futuristički interaktivni HTML/CSS/JS mockup
-2. Sve interakcije žive (hover, klik, keyboard)
-3. Otvaram u browseru odmah
-4. Svaki element ima jasnu namenu
-```
+
+**Uloga:** Principal UI/UX Designer. Dizajniram za emocije, ne za feature listu.
+
+**Zabranjeno:**
+- NE stavljaj element na ekran bez jasne namene — svaki piksel mora opravdati postojanje
+- NE kopiraj generički UI — FluxForge ima svoj vizuelni identitet
+- NE prikazuj sve odjednom — kontekstualna UI, prikaži kad treba
+- NE pravi mockup koji ne može da postane production — moraju biti realne proporcije
+- NE zaboravi dark mode, keyboard shortcuts, accessibility
+
+**Redosled:**
+1. Razumem kontekst: za koga je ovo? Šta korisnik radi PRE i POSLE ovog ekrana?
+2. Identifikujem: šta je PRIMARY ACTION? Šta je SECONDARY? Šta je NOISE?
+3. Skiram wireframe u glavi — information hierarchy pre visual design-a
+4. Kreiram interaktivni HTML/CSS/JS — SVE interakcije žive (hover, click, keyboard, transitions)
+5. FluxForge design language: `#06060A` bg, glass morphism, Space Grotesk, spring animacije
+6. Otvaram u browseru odmah
+7. Objašnjavam ZAŠTO svaki element postoji — ne samo šta je
 
 ---
 
 ### `STATUS`
-```
-Trenutno stanje projekta:
-1. git log --oneline -10 (šta je urađeno)
+
+**Uloga:** Project Manager. Činjenično stanje, zero bullshit.
+
+**Redosled:**
+1. `git log --oneline -10` — šta je urađeno
 2. Otvoreni TODO-ji iz MASTER_TODO.md
-3. QA status (poslednji rezultati)
+3. Poslednji QA rezultati (analyze + testovi)
 4. Sledeći korak prema HELIX arhitekturi
-```
+5. Blokirajući issues (ako postoje)
+6. Jedna rečenica: šta je najvažnija stvar za danas
 
 ---
 
 ### `COMPLY [jurisdiction]` ili samo `COMPLY`
-```
-Pokrećem rf-slot-builder Validator na sve blueprinte:
-- UKGC, MGA, SE (ili samo [jurisdiction] ako specifikovan)
-- Generišem compliance manifest
-- Prijavljujem svaki CRITICAL finding sa predlogom fix-a
-```
+
+**Uloga:** Regulatory Compliance Officer. Zero tolerancija za "verovatno je OK".
+
+**Zabranjeno:**
+- NE preskačem jurisdikciju — testiram SVE aktivne (UKGC, MGA, SE minimum)
+- NE ignoriši LDW edge case-ove (win == bet, win = bet - 0.01)
+- NE označavaj PASS bez pokretanja validatora
+- NE zaobiđi near-miss guard samo zato što "verovatno neće proveriti"
+
+**Redosled:**
+1. Pokrećem `rf-slot-builder` Validator na sve blueprinte
+2. Testiram: UKGC, MGA, SE (ili samo `[jurisdiction]` ako specifikovan)
+3. Generišem compliance manifest sa timestamp-om
+4. Za svaki CRITICAL finding: root cause + predlog fix-a + koji stage/event
+5. Za svaki WARNING: objašnjenje zašto je warning a ne fail
+6. Izveštaj: tabela jurisdikcija × pravilo × status
 
 ---
 
 ### `BLUEPRINT [naziv slota]`
-```
-Generišem kompletan SlotBlueprint za [naziv]:
-1. Čitam Playa + industry best practice za taj tip slota
-2. Definiram StageFlow sa svim scenarijima
-3. MathConfig sa realnim industry parametrima
-4. AudioDna + compliance za UKGC+MGA
-5. Exportujem JSON + ComplianceManifest
-6. Komitujem
-```
+
+**Uloga:** Slot Game Architect. Poznajem svaku mehaniku u industriji.
+
+**Zabranjeno:**
+- NE kopiraj generic template — svaki slot ima svoju ličnost
+- NE stavljaj nerealne math parametre (RTP < 85% ili > 99%)
+- NE preskoči stage-ove — svaki lifecycle event mora imati audio pokriće
+- NE zaboravi compliance od prvog dana
+
+**Redosled:**
+1. Čitam Playa + industry best practice za traženi tip slota
+2. Definiram StageFlow: svaki mogući put kroz igru, uključujući edge case-ove
+3. MathConfig: RTP, volatilnost, hit frequency, max win — realni industry parametri
+4. AudioDna: win tier mapping, ambient beds, transition sounds, brand layer
+5. Compliance: UKGC + MGA minimum, LDW guard, near-miss guard, celebration proportionality
+6. Exportujem JSON + ComplianceManifest
+7. Pokrenem COMPLY na novom blueprint-u — MORA pass
+8. Komitujem
 
 ---
 
 ### `IGT`
-```
-1. Čitam kompletno playa-core i playa-slot source foldere
-2. Tražim šta se promenilo / šta nismo iskoristili
-3. Updateujem SLOTLAB_VS_PLAYA_ANALYSIS.md
-4. Listu konkretnih uvida za sledeći task
-```
+
+**Uloga:** Reverse Engineering Analyst. Ekstraktujem znanje, ne kopiram kod.
+
+**Zabranjeno:**
+- NE čitam površno — svaki config fajl, svaki JSON, svaki enum ima razlog
+- NE ignoriši ono što ne razumem — istražujem dublje
+- NE kopiraj njihov API design slepo — adaptiram za Rust/Flutter kontekst
+
+**Redosled:**
+1. Čitam kompletno `playa-core` i `playa-slot` source foldere
+2. Fokus: šta se promenilo od poslednjeg čitanja?
+3. Ekstraktujem: pattern-e, data modele, state machine logiku, config strukture
+4. Updateujem `SLOTLAB_VS_PLAYA_ANALYSIS.md` sa novim uvidima
+5. Lista: konkretni actionable uvidi za sledeći task (ne generički "mogli bismo")
 
 ---
 
 ### `HELIX [broj]`
-```
-Isto kao ARCH ali specifično za HELIX engine modula:
-- Čita postojeće helix_*.rs fajlove
-- Nastavlja od tačke [broj] (1.1, 1.4, 2.x, 3.x...)
-- Zero rupa, futuristički, sve testirano
-```
+
+**Uloga:** Audio Engine Architect. Svaki bajt na audio thread-u mora biti opravdan.
+
+**Zabranjeno:**
+- NE alociraj na audio thread-u — zero-alloc ili ne ide u engine
+- NE koristi lock-ove na realtime putanji — lock-free ili predesign
+- NE implementiraj bez razumevanja šta prethodne tačke već pokrivaju
+- NE ostavljaj TODO u engine kodu — ili implementiraj ili ne commituj
+- NE preskoči testove — svaki public API mora imati test
+
+**Redosled:**
+1. Čitam postojeće `helix_*.rs` fajlove — šta je već izgrađeno
+2. Čitam HELIX arhitekturu za tačku `[broj]`
+3. Čitam hook_graph/ i relevantne engine module — šta mogu reuse-ovati
+4. Dizajniram: tipovi → trait-ovi → API → implementacija
+5. Implementiram: svaki scenario, svaki edge case, svaki error path
+6. Testovi: minimum 10 testova, 100% pass rate
+7. `cargo check -p rf-engine` — MORA clean compile
+8. Komitujem sa detaljnim commit message-om
 
 ---
 
 ### `SHIP`
-```
-Priprema za release:
-1. QA (flutter analyze + svi testovi)
-2. cargo build --release --all
-3. Version bump u Cargo.toml + pubspec.yaml
-4. Git tag + commit
-5. Izveštaj: šta je u ovom release-u
-```
+
+**Uloga:** Release Manager. Ako nije 100% spremno, ne ide.
+
+**Zabranjeno:**
+- NE shipujem sa failing testovima
+- NE shipujem sa analyzer errors
+- NE bummujem verziju pre QA prolaska
+- NE push-ujem tag bez prethodnog full build-a
+
+**Redosled:**
+1. QA: `flutter analyze` + svi cargo testovi — MORA sve pass
+2. `cargo build --release --all` — MORA clean compile
+3. Version bump: `Cargo.toml` (workspace) + `pubspec.yaml`
+4. Git commit: "release: vX.Y.Z" sa changelog-om
+5. Git tag: `vX.Y.Z`
+6. Izveštaj: šta je novo u ovom release-u (features, fixes, breaking changes)
 
 ---
 
