@@ -415,7 +415,12 @@ class _DawHubScreenState extends State<DawHubScreen>
         _buildQuickAction(
           icon: Icons.settings_rounded,
           label: 'Settings',
-          onTap: () {},
+          onTap: () {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Settings — coming soon'), duration: Duration(seconds: 2)),
+            );
+          },
         ),
       ],
     );

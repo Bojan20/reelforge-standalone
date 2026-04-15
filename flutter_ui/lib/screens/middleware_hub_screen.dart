@@ -431,13 +431,13 @@ class _MiddlewareHubScreenState extends State<MiddlewareHubScreen>
         _buildHeaderAction(
           icon: Icons.cloud_download_rounded,
           label: 'Import',
-          onTap: () {},
+          onTap: () => _showNotImplemented('Import'),
         ),
         const SizedBox(width: 12),
         _buildHeaderAction(
           icon: Icons.settings_rounded,
           label: 'Settings',
-          onTap: () {},
+          onTap: () => _showNotImplemented('Settings'),
         ),
       ],
     );
@@ -1142,6 +1142,13 @@ class _MiddlewareHubScreenState extends State<MiddlewareHubScreen>
     if (result != null && result.files.single.path != null) {
       widget.onOpenProject(result.files.single.path!);
     }
+  }
+
+  void _showNotImplemented(String feature) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$feature — coming soon'), duration: const Duration(seconds: 2)),
+    );
   }
 }
 

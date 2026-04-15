@@ -332,8 +332,12 @@ class ClipGainEnvelopePanel extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 ...GainEnvelopeCurve.values.map((curve) => _buildCurveButton(
+                  context,
+                  provider,
                   curve,
-                  GainEnvelopeCurve.linear, // Current selected
+                  provider.selectedPointIds.isEmpty
+                      ? GainEnvelopeCurve.linear
+                      : _getSelectedPointsCurve(provider),
                 )),
               ],
             ),
@@ -421,12 +425,41 @@ class ClipGainEnvelopePanel extends StatelessWidget {
     );
   }
 
-  Widget _buildCurveButton(GainEnvelopeCurve curve, GainEnvelopeCurve selected) {
+  /// Get the curve type of currently selected points (returns linear if mixed/none)
+  GainEnvelopeCurve _getSelectedPointsCurve(ClipGainEnvelopeProvider provider) {
+    final clipId = provider.editingClipId;
+    if (clipId == null) return GainEnvelopeCurve.linear;
+    final envelope = provider.getEnvelope(clipId);
+    if (envelope == null) return GainEnvelopeCurve.linear;
+    final selectedIds = provider.selectedPointIds;
+    if (selectedIds.isEmpty) return GainEnvelopeCurve.linear;
+    final curves = envelope.points
+        .where((p) => selectedIds.contains(p.id))
+        .map((p) => p.curveToNext)
+        .toSet();
+    return curves.length == 1 ? curves.first : GainEnvelopeCurve.linear;
+  }
+
+  Widget _buildCurveButton(BuildContext context, ClipGainEnvelopeProvider provider,
+      GainEnvelopeCurve curve, GainEnvelopeCurve selected) {
     final isSelected = curve == selected;
     final icon = _getCurveIcon(curve);
 
     return GestureDetector(
-      onTap: () {},
+      onTap: () {
+        final clipId = provider.editingClipId;
+        if (clipId == null) return;
+        final selectedIds = provider.selectedPointIds;
+        if (selectedIds.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Select points first to change curve type'), duration: Duration(seconds: 2)),
+          );
+          return;
+        }
+        for (final pointId in selectedIds) {
+          provider.setPointCurve(clipId, pointId, curve);
+        }
+      },
       child: Container(
         margin: const EdgeInsets.only(left: 4),
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),

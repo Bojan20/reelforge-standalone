@@ -4,6 +4,7 @@
 /// Uses dart:ffi for low-level native function calls.
 
 import 'dart:convert';
+import 'dart:developer' as dev;
 import 'dart:ffi';
 import 'dart:io';
 import 'dart:typed_data';
@@ -25048,7 +25049,7 @@ extension TimeStretchFFI on NativeFFI {
       final fn = _lib.lookupFunction<Int32 Function(Uint8),
           int Function(int)>('dpm_set_emotional_state');
       fn(stateIndex);
-    } catch (_) {}
+    } catch (e) { dev.log('FFI: $e', name: 'NativeFFI'); }
   }
 
   /// Get current emotional state (0-6)
@@ -25250,7 +25251,7 @@ extension TimeStretchFFI on NativeFFI {
       final fn = _lib.lookupFunction<Int32 Function(Uint32, Uint8, Int32, Uint32),
           int Function(int, int, int, int)>('samcl_assign_role');
       fn(voiceId, roleIndex, priority, harmonicLayers);
-    } catch (_) {}
+    } catch (e) { dev.log('FFI: $e', name: 'NativeFFI'); }
   }
 
   /// Remove voice from spectral tracking
@@ -25259,7 +25260,7 @@ extension TimeStretchFFI on NativeFFI {
       final fn = _lib.lookupFunction<Int32 Function(Uint32),
           int Function(int)>('samcl_remove_voice');
       fn(voiceId);
-    } catch (_) {}
+    } catch (e) { dev.log('FFI: $e', name: 'NativeFFI'); }
   }
 
   /// Clear all spectral assignments
@@ -25268,7 +25269,7 @@ extension TimeStretchFFI on NativeFFI {
       final fn = _lib.lookupFunction<Int32 Function(),
           int Function()>('samcl_clear');
       fn();
-    } catch (_) {}
+    } catch (e) { dev.log('FFI: $e', name: 'NativeFFI'); }
   }
 
   /// Compute spectral allocation
@@ -25277,7 +25278,7 @@ extension TimeStretchFFI on NativeFFI {
       final fn = _lib.lookupFunction<Int32 Function(),
           int Function()>('samcl_compute');
       fn();
-    } catch (_) {}
+    } catch (e) { dev.log('FFI: $e', name: 'NativeFFI'); }
   }
 
   /// Get SCI_ADV value
@@ -25446,7 +25447,7 @@ extension TimeStretchFFI on NativeFFI {
       final fn = _lib.lookupFunction<Int32 Function(),
           int Function()>('pbse_reset');
       fn();
-    } catch (_) {}
+    } catch (e) { dev.log('FFI: $e', name: 'NativeFFI'); }
   }
 
   /// Set validation thresholds
@@ -25455,7 +25456,7 @@ extension TimeStretchFFI on NativeFFI {
       final fn = _lib.lookupFunction<Int32 Function(Double, Uint32, Double, Double, Double),
           int Function(double, int, double, double, double)>('pbse_set_thresholds');
       fn(maxEnergy, maxVoices, maxSci, maxFatigue, maxSlope);
-    } catch (_) {}
+    } catch (e) { dev.log('FFI: $e', name: 'NativeFFI'); }
   }
 
   /// Run full simulation. Returns true if all passed (bake unlocked).
@@ -25783,7 +25784,7 @@ extension TimeStretchFFI on NativeFFI {
     try {
       final fn = _lib.lookupFunction<Int32 Function(), int Function()>('ail_reset');
       fn();
-    } catch (_) {}
+    } catch (e) { dev.log('FFI: $e', name: 'NativeFFI'); }
   }
 
   bool ailRunAnalysis() {
@@ -26145,7 +26146,7 @@ extension TimeStretchFFI on NativeFFI {
   void drcReset() {
     try {
       _lib.lookupFunction<Int32 Function(), int Function()>('drc_reset')();
-    } catch (_) {}
+    } catch (e) { dev.log('FFI: $e', name: 'NativeFFI'); }
   }
 
   // ─── DRC Certification Pipeline ───
@@ -26567,7 +26568,7 @@ extension TimeStretchFFI on NativeFFI {
   void samReset() {
     try {
       _lib.lookupFunction<Int32 Function(), int Function()>('sam_reset')();
-    } catch (_) {}
+    } catch (e) { dev.log('FFI: $e', name: 'NativeFFI'); }
   }
 
   // ─── SAM Mode ───
@@ -26770,7 +26771,7 @@ extension TimeStretchFFI on NativeFFI {
     try {
       _lib.lookupFunction<Int32 Function(Double),
           int Function(double)>('sam_set_volatility')(value);
-    } catch (_) {}
+    } catch (e) { dev.log('FFI: $e', name: 'NativeFFI'); }
   }
 
   double samVolatilityMin() {
@@ -26879,7 +26880,7 @@ extension TimeStretchFFI on NativeFFI {
   void samAutoConfigure() {
     try {
       _lib.lookupFunction<Int32 Function(), int Function()>('sam_auto_configure')();
-    } catch (_) {}
+    } catch (e) { dev.log('FFI: $e', name: 'NativeFFI'); }
   }
 
   bool samIsAutoConfigured() {
@@ -26897,7 +26898,7 @@ extension TimeStretchFFI on NativeFFI {
     try {
       _lib.lookupFunction<Int32 Function(Int32),
           int Function(int)>('sam_set_gdd_imported')(imported ? 1 : 0);
-    } catch (_) {}
+    } catch (e) { dev.log('FFI: $e', name: 'NativeFFI'); }
   }
 
   bool samGddImported() {
@@ -26913,7 +26914,7 @@ extension TimeStretchFFI on NativeFFI {
     try {
       _lib.lookupFunction<Int32 Function(Int32, Double),
           int Function(int, double)>('sam_set_ail_result')(passed ? 1 : 0, score);
-    } catch (_) {}
+    } catch (e) { dev.log('FFI: $e', name: 'NativeFFI'); }
   }
 
   bool samAilPassed() {
@@ -26938,7 +26939,7 @@ extension TimeStretchFFI on NativeFFI {
     try {
       _lib.lookupFunction<Int32 Function(Int32),
           int Function(int)>('sam_set_certified')(certified ? 1 : 0);
-    } catch (_) {}
+    } catch (e) { dev.log('FFI: $e', name: 'NativeFFI'); }
   }
 
   bool samIsCertified() {
@@ -27861,7 +27862,7 @@ extension TimeStretchFFI on NativeFFI {
         'tempo_state_destroy',
       );
       fn();
-    } catch (_) {}
+    } catch (e) { dev.log('FFI: $e', name: 'NativeFFI'); }
   }
 
   /// Check if engine is initialized

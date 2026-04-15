@@ -1729,7 +1729,11 @@ class _ActionEditorWidgetState extends State<ActionEditorWidget>
             ),
           ),
           TextButton.icon(
-            onPressed: () {},
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Switch conditions — coming soon'), duration: Duration(seconds: 2)),
+              );
+            },
             icon: Icon(Icons.add, size: 14),
             label: Text('Add'),
             style: TextButton.styleFrom(
