@@ -439,5 +439,262 @@ Noise texture: 3% opacity, 256x256 PNG on all surfaces
 
 ---
 
+## Part VI: PRODUCT & SERVICES LAYER
+
+> *Everything above is the engine. This is the house built on top — what you sell.*
+
+### 6.1 — A/B Audio Testing Pipeline
+
+**Problem:** Audio decisions in slot production are made on producer instinct. No data. No validation.
+
+**Solution:** Deploy two audio profiles on the same game simultaneously. Measure which keeps players engaged longer.
+
+```
+Profile A (current)     Profile B (experimental)
+    ↓                       ↓
+  50% traffic           50% traffic
+    ↓                       ↓
+  Analytics Engine      Analytics Engine
+    ↓                       ↓
+         COMPARISON REPORT
+    - Session duration delta
+    - Spin count delta
+    - Cash-out correlation
+    - Feature engagement rate
+    - Win celebration skip rate
+```
+
+**Implementation:**
+- `AudioProfileManager` — versioned audio profiles (asset mapping + DSP config + RTPC curves)
+- Profile assignment via player ID hash (deterministic split)
+- Real-time metrics collection via HELIX Bus (`analytics.*` channel)
+- Dashboard with statistical significance calculator (chi-square / t-test)
+- One-click promote: winning profile becomes default
+
+**ROI metric:** Session duration increase per audio variant = direct revenue impact.
+
+---
+
+### 6.2 — Audio Analytics Engine
+
+**No slot company collects audio behavioral data. FluxForge will be first.**
+
+```
+Data Points Collected:
+  - Which win sound correlates with continued play?
+  - Which sound sequence precedes cash-out?
+  - Does celebration duration affect next bet size?
+  - Do near-miss sounds increase or decrease engagement?
+  - How does sound fatigue correlate with session end?
+  - Regional sound preference patterns
+  - Autoplay vs manual audio engagement delta
+```
+
+**Implementation:**
+- Event stream: every audio event logged with game context (win amount, bet, session age, tier)
+- Correlation engine: Pearson/Spearman between audio events and player actions
+- Heatmap: audio event frequency × player action timeline
+- Export: CSV, JSON, BigQuery-compatible schema
+- Privacy-safe: no PII, only behavioral patterns
+
+**Value proposition:** "We don't just make sounds. We know which sounds make money."
+
+---
+
+### 6.3 — Live Audio Hot-Swap
+
+**Problem:** Changing a bonus sound today = new build, QA cycle, deployment, potential downtime.
+
+**Solution:** Hot-patch audio profiles on live games. Zero downtime.
+
+```
+FluxForge Studio                    Live Game (Web/Native)
+    ↓                                       ↑
+  Edit audio profile                   Runtime receives
+  Tag version                          profile delta
+  Push to CDN                          Hot-swaps assets
+    ↓                                       ↑
+  CDN (Cloudflare/S3)  ───────────→  Asset Loader
+                                     (diff-based, < 100ms)
+```
+
+**Key features:**
+- Delta updates only (changed assets, not full bundle)
+- Rollback in < 1 second (keep previous profile in memory)
+- A/B test → promote flow (test becomes production)
+- Audit trail: who changed what, when, why
+- Canary deployment: 1% traffic → 10% → 100%
+
+---
+
+### 6.4 — Multi-Market Audio Adaptation
+
+**One slot, N audio profiles per region. Auto-selection by GeoIP.**
+
+```
+Market Profiles:
+  Asia-Pacific:     Pentatonic scales, faster tempo, higher pitch,
+                    bright timbres, shorter celebrations
+  Nordic/DACH:      Minimal, deep bass, electronic, longer ambient,
+                    muted celebrations (cultural restraint)
+  Latin America:    Percussion-heavy, swing feel, warm harmonics,
+                    extended celebrations
+  UK/Ireland:       Pub machine legacy, familiar jingles,
+                    UKGC-compliant (LDW suppressed)
+  North America:    Vegas-style, bold brass, big reverb,
+                    maximum celebration
+  Japan:            Pachinko-influenced, rapid feedback,
+                    melody-driven win sounds
+```
+
+**Implementation:**
+- `MarketProfile` — per-region audio config (tempo multiplier, pitch shift, celebration scale, DSP preset)
+- GeoIP-based auto-selection at runtime
+- Manual override per player preference
+- Shared asset base with region-specific variations (saves storage)
+- Compliance rules auto-applied per region jurisdiction
+
+**Business case:** A slot tuned for Japan and Sweden simultaneously, from one project file.
+
+---
+
+### 6.5 — Producer-First Workflow (DAW Bridge)
+
+**Problem:** Audio designer works in Reaper/Logic/Ableton. Exports WAVs. Developer maps them manually. 2 days of ping-pong per iteration.
+
+**Solution:** Producer tags audio in their DAW. Export goes directly into slot engine. Developer never touches audio.
+
+```
+DAW (Reaper/Logic/Ableton)
+  ↓ Markers + metadata tags
+  ↓ (REEL_STOP, WIN_TIER_3, FEATURE_ENTER, etc.)
+  ↓
+FluxForge Ingest Pipeline
+  ↓ Auto-maps to game events
+  ↓ Generates RTPC bindings from marker data
+  ↓ Creates container structure (Random/Sequence)
+  ↓
+Ready-to-play in SlotLab
+  (producer hits Space, hears result immediately)
+```
+
+**Implementation:**
+- Extend `rf-ingest` marker parsing (already supports BWF markers, cue points)
+- Tag vocabulary: standardized event naming convention (`HELIX_TAG_*`)
+- DAW templates with pre-configured markers (Reaper RPP, Logic template)
+- Watch folder: drop WAV → auto-ingest → instant preview
+- Version diffing: what changed between audio deliveries
+
+**Time saving:** Production cycle from weeks to hours.
+
+---
+
+### 6.6 — Regulatory Audio Shield
+
+**UKGC is already investigating visual near-miss manipulation. Audio is next.**
+
+```
+Compliance Report (auto-generated):
+
+  ✅ LDW Audio: All sub-bet wins use neutral settle sound
+  ✅ Near-Miss: Anticipation sounds capped at -12dB on non-wins
+  ✅ Celebration Proportionality: Duration scales with win tier
+  ✅ Speed of Play: Audio fills minimum 2.5s spin duration
+  ✅ Session Fatigue: Intensity does not escalate after 60 min
+  ✅ Autoplay Consistency: Audio identical in auto/manual mode
+  ⚠️ Reality Check: Audio cue configured but not tested
+
+  Jurisdiction: UKGC
+  Generated: 2026-04-15 21:45:00
+  Simulation: 1,000,000 spins, all outcomes covered
+  Signed by: FluxForge Compliance Engine v1.5
+```
+
+**Value proposition:** "Here's your compliance report. Before the regulator asks."
+
+---
+
+### 6.7 — Cross-Title Audio DNA
+
+**Problem:** A studio has 200 slots. Each has completely separate audio. No brand recognition.
+
+**Solution:** Audio DNA system — core sonic identity with unlimited variations.
+
+```
+Audio DNA Structure:
+  Brand Layer (shared across ALL titles):
+    - Logo sting (2-3 second sonic signature)
+    - UI sound palette (buttons, menus, navigation)
+    - Win signature motif (3-5 note melody, all tiers reference it)
+    - Transition sound family (consistent whooshes, risers)
+
+  Title Layer (per-game variations):
+    - Theme instrumentation (genre-specific arrangement)
+    - Win tier intensities (scaled from brand signature)
+    - Feature-specific sounds (unique per game)
+    - Ambient beds (genre-appropriate backgrounds)
+
+  Regional Layer (per-market adaptation):
+    - Tempo/pitch adjustments
+    - Instrumentation swaps
+    - Celebration scaling
+```
+
+**Implementation:**
+- `AudioDNA` asset format — hierarchical sound bank with inheritance
+- Brand assets shared via CDN (loaded once, cached forever)
+- Title assets inherit and override brand layer
+- Consistency validation: flag audio that deviates from DNA profile
+- Brand compliance score: how closely a title adheres to DNA
+
+**Business case:** 60% production cost reduction (reuse brand layer), instant brand recognition.
+
+---
+
+## Part VII: COMPETITIVE MOAT
+
+### Why Nobody Can Copy This Quickly
+
+1. **203,903 LOC Rust engine** — 2+ years of audio DSP, routing, and real-time processing. Not a weekend project.
+2. **Slot-native math integration** — PAR models, win distributions, compliance rules are deeply embedded, not bolted on.
+3. **Lock-free architecture** — HELIX Bus, voice engine, graph processing. Getting this right takes audio DSP expertise + systems programming. Rare combination.
+4. **Regulatory first-mover** — First compliance report on a regulator's desk wins. Second is "also ran."
+5. **Data network effect** — More studios using analytics → better models → better recommendations → more studios.
+
+### Total Addressable Market
+
+- ~300 active slot studios globally
+- Average audio budget per title: $15,000-$50,000
+- Average titles per studio per year: 12-50
+- FluxForge license model: per-seat + per-title export fee
+- Conservative TAM: $50M-$200M annually
+
+---
+
+| Feature | Wwise | FMOD | SoundStage | **HELIX** |
+|---------|-------|------|------------|-----------|
+| Slot-specific | No | No | Internal | **YES** |
+| Math model integration | No | No | No | **YES** |
+| Regulatory compliance | No | No | No | **YES** |
+| LDW auto-detection | No | No | No | **YES** |
+| A/B audio testing | No | No | No | **YES** |
+| Audio analytics | No | No | No | **YES** |
+| Live hot-swap | No | No | No | **YES** |
+| Multi-market profiles | No | No | No | **YES** |
+| DAW bridge workflow | No | No | No | **YES** |
+| Audio DNA / brand | No | No | No | **YES** |
+| Web Audio export | No | Partial | Yes | **YES** |
+| AI copilot | No | No | No | **YES** |
+| Live slot preview | No | No | Yes | **YES** |
+| Deterministic replay | No | No | No | **YES** |
+| Node graph audio | Yes | No | No | **YES** |
+| Multi-jurisdiction | No | No | No | **YES** |
+| 1M spin simulation | No | No | No | **YES** |
+| Cross-title audio DNA | No | No | No | **YES** |
+
+**HELIX is not competing with Wwise/FMOD. It's creating a new category.**
+
+---
+
 *Designed by Corti — FluxForge Studio CORTEX*
-*Architecture v1.0 — April 2026*
+*Architecture v1.5 — April 2026*
