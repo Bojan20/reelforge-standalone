@@ -429,6 +429,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
   // Floating EQ windows - key is channel/bus ID
   final Map<String, bool> _openEqWindows = {};
+  final Map<String, Offset> _eqWindowPositions = {};
 
   // Clip resize throttle - prevent FFI spam during drag
   Timer? _resizeThrottleTimer;
@@ -2121,7 +2122,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
     final menuItems = ContextMenus.track(
       onRename: () {
-        // TODO: Show rename dialog
+        _showTrackRenameDialog(trackId, track.name);
       },
       onDuplicate: () {
         _handleDuplicateTrack(trackId);
@@ -2166,6 +2167,60 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       position: position,
       items: menuItems,
     );
+  }
+
+  /// Show track rename dialog (Cubase-style inline rename)
+  void _showTrackRenameDialog(String trackId, String currentName) {
+    final controller = TextEditingController(text: currentName);
+    showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: FluxForgeTheme.bgSurface,
+        title: Text(
+          'Rename Track',
+          style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 14),
+        ),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 13),
+          decoration: InputDecoration(
+            hintText: 'Track name',
+            hintStyle: TextStyle(color: FluxForgeTheme.textSecondary),
+            enabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: FluxForgeTheme.textSecondary),
+            ),
+            focusedBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: FluxForgeTheme.accentBlue),
+            ),
+          ),
+          onSubmitted: (value) => Navigator.of(ctx).pop(value),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text('Cancel', style: TextStyle(color: FluxForgeTheme.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(controller.text),
+            child: Text('Rename', style: TextStyle(color: FluxForgeTheme.accentBlue)),
+          ),
+        ],
+      ),
+    ).then((newName) {
+      controller.dispose();
+      if (newName != null && newName.isNotEmpty && newName != currentName) {
+        final ffi = NativeFFI.instance;
+        final trackIdInt = int.tryParse(trackId) ?? 0;
+        ffi.setTrackName(trackIdInt, newName);
+        setState(() {
+          _tracks = _tracks.map((t) {
+            if (t.id == trackId) return t.copyWith(name: newName);
+            return t;
+          }).toList();
+        });
+      }
+    });
   }
 
   /// Show color picker dialog for track
@@ -9208,7 +9263,21 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       child: GestureDetector(
         onTap: () => _selectLayerAndSync(index),
         onHorizontalDragUpdate: (details) {
-          // Drag to change offset - TODO: implement via provider
+          // Convert pixel delta to milliseconds
+          final msPerPixel = 1000.0 / (_kMiddlewarePixelsPerSecond * _middlewareTimelineZoom);
+          final deltaMs = details.delta.dx * msPerPixel;
+          final newOffsetMs = (layer.offsetMs + deltaMs).clamp(0.0, totalDuration * 1000.0);
+          final eventId = _selectedEventId;
+          if (eventId.isNotEmpty) {
+            context.read<MiddlewareProvider>().setLayerOffsetContinuous(eventId, layer.id, newOffsetMs);
+          }
+        },
+        onHorizontalDragEnd: (details) {
+          // Commit final offset
+          final eventId = _selectedEventId;
+          if (eventId.isNotEmpty) {
+            context.read<MiddlewareProvider>().setLayerOffset(eventId, layer.id, layer.offsetMs);
+          }
         },
         child: Container(
           width: regionWidth.clamp(40.0, totalWidth),
@@ -13039,9 +13108,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       final channelName = channelId == 'master' ? 'Master' : channelId;
       final trackId = _busIdToTrackId(channelId);
 
+      final idx = _openEqWindows.keys.toList().indexOf(channelId);
+      final pos = _eqWindowPositions[channelId] ?? Offset(100.0 + idx * 50, 80.0 + idx * 30);
       return Positioned(
-        left: 100 + (_openEqWindows.keys.toList().indexOf(channelId) * 50),
-        top: 80 + (_openEqWindows.keys.toList().indexOf(channelId) * 30),
+        left: pos.dx,
+        top: pos.dy,
         child: Material(
           elevation: 16,
           borderRadius: BorderRadius.circular(8),
@@ -13066,7 +13137,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 // Window title bar
                 GestureDetector(
                   onPanUpdate: (details) {
-                    // TODO: Implement window dragging
+                    setState(() {
+                      final current = _eqWindowPositions[channelId] ?? Offset(100.0 + idx * 50, 80.0 + idx * 30);
+                      _eqWindowPositions[channelId] = Offset(
+                        (current.dx + details.delta.dx).clamp(0, MediaQuery.of(context).size.width - 700),
+                        (current.dy + details.delta.dy).clamp(0, MediaQuery.of(context).size.height - 520),
+                      );
+                    });
                   },
                   child: Container(
                     height: 32,
@@ -13841,12 +13918,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     ];
   }
 
-  /// Sync EQ state to Rust DSP engine
-  // ignore: unused_element
-  void _syncEqToEngine() {
-    // TODO: Call Rust engine via FFI when ready
-    // engine.setMasterEq(_eqBands.map((b) => b.toMap()).toList());
-  }
 
   /// Build Loudness meter content (LUFS + True Peak)
   Widget _buildLoudnessContent(MeteringState metering) {
