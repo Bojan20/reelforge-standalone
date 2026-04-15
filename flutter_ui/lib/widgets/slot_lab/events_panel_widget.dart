@@ -8,6 +8,7 @@
 /// Connected to MiddlewareProvider as single source of truth.
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -290,9 +291,21 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
               const Text('Export to JSON'),
             ],
           ),
-          onTap: () {
-            // TODO: Export single event to JSON
-            widget.onToast?.call('Export "${event.name}" to JSON', isWarning: false);
+          onTap: () async {
+            final json = event.toJson();
+            final path = await NativeFilePicker.saveFile(
+              suggestedName: '${event.id}.json',
+              fileType: 'json',
+            );
+            if (path != null) {
+              try {
+                final file = File(path);
+                await file.writeAsString(const JsonEncoder.withIndent('  ').convert(json));
+                widget.onToast?.call('Exported "${event.name}" to $path', isWarning: false);
+              } catch (e) {
+                widget.onToast?.call('Export failed: $e', isWarning: true);
+              }
+            }
           },
         ),
         const PopupMenuDivider(),

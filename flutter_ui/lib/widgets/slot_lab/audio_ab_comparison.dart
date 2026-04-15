@@ -350,8 +350,17 @@ class _AudioABComparisonState extends State<AudioABComparison> {
   }
 
   void _playBoth() {
-    // TODO: Implement simultaneous playback (requires dual-channel support)
     AudioPlaybackService.instance.stopAll();
+    AudioPlaybackService.instance.previewFile(
+      widget.audioPathA,
+      volume: _volumeA,
+      source: PlaybackSource.browser,
+    );
+    AudioPlaybackService.instance.previewFile(
+      widget.audioPathB,
+      volume: _volumeB,
+      source: PlaybackSource.browser,
+    );
     setState(() {
       _playingA = true;
       _playingB = true;

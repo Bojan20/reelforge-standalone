@@ -619,7 +619,15 @@ class _UltimateTimelineState extends State<UltimateTimeline> {
       case TimeDisplayMode.seconds:
         return '${timeSeconds.toStringAsFixed(3)}s';
       case TimeDisplayMode.beats:
-        return '1.1.1'; // TODO: Tempo map
+        // Convert seconds to bar.beat.sixteenth at 120 BPM, 4/4
+        const bpm = 120.0;
+        const beatsPerBar = 4;
+        const sixteenthsPerBeat = 4;
+        final totalBeats = timeSeconds * bpm / 60.0;
+        final bar = (totalBeats / beatsPerBar).floor() + 1;
+        final beat = (totalBeats % beatsPerBar).floor() + 1;
+        final sixteenth = ((totalBeats % 1) * sixteenthsPerBeat).floor() + 1;
+        return '$bar.$beat.$sixteenth';
       case TimeDisplayMode.timecode:
         final minutes = (timeSeconds ~/ 60);
         final seconds = (timeSeconds % 60).floor();

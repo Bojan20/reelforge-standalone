@@ -882,7 +882,10 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
   }
 
   void _addBinding() {
-    // Show binding creation dialog
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('RTPC binding creation — coming soon'), duration: Duration(seconds: 2)),
+    );
   }
 }
 

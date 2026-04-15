@@ -6,8 +6,11 @@
 // Enables/disables feature blocks and configures their options.
 // ============================================================================
 
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../services/native_file_picker.dart';
 import '../../models/feature_builder/block_category.dart';
 import '../../models/feature_builder/feature_block.dart';
 import '../../models/feature_builder/block_options.dart';
@@ -1061,13 +1064,27 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
             ),
             onPressed: () async {
               final json = provider.exportConfiguration();
-              // TODO: Show file save dialog and save JSON
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Preset exported to clipboard'),
-                  backgroundColor: Color(0xFF40FF90),
-                ),
+              final path = await NativeFilePicker.saveFile(
+                suggestedName: 'feature_config_${DateTime.now().millisecondsSinceEpoch}.json',
+                fileType: 'json',
               );
+              if (!context.mounted || path == null) return;
+              try {
+                final file = File(path);
+                await file.writeAsString(const JsonEncoder.withIndent('  ').convert(json));
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Configuration exported successfully'),
+                    backgroundColor: Color(0xFF40FF90),
+                  ),
+                );
+              } catch (e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Export failed: $e'), backgroundColor: Colors.red),
+                );
+              }
             },
           ),
 
@@ -1081,13 +1098,29 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
               foregroundColor: Colors.white54,
             ),
             onPressed: () async {
-              // TODO: Show file picker and load JSON
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Import preset from file'),
-                  backgroundColor: Color(0xFF4A9EFF),
-                ),
+              final result = await NativeFilePicker.pickFilesCompat(
+                dialogTitle: 'Import Feature Configuration',
+                allowedExtensions: ['json'],
               );
+              if (!context.mounted || result == null || result.files.single.path == null) return;
+              try {
+                final file = File(result.files.single.path!);
+                final content = await file.readAsString();
+                final json = jsonDecode(content) as Map<String, dynamic>;
+                provider.importConfiguration(json);
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Configuration imported successfully'),
+                    backgroundColor: Color(0xFF4A9EFF),
+                  ),
+                );
+              } catch (e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Import failed: $e'), backgroundColor: Colors.red),
+                );
+              }
             },
           ),
 
