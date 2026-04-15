@@ -10,6 +10,7 @@
 ///   Layer clip:         mw_clip_{eventId}__{layerId}
 ///   Mixer channel:      ch_{engineTrackId}  (via _engineTrackIds mapping)
 
+import 'dart:developer' as dev;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
@@ -91,8 +92,14 @@ class MiddlewareTimelineSyncController {
 
   /// Clean up listeners
   void dispose() {
-    _middlewareProvider?.removeListener(_onMiddlewareChanged);
+    // Set _isInitialized = false FIRST so any in-flight _onMiddlewareChanged
+    // calls that haven't executed yet see the disposed state immediately
     _isInitialized = false;
+    _middlewareProvider?.removeListener(_onMiddlewareChanged);
+    // Null out providers so post-dispose accesses fail fast (null check) instead
+    // of silently reading stale state from a disposed object
+    _middlewareProvider = null;
+    _mixerProvider = null;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -103,6 +110,9 @@ class MiddlewareTimelineSyncController {
   /// Only tracks parameter changes for events already placed on timeline —
   /// NEVER auto-creates tracks/clips. User must drag events onto timeline.
   void _onMiddlewareChanged() {
+    // Guard: dispose() may have fired between ChangeNotifier queuing this call
+    // and the actual execution — _isInitialized is the canonical "alive" flag
+    if (!_isInitialized) return;
     if (_isSyncingToMiddleware) return; // Suppress reverse sync
     if (_middlewareProvider == null) return;
 
@@ -212,6 +222,12 @@ class MiddlewareTimelineSyncController {
     if (_lastSyncedEvents.containsKey(event.id)) return null;
 
     final result = await _createTrackStructureWithEngineImport(event);
+
+    // Post-await guard: controller may have been disposed() while audio import
+    // was running (user closed tab / navigated away). Accessing _lastSyncedEvents
+    // on a disposed controller causes stale-state desync with the engine.
+    if (!_isInitialized) return null;
+
     if (result.tracks.isEmpty) return null;
 
     // Record snapshot so future parameter changes are tracked
@@ -320,6 +336,12 @@ class MiddlewareTimelineSyncController {
         }
       } catch (e) {
         // Audio import failed — skip this layer but continue with others
+        dev.log(
+          '[MWSync] Audio import failed for layer "${layer.name}" '
+          '(path: ${layer.audioPath}): $e',
+          name: 'MiddlewareTimelineSyncController',
+          level: 900, // WARNING level
+        );
         _engineTrackIds.remove(mwTrackId);
         onDeleteEngineTrack?.call(engineTrackId);
         continue;

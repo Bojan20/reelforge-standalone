@@ -1690,7 +1690,8 @@ class CompositeEventSystemProvider extends ChangeNotifier {
       _compositeEvents[id] = event;
       _syncCompositeToMiddleware(event);
     }
-    _selectedCompositeEventId = _compositeEvents.keys.first;
+    // SAFETY: use firstOrNull — template loop may produce 0 events if all filtered
+    _selectedCompositeEventId = _compositeEvents.keys.firstOrNull;
     notifyListeners();
   }
 

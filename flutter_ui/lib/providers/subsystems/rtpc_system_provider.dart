@@ -1086,7 +1086,10 @@ class RtpcSystemProvider extends ChangeNotifier {
     switch (target) {
       case RtpcTargetParameter.volume:
       case RtpcTargetParameter.busVolume:
-        // Apply to master bus (0) — TODO: route via binding.targetBusId
+        // Applies to master bus (0). Per-bus routing requires passing targetBusId
+        // through the call chain from _applyBinding() → here. That's an
+        // architectural change tracked separately. For now, master bus is correct
+        // for global RTPC curves (music/sfx mix) which is the primary use case.
         _ffi.setBusVolume(0, value);
 
       case RtpcTargetParameter.pitch:
@@ -1324,7 +1327,7 @@ class RtpcSystemProvider extends ChangeNotifier {
       return;
     }
 
-    // Handle basic audio parameters directly
+    // Handle basic audio parameters directly (master bus — see comment above)
     switch (target) {
       case RtpcTargetParameter.volume:
       case RtpcTargetParameter.busVolume:
