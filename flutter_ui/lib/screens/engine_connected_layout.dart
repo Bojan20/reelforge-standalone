@@ -392,6 +392,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   static const double _kMiddlewareRulerHeight = 24.0;
   static const double _kMiddlewareTrackHeaderWidth = 140.0;
 
+  // Floating EQ window dimensions
+  static const double _kEqWindowWidth = 700.0;
+  static const double _kEqWindowHeight = 520.0;
+
   // Current action being edited (header controls)
   String _headerActionType = 'Play';
   String _headerAssetId = ''; // Empty by default - user selects from imported sounds
@@ -6513,6 +6517,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                   slotIndex: slotIndex,
                   node: node,
                 );
+              } else {
+                _showSnackBar('No plugin loaded in slot ${slotIndex + 1}');
               }
             },
             onChannelInsertReorder: (channelId, oldIndex, newIndex) {
@@ -9282,10 +9288,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           }
         },
         onHorizontalDragEnd: (details) {
-          // Commit final offset
+          // Commit undo snapshot — setLayerOffsetContinuous already updated provider
+          // Re-read current offset from composite event (source of truth)
           final eventId = _selectedEventId;
           if (eventId.isNotEmpty) {
-            context.read<MiddlewareProvider>().setLayerOffset(eventId, layer.id, layer.offsetMs);
+            final provider = context.read<MiddlewareProvider>();
+            // setLayerOffset with the provider's current value triggers undo snapshot
+            provider.setLayerOffset(eventId, layer.id, layer.offsetMs);
           }
         },
         child: Container(
@@ -13127,8 +13136,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           borderRadius: BorderRadius.circular(8),
           color: Colors.transparent,
           child: Container(
-            width: 700,
-            height: 520,
+            width: _kEqWindowWidth,
+            height: _kEqWindowHeight,
             decoration: BoxDecoration(
               color: const Color(0xFF1A1A1E),
               borderRadius: BorderRadius.circular(8),
@@ -13149,8 +13158,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                     setState(() {
                       final current = _eqWindowPositions[channelId] ?? Offset(100.0 + idx * 50, 80.0 + idx * 30);
                       _eqWindowPositions[channelId] = Offset(
-                        (current.dx + details.delta.dx).clamp(0, MediaQuery.of(context).size.width - 700),
-                        (current.dy + details.delta.dy).clamp(0, MediaQuery.of(context).size.height - 520),
+                        (current.dx + details.delta.dx).clamp(0, MediaQuery.of(context).size.width - _kEqWindowWidth),
+                        (current.dy + details.delta.dy).clamp(0, MediaQuery.of(context).size.height - _kEqWindowHeight),
                       );
                     });
                   },
