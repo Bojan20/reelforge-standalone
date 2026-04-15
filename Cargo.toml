@@ -52,6 +52,8 @@ members = [
     "crates/rf-gpt-bridge",
     # CORTEX Bridge Daemon — standalone Corti ↔ ChatGPT browser daemon
     "crates/cortex-daemon",
+    # Slot Construction Kit — modular blueprint engine
+    "crates/rf-slot-builder",
 ]
 
 [workspace.package]

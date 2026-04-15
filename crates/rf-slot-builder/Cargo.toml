@@ -1,0 +1,28 @@
+[package]
+name = "rf-slot-builder"
+version = "0.1.0"
+edition = "2024"
+description = "FluxForge Slot Construction Kit — modular, composable slot game blueprint engine"
+license = "MIT"
+
+[dependencies]
+rf-stage = { path = "../rf-stage" }
+
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+uuid = { version = "1.8", features = ["v4", "v5", "serde"] }
+indexmap = { version = "2.2", features = ["serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+semver = { version = "1.0", features = ["serde"] }
+smallvec = { version = "1.13", features = ["serde"] }
+
+[dev-dependencies]
+serde_json = "1.0"
+
+[features]
+default = []
+# Enable HELIX Bus integration (fires audio events on transitions)
+helix-integration = []
+# Enable WASM-compatible serialization (no f64 NaN/Inf)
+wasm = []
