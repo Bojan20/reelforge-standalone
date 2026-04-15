@@ -6,6 +6,7 @@
 /// Usage: Access via NativeFFI.instance extension methods.
 
 import 'dart:convert';
+import 'dart:developer' as dev;
 import 'dart:ffi';
 import 'package:ffi/ffi.dart';
 import 'native_ffi.dart';
@@ -81,8 +82,8 @@ extension SlotLabV2FFI on NativeFFI {
         'slot_lab_v2_shutdown',
       );
       fn();
-    } catch (_) {
-      // ignored
+    } catch (e) {
+      dev.log('FFI: $e', name: 'SlotLabV2FFI');
     }
   }
 
@@ -247,8 +248,8 @@ extension SlotLabV2FFI on NativeFFI {
         void Function(int)
       >('slot_lab_v2_set_mode');
       fn(mode);
-    } catch (_) {
-      // ignored
+    } catch (e) {
+      dev.log('FFI: $e', name: 'SlotLabV2FFI');
     }
   }
 
@@ -260,8 +261,8 @@ extension SlotLabV2FFI on NativeFFI {
         void Function(double)
       >('slot_lab_v2_set_bet');
       fn(bet);
-    } catch (_) {
-      // ignored
+    } catch (e) {
+      dev.log('FFI: $e', name: 'SlotLabV2FFI');
     }
   }
 
@@ -273,8 +274,8 @@ extension SlotLabV2FFI on NativeFFI {
         void Function(int)
       >('slot_lab_v2_seed');
       fn(seed);
-    } catch (_) {
-      // ignored
+    } catch (e) {
+      dev.log('FFI: $e', name: 'SlotLabV2FFI');
     }
   }
 
@@ -285,8 +286,8 @@ extension SlotLabV2FFI on NativeFFI {
         'slot_lab_v2_reset_stats',
       );
       fn();
-    } catch (_) {
-      // ignored
+    } catch (e) {
+      dev.log('FFI: $e', name: 'SlotLabV2FFI');
     }
   }
 
@@ -459,8 +460,8 @@ extension SlotLabV2FFI on NativeFFI {
         'slot_lab_scenario_reset',
       );
       fn();
-    } catch (_) {
-      // ignored
+    } catch (e) {
+      dev.log('FFI: $e', name: 'SlotLabV2FFI');
     }
   }
 
@@ -471,8 +472,8 @@ extension SlotLabV2FFI on NativeFFI {
         'slot_lab_scenario_unload',
       );
       fn();
-    } catch (_) {
-      // ignored
+    } catch (e) {
+      dev.log('FFI: $e', name: 'SlotLabV2FFI');
     }
   }
 
