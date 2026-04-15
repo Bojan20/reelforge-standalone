@@ -4965,10 +4965,10 @@ impl PlaybackEngine {
 
                     cumulative_us += voice_start.elapsed().as_micros() as u64;
 
-                    if voice.spatial_source_id.is_some() {
+                    if let Some(src_id) = voice.spatial_source_id {
                         // Spatial voice — collect mono audio for HRTF batch render
                         // (fill_buffer already output mono when spatial_source_id is Some)
-                        spatial_voice_indices.push((voice_idx, voice.spatial_source_id.unwrap()));
+                        spatial_voice_indices.push((voice_idx, src_id));
                         // Copy mono audio (L channel = mono sum) into spatial voice buffer
                         let offset = spatial_voice_count * frames;
                         SPATIAL_VOICE_MONO.with(|buf| {

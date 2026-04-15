@@ -19,6 +19,17 @@ use std::path::{Path, PathBuf};
 use std::ptr;
 use std::sync::Arc;
 
+/// Returns a `*mut c_char` from a static literal. The literal MUST NOT contain NUL bytes.
+/// Uses `from_vec_unchecked` to avoid the double-unwrap anti-pattern on infallible CString.
+#[inline(always)]
+fn cstring_literal_raw(s: &str) -> *mut c_char {
+    // Safety: all call sites pass string literals verified to have no interior NUL
+    unsafe { CString::from_vec_unchecked(s.as_bytes().to_vec()) }.into_raw()
+}
+macro_rules! cstring_literal {
+    ($s:expr) => { cstring_literal_raw($s) };
+}
+
 use crate::audio_import::{AudioImporter, ImportedAudio};
 use crate::freeze::OfflineRenderer;
 use crate::playback::PlaybackEngine;
@@ -7866,7 +7877,10 @@ pub extern "C" fn insert_get_metering_json(track_id: u32, slot_index: u32) -> *m
             });
 
             let json_str = serde_json::to_string(&json).unwrap_or_default();
-            match CString::new(json_str) { Ok(s) => s.into_raw(), Err(_) => CString::new("{}").unwrap_or_else(|_| CString::new("{}").expect("static")).into_raw() }
+            match CString::new(json_str) {
+                Ok(s) => s.into_raw(),
+                Err(_) => cstring_literal!("{}"),
+            }
         } else {
             std::ptr::null_mut()
         }
@@ -17514,7 +17528,7 @@ pub extern "C" fn plugin_get_info_json(index: u32) -> *mut c_char {
         );
         CString::new(json).unwrap_or_default().into_raw()
     } else {
-        CString::new("null").unwrap_or_else(|_| CString::new("null").expect("static")).into_raw()
+        cstring_literal!("null")
     }
 }
 
@@ -17523,13 +17537,13 @@ pub extern "C" fn plugin_get_info_json(index: u32) -> *mut c_char {
 #[unsafe(no_mangle)]
 pub extern "C" fn plugin_get_all_params_json(instance_id: *const c_char) -> *mut c_char {
     if instance_id.is_null() {
-        return CString::new("[]").unwrap_or_else(|_| CString::new("[]").expect("static")).into_raw();
+        return cstring_literal!("[]");
     }
 
     let id_str = unsafe {
         match std::ffi::CStr::from_ptr(instance_id).to_str() {
             Ok(s) => s,
-            Err(_) => return CString::new("[]").unwrap_or_else(|_| CString::new("[]").expect("static")).into_raw(),
+            Err(_) => return cstring_literal!("[]"),
         }
     };
 
@@ -17559,7 +17573,7 @@ pub extern "C" fn plugin_get_all_params_json(instance_id: *const c_char) -> *mut
         let json = format!("[{}]", entries.join(","));
         CString::new(json).unwrap_or_default().into_raw()
     } else {
-        CString::new("[]").unwrap_or_else(|_| CString::new("[]").expect("static")).into_raw()
+        cstring_literal!("[]")
     }
 }
 
@@ -17633,10 +17647,10 @@ pub extern "C" fn plugin_preset_load_factory(instance_id: *const c_char, index: 
 /// Caller must free with plugin_free_string
 #[unsafe(no_mangle)]
 pub extern "C" fn plugin_presets_get_all_json(instance_id: *const c_char) -> *mut c_char {
-    if instance_id.is_null() { return CString::new("[]").unwrap_or_else(|_| CString::new("[]").expect("static")).into_raw(); }
+    if instance_id.is_null() { return cstring_literal!("[]"); }
     let id_str = unsafe {
         match std::ffi::CStr::from_ptr(instance_id).to_str() {
-            Ok(s) => s, Err(_) => return CString::new("[]").unwrap_or_else(|_| CString::new("[]").expect("static")).into_raw(),
+            Ok(s) => s, Err(_) => return cstring_literal!("[]"),
         }
     };
 
@@ -17655,7 +17669,7 @@ pub extern "C" fn plugin_presets_get_all_json(instance_id: *const c_char) -> *mu
         json.push(']');
         CString::new(json).unwrap_or_default().into_raw()
     } else {
-        CString::new("[]").unwrap_or_else(|_| CString::new("[]").expect("static")).into_raw()
+        cstring_literal!("[]")
     }
 }
 
@@ -17669,7 +17683,7 @@ pub extern "C" fn plugin_host_init() -> i32 {
 /// Placeholder FFI function (referenced by Dart bindings but not yet implemented)
 #[unsafe(no_mangle)]
 pub extern "C" fn my_ffi_function() -> *mut c_char {
-    CString::new("{}").unwrap_or_else(|_| CString::new("{}").expect("static")).into_raw()
+    cstring_literal!("{}")
 }
 
 /// Get list of active plugin instances as JSON
@@ -17678,7 +17692,7 @@ pub extern "C" fn my_ffi_function() -> *mut c_char {
 pub extern "C" fn plugin_get_instances_json() -> *mut c_char {
     // Note: PluginHost doesn't expose instances directly,
     // would need to track in FFI layer. Return empty for now.
-    CString::new("[]").unwrap_or_else(|_| CString::new("[]").expect("static")).into_raw()
+    cstring_literal!("[]")
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -19423,7 +19437,7 @@ pub extern "C" fn audio_pool_get_info(clip_id: u64) -> *mut c_char {
         );
         CString::new(json).unwrap_or_default().into_raw()
     } else {
-        CString::new("null").unwrap_or_else(|_| CString::new("null").expect("static")).into_raw()
+        cstring_literal!("null")
     }
 }
 
@@ -19451,7 +19465,7 @@ pub extern "C" fn audio_pool_memory_usage() -> u64 {
 pub extern "C" fn audio_get_metadata(path: *const c_char) -> *mut c_char {
     let path_str = match unsafe { cstr_to_string(path) } {
         Some(s) => s,
-        None => return CString::new("").unwrap_or_else(|_| CString::new("").expect("static")).into_raw(),
+        None => return cstring_literal!(""),
     };
 
     // Use symphonia to read metadata without decoding full audio
@@ -19461,7 +19475,7 @@ pub extern "C" fn audio_get_metadata(path: *const c_char) -> *mut c_char {
 
     let file = match File::open(&path_str) {
         Ok(f) => f,
-        Err(_) => return CString::new("").unwrap_or_else(|_| CString::new("").expect("static")).into_raw(),
+        Err(_) => return cstring_literal!(""),
     };
 
     let mss = MediaSourceStream::new(Box::new(file), Default::default());
@@ -19480,13 +19494,13 @@ pub extern "C" fn audio_get_metadata(path: *const c_char) -> *mut c_char {
         &Default::default(),
     ) {
         Ok(p) => p,
-        Err(_) => return CString::new("").unwrap_or_else(|_| CString::new("").expect("static")).into_raw(),
+        Err(_) => return cstring_literal!(""),
     };
 
     let mut format = probed.format;
     let track = match format.default_track() {
         Some(t) => t.clone(),
-        None => return CString::new("").unwrap_or_else(|_| CString::new("").expect("static")).into_raw(),
+        None => return cstring_literal!(""),
     };
 
     let codec_params = &track.codec_params;
@@ -19616,13 +19630,13 @@ pub extern "C" fn audio_pool_register_instant(path: *const c_char) -> u64 {
 pub extern "C" fn audio_pool_register_batch(paths_json: *const c_char) -> *mut c_char {
     let json_str = match unsafe { cstr_to_string(paths_json) } {
         Some(s) => s,
-        None => return CString::new("[]").unwrap_or_else(|_| CString::new("[]").expect("static")).into_raw(),
+        None => return cstring_literal!("[]"),
     };
 
     // Parse JSON array of paths
     let paths: Vec<String> = match serde_json::from_str(&json_str) {
         Ok(p) => p,
-        Err(_) => return CString::new("[]").unwrap_or_else(|_| CString::new("[]").expect("static")).into_raw(),
+        Err(_) => return cstring_literal!("[]"),
     };
 
     let mut ids = Vec::with_capacity(paths.len());
