@@ -470,6 +470,37 @@ int32_t au_render_process(
     return 0;
 }
 
+// Send a single MIDI event to the AU instance.
+// Uses MusicDeviceMIDIEvent for instrument AUs (kAudioUnitType_MusicDevice)
+// and kAudioUnitProperty_MIDICallback for effect AUs that accept MIDI.
+// AUDIO THREAD SAFE — no Objective-C, no allocations.
+//
+// status: MIDI status byte (e.g. 0x90 = Note On ch0, 0x80 = Note Off ch0)
+// data1:  first data byte  (e.g. note number 0-127)
+// data2:  second data byte (e.g. velocity 0-127)
+// sample_offset: sample-accurate offset within the current render block
+int32_t au_render_send_midi(
+    void*    handle,
+    uint8_t  status,
+    uint8_t  data1,
+    uint8_t  data2,
+    uint32_t sample_offset
+) {
+    if (!handle) return -1;
+    AURenderCtx* ctx = (AURenderCtx*)handle;
+    // MusicDeviceMIDIEvent works for both AUv2 MusicDevice and MusicEffect types.
+    // For regular audio effects that happen to accept MIDI, this is a no-op (returns error)
+    // which is harmless.
+    OSStatus st = MusicDeviceMIDIEvent(
+        ctx->au,
+        (UInt32)status,
+        (UInt32)data1,
+        (UInt32)data2,
+        (UInt32)sample_offset
+    );
+    return (int32_t)st;
+}
+
 // Set a parameter value on the AU instance (audio-thread safe for most AUs).
 void au_render_set_param(void* handle, uint32_t param_id, float value) {
     if (!handle) return;

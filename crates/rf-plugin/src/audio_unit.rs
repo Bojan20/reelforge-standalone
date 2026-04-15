@@ -73,6 +73,17 @@ unsafe extern "C" {
         ),
     );
 
+    /// Send a single MIDI event to the AU instance.
+    /// Uses MusicDeviceMIDIEvent — audio-thread safe, zero allocations.
+    /// Returns 0 on success, non-zero OSStatus on failure (harmless for non-MIDI AUs).
+    fn au_render_send_midi(
+        handle: *mut c_void,
+        status: u8,
+        data1: u8,
+        data2: u8,
+        sample_offset: u32,
+    ) -> i32;
+
     /// Reset AU internal state (e.g., on transport restart).
     fn au_render_reset(handle: *mut c_void);
 
@@ -685,7 +696,7 @@ impl PluginInstance for AudioUnitInstance {
         &mut self,
         input: &AudioBuffer,
         output: &mut AudioBuffer,
-        _midi_in: &rf_core::MidiBuffer,
+        midi_in: &rf_core::MidiBuffer,
         _midi_out: &mut rf_core::MidiBuffer,
         _context: &ProcessContext,
     ) -> PluginResult<()> {
@@ -702,7 +713,30 @@ impl PluginInstance for AudioUnitInstance {
 
         #[cfg(target_os = "macos")]
         if !handle.is_null() {
-            // ── REAL AudioUnit rendering path ──────────────────────────────────
+            // ── BUG#24 FIX: Forward MIDI events to AU via MusicDeviceMIDIEvent ──
+            //
+            // Must happen BEFORE AudioUnitRender so the AU processes the events
+            // in the same block. MusicDeviceMIDIEvent is audio-thread safe —
+            // zero allocations, zero locks, zero ObjC.
+            if self.info.has_midi_input && !midi_in.is_empty() {
+                for event in midi_in.events() {
+                    let mut bytes = [0u8; 3];
+                    let byte_len = event.to_bytes(&mut bytes);
+                    if byte_len >= 1 {
+                        unsafe {
+                            au_render_send_midi(
+                                handle,
+                                bytes[0],
+                                if byte_len >= 2 { bytes[1] } else { 0 },
+                                if byte_len >= 3 { bytes[2] } else { 0 },
+                                event.sample_offset,
+                            );
+                        }
+                    }
+                }
+            }
+
+            // ── AudioUnit rendering path ──────────────────────────────────────
             //
             // Build stack-allocated pointer arrays (zero heap allocation on audio thread).
             // Max 8 channels — covers stereo, quad, 5.1, 7.1.
