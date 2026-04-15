@@ -104,6 +104,7 @@ import '../providers/slot_lab/pacing_engine_provider.dart';
 import '../providers/slot_lab/gad_provider.dart';
 import '../providers/slot_lab/sss_provider.dart';
 import '../providers/slot_lab/neuro_audio_provider.dart';
+import '../providers/slot_lab/math_audio_bridge_provider.dart';
 import '../providers/slot_lab/game_flow_provider.dart';
 import '../providers/fluxmacro_provider.dart';
 import '../providers/slot_lab/stage_flow_provider.dart';
@@ -442,6 +443,13 @@ class ServiceLocator {
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<NeuroAudioProvider>(
       () => NeuroAudioProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.10b: MathAudio Bridge™ Provider (STUB2 — Math → Audio Map)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<MathAudioBridgeProvider>(
+      () => MathAudioBridgeProvider(),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
