@@ -3409,7 +3409,7 @@ impl TrackManager {
         let mut result = Vec::new();
         for (track_id, mut ranges) in by_track {
             // Sort by start time
-            ranges.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+            ranges.sort_by(|a, b| a.0.total_cmp(&b.0));
 
             // Merge overlapping/adjacent ranges
             let mut merged: Vec<(f64, f64)> = Vec::new();
@@ -3998,7 +3998,7 @@ impl TrackManager {
     /// Get all markers sorted by time
     pub fn get_markers(&self) -> Vec<Marker> {
         let mut markers = self.markers.read().clone();
-        markers.sort_by(|a, b| a.time.partial_cmp(&b.time).unwrap());
+        markers.sort_by(|a, b| a.time.total_cmp(&b.time));
         markers
     }
 

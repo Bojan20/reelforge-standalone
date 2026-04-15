@@ -965,7 +965,7 @@ impl Channel {
             }
 
             // Process through plugin chain (split borrow via temporary take)
-            let mut chain = self.plugin_chain.take().unwrap();
+            let mut chain = self.plugin_chain.take().expect("plugin_chain confirmed Some by guard above");
             let ok = chain
                 .process(&self.plugin_input_buf, &mut self.plugin_output_buf)
                 .is_ok();
