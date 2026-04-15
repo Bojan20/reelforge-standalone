@@ -27,6 +27,7 @@ pub mod containers;
 pub mod helix_graph;
 pub mod helix_voice;
 pub mod helix_compliance;
+pub mod helix_predictive;
 
 use std::collections::HashMap;
 use std::sync::Arc;
