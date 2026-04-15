@@ -640,7 +640,8 @@ class _TimeStretchEditorState extends State<TimeStretchEditor>
   /// Parse numeric clip ID from state.clipId (e.g. "clip_42" → 42)
   int? _parseClipId() {
     final id = widget.state.clipId;
-    return int.tryParse(id.replaceAll(RegExp(r'[^0-9]'), ''));
+    final match = RegExp(r'\d+').firstMatch(id);
+    return match != null ? int.tryParse(match.group(0)!) : null;
   }
 
   /// Analyze BPM for current clip — self-contained FFI call or delegate to parent.

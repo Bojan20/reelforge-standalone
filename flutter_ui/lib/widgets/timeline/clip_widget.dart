@@ -1754,7 +1754,8 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
 
   /// Returns true if cache was actually updated (triggers setState in callers)
   bool _loadCacheOnce() {
-    final clipIdNum = int.tryParse(widget.clipId.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+    final clipIdMatch = RegExp(r'\d+').firstMatch(widget.clipId);
+    final clipIdNum = (clipIdMatch != null ? int.tryParse(clipIdMatch.group(0)!) : null) ?? 0;
     if (clipIdNum <= 0 || widget.duration <= 0) return false;
 
     // Pixel-perfect: query exactly as many data points as screen pixels

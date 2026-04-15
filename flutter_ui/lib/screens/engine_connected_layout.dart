@@ -240,6 +240,13 @@ class _SampleRateMismatch {
   });
 }
 
+/// Parse first numeric segment from compound ID string.
+/// Correct: "clip_12_track_3" → 12. Wrong replaceAll approach gives 123.
+int? _parseFirstNumericId(String id) {
+  final match = RegExp(r'\d+').firstMatch(id);
+  return match != null ? int.tryParse(match.group(0)!) : null;
+}
+
 class EngineConnectedLayout extends StatefulWidget {
   final String? projectName;
   final VoidCallback? onBackToLauncher;
@@ -331,7 +338,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   /// Sync warp state from engine to a Dart TimelineClip.
   /// Call after any warp operation (detect, add, move, quantize, enable/disable).
   void _refreshClipWarpState(String clipId) {
-    final numericId = int.tryParse(clipId.replaceAll(RegExp(r'[^0-9]'), ''));
+    final numericId = _parseFirstNumericId(clipId);
     if (numericId == null) return;
     final snapshot = NativeFFI.instance.clipGetWarpState(numericId);
     if (snapshot == null) return;
@@ -8178,7 +8185,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
       // Warp marker callbacks
       onClipWarpMarkerMove: (clipId, markerId, newTimelinePos) {
-        final numericClipId = int.tryParse(clipId.replaceAll(RegExp(r'[^0-9]'), ''));
+        final numericClipId = _parseFirstNumericId(clipId);
         if (numericClipId == null) return;
 
         // Find the moved marker to compute delta
@@ -8207,7 +8214,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             for (final m in otherClip.warpMarkers) {
               if (m.locked) continue;
               if (movedMarker != null && (m.timelinePos - movedMarker.timelinePos).abs() < 0.05) {
-                final otherNumId = int.tryParse(otherClip.id.replaceAll(RegExp(r'[^0-9]'), ''));
+                final otherNumId = _parseFirstNumericId(otherClip.id);
                 if (otherNumId != null) {
                   NativeFFI.instance.clipMoveWarpMarker(otherNumId, m.id, m.timelinePos + delta);
                   _refreshClipWarpState(otherClip.id);
@@ -8219,7 +8226,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         }
       },
       onClipWarpMarkerMoveEnd: (clipId, markerId, originalPos, finalPos) {
-        final numericClipId = int.tryParse(clipId.replaceAll(RegExp(r'[^0-9]'), ''));
+        final numericClipId = _parseFirstNumericId(clipId);
         if (numericClipId == null) return;
         UiUndoManager.instance.record(GenericUndoAction(
           description: 'Move Warp Marker',
@@ -8234,7 +8241,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         ));
       },
       onClipWarpMarkerCreate: (clipId, timelinePos) {
-        final numericClipId = int.tryParse(clipId.replaceAll(RegExp(r'[^0-9]'), ''));
+        final numericClipId = _parseFirstNumericId(clipId);
         if (numericClipId == null) return;
         final markerId = NativeFFI.instance.clipAddWarpMarker(
           numericClipId, timelinePos, timelinePos, timeline.WarpMarkerKind.manual,
@@ -8261,7 +8268,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       },
       // Phase 5: Quantize warp markers to grid
       onClipWarpQuantize: (clipId, gridInterval, strength) {
-        final numericClipId = int.tryParse(clipId.replaceAll(RegExp(r'[^0-9]'), ''));
+        final numericClipId = _parseFirstNumericId(clipId);
         if (numericClipId == null) return;
         // Snapshot pre-quantize state for undo
         final preState = NativeFFI.instance.clipGetWarpState(numericClipId);
@@ -8286,7 +8293,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       },
       // Phase 5: Warp to tempo — detect transients, create markers, quantize to grid
       onClipWarpToTempo: (clipId) {
-        final numericClipId = int.tryParse(clipId.replaceAll(RegExp(r'[^0-9]'), ''));
+        final numericClipId = _parseFirstNumericId(clipId);
         if (numericClipId == null) return;
         // Snapshot pre-warp state for undo
         final preState = NativeFFI.instance.clipGetWarpState(numericClipId);
@@ -8329,7 +8336,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       },
       // Per-segment pitch: right-click on warp marker → set pitch for that segment
       onClipWarpMarkerPitchChanged: (clipId, markerId, semitones) {
-        final numericClipId = int.tryParse(clipId.replaceAll(RegExp(r'[^0-9]'), ''));
+        final numericClipId = _parseFirstNumericId(clipId);
         if (numericClipId == null) return;
         // Capture old pitch for undo
         final sourceClip = _clips.firstWhere((c) => c.id == clipId, orElse: () => _clips.first);
@@ -9893,7 +9900,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     if (clip == null) return;
 
     // Parse clip ID to get the numeric clip ID for FFI
-    final clipIdNumeric = int.tryParse(clip.id.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+    final clipIdNumeric = _parseFirstNumericId(clip.id) ?? 0;
     if (clipIdNumeric == 0) {
       return;
     }
@@ -13511,8 +13518,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                           _showSnackBar('No clip selected — select a clip on the timeline first');
                           return;
                         }
-                        final numericClipId = int.tryParse(
-                            selectedClip.id.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+                        final numericClipId = _parseFirstNumericId(selectedClip.id) ?? 0;
                         if (numericClipId <= 0) {
                           _showSnackBar('Cannot detect transients: invalid clip ID');
                           return;
@@ -13754,8 +13760,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                           _showSnackBar('No clip selected — select a clip on the timeline first');
                           return;
                         }
-                        final numericClipId = int.tryParse(
-                            selectedClip.id.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+                        final numericClipId = _parseFirstNumericId(selectedClip.id) ?? 0;
                         if (numericClipId <= 0) {
                           _showSnackBar('Cannot analyze BPM: invalid clip ID');
                           return;
@@ -13822,8 +13827,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                                   .firstWhere((c) => c?.selected == true, orElse: () => null)
                                   ?? (_clips.isNotEmpty ? _clips.first : null);
                               if (selectedClip == null) return;
-                              final numericClipId = int.tryParse(
-                                  selectedClip.id.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+                              final numericClipId = _parseFirstNumericId(selectedClip.id) ?? 0;
                               if (numericClipId <= 0) return;
                               if (!selectedClip.warpEnabled) {
                                 NativeFFI.instance.clipWarpEnable(numericClipId, true);
@@ -14422,7 +14426,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   /// Get selected track ID as int for DSP panels (0 = master)
   int get _selectedTrackIdInt {
     if (_selectedTrackId == null || _selectedTrackId == 'master') return 0;
-    return int.tryParse(_selectedTrackId!.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+    return _parseFirstNumericId(_selectedTrackId!) ?? 0;
   }
 
   /// Get project sample rate with safe fallback
