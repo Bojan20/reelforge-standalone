@@ -8,10 +8,11 @@
 // - Coin Flip (Heads/Tails) - 50% chance
 // - Ladder Climb - 50% per step
 //
-// Note: UI-only simulator (no FFI), uses Dart-side logic.
+// All RNG via Rust FFI — zero dart:math.Random usage.
 
-import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
+import '../../../src/rust/native_ffi.dart';
 import '../../../theme/fluxforge_theme.dart';
 
 /// Gamble game type
@@ -104,7 +105,7 @@ class GambleConfig {
   });
 }
 
-/// Gamble Simulator Widget
+/// Gamble Simulator Widget — uses Rust FFI for all RNG
 class GambleSimulator extends StatefulWidget {
   final GambleConfig config;
   final double initialStake;
@@ -125,7 +126,7 @@ class GambleSimulator extends StatefulWidget {
 
 class _GambleSimulatorState extends State<GambleSimulator>
     with SingleTickerProviderStateMixin {
-  final _random = Random();
+  NativeFFI? _ffi;
 
   late double _currentAmount;
   int _attemptsUsed = 0;
@@ -142,6 +143,12 @@ class _GambleSimulatorState extends State<GambleSimulator>
   void initState() {
     super.initState();
     _currentAmount = widget.initialStake;
+
+    try {
+      _ffi = GetIt.instance<NativeFFI>();
+      // Trigger gamble in Rust engine
+      _ffi?.gambleForceTrigger(widget.initialStake);
+    } catch (_) {}
 
     _resultController = AnimationController(
       vsync: this,
@@ -180,51 +187,49 @@ class _GambleSimulatorState extends State<GambleSimulator>
   void _onChoice(GambleChoice choice) {
     if (!_waitingForChoice || _gameOver) return;
 
+    final choiceIndex = _availableChoices.indexOf(choice);
+    if (choiceIndex < 0) return;
+
     setState(() {
       _waitingForChoice = false;
       _lastChoice = choice;
     });
 
-    // Determine winning choice
-    final choices = _availableChoices;
-    _winningChoice = choices[_random.nextInt(choices.length)];
+    // Delegate to Rust FFI for RNG-backed result
+    final result = _ffi?.gambleMakeChoice(choiceIndex);
 
-    // Determine result
-    final roll = _random.nextDouble();
-    GambleResult result;
+    // Parse FFI response: {"won": bool, "new_stake": double, "game_over": bool}
+    final bool won = result?['won'] as bool? ?? false;
+    final double newStake = (result?['new_stake'] as num?)?.toDouble() ?? 0.0;
+    final bool ffiGameOver = result?['game_over'] as bool? ?? false;
 
-    if (_lastChoice == _winningChoice) {
-      if (roll < widget.config.drawChance) {
-        result = GambleResult.draw;
-      } else {
-        result = GambleResult.win;
-      }
+    GambleResult gambleResult;
+    if (won) {
+      gambleResult = GambleResult.win;
+      // Determine winning choice from available choices
+      _winningChoice = choice;
+    } else if (newStake == _currentAmount) {
+      gambleResult = GambleResult.draw;
+      _winningChoice = choice;
     } else {
-      result = GambleResult.lose;
+      gambleResult = GambleResult.lose;
+      // Pick a different choice as the "winning" one for display
+      final others = _availableChoices.where((c) => c != choice).toList();
+      _winningChoice = others.isNotEmpty ? others.first : choice;
     }
 
     // Animate reveal
     Future.delayed(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
       _resultController.forward(from: 0);
 
       setState(() {
-        _lastResult = result;
+        _lastResult = gambleResult;
         _attemptsUsed++;
+        _currentAmount = newStake;
 
-        switch (result) {
-          case GambleResult.win:
-            _currentAmount *= widget.config.gameType.winMultiplier;
-            if (_currentAmount > widget.config.maxWinCap) {
-              _currentAmount = widget.config.maxWinCap;
-            }
-            break;
-          case GambleResult.lose:
-            _currentAmount = 0;
-            _gameOver = true;
-            break;
-          case GambleResult.draw:
-            // Keep current amount
-            break;
+        if (gambleResult == GambleResult.lose || ffiGameOver) {
+          _gameOver = true;
         }
 
         if (_attemptsUsed >= widget.config.maxAttempts) {
@@ -244,12 +249,14 @@ class _GambleSimulatorState extends State<GambleSimulator>
 
       widget.onGambleComplete?.call(
         _currentAmount,
-        result == GambleResult.win,
+        gambleResult == GambleResult.win,
       );
     });
   }
 
   void _onCollect() {
+    // Collect via FFI
+    _ffi?.gambleCollect();
     widget.onCollect?.call();
   }
 

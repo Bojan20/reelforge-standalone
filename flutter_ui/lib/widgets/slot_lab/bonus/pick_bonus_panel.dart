@@ -8,10 +8,11 @@
 // - Running total and multiplier display
 // - Animation for reveal
 //
-// Note: UI-only simulator (no FFI), uses Dart-side logic.
+// All RNG via Rust FFI — zero dart:math.Random usage.
 
-import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
+import '../../../src/rust/native_ffi.dart';
 import '../../../theme/fluxforge_theme.dart';
 
 /// Prize type in pick bonus
@@ -47,14 +48,14 @@ enum PickPrizeType {
 /// A single pickable item in the grid
 class PickBonusItem {
   final int index;
-  final PickPrizeType prizeType;
-  final double value;
+  PickPrizeType prizeType;
+  double value;
   bool revealed;
 
   PickBonusItem({
     required this.index,
-    required this.prizeType,
-    required this.value,
+    this.prizeType = PickPrizeType.coins,
+    this.value = 0,
     this.revealed = false,
   });
 }
@@ -76,7 +77,7 @@ class PickBonusConfig {
   });
 }
 
-/// Pick Bonus Panel Widget
+/// Pick Bonus Panel Widget — uses Rust FFI for all RNG
 class PickBonusPanel extends StatefulWidget {
   final PickBonusConfig config;
   final VoidCallback? onComplete;
@@ -95,7 +96,7 @@ class PickBonusPanel extends StatefulWidget {
 
 class _PickBonusPanelState extends State<PickBonusPanel>
     with TickerProviderStateMixin {
-  final _random = Random();
+  NativeFFI? _ffi;
   List<PickBonusItem> _items = [];
   double _totalWin = 0;
   double _multiplier = 1.0;
@@ -110,6 +111,11 @@ class _PickBonusPanelState extends State<PickBonusPanel>
   @override
   void initState() {
     super.initState();
+
+    try {
+      _ffi = GetIt.instance<NativeFFI>();
+    } catch (_) {}
+
     _revealController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
@@ -129,7 +135,16 @@ class _PickBonusPanelState extends State<PickBonusPanel>
 
   void _initializeGame() {
     final config = widget.config;
-    _items = [];
+
+    // Trigger pick bonus in Rust engine
+    _ffi?.pickBonusForceTrigger();
+
+    // Build unrevealed grid — Rust decides prizes on each pick
+    _items = List.generate(
+      config.totalItems,
+      (i) => PickBonusItem(index: i),
+    );
+
     _totalWin = 0;
     _multiplier = 1.0;
     _endGamesHit = 0;
@@ -137,68 +152,19 @@ class _PickBonusPanelState extends State<PickBonusPanel>
     _lastRevealedIndex = null;
     _picksRemaining = config.totalItems;
 
-    // Add end game items
-    for (int i = 0; i < config.endGameCount; i++) {
-      _items.add(PickBonusItem(
-        index: i,
-        prizeType: PickPrizeType.endGame,
-        value: 0,
-      ));
-    }
-
-    // Add one collect
-    _items.add(PickBonusItem(
-      index: _items.length,
-      prizeType: PickPrizeType.collect,
-      value: 0,
-    ));
-
-    // Fill remaining with prizes
-    final remaining = config.totalItems - config.endGameCount - 1;
-    for (int i = 0; i < remaining; i++) {
-      final roll = _random.nextDouble();
-      PickPrizeType type;
-      double value;
-
-      if (roll < 0.02) {
-        // 2% jackpot
-        type = PickPrizeType.jackpot;
-        value = 1000 * (_random.nextInt(4) + 1).toDouble();
-      } else if (roll < 0.10) {
-        // 8% extra picks
-        type = PickPrizeType.extraPicks;
-        value = 1;
-      } else if (roll < 0.25) {
-        // 15% multiplier
-        type = PickPrizeType.multiplier;
-        value = config.multiplierValues[
-            _random.nextInt(config.multiplierValues.length)];
-      } else {
-        // ~75% coins
-        type = PickPrizeType.coins;
-        value = config.coinValues[_random.nextInt(config.coinValues.length)] *
-            config.baseBet;
-      }
-
-      _items.add(PickBonusItem(
-        index: _items.length,
-        prizeType: type,
-        value: value,
-      ));
-    }
-
-    // Shuffle
-    _items.shuffle(_random);
-    for (int i = 0; i < _items.length; i++) {
-      _items[i] = PickBonusItem(
-        index: i,
-        prizeType: _items[i].prizeType,
-        value: _items[i].value,
-        revealed: false,
-      );
-    }
-
     setState(() {});
+  }
+
+  PickPrizeType _parsePrizeType(String? type) {
+    switch (type) {
+      case 'coins': return PickPrizeType.coins;
+      case 'multiplier': return PickPrizeType.multiplier;
+      case 'extra_picks': return PickPrizeType.extraPicks;
+      case 'jackpot': return PickPrizeType.jackpot;
+      case 'end_game': return PickPrizeType.endGame;
+      case 'collect': return PickPrizeType.collect;
+      default: return PickPrizeType.coins;
+    }
   }
 
   void _onItemTap(int index) {
@@ -207,23 +173,33 @@ class _PickBonusPanelState extends State<PickBonusPanel>
     final item = _items.firstWhere((i) => i.index == index);
     if (item.revealed) return;
 
+    // Ask Rust for the prize via FFI
+    final result = _ffi?.pickBonusMakePick();
+
+    // Parse: {"prize_type": "coins", "prize_value": 100.0, "game_over": false}
+    final prizeType = _parsePrizeType(result?['prize_type'] as String?);
+    final prizeValue = (result?['prize_value'] as num?)?.toDouble() ?? 0.0;
+    final ffiGameOver = result?['game_over'] as bool? ?? false;
+
     setState(() {
       item.revealed = true;
+      item.prizeType = prizeType;
+      item.value = prizeValue;
       _lastRevealedIndex = index;
       _picksRemaining--;
 
-      switch (item.prizeType) {
+      switch (prizeType) {
         case PickPrizeType.coins:
-          _totalWin += item.value * _multiplier;
+          _totalWin += prizeValue * _multiplier;
           break;
         case PickPrizeType.multiplier:
-          _multiplier *= item.value;
+          _multiplier *= prizeValue;
           break;
         case PickPrizeType.extraPicks:
-          _picksRemaining += item.value.toInt();
+          _picksRemaining += prizeValue.toInt();
           break;
         case PickPrizeType.jackpot:
-          _totalWin += item.value * _multiplier;
+          _totalWin += prizeValue * _multiplier;
           break;
         case PickPrizeType.endGame:
           _endGamesHit++;
@@ -233,9 +209,14 @@ class _PickBonusPanelState extends State<PickBonusPanel>
           break;
       }
 
-      // Check if game ends
-      if (_endGamesHit >= widget.config.endGameCount) {
+      if (ffiGameOver || _endGamesHit >= widget.config.endGameCount) {
         _gameOver = true;
+      }
+
+      // Sync totals from Rust (authoritative)
+      if (_ffi != null) {
+        _totalWin = _ffi!.pickBonusTotalWin();
+        _multiplier = _ffi!.pickBonusMultiplier();
       }
     });
 
@@ -243,6 +224,8 @@ class _PickBonusPanelState extends State<PickBonusPanel>
     widget.onWinUpdated?.call(_totalWin);
 
     if (_gameOver) {
+      // Complete in Rust and get final payout
+      _ffi?.pickBonusComplete();
       Future.delayed(const Duration(milliseconds: 800), () {
         widget.onComplete?.call();
       });
@@ -361,9 +344,9 @@ class _PickBonusPanelState extends State<PickBonusPanel>
   }
 
   Widget _buildGrid() {
-    final columns = 4;
+    const columns = 4;
     final rows = (widget.config.totalItems / columns).ceil();
-    final cellSize = 70.0;
+    const cellSize = 70.0;
 
     return Center(
       child: Container(
@@ -380,7 +363,7 @@ class _PickBonusPanelState extends State<PickBonusPanel>
               children: List.generate(columns, (col) {
                 final index = row * columns + col;
                 if (index >= _items.length) {
-                  return SizedBox(width: cellSize, height: cellSize);
+                  return const SizedBox(width: cellSize, height: cellSize);
                 }
                 return _buildCell(_items[index], cellSize);
               }),
@@ -565,7 +548,7 @@ class _PickBonusPanelState extends State<PickBonusPanel>
           const SizedBox(height: 2),
           Text(
             value,
-            style: TextStyle(
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 14,
               fontWeight: FontWeight.bold,
