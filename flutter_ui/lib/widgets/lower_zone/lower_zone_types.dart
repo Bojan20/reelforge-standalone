@@ -820,7 +820,7 @@ enum SlotLabLogicSubTab { behavior, triggers, gate, priority, orchestration, emo
 enum SlotLabIntelSubTab { build, flow, sim, diagnostic, templates, export, coverage, inspector }
 
 /// MONITOR sub-tabs — UCP monitoring zones (timeline, energy, spectral, etc.)
-enum SlotLabMonitorSubTab { timeline, energy, voice, spectral, fatigue, ail, neuro, mathBridge, rgai, debug, export, ucpExport, profiler, profilerAdv, evtDebug, resource, voiceStats }
+enum SlotLabMonitorSubTab { timeline, energy, voice, spectral, fatigue, ail, neuro, mathBridge, rgai, debug, export, ucpExport, abTest, profiler, profilerAdv, evtDebug, resource, voiceStats }
 
 extension SlotLabStagesSubTabX on SlotLabStagesSubTab {
   String get label => ['Trace', 'Timeline', 'Timing', 'Layers'][index];
@@ -933,8 +933,8 @@ extension SlotLabIntelSubTabX on SlotLabIntelSubTab {
 }
 
 extension SlotLabMonitorSubTabX on SlotLabMonitorSubTab {
-  String get label => ['Timeline', 'Energy', 'Voice', 'Spectral', 'Fatigue', 'AIL', 'Neuro', 'Math', 'RGAI', 'Debug', 'Export', 'UCP', 'Profiler', 'Prof Adv', 'Evt Debug', 'Resources', 'Voice Stats'][index];
-  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 'A', 'Z', 'S', 'D', 'F', 'G', 'H'][index];
+  String get label => ['Timeline', 'Energy', 'Voice', 'Spectral', 'Fatigue', 'AIL', 'Neuro', 'Math', 'RGAI', 'Debug', 'Export', 'UCP', 'A/B', 'Profiler', 'Prof Adv', 'Evt Debug', 'Resources', 'Voice Stats'][index];
+  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 'A', 'Z', 'X', 'S', 'D', 'F', 'G', 'H'][index];
   String get tooltip => [
     'Event timeline — real-time event activity log',
     'Energy — emotional energy arc monitor',
@@ -948,6 +948,7 @@ extension SlotLabMonitorSubTabX on SlotLabMonitorSubTab {
     'Debug — raw debug output and FFI trace',
     'Export — monitoring data export',
     'UCP Export — universal casino protocol multi-target export',
+    'A/B Test — audio package A/B testing analytics with statistical significance',
     'Profiler — real-time performance metrics',
     'Advanced profiler — detailed CPU/latency breakdown',
     'Event debugger — event trigger/stop tracing',
