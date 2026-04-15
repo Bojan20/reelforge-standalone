@@ -856,6 +856,7 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
             icon: const Icon(Icons.edit, size: 14),
             color: Colors.white38,
             onPressed: () {
+              if (!mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('RTPC binding editor — coming soon'), duration: Duration(seconds: 2)),
               );
@@ -867,6 +868,7 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
             icon: const Icon(Icons.delete_outline, size: 14),
             color: Colors.white38,
             onPressed: () {
+              if (!mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('RTPC binding delete — coming soon'), duration: Duration(seconds: 2)),
               );
