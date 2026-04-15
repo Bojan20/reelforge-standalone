@@ -221,6 +221,7 @@ class AudioPreviewQueueState extends State<AudioPreviewQueue> {
     setState(() => _progress = 0.0);
 
     await widget.onPlayAudio?.call(item.audioPath);
+    if (!mounted) return;
 
     // Simulate playback progress
     final duration = item.duration ?? const Duration(seconds: 3);
@@ -230,6 +231,7 @@ class AudioPreviewQueueState extends State<AudioPreviewQueue> {
 
     _playbackTimer?.cancel();
     _playbackTimer = Timer.periodic(tickInterval, (timer) {
+      if (!mounted) { timer.cancel(); return; }
       currentTick++;
       setState(() => _progress = currentTick / totalTicks);
 
@@ -241,6 +243,7 @@ class AudioPreviewQueueState extends State<AudioPreviewQueue> {
   }
 
   void _onItemComplete() {
+    if (!mounted) return;
     if (_currentIndex < _queue.length - 1) {
       setState(() => _currentIndex++);
       _playCurrentItem();
