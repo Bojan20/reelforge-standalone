@@ -20,6 +20,7 @@ import '../ucp/fatigue_stability_dashboard.dart';
 import '../ucp/ail_panel_zone.dart';
 import '../ucp/neuro_audio_monitor.dart';
 import '../ucp/math_audio_bridge_panel.dart';
+import '../ucp/rgai_compliance_panel.dart';
 import '../ucp/debug_monitor_zone.dart';
 import '../ucp/export_zone.dart';
 
@@ -39,6 +40,7 @@ class SlotLabMonitorTabContent extends StatelessWidget {
       SlotLabMonitorSubTab.ail => const AilPanelZone(),
       SlotLabMonitorSubTab.neuro => const NeuroAudioMonitor(),
       SlotLabMonitorSubTab.mathBridge => const MathAudioBridgePanel(),
+      SlotLabMonitorSubTab.rgai => const RgaiCompliancePanel(),
       SlotLabMonitorSubTab.debug => const DebugMonitorZone(),
       SlotLabMonitorSubTab.export => const ExportZone(),
       SlotLabMonitorSubTab.profiler => const EventProfilerPanel(),

@@ -820,7 +820,7 @@ enum SlotLabLogicSubTab { behavior, triggers, gate, priority, orchestration, emo
 enum SlotLabIntelSubTab { build, flow, sim, diagnostic, templates, export, coverage, inspector }
 
 /// MONITOR sub-tabs — UCP monitoring zones (timeline, energy, spectral, etc.)
-enum SlotLabMonitorSubTab { timeline, energy, voice, spectral, fatigue, ail, neuro, mathBridge, debug, export, profiler, profilerAdv, evtDebug, resource, voiceStats }
+enum SlotLabMonitorSubTab { timeline, energy, voice, spectral, fatigue, ail, neuro, mathBridge, rgai, debug, export, profiler, profilerAdv, evtDebug, resource, voiceStats }
 
 extension SlotLabStagesSubTabX on SlotLabStagesSubTab {
   String get label => ['Trace', 'Timeline', 'Timing', 'Layers'][index];
@@ -933,8 +933,8 @@ extension SlotLabIntelSubTabX on SlotLabIntelSubTab {
 }
 
 extension SlotLabMonitorSubTabX on SlotLabMonitorSubTab {
-  String get label => ['Timeline', 'Energy', 'Voice', 'Spectral', 'Fatigue', 'AIL', 'Neuro', 'Math', 'Debug', 'Export', 'Profiler', 'Prof Adv', 'Evt Debug', 'Resources', 'Voice Stats'][index];
-  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 'A', 'S', 'D', 'F', 'G'][index];
+  String get label => ['Timeline', 'Energy', 'Voice', 'Spectral', 'Fatigue', 'AIL', 'Neuro', 'Math', 'RGAI', 'Debug', 'Export', 'Profiler', 'Prof Adv', 'Evt Debug', 'Resources', 'Voice Stats'][index];
+  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 'A', 'S', 'D', 'F', 'G', 'H'][index];
   String get tooltip => [
     'Event timeline — real-time event activity log',
     'Energy — emotional energy arc monitor',
@@ -944,6 +944,7 @@ extension SlotLabMonitorSubTabX on SlotLabMonitorSubTab {
     'AIL — adaptive audio intelligence learning',
     'NeuroAudio — AI player behavioral adaptation',
     'MathAudio Bridge — PAR/CSV import → auto audio map',
+    'RGAI — responsible gaming audio compliance',
     'Debug — raw debug output and FFI trace',
     'Export — monitoring data export',
     'Profiler — real-time performance metrics',
