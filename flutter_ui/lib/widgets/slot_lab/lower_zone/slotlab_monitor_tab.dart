@@ -26,6 +26,7 @@ import '../ucp/export_zone.dart';
 import '../ucp/ucp_export_panel.dart';
 import '../ucp/ab_test_panel.dart';
 import '../ucp/neural_fingerprint_panel.dart';
+import '../ucp/spatial_audio_panel.dart';
 
 class SlotLabMonitorTabContent extends StatelessWidget {
   final SlotLabMonitorSubTab subTab;
@@ -49,6 +50,7 @@ class SlotLabMonitorTabContent extends StatelessWidget {
       SlotLabMonitorSubTab.ucpExport => const UcpExportPanel(),
       SlotLabMonitorSubTab.abTest => const AbTestPanel(),
       SlotLabMonitorSubTab.fingerprint => const NeuralFingerprintPanel(),
+      SlotLabMonitorSubTab.spatial => const SpatialAudioPanel(),
       SlotLabMonitorSubTab.profiler => const EventProfilerPanel(),
       SlotLabMonitorSubTab.profilerAdv => const _ProfilerAdvancedWrapper(),
       SlotLabMonitorSubTab.evtDebug => const EventDebuggerPanel(),

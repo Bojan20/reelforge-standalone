@@ -109,6 +109,7 @@ import '../providers/slot_lab/rgai_provider.dart';
 import '../providers/slot_lab/ucp_export_provider.dart';
 import '../providers/slot_lab/ab_test_provider.dart';
 import '../providers/slot_lab/neural_fingerprint_provider.dart';
+import '../providers/slot_lab/spatial_audio_provider.dart';
 import '../providers/slot_lab/game_flow_provider.dart';
 import '../providers/fluxmacro_provider.dart';
 import '../providers/slot_lab/stage_flow_provider.dart';
@@ -482,6 +483,13 @@ class ServiceLocator {
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<NeuralFingerprintProvider>(
       () => NeuralFingerprintProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.10g: 3D Spatial Audio™ Provider (STUB9 — VR/AR Slot Audio)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<SpatialAudioProvider>(
+      () => SpatialAudioProvider(),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════

@@ -820,7 +820,7 @@ enum SlotLabLogicSubTab { behavior, triggers, gate, priority, orchestration, emo
 enum SlotLabIntelSubTab { build, flow, sim, diagnostic, templates, export, coverage, inspector }
 
 /// MONITOR sub-tabs — UCP monitoring zones (timeline, energy, spectral, etc.)
-enum SlotLabMonitorSubTab { timeline, energy, voice, spectral, fatigue, ail, neuro, mathBridge, rgai, debug, export, ucpExport, abTest, fingerprint, profiler, profilerAdv, evtDebug, resource, voiceStats }
+enum SlotLabMonitorSubTab { timeline, energy, voice, spectral, fatigue, ail, neuro, mathBridge, rgai, debug, export, ucpExport, abTest, fingerprint, spatial, profiler, profilerAdv, evtDebug, resource, voiceStats }
 
 extension SlotLabStagesSubTabX on SlotLabStagesSubTab {
   String get label => ['Trace', 'Timeline', 'Timing', 'Layers'][index];
@@ -933,8 +933,8 @@ extension SlotLabIntelSubTabX on SlotLabIntelSubTab {
 }
 
 extension SlotLabMonitorSubTabX on SlotLabMonitorSubTab {
-  String get label => ['Timeline', 'Energy', 'Voice', 'Spectral', 'Fatigue', 'AIL', 'Neuro', 'Math', 'RGAI', 'Debug', 'Export', 'UCP', 'A/B', 'FP', 'Profiler', 'Prof Adv', 'Evt Debug', 'Resources', 'Voice Stats'][index];
-  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 'A', 'Z', 'X', 'C', 'S', 'D', 'F', 'G', 'H'][index];
+  String get label => ['Timeline', 'Energy', 'Voice', 'Spectral', 'Fatigue', 'AIL', 'Neuro', 'Math', 'RGAI', 'Debug', 'Export', 'UCP', 'A/B', 'FP', '3D', 'Profiler', 'Prof Adv', 'Evt Debug', 'Resources', 'Voice Stats'][index];
+  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 'A', 'Z', 'X', 'C', 'V', 'S', 'D', 'F', 'G', 'H'][index];
   String get tooltip => [
     'Event timeline — real-time event activity log',
     'Energy — emotional energy arc monitor',
@@ -950,6 +950,7 @@ extension SlotLabMonitorSubTabX on SlotLabMonitorSubTab {
     'UCP Export — universal casino protocol multi-target export',
     'A/B Test — audio package A/B testing analytics with statistical significance',
     'Fingerprint — neural waveform fingerprinting and anti-piracy watermarking',
+    '3D Spatial — VR/AR casino floor audio spatialization and HRTF',
     'Profiler — real-time performance metrics',
     'Advanced profiler — detailed CPU/latency breakdown',
     'Event debugger — event trigger/stop tracing',
