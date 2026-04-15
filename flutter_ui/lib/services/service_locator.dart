@@ -108,6 +108,7 @@ import '../providers/slot_lab/math_audio_bridge_provider.dart';
 import '../providers/slot_lab/rgai_provider.dart';
 import '../providers/slot_lab/ucp_export_provider.dart';
 import '../providers/slot_lab/ab_test_provider.dart';
+import '../providers/slot_lab/neural_fingerprint_provider.dart';
 import '../providers/slot_lab/game_flow_provider.dart';
 import '../providers/fluxmacro_provider.dart';
 import '../providers/slot_lab/stage_flow_provider.dart';
@@ -474,6 +475,13 @@ class ServiceLocator {
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<AbTestProvider>(
       () => AbTestProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.10f: Neural Fingerprint™ Provider (STUB8 — Audio Watermarking)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<NeuralFingerprintProvider>(
+      () => NeuralFingerprintProvider(),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
