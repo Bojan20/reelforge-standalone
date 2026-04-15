@@ -119,6 +119,9 @@ pub mod containers;
 // Audio Preview Engine (dedicated one-shot playback for Slot Lab, audio browser, etc.)
 pub mod preview;
 
+// HELIX Bus: Unified lock-free reactive message bus for SlotLab intelligence
+pub mod helix_bus;
+
 // Re-exports: Core
 pub use bus::*;
 pub use graph::*;
