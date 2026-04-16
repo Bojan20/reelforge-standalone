@@ -165,6 +165,7 @@ import '../models/slot_audio_events.dart' show SlotCompositeEvent;
 import 'par_import_service.dart'; // T2.1
 import 'batch_sim_service.dart'; // T2.3
 import 'math_audio_bridge_service.dart'; // T2.5+T2.8
+import 'voice_budget_analyzer_service.dart'; // T2.6
 
 /// Global service locator instance
 final GetIt sl = GetIt.instance;
@@ -505,6 +506,14 @@ class ServiceLocator {
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<MathAudioBridgeService>(
       () => MathAudioBridgeService(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.10h-VOICE: Voice Budget Analyzer Service (T2.6)
+    // Analytical peak voice prediction from AudioEventMap (Little's Law)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<VoiceBudgetAnalyzerService>(
+      () => VoiceBudgetAnalyzerService(),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════

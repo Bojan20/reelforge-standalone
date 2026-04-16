@@ -3234,6 +3234,101 @@ pub extern "C" fn slot_lab_par_to_game_model(par_json_ptr: *const c_char) -> *mu
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// T2.7: PAR+ Extended Format FFI
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Parse a PAR+ JSON document (superset of standard PAR).
+/// Returns serialized `ParPlusDocument` JSON, or null on error.
+///
+/// # Safety
+/// `json_ptr` must be a valid null-terminated UTF-8 C string.
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_par_plus_parse(json_ptr: *const c_char) -> *mut c_char {
+    use rf_slot_lab::ParPlusParser;
+
+    let json = unsafe {
+        match CStr::from_ptr(json_ptr).to_str() {
+            Ok(s) => s,
+            Err(_) => return ptr::null_mut(),
+        }
+    };
+
+    match ParPlusParser::parse_json(json) {
+        Ok(doc) => match serde_json::to_string(&doc) {
+            Ok(out) => CString::new(out).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+            Err(_) => ptr::null_mut(),
+        },
+        Err(e) => {
+            log::warn!("slot_lab_par_plus_parse error: {}", e);
+            ptr::null_mut()
+        }
+    }
+}
+
+/// Validate a PAR+ document.
+/// Input: PAR+ JSON string (from slot_lab_par_plus_parse).
+/// Returns JSON array of `ParPlusWarning` objects, or null on error.
+///
+/// # Safety
+/// `par_plus_json_ptr` must be a valid null-terminated UTF-8 C string.
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_par_plus_validate(par_plus_json_ptr: *const c_char) -> *mut c_char {
+    use rf_slot_lab::{ParPlusParser, ParPlusDocument};
+
+    let json = unsafe {
+        match CStr::from_ptr(par_plus_json_ptr).to_str() {
+            Ok(s) => s,
+            Err(_) => return ptr::null_mut(),
+        }
+    };
+
+    let doc: ParPlusDocument = match serde_json::from_str(json) {
+        Ok(d) => d,
+        Err(e) => {
+            log::warn!("slot_lab_par_plus_validate: deserialize failed: {}", e);
+            return ptr::null_mut();
+        }
+    };
+
+    let warnings = doc.validate_plus();
+    match serde_json::to_string(&warnings) {
+        Ok(out) => CString::new(out).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Generate a PAR+ template JSON for a new document.
+/// Returns a template JSON string with all PAR+ sections populated with
+/// sensible defaults.
+///
+/// # Safety
+/// All pointer arguments must be valid null-terminated UTF-8 C strings.
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_par_plus_template(
+    game_name_ptr: *const c_char,
+    game_id_ptr: *const c_char,
+    rtp: f64,
+) -> *mut c_char {
+    use rf_slot_lab::ParPlusParser;
+
+    let game_name = unsafe {
+        match CStr::from_ptr(game_name_ptr).to_str() {
+            Ok(s) => s,
+            Err(_) => return ptr::null_mut(),
+        }
+    };
+    let game_id = unsafe {
+        match CStr::from_ptr(game_id_ptr).to_str() {
+            Ok(s) => s,
+            Err(_) => return ptr::null_mut(),
+        }
+    };
+
+    let template = ParPlusParser::generate_template(game_name, game_id, rtp);
+    CString::new(template).map(|c| c.into_raw()).unwrap_or(ptr::null_mut())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

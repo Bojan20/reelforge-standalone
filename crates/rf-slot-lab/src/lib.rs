@@ -96,7 +96,13 @@ pub use parser::{GddParseError, GddParser, GddSchema, ValidationReport};
 pub use parser::{
     ParParser, ParDocument, ParParseError, ParValidationReport, ParVolatility,
     ParSymbol, PayCombination, ParFeature, ParFeatureType, RtpBreakdown,
-    CalibrationResult, CalibrationDiagnostics, auto_calibrate_win_tiers,
+    ParJackpotLevel, CalibrationResult, CalibrationDiagnostics, auto_calibrate_win_tiers,
+};
+// T2.7: PAR+ extended format
+pub use parser::{
+    ParPlusParser, ParPlusDocument, ParPlusExtension, ParPlusWarning, ParPlusParseError,
+    FeatureTriggerMatrix, WinMultiplierDistribution, WinMultiplierBucket,
+    SessionVolatilityMetrics, NearMissRates,
 };
 // P5 RegularWinConfig re-export (used by CalibrationResult)
 pub use model::RegularWinConfig;

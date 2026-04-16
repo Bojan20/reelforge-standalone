@@ -548,10 +548,8 @@ class MathAudioBridgeService extends ChangeNotifier {
               suggestedVoiceCount: 4,
               suggestedDurationMs: 2000,
             ),
-            // Include retrigger event when avg payout multiplier indicates
-            // free spins can retrigger (multiplier > 1.5x baseline suggests
-            // significant retrigger contribution to overall RTP)
-            if (feature.avgPayoutMultiplier > 1.5)
+            // Include retrigger event when PAR data indicates retrigger capability
+            if (feature.retriggerProbability > 0)
               AudioEvent(
                 name: 'FREE_SPIN_RETRIGGER',
                 description: 'Free spins retriggered',
@@ -560,8 +558,18 @@ class MathAudioBridgeService extends ChangeNotifier {
                 audioWeight: weight * 0.5,
                 suggestedVoiceCount: 5,
                 suggestedDurationMs: 2500,
-                // Retrigger probability not in PAR model — approximate from
-                // trigger probability (retrigger ≈ 1/10th of initial trigger)
+                triggerProbability: feature.retriggerProbability,
+              )
+            else if (feature.avgPayoutMultiplier > 1.5)
+              // Retrigger not specified — infer from high multiplier
+              AudioEvent(
+                name: 'FREE_SPIN_RETRIGGER',
+                description: 'Free spins retriggered',
+                category: AudioEventCategory.feature,
+                tier: AudioTier.prominent,
+                audioWeight: weight * 0.5,
+                suggestedVoiceCount: 5,
+                suggestedDurationMs: 2500,
                 triggerProbability: triggerProb * 0.1,
               ),
           ]);
@@ -716,39 +724,66 @@ class MathAudioBridgeService extends ChangeNotifier {
   }
 
   List<AudioEvent> _buildJackpotEvents(ParDocument par) {
-    // PAR model carries jackpot as a ParFeature with aggregate RTP contribution.
-    // Per-level detail (MINI/MINOR/MAJOR/GRAND) is not in scope of ParDocument —
-    // generate named events from feature names when available, else use defaults.
+    final normalizer = (par.rtpTarget / 100.0).clamp(0.01, 1.0);
+
+    // T2.7: Use jackpotLevels (ParJackpotLevel) when available — these carry
+    // per-level name, seed, trigger probability, and RTP contribution.
+    if (par.jackpotLevels.isNotEmpty) {
+      return par.jackpotLevels.map((level) {
+        final levelName = level.name.toUpperCase().replaceAll(' ', '_');
+        final weight = level.rtpContribution > 0
+            ? (level.rtpContribution / normalizer).clamp(0.0, 1.0)
+            : 0.10;
+        // Duration scales with jackpot importance:
+        // MINI=6s, MINOR=8s, MAJOR=10s, GRAND=15s, MEGA=20s
+        final durationMs = switch (levelName) {
+          'MINI' => 6000,
+          'MINOR' => 8000,
+          'MAJOR' => 10000,
+          'GRAND' || 'MEGA' => 15000,
+          _ => 10000,
+        };
+        return AudioEvent(
+          name: 'JACKPOT_WON_$levelName',
+          description: 'Jackpot won: ${level.name}',
+          category: AudioEventCategory.jackpot,
+          tier: AudioTier.flagship,
+          audioWeight: weight,
+          suggestedVoiceCount: 8,
+          suggestedDurationMs: durationMs,
+          triggerProbability: level.triggerProbability,
+          rtpContribution: level.rtpContribution,
+        );
+      }).toList();
+    }
+
+    // Fall back to jackpot features with named levels
     final jackpotFeatures = par.features
-        .where((f) => f.featureType == ParFeatureType.jackpot)
+        .where((f) => f.featureType == ParFeatureType.jackpot && f.name.isNotEmpty)
         .toList();
 
-    if (jackpotFeatures.isEmpty) return _buildDefaultJackpotEvents();
+    if (jackpotFeatures.isNotEmpty) {
+      return jackpotFeatures.map((f) {
+        final levelName = f.name.toUpperCase().replaceAll(' ', '_');
+        final weight = f.rtpContribution > 0
+            ? (f.rtpContribution / normalizer).clamp(0.0, 1.0)
+            : 0.10;
+        return AudioEvent(
+          name: 'JACKPOT_WON_$levelName',
+          description: 'Jackpot won: ${f.name}',
+          category: AudioEventCategory.jackpot,
+          tier: AudioTier.flagship,
+          audioWeight: weight,
+          suggestedVoiceCount: 8,
+          suggestedDurationMs: 10000,
+          triggerProbability: f.triggerProbability,
+          rtpContribution: f.rtpContribution,
+        );
+      }).toList();
+    }
 
-    // If jackpot features have explicit names, use them; otherwise default tiers
-    final hasNamedLevels = jackpotFeatures.any((f) => f.name.isNotEmpty);
-    if (!hasNamedLevels) return _buildDefaultJackpotEvents();
-
-    final normalizer = (par.rtpTarget / 100.0).clamp(0.01, 1.0);
-    return jackpotFeatures.map((f) {
-      final levelName = f.name.isNotEmpty
-          ? f.name.toUpperCase().replaceAll(' ', '_')
-          : 'JACKPOT';
-      final weight = f.rtpContribution > 0
-          ? (f.rtpContribution / normalizer).clamp(0.0, 1.0)
-          : 0.10;
-      return AudioEvent(
-        name: 'JACKPOT_WON_$levelName',
-        description: 'Jackpot won: ${f.name.isEmpty ? levelName : f.name}',
-        category: AudioEventCategory.jackpot,
-        tier: AudioTier.flagship,
-        audioWeight: weight,
-        suggestedVoiceCount: 8,
-        suggestedDurationMs: 12000,
-        triggerProbability: f.triggerProbability,
-        rtpContribution: f.rtpContribution,
-      );
-    }).toList();
+    // Ultimate fallback: standard MINI/MINOR/MAJOR/GRAND
+    return _buildDefaultJackpotEvents();
   }
 
   List<AudioEvent> _buildDefaultJackpotEvents() {

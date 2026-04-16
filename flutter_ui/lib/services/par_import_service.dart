@@ -113,6 +113,10 @@ class ParFeature {
   final double triggerProbability;
   final double avgPayoutMultiplier;
   final double rtpContribution;
+  /// Average duration in spins (free spins, hold-and-win, etc.)
+  final double avgDurationSpins;
+  /// Retrigger probability during the feature (0.0 if none)
+  final double retriggerProbability;
 
   const ParFeature({
     required this.featureType,
@@ -120,6 +124,8 @@ class ParFeature {
     this.triggerProbability = 0.0,
     this.avgPayoutMultiplier = 0.0,
     this.rtpContribution = 0.0,
+    this.avgDurationSpins = 0.0,
+    this.retriggerProbability = 0.0,
   });
 
   factory ParFeature.fromJson(Map<String, dynamic> j) => ParFeature(
@@ -130,6 +136,36 @@ class ParFeature {
     triggerProbability: (j['trigger_probability'] as num?)?.toDouble() ?? 0.0,
     avgPayoutMultiplier:
         (j['avg_payout_multiplier'] as num?)?.toDouble() ?? 0.0,
+    rtpContribution: (j['rtp_contribution'] as num?)?.toDouble() ?? 0.0,
+    avgDurationSpins:
+        (j['avg_duration_spins'] as num?)?.toDouble() ?? 0.0,
+    retriggerProbability:
+        (j['retrigger_probability'] as num?)?.toDouble() ?? 0.0,
+  );
+}
+
+/// Jackpot level definition in PAR document
+class ParJackpotLevel {
+  /// Level name (MINI, MINOR, MAJOR, GRAND, MEGA)
+  final String name;
+  /// Seed value (minimum payout, in x-bet units)
+  final double seedValue;
+  /// Trigger probability per spin
+  final double triggerProbability;
+  /// RTP contribution (fraction of total RTP, 0.0–1.0)
+  final double rtpContribution;
+
+  const ParJackpotLevel({
+    required this.name,
+    this.seedValue = 0.0,
+    this.triggerProbability = 0.0,
+    this.rtpContribution = 0.0,
+  });
+
+  factory ParJackpotLevel.fromJson(Map<String, dynamic> j) => ParJackpotLevel(
+    name: (j['name'] as String?) ?? '',
+    seedValue: (j['seed_value'] as num?)?.toDouble() ?? 0.0,
+    triggerProbability: (j['trigger_probability'] as num?)?.toDouble() ?? 0.0,
     rtpContribution: (j['rtp_contribution'] as num?)?.toDouble() ?? 0.0,
   );
 }
@@ -153,6 +189,8 @@ class ParDocument {
   final int symbolCount;
   final int payCombinationCount;
   final List<ParFeature> features;
+  /// Jackpot levels (MINI/MINOR/MAJOR/GRAND) — empty if no jackpot system
+  final List<ParJackpotLevel> jackpotLevels;
   final ParRtpBreakdown rtpBreakdown;
   final double hitFrequency;
   final double deadSpinFrequency;
@@ -178,6 +216,7 @@ class ParDocument {
     this.symbolCount = 0,
     this.payCombinationCount = 0,
     this.features = const [],
+    this.jackpotLevels = const [],
     required this.rtpBreakdown,
     this.hitFrequency = 0.0,
     this.deadSpinFrequency = 0.0,
@@ -203,6 +242,9 @@ class ParDocument {
     payCombinationCount: ((j['pay_combinations'] as List?)?.length) ?? 0,
     features: ((j['features'] as List?) ?? [])
         .map((e) => ParFeature.fromJson(e as Map<String, dynamic>))
+        .toList(),
+    jackpotLevels: ((j['jackpot_levels'] as List?) ?? [])
+        .map((e) => ParJackpotLevel.fromJson(e as Map<String, dynamic>))
         .toList(),
     rtpBreakdown: ParRtpBreakdown.fromJson(
       (j['rtp_breakdown'] as Map<String, dynamic>?) ?? {},
@@ -397,6 +439,282 @@ class ParImportResult {
 
   bool get hasErrors => validationReport.errors.isNotEmpty || error != null;
   bool get hasWarnings => validationReport.warnings.isNotEmpty;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// T2.7: PAR+ EXTENDED FORMAT MODELS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Feature trigger matrix — conditional probabilities per scatter count and reel
+class FeatureTriggerMatrix {
+  /// Feature name (matches ParFeature.name)
+  final String featureName;
+
+  /// P(trigger | scatter_count = n) — key is scatter count as string
+  final Map<String, double> scatterCountProbs;
+
+  /// Per-reel trigger symbol landing probability (index = reel index)
+  final List<double> perReelProbs;
+
+  /// Retrigger probability during the feature
+  final double retriggerProbability;
+
+  /// Average feature duration in spins
+  final double avgDurationSpins;
+
+  /// Win multiplier during feature (1.0 = none)
+  final double winMultiplier;
+
+  /// Average total win multiplier from this feature (x-bet)
+  final double avgTotalMultiplier;
+
+  const FeatureTriggerMatrix({
+    required this.featureName,
+    this.scatterCountProbs = const {},
+    this.perReelProbs = const [],
+    this.retriggerProbability = 0.0,
+    this.avgDurationSpins = 0.0,
+    this.winMultiplier = 1.0,
+    this.avgTotalMultiplier = 0.0,
+  });
+
+  factory FeatureTriggerMatrix.fromJson(Map<String, dynamic> j) {
+    final scatterJson = j['scatter_count_probs'] as Map<String, dynamic>? ?? {};
+    return FeatureTriggerMatrix(
+      featureName: (j['feature_name'] as String?) ?? '',
+      scatterCountProbs: scatterJson.map(
+        (k, v) => MapEntry(k, (v as num).toDouble()),
+      ),
+      perReelProbs: ((j['per_reel_probs'] as List?) ?? [])
+          .map((e) => (e as num).toDouble())
+          .toList(),
+      retriggerProbability:
+          (j['retrigger_probability'] as num?)?.toDouble() ?? 0.0,
+      avgDurationSpins:
+          (j['avg_duration_spins'] as num?)?.toDouble() ?? 0.0,
+      winMultiplier: (j['win_multiplier'] as num?)?.toDouble() ?? 1.0,
+      avgTotalMultiplier:
+          (j['avg_total_multiplier'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+
+  /// Total trigger rate per spin (sum of scatter-count probs)
+  double get totalTriggerRate =>
+      scatterCountProbs.values.fold(0.0, (a, b) => a + b);
+}
+
+/// A bucket in a win multiplier distribution histogram
+class WinMultiplierBucket {
+  final double fromMultiplier;
+  final double toMultiplier;
+  final double probability;
+
+  const WinMultiplierBucket({
+    required this.fromMultiplier,
+    required this.toMultiplier,
+    required this.probability,
+  });
+
+  factory WinMultiplierBucket.fromJson(Map<String, dynamic> j) =>
+      WinMultiplierBucket(
+        fromMultiplier: (j['from_multiplier'] as num?)?.toDouble() ?? 0.0,
+        toMultiplier: (j['to_multiplier'] as num?)?.toDouble() ?? double.infinity,
+        probability: (j['probability'] as num?)?.toDouble() ?? 0.0,
+      );
+}
+
+/// Win multiplier distribution for a feature
+class WinMultiplierDistribution {
+  final String featureName;
+  final List<WinMultiplierBucket> buckets;
+  final double mean;
+  final double stdDev;
+  final double p95;
+  final double p99;
+  final double maxObserved;
+
+  const WinMultiplierDistribution({
+    required this.featureName,
+    this.buckets = const [],
+    this.mean = 0.0,
+    this.stdDev = 0.0,
+    this.p95 = 0.0,
+    this.p99 = 0.0,
+    this.maxObserved = 0.0,
+  });
+
+  factory WinMultiplierDistribution.fromJson(Map<String, dynamic> j) =>
+      WinMultiplierDistribution(
+        featureName: (j['feature_name'] as String?) ?? '',
+        buckets: ((j['buckets'] as List?) ?? [])
+            .map((e) => WinMultiplierBucket.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        mean: (j['mean'] as num?)?.toDouble() ?? 0.0,
+        stdDev: (j['std_dev'] as num?)?.toDouble() ?? 0.0,
+        p95: (j['p95'] as num?)?.toDouble() ?? 0.0,
+        p99: (j['p99'] as num?)?.toDouble() ?? 0.0,
+        maxObserved: (j['max_observed'] as num?)?.toDouble() ?? 0.0,
+      );
+
+  /// Probability of win exceeding threshold (x-bet)
+  double probExceeding(double threshold) => buckets
+      .where((b) => b.fromMultiplier >= threshold)
+      .fold(0.0, (sum, b) => sum + b.probability);
+}
+
+/// Session-level volatility metrics
+class SessionVolatilityMetrics {
+  final double rtpStdDev;
+  final double sessionRtpP10;
+  final double sessionRtpP50;
+  final double sessionRtpP90;
+  final double spinsPerBonusAvg;
+  final int consecutiveLossP99;
+  final double theoreticalDrain100;
+
+  const SessionVolatilityMetrics({
+    this.rtpStdDev = 0.0,
+    this.sessionRtpP10 = 0.0,
+    this.sessionRtpP50 = 0.0,
+    this.sessionRtpP90 = 0.0,
+    this.spinsPerBonusAvg = 0.0,
+    this.consecutiveLossP99 = 0,
+    this.theoreticalDrain100 = 0.0,
+  });
+
+  factory SessionVolatilityMetrics.fromJson(Map<String, dynamic> j) =>
+      SessionVolatilityMetrics(
+        rtpStdDev: (j['rtp_std_dev'] as num?)?.toDouble() ?? 0.0,
+        sessionRtpP10: (j['session_rtp_p10'] as num?)?.toDouble() ?? 0.0,
+        sessionRtpP50: (j['session_rtp_p50'] as num?)?.toDouble() ?? 0.0,
+        sessionRtpP90: (j['session_rtp_p90'] as num?)?.toDouble() ?? 0.0,
+        spinsPerBonusAvg:
+            (j['spins_per_bonus_avg'] as num?)?.toDouble() ?? 0.0,
+        consecutiveLossP99: (j['consecutive_loss_p99'] as int?) ?? 0,
+        theoreticalDrain100:
+            (j['theoretical_drain_100'] as num?)?.toDouble() ?? 0.0,
+      );
+
+  bool get passesUkgcLossStreakCheck =>
+      consecutiveLossP99 == 0 || consecutiveLossP99 <= 200;
+}
+
+/// Near-miss configuration rates
+class NearMissRates {
+  /// Named near-miss configurations → probability per spin
+  final Map<String, double> rates;
+  /// Near-miss to actual trigger ratio (MGA limit: ≤12)
+  final double nearMissToTriggerRatio;
+  /// Studio certifies rates are mathematically derived
+  final bool mathematicallyFair;
+
+  const NearMissRates({
+    this.rates = const {},
+    this.nearMissToTriggerRatio = 0.0,
+    this.mathematicallyFair = false,
+  });
+
+  factory NearMissRates.fromJson(Map<String, dynamic> j) {
+    final ratesJson = j['rates'] as Map<String, dynamic>? ?? {};
+    return NearMissRates(
+      rates: ratesJson.map((k, v) => MapEntry(k, (v as num).toDouble())),
+      nearMissToTriggerRatio:
+          (j['near_miss_to_trigger_ratio'] as num?)?.toDouble() ?? 0.0,
+      mathematicallyFair: (j['mathematically_fair'] as bool?) ?? false,
+    );
+  }
+
+  double get totalRate => rates.values.fold(0.0, (a, b) => a + b);
+  bool get passesMgaRatioCheck =>
+      nearMissToTriggerRatio <= 12.0 || nearMissToTriggerRatio == 0.0;
+}
+
+/// PAR+ extension block (lives at document["par_plus"])
+class ParPlusExtension {
+  final String version;
+  final List<FeatureTriggerMatrix> featureTriggerMatrices;
+  final List<WinMultiplierDistribution> winMultiplierDistributions;
+  final SessionVolatilityMetrics sessionVolatility;
+  final NearMissRates nearMissRates;
+
+  const ParPlusExtension({
+    this.version = '1.0',
+    this.featureTriggerMatrices = const [],
+    this.winMultiplierDistributions = const [],
+    this.sessionVolatility = const SessionVolatilityMetrics(),
+    this.nearMissRates = const NearMissRates(),
+  });
+
+  factory ParPlusExtension.fromJson(Map<String, dynamic> j) =>
+      ParPlusExtension(
+        version: (j['version'] as String?) ?? '1.0',
+        featureTriggerMatrices: ((j['feature_trigger_matrices'] as List?) ?? [])
+            .map((e) => FeatureTriggerMatrix.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        winMultiplierDistributions:
+            ((j['win_multiplier_distributions'] as List?) ?? [])
+                .map((e) => WinMultiplierDistribution.fromJson(
+                      e as Map<String, dynamic>,
+                    ))
+                .toList(),
+        sessionVolatility: SessionVolatilityMetrics.fromJson(
+          j['session_volatility'] as Map<String, dynamic>? ?? {},
+        ),
+        nearMissRates: NearMissRates.fromJson(
+          j['near_miss_rates'] as Map<String, dynamic>? ?? {},
+        ),
+      );
+
+  /// Get trigger matrix for named feature (case-insensitive)
+  FeatureTriggerMatrix? triggerMatrix(String featureName) {
+    final lower = featureName.toLowerCase();
+    for (final m in featureTriggerMatrices) {
+      if (m.featureName.toLowerCase() == lower) return m;
+    }
+    return null;
+  }
+
+  /// Get win distribution for named feature (case-insensitive)
+  WinMultiplierDistribution? winDistribution(String featureName) {
+    final lower = featureName.toLowerCase();
+    for (final d in winMultiplierDistributions) {
+      if (d.featureName.toLowerCase() == lower) return d;
+    }
+    return null;
+  }
+}
+
+/// Complete PAR+ document — PAR document with optional extension
+class ParPlusDocument {
+  final ParDocument par;
+  final ParPlusExtension? parPlus;
+
+  const ParPlusDocument({required this.par, this.parPlus});
+
+  bool get hasPlus => parPlus != null;
+
+  /// Get PAR+ extension — returns empty default if absent
+  ParPlusExtension get plus => parPlus ?? const ParPlusExtension();
+
+  factory ParPlusDocument.fromJson(Map<String, dynamic> j) => ParPlusDocument(
+    par: ParDocument.fromJson(j),
+    parPlus: j.containsKey('par_plus')
+        ? ParPlusExtension.fromJson(j['par_plus'] as Map<String, dynamic>)
+        : null,
+  );
+}
+
+/// A PAR+ validation warning
+class ParPlusWarning {
+  final String field;
+  final String message;
+
+  const ParPlusWarning({required this.field, required this.message});
+
+  factory ParPlusWarning.fromJson(Map<String, dynamic> j) => ParPlusWarning(
+    field: (j['field'] as String?) ?? '',
+    message: (j['message'] as String?) ?? '',
+  );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

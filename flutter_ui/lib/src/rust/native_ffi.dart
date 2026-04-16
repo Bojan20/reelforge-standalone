@@ -28621,5 +28621,95 @@ extension HookGraphAPI on NativeFFI {
       return null;
     }
   }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // T2.7: PAR+ Extended Format
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /// Parse a PAR+ JSON document (superset of standard PAR).
+  /// Returns serialized ParPlusDocument JSON, or null on error.
+  String? slotLabParPlusParse(String json) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('slot_lab_par_plus_parse');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final jsonPtr = json.toNativeUtf8();
+      try {
+        final ptr = fn(jsonPtr);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(jsonPtr);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Validate a PAR+ document JSON.
+  /// Returns JSON array of ParPlusWarning objects, or null on error.
+  String? slotLabParPlusValidate(String parPlusJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('slot_lab_par_plus_validate');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final jsonPtr = parPlusJson.toNativeUtf8();
+      try {
+        final ptr = fn(jsonPtr);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(jsonPtr);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Generate a PAR+ template JSON for authoring new documents.
+  /// [gameName] — display name, [gameId] — short identifier, [rtp] — target RTP %.
+  String? slotLabParPlusTemplate(String gameName, String gameId, double rtp) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>, Double),
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>, double)
+      >('slot_lab_par_plus_template');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final namePtr = gameName.toNativeUtf8();
+      final idPtr = gameId.toNativeUtf8();
+      try {
+        final ptr = fn(namePtr, idPtr, rtp);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(namePtr);
+        malloc.free(idPtr);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
 }
 
