@@ -68,6 +68,10 @@ import '../providers/slot_lab/behavior_coverage_provider.dart';
 import '../providers/slot_lab/slotlab_template_provider.dart';
 import '../providers/slot_lab/feature_composer_provider.dart'; // V11: Trostepeni
 import '../providers/feature_builder_provider.dart'; // Grid block config for megaways
+import '../widgets/slot_lab/rgai_compliance_panel.dart';
+import '../widgets/slot_lab/spatial_audio_panel.dart' as spatial_panel;
+import '../widgets/slot_lab/ab_sim_panel.dart';
+import '../widgets/slot_lab/ucp_export_panel.dart';
 import '../providers/slot_lab/game_flow_integration.dart';
 import '../providers/slot_lab/game_flow_provider.dart';
 import '../providers/ale_provider.dart';
@@ -336,6 +340,10 @@ enum _PlusMenuItem {
   commandBuilder, // Command Builder
   gadDaw,         // GAD — Gameplay-Aware DAW §15
   sssQuality,     // SSS — Scale & Stability Suite §16
+  rgaiCompliance, // RGAI™ — Responsible Gaming Audio Intelligence
+  spatialAudio3d, // Slot Spatial Audio™ — 3D Positional
+  abSimAnalytics, // A/B Testing Analytics™ — Batch Simulation
+  ucpExport,      // UCP Export™ — Universal Compliance Package
 }
 
 // =============================================================================
@@ -13803,6 +13811,47 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             ],
           ),
         ),
+        const PopupMenuDivider(),
+        const PopupMenuItem(
+          value: _PlusMenuItem.rgaiCompliance,
+          child: Row(
+            children: [
+              Icon(Icons.shield, size: 16, color: Color(0xFFFF6B6B)),
+              SizedBox(width: 8),
+              Text('RGAI™ Compliance', style: TextStyle(fontSize: 12, color: Colors.white70)),
+            ],
+          ),
+        ),
+        const PopupMenuItem(
+          value: _PlusMenuItem.spatialAudio3d,
+          child: Row(
+            children: [
+              Icon(Icons.surround_sound, size: 16, color: Color(0xFF7C4DFF)),
+              SizedBox(width: 8),
+              Text('3D Spatial Audio', style: TextStyle(fontSize: 12, color: Colors.white70)),
+            ],
+          ),
+        ),
+        const PopupMenuItem(
+          value: _PlusMenuItem.abSimAnalytics,
+          child: Row(
+            children: [
+              Icon(Icons.science, size: 16, color: Color(0xFFFFBB33)),
+              SizedBox(width: 8),
+              Text('A/B Testing Analytics', style: TextStyle(fontSize: 12, color: Colors.white70)),
+            ],
+          ),
+        ),
+        const PopupMenuItem(
+          value: _PlusMenuItem.ucpExport,
+          child: Row(
+            children: [
+              Icon(Icons.file_download, size: 16, color: Color(0xFF40C8FF)),
+              SizedBox(width: 8),
+              Text('UCP Export™', style: TextStyle(fontSize: 12, color: Colors.white70)),
+            ],
+          ),
+        ),
       ],
       onSelected: _onPlusMenuItemSelected,
     );
@@ -13823,6 +13872,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         _showGadDawDialog();
       case _PlusMenuItem.sssQuality:
         _showSssQualityDialog();
+      case _PlusMenuItem.rgaiCompliance:
+        _showRgaiComplianceDialog();
+      case _PlusMenuItem.spatialAudio3d:
+        _showSpatialAudio3dDialog();
+      case _PlusMenuItem.abSimAnalytics:
+        _showAbSimAnalyticsDialog();
+      case _PlusMenuItem.ucpExport:
+        _showUcpExportDialog();
     }
   }
 
@@ -14069,6 +14126,166 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 ),
               ),
               const Expanded(child: SssPanel()),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showRgaiComplianceDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: const Color(0xFF1A1A22),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        child: SizedBox(
+          width: 900,
+          height: 650,
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF0D0D10),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.shield, color: Color(0xFFFF6B6B), size: 18),
+                    const SizedBox(width: 8),
+                    const Text('RGAI™ Compliance', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 18, color: Colors.white54),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+              ),
+              const Expanded(child: RgaiCompliancePanel()),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showSpatialAudio3dDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: const Color(0xFF1A1A22),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        child: SizedBox(
+          width: 900,
+          height: 650,
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF0D0D10),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.surround_sound, color: Color(0xFF7C4DFF), size: 18),
+                    const SizedBox(width: 8),
+                    const Text('3D Spatial Audio', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 18, color: Colors.white54),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+              ),
+              const Expanded(child: spatial_panel.SpatialAudioPanel()),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showAbSimAnalyticsDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: const Color(0xFF1A1A22),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        child: SizedBox(
+          width: 900,
+          height: 650,
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF0D0D10),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.science, color: Color(0xFFFFBB33), size: 18),
+                    const SizedBox(width: 8),
+                    const Text('A/B Testing Analytics', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 18, color: Colors.white54),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+              ),
+              const Expanded(child: AbSimPanel()),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showUcpExportDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: const Color(0xFF1A1A22),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        child: SizedBox(
+          width: 900,
+          height: 650,
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF0D0D10),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.file_download, color: Color(0xFF40C8FF), size: 18),
+                    const SizedBox(width: 8),
+                    const Text('UCP Export™', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 18, color: Colors.white54),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+              ),
+              const Expanded(child: UcpExportPanel()),
             ],
           ),
         ),
