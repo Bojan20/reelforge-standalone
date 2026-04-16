@@ -737,8 +737,18 @@ class _HelixScreenState extends State<HelixScreen>
       curve: Curves.easeInOut,
       height: dockH,
       decoration: BoxDecoration(
-        color: FluxForgeTheme.bgDeepest,
-        border: Border(top: BorderSide(color: activeColor.withOpacity(0.25), width: 1.5)),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter, end: Alignment.bottomCenter,
+          colors: [
+            activeColor.withOpacity(0.04),
+            FluxForgeTheme.bgDeepest,
+          ],
+          stops: const [0.0, 0.15],
+        ),
+        border: Border(top: BorderSide(color: activeColor.withOpacity(0.5), width: 2)),
+        boxShadow: [
+          BoxShadow(color: activeColor.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, -4)),
+        ],
       ),
       child: Column(
         children: [
@@ -759,10 +769,9 @@ class _HelixScreenState extends State<HelixScreen>
     return Container(
       height: 44,
       decoration: BoxDecoration(
-        color: FluxForgeTheme.bgVoid.withOpacity(0.7),
+        color: FluxForgeTheme.bgDeepest,
         border: Border(
-          bottom: BorderSide(color: activeColor.withOpacity(0.15)),
-          top: BorderSide(color: activeColor.withOpacity(0.08)),
+          bottom: BorderSide(color: activeColor.withOpacity(0.3), width: 1),
         ),
       ),
       child: Row(
@@ -2834,6 +2843,17 @@ class _AudioPanelState extends State<_AudioPanel> {
 
   @override
   Widget build(BuildContext context) {
+    // Reactivity: rebuild when MiddlewareProvider or NeuroAudioProvider change
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        GetIt.instance<MiddlewareProvider>(),
+        GetIt.instance<NeuroAudioProvider>(),
+      ]),
+      builder: (context, _) => _buildContent(context),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
     final mw = GetIt.instance<MiddlewareProvider>();
     final neuro = GetIt.instance<NeuroAudioProvider>();
     final events = mw.compositeEvents.take(8).toList();
@@ -2979,6 +2999,17 @@ class _MathPanelState extends State<_MathPanel> {
 
   @override
   Widget build(BuildContext context) {
+    // Reactivity: rebuild when SlotLabProject or NeuroAudio change
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        GetIt.instance<SlotLabProjectProvider>(),
+        GetIt.instance<NeuroAudioProvider>(),
+      ]),
+      builder: (context, _) => _buildContent(context),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
     final proj = GetIt.instance<SlotLabProjectProvider>();
     final neuro = GetIt.instance<NeuroAudioProvider>();
     final stats = proj.sessionStats;
@@ -3171,6 +3202,14 @@ class _TimelinePanelState extends State<_TimelinePanel> {
 
   @override
   Widget build(BuildContext context) {
+    // Reactivity: rebuild when MiddlewareProvider changes
+    return ListenableBuilder(
+      listenable: GetIt.instance<MiddlewareProvider>(),
+      builder: (context, _) => _buildContent(context),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
     final mw = GetIt.instance<MiddlewareProvider>();
     final engine = GetIt.instance<EngineProvider>();
     final events = mw.compositeEvents;
@@ -3293,6 +3332,17 @@ class _IntelPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Reactivity: rebuild when RgaiProvider or NeuroAudioProvider change
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        GetIt.instance<RgaiProvider>(),
+        GetIt.instance<NeuroAudioProvider>(),
+      ]),
+      builder: (context, _) => _buildContent(context),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
     final rgai = GetIt.instance<RgaiProvider>();
     final neuro = GetIt.instance<NeuroAudioProvider>();
     final out = neuro.output;
@@ -3625,10 +3675,10 @@ class _ExportPanelState extends State<_ExportPanel> {
   static const _bitDepths = [16, 24, 32];
 
   static const _exports = [
-    ('📦', 'UCP',   'Universal Content Package', FluxForgeTheme.accentYellow),
-    ('🎵', 'WWISE', 'Audiokinetic project',       FluxForgeTheme.accentBlue),
-    ('🎛️', 'FMOD',  'FMOD Studio bank',           FluxForgeTheme.accentGreen),
-    ('📄', 'GDD',   'Game Design Doc',            FluxForgeTheme.accentPurple),
+    (Icons.inventory_2_rounded, 'UCP',   'Universal Content Package', FluxForgeTheme.accentYellow),
+    (Icons.music_note_rounded,  'WWISE', 'Audiokinetic project',       FluxForgeTheme.accentBlue),
+    (Icons.equalizer_rounded,   'FMOD',  'FMOD Studio bank',           FluxForgeTheme.accentGreen),
+    (Icons.description_rounded, 'GDD',   'Game Design Doc',            FluxForgeTheme.accentPurple),
   ];
 
   Future<void> _doExport(String format, String label) async {
@@ -3733,7 +3783,7 @@ class _ExportPanelState extends State<_ExportPanel> {
                 child: Padding(
                   padding: const EdgeInsets.only(right: 12),
                   child: _ExportCard(
-                    emoji: e.$1, label: e.$2, sub: e.$3, color: e.$4,
+                    icon: e.$1, label: e.$2, sub: e.$3, color: e.$4,
                     onTap: () => _doExport(e.$2.toLowerCase(), e.$2),
                   ),
                 ),
@@ -3923,29 +3973,49 @@ class _SpineOverlay extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     width: 340,
     decoration: BoxDecoration(
-      color: FluxForgeTheme.bgSurface.withOpacity(0.95),
-      border: Border(right: BorderSide(color: FluxForgeTheme.borderSubtle)),
-      boxShadow: [BoxShadow(color: FluxForgeTheme.bgVoid.withOpacity(0.4), blurRadius: 24)],
+      color: FluxForgeTheme.bgDeep.withOpacity(0.97),
+      border: Border(
+        right: BorderSide(color: FluxForgeTheme.accentBlue.withOpacity(0.2)),
+        left: BorderSide(color: FluxForgeTheme.accentBlue.withOpacity(0.3), width: 2),
+      ),
+      boxShadow: [
+        BoxShadow(color: FluxForgeTheme.bgVoid.withOpacity(0.6), blurRadius: 32),
+        BoxShadow(color: FluxForgeTheme.accentBlue.withOpacity(0.05), blurRadius: 20),
+      ],
     ),
     child: Column(
       children: [
         Container(
           height: 44,
           padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [FluxForgeTheme.accentBlue.withOpacity(0.08), Colors.transparent],
+            ),
+            border: Border(bottom: BorderSide(color: FluxForgeTheme.accentBlue.withOpacity(0.15))),
+          ),
           child: Row(
             children: [
+              Container(width: 3, height: 14, decoration: BoxDecoration(
+                color: FluxForgeTheme.accentBlue, borderRadius: BorderRadius.circular(1.5))),
+              const SizedBox(width: 8),
               Text(title, style: const TextStyle(
-                fontFamily: 'monospace', fontSize: 11, fontWeight: FontWeight.w600,
-                color: FluxForgeTheme.textPrimary, letterSpacing: 0.1)),
+                fontFamily: 'monospace', fontSize: 11, fontWeight: FontWeight.w700,
+                color: FluxForgeTheme.textPrimary, letterSpacing: 0.12)),
               const Spacer(),
               GestureDetector(
                 onTap: onClose,
-                child: const Icon(Icons.close_rounded, size: 16,
-                  color: FluxForgeTheme.textTertiary)),
+                child: Container(
+                  width: 22, height: 22,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: FluxForgeTheme.borderSubtle)),
+                  child: const Icon(Icons.close_rounded, size: 12,
+                    color: FluxForgeTheme.textTertiary)),
+              ),
             ],
           ),
         ),
-        const Divider(height: 1, color: FluxForgeTheme.borderSubtle),
         Expanded(
           child: Padding(
             padding: const EdgeInsets.all(12),
@@ -4005,6 +4075,13 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
 
   @override
   Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: GetIt.instance<MiddlewareProvider>(),
+      builder: (context, _) => _buildContent(context),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
     final mw = GetIt.instance<MiddlewareProvider>();
     final events = mw.compositeEvents;
     final helixState = context.findAncestorStateOfType<_HelixScreenState>();
@@ -4182,6 +4259,16 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
 
   @override
   Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        GetIt.instance<GameFlowProvider>(),
+        GetIt.instance<SlotLabProjectProvider>(),
+      ]),
+      builder: (context, _) => _buildContent(context),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
     final flow = GetIt.instance<GameFlowProvider>();
     final proj = GetIt.instance<SlotLabProjectProvider>();
     final stats = proj.sessionStats;
@@ -4252,6 +4339,16 @@ class _SpineAiIntelState extends State<_SpineAiIntel> {
 
   @override
   Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        GetIt.instance<NeuroAudioProvider>(),
+        GetIt.instance<MiddlewareProvider>(),
+      ]),
+      builder: (context, _) => _buildContent(context),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
     final neuro = GetIt.instance<NeuroAudioProvider>();
     final mw = GetIt.instance<MiddlewareProvider>();
     final out = neuro.output;
@@ -4346,6 +4443,16 @@ class _SpineSettingsState extends State<_SpineSettings> {
 
   @override
   Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        GetIt.instance<EngineProvider>(),
+        GetIt.instance<NeuroAudioProvider>(),
+      ]),
+      builder: (context, _) => _buildContent(context),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
     final engine = GetIt.instance<EngineProvider>();
     final t = engine.transport;
     final neuro = GetIt.instance<NeuroAudioProvider>();
@@ -4460,6 +4567,17 @@ class _SpineToggle extends StatelessWidget {
 class _SpineAnalytics extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        GetIt.instance<SlotLabProjectProvider>(),
+        GetIt.instance<NeuroAudioProvider>(),
+        GetIt.instance<MiddlewareProvider>(),
+      ]),
+      builder: (context, _) => _buildContent(context),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
     final proj = GetIt.instance<SlotLabProjectProvider>();
     final neuro = GetIt.instance<NeuroAudioProvider>();
     final mw = GetIt.instance<MiddlewareProvider>();
@@ -4551,23 +4669,29 @@ class _DockTab extends StatelessWidget {
     onTap: onTap,
     child: AnimatedContainer(
       duration: const Duration(milliseconds: 180),
-      height: 30,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      height: 32,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        color: active ? color.withOpacity(0.08) : Colors.transparent,
+        gradient: active ? LinearGradient(
+          begin: Alignment.topCenter, end: Alignment.bottomCenter,
+          colors: [color.withOpacity(0.18), color.withOpacity(0.06)],
+        ) : null,
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: active ? color.withOpacity(0.35) : Colors.transparent),
-        boxShadow: active ? [BoxShadow(color: color.withOpacity(0.08), blurRadius: 8)] : null,
+          color: active ? color.withOpacity(0.5) : Colors.transparent,
+          width: active ? 1 : 0),
+        boxShadow: active ? [
+          BoxShadow(color: color.withOpacity(0.15), blurRadius: 12),
+        ] : null,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: color.withOpacity(active ? 1.0 : 0.4)),
+          Icon(icon, size: 13, color: color.withOpacity(active ? 1.0 : 0.35)),
           const SizedBox(width: 6),
           Text(label, style: TextStyle(
             fontFamily: 'monospace', fontSize: 11,
-            fontWeight: active ? FontWeight.w600 : FontWeight.w400, letterSpacing: 0.04,
+            fontWeight: active ? FontWeight.w700 : FontWeight.w400, letterSpacing: 0.05,
             color: active ? color : FluxForgeTheme.textTertiary)),
         ],
       ),
@@ -4581,16 +4705,59 @@ class _DockCard extends StatelessWidget {
   const _DockCard({required this.child, this.accent});
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: FluxForgeTheme.bgVoid.withOpacity(0.5),
-      border: Border.all(color: accent?.withOpacity(0.15) ?? FluxForgeTheme.borderSubtle),
-      borderRadius: BorderRadius.circular(8),
-      boxShadow: accent != null ? [BoxShadow(color: accent!.withOpacity(0.04), blurRadius: 12)] : null,
-    ),
-    child: child,
-  );
+  Widget build(BuildContext context) {
+    final a = accent;
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            (a ?? FluxForgeTheme.bgMid).withOpacity(0.15),
+            FluxForgeTheme.bgDeepest.withOpacity(0.92),
+          ],
+        ),
+        border: Border.all(
+          color: a?.withOpacity(0.28) ?? FluxForgeTheme.borderSubtle,
+        ),
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          if (a != null) BoxShadow(
+            color: a.withOpacity(0.07),
+            blurRadius: 20,
+            spreadRadius: -4,
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Accent gradient strip at top
+          if (a != null)
+            Container(
+              height: 2,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [
+                  a.withOpacity(0.9),
+                  a.withOpacity(0.3),
+                  Colors.transparent,
+                ]),
+              ),
+            ),
+          Expanded(child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: child,
+          )),
+        ],
+      ),
+    );
+  }
 }
 
 class _DockLabel extends StatelessWidget {
@@ -4599,10 +4766,26 @@ class _DockLabel extends StatelessWidget {
   const _DockLabel(this.text, {this.color});
 
   @override
-  Widget build(BuildContext context) => Text(text,
-    style: TextStyle(
-      fontFamily: 'monospace', fontSize: 9, fontWeight: FontWeight.w600,
-      color: color ?? FluxForgeTheme.textTertiary, letterSpacing: 0.12));
+  Widget build(BuildContext context) {
+    final c = color ?? FluxForgeTheme.textTertiary;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 3, height: 12,
+          decoration: BoxDecoration(
+            color: c,
+            borderRadius: BorderRadius.circular(1.5),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(text,
+          style: TextStyle(
+            fontFamily: 'monospace', fontSize: 10, fontWeight: FontWeight.w700,
+            color: c, letterSpacing: 0.15)),
+      ],
+    );
+  }
 }
 
 class _StageNode extends StatelessWidget {
@@ -4831,36 +5014,53 @@ class _MeterRow extends StatelessWidget {
   const _MeterRow({required this.label, required this.value});
 
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      Text(label, style: const TextStyle(
-        fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textTertiary)),
-      const SizedBox(width: 6),
-      Expanded(
-        child: Container(
-          height: 6, decoration: BoxDecoration(
-            color: FluxForgeTheme.bgElevated,
-            borderRadius: BorderRadius.circular(2)),
-          child: FractionallySizedBox(
-            widthFactor: value.clamp(0.0, 1.0),
-            alignment: Alignment.centerLeft,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [
-                  FluxForgeTheme.accentGreen,
-                  FluxForgeTheme.accentGreen,
-                  FluxForgeTheme.accentYellow,
-                  FluxForgeTheme.accentOrange,
-                  FluxForgeTheme.accentRed,
-                ], stops: [0.0, 0.6, 0.75, 0.88, 1.0]),
-                borderRadius: BorderRadius.circular(2),
+  Widget build(BuildContext context) {
+    final v = value.clamp(0.0, 1.0);
+    return Row(
+      children: [
+        Text(label, style: TextStyle(
+          fontFamily: 'monospace', fontSize: 9, fontWeight: FontWeight.w600,
+          color: v > 0.85 ? FluxForgeTheme.accentRed : FluxForgeTheme.textTertiary)),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Container(
+            height: 8,
+            decoration: BoxDecoration(
+              color: FluxForgeTheme.bgVoid,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: FluxForgeTheme.borderSubtle.withOpacity(0.5))),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: FractionallySizedBox(
+                widthFactor: v,
+                alignment: Alignment.centerLeft,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: [
+                      FluxForgeTheme.accentGreen,
+                      FluxForgeTheme.accentGreen,
+                      FluxForgeTheme.accentYellow,
+                      FluxForgeTheme.accentOrange,
+                      FluxForgeTheme.accentRed,
+                    ], stops: [0.0, 0.6, 0.75, 0.88, 1.0]),
+                    boxShadow: v > 0.7 ? [BoxShadow(
+                      color: FluxForgeTheme.accentOrange.withOpacity(0.4),
+                      blurRadius: 6)] : null,
+                  ),
+                ),
               ),
             ),
           ),
         ),
-      ),
-    ],
-  );
+        const SizedBox(width: 6),
+        SizedBox(width: 30, child: Text(
+          '${(v * 100).toStringAsFixed(0)}%',
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 7,
+            color: FluxForgeTheme.textTertiary),
+          textAlign: TextAlign.right)),
+      ],
+    );
+  }
 }
 
 class _ChannelStrip extends StatefulWidget {
@@ -5067,19 +5267,28 @@ class _MathCard extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(10),
     decoration: BoxDecoration(
-      color: color.withOpacity(0.03),
-      border: Border.all(color: color.withOpacity(0.15)),
-      borderRadius: BorderRadius.circular(8),
+      gradient: LinearGradient(
+        begin: Alignment.topLeft, end: Alignment.bottomRight,
+        colors: [color.withOpacity(0.08), color.withOpacity(0.02)],
+      ),
+      border: Border.all(color: color.withOpacity(0.25)),
+      borderRadius: BorderRadius.circular(10),
+      boxShadow: [BoxShadow(color: color.withOpacity(0.06), blurRadius: 12, spreadRadius: -2)],
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(
-          fontFamily: 'monospace', fontSize: 8, letterSpacing: 0.1,
-          color: FluxForgeTheme.textTertiary)),
+        Row(children: [
+          Container(width: 4, height: 4, decoration: BoxDecoration(
+            color: color, shape: BoxShape.circle)),
+          const SizedBox(width: 5),
+          Text(label, style: TextStyle(
+            fontFamily: 'monospace', fontSize: 9, fontWeight: FontWeight.w600,
+            letterSpacing: 0.1, color: color.withOpacity(0.7))),
+        ]),
         const Spacer(),
         Text(value, style: TextStyle(
-          fontFamily: 'monospace', fontSize: 20, fontWeight: FontWeight.w300,
+          fontFamily: 'monospace', fontSize: 22, fontWeight: FontWeight.w300,
           color: color)),
         const SizedBox(height: 2),
         Text(sub, style: const TextStyle(
@@ -5094,7 +5303,8 @@ class _MathCard extends StatelessWidget {
             widthFactor: fill.clamp(0.0, 1.0),
             alignment: Alignment.centerLeft,
             child: Container(decoration: BoxDecoration(
-              color: color, borderRadius: BorderRadius.circular(2))),
+              gradient: LinearGradient(colors: [color.withOpacity(0.6), color]),
+              borderRadius: BorderRadius.circular(2))),
           ),
         ),
       ],
@@ -5170,23 +5380,32 @@ class _MiniMetric extends StatelessWidget {
   const _MiniMetric(this.value, this.label, this.color);
 
   @override
-  Widget build(BuildContext context) => Column(
-    mainAxisAlignment: MainAxisAlignment.center,
-    children: [
-      Text(value, style: TextStyle(
-        fontFamily: 'monospace', fontSize: 14,
-        fontWeight: FontWeight.w500, color: color)),
-      Text(label, style: const TextStyle(
-        fontSize: 8, color: FluxForgeTheme.textTertiary)),
-    ],
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+    decoration: BoxDecoration(
+      color: color.withOpacity(0.06),
+      borderRadius: BorderRadius.circular(6),
+      border: Border.all(color: color.withOpacity(0.15)),
+    ),
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(value, style: TextStyle(
+          fontFamily: 'monospace', fontSize: 14,
+          fontWeight: FontWeight.w600, color: color)),
+        Text(label, style: const TextStyle(
+          fontSize: 8, color: FluxForgeTheme.textTertiary)),
+      ],
+    ),
   );
 }
 
 class _ExportCard extends StatefulWidget {
-  final String emoji, label, sub;
+  final IconData icon;
+  final String label, sub;
   final Color color;
   final VoidCallback onTap;
-  const _ExportCard({required this.emoji, required this.label, required this.sub,
+  const _ExportCard({required this.icon, required this.label, required this.sub,
     required this.color, required this.onTap});
 
   @override
@@ -5206,22 +5425,38 @@ class _ExportCardState extends State<_ExportCard> {
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: _hovered ? widget.color.withOpacity(0.08) : widget.color.withOpacity(0.03),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft, end: Alignment.bottomRight,
+            colors: [
+              widget.color.withOpacity(_hovered ? 0.12 : 0.06),
+              widget.color.withOpacity(_hovered ? 0.04 : 0.01),
+            ],
+          ),
           border: Border.all(
-            color: _hovered ? widget.color.withOpacity(0.3) : widget.color.withOpacity(0.15)),
+            color: widget.color.withOpacity(_hovered ? 0.45 : 0.2)),
           borderRadius: BorderRadius.circular(10),
+          boxShadow: _hovered ? [BoxShadow(
+            color: widget.color.withOpacity(0.12), blurRadius: 16)] : null,
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(widget.emoji, style: const TextStyle(fontSize: 28)),
-            const SizedBox(height: 8),
+            Container(
+              width: 44, height: 44,
+              decoration: BoxDecoration(
+                color: widget.color.withOpacity(_hovered ? 0.15 : 0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: widget.color.withOpacity(0.2)),
+              ),
+              child: Icon(widget.icon, size: 22, color: widget.color),
+            ),
+            const SizedBox(height: 10),
             Text(widget.label, style: TextStyle(
-              fontFamily: 'monospace', fontSize: 14, fontWeight: FontWeight.w600,
+              fontFamily: 'monospace', fontSize: 14, fontWeight: FontWeight.w700,
               color: widget.color)),
             const SizedBox(height: 4),
             Text(widget.sub, style: const TextStyle(
-              fontSize: 10, color: FluxForgeTheme.textTertiary),
+              fontSize: 9, color: FluxForgeTheme.textTertiary),
               textAlign: TextAlign.center),
           ],
         ),
@@ -5236,25 +5471,30 @@ class _InfoChip extends StatelessWidget {
   const _InfoChip({required this.label, required this.value, this.color});
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-    decoration: BoxDecoration(
-      color: FluxForgeTheme.bgDeepest.withOpacity(0.8),
-      border: Border.all(color: FluxForgeTheme.borderSubtle),
-      borderRadius: BorderRadius.circular(5),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(label, style: const TextStyle(
-          fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary)),
-        const SizedBox(width: 5),
-        Text(value, style: TextStyle(
-          fontFamily: 'monospace', fontSize: 10, fontWeight: FontWeight.w500,
-          color: color ?? FluxForgeTheme.textPrimary)),
-      ],
-    ),
-  );
+  Widget build(BuildContext context) {
+    final c = color ?? FluxForgeTheme.textPrimary;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: FluxForgeTheme.bgDeepest.withOpacity(0.85),
+        border: Border.all(color: c.withOpacity(0.2)),
+        borderRadius: BorderRadius.circular(6),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8)],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: TextStyle(
+            fontFamily: 'monospace', fontSize: 8, fontWeight: FontWeight.w600,
+            color: c.withOpacity(0.5), letterSpacing: 0.1)),
+          const SizedBox(width: 6),
+          Text(value, style: TextStyle(
+            fontFamily: 'monospace', fontSize: 11, fontWeight: FontWeight.w600,
+            color: c)),
+        ],
+      ),
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
