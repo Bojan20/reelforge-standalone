@@ -40,6 +40,11 @@ import '../providers/middleware_provider.dart';
 import '../widgets/slot_lab/premium_slot_preview.dart';
 import '../models/game_flow_models.dart';
 import '../models/slot_audio_events.dart';
+// ── Faza 3 imports ──
+import '../providers/sfx_pipeline_provider.dart';
+import '../providers/ab_sim_provider.dart';
+import '../services/cloud_sync_service.dart';
+import '../services/ai_generation_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELIX SCREEN
@@ -59,7 +64,7 @@ class _HelixScreenState extends State<HelixScreen>
     with TickerProviderStateMixin {
 
   // ── Dock ──────────────────────────────────────────────────────────────────
-  int _dockTab = 0; // 0=FLOW 1=AUDIO 2=MATH 3=TIMELINE 4=INTEL 5=EXPORT
+  int _dockTab = 0; // 0=FLOW 1=AUDIO 2=MATH 3=TIMELINE 4=INTEL 5=EXPORT 6=SFX 7=BT 8=DNA 9=AI 10=CLOUD 11=A/B
   double _dockHeight = 300.0;
   bool _dockExpanded = true;
 
@@ -223,10 +228,12 @@ class _HelixScreenState extends State<HelixScreen>
     } else if (key == LogicalKeyboardKey.keyA) {
       setState(() => _mode = _mode == 2 ? 0 : 2);
     }
-    // 1-6 → dock tabs
+    // 1-9,0 → dock tabs (0 = tab 10)
     final digit = int.tryParse(e.character ?? '');
-    if (digit != null && digit >= 1 && digit <= 6) {
+    if (digit != null && digit >= 1 && digit <= 9) {
       setState(() => _dockTab = digit - 1);
+    } else if (digit == 0) {
+      setState(() => _dockTab = 9);
     }
   }
 
@@ -710,6 +717,13 @@ class _HelixScreenState extends State<HelixScreen>
     (Icons.timeline_rounded,     'TIMELINE', FluxForgeTheme.accentOrange),
     (Icons.psychology_rounded,   'INTEL',    FluxForgeTheme.accentPurple),
     (Icons.upload_rounded,       'EXPORT',   FluxForgeTheme.accentYellow),
+    // ── FAZA 3 tabs ──
+    (Icons.auto_fix_high_rounded,'SFX',      FluxForgeTheme.accentCyan),
+    (Icons.hub_rounded,          'BT',       FluxForgeTheme.accentOrange),
+    (Icons.fingerprint_rounded,  'DNA',      FluxForgeTheme.accentPink),
+    (Icons.auto_awesome_rounded, 'AI GEN',   FluxForgeTheme.accentPurple),
+    (Icons.cloud_sync_rounded,   'CLOUD',    FluxForgeTheme.accentBlue),
+    (Icons.science_rounded,      'A/B',      FluxForgeTheme.accentGreen),
   ];
 
   Widget _buildDock() {
@@ -792,6 +806,13 @@ class _HelixScreenState extends State<HelixScreen>
       3 => const _TimelinePanel(),
       4 => const _IntelPanel(),
       5 => const _ExportPanel(),
+      // ── FAZA 3 panels ──
+      6 => const _SfxPipelinePanel(),
+      7 => const _BehaviorTreePanel(),
+      8 => const _AudioDnaPanel(),
+      9 => const _AiGenerationPanel(),
+      10 => const _CloudSyncPanel(),
+      11 => const _AbTestPanel(),
       _ => const SizedBox(),
     };
   }
@@ -1062,6 +1083,1643 @@ class _FlowPanelState extends State<_FlowPanel> {
     );
   }
 }
+
+// ══════════════════════════════════════════════════════════════════��════════════
+// FAZA 3 — ADVANCED AUTHORING PANELS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ���─ 3.1 SFX Pipeline Wizard Panel ───────────────────────────────────────────
+
+class _SfxPipelinePanel extends StatelessWidget {
+  const _SfxPipelinePanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<SfxPipelineProvider>(
+      builder: (_, sfx, child) {
+        final step = sfx.currentStep;
+        final steps = SfxWizardStep.values;
+        return Row(
+          children: [
+            // Left: Step navigation
+            SizedBox(
+              width: 180,
+              child: _DockCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _DockLabel('SFX PIPELINE'),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: ListView(
+                        children: steps.asMap().entries.map((e) {
+                          final s = e.value;
+                          final active = s == step;
+                          final done = s.index < step.index;
+                          return GestureDetector(
+                            onTap: () => sfx.goToStep(s),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                              margin: const EdgeInsets.only(bottom: 4),
+                              decoration: BoxDecoration(
+                                color: active ? FluxForgeTheme.accentCyan.withOpacity(0.12)
+                                    : done ? FluxForgeTheme.accentGreen.withOpacity(0.06)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(6),
+                                border: active ? Border.all(color: FluxForgeTheme.accentCyan.withOpacity(0.4)) : null,
+                              ),
+                              child: Row(children: [
+                                Icon(
+                                  done ? Icons.check_circle_rounded : active ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                                  size: 14,
+                                  color: done ? FluxForgeTheme.accentGreen : active ? FluxForgeTheme.accentCyan : FluxForgeTheme.textTertiary,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(child: Text(
+                                  '${e.key + 1}. ${s.title}',
+                                  style: TextStyle(fontFamily: 'monospace', fontSize: 10,
+                                    color: active ? FluxForgeTheme.accentCyan : FluxForgeTheme.textSecondary,
+                                    fontWeight: active ? FontWeight.w600 : FontWeight.normal),
+                                )),
+                              ]),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                    // Navigation buttons
+                    Row(children: [
+                      if (sfx.canGoBack)
+                        _SfxNavButton(label: '← BACK', onTap: sfx.previousStep),
+                      const Spacer(),
+                      if (!sfx.isLastStep && sfx.canGoNext)
+                        _SfxNavButton(label: 'NEXT →', onTap: sfx.nextStep, primary: true)
+                      else if (sfx.isLastStep)
+                        _SfxNavButton(label: 'FINISH', onTap: sfx.setProcessing, primary: true),
+                    ]),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Center: Step content
+            Expanded(
+              flex: 3,
+              child: _DockCard(
+                child: _buildStepContent(sfx, step),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Right: Stats/Preview
+            SizedBox(
+              width: 200,
+              child: _DockCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _DockLabel('STATS'),
+                    const SizedBox(height: 8),
+                    _StatRow('Scanned', '${sfx.totalScanned}'),
+                    _StatRow('Selected', '${sfx.selectedCount}'),
+                    _StatRow('Stereo', '${sfx.stereoCount}'),
+                    _StatRow('Mono', '${sfx.monoCount}'),
+                    _StatRow('With Silence', '${sfx.filesWithSilence}'),
+                    _StatRow('DC Offset', '${sfx.filesWithDcOffset}'),
+                    const SizedBox(height: 12),
+                    _DockLabel('LOUDNESS'),
+                    const SizedBox(height: 6),
+                    _StatRow('Loudest', '${sfx.loudestLufs.toStringAsFixed(1)} LUFS'),
+                    _StatRow('Quietest', '${sfx.quietestLufs.toStringAsFixed(1)} LUFS'),
+                    _StatRow('Average', '${sfx.avgLufs.toStringAsFixed(1)} LUFS'),
+                    const Spacer(),
+                    if (sfx.isProcessing) ...[
+                      LinearProgressIndicator(
+                        value: sfx.progress.overallProgress,
+                        backgroundColor: FluxForgeTheme.bgSurface,
+                        valueColor: const AlwaysStoppedAnimation(FluxForgeTheme.accentCyan),
+                      ),
+                      const SizedBox(height: 6),
+                      Text('${sfx.progress.currentFilename ?? ''}',
+                        style: const TextStyle(fontFamily: 'monospace', fontSize: 8,
+                          color: FluxForgeTheme.textTertiary),
+                        overflow: TextOverflow.ellipsis),
+                    ],
+                    if (sfx.isCompleted)
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: FluxForgeTheme.accentGreen.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Row(children: [
+                          Icon(Icons.check_circle, size: 14, color: FluxForgeTheme.accentGreen),
+                          SizedBox(width: 6),
+                          Text('COMPLETE', style: TextStyle(fontFamily: 'monospace', fontSize: 10,
+                            color: FluxForgeTheme.accentGreen, fontWeight: FontWeight.w600)),
+                        ]),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildStepContent(SfxPipelineProvider sfx, SfxWizardStep step) {
+    return switch (step) {
+      SfxWizardStep.importScan => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _DockLabel('IMPORT & SCAN'),
+          const SizedBox(height: 8),
+          const Text('Drop WAV/FLAC files or select a folder to scan.',
+            style: TextStyle(fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textSecondary)),
+          const SizedBox(height: 12),
+          Expanded(
+            child: sfx.scanResults.isEmpty
+              ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.folder_open_rounded, size: 48, color: FluxForgeTheme.textTertiary.withOpacity(0.3)),
+                  const SizedBox(height: 12),
+                  const Text('No files scanned yet', style: TextStyle(fontFamily: 'monospace', fontSize: 11, color: FluxForgeTheme.textTertiary)),
+                ]))
+              : ListView.builder(
+                  itemCount: sfx.scanResults.length,
+                  itemBuilder: (_, i) {
+                    final r = sfx.scanResults[i];
+                    final selected = sfx.selectedFiles.contains(r);
+                    return ListTile(
+                      dense: true,
+                      leading: Icon(selected ? Icons.check_box : Icons.check_box_outline_blank,
+                        size: 16, color: selected ? FluxForgeTheme.accentCyan : FluxForgeTheme.textTertiary),
+                      title: Text(r.filename, style: const TextStyle(fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textPrimary)),
+                      subtitle: Text('${r.sampleRate}Hz ${r.channels}ch ${r.durationSeconds.toStringAsFixed(1)}ms',
+                        style: const TextStyle(fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textTertiary)),
+                      onTap: () => sfx.toggleFileSelection(i),
+                    );
+                  },
+                ),
+          ),
+          Row(children: [
+            _SfxNavButton(label: 'SELECT ALL', onTap: sfx.selectAllFiles),
+            const SizedBox(width: 8),
+            _SfxNavButton(label: 'DESELECT ALL', onTap: sfx.deselectAllFiles),
+            const SizedBox(width: 8),
+            _SfxNavButton(label: 'INVERT', onTap: sfx.invertSelection),
+          ]),
+        ],
+      ),
+      SfxWizardStep.trimClean => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _DockLabel('TRIM & CLEAN'),
+          const SizedBox(height: 8),
+          _SfxPresetSlider(label: 'Silence Threshold', value: sfx.preset.thresholdDb,
+            min: -80, max: -20, suffix: 'dB',
+            onChanged: (v) => sfx.updatePreset((p) => p.copyWith(thresholdDb: v))),
+          _SfxPresetSlider(label: 'Fade In', value: sfx.preset.fadeInMs,
+            min: 0, max: 50, suffix: 'ms',
+            onChanged: (v) => sfx.updatePreset((p) => p.copyWith(fadeInMs: v))),
+          _SfxPresetSlider(label: 'Fade Out', value: sfx.preset.fadeOutMs,
+            min: 0, max: 100, suffix: 'ms',
+            onChanged: (v) => sfx.updatePreset((p) => p.copyWith(fadeOutMs: v))),
+          const Spacer(),
+          Row(children: [
+            Icon(Icons.content_cut_rounded, size: 14, color: FluxForgeTheme.accentCyan.withOpacity(0.6)),
+            const SizedBox(width: 6),
+            Text('Auto-trim silence + apply fades to ${sfx.selectedCount} files',
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary)),
+          ]),
+        ],
+      ),
+      SfxWizardStep.loudnessLevel => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _DockLabel('LOUDNESS & LEVEL'),
+          const SizedBox(height: 8),
+          _SfxPresetSlider(label: 'Target LUFS', value: sfx.preset.targetLufs,
+            min: -30, max: -6, suffix: 'LUFS',
+            onChanged: (v) => sfx.updatePreset((p) => p.copyWith(targetLufs: v))),
+          _SfxPresetSlider(label: 'True Peak Limit', value: sfx.preset.truePeakCeiling,
+            min: -3, max: 0, suffix: 'dBTP',
+            onChanged: (v) => sfx.updatePreset((p) => p.copyWith(truePeakCeiling: v))),
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: FluxForgeTheme.accentPurple.withOpacity(0.06),
+              borderRadius: BorderRadius.circular(6)),
+            child: Row(children: [
+              const Icon(Icons.info_outline, size: 14, color: FluxForgeTheme.accentPurple),
+              const SizedBox(width: 8),
+              Expanded(child: Text('Slot standard: -14 LUFS / -1.0 dBTP. Matches casino floor playback.',
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textSecondary))),
+            ]),
+          ),
+        ],
+      ),
+      SfxWizardStep.formatChannel => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _DockLabel('FORMAT & CHANNELS'),
+          const SizedBox(height: 8),
+          _SfxPresetSlider(label: 'Sample Rate', value: sfx.preset.sampleRate.toDouble(),
+            min: 22050, max: 96000, suffix: 'Hz',
+            onChanged: (v) => sfx.updatePreset((p) => p.copyWith(sampleRate: v.round()))),
+          Row(children: [
+            const SizedBox(width: 120, child: Text('Output Format',
+              style: TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textSecondary))),
+            Text(sfx.preset.outputFormat.name.toUpperCase(),
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 10,
+                color: FluxForgeTheme.accentCyan, fontWeight: FontWeight.w600)),
+          ]),
+          const SizedBox(height: 12),
+          Row(children: [
+            _SfxToggle(label: 'DC Offset Remove', active: sfx.preset.removeDcOffset,
+              onTap: () => sfx.updatePreset((p) => p.copyWith(removeDcOffset: !p.removeDcOffset))),
+            const SizedBox(width: 12),
+            _SfxToggle(label: 'Normalize Peak', active: sfx.preset.preNormalizePeak,
+              onTap: () => sfx.updatePreset((p) => p.copyWith(preNormalizePeak: !p.preNormalizePeak))),
+          ]),
+        ],
+      ),
+      SfxWizardStep.namingAssign => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _DockLabel('NAMING & ASSIGN'),
+          const SizedBox(height: 8),
+          const Text('Map processed files to game stages for auto-assignment.',
+            style: TextStyle(fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textSecondary)),
+          const SizedBox(height: 8),
+          _StatRow('Matched', '${sfx.matchedCount} / ${sfx.stageMappings.length}'),
+          const SizedBox(height: 8),
+          Expanded(
+            child: ListView.builder(
+              itemCount: sfx.stageMappings.length,
+              itemBuilder: (_, i) {
+                final m = sfx.stageMappings[i];
+                final matched = m.stageId != null && m.stageId!.isNotEmpty;
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  margin: const EdgeInsets.only(bottom: 4),
+                  decoration: BoxDecoration(
+                    color: matched ? FluxForgeTheme.accentGreen.withOpacity(0.06) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Row(children: [
+                    Icon(matched ? Icons.link : Icons.link_off, size: 12,
+                      color: matched ? FluxForgeTheme.accentGreen : FluxForgeTheme.textTertiary),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(m.sourceFilename, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textPrimary))),
+                    const SizedBox(width: 8),
+                    Text(m.stageId ?? 'unassigned',
+                      style: TextStyle(fontFamily: 'monospace', fontSize: 9,
+                        color: matched ? FluxForgeTheme.accentCyan : FluxForgeTheme.textTertiary)),
+                  ]),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+      SfxWizardStep.exportFinish => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _DockLabel('EXPORT & FINISH'),
+          const SizedBox(height: 8),
+          if (sfx.isCompleted && sfx.result != null) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: FluxForgeTheme.accentGreen.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: FluxForgeTheme.accentGreen.withOpacity(0.3)),
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Row(children: [
+                  Icon(Icons.check_circle, size: 18, color: FluxForgeTheme.accentGreen),
+                  SizedBox(width: 8),
+                  Text('PIPELINE COMPLETE', style: TextStyle(fontFamily: 'monospace', fontSize: 12,
+                    color: FluxForgeTheme.accentGreen, fontWeight: FontWeight.w700)),
+                ]),
+                const SizedBox(height: 8),
+                Text('${sfx.result!.files.length} files processed | ${sfx.result!.outputDirectory}',
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textSecondary)),
+              ]),
+            ),
+          ] else if (sfx.isProcessing) ...[
+            const Center(child: CircularProgressIndicator(color: FluxForgeTheme.accentCyan)),
+          ] else ...[
+            const Text('Ready to process. Click FINISH to start the pipeline.',
+              style: TextStyle(fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textSecondary)),
+            const Spacer(),
+            _SfxNavButton(label: 'RESET PIPELINE', onTap: sfx.reset),
+          ],
+        ],
+      ),
+    };
+  }
+}
+
+class _StatRow extends StatelessWidget {
+  final String label;
+  final String value;
+  const _StatRow(this.label, this.value);
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 4),
+    child: Row(children: [
+      SizedBox(width: 80, child: Text(label,
+        style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary))),
+      Expanded(child: Text(value,
+        style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textSecondary),
+        textAlign: TextAlign.right)),
+    ]),
+  );
+}
+
+class _SfxNavButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  final bool primary;
+  const _SfxNavButton({required this.label, required this.onTap, this.primary = false});
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: primary ? FluxForgeTheme.accentCyan.withOpacity(0.15) : FluxForgeTheme.bgSurface,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: primary ? FluxForgeTheme.accentCyan.withOpacity(0.4) : FluxForgeTheme.borderSubtle),
+      ),
+      child: Text(label, style: TextStyle(fontFamily: 'monospace', fontSize: 9,
+        color: primary ? FluxForgeTheme.accentCyan : FluxForgeTheme.textSecondary,
+        fontWeight: FontWeight.w600)),
+    ),
+  );
+}
+
+class _SfxPresetSlider extends StatelessWidget {
+  final String label;
+  final double value;
+  final double min;
+  final double max;
+  final String suffix;
+  final ValueChanged<double> onChanged;
+  const _SfxPresetSlider({required this.label, required this.value,
+    required this.min, required this.max, required this.suffix,
+    required this.onChanged});
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: Row(children: [
+      SizedBox(width: 120, child: Text(label,
+        style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textSecondary))),
+      Expanded(child: SliderTheme(
+        data: SliderThemeData(
+          trackHeight: 3,
+          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+          activeTrackColor: FluxForgeTheme.accentCyan,
+          inactiveTrackColor: FluxForgeTheme.bgSurface,
+          thumbColor: FluxForgeTheme.accentCyan,
+          overlayColor: FluxForgeTheme.accentCyan.withOpacity(0.1),
+        ),
+        child: Slider(value: value.clamp(min, max), min: min, max: max, onChanged: onChanged),
+      )),
+      SizedBox(width: 70, child: Text('${value.toStringAsFixed(1)} $suffix',
+        style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.accentCyan),
+        textAlign: TextAlign.right)),
+    ]),
+  );
+}
+
+class _SfxToggle extends StatelessWidget {
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+  const _SfxToggle({required this.label, required this.active, required this.onTap});
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    child: Row(children: [
+      Icon(active ? Icons.check_box : Icons.check_box_outline_blank,
+        size: 16, color: active ? FluxForgeTheme.accentCyan : FluxForgeTheme.textTertiary),
+      const SizedBox(width: 6),
+      Text(label, style: TextStyle(fontFamily: 'monospace', fontSize: 10,
+        color: active ? FluxForgeTheme.accentCyan : FluxForgeTheme.textSecondary)),
+    ]),
+  );
+}
+
+// ── 3.2 Behavior Tree Visual Editor ─────────────────────────────────────────
+
+class _BehaviorTreePanel extends StatefulWidget {
+  const _BehaviorTreePanel();
+  @override
+  State<_BehaviorTreePanel> createState() => _BehaviorTreePanelState();
+}
+
+class _BehaviorTreePanelState extends State<_BehaviorTreePanel> {
+  // Node types from architecture: 22 types across 5 categories
+  static const _nodeCategories = {
+    'COMPOSITE': [
+      ('Sequence', Icons.arrow_forward_rounded, 'Execute children L→R, fail on first fail'),
+      ('Selector', Icons.call_split_rounded, 'Execute children L→R, succeed on first success'),
+      ('Parallel', Icons.view_column_rounded, 'Execute all children simultaneously'),
+      ('RandomSelector', Icons.shuffle_rounded, 'Pick random child to execute'),
+      ('WeightedSelector', Icons.balance_rounded, 'Pick child by weighted probability'),
+    ],
+    'DECORATOR': [
+      ('Inverter', Icons.swap_vert_rounded, 'Invert child result'),
+      ('Repeater', Icons.repeat_rounded, 'Repeat child N times'),
+      ('UntilFail', Icons.block_rounded, 'Repeat child until it fails'),
+      ('Timeout', Icons.timer_rounded, 'Fail if child exceeds time limit'),
+      ('Cooldown', Icons.hourglass_empty_rounded, 'Delay between executions'),
+      ('Guard', Icons.shield_rounded, 'Conditional execution gate'),
+    ],
+    'ACTION': [
+      ('PlayAudio', Icons.volume_up_rounded, 'Trigger composite event playback'),
+      ('StopAudio', Icons.stop_rounded, 'Stop event playback'),
+      ('SetRTPC', Icons.tune_rounded, 'Set RTPC parameter value'),
+      ('TransitionStage', Icons.swap_horiz_rounded, 'Force game stage transition'),
+      ('Wait', Icons.schedule_rounded, 'Wait for duration'),
+      ('LogMessage', Icons.message_rounded, 'Log debug message'),
+    ],
+    'CONDITION': [
+      ('IsStage', Icons.flag_rounded, 'Check if game is in target stage'),
+      ('RTPCCheck', Icons.analytics_rounded, 'Compare RTPC value'),
+      ('PlayerState', Icons.person_rounded, 'Check player behavior state'),
+      ('RandomChance', Icons.casino_rounded, 'Succeed with probability P'),
+    ],
+    'AUDIO': [
+      ('CrossFade', Icons.compare_arrows_rounded, 'Crossfade between two events'),
+    ],
+  };
+
+  String _selectedCategory = 'COMPOSITE';
+  final List<({String type, String name, Offset position})> _canvasNodes = [];
+  List<({int from, int to})> _connections = [];
+  int? _selectedNode;
+
+  void _addNode(String type, String name) {
+    setState(() {
+      _canvasNodes.add((
+        type: type,
+        name: name,
+        position: Offset(100.0 + _canvasNodes.length * 120.0, 80.0 + (_canvasNodes.length % 3) * 80.0),
+      ));
+    });
+  }
+
+  void _deleteSelectedNode() {
+    if (_selectedNode == null) return;
+    setState(() {
+      final idx = _selectedNode!;
+      _connections.removeWhere((c) => c.from == idx || c.to == idx);
+      _connections = _connections.map((c) => (
+        from: c.from > idx ? c.from - 1 : c.from,
+        to: c.to > idx ? c.to - 1 : c.to,
+      )).toList();
+      _canvasNodes.removeAt(idx);
+      _selectedNode = null;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        // Left: Node palette
+        SizedBox(
+          width: 200,
+          child: _DockCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _DockLabel('NODE PALETTE'),
+                const SizedBox(height: 6),
+                // Category tabs
+                SizedBox(
+                  height: 24,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: _nodeCategories.keys.map((cat) => GestureDetector(
+                      onTap: () => setState(() => _selectedCategory = cat),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        margin: const EdgeInsets.only(right: 4),
+                        decoration: BoxDecoration(
+                          color: _selectedCategory == cat
+                            ? FluxForgeTheme.accentOrange.withOpacity(0.15) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(cat, style: TextStyle(fontFamily: 'monospace', fontSize: 8,
+                          color: _selectedCategory == cat ? FluxForgeTheme.accentOrange : FluxForgeTheme.textTertiary,
+                          fontWeight: FontWeight.w600)),
+                      ),
+                    )).toList(),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // Node list for selected category
+                Expanded(
+                  child: ListView(
+                    children: (_nodeCategories[_selectedCategory] ?? []).map((node) {
+                      final (name, icon, desc) = node;
+                      return GestureDetector(
+                        onTap: () => _addNode(_selectedCategory, name),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          margin: const EdgeInsets.only(bottom: 4),
+                          decoration: BoxDecoration(
+                            color: FluxForgeTheme.bgSurface,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: FluxForgeTheme.borderSubtle),
+                          ),
+                          child: Row(children: [
+                            Icon(icon, size: 14, color: _categoryColor(_selectedCategory)),
+                            const SizedBox(width: 8),
+                            Expanded(child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(name, style: TextStyle(fontFamily: 'monospace', fontSize: 10,
+                                  color: _categoryColor(_selectedCategory), fontWeight: FontWeight.w600)),
+                                Text(desc, style: const TextStyle(fontFamily: 'monospace', fontSize: 7,
+                                  color: FluxForgeTheme.textTertiary), maxLines: 1, overflow: TextOverflow.ellipsis),
+                              ],
+                            )),
+                            const Icon(Icons.add_rounded, size: 12, color: FluxForgeTheme.textTertiary),
+                          ]),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        // Center: Canvas area
+        Expanded(
+          flex: 4,
+          child: _DockCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  _DockLabel('BEHAVIOR TREE CANVAS'),
+                  const Spacer(),
+                  Text('${_canvasNodes.length} nodes  ${_connections.length} edges',
+                    style: const TextStyle(fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textTertiary)),
+                  const SizedBox(width: 12),
+                  if (_selectedNode != null)
+                    GestureDetector(
+                      onTap: _deleteSelectedNode,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: FluxForgeTheme.accentPink.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(4)),
+                        child: const Text('DELETE', style: TextStyle(fontFamily: 'monospace', fontSize: 8,
+                          color: FluxForgeTheme.accentPink, fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                ]),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      color: const Color(0xFF050508),
+                      child: _canvasNodes.isEmpty
+                        ? const Center(child: Text('Click a node in the palette to add it to the canvas',
+                            style: TextStyle(fontFamily: 'monospace', fontSize: 11, color: FluxForgeTheme.textTertiary)))
+                        : CustomPaint(
+                            painter: _BtConnectionPainter(_canvasNodes, _connections),
+                            child: Stack(
+                              children: _canvasNodes.asMap().entries.map((e) {
+                                final node = e.value;
+                                final idx = e.key;
+                                final selected = _selectedNode == idx;
+                                return Positioned(
+                                  left: node.position.dx,
+                                  top: node.position.dy,
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      setState(() {
+                                        if (_selectedNode != null && _selectedNode != idx) {
+                                          // Create connection
+                                          final exists = _connections.any((c) =>
+                                            c.from == _selectedNode && c.to == idx);
+                                          if (!exists) {
+                                            _connections.add((from: _selectedNode!, to: idx));
+                                          }
+                                        }
+                                        _selectedNode = idx;
+                                      });
+                                    },
+                                    onPanUpdate: (d) {
+                                      setState(() {
+                                        final old = _canvasNodes[idx];
+                                        _canvasNodes[idx] = (
+                                          type: old.type,
+                                          name: old.name,
+                                          position: old.position + d.delta,
+                                        );
+                                      });
+                                    },
+                                    child: Container(
+                                      width: 100, height: 44,
+                                      decoration: BoxDecoration(
+                                        color: _categoryColor(node.type).withOpacity(selected ? 0.2 : 0.08),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: selected ? _categoryColor(node.type) : _categoryColor(node.type).withOpacity(0.4),
+                                          width: selected ? 2 : 1),
+                                      ),
+                                      child: Center(child: Text(node.name,
+                                        style: TextStyle(fontFamily: 'monospace', fontSize: 9,
+                                          color: _categoryColor(node.type), fontWeight: FontWeight.w600),
+                                        textAlign: TextAlign.center)),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Color _categoryColor(String cat) => switch (cat) {
+    'COMPOSITE' => FluxForgeTheme.accentBlue,
+    'DECORATOR' => FluxForgeTheme.accentPurple,
+    'ACTION'    => FluxForgeTheme.accentGreen,
+    'CONDITION' => FluxForgeTheme.accentYellow,
+    'AUDIO'     => FluxForgeTheme.accentCyan,
+    _ => FluxForgeTheme.textTertiary,
+  };
+}
+
+class _BtConnectionPainter extends CustomPainter {
+  final List<({String type, String name, Offset position})> nodes;
+  final List<({int from, int to})> connections;
+  _BtConnectionPainter(this.nodes, this.connections);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = FluxForgeTheme.accentOrange.withOpacity(0.5)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+    for (final c in connections) {
+      if (c.from < nodes.length && c.to < nodes.length) {
+        final from = nodes[c.from].position + const Offset(50, 44);
+        final to = nodes[c.to].position + const Offset(50, 0);
+        final path = Path()
+          ..moveTo(from.dx, from.dy)
+          ..cubicTo(from.dx, from.dy + 30, to.dx, to.dy - 30, to.dx, to.dy);
+        canvas.drawPath(path, paint);
+        // Arrow head
+        final arrow = Paint()..color = FluxForgeTheme.accentOrange.withOpacity(0.5)..style = PaintingStyle.fill;
+        canvas.drawPath(
+          Path()..moveTo(to.dx, to.dy)..lineTo(to.dx - 4, to.dy - 6)..lineTo(to.dx + 4, to.dy - 6)..close(),
+          arrow,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _BtConnectionPainter old) => true;
+}
+
+// ── 3.4 Audio DNA / Fingerprint Editor ──────────────────────────────────────
+
+class _AudioDnaPanel extends StatefulWidget {
+  const _AudioDnaPanel();
+  @override
+  State<_AudioDnaPanel> createState() => _AudioDnaPanelState();
+}
+
+class _AudioDnaPanelState extends State<_AudioDnaPanel> {
+  // Audio DNA fields mirror the Rust AudioDna struct
+  String _brand = 'VanVinkl';
+  double _bpmMin = 110;
+  double _bpmMax = 140;
+  String _rootKey = 'C';
+  String _mode = 'minor';
+  final List<String> _instruments = ['piano', 'strings', 'brass'];
+  String _baseProfile = 'ambient_dark';
+  String _featureProfile = 'epic_orchestral';
+  double _winEscalation = 1.5;
+  double _ambientLayerCount = 3;
+
+  static const _keys = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+  static const _modes = ['major', 'minor', 'dorian', 'mixolydian', 'pentatonic_major', 'pentatonic_minor', 'phrygian', 'lydian'];
+  static const _allInstruments = ['piano', 'strings', 'brass', 'woodwinds', 'synth_pad', 'synth_lead',
+    'ethnic_percussion', 'orchestral_percussion', 'choir', 'guitar', 'bass', 'harp', 'bells', 'mallets'];
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        // Left: Identity
+        Expanded(
+          flex: 2,
+          child: _DockCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _DockLabel('BRAND IDENTITY'),
+                const SizedBox(height: 8),
+                _DnaField('Brand', _brand, (v) => setState(() => _brand = v)),
+                const SizedBox(height: 8),
+                Row(children: [
+                  const SizedBox(width: 80, child: Text('Root Key',
+                    style: TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textSecondary))),
+                  Expanded(child: Wrap(spacing: 4, runSpacing: 4, children: _keys.map((k) =>
+                    GestureDetector(
+                      onTap: () => setState(() => _rootKey = k),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: _rootKey == k ? FluxForgeTheme.accentPink.withOpacity(0.2) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: _rootKey == k ? FluxForgeTheme.accentPink : FluxForgeTheme.borderSubtle),
+                        ),
+                        child: Text(k, style: TextStyle(fontFamily: 'monospace', fontSize: 9,
+                          color: _rootKey == k ? FluxForgeTheme.accentPink : FluxForgeTheme.textTertiary)),
+                      ),
+                    )).toList())),
+                ]),
+                const SizedBox(height: 8),
+                Row(children: [
+                  const SizedBox(width: 80, child: Text('Mode',
+                    style: TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textSecondary))),
+                  Expanded(child: Wrap(spacing: 4, runSpacing: 4, children: _modes.map((m) =>
+                    GestureDetector(
+                      onTap: () => setState(() => _mode = m),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: _mode == m ? FluxForgeTheme.accentPurple.withOpacity(0.2) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: _mode == m ? FluxForgeTheme.accentPurple : FluxForgeTheme.borderSubtle),
+                        ),
+                        child: Text(m, style: TextStyle(fontFamily: 'monospace', fontSize: 8,
+                          color: _mode == m ? FluxForgeTheme.accentPurple : FluxForgeTheme.textTertiary)),
+                      ),
+                    )).toList())),
+                ]),
+                const SizedBox(height: 12),
+                _SfxPresetSlider(label: 'BPM Min', value: _bpmMin, min: 60, max: 200, suffix: '',
+                  onChanged: (v) => setState(() => _bpmMin = v)),
+                _SfxPresetSlider(label: 'BPM Max', value: _bpmMax, min: 60, max: 200, suffix: '',
+                  onChanged: (v) => setState(() => _bpmMax = v)),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        // Center: Instruments
+        Expanded(
+          flex: 2,
+          child: _DockCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _DockLabel('INSTRUMENT PALETTE'),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: Wrap(spacing: 6, runSpacing: 6, children: _allInstruments.map((inst) {
+                    final active = _instruments.contains(inst);
+                    return GestureDetector(
+                      onTap: () => setState(() {
+                        if (active) _instruments.remove(inst);
+                        else _instruments.add(inst);
+                      }),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: active ? FluxForgeTheme.accentCyan.withOpacity(0.15) : FluxForgeTheme.bgSurface,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: active ? FluxForgeTheme.accentCyan.withOpacity(0.5) : FluxForgeTheme.borderSubtle),
+                        ),
+                        child: Text(inst.replaceAll('_', ' '),
+                          style: TextStyle(fontFamily: 'monospace', fontSize: 9,
+                            color: active ? FluxForgeTheme.accentCyan : FluxForgeTheme.textTertiary,
+                            fontWeight: active ? FontWeight.w600 : FontWeight.normal)),
+                      ),
+                    );
+                  }).toList()),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        // Right: Profiles & Escalation
+        Expanded(
+          flex: 1,
+          child: _DockCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _DockLabel('AUDIO PROFILES'),
+                const SizedBox(height: 8),
+                _DnaField('Base', _baseProfile, (v) => setState(() => _baseProfile = v)),
+                const SizedBox(height: 6),
+                _DnaField('Feature', _featureProfile, (v) => setState(() => _featureProfile = v)),
+                const SizedBox(height: 12),
+                _DockLabel('ESCALATION'),
+                const SizedBox(height: 6),
+                _SfxPresetSlider(label: 'Win Scale', value: _winEscalation, min: 1, max: 3, suffix: 'x',
+                  onChanged: (v) => setState(() => _winEscalation = v)),
+                _SfxPresetSlider(label: 'Ambient Layers', value: _ambientLayerCount, min: 1, max: 8, suffix: '',
+                  onChanged: (v) => setState(() => _ambientLayerCount = v)),
+                const Spacer(),
+                // DNA fingerprint visual
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: FluxForgeTheme.accentPink.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: FluxForgeTheme.accentPink.withOpacity(0.2)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('FINGERPRINT', style: TextStyle(fontFamily: 'monospace', fontSize: 8,
+                        color: FluxForgeTheme.accentPink, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 6),
+                      Text('$_rootKey $_mode  ${_bpmMin.round()}-${_bpmMax.round()} BPM',
+                        style: const TextStyle(fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textPrimary)),
+                      Text(_instruments.join(' · '),
+                        style: const TextStyle(fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textTertiary),
+                        overflow: TextOverflow.ellipsis, maxLines: 2),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DnaField extends StatelessWidget {
+  final String label;
+  final String value;
+  final ValueChanged<String> onChanged;
+  const _DnaField(this.label, this.value, this.onChanged);
+  @override
+  Widget build(BuildContext context) => Row(children: [
+    SizedBox(width: 80, child: Text(label,
+      style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textSecondary))),
+    Expanded(child: SizedBox(
+      height: 24,
+      child: TextField(
+        controller: TextEditingController(text: value),
+        style: const TextStyle(fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textPrimary),
+        decoration: InputDecoration(
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: FluxForgeTheme.borderSubtle)),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: FluxForgeTheme.borderSubtle)),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: FluxForgeTheme.accentPink)),
+        ),
+        onSubmitted: onChanged,
+      ),
+    )),
+  ]);
+}
+
+// ── 3.5 AI Generation Panel ─────────────────────────────────────────────────
+
+class _AiGenerationPanel extends StatefulWidget {
+  const _AiGenerationPanel();
+  @override
+  State<_AiGenerationPanel> createState() => _AiGenerationPanelState();
+}
+
+class _AiGenerationPanelState extends State<_AiGenerationPanel> {
+  final _promptController = TextEditingController();
+  bool _isGenerating = false;
+  String? _lastResultText;
+  String _selectedBackend = 'stub';
+  final List<String> _pipelineLog = [];
+
+  @override
+  void dispose() {
+    _promptController.dispose();
+    super.dispose();
+  }
+
+  void _runGeneration() async {
+    final prompt = _promptController.text.trim();
+    if (prompt.isEmpty) return;
+    setState(() { _isGenerating = true; _pipelineLog.clear(); _lastResultText = null; });
+
+    try {
+      final aiService = GetIt.instance<AiGenerationService>();
+      setState(() => _pipelineLog.add('Parsing prompt...'));
+
+      final descriptor = await aiService.parsePrompt(prompt);
+      if (descriptor == null) {
+        setState(() { _pipelineLog.add('ERROR: Failed to parse prompt'); _isGenerating = false; });
+        return;
+      }
+      setState(() => _pipelineLog.add('Parsed: ${descriptor.category} / ${descriptor.tier}'));
+
+      setState(() => _pipelineLog.add('Classifying (FFNC)...'));
+      final classification = await aiService.classify(descriptor);
+      if (classification != null) {
+        setState(() => _pipelineLog.add('Class: ${classification.ffncCode} ${classification.displayName} (${(classification.confidence * 100).toStringAsFixed(0)}%)'));
+      }
+
+      setState(() => _pipelineLog.add('Generating audio...'));
+      final result = await aiService.generateWithStub(prompt: prompt);
+      if (result != null) {
+        setState(() {
+          _pipelineLog.add('Generated: ${result.actualDurationMs}ms → ${result.suggestedFilename}');
+          _lastResultText = 'Audio generated: ${result.actualDurationMs}ms (${result.generationTimeMs}ms gen time)';
+        });
+      } else {
+        setState(() => _pipelineLog.add('Generation returned null'));
+      }
+
+      setState(() => _pipelineLog.add('Post-processing...'));
+      final ppConfig = await aiService.getPostProcessingConfig(descriptor);
+      if (ppConfig != null) {
+        setState(() => _pipelineLog.add('PP: ${ppConfig.loudnessLufs} LUFS, trim=${ppConfig.trimSilence}, limiter=${ppConfig.applyLimiter}'));
+      }
+
+      setState(() { _pipelineLog.add('DONE'); _isGenerating = false; });
+    } catch (e) {
+      setState(() { _pipelineLog.add('ERROR: $e'); _isGenerating = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        // Left: Prompt input
+        Expanded(
+          flex: 3,
+          child: _DockCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _DockLabel('AI AUDIO GENERATION'),
+                const SizedBox(height: 8),
+                const Text('Describe the sound you want to generate:',
+                  style: TextStyle(fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textSecondary)),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 80,
+                  child: TextField(
+                    controller: _promptController,
+                    maxLines: 4,
+                    style: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: FluxForgeTheme.textPrimary),
+                    decoration: InputDecoration(
+                      hintText: 'e.g. "epic win celebration with brass fanfare, 2 seconds, bright and triumphant"',
+                      hintStyle: TextStyle(fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textTertiary.withOpacity(0.5)),
+                      filled: true,
+                      fillColor: FluxForgeTheme.bgSurface,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide.none),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6),
+                        borderSide: const BorderSide(color: FluxForgeTheme.accentPurple)),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(children: [
+                  // Backend selector
+                  const Text('Backend: ', style: TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary)),
+                  ...['stub', 'local', 'cloud'].map((b) => GestureDetector(
+                    onTap: () => setState(() => _selectedBackend = b),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      margin: const EdgeInsets.only(right: 4),
+                      decoration: BoxDecoration(
+                        color: _selectedBackend == b ? FluxForgeTheme.accentPurple.withOpacity(0.15) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: _selectedBackend == b ? FluxForgeTheme.accentPurple.withOpacity(0.4) : FluxForgeTheme.borderSubtle),
+                      ),
+                      child: Text(b.toUpperCase(), style: TextStyle(fontFamily: 'monospace', fontSize: 8,
+                        color: _selectedBackend == b ? FluxForgeTheme.accentPurple : FluxForgeTheme.textTertiary)),
+                    ),
+                  )),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: _isGenerating ? null : _runGeneration,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: _isGenerating
+                          ? FluxForgeTheme.textTertiary.withOpacity(0.1)
+                          : FluxForgeTheme.accentPurple.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: _isGenerating
+                          ? FluxForgeTheme.textTertiary : FluxForgeTheme.accentPurple.withOpacity(0.5)),
+                      ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        if (_isGenerating)
+                          const SizedBox(width: 12, height: 12,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: FluxForgeTheme.accentPurple))
+                        else
+                          const Icon(Icons.auto_awesome_rounded, size: 14, color: FluxForgeTheme.accentPurple),
+                        const SizedBox(width: 6),
+                        Text(_isGenerating ? 'GENERATING...' : 'GENERATE',
+                          style: const TextStyle(fontFamily: 'monospace', fontSize: 10,
+                            color: FluxForgeTheme.accentPurple, fontWeight: FontWeight.w600)),
+                      ]),
+                    ),
+                  ),
+                ]),
+                if (_lastResultText != null) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: FluxForgeTheme.accentGreen.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(6)),
+                    child: Row(children: [
+                      const Icon(Icons.check_circle, size: 14, color: FluxForgeTheme.accentGreen),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(_lastResultText!, style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.accentGreen))),
+                    ]),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        // Right: Pipeline log
+        SizedBox(
+          width: 220,
+          child: _DockCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _DockLabel('PIPELINE LOG'),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: ListView(
+                    children: _pipelineLog.asMap().entries.map((e) {
+                      final isError = e.value.startsWith('ERROR');
+                      final isDone = e.value == 'DONE';
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text('${e.key + 1}. ',
+                            style: const TextStyle(fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textTertiary)),
+                          Expanded(child: Text(e.value,
+                            style: TextStyle(fontFamily: 'monospace', fontSize: 8,
+                              color: isError ? FluxForgeTheme.accentPink
+                                : isDone ? FluxForgeTheme.accentGreen
+                                : FluxForgeTheme.textSecondary))),
+                        ]),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── 3.6 Cloud Sync Panel ────────────────────────────────────────────────────
+
+class _CloudSyncPanel extends StatefulWidget {
+  const _CloudSyncPanel();
+  @override
+  State<_CloudSyncPanel> createState() => _CloudSyncPanelState();
+}
+
+class _CloudSyncPanelState extends State<_CloudSyncPanel> {
+  bool _autoSyncEnabled = false;
+
+  CloudSyncService get _cloud => CloudSyncService.instance;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        // Left: Connection status
+        SizedBox(
+          width: 220,
+          child: _DockCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _DockLabel('CLOUD STATUS'),
+                const SizedBox(height: 8),
+                _CloudStatusRow('Provider', _cloud.provider.name.toUpperCase()),
+                _CloudStatusRow('Status', _cloud.status.name.toUpperCase()),
+                _CloudStatusRow('Authenticated', _cloud.isAuthenticated ? 'YES' : 'NO'),
+                _CloudStatusRow('User', _cloud.userEmail ?? 'N/A'),
+                _CloudStatusRow('Last Sync', _cloud.lastSyncTime?.toString().substring(0, 19) ?? 'Never'),
+                const SizedBox(height: 12),
+                // Provider selector
+                _DockLabel('PROVIDER'),
+                const SizedBox(height: 6),
+                Row(children: CloudProvider.values.map((p) => GestureDetector(
+                  onTap: () async {
+                    await _cloud.setProvider(p);
+                    setState(() {});
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    margin: const EdgeInsets.only(right: 4),
+                    decoration: BoxDecoration(
+                      color: _cloud.provider == p ? FluxForgeTheme.accentBlue.withOpacity(0.15) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: _cloud.provider == p ? FluxForgeTheme.accentBlue.withOpacity(0.4) : FluxForgeTheme.borderSubtle),
+                    ),
+                    child: Text(p.name.toUpperCase(), style: TextStyle(fontFamily: 'monospace', fontSize: 8,
+                      color: _cloud.provider == p ? FluxForgeTheme.accentBlue : FluxForgeTheme.textTertiary,
+                      fontWeight: FontWeight.w600)),
+                  ),
+                )).toList()),
+                const Spacer(),
+                // Auto-sync toggle
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _autoSyncEnabled = !_autoSyncEnabled;
+                      if (_autoSyncEnabled) {
+                        _cloud.enableAutoSync();
+                      } else {
+                        _cloud.disableAutoSync();
+                      }
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: _autoSyncEnabled ? FluxForgeTheme.accentBlue.withOpacity(0.08) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: FluxForgeTheme.borderSubtle),
+                    ),
+                    child: Row(children: [
+                      Icon(_autoSyncEnabled ? Icons.sync_rounded : Icons.sync_disabled_rounded,
+                        size: 14, color: _autoSyncEnabled ? FluxForgeTheme.accentBlue : FluxForgeTheme.textTertiary),
+                      const SizedBox(width: 8),
+                      Text('Auto-Sync ${_autoSyncEnabled ? "ON" : "OFF"}',
+                        style: TextStyle(fontFamily: 'monospace', fontSize: 10,
+                          color: _autoSyncEnabled ? FluxForgeTheme.accentBlue : FluxForgeTheme.textTertiary)),
+                    ]),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        // Center: Projects list
+        Expanded(
+          flex: 3,
+          child: _DockCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  _DockLabel('CLOUD PROJECTS'),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () async {
+                      final proj = GetIt.instance<SlotLabProjectProvider>();
+                      await _cloud.uploadProject('.', name: proj.projectName);
+                      setState(() {});
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: FluxForgeTheme.accentBlue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: FluxForgeTheme.accentBlue.withOpacity(0.3)),
+                      ),
+                      child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.cloud_upload_rounded, size: 12, color: FluxForgeTheme.accentBlue),
+                        SizedBox(width: 4),
+                        Text('UPLOAD', style: TextStyle(fontFamily: 'monospace', fontSize: 8,
+                          color: FluxForgeTheme.accentBlue, fontWeight: FontWeight.w600)),
+                      ]),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () async {
+                      await _cloud.syncAllProjects();
+                      setState(() {});
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: FluxForgeTheme.accentGreen.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: FluxForgeTheme.accentGreen.withOpacity(0.3)),
+                      ),
+                      child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.sync_rounded, size: 12, color: FluxForgeTheme.accentGreen),
+                        SizedBox(width: 4),
+                        Text('SYNC ALL', style: TextStyle(fontFamily: 'monospace', fontSize: 8,
+                          color: FluxForgeTheme.accentGreen, fontWeight: FontWeight.w600)),
+                      ]),
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: _cloud.projects.isEmpty
+                    ? const Center(child: Text('No cloud projects', style: TextStyle(
+                        fontFamily: 'monospace', fontSize: 11, color: FluxForgeTheme.textTertiary)))
+                    : ListView.builder(
+                        itemCount: _cloud.projects.length,
+                        itemBuilder: (_, i) {
+                          final p = _cloud.projects[i];
+                          return Container(
+                            padding: const EdgeInsets.all(8),
+                            margin: const EdgeInsets.only(bottom: 6),
+                            decoration: BoxDecoration(
+                              color: FluxForgeTheme.bgSurface,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: FluxForgeTheme.borderSubtle),
+                            ),
+                            child: Row(children: [
+                              const Icon(Icons.folder_rounded, size: 16, color: FluxForgeTheme.accentBlue),
+                              const SizedBox(width: 8),
+                              Expanded(child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(p.name, style: const TextStyle(fontFamily: 'monospace', fontSize: 10,
+                                    color: FluxForgeTheme.textPrimary, fontWeight: FontWeight.w600)),
+                                  Text('ID: ${p.id}  Updated: ${p.updatedAt.toString().substring(0, 16)}',
+                                    style: const TextStyle(fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textTertiary)),
+                                ],
+                              )),
+                              GestureDetector(
+                                onTap: () async {
+                                  await _cloud.syncProject(p.id);
+                                  setState(() {});
+                                },
+                                child: const Icon(Icons.sync_rounded, size: 14, color: FluxForgeTheme.accentCyan),
+                              ),
+                              const SizedBox(width: 8),
+                              GestureDetector(
+                                onTap: () async {
+                                  await _cloud.downloadProject(p.id);
+                                  setState(() {});
+                                },
+                                child: const Icon(Icons.cloud_download_rounded, size: 14, color: FluxForgeTheme.accentGreen),
+                              ),
+                            ]),
+                          );
+                        },
+                      ),
+                ),
+                // Progress bar during sync
+                if (_cloud.isSyncing) ...[
+                  const SizedBox(height: 8),
+                  LinearProgressIndicator(
+                    value: _cloud.progress,
+                    backgroundColor: FluxForgeTheme.bgSurface,
+                    valueColor: const AlwaysStoppedAnimation(FluxForgeTheme.accentBlue),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(_cloud.currentOperation ?? 'Syncing...',
+                    style: const TextStyle(fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textTertiary)),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CloudStatusRow extends StatelessWidget {
+  final String label;
+  final String value;
+  const _CloudStatusRow(this.label, this.value);
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Row(children: [
+      SizedBox(width: 90, child: Text(label,
+        style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary))),
+      Expanded(child: Text(value,
+        style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textSecondary),
+        overflow: TextOverflow.ellipsis)),
+    ]),
+  );
+}
+
+// ── 3.7 A/B Split Test Panel ────────────────────────────────────────────────
+
+class _AbTestPanel extends StatefulWidget {
+  const _AbTestPanel();
+  @override
+  State<_AbTestPanel> createState() => _AbTestPanelState();
+}
+
+class _AbTestPanelState extends State<_AbTestPanel> {
+  // Variant config
+  double _variantARtp = 96.0;
+  double _variantBRtp = 94.0;
+  double _variantAVolatility = 2.5;
+  double _variantBVolatility = 3.0;
+  int _spinCount = 100000;
+  bool _isRunning = false;
+  Map<String, dynamic>? _results;
+
+  void _runSimulation() async {
+    final abSim = GetIt.instance<AbSimProvider>();
+    setState(() { _isRunning = true; _results = null; });
+
+    final config = {
+      'variants': [
+        {'name': 'Variant A', 'rtp': _variantARtp / 100, 'volatility': _variantAVolatility},
+        {'name': 'Variant B', 'rtp': _variantBRtp / 100, 'volatility': _variantBVolatility},
+      ],
+      'spinsPerVariant': _spinCount,
+    };
+
+    abSim.startSimulation(config);
+
+    // Poll for results
+    while (abSim.isRunning) {
+      await Future.delayed(const Duration(milliseconds: 200));
+      if (!mounted) return;
+      setState(() {});
+    }
+
+    setState(() {
+      _results = abSim.lastResult;
+      _isRunning = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        // Left: Config
+        SizedBox(
+          width: 260,
+          child: _DockCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _DockLabel('A/B SPLIT TEST CONFIG'),
+                const SizedBox(height: 8),
+                // Variant A
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: FluxForgeTheme.accentBlue.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: FluxForgeTheme.accentBlue.withOpacity(0.2)),
+                  ),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text('VARIANT A', style: TextStyle(fontFamily: 'monospace', fontSize: 9,
+                      color: FluxForgeTheme.accentBlue, fontWeight: FontWeight.w700)),
+                    _SfxPresetSlider(label: 'RTP', value: _variantARtp, min: 85, max: 99, suffix: '%',
+                      onChanged: (v) => setState(() => _variantARtp = v)),
+                    _SfxPresetSlider(label: 'Volatility', value: _variantAVolatility, min: 1, max: 5, suffix: '',
+                      onChanged: (v) => setState(() => _variantAVolatility = v)),
+                  ]),
+                ),
+                // Variant B
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: FluxForgeTheme.accentGreen.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: FluxForgeTheme.accentGreen.withOpacity(0.2)),
+                  ),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text('VARIANT B', style: TextStyle(fontFamily: 'monospace', fontSize: 9,
+                      color: FluxForgeTheme.accentGreen, fontWeight: FontWeight.w700)),
+                    _SfxPresetSlider(label: 'RTP', value: _variantBRtp, min: 85, max: 99, suffix: '%',
+                      onChanged: (v) => setState(() => _variantBRtp = v)),
+                    _SfxPresetSlider(label: 'Volatility', value: _variantBVolatility, min: 1, max: 5, suffix: '',
+                      onChanged: (v) => setState(() => _variantBVolatility = v)),
+                  ]),
+                ),
+                // Spin count
+                _SfxPresetSlider(label: 'Spins/Variant', value: _spinCount.toDouble(),
+                  min: 10000, max: 1000000, suffix: '',
+                  onChanged: (v) => setState(() => _spinCount = v.round())),
+                const Spacer(),
+                GestureDetector(
+                  onTap: _isRunning ? null : _runSimulation,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _isRunning
+                        ? FluxForgeTheme.textTertiary.withOpacity(0.1)
+                        : FluxForgeTheme.accentGreen.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: _isRunning
+                        ? FluxForgeTheme.textTertiary : FluxForgeTheme.accentGreen.withOpacity(0.5)),
+                    ),
+                    child: Center(child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      if (_isRunning)
+                        const SizedBox(width: 14, height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: FluxForgeTheme.accentGreen))
+                      else
+                        const Icon(Icons.science_rounded, size: 14, color: FluxForgeTheme.accentGreen),
+                      const SizedBox(width: 8),
+                      Text(_isRunning ? 'SIMULATING...' : 'RUN A/B TEST',
+                        style: const TextStyle(fontFamily: 'monospace', fontSize: 10,
+                          color: FluxForgeTheme.accentGreen, fontWeight: FontWeight.w600)),
+                    ])),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        // Right: Results
+        Expanded(
+          flex: 3,
+          child: _DockCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _DockLabel('RESULTS'),
+                const SizedBox(height: 8),
+                if (_isRunning) ...[
+                  Builder(builder: (_) {
+                    final abSim = GetIt.instance<AbSimProvider>();
+                    return Column(children: [
+                      LinearProgressIndicator(
+                        value: abSim.progress,
+                        backgroundColor: FluxForgeTheme.bgSurface,
+                        valueColor: const AlwaysStoppedAnimation(FluxForgeTheme.accentGreen),
+                      ),
+                      const SizedBox(height: 8),
+                      Text('${(abSim.progress * 100).toStringAsFixed(1)}% complete',
+                        style: const TextStyle(fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textSecondary)),
+                    ]);
+                  }),
+                ] else if (_results != null) ...[
+                  Expanded(
+                    child: _buildResultsTable(),
+                  ),
+                ] else ...[
+                  const Expanded(
+                    child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.science_outlined, size: 48, color: Color(0xFF1A1A2E)),
+                      SizedBox(height: 12),
+                      Text('Configure variants and run simulation',
+                        style: TextStyle(fontFamily: 'monospace', fontSize: 11, color: FluxForgeTheme.textTertiary)),
+                    ])),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildResultsTable() {
+    final variants = _results?['variants'] as List? ?? [];
+    if (variants.isEmpty) {
+      return const Center(child: Text('No results', style: TextStyle(
+        fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textTertiary)));
+    }
+    return ListView(
+      children: [
+        // Header
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            color: FluxForgeTheme.bgSurface,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: const Row(children: [
+            SizedBox(width: 100, child: Text('METRIC', style: TextStyle(fontFamily: 'monospace', fontSize: 9,
+              color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
+            Expanded(child: Text('VARIANT A', style: TextStyle(fontFamily: 'monospace', fontSize: 9,
+              color: FluxForgeTheme.accentBlue, fontWeight: FontWeight.w600), textAlign: TextAlign.center)),
+            Expanded(child: Text('VARIANT B', style: TextStyle(fontFamily: 'monospace', fontSize: 9,
+              color: FluxForgeTheme.accentGreen, fontWeight: FontWeight.w600), textAlign: TextAlign.center)),
+            SizedBox(width: 80, child: Text('DIFF', style: TextStyle(fontFamily: 'monospace', fontSize: 9,
+              color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600), textAlign: TextAlign.center)),
+          ]),
+        ),
+        const SizedBox(height: 4),
+        // Metrics rows
+        ..._buildMetricRows(variants),
+        const SizedBox(height: 12),
+        // Winner badge
+        if (variants.length >= 2) _buildWinnerBadge(variants),
+      ],
+    );
+  }
+
+  List<Widget> _buildMetricRows(List variants) {
+    final a = variants[0] as Map<String, dynamic>? ?? {};
+    final b = variants.length > 1 ? variants[1] as Map<String, dynamic>? ?? {} : {};
+    final metrics = [
+      ('Actual RTP', a['actualRtp'] ?? _variantARtp, b['actualRtp'] ?? _variantBRtp, '%'),
+      ('Avg Win', a['avgWin'] ?? 0.0, b['avgWin'] ?? 0.0, 'x'),
+      ('Hit Rate', a['hitRate'] ?? 0.0, b['hitRate'] ?? 0.0, '%'),
+      ('Max Win', a['maxWin'] ?? 0.0, b['maxWin'] ?? 0.0, 'x'),
+      ('Std Dev', a['stdDev'] ?? 0.0, b['stdDev'] ?? 0.0, ''),
+      ('Bankroll Half-life', a['halfLife'] ?? 0.0, b['halfLife'] ?? 0.0, ' spins'),
+    ];
+    return metrics.map((m) {
+      final (label, aVal, bVal, suffix) = m;
+      final aNum = (aVal is num) ? aVal.toDouble() : 0.0;
+      final bNum = (bVal is num) ? bVal.toDouble() : 0.0;
+      final diff = aNum - bNum;
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        margin: const EdgeInsets.only(bottom: 2),
+        child: Row(children: [
+          SizedBox(width: 100, child: Text(label,
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textSecondary))),
+          Expanded(child: Text('${aNum.toStringAsFixed(2)}$suffix',
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textPrimary),
+            textAlign: TextAlign.center)),
+          Expanded(child: Text('${bNum.toStringAsFixed(2)}$suffix',
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textPrimary),
+            textAlign: TextAlign.center)),
+          SizedBox(width: 80, child: Text(
+            '${diff >= 0 ? "+" : ""}${diff.toStringAsFixed(2)}',
+            style: TextStyle(fontFamily: 'monospace', fontSize: 9,
+              color: diff.abs() < 0.1 ? FluxForgeTheme.textTertiary
+                : diff > 0 ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentPink),
+            textAlign: TextAlign.center)),
+        ]),
+      );
+    }).toList();
+  }
+
+  Widget _buildWinnerBadge(List variants) {
+    final aRtp = (variants[0] as Map?)?['actualRtp'] ?? _variantARtp;
+    final bRtp = (variants[1] as Map?)?['actualRtp'] ?? _variantBRtp;
+    final aNum = (aRtp is num) ? aRtp.toDouble() : 0.0;
+    final bNum = (bRtp is num) ? bRtp.toDouble() : 0.0;
+    final winner = aNum >= bNum ? 'A' : 'B';
+    final winColor = winner == 'A' ? FluxForgeTheme.accentBlue : FluxForgeTheme.accentGreen;
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: winColor.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: winColor.withOpacity(0.3)),
+      ),
+      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Icon(Icons.emoji_events_rounded, size: 18, color: winColor),
+        const SizedBox(width: 8),
+        Text('VARIANT $winner WINS',
+          style: TextStyle(fontFamily: 'monospace', fontSize: 12,
+            color: winColor, fontWeight: FontWeight.w700)),
+        const SizedBox(width: 8),
+        Text('(${(aNum - bNum).abs().toStringAsFixed(2)}% RTP difference)',
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textSecondary)),
+      ]),
+    );
+  }
+}
+
+// ── 3.3 PAR Import Panel (integrated into SFX Pipeline) ─────────────────────
+// PAR file import is handled through the SFX Pipeline's namingAssign step
+// with auto-mapping from paytable CSV/PAR files to game stages.
+// The SfxPipelineProvider.setStageMappings() method handles this.
 
 // ── AUDIO Panel ──────────────────────────────────────────────────────────────
 
