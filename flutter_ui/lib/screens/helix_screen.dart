@@ -45,6 +45,7 @@ import '../providers/sfx_pipeline_provider.dart';
 import '../providers/ab_sim_provider.dart';
 import '../services/cloud_sync_service.dart';
 import '../services/ai_generation_service.dart';
+import '../services/cortex_vision_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELIX SCREEN
@@ -153,6 +154,18 @@ class _HelixScreenState extends State<HelixScreen>
       } catch (_) {}
     });
 
+    // Seed demo composite events so panels show real data on first open
+    _seedDemoEvents();
+
+    // Cortex Vision auto-capture — takes screenshot of HELIX on startup
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await Future.delayed(const Duration(seconds: 3));
+      if (!mounted) return;
+      final vision = CortexVisionService.instance;
+      await vision.init();
+      await vision.captureFullWindow(metadata: {'trigger': 'helix_startup', 'tab': _dockTab});
+    });
+
     // Playhead sync timer — polls engine position for timeline animation
     _playheadTimer = Timer.periodic(const Duration(milliseconds: 60), (_) {
       if (!mounted) return;
@@ -175,6 +188,102 @@ class _HelixScreenState extends State<HelixScreen>
     _bpmTimer.cancel();
     _playheadTimer.cancel();
     super.dispose();
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Seed demo composite events so HELIX panels aren't empty
+  // ─────────────────────────────────────────────────────────────────────────
+
+  void _seedDemoEvents() {
+    try {
+      final mw = GetIt.instance<MiddlewareProvider>();
+      if (mw.compositeEvents.isNotEmpty) return; // already has data
+      final now = DateTime.now();
+      final demoEvents = [
+        SlotCompositeEvent(
+          id: 'demo_spin_start', name: 'SPIN START', category: 'spin',
+          color: FluxForgeTheme.accentBlue, masterVolume: 0.85,
+          triggerStages: ['spin_start', 'base_game'],
+          timelinePositionMs: 0, trackIndex: 0,
+          createdAt: now, modifiedAt: now,
+        ),
+        SlotCompositeEvent(
+          id: 'demo_reel_stop', name: 'REEL STOP', category: 'spin',
+          color: FluxForgeTheme.accentCyan, masterVolume: 0.75,
+          triggerStages: ['reel_stop'],
+          timelinePositionMs: 800, trackIndex: 0,
+          createdAt: now, modifiedAt: now,
+        ),
+        SlotCompositeEvent(
+          id: 'demo_win_small', name: 'WIN SMALL', category: 'win',
+          color: FluxForgeTheme.accentGreen, masterVolume: 0.70,
+          triggerStages: ['win_presentation'],
+          timelinePositionMs: 1500, trackIndex: 1,
+          createdAt: now, modifiedAt: now,
+        ),
+        SlotCompositeEvent(
+          id: 'demo_win_big', name: 'WIN BIG', category: 'win',
+          color: FluxForgeTheme.accentYellow, masterVolume: 0.90,
+          triggerStages: ['win_presentation', 'jackpot'],
+          timelinePositionMs: 2500, trackIndex: 1,
+          createdAt: now, modifiedAt: now,
+        ),
+        SlotCompositeEvent(
+          id: 'demo_freespin_intro', name: 'FREE SPIN INTRO', category: 'feature',
+          color: FluxForgeTheme.accentOrange, masterVolume: 0.80,
+          triggerStages: ['free_spins'],
+          timelinePositionMs: 3500, trackIndex: 2,
+          createdAt: now, modifiedAt: now,
+        ),
+        SlotCompositeEvent(
+          id: 'demo_ambient_base', name: 'AMBIENT BASE', category: 'ambient',
+          color: FluxForgeTheme.accentPurple, masterVolume: 0.45,
+          triggerStages: ['base_game', 'idle'], looping: true,
+          timelinePositionMs: 0, trackIndex: 3,
+          createdAt: now, modifiedAt: now,
+        ),
+        SlotCompositeEvent(
+          id: 'demo_bonus_trigger', name: 'BONUS TRIGGER', category: 'feature',
+          color: FluxForgeTheme.accentPink, masterVolume: 0.88,
+          triggerStages: ['bonus_game'],
+          timelinePositionMs: 5000, trackIndex: 2,
+          createdAt: now, modifiedAt: now,
+        ),
+        SlotCompositeEvent(
+          id: 'demo_ui_click', name: 'UI CLICK', category: 'ui',
+          color: FluxForgeTheme.textSecondary, masterVolume: 0.50,
+          triggerStages: ['ui_interaction'],
+          timelinePositionMs: 6500, trackIndex: 4,
+          createdAt: now, modifiedAt: now,
+        ),
+      ];
+      for (final e in demoEvents) {
+        mw.addCompositeEvent(e, select: false, skipUndo: true);
+      }
+      // Also seed some neuro data so INTEL/MATH panels show values
+      try {
+        final neuro = GetIt.instance<NeuroAudioProvider>();
+        final rng = math.Random(42);
+        for (int i = 0; i < 50; i++) {
+          neuro.recordClickVelocity(500 + rng.nextDouble() * 2500);
+          neuro.recordPauseDuration(300 + rng.nextDouble() * 1500);
+          neuro.recordBetSize(rng.nextDouble() * 0.7 + 0.1);
+          final winMult = rng.nextDouble() < 0.28 ? rng.nextDouble() * 8 : 0.0;
+          neuro.recordSpinResult(winMult);
+        }
+      } catch (_) {}
+      // Seed some spin results into project stats
+      try {
+        final proj = GetIt.instance<SlotLabProjectProvider>();
+        final rng = math.Random(42);
+        for (int i = 0; i < 30; i++) {
+          final bet = 1.0;
+          final winMult = rng.nextDouble() < 0.30 ? rng.nextDouble() * 15 : 0.0;
+          proj.recordSpinResult(betAmount: bet, winAmount: winMult * bet,
+          tier: winMult > 5 ? 'WIN 3' : winMult > 0 ? 'WIN 1' : null);
+        }
+      } catch (_) {}
+    } catch (_) {}
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -249,8 +358,11 @@ class _HelixScreenState extends State<HelixScreen>
     return Container(
       height: 48,
       decoration: BoxDecoration(
-        color: FluxForgeTheme.bgDeepest,
-        border: Border(bottom: BorderSide(color: FluxForgeTheme.borderSubtle, width: 1)),
+        gradient: const LinearGradient(
+          colors: [FluxForgeTheme.bgDeep, FluxForgeTheme.bgDeepest],
+        ),
+        border: Border(bottom: BorderSide(color: FluxForgeTheme.borderMedium, width: 1)),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2))],
       ),
       child: Row(
         children: [
@@ -464,7 +576,10 @@ class _HelixScreenState extends State<HelixScreen>
       children: [
         Container(
           width: 48,
-          color: FluxForgeTheme.bgDeepest,
+          decoration: BoxDecoration(
+            color: FluxForgeTheme.bgDeep,
+            border: Border(right: BorderSide(color: FluxForgeTheme.borderMedium)),
+          ),
           child: Column(
             children: [
               const SizedBox(height: 12),
@@ -740,14 +855,15 @@ class _HelixScreenState extends State<HelixScreen>
         gradient: LinearGradient(
           begin: Alignment.topCenter, end: Alignment.bottomCenter,
           colors: [
-            activeColor.withOpacity(0.04),
+            activeColor.withOpacity(0.10),
+            FluxForgeTheme.bgDeep,
             FluxForgeTheme.bgDeepest,
           ],
-          stops: const [0.0, 0.15],
+          stops: const [0.0, 0.12, 0.5],
         ),
-        border: Border(top: BorderSide(color: activeColor.withOpacity(0.5), width: 2)),
+        border: Border(top: BorderSide(color: activeColor.withOpacity(0.7), width: 2)),
         boxShadow: [
-          BoxShadow(color: activeColor.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, -4)),
+          BoxShadow(color: activeColor.withOpacity(0.15), blurRadius: 30, offset: const Offset(0, -6)),
         ],
       ),
       child: Column(
@@ -769,9 +885,9 @@ class _HelixScreenState extends State<HelixScreen>
     return Container(
       height: 44,
       decoration: BoxDecoration(
-        color: FluxForgeTheme.bgDeepest,
+        color: FluxForgeTheme.bgDeep,
         border: Border(
-          bottom: BorderSide(color: activeColor.withOpacity(0.3), width: 1),
+          bottom: BorderSide(color: activeColor.withOpacity(0.45), width: 1),
         ),
       ),
       child: Row(
@@ -980,47 +1096,52 @@ class _FlowPanelState extends State<_FlowPanel> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      const Text('tap=force  right-click=config', style: TextStyle(
+                      const Text('tap=force  rc=config', style: TextStyle(
                         fontFamily: 'monospace', fontSize: 8,
                         color: FluxForgeTheme.textTertiary)),
                     ]),
                     const SizedBox(height: 8),
                     Expanded(
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            // Built-in nodes
-                            ...builtinNodes.asMap().entries.expand((e) {
-                              final (state, label, icon, color) = e.value;
-                              final active = current == state;
-                              final widgets = <Widget>[
-                                _FlowNode(label: label, icon: icon,
-                                  color: color, active: active,
-                                  onTap: () => forceState(state)),
-                              ];
-                              widgets.add(Icon(Icons.arrow_forward_rounded,
-                                size: 12, color: FluxForgeTheme.textTertiary.withOpacity(0.4)));
-                              return widgets;
-                            }),
-                            // F3: Custom stage nodes
-                            ..._customStages.asMap().entries.expand((e) {
-                              final stage = e.value;
-                              final widgets = <Widget>[
-                                _FlowNode(label: stage.label, icon: stage.icon,
-                                  color: stage.color, active: false,
-                                  onTap: () {}, isCustom: true,
-                                  onRemove: () => _removeCustomStage(e.key)),
-                              ];
-                              if (e.key < _customStages.length - 1) {
-                                widgets.add(Icon(Icons.arrow_forward_rounded,
-                                  size: 12, color: FluxForgeTheme.textTertiary.withOpacity(0.4)));
-                              }
-                              return widgets;
-                            }),
-                          ],
+                      child: LayoutBuilder(
+                        builder: (ctx, constraints) => SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: SizedBox(
+                            height: constraints.maxHeight,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                // Built-in nodes
+                                ...builtinNodes.asMap().entries.expand((e) {
+                                  final (state, label, icon, color) = e.value;
+                                  final active = current == state;
+                                  final widgets = <Widget>[
+                                    _FlowNode(label: label, icon: icon,
+                                      color: color, active: active,
+                                      onTap: () => forceState(state)),
+                                  ];
+                                  widgets.add(Icon(Icons.arrow_forward_rounded,
+                                    size: 12, color: FluxForgeTheme.textTertiary.withOpacity(0.4)));
+                                  return widgets;
+                                }),
+                                // F3: Custom stage nodes
+                                ..._customStages.asMap().entries.expand((e) {
+                                  final stage = e.value;
+                                  final widgets = <Widget>[
+                                    _FlowNode(label: stage.label, icon: stage.icon,
+                                      color: stage.color, active: false,
+                                      onTap: () {}, isCustom: true,
+                                      onRemove: () => _removeCustomStage(e.key)),
+                                  ];
+                                  if (e.key < _customStages.length - 1) {
+                                    widgets.add(Icon(Icons.arrow_forward_rounded,
+                                      size: 12, color: FluxForgeTheme.textTertiary.withOpacity(0.4)));
+                                  }
+                                  return widgets;
+                                }),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -1061,8 +1182,9 @@ class _FlowPanelState extends State<_FlowPanel> {
               flex: 2,
               child: _DockCard(
                 accent: FluxForgeTheme.accentBlue,
-                child: Builder(
-                  builder: (_) {
+                child: ListenableBuilder(
+                  listenable: GetIt.instance<MiddlewareProvider>(),
+                  builder: (_, __) {
                     final mw = GetIt.instance<MiddlewareProvider>();
                     final stageMap = <String, List<String>>{};
                     for (final e in mw.compositeEvents) {
@@ -1695,7 +1817,7 @@ class _BehaviorTreePanelState extends State<_BehaviorTreePanel> {
                               children: [
                                 Text(name, style: TextStyle(fontFamily: 'monospace', fontSize: 10,
                                   color: _categoryColor(_selectedCategory), fontWeight: FontWeight.w600)),
-                                Text(desc, style: const TextStyle(fontFamily: 'monospace', fontSize: 7,
+                                Text(desc, style: const TextStyle(fontFamily: 'monospace', fontSize: 9,
                                   color: FluxForgeTheme.textTertiary), maxLines: 1, overflow: TextOverflow.ellipsis),
                               ],
                             )),
@@ -3950,14 +4072,15 @@ class _SpineItem extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         width: 36, height: 36,
         decoration: BoxDecoration(
-          color: active ? FluxForgeTheme.accentBlue.withOpacity(0.1) : Colors.transparent,
+          color: active ? FluxForgeTheme.accentBlue.withOpacity(0.18) : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: active
-              ? FluxForgeTheme.accentBlue.withOpacity(0.25) : Colors.transparent),
+              ? FluxForgeTheme.accentBlue.withOpacity(0.5) : Colors.transparent),
+          boxShadow: active ? [BoxShadow(color: FluxForgeTheme.accentBlue.withOpacity(0.15), blurRadius: 8)] : null,
         ),
-        child: Icon(icon, size: 16,
-          color: active ? FluxForgeTheme.accentBlue : FluxForgeTheme.textTertiary),
+        child: Icon(icon, size: 18,
+          color: active ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary),
       ),
     ),
   );
@@ -3973,14 +4096,14 @@ class _SpineOverlay extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     width: 340,
     decoration: BoxDecoration(
-      color: FluxForgeTheme.bgDeep.withOpacity(0.97),
+      color: FluxForgeTheme.bgMid.withOpacity(0.97),
       border: Border(
-        right: BorderSide(color: FluxForgeTheme.accentBlue.withOpacity(0.2)),
-        left: BorderSide(color: FluxForgeTheme.accentBlue.withOpacity(0.3), width: 2),
+        right: BorderSide(color: FluxForgeTheme.accentBlue.withOpacity(0.3)),
+        left: BorderSide(color: FluxForgeTheme.accentBlue.withOpacity(0.6), width: 3),
       ),
       boxShadow: [
-        BoxShadow(color: FluxForgeTheme.bgVoid.withOpacity(0.6), blurRadius: 32),
-        BoxShadow(color: FluxForgeTheme.accentBlue.withOpacity(0.05), blurRadius: 20),
+        BoxShadow(color: FluxForgeTheme.bgVoid.withOpacity(0.8), blurRadius: 40, spreadRadius: 4),
+        BoxShadow(color: FluxForgeTheme.accentBlue.withOpacity(0.12), blurRadius: 24),
       ],
     ),
     child: Column(
@@ -3990,9 +4113,9 @@ class _SpineOverlay extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [FluxForgeTheme.accentBlue.withOpacity(0.08), Colors.transparent],
+              colors: [FluxForgeTheme.accentBlue.withOpacity(0.18), Colors.transparent],
             ),
-            border: Border(bottom: BorderSide(color: FluxForgeTheme.accentBlue.withOpacity(0.15))),
+            border: Border(bottom: BorderSide(color: FluxForgeTheme.accentBlue.withOpacity(0.3))),
           ),
           child: Row(
             children: [
@@ -4371,7 +4494,7 @@ class _SpineAiIntelState extends State<_SpineAiIntel> {
             color: FluxForgeTheme.textTertiary)),
           const Spacer(),
           const Text('drag to override', style: TextStyle(
-            fontFamily: 'monospace', fontSize: 7, color: FluxForgeTheme.textTertiary)),
+            fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary)),
         ]),
         const SizedBox(height: 8),
         ...dims.map((d) => Padding(
@@ -4687,12 +4810,12 @@ class _DockTab extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: color.withOpacity(active ? 1.0 : 0.35)),
+          Icon(icon, size: 14, color: color.withOpacity(active ? 1.0 : 0.5)),
           const SizedBox(width: 6),
           Text(label, style: TextStyle(
             fontFamily: 'monospace', fontSize: 11,
-            fontWeight: active ? FontWeight.w700 : FontWeight.w400, letterSpacing: 0.05,
-            color: active ? color : FluxForgeTheme.textTertiary)),
+            fontWeight: active ? FontWeight.w700 : FontWeight.w500, letterSpacing: 0.1,
+            color: active ? color : FluxForgeTheme.textSecondary)),
         ],
       ),
     ),
@@ -4710,42 +4833,24 @@ class _DockCard extends StatelessWidget {
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            (a ?? FluxForgeTheme.bgMid).withOpacity(0.15),
-            FluxForgeTheme.bgDeepest.withOpacity(0.92),
-          ],
-        ),
+        color: FluxForgeTheme.bgSurface,
         border: Border.all(
-          color: a?.withOpacity(0.28) ?? FluxForgeTheme.borderSubtle,
+          color: a?.withOpacity(0.3) ?? FluxForgeTheme.borderSubtle,
+          width: 1,
         ),
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          if (a != null) BoxShadow(
-            color: a.withOpacity(0.07),
-            blurRadius: 20,
-            spreadRadius: -4,
-          ),
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Accent gradient strip at top
+          // 2px accent strip at top
           if (a != null)
             Container(
               height: 2,
               decoration: BoxDecoration(
                 gradient: LinearGradient(colors: [
-                  a.withOpacity(0.9),
-                  a.withOpacity(0.3),
+                  a.withOpacity(0.85),
+                  a.withOpacity(0.2),
                   Colors.transparent,
                 ]),
               ),
@@ -4772,17 +4877,18 @@ class _DockLabel extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 3, height: 12,
+          width: 3, height: 14,
           decoration: BoxDecoration(
             color: c,
             borderRadius: BorderRadius.circular(1.5),
+            boxShadow: [BoxShadow(color: c.withOpacity(0.4), blurRadius: 6)],
           ),
         ),
-        const SizedBox(width: 6),
+        const SizedBox(width: 7),
         Text(text,
           style: TextStyle(
-            fontFamily: 'monospace', fontSize: 10, fontWeight: FontWeight.w700,
-            color: c, letterSpacing: 0.15)),
+            fontFamily: 'monospace', fontSize: 11, fontWeight: FontWeight.w700,
+            color: c, letterSpacing: 0.3)),
       ],
     );
   }
@@ -4989,7 +5095,7 @@ class _FlowNodeState extends State<_FlowNode> {
             Padding(
               padding: const EdgeInsets.only(top: 2),
               child: Text('force', style: TextStyle(
-                fontFamily: 'monospace', fontSize: 7,
+                fontFamily: 'monospace', fontSize: 9,
                 color: widget.color.withOpacity(0.6))),
             ),
         ],
@@ -5019,18 +5125,18 @@ class _MeterRow extends StatelessWidget {
     return Row(
       children: [
         Text(label, style: TextStyle(
-          fontFamily: 'monospace', fontSize: 9, fontWeight: FontWeight.w600,
-          color: v > 0.85 ? FluxForgeTheme.accentRed : FluxForgeTheme.textTertiary)),
-        const SizedBox(width: 6),
+          fontFamily: 'monospace', fontSize: 10, fontWeight: FontWeight.w700,
+          color: v > 0.85 ? FluxForgeTheme.accentRed : FluxForgeTheme.textSecondary)),
+        const SizedBox(width: 8),
         Expanded(
           child: Container(
-            height: 8,
+            height: 10,
             decoration: BoxDecoration(
               color: FluxForgeTheme.bgVoid,
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: FluxForgeTheme.borderSubtle.withOpacity(0.5))),
+              borderRadius: BorderRadius.circular(5),
+              border: Border.all(color: FluxForgeTheme.borderMedium)),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(3),
+              borderRadius: BorderRadius.circular(4),
               child: FractionallySizedBox(
                 widthFactor: v,
                 alignment: Alignment.centerLeft,
@@ -5043,20 +5149,20 @@ class _MeterRow extends StatelessWidget {
                       FluxForgeTheme.accentOrange,
                       FluxForgeTheme.accentRed,
                     ], stops: [0.0, 0.6, 0.75, 0.88, 1.0]),
-                    boxShadow: v > 0.7 ? [BoxShadow(
-                      color: FluxForgeTheme.accentOrange.withOpacity(0.4),
-                      blurRadius: 6)] : null,
+                    boxShadow: [BoxShadow(
+                      color: (v > 0.7 ? FluxForgeTheme.accentOrange : FluxForgeTheme.accentGreen).withOpacity(0.5),
+                      blurRadius: 8)],
                   ),
                 ),
               ),
             ),
           ),
         ),
-        const SizedBox(width: 6),
-        SizedBox(width: 30, child: Text(
+        const SizedBox(width: 8),
+        SizedBox(width: 34, child: Text(
           '${(v * 100).toStringAsFixed(0)}%',
-          style: const TextStyle(fontFamily: 'monospace', fontSize: 7,
-            color: FluxForgeTheme.textTertiary),
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 9,
+            color: FluxForgeTheme.textSecondary),
           textAlign: TextAlign.right)),
       ],
     );
@@ -5129,12 +5235,12 @@ class _ChannelStripState extends State<_ChannelStrip> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         color: _muted
-          ? FluxForgeTheme.bgVoid.withOpacity(0.25)
-          : FluxForgeTheme.bgVoid.withOpacity(0.5),
+          ? FluxForgeTheme.bgVoid.withOpacity(0.4)
+          : FluxForgeTheme.bgDeep,
         border: Border.all(
           color: _soloed
-            ? FluxForgeTheme.accentYellow.withOpacity(0.4)
-            : FluxForgeTheme.borderSubtle),
+            ? FluxForgeTheme.accentYellow.withOpacity(0.6)
+            : FluxForgeTheme.borderMedium),
         borderRadius: BorderRadius.circular(7),
       ),
       child: Row(
@@ -5269,33 +5375,34 @@ class _MathCard extends StatelessWidget {
     decoration: BoxDecoration(
       gradient: LinearGradient(
         begin: Alignment.topLeft, end: Alignment.bottomRight,
-        colors: [color.withOpacity(0.08), color.withOpacity(0.02)],
+        colors: [color.withOpacity(0.18), color.withOpacity(0.05)],
       ),
-      border: Border.all(color: color.withOpacity(0.25)),
+      border: Border.all(color: color.withOpacity(0.4), width: 1.2),
       borderRadius: BorderRadius.circular(10),
-      boxShadow: [BoxShadow(color: color.withOpacity(0.06), blurRadius: 12, spreadRadius: -2)],
+      boxShadow: [BoxShadow(color: color.withOpacity(0.10), blurRadius: 16, spreadRadius: -2)],
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(children: [
-          Container(width: 4, height: 4, decoration: BoxDecoration(
-            color: color, shape: BoxShape.circle)),
-          const SizedBox(width: 5),
+          Container(width: 5, height: 5, decoration: BoxDecoration(
+            color: color, shape: BoxShape.circle,
+            boxShadow: [BoxShadow(color: color.withOpacity(0.5), blurRadius: 4)])),
+          const SizedBox(width: 6),
           Text(label, style: TextStyle(
-            fontFamily: 'monospace', fontSize: 9, fontWeight: FontWeight.w600,
-            letterSpacing: 0.1, color: color.withOpacity(0.7))),
+            fontFamily: 'monospace', fontSize: 10, fontWeight: FontWeight.w700,
+            letterSpacing: 0.2, color: color)),
         ]),
         const Spacer(),
         Text(value, style: TextStyle(
-          fontFamily: 'monospace', fontSize: 22, fontWeight: FontWeight.w300,
+          fontFamily: 'monospace', fontSize: 24, fontWeight: FontWeight.w300,
           color: color)),
         const SizedBox(height: 2),
         Text(sub, style: const TextStyle(
-          fontSize: 9, color: FluxForgeTheme.textTertiary)),
+          fontSize: 10, color: FluxForgeTheme.textSecondary)),
         const SizedBox(height: 6),
         Container(
-          height: 3,
+          height: 4,
           decoration: BoxDecoration(
             color: FluxForgeTheme.bgElevated,
             borderRadius: BorderRadius.circular(2)),
@@ -5303,8 +5410,9 @@ class _MathCard extends StatelessWidget {
             widthFactor: fill.clamp(0.0, 1.0),
             alignment: Alignment.centerLeft,
             child: Container(decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [color.withOpacity(0.6), color]),
-              borderRadius: BorderRadius.circular(2))),
+              gradient: LinearGradient(colors: [color.withOpacity(0.7), color]),
+              borderRadius: BorderRadius.circular(2),
+              boxShadow: [BoxShadow(color: color.withOpacity(0.3), blurRadius: 6)])),
           ),
         ),
       ],
@@ -5361,14 +5469,25 @@ class _IntelRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 6),
+    padding: const EdgeInsets.only(bottom: 8),
     child: Row(
       children: [
+        Container(width: 4, height: 4, decoration: BoxDecoration(
+          color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 6),
         Expanded(child: Text(label, style: const TextStyle(
-          fontSize: 10, color: FluxForgeTheme.textSecondary))),
-        Text(value, style: TextStyle(
-          fontFamily: 'monospace', fontSize: 10,
-          fontWeight: FontWeight.w600, color: color)),
+          fontSize: 11, color: FluxForgeTheme.textSecondary))),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: color.withOpacity(0.3)),
+          ),
+          child: Text(value, style: TextStyle(
+            fontFamily: 'monospace', fontSize: 11,
+            fontWeight: FontWeight.w700, color: color)),
+        ),
       ],
     ),
   );
@@ -5381,20 +5500,24 @@ class _MiniMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
     decoration: BoxDecoration(
-      color: color.withOpacity(0.06),
-      borderRadius: BorderRadius.circular(6),
-      border: Border.all(color: color.withOpacity(0.15)),
+      gradient: LinearGradient(
+        begin: Alignment.topLeft, end: Alignment.bottomRight,
+        colors: [color.withOpacity(0.14), color.withOpacity(0.04)],
+      ),
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: color.withOpacity(0.35), width: 1.2),
+      boxShadow: [BoxShadow(color: color.withOpacity(0.08), blurRadius: 8)],
     ),
     child: Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(value, style: TextStyle(
-          fontFamily: 'monospace', fontSize: 14,
+          fontFamily: 'monospace', fontSize: 15,
           fontWeight: FontWeight.w600, color: color)),
         Text(label, style: const TextStyle(
-          fontSize: 8, color: FluxForgeTheme.textTertiary)),
+          fontSize: 9, color: FluxForgeTheme.textSecondary)),
       ],
     ),
   );
@@ -5428,15 +5551,18 @@ class _ExportCardState extends State<_ExportCard> {
           gradient: LinearGradient(
             begin: Alignment.topLeft, end: Alignment.bottomRight,
             colors: [
-              widget.color.withOpacity(_hovered ? 0.12 : 0.06),
-              widget.color.withOpacity(_hovered ? 0.04 : 0.01),
+              widget.color.withOpacity(_hovered ? 0.22 : 0.12),
+              widget.color.withOpacity(_hovered ? 0.08 : 0.03),
             ],
           ),
           border: Border.all(
-            color: widget.color.withOpacity(_hovered ? 0.45 : 0.2)),
+            color: widget.color.withOpacity(_hovered ? 0.6 : 0.35), width: 1.2),
           borderRadius: BorderRadius.circular(10),
-          boxShadow: _hovered ? [BoxShadow(
-            color: widget.color.withOpacity(0.12), blurRadius: 16)] : null,
+          boxShadow: [
+            BoxShadow(
+              color: widget.color.withOpacity(_hovered ? 0.2 : 0.08), blurRadius: 20),
+            BoxShadow(color: FluxForgeTheme.bgVoid.withOpacity(0.3), blurRadius: 6, offset: const Offset(0, 2)),
+          ],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -5474,22 +5600,28 @@ class _InfoChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = color ?? FluxForgeTheme.textPrimary;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
       decoration: BoxDecoration(
-        color: FluxForgeTheme.bgDeepest.withOpacity(0.85),
-        border: Border.all(color: c.withOpacity(0.2)),
-        borderRadius: BorderRadius.circular(6),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8)],
+        gradient: LinearGradient(
+          begin: Alignment.topLeft, end: Alignment.bottomRight,
+          colors: [c.withOpacity(0.12), FluxForgeTheme.bgDeepest.withOpacity(0.9)],
+        ),
+        border: Border.all(color: c.withOpacity(0.4)),
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(color: c.withOpacity(0.1), blurRadius: 10),
+          BoxShadow(color: FluxForgeTheme.bgVoid.withOpacity(0.4), blurRadius: 8),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(label, style: TextStyle(
-            fontFamily: 'monospace', fontSize: 8, fontWeight: FontWeight.w600,
-            color: c.withOpacity(0.5), letterSpacing: 0.1)),
-          const SizedBox(width: 6),
+            fontFamily: 'monospace', fontSize: 9, fontWeight: FontWeight.w700,
+            color: c.withOpacity(0.7), letterSpacing: 0.2)),
+          const SizedBox(width: 7),
           Text(value, style: TextStyle(
-            fontFamily: 'monospace', fontSize: 11, fontWeight: FontWeight.w600,
+            fontFamily: 'monospace', fontSize: 12, fontWeight: FontWeight.w600,
             color: c)),
         ],
       ),
@@ -5517,25 +5649,26 @@ class _MathSlider extends StatelessWidget {
     mainAxisSize: MainAxisSize.min,
     children: [
       Row(children: [
-        Text(label, style: const TextStyle(
-          fontFamily: 'monospace', fontSize: 8, letterSpacing: 0.1,
-          color: FluxForgeTheme.textTertiary)),
+        Text(label, style: TextStyle(
+          fontFamily: 'monospace', fontSize: 10, fontWeight: FontWeight.w600,
+          letterSpacing: 0.2, color: color.withOpacity(0.8))),
         const Spacer(),
         Text('${value.toStringAsFixed(value > 100 ? 0 : 1)}$suffix',
-          style: TextStyle(fontFamily: 'monospace', fontSize: 9, color: color)),
+          style: TextStyle(fontFamily: 'monospace', fontSize: 11,
+            fontWeight: FontWeight.w600, color: color)),
       ]),
       const SizedBox(height: 4),
       SliderTheme(
         data: SliderThemeData(
-          trackHeight: 3,
-          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+          trackHeight: 4,
+          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
           activeTrackColor: color,
           inactiveTrackColor: FluxForgeTheme.bgElevated,
           thumbColor: color,
-          overlayColor: color.withOpacity(0.1),
+          overlayColor: color.withOpacity(0.15),
         ),
         child: SizedBox(
-          height: 24,
+          height: 28,
           child: Slider(
             value: value, min: min, max: max,
             onChanged: onChanged,
@@ -5779,7 +5912,7 @@ class _TlTrackInteractiveState extends State<_TlTrackInteractive> {
                                   borderRadius: BorderRadius.circular(2)),
                                 child: Center(child: Text(
                                   e.name.length > 6 ? e.name.substring(0, 6) : e.name,
-                                  style: TextStyle(fontFamily: 'monospace', fontSize: 7,
+                                  style: TextStyle(fontFamily: 'monospace', fontSize: 9,
                                     color: widget.color.withOpacity(0.8)),
                                   overflow: TextOverflow.clip)),
                               ),
@@ -6288,7 +6421,7 @@ class _ReelContextLensState extends State<_ReelContextLens> {
                     padding: const EdgeInsets.only(bottom: 4),
                     child: Row(children: [
                       SizedBox(width: 64, child: Text(_sliderNames[i],
-                        style: const TextStyle(fontFamily: 'monospace', fontSize: 7,
+                        style: const TextStyle(fontFamily: 'monospace', fontSize: 9,
                           color: FluxForgeTheme.textTertiary),
                         overflow: TextOverflow.ellipsis)),
                       Expanded(
