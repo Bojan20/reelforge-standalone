@@ -1600,6 +1600,7 @@ class _MainGameZone extends StatelessWidget {
   final bool showWildExpansion;
   final bool showScatterWin;
   final bool showCascade;
+  final void Function(int reelIndex, int rowIndex)? onCellTap;
 
   const _MainGameZone({
     required this.provider,
@@ -1612,6 +1613,7 @@ class _MainGameZone extends StatelessWidget {
     this.showWildExpansion = false,
     this.showScatterWin = false,
     this.showCascade = false,
+    this.onCellTap,
   });
 
   @override
@@ -1726,6 +1728,7 @@ class _MainGameZone extends StatelessWidget {
                       rows: rows,
                       showWinPresentation: true,
                       isTransitionActive: flow.isInTransition,
+                      onCellTap: onCellTap,
                     ),
                   ),
                   // L5 Game Flow Overlay — feature-specific UI (FS counter, H&W grid, etc.)
@@ -4770,6 +4773,10 @@ class PremiumSlotPreview extends StatefulWidget {
   /// Called when user clicks Reload button in header
   final VoidCallback? onReload;
 
+  /// Called when user taps a reel cell (reelIndex, rowIndex)
+  /// Used by HELIX Context Lens (C1)
+  final void Function(int reelIndex, int rowIndex)? onCellTap;
+
   const PremiumSlotPreview({
     super.key,
     required this.onExit,
@@ -4780,6 +4787,7 @@ class PremiumSlotPreview extends StatefulWidget {
     this.showSplash = false,
     this.onSplashComplete,
     this.onReload,
+    this.onCellTap,
   });
 
   @override
@@ -6701,6 +6709,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                       reels: widget.reels,
                       rows: widget.rows,
                       winTier: _currentWinTier,
+                      onCellTap: widget.onCellTap,
                     ),
                   ),
                 ),

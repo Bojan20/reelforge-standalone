@@ -516,6 +516,10 @@ class SlotPreviewWidget extends StatefulWidget {
   /// reels are not visible or spinning behind the transition overlay.
   final bool isTransitionActive;
 
+  /// Called when user taps a reel cell (reelIndex, rowIndex)
+  /// Used by HELIX Context Lens (C1)
+  final void Function(int reelIndex, int rowIndex)? onCellTap;
+
   const SlotPreviewWidget({
     super.key,
     required this.provider,
@@ -525,6 +529,7 @@ class SlotPreviewWidget extends StatefulWidget {
     this.onSpaceKeyHandled,
     this.showWinPresentation = true, // Default: show (for standalone usage)
     this.isTransitionActive = false,
+    this.onCellTap,
   });
 
   @override
@@ -5475,7 +5480,11 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             child: Opacity(
               // CRITICAL: Ensure opacity is always valid (0.0-1.0) - double guard
               opacity: (cascadeOpacity * dimOpacity).clamp(0.0, 1.0),
-              child: _clipForShape(cellShape, Container(
+              child: GestureDetector(
+                onTap: widget.onCellTap != null
+                    ? () => widget.onCellTap!(reelIndex, rowIndex)
+                    : null,
+                child: _clipForShape(cellShape, Container(
                 width: cellWidth,
                 height: cellHeight,
                 margin: const EdgeInsets.all(1),
@@ -5545,7 +5554,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                   ],
                 ),
               )),
-            ),
+            )), // Close GestureDetector + Opacity child
           ), // V6: Close Transform.rotate
         ),
         );
