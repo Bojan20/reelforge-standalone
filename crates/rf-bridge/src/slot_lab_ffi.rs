@@ -3147,7 +3147,7 @@ pub extern "C" fn slot_lab_par_calibrate_win_tiers(par_json_ptr: *const c_char) 
 /// Returns null on error.
 #[unsafe(no_mangle)]
 pub extern "C" fn slot_lab_par_to_game_model(par_json_ptr: *const c_char) -> *mut c_char {
-    use rf_slot_lab::{parser::{ParDocument, ParParser}, GameModel};
+    use rf_slot_lab::{parser::ParDocument, GameModel};
     use rf_slot_lab::model::{GameInfo, WinMechanism};
     use rf_slot_lab::config::GridSpec;
     use rf_slot_lab::timing::TimingConfig;
@@ -3274,7 +3274,7 @@ pub extern "C" fn slot_lab_par_plus_parse(json_ptr: *const c_char) -> *mut c_cha
 /// `par_plus_json_ptr` must be a valid null-terminated UTF-8 C string.
 #[unsafe(no_mangle)]
 pub extern "C" fn slot_lab_par_plus_validate(par_plus_json_ptr: *const c_char) -> *mut c_char {
-    use rf_slot_lab::{ParPlusParser, ParPlusDocument};
+    use rf_slot_lab::ParPlusDocument;
 
     let json = unsafe {
         match CStr::from_ptr(par_plus_json_ptr).to_str() {
@@ -3879,7 +3879,7 @@ pub extern "C" fn honeypot_detect(request_json_ptr: *const c_char) -> *mut c_cha
 // T7.1: Cloud Sync — Git-like project versioning
 // ─────────────────────────────────────────────────────────────────────────────
 
-use rf_cloud_sync::{SyncManager, SyncConfig, ProjectSnapshot};
+use rf_cloud_sync::{SyncManager, SyncConfig};
 use parking_lot::Mutex as ParkingMutex;
 use std::sync::OnceLock;
 use std::collections::HashMap;
@@ -4041,9 +4041,9 @@ pub extern "C" fn cloud_sync_destroy(manager_id: i64) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 use rf_slot_spatial::{
-    SpatialSlotScene, SpatialAudioSource, SphericalPosition,
+    SpatialSlotScene,
     SlotLayoutPreset, layout_for_preset,
-    AmbisonicsExportConfig, SpatialExportManifest, AmbisonicOrder, SpatialExportFormat,
+    AmbisonicsExportConfig, SpatialExportManifest,
 };
 
 /// Generate default spatial layout for a slot game.

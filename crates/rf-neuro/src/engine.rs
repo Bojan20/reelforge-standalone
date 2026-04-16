@@ -6,7 +6,7 @@
 
 use std::collections::VecDeque;
 use serde::{Deserialize, Serialize};
-use crate::events::{BehavioralEvent, BehavioralSample, SpinOutcome};
+use crate::events::{BehavioralEvent, BehavioralSample};
 use crate::state::{AudioAdaptation, PlayerStateVector};
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -84,7 +84,9 @@ impl SignalWindow {
         if wtot > 0.0 { (wsum / wtot).clamp(0.0, 1.0) } else { 0.0 }
     }
 
+    #[allow(dead_code)]
     fn len(&self) -> usize { self.data.len() }
+    #[allow(dead_code)]
     fn is_empty(&self) -> bool { self.data.is_empty() }
 }
 
@@ -365,8 +367,8 @@ impl NeuroEngine {
 // HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
-fn smooth_state(old: &PlayerStateVector, raw: &PlayerStateVector, α: f64) -> PlayerStateVector {
-    let s = |a: f64, b: f64| a * α + b * (1.0 - α);
+fn smooth_state(old: &PlayerStateVector, raw: &PlayerStateVector, alpha: f64) -> PlayerStateVector {
+    let s = |a: f64, b: f64| a * alpha + b * (1.0 - alpha);
     PlayerStateVector {
         arousal:           s(old.arousal,           raw.arousal),
         valence:           s(old.valence,           raw.valence),

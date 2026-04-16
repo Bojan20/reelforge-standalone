@@ -2,7 +2,7 @@
 
 use std::ffi::{c_char, CStr, CString};
 
-use rf_slot_export::{FluxForgeExportProject, ExportBundle};
+use rf_slot_export::FluxForgeExportProject;
 
 fn json_to_c(json: String) -> *mut c_char {
     CString::new(json).map(|c| c.into_raw()).unwrap_or(std::ptr::null_mut())

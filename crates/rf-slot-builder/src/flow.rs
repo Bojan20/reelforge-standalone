@@ -287,7 +287,7 @@ impl StageFlowBuilder {
         }
 
         // Validate all transition targets exist
-        for (node_id, node) in &nodes {
+        for (_node_id, node) in &nodes {
             for t in &node.transitions {
                 if !nodes.contains_key(&t.to) {
                     return Err(ValidationError::DanglingTransition {

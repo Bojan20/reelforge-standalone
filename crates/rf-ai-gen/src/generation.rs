@@ -249,7 +249,7 @@ pub struct GenerationResult {
 impl GenerationResult {
     /// Create a stub result (for testing without a real backend)
     pub fn stub(spec: GenerationSpec) -> Self {
-        use crate::prompt::EventCategory;
+        
         let filename = format!(
             "{}_{}.wav",
             spec.descriptor.category.as_str().to_lowercase(),

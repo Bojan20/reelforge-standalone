@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 
 use rayon::prelude::*;
@@ -10,8 +10,8 @@ use rand::prelude::*;
 use rand_chacha::ChaCha8Rng;
 
 use rf_slot_lab::{
-    GameModel, SyntheticSlotEngine, VolatilityProfile, TimingProfile,
-    model::{RegularWinConfig, WinTierConfig},
+    GameModel,
+    model::WinTierConfig,
 };
 
 use crate::config::{BatchSimConfig, AudioEventDef};
@@ -145,7 +145,7 @@ fn run_thread_batch(
     // Track voice timeline (rough simulation)
     // Each entry: (end_spin) = when this voice slot becomes free
     let mut voice_slots: Vec<u64> = Vec::new(); // ending spin for each active voice
-    let mut current_voices: u32 = 0;
+    let mut current_voices: u32;
     let spin_duration_ms = 2000_u64; // avg spin duration
 
     for spin_idx in 0..spin_count {
@@ -298,7 +298,7 @@ fn estimate_hit_frequency(model: &GameModel) -> f64 {
 /// Roll a win tier name + multiplier for a winning spin
 fn roll_win_tier(
     rng: &mut ChaCha8Rng,
-    tier_config: &WinTierConfig,
+    _tier_config: &WinTierConfig,
     vol: &rf_slot_lab::model::Volatility,
 ) -> (String, f64) {
     use rf_slot_lab::model::Volatility;

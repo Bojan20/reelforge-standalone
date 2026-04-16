@@ -3,7 +3,7 @@
 //! Each rule is a function that takes the AudioProjectSpec + benchmark
 //! and returns zero or more suggestions. Rules are composable and independent.
 
-use crate::benchmarks::{find_best_match, BENCHMARKS};
+use crate::benchmarks::find_best_match;
 use crate::project::AudioProjectSpec;
 use crate::suggestions::{
     CopilotReport, CopilotSuggestion, SuggestionCategory, SuggestionSeverity,
