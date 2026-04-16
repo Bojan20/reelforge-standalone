@@ -283,10 +283,13 @@ class _OverviewPanelState extends State<_OverviewPanel> {
               _CortexColors.warningAmber),
         _statusLine(Icons.bolt, '${_fmt(cortex.totalReflexActions)} reflex fires',
             _CortexColors.reflexOrange),
-        _statusLine(Icons.send, '${_fmt(cortex.commandsDispatched)} commands dispatched',
+        _statusLine(Icons.send, '${_fmt(cortex.commandsDispatched)} dispatched / ${_fmt(cortex.commandsDrained)} processed',
             _CortexColors.signalBlue),
-        _statusLine(Icons.check_circle_outline, '${_fmt(cortex.commandsExecuted)} executed',
+        _statusLine(Icons.check_circle_outline, '${_fmt(cortex.commandsExecuted)} healed',
             _CortexColors.healthGreen),
+        if (cortex.commandsPending > 0)
+          _statusLine(Icons.pending, '${_fmt(cortex.commandsPending)} pending in queue',
+              cortex.commandsPending > 100 ? _CortexColors.dangerRed : _CortexColors.warningAmber),
       ],
     );
   }
@@ -602,12 +605,20 @@ class _NeuralPanelState extends State<_NeuralPanel> {
                     const SizedBox(height: 8),
                     _statRow('Dispatched', _fmt(cortex.commandsDispatched),
                         _CortexColors.signalBlue),
-                    _statRow('Executed', _fmt(cortex.commandsExecuted),
+                    _statRow('Processed', _fmt(cortex.commandsDrained),
+                        _CortexColors.textMuted),
+                    _statRow('Healed', _fmt(cortex.commandsExecuted),
                         _CortexColors.healthGreen),
+                    if (cortex.commandsFailed > 0)
+                      _statRow('Not Healed', _fmt(cortex.commandsFailed),
+                          _CortexColors.warningAmber),
+                    if (cortex.commandsPending > 0)
+                      _statRow('Pending', _fmt(cortex.commandsPending),
+                          cortex.commandsPending > 100 ? _CortexColors.dangerRed : _CortexColors.reflexOrange),
                     if (cortex.commandsDispatched > 0)
                       _statRow(
-                        'Success Rate',
-                        '${(cortex.commandsExecuted / cortex.commandsDispatched * 100).round()}%',
+                        'Heal Rate',
+                        '${cortex.commandsDrained > 0 ? (cortex.commandsExecuted / cortex.commandsDrained * 100).round() : 100}%',
                         _CortexColors.healthGreen,
                       ),
                     // Recent executor actions

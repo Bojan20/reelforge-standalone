@@ -22761,6 +22761,20 @@ extension ProfilerFFI on NativeFFI {
   /// Total commands that successfully healed a problem.
   int cortexGetTotalHealed() => _cortexGetTotalHealed();
 
+  static final _cortexGetCommandsDrained = _loadNativeLibrary().lookupFunction<
+      Uint64 Function(),
+      int Function()>('cortex_get_commands_drained');
+
+  static final _cortexGetCommandsFailed = _loadNativeLibrary().lookupFunction<
+      Uint64 Function(),
+      int Function()>('cortex_get_commands_failed');
+
+  /// Total commands drained (processed) by executor — all outcomes.
+  int cortexGetCommandsDrained() => _cortexGetCommandsDrained();
+
+  /// Total commands that failed healing or had no effect.
+  int cortexGetCommandsFailed() => _cortexGetCommandsFailed();
+
   // ═══ CORTEX VISION FFI ═══
 
   static final _cortexReportVision = _loadNativeLibrary().lookupFunction<

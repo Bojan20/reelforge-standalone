@@ -187,6 +187,8 @@ class CortexProvider extends ChangeNotifier {
   int _activeReflexes = 0;
   int _commandsDispatched = 0;
   int _commandsExecuted = 0;
+  int _commandsDrained = 0;
+  int _commandsFailed = 0;
   int _immuneActiveCount = 0;
   int _immuneEscalations = 0;
   double _healingRate = 1.0;
@@ -230,6 +232,10 @@ class CortexProvider extends ChangeNotifier {
   int get activeReflexes => _activeReflexes;
   int get commandsDispatched => _commandsDispatched;
   int get commandsExecuted => _commandsExecuted;
+  int get commandsDrained => _commandsDrained;
+  int get commandsFailed => _commandsFailed;
+  /// How many dispatched commands haven't been drained yet (truly pending).
+  int get commandsPending => (_commandsDispatched - _commandsDrained).clamp(0, 999999);
   int get immuneActiveCount => _immuneActiveCount;
   int get immuneEscalations => _immuneEscalations;
   double get healingRate => _healingRate;
@@ -365,6 +371,8 @@ class CortexProvider extends ChangeNotifier {
       final newActiveReflexes = ffi.cortexGetActiveReflexCount();
       final newCmdsDispatched = ffi.cortexGetCommandsDispatched();
       final newCmdsExecuted = ffi.cortexGetCommandsExecuted();
+      final newCmdsDrained = ffi.cortexGetCommandsDrained();
+      final newCmdsFailed = ffi.cortexGetCommandsFailed();
       final newHasChronic = ffi.cortexGetHasChronic();
       final newImmuneActive = ffi.cortexGetImmuneActiveCount();
       final newImmuneEscalations = ffi.cortexGetImmuneEscalations();
@@ -446,6 +454,8 @@ class CortexProvider extends ChangeNotifier {
       _activeReflexes = newActiveReflexes;
       _commandsDispatched = newCmdsDispatched;
       _commandsExecuted = newCmdsExecuted;
+      _commandsDrained = newCmdsDrained;
+      _commandsFailed = newCmdsFailed;
       _immuneActiveCount = newImmuneActive;
       _immuneEscalations = newImmuneEscalations;
       _healingRate = newHealingRate;
