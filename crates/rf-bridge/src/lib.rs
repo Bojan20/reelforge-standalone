@@ -91,6 +91,11 @@ pub mod ml_ffi; // ML/AI engine FFI — denoise, separation, voice enhance
 pub mod pitch_ffi; // Pitch detection & correction FFI
 pub mod script_ffi; // Lua scripting engine FFI — execute, poll actions, context
 pub mod video_ffi; // Video engine FFI — timeline, frames, timecode
+// Already wired in slot_lab_ffi.rs: neuro, copilot, fingerprint, ai_gen, cloud_sync
+pub mod slot_spatial_ffi; // Slot Spatial Audio™ — VR/AR 3D positioning
+pub mod ab_sim_ffi; // A/B Testing Analytics™ — batch simulation
+pub mod slot_export_ffi; // UCP Export™ — multi-platform export
+pub mod rgai_ffi; // RGAI™ — responsible gaming audio intelligence
 pub mod neural_bridge; // Ultimate Neural Bridge — unified intent-based communication
 mod transport;
 mod viz;

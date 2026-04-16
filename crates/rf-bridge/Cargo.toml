@@ -31,6 +31,7 @@ rf-fingerprint = { path = "../rf-fingerprint" }
 rf-cloud-sync = { path = "../rf-cloud-sync" }
 rf-slot-spatial = { path = "../rf-slot-spatial" }
 rf-ai-gen = { path = "../rf-ai-gen" }
+rf-rgai = { path = "../rf-rgai" }
 rf-ale = { path = "../rf-ale" }
 rf-aurexis = { path = "../rf-aurexis" }
 rf-connector = { path = "../rf-connector" }
