@@ -245,7 +245,7 @@ class _HelixScreenState extends State<HelixScreen>
     return Container(
       height: 48,
       decoration: BoxDecoration(
-        color: const Color(0xF208080C),
+        color: FluxForgeTheme.bgDeepest,
         border: Border(bottom: BorderSide(color: FluxForgeTheme.borderSubtle, width: 1)),
       ),
       child: Row(
@@ -264,7 +264,7 @@ class _HelixScreenState extends State<HelixScreen>
             child: const Center(
               child: Text('HX',
                 style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700,
-                  color: Colors.white, letterSpacing: 0.05)),
+                  color: FluxForgeTheme.textPrimary, letterSpacing: 0.05)),
             ),
           ),
           const SizedBox(width: 8),
@@ -312,6 +312,7 @@ class _HelixScreenState extends State<HelixScreen>
                   )
                 else
                   Text(GetIt.instance<SlotLabProjectProvider>().projectName,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontFamily: 'monospace', fontSize: 11,
                       color: FluxForgeTheme.textPrimary)),
@@ -654,7 +655,7 @@ class _HelixScreenState extends State<HelixScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
       decoration: BoxDecoration(
-        color: const Color(0xE608080C),
+        color: FluxForgeTheme.bgDeepest.withOpacity(0.9),
         border: Border.all(color: FluxForgeTheme.borderSubtle),
         borderRadius: BorderRadius.circular(20),
       ),
@@ -752,7 +753,7 @@ class _HelixScreenState extends State<HelixScreen>
     return Container(
       height: 44,
       decoration: BoxDecoration(
-        color: const Color(0xB206060A),
+        color: FluxForgeTheme.bgVoid.withOpacity(0.7),
         border: Border(bottom: BorderSide(color: FluxForgeTheme.borderSubtle)),
       ),
       child: Row(
@@ -1302,8 +1303,9 @@ class _SfxPipelinePanel extends StatelessWidget {
           Row(children: [
             Icon(Icons.content_cut_rounded, size: 14, color: FluxForgeTheme.accentCyan.withOpacity(0.6)),
             const SizedBox(width: 6),
-            Text('Auto-trim silence + apply fades to ${sfx.selectedCount} files',
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary)),
+            Flexible(child: Text('Auto-trim silence + apply fades to ${sfx.selectedCount} files',
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary))),
           ]),
         ],
       ),
@@ -1708,7 +1710,7 @@ class _BehaviorTreePanelState extends State<_BehaviorTreePanel> {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(6),
                     child: Container(
-                      color: const Color(0xFF050508),
+                      color: FluxForgeTheme.bgVoid,
                       child: _canvasNodes.isEmpty
                         ? const Center(child: Text('Click a node in the palette to add it to the canvas',
                             style: TextStyle(fontFamily: 'monospace', fontSize: 11, color: FluxForgeTheme.textTertiary)))
@@ -2611,7 +2613,7 @@ class _AbTestPanelState extends State<_AbTestPanel> {
                 ] else ...[
                   const Expanded(
                     child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.science_outlined, size: 48, color: Color(0xFF1A1A2E)),
+                      Icon(Icons.science_outlined, size: 48, color: FluxForgeTheme.borderSubtle),
                       SizedBox(height: 12),
                       Text('Configure variants and run simulation',
                         style: TextStyle(fontFamily: 'monospace', fontSize: 11, color: FluxForgeTheme.textTertiary)),
@@ -3833,7 +3835,7 @@ class _SpineOverlay extends StatelessWidget {
     decoration: BoxDecoration(
       color: FluxForgeTheme.bgSurface.withOpacity(0.95),
       border: Border(right: BorderSide(color: FluxForgeTheme.borderSubtle)),
-      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 24)],
+      boxShadow: [BoxShadow(color: FluxForgeTheme.bgVoid.withOpacity(0.4), blurRadius: 24)],
     ),
     child: Column(
       children: [
@@ -4495,7 +4497,7 @@ class _DockCard extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
-      color: const Color(0x8006060A),
+      color: FluxForgeTheme.bgVoid.withOpacity(0.5),
       border: Border.all(color: FluxForgeTheme.borderSubtle),
       borderRadius: BorderRadius.circular(8),
     ),
@@ -4838,8 +4840,8 @@ class _ChannelStripState extends State<_ChannelStrip> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         color: _muted
-          ? const Color(0x4006060A)
-          : const Color(0x8006060A),
+          ? FluxForgeTheme.bgVoid.withOpacity(0.25)
+          : FluxForgeTheme.bgVoid.withOpacity(0.5),
         border: Border.all(
           color: _soloed
             ? FluxForgeTheme.accentYellow.withOpacity(0.4)
@@ -4901,7 +4903,7 @@ class _ChannelStripState extends State<_ChannelStrip> {
                       child: Container(
                         width: 6,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.8),
+                          color: FluxForgeTheme.textPrimary.withOpacity(0.8),
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
@@ -5148,7 +5150,7 @@ class _InfoChip extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
     decoration: BoxDecoration(
-      color: const Color(0xCC08080C),
+      color: FluxForgeTheme.bgDeepest.withOpacity(0.8),
       border: Border.all(color: FluxForgeTheme.borderSubtle),
       borderRadius: BorderRadius.circular(5),
     ),
@@ -5537,7 +5539,7 @@ class _AudioContextLensState extends State<_AudioContextLens> {
           // Dimmed background
           GestureDetector(
             onTap: widget.onClose,
-            child: Container(color: Colors.black.withOpacity(0.5)),
+            child: Container(color: FluxForgeTheme.bgVoid.withOpacity(0.5)),
           ),
           // Lens panel
           Center(

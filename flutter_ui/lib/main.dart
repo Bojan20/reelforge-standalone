@@ -81,6 +81,7 @@ import 'providers/rgai_ffi_provider.dart';
 import 'providers/slot_spatial_provider.dart';
 import 'providers/ab_sim_provider.dart';
 import 'providers/slot_export_provider.dart';
+import 'providers/sfx_pipeline_provider.dart';
 import 'utils/path_validator.dart';
 import 'dart:io';
 import 'package:path/path.dart' as p;
@@ -425,6 +426,9 @@ class FluxForgeApp extends StatelessWidget {
         ),
         ChangeNotifierProvider<SlotExportProvider>.value(
           value: sl<SlotExportProvider>(),
+        ),
+        ChangeNotifierProvider<SfxPipelineProvider>.value(
+          value: sl<SfxPipelineProvider>(),
         ),
       ],
       child: RepaintBoundary(

@@ -116,6 +116,7 @@ import '../providers/rgai_ffi_provider.dart';
 import '../providers/slot_spatial_provider.dart';
 import '../providers/ab_sim_provider.dart';
 import '../providers/slot_export_provider.dart';
+import '../providers/sfx_pipeline_provider.dart';
 import 'rgar_report_service.dart';
 import '../providers/fluxmacro_provider.dart';
 import '../providers/slot_lab/stage_flow_provider.dart';
@@ -632,6 +633,9 @@ class ServiceLocator {
     );
     sl.registerLazySingleton<SlotExportProvider>(
       () => SlotExportProvider(ffi: sl.get<NativeFFI>()),
+    );
+    sl.registerLazySingleton<SfxPipelineProvider>(
+      () => SfxPipelineProvider(),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
