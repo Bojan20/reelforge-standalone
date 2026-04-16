@@ -28798,5 +28798,158 @@ extension HookGraphAPI on NativeFFI {
       return null;
     }
   }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // T4.1–T4.2: NeuroAudio™ — Player Behavioral Signal Processor
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// Create a new NeuroEngine.
+  /// [configJson] — JSON-encoded NeuroConfig, or null for defaults.
+  /// Returns engine_id > 0 on success, -1 on error.
+  int neuroEngineCreate({String? configJson}) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int64 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)
+      >('neuro_engine_create');
+
+      if (configJson != null) {
+        final ptr = configJson.toNativeUtf8();
+        try {
+          return fn(ptr);
+        } finally {
+          malloc.free(ptr);
+        }
+      } else {
+        return fn(nullptr);
+      }
+    } catch (_) {
+      return -1;
+    }
+  }
+
+  /// Process one behavioral sample.
+  /// [eventJson] — JSON-encoded BehavioralSample.
+  /// Returns PlayerStateVector JSON, or null on error.
+  String? neuroEngineProcess(int engineId, String eventJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Int64, Pointer<Utf8>),
+          Pointer<Utf8> Function(int, Pointer<Utf8>)
+      >('neuro_engine_process');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr2 = eventJson.toNativeUtf8();
+      try {
+        final ptr = fn(engineId, ptr2);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr2);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Get current AudioAdaptation JSON for an engine.
+  String? neuroEngineAdaptation(int engineId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Int64),
+          Pointer<Utf8> Function(int)
+      >('neuro_engine_adaptation');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr = fn(engineId);
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Simulate a session from an archetype preset.
+  /// [simJson] — JSON-encoded SessionSimulation.
+  /// Returns SimulationResult JSON, or null on error.
+  String? neuroEngineSimulate(String simJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('neuro_engine_simulate');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr2 = simJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr2);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr2);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Reset engine state (start new session).
+  void neuroEngineReset(int engineId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Void Function(Int64),
+          void Function(int)
+      >('neuro_engine_reset');
+      fn(engineId);
+    } catch (_) {}
+  }
+
+  /// Destroy a NeuroEngine and free memory.
+  void neuroEngineDestroy(int engineId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Void Function(Int64),
+          void Function(int)
+      >('neuro_engine_destroy');
+      fn(engineId);
+    } catch (_) {}
+  }
+
+  /// Get available player archetypes as JSON array of {key, name}.
+  String? neuroAvailableArchetypes() {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()
+      >('neuro_available_archetypes');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
 }
 

@@ -25,6 +25,7 @@ rf-ingest = { path = "../rf-ingest" }
 rf-slot-lab = { path = "../rf-slot-lab" }
 rf-ab-sim = { path = "../rf-ab-sim" }
 rf-slot-export = { path = "../rf-slot-export" }
+rf-neuro = { path = "../rf-neuro" }
 rf-ale = { path = "../rf-ale" }
 rf-aurexis = { path = "../rf-aurexis" }
 rf-connector = { path = "../rf-connector" }

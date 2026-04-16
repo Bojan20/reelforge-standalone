@@ -3455,6 +3455,139 @@ pub extern "C" fn slot_lab_export_formats() -> *mut c_char {
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// T4.1–T4.2: NeuroAudio™ — Player Behavioral Signal Processor FFI
+// ─────────────────────────────────────────────────────────────────────────────
+
+use rf_neuro::{NeuroConfig, NeuroEngine, BehavioralSample, SessionSimulation, SimulationResult};
+
+/// Global registry of active NeuroEngine instances (engine_id → NeuroEngine)
+static NEURO_ENGINES: std::sync::OnceLock<parking_lot::Mutex<std::collections::HashMap<i64, NeuroEngine>>> =
+    std::sync::OnceLock::new();
+
+fn neuro_engines() -> &'static parking_lot::Mutex<std::collections::HashMap<i64, NeuroEngine>> {
+    NEURO_ENGINES.get_or_init(|| parking_lot::Mutex::new(std::collections::HashMap::new()))
+}
+
+/// Create a new NeuroEngine.
+/// [config_json] — JSON-encoded NeuroConfig, or null for defaults.
+/// Returns engine_id (> 0) on success, -1 on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn neuro_engine_create(config_json_ptr: *const c_char) -> i64 {
+    let config = if config_json_ptr.is_null() {
+        NeuroConfig::default()
+    } else {
+        match unsafe { CStr::from_ptr(config_json_ptr) }.to_str() {
+            Ok(s) => serde_json::from_str(s).unwrap_or_default(),
+            Err(_) => return -1,
+        }
+    };
+
+    let engine = NeuroEngine::new(config);
+    let mut guard = neuro_engines().lock();
+    let id = guard.len() as i64 + 1;
+    guard.insert(id, engine);
+    id
+}
+
+/// Process one behavioral sample and return updated PlayerStateVector JSON.
+/// Returns null on error or invalid engine_id.
+#[unsafe(no_mangle)]
+pub extern "C" fn neuro_engine_process(engine_id: i64, event_json_ptr: *const c_char) -> *mut c_char {
+    let json_str = match unsafe { CStr::from_ptr(event_json_ptr) }.to_str() {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let sample: BehavioralSample = match serde_json::from_str(json_str) {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let mut guard = neuro_engines().lock();
+    let engine = match guard.get_mut(&engine_id) {
+        Some(e) => e,
+        None => return ptr::null_mut(),
+    };
+
+    let state = engine.process(&sample).clone();
+    match serde_json::to_string(&state) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Get current AudioAdaptation JSON for an engine.
+/// Returns null on error or invalid engine_id.
+#[unsafe(no_mangle)]
+pub extern "C" fn neuro_engine_adaptation(engine_id: i64) -> *mut c_char {
+    let guard = neuro_engines().lock();
+    let engine = match guard.get(&engine_id) {
+        Some(e) => e,
+        None => return ptr::null_mut(),
+    };
+
+    match serde_json::to_string(engine.adaptation()) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Simulate a session from an archetype preset and return SimulationResult JSON.
+/// [sim_json] — JSON-encoded SessionSimulation.
+/// Returns null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn neuro_engine_simulate(sim_json_ptr: *const c_char) -> *mut c_char {
+    let json_str = match unsafe { CStr::from_ptr(sim_json_ptr) }.to_str() {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let sim: SessionSimulation = match serde_json::from_str(json_str) {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let result = SimulationResult::run(&sim);
+    match serde_json::to_string(&result) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Reset engine state (start new session without destroying the engine).
+#[unsafe(no_mangle)]
+pub extern "C" fn neuro_engine_reset(engine_id: i64) {
+    let mut guard = neuro_engines().lock();
+    if let Some(engine) = guard.get_mut(&engine_id) {
+        engine.reset();
+    }
+}
+
+/// Destroy a NeuroEngine and free its memory.
+#[unsafe(no_mangle)]
+pub extern "C" fn neuro_engine_destroy(engine_id: i64) {
+    neuro_engines().lock().remove(&engine_id);
+}
+
+/// Get all available player archetypes as JSON array.
+#[unsafe(no_mangle)]
+pub extern "C" fn neuro_available_archetypes() -> *mut c_char {
+    use rf_neuro::ArchetypePreset;
+    let archetypes: Vec<serde_json::Value> = ArchetypePreset::all()
+        .into_iter()
+        .map(|a| serde_json::json!({
+            "key": format!("{:?}", a).to_lowercase(),
+            "name": a.display_name(),
+        }))
+        .collect();
+
+    match serde_json::to_string(&archetypes) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

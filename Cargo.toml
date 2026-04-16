@@ -58,6 +58,8 @@ members = [
     "crates/rf-ab-sim",
     # UCP Export Engine — Howler.js, Wwise, FMOD, Generic JSON (T3.1–T3.5)
     "crates/rf-slot-export",
+    # NeuroAudio™ — Real-time Player Behavioral Signal Processor (T4.1–T4.2)
+    "crates/rf-neuro",
 ]
 
 [workspace.package]
@@ -93,6 +95,7 @@ rf-connector = { path = "crates/rf-connector" }
 rf-slot-lab = { path = "crates/rf-slot-lab" }
 rf-ab-sim = { path = "crates/rf-ab-sim" }
 rf-slot-export = { path = "crates/rf-slot-export" }
+rf-neuro = { path = "crates/rf-neuro" }
 rf-ale = { path = "crates/rf-ale" }
 rf-aurexis = { path = "crates/rf-aurexis" }
 rf-offline = { path = "crates/rf-offline" }

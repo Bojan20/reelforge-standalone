@@ -167,6 +167,7 @@ import 'batch_sim_service.dart'; // T2.3
 import 'math_audio_bridge_service.dart'; // T2.5+T2.8
 import 'voice_budget_analyzer_service.dart'; // T2.6
 import 'slot_lab_export_service.dart'; // T3.1–T3.6
+import 'neuro_audio_service.dart'; // T4.1–T4.2
 
 /// Global service locator instance
 final GetIt sl = GetIt.instance;
@@ -523,6 +524,14 @@ class ServiceLocator {
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<SlotLabExportService>(
       () => SlotLabExportService(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.10j-NEURO: NeuroAudio Service (T4.1–T4.2)
+    // Player Behavioral Signal Processor — 8D PSV + AudioAdaptation
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<NeuroAudioService>(
+      () => NeuroAudioService(),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
