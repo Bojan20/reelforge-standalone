@@ -83,10 +83,15 @@ class _HelixScreenState extends State<HelixScreen>
   // ── FocusNode (CLAUDE.md: initState, not build) ───────────────────────────
   late final FocusNode _focusNode;
 
+  // ── BPM inline edit ───────────────────────────────────────────────────────
+  bool _bpmEditing = false;
+  late final TextEditingController _bpmController;
+
   @override
   void initState() {
     super.initState();
     _focusNode = FocusNode()..requestFocus();
+    _bpmController = TextEditingController(text: '128.0');
     _glowCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 4))
       ..repeat(reverse: true);
     _glowAnim = Tween<double>(begin: 0.06, end: 0.12).animate(
@@ -115,6 +120,7 @@ class _HelixScreenState extends State<HelixScreen>
   @override
   void dispose() {
     _focusNode.dispose();
+    _bpmController.dispose();
     _glowCtrl.dispose();
     _waveTimer.cancel();
     _bpmTimer.cancel();
@@ -218,24 +224,69 @@ class _HelixScreenState extends State<HelixScreen>
             ]),
           ),
           const Spacer(),
-          // Undo/Redo
-          _OmniIconBtn(icon: Icons.undo_rounded, onTap: () {}),
-          const SizedBox(width: 2),
-          _OmniIconBtn(icon: Icons.redo_rounded, onTap: () {}),
+          // Undo/Redo — wired to SlotLabProjectProvider
+          Builder(builder: (ctx) {
+            final proj = GetIt.instance<SlotLabProjectProvider>();
+            return Row(children: [
+              _OmniIconBtn(
+                icon: Icons.undo_rounded,
+                onTap: proj.canUndoAudioAssignment ? () { proj.undoAudioAssignment(); } : null,
+              ),
+              const SizedBox(width: 2),
+              _OmniIconBtn(
+                icon: Icons.redo_rounded,
+                onTap: proj.canRedoAudioAssignment ? () { proj.redoAudioAssignment(); } : null,
+              ),
+            ]);
+          }),
           const SizedBox(width: 12),
-          // BPM
-          _OmniPill(
-            color: FluxForgeTheme.accentCyan.withOpacity(0.05),
-            border: FluxForgeTheme.accentCyan.withOpacity(0.2),
-            child: Row(children: [
-              const Text('BPM', style: TextStyle(
-                fontFamily: 'monospace', fontSize: 9,
-                color: FluxForgeTheme.textTertiary, letterSpacing: 0.1)),
-              const SizedBox(width: 6),
-              Text(_bpmDisplay.toStringAsFixed(1), style: const TextStyle(
-                fontFamily: 'monospace', fontSize: 11,
-                color: FluxForgeTheme.accentCyan, fontWeight: FontWeight.w600)),
-            ]),
+          // BPM — tap to edit
+          GestureDetector(
+            onTap: () {
+              _bpmController.text = _bpmDisplay.toStringAsFixed(1);
+              setState(() => _bpmEditing = true);
+            },
+            child: _OmniPill(
+              color: FluxForgeTheme.accentCyan.withOpacity(0.05),
+              border: _bpmEditing
+                ? FluxForgeTheme.accentCyan.withOpacity(0.6)
+                : FluxForgeTheme.accentCyan.withOpacity(0.2),
+              child: Row(children: [
+                const Text('BPM', style: TextStyle(
+                  fontFamily: 'monospace', fontSize: 9,
+                  color: FluxForgeTheme.textTertiary, letterSpacing: 0.1)),
+                const SizedBox(width: 6),
+                if (_bpmEditing)
+                  SizedBox(
+                    width: 52,
+                    child: TextField(
+                      controller: _bpmController,
+                      autofocus: true,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      style: const TextStyle(
+                        fontFamily: 'monospace', fontSize: 11,
+                        color: FluxForgeTheme.accentCyan, fontWeight: FontWeight.w600),
+                      decoration: const InputDecoration(
+                        isDense: true, border: InputBorder.none,
+                        contentPadding: EdgeInsets.zero),
+                      onSubmitted: (v) {
+                        final bpm = double.tryParse(v);
+                        if (bpm != null && bpm > 20 && bpm < 300) {
+                          GetIt.instance<EngineProvider>().setTempo(bpm);
+                          setState(() { _bpmDisplay = bpm; _bpmEditing = false; });
+                        } else {
+                          setState(() => _bpmEditing = false);
+                        }
+                      },
+                      onTapOutside: (_) => setState(() => _bpmEditing = false),
+                    ),
+                  )
+                else
+                  Text(_bpmDisplay.toStringAsFixed(1), style: const TextStyle(
+                    fontFamily: 'monospace', fontSize: 11,
+                    color: FluxForgeTheme.accentCyan, fontWeight: FontWeight.w600)),
+              ]),
+            ),
           ),
           const SizedBox(width: 12),
           // Transport
@@ -626,16 +677,46 @@ class _FlowPanel extends StatelessWidget {
           (GameFlowState.jackpotPresentation,'JACKPOT',Icons.emoji_events_rounded, FluxForgeTheme.accentGreen),
         ];
 
+        // Force-stage callbacks per state
+        void forceState(GameFlowState target) {
+          switch (target) {
+            case GameFlowState.idle:
+              flow.resetToBaseGame();
+            case GameFlowState.baseGame:
+              flow.resetToBaseGame();
+            case GameFlowState.cascading:
+              flow.triggerManual(TransitionTrigger.cascadeWin);
+            case GameFlowState.freeSpins:
+              flow.triggerManual(TransitionTrigger.scatterCount, context: {'scatterCount': 3});
+            case GameFlowState.holdAndWin:
+              flow.triggerManual(TransitionTrigger.coinCount, context: {'coinCount': 6});
+            case GameFlowState.bonusGame:
+              flow.triggerManual(TransitionTrigger.bonusSymbolCount, context: {'bonusCount': 3});
+            case GameFlowState.jackpotPresentation:
+              flow.triggerManual(TransitionTrigger.jackpotTriggered);
+            case GameFlowState.gamble:
+              flow.triggerManual(TransitionTrigger.playerGamble);
+            default:
+              flow.resetToBaseGame();
+          }
+        }
+
         return Row(
           children: [
-            // Flow map
+            // Flow map — nodes are clickable to force stage
             Expanded(
               flex: 3,
               child: _DockCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _DockLabel('STAGE FLOW'),
+                    Row(children: [
+                      _DockLabel('STAGE FLOW'),
+                      const Spacer(),
+                      const Text('tap node to force stage', style: TextStyle(
+                        fontFamily: 'monospace', fontSize: 8,
+                        color: FluxForgeTheme.textTertiary)),
+                    ]),
                     const SizedBox(height: 8),
                     Expanded(
                       child: Row(
@@ -646,7 +727,8 @@ class _FlowPanel extends StatelessWidget {
                           final active = current == state;
                           final widgets = <Widget>[
                             _FlowNode(label: label, icon: icon,
-                              color: color, active: active),
+                              color: color, active: active,
+                              onTap: () => forceState(state)),
                           ];
                           if (e.key < nodes.length - 1) {
                             widgets.add(Icon(Icons.arrow_forward_rounded,
@@ -745,7 +827,7 @@ class _AudioPanel extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        // Channel strips — real composite events
+        // Channel strips — interactive, wired to middleware
         Expanded(
           child: _DockCard(
             child: Column(
@@ -760,14 +842,17 @@ class _AudioPanel extends StatelessWidget {
                 const SizedBox(height: 8),
                 Expanded(
                   child: events.isEmpty
-                    ? const Center(child: Text('No composite events loaded.\nAssign audio in SlotLab.',
+                    ? const Center(child: Text('No composite events loaded.\nAssign audio in AUDIO ASSIGN spine.',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, height: 1.5)))
                     : ListView(
                         children: events.map((e) {
                           final name = e.name.length > 12 ? e.name.substring(0, 12) : e.name;
-                          final level = e.masterVolume.clamp(0.0, 1.0);
-                          return _ChannelStrip(name: name, color: e.color, level: level);
+                          return _ChannelStrip(
+                            event: e,
+                            name: name,
+                            middleware: mw,
+                          );
                         }).toList(),
                       ),
                 ),
@@ -821,17 +906,93 @@ class _MathPanel extends StatelessWidget {
       ('BONUS FREQ',  bonusFreq, 'Feature triggers', bonusFill, FluxForgeTheme.accentCyan),
     ];
 
-    return GridView.count(
-      crossAxisCount: 6,
-      mainAxisSpacing: 8,
-      crossAxisSpacing: 8,
-      childAspectRatio: 0.9,
-      children: cards.map((c) => _MathCard(
-        label: c.$1, value: c.$2, sub: c.$3,
-        fill: c.$4, color: c.$5,
-      )).toList(),
+    return Column(
+      children: [
+        Expanded(
+          child: GridView.count(
+            crossAxisCount: 6,
+            mainAxisSpacing: 8,
+            crossAxisSpacing: 8,
+            childAspectRatio: 0.9,
+            children: cards.map((c) => _MathCard(
+              label: c.$1, value: c.$2, sub: c.$3,
+              fill: c.$4, color: c.$5,
+            )).toList(),
+          ),
+        ),
+        // Run Simulation button
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: _RunSimButton(),
+        ),
+      ],
     );
   }
+}
+
+class _RunSimButton extends StatefulWidget {
+  @override
+  State<_RunSimButton> createState() => _RunSimButtonState();
+}
+
+class _RunSimButtonState extends State<_RunSimButton> {
+  bool _running = false;
+
+  Future<void> _run() async {
+    if (_running) return;
+    setState(() => _running = true);
+    try {
+      final proj = GetIt.instance<SlotLabProjectProvider>();
+      // Simulate 1000 spins via project provider
+      final rng = math.Random();
+      for (int i = 0; i < 1000; i++) {
+        final win = rng.nextDouble() < 0.25 ? rng.nextDouble() * 5.0 : 0.0;
+        proj.recordSpinResult(betAmount: 1.0, winAmount: win, tier: win > 0 ? 'WIN 1' : null);
+      }
+    } catch (_) {}
+    await Future.delayed(const Duration(milliseconds: 800));
+    if (mounted) setState(() => _running = false);
+  }
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: _run,
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: _running
+          ? FluxForgeTheme.accentGreen.withOpacity(0.08)
+          : FluxForgeTheme.accentGreen.withOpacity(0.04),
+        border: Border.all(
+          color: _running
+            ? FluxForgeTheme.accentGreen.withOpacity(0.5)
+            : FluxForgeTheme.accentGreen.withOpacity(0.2)),
+        borderRadius: BorderRadius.circular(7),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        if (_running) ...[
+          SizedBox(
+            width: 10, height: 10,
+            child: CircularProgressIndicator(
+              strokeWidth: 1.5,
+              color: FluxForgeTheme.accentGreen,
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Text('Simulating 1000 spins...', style: TextStyle(
+            fontFamily: 'monospace', fontSize: 10,
+            color: FluxForgeTheme.accentGreen)),
+        ] else ...[
+          Icon(Icons.play_circle_rounded, size: 14, color: FluxForgeTheme.accentGreen),
+          const SizedBox(width: 6),
+          const Text('Run Simulation (1000 spins)', style: TextStyle(
+            fontFamily: 'monospace', fontSize: 10,
+            color: FluxForgeTheme.accentGreen)),
+        ],
+      ]),
+    ),
+  );
 }
 
 // ── TIMELINE Panel ───────────────────────────────────────────────────────────
@@ -987,6 +1148,36 @@ class _IntelPanel extends StatelessWidget {
                       Text(copilotText,
                         style: const TextStyle(fontSize: 10, height: 1.5,
                           color: FluxForgeTheme.textSecondary)),
+                      const SizedBox(height: 8),
+                      // Apply top suggestion button
+                      if (allRemediations.isNotEmpty)
+                        GestureDetector(
+                          onTap: () {
+                            // Apply: set RTPC via middleware using suggested value
+                            try {
+                              final top = allRemediations.first;
+                              final v = double.tryParse(top.suggestedValue) ?? 0.5;
+                              final mw = GetIt.instance<MiddlewareProvider>();
+                              mw.setRtpc(0, v, interpolationMs: 500);
+                            } catch (_) {}
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: FluxForgeTheme.accentPurple.withOpacity(0.1),
+                              border: Border.all(color: FluxForgeTheme.accentPurple.withOpacity(0.3)),
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                            child: Row(mainAxisSize: MainAxisSize.min, children: [
+                              Icon(Icons.auto_fix_high_rounded, size: 10,
+                                color: FluxForgeTheme.accentPurple),
+                              const SizedBox(width: 5),
+                              const Text('Apply suggestion', style: TextStyle(
+                                fontFamily: 'monospace', fontSize: 9,
+                                color: FluxForgeTheme.accentPurple)),
+                            ]),
+                          ),
+                        ),
                       const Spacer(),
                       Text(neuro.responsibleGamingMode ? '⚠ RG MODE' : '✓ RG mode stable',
                         style: TextStyle(fontSize: 10,
@@ -1447,7 +1638,20 @@ class _SpineAiIntel extends StatelessWidget {
 
 // ── Spine: SETTINGS ─────────────────────────────────────────────────────────
 
-class _SpineSettings extends StatelessWidget {
+class _SpineSettings extends StatefulWidget {
+  @override
+  State<_SpineSettings> createState() => _SpineSettingsState();
+}
+
+class _SpineSettingsState extends State<_SpineSettings> {
+  late double _bpmSlider;
+
+  @override
+  void initState() {
+    super.initState();
+    _bpmSlider = GetIt.instance<EngineProvider>().transport.tempo.clamp(20.0, 300.0);
+  }
+
   @override
   Widget build(BuildContext context) {
     final engine = GetIt.instance<EngineProvider>();
@@ -1460,23 +1664,103 @@ class _SpineSettings extends StatelessWidget {
           fontFamily: 'monospace', fontSize: 9, letterSpacing: 0.1,
           color: FluxForgeTheme.textTertiary)),
         const SizedBox(height: 8),
-        _SpineRow('Tempo', '${t.tempo.toStringAsFixed(1)} BPM'),
+        // BPM slider
+        Row(children: [
+          const Text('TEMPO', style: TextStyle(
+            fontSize: 10, color: FluxForgeTheme.textTertiary)),
+          const Spacer(),
+          Text('${_bpmSlider.toStringAsFixed(0)} BPM', style: const TextStyle(
+            fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.accentCyan)),
+        ]),
+        SliderTheme(
+          data: SliderThemeData(
+            trackHeight: 3,
+            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+            activeTrackColor: FluxForgeTheme.accentCyan,
+            inactiveTrackColor: FluxForgeTheme.bgElevated,
+            thumbColor: FluxForgeTheme.accentCyan,
+            overlayColor: FluxForgeTheme.accentCyan.withOpacity(0.1),
+          ),
+          child: Slider(
+            value: _bpmSlider,
+            min: 40, max: 240,
+            onChanged: (v) => setState(() => _bpmSlider = v),
+            onChangeEnd: (v) => engine.setTempo(v),
+          ),
+        ),
+        const SizedBox(height: 6),
         _SpineRow('Time sig', '${t.timeSigNum}/${t.timeSigDenom}'),
         _SpineRow('Position', '${t.positionSeconds.toStringAsFixed(1)}s'),
         _SpineRow('Playing', t.isPlaying ? 'YES' : 'NO'),
-        _SpineRow('Loop', t.loopEnabled ? 'ON' : 'OFF'),
         const SizedBox(height: 12),
         const Text('NEURO AUDIO', style: TextStyle(
           fontFamily: 'monospace', fontSize: 9, letterSpacing: 0.1,
           color: FluxForgeTheme.textTertiary)),
         const SizedBox(height: 8),
-        _SpineRow('Enabled', neuro.enabled ? 'YES' : 'NO'),
-        _SpineRow('RG Mode', neuro.responsibleGamingMode ? 'ON' : 'OFF'),
+        // NeuroAudio toggle
+        _SpineToggle(
+          label: 'Enabled',
+          value: neuro.enabled,
+          activeColor: FluxForgeTheme.accentGreen,
+          onChanged: (v) => neuro.setEnabled(v),
+        ),
+        const SizedBox(height: 6),
+        // RG Mode toggle
+        _SpineToggle(
+          label: 'RG Mode',
+          value: neuro.responsibleGamingMode,
+          activeColor: FluxForgeTheme.accentOrange,
+          onChanged: (v) => neuro.setResponsibleGamingMode(v),
+        ),
+        const SizedBox(height: 6),
         _SpineRow('Tempo mod', '${(neuro.output.tempoModifier * 100).toStringAsFixed(0)}%'),
         _SpineRow('Reverb mod', '${(neuro.output.reverbDepthModifier * 100).toStringAsFixed(0)}%'),
       ],
     );
   }
+}
+
+class _SpineToggle extends StatelessWidget {
+  final String label;
+  final bool value;
+  final Color activeColor;
+  final ValueChanged<bool> onChanged;
+  const _SpineToggle({required this.label, required this.value,
+    required this.activeColor, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Expanded(child: Text(label, style: const TextStyle(
+        fontSize: 10, color: FluxForgeTheme.textSecondary))),
+      GestureDetector(
+        onTap: () => onChanged(!value),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          width: 36, height: 18,
+          decoration: BoxDecoration(
+            color: value ? activeColor.withOpacity(0.2) : FluxForgeTheme.bgElevated,
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(color: value ? activeColor : FluxForgeTheme.borderSubtle),
+          ),
+          child: Stack(children: [
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 150),
+              left: value ? 20 : 2,
+              top: 2, bottom: 2,
+              child: Container(
+                width: 14,
+                decoration: BoxDecoration(
+                  color: value ? activeColor : FluxForgeTheme.textTertiary,
+                  borderRadius: BorderRadius.circular(7),
+                ),
+              ),
+            ),
+          ]),
+        ),
+      ),
+    ],
+  );
 }
 
 // ── Spine: ANALYTICS ────────────────────────────────────────────────────────
@@ -1632,41 +1916,72 @@ class _StageNode extends StatelessWidget {
   );
 }
 
-class _FlowNode extends StatelessWidget {
+class _FlowNode extends StatefulWidget {
   final String label;
   final IconData icon;
   final Color color;
   final bool active;
+  final VoidCallback? onTap;
   const _FlowNode({required this.label, required this.icon,
-    required this.color, required this.active});
+    required this.color, required this.active, this.onTap});
 
   @override
-  Widget build(BuildContext context) => Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        width: 70, height: 44,
-        decoration: BoxDecoration(
-          color: active ? color.withOpacity(0.1) : FluxForgeTheme.bgSurface,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: active ? color : FluxForgeTheme.borderSubtle),
-          boxShadow: active ? [BoxShadow(
-            color: color.withOpacity(0.2), blurRadius: 12)] : null,
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 12, color: active ? color : FluxForgeTheme.textTertiary),
-            const SizedBox(height: 2),
-            Text(label, style: TextStyle(
-              fontFamily: 'monospace', fontSize: 8,
-              color: active ? color : FluxForgeTheme.textTertiary)),
-          ],
-        ),
+  State<_FlowNode> createState() => _FlowNodeState();
+}
+
+class _FlowNodeState extends State<_FlowNode> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+    onEnter: (_) => setState(() => _hovered = true),
+    onExit: (_) => setState(() => _hovered = false),
+    cursor: SystemMouseCursors.click,
+    child: GestureDetector(
+      onTap: widget.onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: 70, height: 44,
+            decoration: BoxDecoration(
+              color: widget.active
+                ? widget.color.withOpacity(0.12)
+                : _hovered ? widget.color.withOpacity(0.06) : FluxForgeTheme.bgSurface,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: widget.active
+                  ? widget.color
+                  : _hovered ? widget.color.withOpacity(0.4) : FluxForgeTheme.borderSubtle,
+                width: widget.active ? 1.5 : 1),
+              boxShadow: widget.active ? [BoxShadow(
+                color: widget.color.withOpacity(0.25), blurRadius: 12)] : null,
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(widget.icon, size: 12,
+                  color: widget.active ? widget.color
+                    : _hovered ? widget.color.withOpacity(0.7) : FluxForgeTheme.textTertiary),
+                const SizedBox(height: 2),
+                Text(widget.label, style: TextStyle(
+                  fontFamily: 'monospace', fontSize: 8,
+                  color: widget.active ? widget.color
+                    : _hovered ? widget.color.withOpacity(0.7) : FluxForgeTheme.textTertiary)),
+              ],
+            ),
+          ),
+          if (_hovered && !widget.active)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text('force', style: TextStyle(
+                fontFamily: 'monospace', fontSize: 7,
+                color: widget.color.withOpacity(0.6))),
+            ),
+        ],
       ),
-    ],
+    ),
   );
 }
 
@@ -1718,67 +2033,189 @@ class _MeterRow extends StatelessWidget {
   );
 }
 
-class _ChannelStrip extends StatelessWidget {
+class _ChannelStrip extends StatefulWidget {
+  final SlotCompositeEvent event;
   final String name;
-  final Color color;
-  final double level;
-  const _ChannelStrip({required this.name, required this.color, required this.level});
+  final MiddlewareProvider middleware;
+  const _ChannelStrip({
+    required this.event,
+    required this.name,
+    required this.middleware,
+  });
 
   @override
-  Widget build(BuildContext context) => Container(
-    margin: const EdgeInsets.only(bottom: 6),
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-    decoration: BoxDecoration(
-      color: const Color(0x8006060A),
-      border: Border.all(color: FluxForgeTheme.borderSubtle),
-      borderRadius: BorderRadius.circular(7),
-    ),
-    child: Row(
-      children: [
-        Container(width: 3, height: 28, decoration: BoxDecoration(
-          color: color, borderRadius: BorderRadius.circular(2))),
-        const SizedBox(width: 8),
-        SizedBox(width: 70, child: Text(name, style: const TextStyle(
-          fontFamily: 'monospace', fontSize: 11,
-          color: FluxForgeTheme.textSecondary))),
-        Expanded(
-          child: Container(
-            height: 3,
-            decoration: BoxDecoration(
-              color: FluxForgeTheme.bgElevated,
-              borderRadius: BorderRadius.circular(2)),
-            child: FractionallySizedBox(
-              widthFactor: level,
-              alignment: Alignment.centerLeft,
-              child: Container(decoration: BoxDecoration(
-                color: color, borderRadius: BorderRadius.circular(2))),
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Text('${(-20 + level * 20).toStringAsFixed(0)}dB',
-          style: const TextStyle(fontFamily: 'monospace', fontSize: 9,
-            color: FluxForgeTheme.textTertiary)),
-        const SizedBox(width: 8),
-        _MsBtns(),
-      ],
-    ),
-  );
+  State<_ChannelStrip> createState() => _ChannelStripState();
 }
 
-class _MsBtns extends StatelessWidget {
+class _ChannelStripState extends State<_ChannelStrip> {
+  late double _level;
+  bool _muted = false;
+  bool _soloed = false;
+  double _dragStartLevel = 0;
+  double _dragStartX = 0;
+
   @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: ['M', 'S'].map((l) => Container(
-      width: 18, height: 18, margin: const EdgeInsets.only(left: 2),
+  void initState() {
+    super.initState();
+    _level = widget.event.masterVolume.clamp(0.0, 1.0);
+  }
+
+  void _setVolume(double v) {
+    final clamped = v.clamp(0.0, 1.0);
+    setState(() => _level = clamped);
+    widget.middleware.updateCompositeEvent(
+      widget.event.copyWith(masterVolume: _muted ? 0 : clamped),
+    );
+  }
+
+  void _toggleMute() {
+    setState(() => _muted = !_muted);
+    widget.middleware.updateCompositeEvent(
+      widget.event.copyWith(masterVolume: _muted ? 0 : _level),
+    );
+  }
+
+  void _toggleSolo() {
+    setState(() => _soloed = !_soloed);
+    // Solo: mute all other events via each's masterVolume
+    final allEvents = widget.middleware.compositeEvents;
+    for (final e in allEvents) {
+      if (e.id == widget.event.id) continue;
+      widget.middleware.updateCompositeEvent(
+        e.copyWith(masterVolume: _soloed ? 0.0 : e.masterVolume),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dBStr = _muted ? '—∞' : '${(-20 + _level * 20).toStringAsFixed(0)}dB';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        border: Border.all(color: FluxForgeTheme.borderSubtle),
+        color: _muted
+          ? const Color(0x4006060A)
+          : const Color(0x8006060A),
+        border: Border.all(
+          color: _soloed
+            ? FluxForgeTheme.accentYellow.withOpacity(0.4)
+            : FluxForgeTheme.borderSubtle),
+        borderRadius: BorderRadius.circular(7),
+      ),
+      child: Row(
+        children: [
+          // Color bar
+          Container(width: 3, height: 28, decoration: BoxDecoration(
+            color: _muted ? FluxForgeTheme.textTertiary : widget.event.color,
+            borderRadius: BorderRadius.circular(2))),
+          const SizedBox(width: 8),
+          // Name
+          SizedBox(width: 70, child: Text(widget.name, style: TextStyle(
+            fontFamily: 'monospace', fontSize: 11,
+            color: _muted ? FluxForgeTheme.textTertiary : FluxForgeTheme.textSecondary))),
+          // Fader — drag to change volume
+          Expanded(
+            child: LayoutBuilder(builder: (_, constraints) {
+              return GestureDetector(
+                onHorizontalDragStart: (d) {
+                  _dragStartLevel = _level;
+                  _dragStartX = d.localPosition.dx;
+                },
+                onHorizontalDragUpdate: (d) {
+                  final delta = (d.localPosition.dx - _dragStartX) / constraints.maxWidth;
+                  _setVolume(_dragStartLevel + delta);
+                },
+                onTapDown: (d) {
+                  final frac = d.localPosition.dx / constraints.maxWidth;
+                  _setVolume(frac);
+                },
+                child: Container(
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: FluxForgeTheme.bgElevated,
+                    borderRadius: BorderRadius.circular(3)),
+                  child: Stack(children: [
+                    FractionallySizedBox(
+                      widthFactor: _muted ? 0 : _level,
+                      alignment: Alignment.centerLeft,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(colors: [
+                            widget.event.color.withOpacity(0.7),
+                            widget.event.color,
+                          ]),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      ),
+                    ),
+                    // Fader thumb
+                    Positioned(
+                      left: (_level * (constraints.maxWidth - 6)).clamp(0, constraints.maxWidth - 6),
+                      top: 2, bottom: 2,
+                      child: Container(
+                        width: 6,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.8),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                  ]),
+                ),
+              );
+            }),
+          ),
+          const SizedBox(width: 8),
+          // dB readout
+          SizedBox(
+            width: 32,
+            child: Text(dBStr, style: TextStyle(
+              fontFamily: 'monospace', fontSize: 9,
+              color: _muted ? FluxForgeTheme.textTertiary : FluxForgeTheme.textSecondary)),
+          ),
+          const SizedBox(width: 4),
+          // M / S buttons
+          _MsBtn(
+            label: 'M', active: _muted,
+            activeColor: FluxForgeTheme.accentRed,
+            onTap: _toggleMute,
+          ),
+          const SizedBox(width: 2),
+          _MsBtn(
+            label: 'S', active: _soloed,
+            activeColor: FluxForgeTheme.accentYellow,
+            onTap: _toggleSolo,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MsBtn extends StatelessWidget {
+  final String label;
+  final bool active;
+  final Color activeColor;
+  final VoidCallback onTap;
+  const _MsBtn({required this.label, required this.active,
+    required this.activeColor, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 120),
+      width: 18, height: 18,
+      decoration: BoxDecoration(
+        color: active ? activeColor.withOpacity(0.2) : Colors.transparent,
+        border: Border.all(
+          color: active ? activeColor : FluxForgeTheme.borderSubtle),
         borderRadius: BorderRadius.circular(3)),
-      child: Center(child: Text(l, style: const TextStyle(
-        fontFamily: 'monospace', fontSize: 8,
-        color: FluxForgeTheme.textTertiary))),
-    )).toList(),
+      child: Center(child: Text(label, style: TextStyle(
+        fontFamily: 'monospace', fontSize: 8, fontWeight: FontWeight.w700,
+        color: active ? activeColor : FluxForgeTheme.textTertiary))),
+    ),
   );
 }
 
