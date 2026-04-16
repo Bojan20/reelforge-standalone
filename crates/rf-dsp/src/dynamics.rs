@@ -705,6 +705,13 @@ impl Compressor {
         self.mix = mix.clamp(0.0, 1.0);
     }
 
+    /// Set project BPM so tempo-synced release/attack curves stay in sync.
+    /// BUG#7: Compressor was hardcoded to 120.0 BPM — call this whenever the
+    /// project BPM changes.
+    pub fn set_bpm(&mut self, bpm: f64) {
+        self.host_bpm = bpm.clamp(20.0, 999.0);
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════════
     // PRO-C 2 EXTENDED PARAMETER SETTERS
     // ═══════════════════════════════════════════════════════════════════════════════
