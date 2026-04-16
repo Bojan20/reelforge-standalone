@@ -362,7 +362,7 @@ class _HelixScreenState extends State<HelixScreen>
           colors: [FluxForgeTheme.bgDeep, FluxForgeTheme.bgDeepest],
         ),
         border: Border(bottom: BorderSide(color: FluxForgeTheme.borderMedium, width: 1)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2))],
+        boxShadow: [BoxShadow(color: FluxForgeTheme.bgVoid.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2))],
       ),
       child: Row(
         children: [
@@ -4098,7 +4098,7 @@ class _SpineOverlay extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     width: 340,
     decoration: BoxDecoration(
-      color: FluxForgeTheme.bgMid.withOpacity(0.97),
+      color: FluxForgeTheme.bgSurface,
       border: Border(
         right: BorderSide(color: FluxForgeTheme.accentBlue.withOpacity(0.3)),
         left: BorderSide(color: FluxForgeTheme.accentBlue.withOpacity(0.6), width: 3),
