@@ -27,6 +27,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:get_it/get_it.dart';
 
+import 'package:desktop_drop/desktop_drop.dart';
+
 import '../theme/fluxforge_theme.dart';
 import '../providers/engine_provider.dart';
 import '../providers/slot_lab/game_flow_provider.dart';
@@ -96,6 +98,11 @@ class _HelixScreenState extends State<HelixScreen>
 
   // ── Audio Context Lens (A3) ───────────────────────────────────────────────
   SlotCompositeEvent? _contextLensEvent;
+
+  // ── Reel Cell Lens (C1/C2) ────────────────────────────────────────────────
+  bool _showReelLens = false;
+  int _reelLensReel = 0;
+  int _reelLensRow = 0;
 
   // ── Playhead (T3/T4) ─────────────────────────────────────────────────────
   late Timer _playheadTimer;
@@ -510,7 +517,7 @@ class _HelixScreenState extends State<HelixScreen>
                 ),
               ),
 
-              // Slot preview — center (wired to project provider)
+              // Slot preview — center (C1: onCellTap → Context Lens)
               Center(
                 child: PremiumSlotPreview(
                   onExit: widget.onClose ?? () {},
@@ -518,6 +525,23 @@ class _HelixScreenState extends State<HelixScreen>
                   rows: 3,
                   isFullscreen: true,
                   projectProvider: GetIt.instance<SlotLabProjectProvider>(),
+                  onCellTap: (reelIndex, rowIndex) {
+                    // C1/C2: Find composite event for this reel and open lens
+                    try {
+                      final mw = GetIt.instance<MiddlewareProvider>();
+                      final events = mw.compositeEvents;
+                      final match = events.where((e) =>
+                        e.triggerStages.any((s) => s.contains('reel')) ||
+                        e.name.toLowerCase().contains('reel') ||
+                        e.trackIndex == reelIndex
+                      ).toList();
+                      if (match.isNotEmpty) {
+                        openContextLens(match.first);
+                      } else if (events.isNotEmpty) {
+                        openContextLens(events[reelIndex % events.length]);
+                      }
+                    } catch (_) {}
+                  },
                 ),
               ),
 
@@ -539,6 +563,25 @@ class _HelixScreenState extends State<HelixScreen>
                 bottom: 4, left: 0, right: 0,
                 child: Center(child: _buildWaveformBars(glowColor)),
               ),
+
+              // C1/C2: Reel cell tap overlay
+              Positioned.fill(
+                child: _ReelCellOverlay(onCellTap: (reel, row) {
+                  setState(() {
+                    _reelLensReel = reel;
+                    _reelLensRow = row;
+                    _showReelLens = true;
+                  });
+                }),
+              ),
+
+              // Show reel lens if active
+              if (_showReelLens)
+                _ReelContextLens(
+                  reel: _reelLensReel,
+                  row: _reelLensRow,
+                  onClose: () => setState(() => _showReelLens = false),
+                ),
             ],
           ),
         );
@@ -865,6 +908,62 @@ class _FlowPanel extends StatelessWidget {
                     else
                       const _StatusChip('◆ FEATURE ACTIVE', FluxForgeTheme.accentYellow),
                   ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // F4: Stage → Audio mapping card
+            SizedBox(
+              width: 200,
+              child: _DockCard(
+                child: Builder(
+                  builder: (_) {
+                    final mw = GetIt.instance<MiddlewareProvider>();
+                    final stageMap = <String, List<String>>{};
+                    for (final e in mw.compositeEvents) {
+                      for (final stage in e.triggerStages) {
+                        stageMap.putIfAbsent(stage, () => []).add(e.name);
+                      }
+                    }
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _DockLabel('STAGE → AUDIO'),
+                        const SizedBox(height: 8),
+                        if (stageMap.isEmpty)
+                          const Expanded(child: Center(child: Text('No stage mappings',
+                            style: TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary))))
+                        else
+                          Expanded(
+                            child: ListView(
+                              children: stageMap.entries.map((entry) => Padding(
+                                padding: const EdgeInsets.only(bottom: 6),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(entry.key.toUpperCase(),
+                                      style: const TextStyle(fontFamily: 'monospace',
+                                        fontSize: 8, color: FluxForgeTheme.accentCyan,
+                                        letterSpacing: 0.1)),
+                                    const SizedBox(height: 2),
+                                    ...entry.value.take(3).map((name) => Text(
+                                      '  · $name',
+                                      style: const TextStyle(fontFamily: 'monospace',
+                                        fontSize: 8, color: FluxForgeTheme.textSecondary),
+                                      overflow: TextOverflow.ellipsis,
+                                    )),
+                                    if (entry.value.length > 3)
+                                      Text('  +${entry.value.length - 3} more',
+                                        style: const TextStyle(fontFamily: 'monospace',
+                                          fontSize: 8, color: FluxForgeTheme.textTertiary)),
+                                  ],
+                                ),
+                              )).toList(),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -1447,6 +1546,9 @@ class _IntelPanel extends StatelessWidget {
                           ),
                         ),
                       const SizedBox(height: 6),
+                      // I2: CoPilot chat input
+                      const _CoPilotChatWidget(),
+                      const SizedBox(height: 6),
                       // I3: Archetype selector
                       Row(children: [
                         _DockLabel('ARCHETYPE'),
@@ -1661,6 +1763,13 @@ class _ExportPanelState extends State<_ExportPanel> {
   String? _lastExportResult; // E4
   bool _exporting = false; // E1
 
+  // E2: Format options
+  int _sampleRate = 48000;
+  int _bitDepth = 24;
+
+  static const _sampleRates = [44100, 48000, 96000];
+  static const _bitDepths = [16, 24, 32];
+
   static const _exports = [
     ('📦', 'UCP',   'Universal Content Package', FluxForgeTheme.accentYellow),
     ('🎵', 'WWISE', 'Audiokinetic project',       FluxForgeTheme.accentBlue),
@@ -1684,6 +1793,8 @@ class _ExportPanelState extends State<_ExportPanel> {
       provider.exportSingle({
         'format': format,
         'name': GetIt.instance<SlotLabProjectProvider>().projectName,
+        'sampleRate': _sampleRate,
+        'bitDepth': _bitDepth,
       }, format);
       await Future.delayed(const Duration(milliseconds: 600));
       if (mounted) {
@@ -1704,6 +1815,63 @@ class _ExportPanelState extends State<_ExportPanel> {
   Widget build(BuildContext context) {
     return Column(
       children: [
+        // E2: Format options row
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(
+            children: [
+              const Text('Sample Rate:', style: TextStyle(
+                fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary)),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: FluxForgeTheme.bgElevated,
+                  border: Border.all(color: FluxForgeTheme.borderSubtle),
+                  borderRadius: BorderRadius.circular(4)),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<int>(
+                    value: _sampleRate,
+                    isDense: true,
+                    style: const TextStyle(fontFamily: 'monospace', fontSize: 9,
+                      color: FluxForgeTheme.textSecondary),
+                    dropdownColor: FluxForgeTheme.bgSurface,
+                    items: _sampleRates.map((r) => DropdownMenuItem(
+                      value: r,
+                      child: Text('${r ~/ 1000}kHz'),
+                    )).toList(),
+                    onChanged: (v) { if (v != null) setState(() => _sampleRate = v); },
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              const Text('Bit Depth:', style: TextStyle(
+                fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary)),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: FluxForgeTheme.bgElevated,
+                  border: Border.all(color: FluxForgeTheme.borderSubtle),
+                  borderRadius: BorderRadius.circular(4)),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<int>(
+                    value: _bitDepth,
+                    isDense: true,
+                    style: const TextStyle(fontFamily: 'monospace', fontSize: 9,
+                      color: FluxForgeTheme.textSecondary),
+                    dropdownColor: FluxForgeTheme.bgSurface,
+                    items: _bitDepths.map((d) => DropdownMenuItem(
+                      value: d,
+                      child: Text('${d}-bit'),
+                    )).toList(),
+                    onChanged: (v) { if (v != null) setState(() => _bitDepth = v); },
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
         Expanded(
           child: Row(
             children: _exports.map((e) {
@@ -1948,12 +2116,43 @@ class _SpineOverlay extends StatelessWidget {
 
 // ── Spine: AUDIO ASSIGN ─────────────────────────────────────────────────────
 
-class _SpineAudioAssign extends StatelessWidget {
+class _SpineAudioAssign extends StatefulWidget {
+  @override
+  State<_SpineAudioAssign> createState() => _SpineAudioAssignState();
+}
+
+class _SpineAudioAssignState extends State<_SpineAudioAssign> {
+  bool _dropHovering = false;
+
+  void _handleDrop(List<String> paths) {
+    final mw = GetIt.instance<MiddlewareProvider>();
+    for (final path in paths) {
+      final lower = path.toLowerCase();
+      if (lower.endsWith('.wav') || lower.endsWith('.aiff') ||
+          lower.endsWith('.aif') || lower.endsWith('.mp3')) {
+        final fileName = path.split('/').last;
+        final name = fileName.contains('.')
+          ? fileName.substring(0, fileName.lastIndexOf('.'))
+          : fileName;
+        final now = DateTime.now();
+        try {
+          mw.updateCompositeEvent(SlotCompositeEvent(
+            id: 'drop_${now.millisecondsSinceEpoch}',
+            name: name,
+            category: 'custom',
+            color: FluxForgeTheme.accentCyan,
+            createdAt: now,
+            modifiedAt: now,
+          ));
+        } catch (_) {}
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final mw = GetIt.instance<MiddlewareProvider>();
     final events = mw.compositeEvents;
-    // Access helix state for context lens
     final helixState = context.findAncestorStateOfType<_HelixScreenState>();
 
     return Column(
@@ -1998,39 +2197,69 @@ class _SpineAudioAssign extends StatelessWidget {
           ),
         ]),
         const SizedBox(height: 12),
+        // A4: Drop target wrapping event list
         Expanded(
-          child: events.isEmpty
-            ? const Center(child: Text('No audio events.\nCreate in SlotLab ASSIGN tab.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, height: 1.5)))
-            : ListView(
-                children: events.take(12).map((e) => GestureDetector(
-                  // S1: click event → open layer editor (context lens)
-                  onTap: () => helixState?.openContextLens(e),
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 4),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: e.color.withOpacity(0.05),
-                      border: Border.all(color: e.color.withOpacity(0.15)),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Row(children: [
-                      Container(width: 4, height: 4, decoration: BoxDecoration(
-                        color: e.color, shape: BoxShape.circle)),
-                      const SizedBox(width: 8),
-                      Expanded(child: Text(e.name, style: const TextStyle(
-                        fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textSecondary),
-                        overflow: TextOverflow.ellipsis)),
-                      Text('${e.layers.length}L', style: const TextStyle(
-                        fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary)),
-                      const SizedBox(width: 4),
-                      const Icon(Icons.chevron_right_rounded, size: 12,
-                        color: FluxForgeTheme.textTertiary),
-                    ]),
-                  ),
-                )).toList(),
+          child: DropTarget(
+            onDragEntered: (_) => setState(() => _dropHovering = true),
+            onDragExited: (_) => setState(() => _dropHovering = false),
+            onDragDone: (detail) {
+              setState(() => _dropHovering = false);
+              _handleDrop(detail.files.map((f) => f.path).toList());
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: _dropHovering
+                    ? FluxForgeTheme.accentBlue.withOpacity(0.7)
+                    : Colors.transparent,
+                  width: 2),
+                borderRadius: BorderRadius.circular(6),
+                boxShadow: _dropHovering ? [BoxShadow(
+                  color: FluxForgeTheme.accentBlue.withOpacity(0.2),
+                  blurRadius: 12)] : null,
               ),
+              child: events.isEmpty
+                ? Center(child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.audio_file_outlined, size: 24,
+                        color: FluxForgeTheme.textTertiary.withOpacity(0.4)),
+                      const SizedBox(height: 6),
+                      const Text('No audio events.\nDrop WAV/AIFF/MP3 here\nor create in SlotLab.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary, height: 1.5)),
+                    ],
+                  ))
+                : ListView(
+                    children: events.take(12).map((e) => GestureDetector(
+                      onTap: () => helixState?.openContextLens(e),
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: e.color.withOpacity(0.05),
+                          border: Border.all(color: e.color.withOpacity(0.15)),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(children: [
+                          Container(width: 4, height: 4, decoration: BoxDecoration(
+                            color: e.color, shape: BoxShape.circle)),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(e.name, style: const TextStyle(
+                            fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textSecondary),
+                            overflow: TextOverflow.ellipsis)),
+                          Text('${e.layers.length}L', style: const TextStyle(
+                            fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary)),
+                          const SizedBox(width: 4),
+                          const Icon(Icons.chevron_right_rounded, size: 12,
+                            color: FluxForgeTheme.textTertiary),
+                        ]),
+                      ),
+                    )).toList(),
+                  ),
+            ),
+          ),
         ),
       ],
     );
@@ -2039,7 +2268,64 @@ class _SpineAudioAssign extends StatelessWidget {
 
 // ── Spine: GAME CONFIG ──────────────────────────────────────────────────────
 
-class _SpineGameConfig extends StatelessWidget {
+class _SpineGameConfig extends StatefulWidget {
+  @override
+  State<_SpineGameConfig> createState() => _SpineGameConfigState();
+}
+
+class _SpineGameConfigState extends State<_SpineGameConfig> {
+  int _reels = 5;
+  int _rows = 3;
+
+  void _applyConfig() {
+    try {
+      final proj = GetIt.instance<SlotLabProjectProvider>();
+      // ignore: avoid_dynamic_calls
+      (proj as dynamic).configureReels(reels: _reels, rows: _rows);
+    } catch (_) {}
+  }
+
+  Widget _spinnerRow(String label, int value, int min, int max, ValueChanged<int> onChanged) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          SizedBox(width: 48, child: Text(label, style: const TextStyle(
+            fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary))),
+          const Spacer(),
+          GestureDetector(
+            onTap: () { if (value > min) onChanged(value - 1); },
+            child: Container(
+              width: 20, height: 20,
+              decoration: BoxDecoration(
+                color: FluxForgeTheme.bgElevated,
+                border: Border.all(color: FluxForgeTheme.borderSubtle),
+                borderRadius: BorderRadius.circular(3)),
+              child: const Icon(Icons.remove_rounded, size: 12,
+                color: FluxForgeTheme.textSecondary)),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Text('$value', style: const TextStyle(
+              fontFamily: 'monospace', fontSize: 14, color: FluxForgeTheme.textPrimary,
+              fontWeight: FontWeight.w600)),
+          ),
+          GestureDetector(
+            onTap: () { if (value < max) onChanged(value + 1); },
+            child: Container(
+              width: 20, height: 20,
+              decoration: BoxDecoration(
+                color: FluxForgeTheme.bgElevated,
+                border: Border.all(color: FluxForgeTheme.borderSubtle),
+                borderRadius: BorderRadius.circular(3)),
+              child: const Icon(Icons.add_rounded, size: 12,
+                color: FluxForgeTheme.textSecondary)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final flow = GetIt.instance<GameFlowProvider>();
@@ -2048,6 +2334,27 @@ class _SpineGameConfig extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // S4: Reel/Row controls
+        const Text('REEL CONFIG', style: TextStyle(
+          fontFamily: 'monospace', fontSize: 9, letterSpacing: 0.1,
+          color: FluxForgeTheme.textTertiary)),
+        const SizedBox(height: 8),
+        _spinnerRow('REELS', _reels, 3, 6, (v) => setState(() => _reels = v)),
+        _spinnerRow('ROWS', _rows, 2, 4, (v) => setState(() => _rows = v)),
+        GestureDetector(
+          onTap: _applyConfig,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: FluxForgeTheme.accentCyan.withOpacity(0.08),
+              border: Border.all(color: FluxForgeTheme.accentCyan.withOpacity(0.3)),
+              borderRadius: BorderRadius.circular(4)),
+            child: const Text('Apply', style: TextStyle(
+              fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.accentCyan)),
+          ),
+        ),
+        const SizedBox(height: 10),
+        // Existing stats/wins display
         _SpineRow('State', flow.currentState.displayName),
         _SpineRow('Total spins', '${stats.totalSpins}'),
         _SpineRow('Total bet', stats.totalBet.toStringAsFixed(2)),
@@ -2490,6 +2797,40 @@ class _FlowNode extends StatefulWidget {
 class _FlowNodeState extends State<_FlowNode> {
   bool _hovered = false;
 
+  void _showNodeMenu(BuildContext context) {
+    final flow = GetIt.instance<GameFlowProvider>();
+    final renderBox = context.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    final offset = renderBox.localToGlobal(Offset.zero);
+    showMenu<String>(
+      context: context,
+      color: FluxForgeTheme.bgSurface,
+      position: RelativeRect.fromLTRB(
+        offset.dx, offset.dy + renderBox.size.height + 4,
+        offset.dx + renderBox.size.width, offset.dy + renderBox.size.height + 4),
+      items: [
+        PopupMenuItem<String>(
+          enabled: false,
+          child: Text('STAGE: ${widget.label}',
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 9,
+              color: FluxForgeTheme.textTertiary)),
+        ),
+        PopupMenuItem<String>(
+          enabled: false,
+          child: Text('Transitions enabled: ${flow.transitionsEnabled}',
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 9,
+              color: FluxForgeTheme.textSecondary)),
+        ),
+        PopupMenuItem<String>(
+          enabled: false,
+          child: Text('Active: ${widget.active}',
+            style: TextStyle(fontFamily: 'monospace', fontSize: 9,
+              color: widget.active ? FluxForgeTheme.accentGreen : FluxForgeTheme.textTertiary)),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) => MouseRegion(
     onEnter: (_) => setState(() => _hovered = true),
@@ -2497,6 +2838,7 @@ class _FlowNodeState extends State<_FlowNode> {
     cursor: SystemMouseCursors.click,
     child: GestureDetector(
       onTap: widget.onTap,
+      onSecondaryTap: () => _showNodeMenu(context),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -3052,9 +3394,137 @@ class _TlTrackInteractive extends StatefulWidget {
 }
 
 class _TlTrackInteractiveState extends State<_TlTrackInteractive> {
+  // T1: move drag state
   String? _draggingId;
   double _dragStartMs = 0;
   double _dragStartX = 0;
+
+  // T2: resize drag state
+  String? _resizingId;
+  double _resizeStartX = 0;
+  // Map of event id → visual width factor (>1 = expanded)
+  final Map<String, double> _regionWidthFactors = {};
+  double _resizeStartFactor = 1.0;
+
+  // T5/T6: context menu
+  void _showRegionMenu(BuildContext context, SlotCompositeEvent e) {
+    final renderBox = context.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    final offset = renderBox.localToGlobal(Offset.zero);
+
+    showMenu<String>(
+      context: context,
+      color: FluxForgeTheme.bgSurface,
+      position: RelativeRect.fromLTRB(
+        offset.dx, offset.dy + renderBox.size.height + 2,
+        offset.dx + 160, offset.dy + renderBox.size.height + 2),
+      items: [
+        // Delete
+        PopupMenuItem<String>(
+          value: 'delete',
+          child: Row(children: [
+            const Icon(Icons.delete_outline_rounded, size: 12, color: FluxForgeTheme.accentRed),
+            const SizedBox(width: 6),
+            const Text('Delete', style: TextStyle(fontFamily: 'monospace', fontSize: 10,
+              color: FluxForgeTheme.accentRed)),
+          ]),
+        ),
+        // Duplicate
+        PopupMenuItem<String>(
+          value: 'duplicate',
+          child: Row(children: [
+            const Icon(Icons.copy_outlined, size: 12, color: FluxForgeTheme.textSecondary),
+            const SizedBox(width: 6),
+            const Text('Duplicate', style: TextStyle(fontFamily: 'monospace', fontSize: 10,
+              color: FluxForgeTheme.textSecondary)),
+          ]),
+        ),
+        // Rename
+        PopupMenuItem<String>(
+          value: 'rename',
+          child: Row(children: [
+            const Icon(Icons.edit_outlined, size: 12, color: FluxForgeTheme.textSecondary),
+            const SizedBox(width: 6),
+            const Text('Rename', style: TextStyle(fontFamily: 'monospace', fontSize: 10,
+              color: FluxForgeTheme.textSecondary)),
+          ]),
+        ),
+        // F6: Move to track sub-items (0-4)
+        ...List.generate(5, (i) => PopupMenuItem<String>(
+          value: 'track_$i',
+          child: Text('Move to Track $i', style: const TextStyle(
+            fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textSecondary)),
+        )),
+      ],
+    ).then((value) {
+      if (value == null || !mounted) return;
+      switch (value) {
+        case 'delete':
+          try { widget.middleware.deleteEvent(e.id); } catch (_) {}
+        case 'duplicate':
+          try {
+            final now = DateTime.now();
+            widget.middleware.updateCompositeEvent(e.copyWith(
+              id: 'dup_${now.millisecondsSinceEpoch}',
+              name: '${e.name}_copy',
+              timelinePositionMs: e.timelinePositionMs + 200,
+            ));
+          } catch (_) {}
+        case 'rename':
+          _showRenameDialog(context, e);
+        default:
+          if (value.startsWith('track_')) {
+            final trackIdx = int.tryParse(value.substring(6)) ?? 0;
+            try {
+              widget.middleware.updateCompositeEvent(
+                e.copyWith(trackIndex: trackIdx));
+            } catch (_) {}
+          }
+      }
+    });
+  }
+
+  void _showRenameDialog(BuildContext context, SlotCompositeEvent e) {
+    final ctrl = TextEditingController(text: e.name);
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: FluxForgeTheme.bgSurface,
+        title: const Text('Rename Event', style: TextStyle(
+          fontFamily: 'monospace', fontSize: 13, color: FluxForgeTheme.textPrimary)),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 11,
+            color: FluxForgeTheme.textPrimary),
+          decoration: InputDecoration(
+            hintText: 'Event name',
+            hintStyle: const TextStyle(color: FluxForgeTheme.textTertiary),
+            filled: true, fillColor: FluxForgeTheme.bgElevated,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(6),
+              borderSide: const BorderSide(color: FluxForgeTheme.borderSubtle)),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel', style: TextStyle(color: FluxForgeTheme.textTertiary))),
+          TextButton(
+            onPressed: () {
+              final name = ctrl.text.trim();
+              if (name.isNotEmpty) {
+                try {
+                  widget.middleware.updateCompositeEvent(e.copyWith(name: name));
+                } catch (_) {}
+              }
+              Navigator.of(context).pop();
+            },
+            child: const Text('OK', style: TextStyle(color: FluxForgeTheme.accentCyan))),
+        ],
+      ),
+    ).then((_) => ctrl.dispose());
+  }
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -3072,41 +3542,92 @@ class _TlTrackInteractiveState extends State<_TlTrackInteractive> {
                   color: FluxForgeTheme.bgDeep,
                   border: Border.all(color: FluxForgeTheme.borderSubtle),
                   borderRadius: BorderRadius.circular(3))),
-                // T1: draggable regions
+                // T1+T2+T5+T6: draggable + resizable regions with context menu
                 ...widget.events.map((e) {
                   final start = (e.timelinePositionMs / widget.maxMs).clamp(0.0, 1.0);
-                  final width = (1000 / widget.maxMs).clamp(0.02, 0.3);
+                  final baseFraction = (1000 / widget.maxMs).clamp(0.02, 0.3);
+                  final factor = _regionWidthFactors[e.id] ?? 1.0;
+                  final widthPx = (baseFraction * c.maxWidth * factor)
+                    .clamp(8.0, c.maxWidth - start * c.maxWidth);
+
                   return Positioned(
                     left: start * c.maxWidth,
-                    width: width * c.maxWidth,
+                    width: widthPx,
                     top: 2, bottom: 2,
-                    child: GestureDetector(
-                      onHorizontalDragStart: (d) {
-                        _draggingId = e.id;
-                        _dragStartMs = e.timelinePositionMs;
-                        _dragStartX = d.globalPosition.dx;
-                      },
-                      onHorizontalDragUpdate: (d) {
-                        if (_draggingId != e.id) return;
-                        final deltaX = d.globalPosition.dx - _dragStartX;
-                        final deltaMs = (deltaX / c.maxWidth) * widget.maxMs;
-                        final newMs = (_dragStartMs + deltaMs).clamp(0.0, widget.maxMs - 1000);
-                        widget.middleware.updateCompositeEvent(
-                          e.copyWith(timelinePositionMs: newMs));
-                      },
-                      onHorizontalDragEnd: (_) => _draggingId = null,
-                      child: MouseRegion(
-                        cursor: SystemMouseCursors.move,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: widget.color.withOpacity(0.25),
-                            border: Border.all(color: widget.color.withOpacity(0.5)),
-                            borderRadius: BorderRadius.circular(2)),
-                          child: Center(child: Text(
-                            e.name.length > 6 ? e.name.substring(0, 6) : e.name,
-                            style: TextStyle(fontFamily: 'monospace', fontSize: 7,
-                              color: widget.color.withOpacity(0.8)),
-                            overflow: TextOverflow.clip)),
+                    child: Builder(
+                      builder: (regionCtx) => GestureDetector(
+                        // T1: horizontal move drag
+                        onHorizontalDragStart: (d) {
+                          // Check if near right edge for T2
+                          final localX = d.localPosition.dx;
+                          if (localX >= widthPx - 8) {
+                            _resizingId = e.id;
+                            _resizeStartX = d.globalPosition.dx;
+                            _resizeStartFactor = factor;
+                            _draggingId = null;
+                          } else {
+                            _draggingId = e.id;
+                            _dragStartMs = e.timelinePositionMs;
+                            _dragStartX = d.globalPosition.dx;
+                            _resizingId = null;
+                          }
+                        },
+                        onHorizontalDragUpdate: (d) {
+                          if (_resizingId == e.id) {
+                            // T2: resize — adjust factor
+                            final deltaX = d.globalPosition.dx - _resizeStartX;
+                            final newFactor = (_resizeStartFactor +
+                              deltaX / (baseFraction * c.maxWidth)).clamp(0.5, 5.0);
+                            setState(() => _regionWidthFactors[e.id] = newFactor);
+                          } else if (_draggingId == e.id) {
+                            // T1: move
+                            final deltaX = d.globalPosition.dx - _dragStartX;
+                            final deltaMs = (deltaX / c.maxWidth) * widget.maxMs;
+                            final newMs = (_dragStartMs + deltaMs).clamp(0.0, widget.maxMs - 1000);
+                            widget.middleware.updateCompositeEvent(
+                              e.copyWith(timelinePositionMs: newMs));
+                          }
+                        },
+                        onHorizontalDragEnd: (_) {
+                          _draggingId = null;
+                          _resizingId = null;
+                        },
+                        // T5: right-click context menu
+                        onSecondaryTapDown: (_) => _showRegionMenu(regionCtx, e),
+                        child: MouseRegion(
+                          cursor: _resizingId == e.id
+                            ? SystemMouseCursors.resizeLeftRight
+                            : SystemMouseCursors.move,
+                          child: Stack(
+                            children: [
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: widget.color.withOpacity(0.25),
+                                  border: Border.all(color: widget.color.withOpacity(0.5)),
+                                  borderRadius: BorderRadius.circular(2)),
+                                child: Center(child: Text(
+                                  e.name.length > 6 ? e.name.substring(0, 6) : e.name,
+                                  style: TextStyle(fontFamily: 'monospace', fontSize: 7,
+                                    color: widget.color.withOpacity(0.8)),
+                                  overflow: TextOverflow.clip)),
+                              ),
+                              // T2: resize handle indicator (right edge)
+                              Positioned(
+                                right: 0, top: 0, bottom: 0,
+                                child: MouseRegion(
+                                  cursor: SystemMouseCursors.resizeLeftRight,
+                                  child: Container(
+                                    width: 4,
+                                    decoration: BoxDecoration(
+                                      color: widget.color.withOpacity(0.5),
+                                      borderRadius: const BorderRadius.only(
+                                        topRight: Radius.circular(2),
+                                        bottomRight: Radius.circular(2))),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -3321,6 +3842,311 @@ class _AudioContextLensState extends State<_AudioContextLens> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// I2: COPILOT CHAT WIDGET
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _CoPilotChatWidget extends StatefulWidget {
+  const _CoPilotChatWidget();
+
+  @override
+  State<_CoPilotChatWidget> createState() => _CoPilotChatWidgetState();
+}
+
+class _CoPilotChatWidgetState extends State<_CoPilotChatWidget> {
+  late final TextEditingController _inputCtrl;
+  late final FocusNode _inputFocus;
+  final List<(String user, String bot)> _history = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _inputCtrl = TextEditingController();
+    _inputFocus = FocusNode();
+  }
+
+  @override
+  void dispose() {
+    _inputCtrl.dispose();
+    _inputFocus.dispose();
+    super.dispose();
+  }
+
+  String _generateResponse(String input) {
+    final lower = input.toLowerCase();
+    if (lower.contains('rtp')) {
+      return 'RTP is controlled by symbol weights and paytable. '
+        'Higher volatility = lower hit rate, higher max win. '
+        'Target 94-96% RTP for regulatory compliance.';
+    } else if (lower.contains('volume') || lower.contains('audio')) {
+      return 'Audio volume should follow psychoacoustic curves. '
+        'Win sounds: -3 to 0 dBFS. Ambient bed: -18 to -12 dBFS. '
+        'Near-miss: avoid exceeding win sound energy (regulatory).';
+    } else if (lower.contains('stage') || lower.contains('flow')) {
+      return 'Stage transitions should use crossfade (200-500ms). '
+        'Free Spins entry: build excitement with stinger. '
+        'Base Game: maintain consistent audio DNA.';
+    } else if (lower.contains('reverb') || lower.contains('fx')) {
+      return 'Use shorter reverb (RT60 < 1.2s) for tight rhythmic content. '
+        'Feature games can use longer reverb for grandeur. '
+        'RTPC-link reverb wet/dry to arousal for adaptive response.';
+    } else if (lower.contains('tempo') || lower.contains('bpm')) {
+      return 'Adaptive tempo: base game 100-130 BPM, free spins 130-160 BPM. '
+        'Sync spin duration to beat grid for maximum engagement. '
+        'Frustration detected → slow tempo to reduce stimulus load.';
+    } else {
+      return 'CoPilot analysis: ${input.length > 20 ? input.substring(0, 20) : input}... '
+        'Review RGAI compliance panel for specific suggestions. '
+        'Session data indicates ${GetIt.instance<NeuroAudioProvider>().totalSpins} spins tracked.';
+    }
+  }
+
+  void _submit() {
+    final text = _inputCtrl.text.trim();
+    if (text.isEmpty) return;
+    final response = _generateResponse(text);
+    setState(() {
+      _history.add((text, response));
+      _inputCtrl.clear();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (_history.isNotEmpty) ...[
+          Container(
+            constraints: const BoxConstraints(maxHeight: 80),
+            child: ListView.builder(
+              shrinkWrap: true,
+              reverse: true,
+              itemCount: _history.length.clamp(0, 3),
+              itemBuilder: (_, i) {
+                final idx = _history.length - 1 - i;
+                final (user, bot) = _history[idx];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('You: $user', style: const TextStyle(
+                        fontFamily: 'monospace', fontSize: 8,
+                        color: FluxForgeTheme.accentCyan)),
+                      Text('AI: $bot', style: const TextStyle(
+                        fontFamily: 'monospace', fontSize: 8,
+                        color: FluxForgeTheme.textSecondary, height: 1.3),
+                        maxLines: 2, overflow: TextOverflow.ellipsis),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 4),
+        ],
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _inputCtrl,
+                focusNode: _inputFocus,
+                onSubmitted: (_) => _submit(),
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 9,
+                  color: FluxForgeTheme.textPrimary),
+                decoration: InputDecoration(
+                  hintText: 'Ask CoPilot...',
+                  hintStyle: const TextStyle(fontFamily: 'monospace', fontSize: 9,
+                    color: FluxForgeTheme.textTertiary),
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  filled: true,
+                  fillColor: FluxForgeTheme.bgElevated,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(5),
+                    borderSide: const BorderSide(color: FluxForgeTheme.borderSubtle)),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(5),
+                    borderSide: const BorderSide(color: FluxForgeTheme.borderSubtle)),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(5),
+                    borderSide: BorderSide(
+                      color: FluxForgeTheme.accentPurple.withOpacity(0.5))),
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            GestureDetector(
+              onTap: _submit,
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: FluxForgeTheme.accentPurple.withOpacity(0.12),
+                  border: Border.all(color: FluxForgeTheme.accentPurple.withOpacity(0.3)),
+                  borderRadius: BorderRadius.circular(5)),
+                child: const Icon(Icons.send_rounded, size: 10,
+                  color: FluxForgeTheme.accentPurple),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// C1/C2: REEL CELL OVERLAY
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ReelCellOverlay extends StatelessWidget {
+  final void Function(int reel, int row) onCellTap;
+  const _ReelCellOverlay({required this.onCellTap});
+
+  @override
+  Widget build(BuildContext context) {
+    // Covers roughly the slot reel area: 60% width centered, top ~25%
+    return LayoutBuilder(
+      builder: (_, constraints) {
+        final totalW = constraints.maxWidth;
+        final totalH = constraints.maxHeight;
+        final reelAreaW = totalW * 0.6;
+        final reelAreaH = totalH * 0.5;
+        final reelLeft = (totalW - reelAreaW) / 2;
+        final reelTop = totalH * 0.25;
+        const cols = 5;
+        const rows = 3;
+        final cellW = reelAreaW / cols;
+        final cellH = reelAreaH / rows;
+
+        return Stack(
+          children: [
+            for (int col = 0; col < cols; col++)
+              for (int row = 0; row < rows; row++)
+                Positioned(
+                  left: reelLeft + col * cellW,
+                  top: reelTop + row * cellH,
+                  width: cellW,
+                  height: cellH,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onTap: () => onCellTap(col, row),
+                    child: Container(color: Colors.transparent),
+                  ),
+                ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// C2: REEL CONTEXT LENS
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ReelContextLens extends StatefulWidget {
+  final int reel;
+  final int row;
+  final VoidCallback onClose;
+  const _ReelContextLens({required this.reel, required this.row, required this.onClose});
+
+  @override
+  State<_ReelContextLens> createState() => _ReelContextLensState();
+}
+
+class _ReelContextLensState extends State<_ReelContextLens> {
+  final List<double> _sliderValues = [0.5, 0.5, 0.5, 0.5];
+
+  static const _sliderNames = [
+    'Win Magnitude',
+    'Reel Speed',
+    'Symbol Weight',
+    'Spatial Position',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      right: 20,
+      top: 20,
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          width: 200,
+          height: 180,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: FluxForgeTheme.bgSurface,
+            border: Border.all(color: FluxForgeTheme.accentCyan.withOpacity(0.4)),
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [BoxShadow(
+              color: FluxForgeTheme.accentCyan.withOpacity(0.15), blurRadius: 20)],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                Text('REEL ${widget.reel + 1} × ROW ${widget.row + 1}',
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 9,
+                    fontWeight: FontWeight.w600, color: FluxForgeTheme.accentCyan,
+                    letterSpacing: 0.1)),
+                const Spacer(),
+                GestureDetector(
+                  onTap: widget.onClose,
+                  child: const Icon(Icons.close_rounded, size: 12,
+                    color: FluxForgeTheme.textTertiary)),
+              ]),
+              const SizedBox(height: 8),
+              Expanded(
+                child: Column(
+                  children: List.generate(4, (i) => Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Row(children: [
+                      SizedBox(width: 64, child: Text(_sliderNames[i],
+                        style: const TextStyle(fontFamily: 'monospace', fontSize: 7,
+                          color: FluxForgeTheme.textTertiary),
+                        overflow: TextOverflow.ellipsis)),
+                      Expanded(
+                        child: SliderTheme(
+                          data: SliderThemeData(
+                            trackHeight: 2,
+                            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 3),
+                            activeTrackColor: FluxForgeTheme.accentCyan,
+                            inactiveTrackColor: FluxForgeTheme.bgElevated,
+                            thumbColor: FluxForgeTheme.accentCyan,
+                            overlayColor: FluxForgeTheme.accentCyan.withOpacity(0.1),
+                          ),
+                          child: SizedBox(
+                            height: 16,
+                            child: Slider(
+                              value: _sliderValues[i],
+                              onChanged: (v) {
+                                setState(() => _sliderValues[i] = v);
+                                try {
+                                  GetIt.instance<MiddlewareProvider>().setRtpc(
+                                    widget.reel * 4 + widget.row * 4 + i, v,
+                                    interpolationMs: 100);
+                                } catch (_) {}
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                    ]),
+                  )),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
