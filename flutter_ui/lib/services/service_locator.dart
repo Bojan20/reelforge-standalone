@@ -163,6 +163,7 @@ import 'extension_sdk_service.dart';
 import 'hook_graph/hook_graph_service.dart';
 import '../models/slot_audio_events.dart' show SlotCompositeEvent;
 import 'par_import_service.dart'; // T2.1
+import 'batch_sim_service.dart'; // T2.3
 
 /// Global service locator instance
 final GetIt sl = GetIt.instance;
@@ -491,6 +492,11 @@ class ServiceLocator {
     // LAYER 5.9.10e: PAR Import Service (T2.1 + T2.2)
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<ParImportService>(() => ParImportService());
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.10f: Batch Simulation Service (T2.3 + T2.4)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<BatchSimService>(() => BatchSimService());
 
     // ═══════════════════════════════════════════════════════════════════════════
     // LAYER 5.9.10e: A/B Test™ Provider (STUB7 — A/B Testing Analytics Engine)
