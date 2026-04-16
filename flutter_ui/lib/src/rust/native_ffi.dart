@@ -29666,5 +29666,462 @@ extension HookGraphAPI on NativeFFI {
       return null;
     }
   }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // RGAI™ — Responsible Gaming Audio Intelligence
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// Initialize RGAI with target jurisdictions.
+  /// [jurisdictionsJson] — JSON array of codes: ["UKGC","MGA","SE",...]
+  /// Returns 0 on success, -1 on error.
+  int rgaiInit({String? jurisdictionsJson}) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)
+      >('rgai_init');
+
+      if (jurisdictionsJson != null) {
+        final ptr = jurisdictionsJson.toNativeUtf8();
+        try {
+          return fn(ptr);
+        } finally {
+          malloc.free(ptr);
+        }
+      } else {
+        return fn(nullptr);
+      }
+    } catch (_) {
+      return -1;
+    }
+  }
+
+  /// Analyze a single audio asset for RGAI compliance.
+  /// [assetJson] — JSON AudioAssetProfile.
+  /// Returns analysis JSON with metrics + per-jurisdiction pass/fail.
+  String? rgaiAnalyzeAsset(String assetJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('rgai_analyze_asset_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('rgai_free_string');
+
+      final ptr1 = assetJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Analyze an entire game audio session for RGAI compliance.
+  /// [sessionJson] — JSON GameAudioSession.
+  /// Returns full session analysis JSON.
+  String? rgaiAnalyzeSession(String sessionJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('rgai_analyze_session_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('rgai_free_string');
+
+      final ptr1 = sessionJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Export gate check — can we export this session?
+  /// Returns JSON with decision (Approved/Blocked) + details.
+  String? rgaiExportGate(String sessionJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('rgai_export_gate_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('rgai_free_string');
+
+      final ptr1 = sessionJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Generate RGAR compliance report for a session.
+  /// Returns full report JSON with 6 sections + integrity hash.
+  String? rgaiGetReport(String sessionJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('rgai_get_report_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('rgai_free_string');
+
+      final ptr1 = sessionJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Get remediation suggestions for a failing asset.
+  /// Returns JSON plan with per-metric fix suggestions.
+  String? rgaiGetRemediation(String assetJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('rgai_get_remediation_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('rgai_free_string');
+
+      final ptr1 = assetJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// List all supported jurisdictions with profiles.
+  /// Returns JSON array of jurisdiction objects.
+  String? rgaiJurisdictions() {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()
+      >('rgai_jurisdictions_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('rgai_free_string');
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Slot Spatial Audio™ — 3D Positional Audio for Slot Games
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// Initialize spatial audio scene.
+  /// [configJson] — JSON {"game_id": "..."}, or null for defaults.
+  /// Returns 0 on success.
+  int slotSpatialInit({String? configJson}) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)
+      >('slot_spatial_init');
+
+      if (configJson != null) {
+        final ptr = configJson.toNativeUtf8();
+        try {
+          return fn(ptr);
+        } finally {
+          malloc.free(ptr);
+        }
+      } else {
+        return fn(nullptr);
+      }
+    } catch (_) {
+      return -1;
+    }
+  }
+
+  /// Add or update a spatial audio source.
+  /// [sourceJson] — JSON SpatialAudioSource.
+  /// Returns 0 on success, -1 on error.
+  int slotSpatialAddSource(String sourceJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)
+      >('slot_spatial_add_source_json');
+
+      final ptr = sourceJson.toNativeUtf8();
+      try {
+        return fn(ptr);
+      } finally {
+        malloc.free(ptr);
+      }
+    } catch (_) {
+      return -1;
+    }
+  }
+
+  /// Remove a spatial audio source by event_id.
+  /// Returns 0 on success, -1 on error.
+  int slotSpatialRemoveSource(String eventId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)
+      >('slot_spatial_remove_source');
+
+      final ptr = eventId.toNativeUtf8();
+      try {
+        return fn(ptr);
+      } finally {
+        malloc.free(ptr);
+      }
+    } catch (_) {
+      return -1;
+    }
+  }
+
+  /// Get current spatial scene as JSON.
+  String? slotSpatialGetScene() {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()
+      >('slot_spatial_get_scene_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_spatial_free_string');
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Get number of active spatial sources.
+  int slotSpatialSourceCount() {
+    try {
+      final fn = _lib.lookupFunction<
+          Uint32 Function(),
+          int Function()
+      >('slot_spatial_source_count');
+      return fn();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // A/B Testing Analytics™ — Batch Simulation Engine
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// Start a batch A/B simulation in background.
+  /// [configJson] — JSON BatchSimConfig.
+  /// Returns task ID > 0 on success, 0 on error.
+  int abSimStart(String configJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Uint64 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)
+      >('ab_sim_start');
+
+      final ptr = configJson.toNativeUtf8();
+      try {
+        return fn(ptr);
+      } finally {
+        malloc.free(ptr);
+      }
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// Get simulation progress (0.0 – 1.0).
+  double abSimProgress(int taskId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Double Function(Uint64),
+          double Function(int)
+      >('ab_sim_progress');
+      return fn(taskId);
+    } catch (_) {
+      return 0.0;
+    }
+  }
+
+  /// Get simulation result as JSON.
+  /// Returns {"status":"running"} if still in progress.
+  String? abSimResult(int taskId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Uint64),
+          Pointer<Utf8> Function(int)
+      >('ab_sim_result_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('ab_sim_free_string');
+
+      final ptr = fn(taskId);
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Cancel a running A/B simulation.
+  void abSimCancel(int taskId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Void Function(Uint64),
+          void Function(int)
+      >('ab_sim_cancel');
+      fn(taskId);
+    } catch (_) {
+      // ignore
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // UCP Export™ — Universal Compliance Package Export
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// List available export formats.
+  /// Returns JSON array of {"name": "...", "version": "..."}.
+  String? slotExportFormats() {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()
+      >('slot_export_formats_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_export_free_string');
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Export to ALL formats at once.
+  /// [projectJson] — JSON FluxForgeExportProject.
+  /// Returns JSON array of per-format results.
+  String? slotExportAll(String projectJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('slot_export_all_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_export_free_string');
+
+      final ptr1 = projectJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Export to a single format.
+  /// [requestJson] — JSON {"project": {...}, "format": "howler"|"wwise"|"fmod"|"generic"}.
+  String? slotExportSingle(String requestJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('slot_export_single_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_export_free_string');
+
+      final ptr1 = requestJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
 }
 

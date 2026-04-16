@@ -112,6 +112,10 @@ import '../providers/slot_lab/neural_fingerprint_provider.dart';
 import '../providers/slot_lab/spatial_audio_provider.dart';
 import '../providers/slot_lab/ai_copilot_provider.dart';
 import '../providers/slot_lab/game_flow_provider.dart';
+import '../providers/rgai_ffi_provider.dart';
+import '../providers/slot_spatial_provider.dart';
+import '../providers/ab_sim_provider.dart';
+import '../providers/slot_export_provider.dart';
 import 'rgar_report_service.dart';
 import '../providers/fluxmacro_provider.dart';
 import '../providers/slot_lab/stage_flow_provider.dart';
@@ -611,6 +615,23 @@ class ServiceLocator {
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<AiCopilotProvider>(
       () => AiCopilotProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.10-FFI: Real Rust FFI-backed providers (rf-rgai, rf-slot-spatial,
+    // rf-ab-sim, rf-slot-export) — delegate to actual Rust engines via C FFI.
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<RgaiFfiProvider>(
+      () => RgaiFfiProvider(ffi: sl.get<NativeFFI>()),
+    );
+    sl.registerLazySingleton<SlotSpatialProvider>(
+      () => SlotSpatialProvider(ffi: sl.get<NativeFFI>()),
+    );
+    sl.registerLazySingleton<AbSimProvider>(
+      () => AbSimProvider(ffi: sl.get<NativeFFI>()),
+    );
+    sl.registerLazySingleton<SlotExportProvider>(
+      () => SlotExportProvider(ffi: sl.get<NativeFFI>()),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════

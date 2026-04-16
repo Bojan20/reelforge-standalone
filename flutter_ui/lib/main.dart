@@ -77,6 +77,10 @@ import 'services/crdt_sync_service.dart';
 import 'services/cortex_vision_service.dart';
 import 'services/cortex_intelligence_loop.dart';
 import 'providers/cortex_provider.dart';
+import 'providers/rgai_ffi_provider.dart';
+import 'providers/slot_spatial_provider.dart';
+import 'providers/ab_sim_provider.dart';
+import 'providers/slot_export_provider.dart';
 import 'utils/path_validator.dart';
 import 'dart:io';
 import 'package:path/path.dart' as p;
@@ -407,6 +411,20 @@ class FluxForgeApp extends StatelessWidget {
         ),
         ChangeNotifierProvider<VideoPlaybackService>.value(
           value: sl<VideoPlaybackService>(),
+        ),
+
+        // ═══ FFI-backed providers (real Rust engine delegates) ═══
+        ChangeNotifierProvider<RgaiFfiProvider>.value(
+          value: sl<RgaiFfiProvider>(),
+        ),
+        ChangeNotifierProvider<SlotSpatialProvider>.value(
+          value: sl<SlotSpatialProvider>(),
+        ),
+        ChangeNotifierProvider<AbSimProvider>.value(
+          value: sl<AbSimProvider>(),
+        ),
+        ChangeNotifierProvider<SlotExportProvider>.value(
+          value: sl<SlotExportProvider>(),
         ),
       ],
       child: RepaintBoundary(
