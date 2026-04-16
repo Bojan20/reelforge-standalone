@@ -1,0 +1,19 @@
+[package]
+name = "rf-cloud-sync"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Cloud Sync Engine — Git-like project versioning and diff for FluxForge projects (T7.1)"
+
+[lib]
+name = "rf_cloud_sync"
+crate-type = ["rlib"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sha2.workspace = true
+hex.workspace = true

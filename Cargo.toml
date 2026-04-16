@@ -64,6 +64,10 @@ members = [
     "crates/rf-copilot",
     # Neural Fingerprint™ — Audio watermarking + A/B test analytics (T6.1–T6.5)
     "crates/rf-fingerprint",
+    # Cloud Sync Engine — Git-like project versioning (T7.1)
+    "crates/rf-cloud-sync",
+    # Slot Spatial Audio — VR positioning, HRTF, Ambisonics export (T7.2–T7.4)
+    "crates/rf-slot-spatial",
 ]
 
 [workspace.package]
@@ -102,6 +106,8 @@ rf-slot-export = { path = "crates/rf-slot-export" }
 rf-neuro = { path = "crates/rf-neuro" }
 rf-copilot = { path = "crates/rf-copilot" }
 rf-fingerprint = { path = "crates/rf-fingerprint" }
+rf-cloud-sync = { path = "crates/rf-cloud-sync" }
+rf-slot-spatial = { path = "crates/rf-slot-spatial" }
 rf-ale = { path = "crates/rf-ale" }
 rf-aurexis = { path = "crates/rf-aurexis" }
 rf-offline = { path = "crates/rf-offline" }

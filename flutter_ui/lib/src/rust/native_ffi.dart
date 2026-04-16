@@ -29155,6 +29155,271 @@ extension HookGraphAPI on NativeFFI {
     }
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // T7.1: Cloud Sync — Git-like project versioning
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Create a new sync manager for a project.
+  /// Returns manager ID (> 0) or -1 on error.
+  int cloudSyncCreate(String projectId, String? configJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int64 Function(Pointer<Utf8>, Pointer<Utf8>),
+          int Function(Pointer<Utf8>, Pointer<Utf8>)
+      >('cloud_sync_create');
+
+      final ptr1 = projectId.toNativeUtf8();
+      final ptr2 = (configJson ?? '{}').toNativeUtf8();
+      try {
+        return fn(ptr1, ptr2);
+      } finally {
+        malloc.free(ptr1);
+        malloc.free(ptr2);
+      }
+    } catch (_) {
+      return -1;
+    }
+  }
+
+  /// Commit a new project snapshot.
+  /// Returns JSON ProjectSnapshot or null on error.
+  String? cloudSyncCommit(int managerId, String projectData, String author, String message) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Int64, Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>),
+          Pointer<Utf8> Function(int, Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>)
+      >('cloud_sync_commit');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr1 = projectData.toNativeUtf8();
+      final ptr2 = author.toNativeUtf8();
+      final ptr3 = message.toNativeUtf8();
+      try {
+        final ptr = fn(managerId, ptr1, ptr2, ptr3);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+        malloc.free(ptr2);
+        malloc.free(ptr3);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Compute diff between two snapshot IDs.
+  /// Returns JSON ProjectDiff or null on error.
+  String? cloudSyncDiff(int managerId, String fromId, String toId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Int64, Pointer<Utf8>, Pointer<Utf8>),
+          Pointer<Utf8> Function(int, Pointer<Utf8>, Pointer<Utf8>)
+      >('cloud_sync_diff');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr1 = fromId.toNativeUtf8();
+      final ptr2 = toId.toNativeUtf8();
+      try {
+        final ptr = fn(managerId, ptr1, ptr2);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+        malloc.free(ptr2);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Get project history log (newest first).
+  /// Returns JSON array of SnapshotSummary or null on error.
+  String? cloudSyncLog(int managerId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Int64),
+          Pointer<Utf8> Function(int)
+      >('cloud_sync_log');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr = fn(managerId);
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Checkout a specific snapshot by ID.
+  /// Returns JSON ProjectSnapshot or null on error.
+  String? cloudSyncCheckout(int managerId, String snapshotId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Int64, Pointer<Utf8>),
+          Pointer<Utf8> Function(int, Pointer<Utf8>)
+      >('cloud_sync_checkout');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr1 = snapshotId.toNativeUtf8();
+      try {
+        final ptr = fn(managerId, ptr1);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Serialize history to JSON for persistence.
+  String? cloudSyncSerialize(int managerId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Int64),
+          Pointer<Utf8> Function(int)
+      >('cloud_sync_serialize');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr = fn(managerId);
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Destroy a sync manager.
+  void cloudSyncDestroy(int managerId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Void Function(Int64),
+          void Function(int)
+      >('cloud_sync_destroy');
+      fn(managerId);
+    } catch (_) {}
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // T7.2–T7.4: Slot Spatial Audio — 3D scene, HRTF, Ambisonics
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Generate default spatial layout for a preset.
+  /// [preset]: "desktop", "vr_standing", "vr_seated", "live_casino", "mobile"
+  /// Returns JSON array of SpatialAudioSource or null on error.
+  String? spatialLayoutGenerate(String gameId, String preset) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>)
+      >('spatial_layout_generate');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr1 = gameId.toNativeUtf8();
+      final ptr2 = preset.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1, ptr2);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+        malloc.free(ptr2);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Build Ambisonics/Binaural export manifest from a spatial scene.
+  /// [sceneJson]: JSON SpatialSlotScene
+  /// [configJson]: JSON AmbisonicsExportConfig (null for defaults)
+  /// [generatedAt]: ISO 8601 timestamp
+  /// Returns JSON SpatialExportManifest or null on error.
+  String? spatialExportManifest(String sceneJson, String? configJson, String generatedAt) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>)
+      >('spatial_export_manifest');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr1 = sceneJson.toNativeUtf8();
+      final ptr2 = (configJson ?? '{}').toNativeUtf8();
+      final ptr3 = generatedAt.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1, ptr2, ptr3);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+        malloc.free(ptr2);
+        malloc.free(ptr3);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Get list of available spatial layout presets.
+  /// Returns JSON array of {name, description} objects.
+  String? spatialAvailablePresets() {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()
+      >('spatial_available_presets');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Detect and attribute a honeypot marker in a leaked export.
   /// [requestJson]: {export_json: String, marker?: HoneypotMarker}
   /// Returns HoneypotResult JSON or null on error.

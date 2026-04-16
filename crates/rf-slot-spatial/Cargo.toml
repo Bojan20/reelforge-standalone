@@ -1,0 +1,18 @@
+[package]
+name = "rf-slot-spatial"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Slot Spatial Audio — VR slot positioning, HRTF binauralization, Ambisonics export (T7.2–T7.4)"
+
+[lib]
+name = "rf_slot_spatial"
+crate-type = ["rlib"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+rf-spatial = { path = "../rf-spatial" }

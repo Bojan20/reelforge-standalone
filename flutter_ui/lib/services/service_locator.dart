@@ -170,6 +170,8 @@ import 'slot_lab_export_service.dart'; // T3.1–T3.6
 import 'neuro_audio_service.dart'; // T4.1–T4.2
 import 'ai_copilot_service.dart'; // T5.1–T5.4
 import 'fingerprint_service.dart'; // T6.1–T6.5
+import 'project_history_service.dart'; // T7.1
+import 'spatial_audio_service.dart'; // T7.2–T7.4
 
 /// Global service locator instance
 final GetIt sl = GetIt.instance;
@@ -556,6 +558,22 @@ class ServiceLocator {
     );
     sl.registerLazySingleton<HoneypotService>(
       () => HoneypotService(sl<NativeFFI>()),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.10m-HISTORY: Project History Service (T7.1)
+    // Rust-backed Git-like versioning — commit/diff/checkout/log
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<ProjectHistoryService>(
+      () => ProjectHistoryService(sl<NativeFFI>()),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.10n-SPATIAL: Spatial Audio Service (T7.2–T7.4)
+    // 3D slot audio scene + HRTF binaural + Ambisonics export
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<SpatialAudioService>(
+      () => SpatialAudioService(sl<NativeFFI>()),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════

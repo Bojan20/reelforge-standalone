@@ -3875,6 +3875,266 @@ pub extern "C" fn honeypot_detect(request_json_ptr: *const c_char) -> *mut c_cha
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// T7.1: Cloud Sync — Git-like project versioning
+// ─────────────────────────────────────────────────────────────────────────────
+
+use rf_cloud_sync::{SyncManager, SyncConfig, ProjectSnapshot};
+use parking_lot::Mutex as ParkingMutex;
+use std::sync::OnceLock;
+use std::collections::HashMap;
+
+static SYNC_MANAGERS: OnceLock<ParkingMutex<HashMap<i64, SyncManager>>> = OnceLock::new();
+fn sync_managers() -> &'static ParkingMutex<HashMap<i64, SyncManager>> {
+    SYNC_MANAGERS.get_or_init(|| ParkingMutex::new(HashMap::new()))
+}
+
+/// Create a new sync manager for a project.
+/// Returns a manager ID (> 0) or -1 on error.
+/// [config_json]: optional SyncConfig JSON (pass null for defaults)
+#[unsafe(no_mangle)]
+pub extern "C" fn cloud_sync_create(project_id_ptr: *const c_char, config_json_ptr: *const c_char) -> i64 {
+    if project_id_ptr.is_null() { return -1; }
+    let project_id = unsafe {
+        match CStr::from_ptr(project_id_ptr).to_str() {
+            Ok(s) => s.to_string(),
+            Err(_) => return -1,
+        }
+    };
+
+    let config = if !config_json_ptr.is_null() {
+        let json = unsafe { CStr::from_ptr(config_json_ptr).to_str().unwrap_or("{}") };
+        serde_json::from_str::<SyncConfig>(json).unwrap_or_default()
+    } else {
+        SyncConfig::default()
+    };
+
+    let manager = SyncManager::new(project_id, config);
+    let mut map = sync_managers().lock();
+    let id = (map.len() + 1) as i64;
+    map.insert(id, manager);
+    id
+}
+
+/// Commit a new project snapshot.
+/// Returns JSON ProjectSnapshot or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn cloud_sync_commit(
+    manager_id: i64,
+    project_data_ptr: *const c_char,
+    author_ptr: *const c_char,
+    message_ptr: *const c_char,
+) -> *mut c_char {
+    let project_data = unsafe {
+        if project_data_ptr.is_null() { return ptr::null_mut(); }
+        match CStr::from_ptr(project_data_ptr).to_str() {
+            Ok(s) => s.to_string(),
+            Err(_) => return ptr::null_mut(),
+        }
+    };
+    let author = unsafe {
+        if author_ptr.is_null() { return ptr::null_mut(); }
+        CStr::from_ptr(author_ptr).to_str().unwrap_or("unknown").to_string()
+    };
+    let message = unsafe {
+        if message_ptr.is_null() { return ptr::null_mut(); }
+        CStr::from_ptr(message_ptr).to_str().unwrap_or("").to_string()
+    };
+
+    let mut map = sync_managers().lock();
+    let mgr = match map.get_mut(&manager_id) {
+        Some(m) => m,
+        None => return ptr::null_mut(),
+    };
+
+    match mgr.commit(project_data, author, message) {
+        Ok(snapshot) => {
+            match serde_json::to_string(&snapshot) {
+                Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+                Err(_) => ptr::null_mut(),
+            }
+        }
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Compute diff between two snapshot IDs.
+/// Returns JSON ProjectDiff or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn cloud_sync_diff(
+    manager_id: i64,
+    from_id_ptr: *const c_char,
+    to_id_ptr: *const c_char,
+) -> *mut c_char {
+    let from_id = unsafe {
+        if from_id_ptr.is_null() { return ptr::null_mut(); }
+        match CStr::from_ptr(from_id_ptr).to_str() { Ok(s) => s.to_string(), Err(_) => return ptr::null_mut() }
+    };
+    let to_id = unsafe {
+        if to_id_ptr.is_null() { return ptr::null_mut(); }
+        match CStr::from_ptr(to_id_ptr).to_str() { Ok(s) => s.to_string(), Err(_) => return ptr::null_mut() }
+    };
+
+    let map = sync_managers().lock();
+    let mgr = match map.get(&manager_id) { Some(m) => m, None => return ptr::null_mut() };
+
+    match mgr.diff(&from_id, &to_id) {
+        Ok(diff) => match serde_json::to_string(&diff) {
+            Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+            Err(_) => ptr::null_mut(),
+        },
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Get project history log (newest first).
+/// Returns JSON array of SnapshotSummary or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn cloud_sync_log(manager_id: i64) -> *mut c_char {
+    let map = sync_managers().lock();
+    let mgr = match map.get(&manager_id) { Some(m) => m, None => return ptr::null_mut() };
+    match serde_json::to_string(&mgr.log()) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Checkout a specific snapshot by ID. Returns JSON ProjectSnapshot or null.
+#[unsafe(no_mangle)]
+pub extern "C" fn cloud_sync_checkout(manager_id: i64, snapshot_id_ptr: *const c_char) -> *mut c_char {
+    let snapshot_id = unsafe {
+        if snapshot_id_ptr.is_null() { return ptr::null_mut(); }
+        match CStr::from_ptr(snapshot_id_ptr).to_str() { Ok(s) => s.to_string(), Err(_) => return ptr::null_mut() }
+    };
+
+    let mut map = sync_managers().lock();
+    let mgr = match map.get_mut(&manager_id) { Some(m) => m, None => return ptr::null_mut() };
+
+    match mgr.checkout(&snapshot_id) {
+        Ok(snap) => match serde_json::to_string(&snap) {
+            Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+            Err(_) => ptr::null_mut(),
+        },
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Serialize history to JSON for persistence.
+#[unsafe(no_mangle)]
+pub extern "C" fn cloud_sync_serialize(manager_id: i64) -> *mut c_char {
+    let map = sync_managers().lock();
+    let mgr = match map.get(&manager_id) { Some(m) => m, None => return ptr::null_mut() };
+    match mgr.serialize() {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Destroy a sync manager and free its memory.
+#[unsafe(no_mangle)]
+pub extern "C" fn cloud_sync_destroy(manager_id: i64) {
+    sync_managers().lock().remove(&manager_id);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// T7.2–T7.4: Slot Spatial Audio — 3D scene, HRTF, Ambisonics export
+// ─────────────────────────────────────────────────────────────────────────────
+
+use rf_slot_spatial::{
+    SpatialSlotScene, SpatialAudioSource, SphericalPosition,
+    SlotLayoutPreset, layout_for_preset,
+    AmbisonicsExportConfig, SpatialExportManifest, AmbisonicOrder, SpatialExportFormat,
+};
+
+/// Generate default spatial layout for a slot game.
+///
+/// [preset_name]: "desktop", "vr_standing", "vr_seated", "live_casino", "mobile"
+/// Returns JSON array of SpatialAudioSource or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn spatial_layout_generate(
+    game_id_ptr: *const c_char,
+    preset_name_ptr: *const c_char,
+) -> *mut c_char {
+    let game_id = unsafe {
+        if game_id_ptr.is_null() { return ptr::null_mut(); }
+        match CStr::from_ptr(game_id_ptr).to_str() { Ok(s) => s.to_string(), Err(_) => return ptr::null_mut() }
+    };
+    let preset_name = unsafe {
+        if preset_name_ptr.is_null() { return ptr::null_mut(); }
+        CStr::from_ptr(preset_name_ptr).to_str().unwrap_or("desktop")
+    };
+
+    let preset = match preset_name {
+        "vr_standing"   => SlotLayoutPreset::VrStanding,
+        "vr_seated"     => SlotLayoutPreset::VrSeated,
+        "live_casino"   => SlotLayoutPreset::LiveCasinoBigScreen,
+        "mobile"        => SlotLayoutPreset::Mobile,
+        _               => SlotLayoutPreset::Desktop,
+    };
+
+    let sources = layout_for_preset(preset, &game_id);
+    match serde_json::to_string(&sources) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Build Ambisonics/Binaural export manifest from a spatial scene.
+///
+/// [scene_json]: JSON SpatialSlotScene
+/// [config_json]: JSON AmbisonicsExportConfig (optional, null for defaults)
+/// [generated_at]: ISO 8601 timestamp string
+/// Returns JSON SpatialExportManifest or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn spatial_export_manifest(
+    scene_json_ptr: *const c_char,
+    config_json_ptr: *const c_char,
+    generated_at_ptr: *const c_char,
+) -> *mut c_char {
+    let scene_str = unsafe {
+        if scene_json_ptr.is_null() { return ptr::null_mut(); }
+        match CStr::from_ptr(scene_json_ptr).to_str() { Ok(s) => s.to_string(), Err(_) => return ptr::null_mut() }
+    };
+    let config = if !config_json_ptr.is_null() {
+        let s = unsafe { CStr::from_ptr(config_json_ptr).to_str().unwrap_or("{}") };
+        serde_json::from_str::<AmbisonicsExportConfig>(s).unwrap_or_default()
+    } else {
+        AmbisonicsExportConfig::default()
+    };
+    let generated_at = unsafe {
+        if generated_at_ptr.is_null() { "1970-01-01T00:00:00Z" }
+        else { CStr::from_ptr(generated_at_ptr).to_str().unwrap_or("1970-01-01T00:00:00Z") }
+    };
+
+    let scene: SpatialSlotScene = match serde_json::from_str(&scene_str) {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let manifest = SpatialExportManifest::build(&scene, &config, generated_at);
+    match serde_json::to_string(&manifest) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Get list of available spatial layout presets.
+/// Returns JSON array of {name, description} objects.
+#[unsafe(no_mangle)]
+pub extern "C" fn spatial_available_presets() -> *mut c_char {
+    let presets = serde_json::json!([
+        {"name": "desktop",     "description": "Standard desktop/monitor setup (2D near-field)"},
+        {"name": "vr_standing", "description": "VR standing position — full 360° immersive sphere"},
+        {"name": "vr_seated",   "description": "VR seated — slot elevated, immersive surround"},
+        {"name": "live_casino", "description": "Live casino big screen — elevated wide display"},
+        {"name": "mobile",      "description": "Mobile — simplified mono/stereo"},
+    ]);
+    match serde_json::to_string(&presets) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
