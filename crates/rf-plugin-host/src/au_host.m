@@ -83,8 +83,7 @@ void au_host_open_plugin(
                                         double h = MAX(view.frame.size.height, 300);
                                         callback(user_data, view, w, h);
                                         free(viewInfo);
-                                        // Release factory — alloc/init paired here (MRR, not ARC)
-                                        [factory release];
+                                        // ARC manages factory lifetime automatically
                                         return;
                                     }
                                 }

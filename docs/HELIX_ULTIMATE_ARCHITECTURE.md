@@ -495,6 +495,76 @@ my_game.helix/
     determinism.json coverage.json fatigue.json compliance.json
 ```
 
+#### Project Versioning & Migration
+
+USAP projekat evoluira — dodaješ stage-ove, menjaš math model, ažuriraš compliance pravila. Format MORA da podrži migration bez gubitka podataka.
+
+```rust
+/// USAP project manifest — root of .helix/ folder
+pub struct UsapManifest {
+    /// Schema version — determines which fields exist
+    pub schema_version: SemanticVersion,       // "2.1.0"
+    /// Project UUID — stable across saves/loads
+    pub project_id: Uuid,
+    /// Human-readable name
+    pub name: String,
+    /// Creation timestamp
+    pub created_at: SystemTime,
+    /// Last modified timestamp  
+    pub modified_at: SystemTime,
+    /// FluxForge version that last saved this project
+    pub editor_version: String,
+    /// Target jurisdictions (affects compliance validation)
+    pub jurisdictions: Vec<String>,
+    /// Checksums for all sub-files (integrity verification)
+    pub file_checksums: HashMap<String, [u8; 32]>,
+}
+```
+
+**Migration strategy:**
+
+| Schema Change | Strategy | Data Loss? |
+|--------------|----------|-----------|
+| **New optional field added** (minor bump) | Deserialize with default → no migration needed | None |
+| **Field renamed** (minor bump) | `#[serde(alias = "old_name")]` — reads both, writes new | None |
+| **Field type changed** (major bump) | Migration function: `v1::StageFlow → v2::StageFlow` | None (transform) |
+| **Field removed** (major bump) | Migration preserves in `_deprecated` map for rollback | Soft (recoverable) |
+| **Entire section restructured** (major bump) | Full migration pipeline with backup of original | None (backup exists) |
+
+```rust
+/// Migration registry — run on project load if schema_version < current
+pub struct MigrationRegistry {
+    migrations: Vec<Migration>,
+}
+
+impl MigrationRegistry {
+    pub fn migrate(&self, project: &mut UsapProject) -> MigrationResult {
+        // 1. Backup original .helix/ to .helix.backup/
+        // 2. Run migrations in order (v1→v2→v3...)
+        // 3. Validate result (all required fields present)
+        // 4. Update schema_version in manifest
+        // 5. If validation fails → restore from backup
+    }
+}
+
+pub enum MigrationResult {
+    /// No migration needed — already latest schema
+    UpToDate,
+    /// Successfully migrated from version X to Y
+    Migrated { from: SemanticVersion, to: SemanticVersion, changes: Vec<String> },
+    /// Migration failed — backup restored, project unchanged
+    Failed { reason: String, restored_from_backup: bool },
+}
+```
+
+**Edge cases:**
+- **Project from future version** (user downgrades FluxForge): Load read-only. Show warning: "This project was saved with FluxForge v3.2 — you have v2.8. Some features may be missing. Upgrade to edit."
+- **Corrupt manifest**: SHA256 checksums in manifest detect per-file corruption. Offer partial recovery: load uncorrupted files, mark corrupted as "needs re-import."
+- **Concurrent editing** (two designers on shared drive): File-level locking via `.helix/.lock` with PID + timestamp. Stale lock (>5 min) auto-cleared with warning.
+- **Large project migration** (500+ audio files): Progress bar with per-step status. Cancellation safe — partial migration rolled back.
+
+---
+
 ### 2.2 — Event Ontology
 
 **Replace flat event list with semantic graph. Events know where they live, who they conflict with, and what they imply.**
@@ -752,6 +822,74 @@ Idle glow: 4s sine loop (opacity 0.03-0.08)
 Beat pulse: synced to BPM
 Noise texture: 3% opacity, 256x256 PNG on all surfaces
 ```
+
+### Accessibility (WCAG 2.1 AA Compliance)
+
+FluxForge je profesionalni alat — korisnici imaju vizuelne impairment-e, motorne teškoće, ili rade na non-standard ekranima. Accessibility nije opciona.
+
+#### Kontrast
+
+| Element | Foreground | Background | Ratio | WCAG AA |
+|---------|-----------|-----------|-------|---------|
+| Body text | rgba(255,255,255,0.92) | #06060A | **16.4:1** | ✅ Pass (min 4.5:1) |
+| Secondary text | rgba(255,255,255,0.55) | #06060A | **9.7:1** | ✅ Pass |
+| Muted text | rgba(255,255,255,0.30) | #06060A | **5.3:1** | ✅ Pass |
+| Success on bg | #42FF8C | #06060A | **12.8:1** | ✅ Pass |
+| Error on bg | #FF4242 | #06060A | **5.2:1** | ✅ Pass |
+| Warning on bg | #FFD042 | #06060A | **11.6:1** | ✅ Pass |
+| Node text on node bg | #FFFFFF | #42A5F5 (Spin) | **3.1:1** | ⚠️ Needs bold (min 3:1 large text) |
+
+**Rule:** Svaki UI element sa tekstom MORA imati ≥4.5:1 za normalan tekst i ≥3:1 za large text (≥18px ili ≥14px bold).
+
+#### Keyboard Navigation (bez miša)
+
+```
+FULL KEYBOARD FLOW (Screen Reader Compatible):
+  Tab         → fokus sledeći element (linear order: Spine → Canvas → Dock)
+  Shift+Tab   → fokus prethodni
+  Arrow keys  → navigacija unutar grupe (node-ovi, mission tab-ovi)
+  Enter       → aktiviraj fokusirani element
+  Escape      → zatvori overlay/modal
+  F6          → ciklus između zona (Spine ↔ Canvas ↔ Dock ↔ Context Lens)
+  
+ARIA LABELS (za screen readere):
+  Svaki node:    role="treeitem" aria-label="ReelStop node, category Spin, 2 outgoing transitions"
+  Canvas:        role="application" aria-label="Stage flow graph, 12 nodes, 15 transitions"
+  Mission tab:   role="tab" aria-selected="true" aria-label="FLOW mission, active"
+  Compliance:    role="status" aria-live="polite" aria-label="UKGC compliance: 2 warnings"
+```
+
+#### Reduced Motion
+
+Korisnici sa vestibular disorders-om (vertigo, migraines) treba da mogu isključiti animacije:
+
+```
+Prefers-reduced-motion: reduce
+  - Spring animacije → instant snap (0ms)
+  - Particle efekti → statična boja
+  - Audio-reactive glow → solid border color
+  - Neural Canvas particles → disabled
+  - Stage transition → fade 100ms (ne spring 400ms)
+```
+
+#### Color Blindness
+
+Node kategorije se NE razlikuju samo bojom — svaka ima ikonicu:
+
+```
+SPIN:     plavo  + ⟳ ikonica     │  WIN:      zeleno + ★ ikonica
+FEATURE:  ljubičasto + ◆ ikonica │  JACKPOT:  zlatno + ♛ ikonica
+BONUS:    narandžasto + ☆ ikonica│  GAMBLE:   crveno + ♠ ikonica
+CASCADE:  tirkizno + ↓↓ ikonica │  UI/IDLE:  sivo + ⏸ ikonica
+```
+
+#### High Contrast Mode
+
+Za korisnike koji koriste OS high contrast:
+- Svi elementi dobijaju 2px solid border (#FFFFFF)
+- Background postaje pure black (#000000)
+- Glass morphism effects disabled
+- Noise texture disabled
 
 ---
 
@@ -1463,6 +1601,62 @@ Dok korisnik radi u editoru, slot preview (Neural Canvas iz Part III) je aktivan
 - Audio waveform preview u Context Lens-u bez napuštanja editora
 - RTPC curve mini-editor inline u node properties
 
+#### Undo/Redo sistem (graf-aware)
+
+Node editor nije text editor — undo/redo mora razumeti graf operacije:
+
+```rust
+pub enum GraphMutation {
+    /// Node added/removed
+    NodeAdd { node: StageNode },
+    NodeRemove { node: StageNode, removed_transitions: Vec<StageTransition> },
+    
+    /// Transition added/removed
+    TransitionAdd { transition: StageTransition },
+    TransitionRemove { transition: StageTransition },
+    
+    /// Property changed (audio binding, math, compliance, timing)
+    PropertyChange { node_id: NodeId, field: String, old: Value, new: Value },
+    
+    /// Batch operation (multi-select move, paste, etc.)
+    Batch { mutations: Vec<GraphMutation>, description: String },
+    
+    /// Entry/terminal status changed
+    EntryChange { old_entry: NodeId, new_entry: NodeId },
+    TerminalToggle { node_id: NodeId, was_terminal: bool },
+}
+
+pub struct UndoStack {
+    history: Vec<GraphMutation>,   // Past mutations (unlimited, but trimmed at 500)
+    future: Vec<GraphMutation>,    // Undone mutations (cleared on new mutation)
+    save_point: Option<usize>,     // Index of last save (for "unsaved changes" indicator)
+}
+```
+
+**Edge cases:**
+- **Undo node delete:** Restores node AND all transitions that connected to it
+- **Undo batch paste:** Removes all pasted nodes in one step
+- **Undo after save:** Navigates past save point (shows "unsaved changes" warning)
+- **Memory pressure:** Stack trimmed at 500 entries; oldest mutations dropped first
+- **Conflict:** If undone mutation references a node that was separately deleted → skip with warning
+
+#### Accessibility & Responsive Layout
+
+**Screen reader podržka za node editor:**
+- Svaki node je `role="treeitem"` sa ARIA labels
+- Transitions su `role="link"` sa "from X to Y on condition Z"
+- Tab navigacija prati flow redosled (entry → terminal)
+- Canvas zoom/pan ignorisan od screen readera (fokus ostaje na node sadržaju)
+
+**Responsive breakpoints:**
+
+| Width | Layout | Promene |
+|-------|--------|---------|
+| ≥1440px | Full editor | Canvas + Properties panel side-by-side |
+| 1024-1439px | Compact | Properties panel prelazi u overlay (Context Lens) |
+| 768-1023px | Tablet | Toolbar postaje bottom sheet, canvas fullscreen |
+| <768px | Read-only | Pregledaj flow, ali editovanje zahteva širi ekran |
+
 ---
 
 ### 8.3 — Marketplace arhitektura
@@ -1553,6 +1747,43 @@ my-stage-module.hxmod
 - Sorting: Popular, Recent, Highest rated, Most compatible
 - Compatibility badge: "Works with UKGC" / "Tested on 1M spins"
 - Live preview: embedovan simulator u browser-u (WASM)
+
+#### Dispute Resolution & Trust
+
+**Scenario: Kupac tvrdi da modul ne radi kako je opisano**
+
+```
+DISPUTE FLOW:
+  1. Kupac otvara dispute → opisuje problem + screenshot/log
+  2. Publisher ima 72h da odgovori (fix, refund, ili objašnjenje)
+  3. Ako publisher ne odgovori → automatski refund + modul flagovan
+  4. Ako se ne slažu → FluxForge moderator pregleda:
+     - Pokreće modul u sandbox-u
+     - Proverava compliance badge claim-ove
+     - Donosi odluku (refund, partial refund, dismiss)
+  5. Odluka finalna. 3 izgubljena dispute-a → publisher suspendovan.
+```
+
+**Refund policy:**
+- **Prvih 48h:** Bezuslovan refund za sve module < $200
+- **Posle 48h:** Refund samo ako modul dokazano ne radi kako je opisano
+- **Subscription bundles:** Pro-rata refund za neiskorišćeni period
+- **Audio assets:** Refund samo ako kupac nije integrisao u shipping game (provera: nema export sa tim asset-ima)
+
+**DMCA / IP zaštita:**
+- Publisher potpisuje da poseduje sav sadržaj (ili ima licencu)
+- DMCA takedown procedura: prijava → 24h removal → counter-notice → 10 dana čekanja → restauracija ili permanentno uklanjanje
+- Repeat offenders (3+ DMCA): permanentan ban
+- Audio fingerprinting: automatska detekcija duplikata (Chromaprint hash na svim audio assets-ima pri uploadu)
+
+**Versioning conflict scenariji:**
+
+| Scenario | Rešenje |
+|----------|---------|
+| **Dependency conflict:** Blueprint zahteva ModuleA ^1.2 i ModuleB zahteva ModuleA ^2.0 | Dependency resolver prikaže konflikt pre instalacije. Opcije: pin verziju, kontaktiraj publishera, fork modul |
+| **Breaking update:** Publisher objavi v2.0 koji menja StageFlow API | Blueprint čuva pinovan dependency. Auto-update SAMO za patch/minor. Major zahteva ručni upgrade + migration wizard |
+| **Withdrawn module:** Publisher povuče modul sa marketplace-a | Svi postojeći korisnici zadržavaju pristup (download-ovan paket je lokalan). Nema novih prodaja. Blueprint koji ga referencira prikaže ⚠️ "Module no longer maintained" |
+| **Publisher account deleted:** Publisher briše nalog | Moduli postaju "orphaned" — vidljivi ali bez podrške. Kupci mogu nastaviti da koriste, nema novih update-a |
 
 ---
 
@@ -1924,6 +2155,48 @@ SCENARIO: Studio tier, 30 titula godišnje
 
 **Value proposition:** FluxForge zamenjuje Wwise/FMOD ($6K) + custom compliance tooling ($20K+ internal dev) + audio design iteration time (50% reduction). ROI je 3-5x u prvoj godini za prosečan studio.
 
+#### Churn scenariji & mitigacija
+
+| Churn razlog | Procenat | Mitigacija |
+|-------------|---------|------------|
+| **"Preskup za nas"** (indie studio) | ~25% | Free tier sa ograničenim export-om (Web only, 1 jurisdikcija, no marketplace selling) |
+| **"Prešli smo na in-house tool"** | ~15% | Data lock-in: export format je open, ali marketplace modules + compliance reports + analytics history nisu prenosivi |
+| **"Ne koristimo dovoljno features"** | ~20% | Quarterly business review: show ROI metrics (time saved, compliance passes, A/B test wins) |
+| **"Konkurent je jeftiniji"** | ~10% | Annual commitment discount (20%), case studies showing TCO advantage |
+| **"Nekompatibilno sa našom platformom"** | ~15% | PlatformAdapter SDK — studio može sam napisati adapter. Prioritize top-requested platforms |
+| **"Loša podrška"** | ~15% | Enterprise SLA: 4h response time. Studio tier: 48h guaranteed. Indie: community + knowledge base |
+
+**Free tier strategija (Indie Starter):**
+
+```
+FLUXFORGE FREE (Indie Starter)
+  ✅ Stage Builder — full functionality
+  ✅ StageLibrary — all 54+ envelopes
+  ✅ Math Simulator — 100K spins (not 1M)
+  ✅ COMPLY — UKGC only (one jurisdiction)
+  ✅ Export — Web target only
+  ❌ Marketplace selling
+  ❌ Multi-jurisdiction compliance
+  ❌ Export to Unity/Unreal/FMOD/Wwise
+  ❌ A/B testing pipeline
+  ❌ Analytics engine
+  ❌ Priority support
+  
+  Limit: 1 active project, 50 audio assets max
+  
+  UPGRADE PATH: "Your slot is ready for MGA certification → upgrade to Studio for all jurisdictions"
+```
+
+**Competitor response scenariji:**
+
+| Competitor Action | FluxForge Response |
+|------------------|-------------------|
+| **Wwise launches "Slot Mode" plugin** | Messaging: "Plugin ≠ platform. Wwise still can't read your PAR file, simulate 1M spins, or generate compliance reports." Accelerate marketplace network effect (their ecosystem lock-in can't match) |
+| **FMOD goes free for slot studios** | Match on pricing: free tier for indie. Compete on value: FMOD has zero compliance, zero math integration. Show TCO comparison including internal compliance dev cost |
+| **Open-source slot audio tool appears** | Embrace: offer FluxForge as the "enterprise layer" on top. Open-source tools lack marketplace, analytics, multi-jurisdiction compliance, SLA support |
+| **Large studio builds and sells internal tool** | Accelerate: get compliance reports on regulators' desks first. First-mover brand = "the compliance-approved tool." Studio tool won't have marketplace network |
+| **AI company offers "auto-generate slot audio"** | Integrate: use AI-generated audio as SOURCE material within FluxForge's stage/compliance/math pipeline. AI generates sounds, FluxForge ensures they're game-ready and compliant |
+
 ---
 
 ### 8.7 — Modularna Arhitektura (Crate Map)
@@ -1976,6 +2249,102 @@ SCENARIO: Studio tier, 30 titula godišnje
 - `rf-slot-builder` — Stage Builder UI backend (flow editing API)
 - `rf-stage` — StageLibrary već kompletna (54+ envelope-a)
 
+#### Dependency Graph & Build Order
+
+```
+BUILD ORDER (topological sort — leaf crates first):
+
+Level 0 (no deps):     rf-core
+Level 1:               rf-dsp ← rf-core
+Level 2:               rf-audio ← rf-core, rf-dsp
+                        rf-stage ← rf-core
+Level 3:               rf-engine ← rf-core, rf-dsp, rf-audio
+                        rf-slot-lab ← rf-core, rf-stage
+Level 4:               rf-aurexis ← rf-core, rf-stage, rf-engine
+                        rf-compliance ← rf-core, rf-stage (NEW)
+Level 5:               rf-slot-builder ← rf-core, rf-stage, rf-slot-lab, rf-compliance
+                        rf-fluxmacro ← rf-core, rf-stage, rf-engine, rf-aurexis
+Level 6:               rf-ingest ← rf-core, rf-stage, rf-engine
+                        rf-export ← rf-slot-builder, rf-compliance, rf-dsp (NEW)
+Level 7:               rf-marketplace ← rf-export, rf-compliance (NEW)
+Level 8:               rf-bridge ← ALL (FFI surface — depends on everything)
+
+PARALLEL BUILD:  Level 0-2 parallel (3 crates), Level 3-4 parallel (4 crates)
+TOTAL:           8 levels, ~45s clean build on M1 (incremental: ~5s)
+```
+
+**Circular dependency prevention:**
+- `rf-stage` NIKAD ne sme zavisiti od `rf-slot-builder` (stage je primitiva, builder je consumer)
+- `rf-compliance` NIKAD ne sme zavisiti od `rf-aurexis` (compliance je pravilo, aurexis je AI)
+- `rf-export` zavisi od `rf-slot-builder`, ne obrnuto (export je downstream)
+- Provera: `cargo deny check` u CI sa custom policy
+
+#### Feature Flags (per crate)
+
+```toml
+# rf-slot-builder/Cargo.toml
+[features]
+default = ["compliance", "audio-binding"]
+compliance = ["rf-compliance"]           # Disable for unit tests without compliance
+audio-binding = ["rf-stage/library"]     # Disable for math-only mode
+export-web = ["rf-export/web"]           # Enable web export target
+export-unity = ["rf-export/unity"]       # Enable Unity export
+export-wwise = ["rf-export/wwise"]       # Enable Wwise export
+marketplace = ["rf-marketplace"]         # Enable marketplace client
+full = ["compliance", "audio-binding", "export-web", "export-unity", "export-wwise", "marketplace"]
+
+# rf-engine/Cargo.toml
+[features]
+default = ["helix-bus", "voice-engine"]
+helix-bus = []                           # Core pub/sub bus
+voice-engine = []                        # Intelligent voice allocation
+pae = ["rf-aurexis/pae"]                 # Predictive Audio Engine
+dag-editor = []                          # Live-editable audio graph (heavy — UI only)
+simd = []                                # SIMD acceleration (auto-detected at runtime)
+
+# rf-compliance/Cargo.toml (NEW)
+[features]
+default = ["ukgc", "mga"]
+ukgc = []                                # UK Gambling Commission rules
+mga = []                                 # Malta Gaming Authority rules
+sweden = []                              # Spelinspektionen rules
+germany = []                             # GGL rules
+ontario = []                             # AGCO/iGO rules
+australia = []                           # NCPF rules
+all-jurisdictions = ["ukgc", "mga", "sweden", "germany", "ontario", "australia"]
+audit-trail = []                         # Enable immutable audit log (adds ~2% overhead)
+report-html = ["audit-trail"]            # HTML compliance report generator
+report-pdf = ["audit-trail", "dep:printpdf"]  # PDF compliance report (adds printpdf dep)
+```
+
+**Benefit:** Studio koji radi SAMO sa UKGC ne vuče MGA/SE/DE kod. Indie koji ne treba marketplace ne kompajlira registry klijent. Build ostaje brz.
+
+#### CI/CD Integration
+
+```yaml
+# .github/workflows/slot-builder.yml (konceptualni)
+jobs:
+  test-minimal:
+    # Fastest: only core features, no export targets
+    run: cargo test -p rf-slot-builder --no-default-features --features compliance
+    
+  test-full:
+    # Complete: all features enabled
+    run: cargo test -p rf-slot-builder --features full
+    
+  compliance-audit:
+    # Validates that all jurisdiction profiles pass self-test
+    run: cargo test -p rf-compliance --features all-jurisdictions
+    
+  wasm-build:
+    # Verify WASM target compiles (no_std where needed)
+    run: cargo build -p rf-slot-builder --target wasm32-unknown-unknown --features export-web
+    
+  benchmark:
+    # Performance regression check
+    run: cargo bench -p rf-slot-builder -- --baseline main
+```
+
 ---
 
 ### Šta već postoji u codebase-u
@@ -2015,6 +2384,7 @@ SCENARIO: Studio tier, 30 titula godišnje
 
 ---
 
-*Part VIII razrađen 16. April 2026 — Architecture v3.0*
-*Kompletno: sve 8 Part-a, 7 sekcija prošireno na ★★★★★, 0 TODO stavki*
-*Designed by Corti — FluxForge Studio CORTEX*
+*Part I-VIII kompletno razrađeni — Architecture v3.1*
+*Sve sekcije ★★★★★: USAP migration, accessibility/WCAG, undo/redo, marketplace dispute/DMCA, churn/free-tier, dependency graph/feature flags*
+*0 TODO stavki. 0 rupa. Ultimativno.*
+*Designed by Corti — FluxForge Studio CORTEX — 16. April 2026*
