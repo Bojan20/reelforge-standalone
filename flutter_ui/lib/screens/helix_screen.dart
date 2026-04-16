@@ -2805,7 +2805,9 @@ class _AbTestPanelState extends State<_AbTestPanel> {
                 _DockLabel('RESULTS', color: FluxForgeTheme.accentGreen),
                 const SizedBox(height: 8),
                 if (_isRunning) ...[
-                  Builder(builder: (_) {
+                  ListenableBuilder(
+                    listenable: GetIt.instance<AbSimProvider>(),
+                    builder: (_, __) {
                     final abSim = GetIt.instance<AbSimProvider>();
                     return Column(children: [
                       LinearProgressIndicator(
