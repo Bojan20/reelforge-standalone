@@ -65,7 +65,7 @@ class _HelixScreenState extends State<HelixScreen>
 
   // ── Dock ──────────────────────────────────────────────────────────────────
   int _dockTab = 0; // 0=FLOW 1=AUDIO 2=MATH 3=TIMELINE 4=INTEL 5=EXPORT 6=SFX 7=BT 8=DNA 9=AI 10=CLOUD 11=A/B
-  double _dockHeight = 300.0;
+  double _dockHeight = 380.0;
   bool _dockExpanded = true;
 
   // ── Mode ──────────────────────────────────────────────────────────────────
@@ -291,7 +291,7 @@ class _HelixScreenState extends State<HelixScreen>
                 const SizedBox(width: 6),
                 if (_projectNameEditing)
                   SizedBox(
-                    width: 140,
+                    width: 260,
                     child: TextField(
                       controller: _projectNameController,
                       autofocus: true,
@@ -464,7 +464,7 @@ class _HelixScreenState extends State<HelixScreen>
             children: [
               const SizedBox(height: 12),
               ...icons.asMap().entries.map((e) => Padding(
-                padding: const EdgeInsets.only(bottom: 4),
+                padding: const EdgeInsets.only(bottom: 8),
                 child: _SpineItem(
                   icon: e.value.$1,
                   label: e.value.$2,
@@ -511,13 +511,13 @@ class _HelixScreenState extends State<HelixScreen>
                 animation: _glowAnim,
                 builder: (_, child) => Center(
                   child: Container(
-                    width: MediaQuery.of(context).size.width * 0.6,
-                    height: MediaQuery.of(context).size.height * 0.5,
+                    width: (MediaQuery.of(context).size.width * 0.55).clamp(400.0, 900.0),
+                    height: (MediaQuery.of(context).size.height * 0.45).clamp(300.0, 600.0),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       boxShadow: [BoxShadow(
-                        color: glowColor.withOpacity(_glowAnim.value),
-                        blurRadius: 80, spreadRadius: 20,
+                        color: glowColor.withOpacity(_glowAnim.value * 0.8),
+                        blurRadius: 100, spreadRadius: 10,
                       )],
                     ),
                   ),
@@ -533,7 +533,13 @@ class _HelixScreenState extends State<HelixScreen>
                   isFullscreen: true,
                   projectProvider: GetIt.instance<SlotLabProjectProvider>(),
                   onCellTap: (reelIndex, rowIndex) {
-                    // C1/C2: Find composite event for this reel and open lens
+                    // C1/C2: Open Reel Context Lens + Audio Context Lens
+                    setState(() {
+                      _reelLensReel = reelIndex;
+                      _reelLensRow = rowIndex;
+                      _showReelLens = true;
+                    });
+                    // Also try to open audio lens for matching composite event
                     try {
                       final mw = GetIt.instance<MiddlewareProvider>();
                       final events = mw.compositeEvents;
@@ -558,31 +564,22 @@ class _HelixScreenState extends State<HelixScreen>
                 child: _buildInfoChips(),
               ),
 
+              // Waveform bars — behind stage strip
+              Positioned(
+                bottom: 52, left: 0, right: 0,
+                child: Center(child: _buildWaveformBars(glowColor)),
+              ),
+
               // Stage strip — clickable (C3: force game flow transition)
               Positioned(
-                bottom: 20,
+                bottom: 16,
                 left: 0, right: 0,
                 child: Center(child: _buildStageStrip(stage, flow)),
               ),
 
-              // Waveform bars — below stage strip
-              Positioned(
-                bottom: 4, left: 0, right: 0,
-                child: Center(child: _buildWaveformBars(glowColor)),
-              ),
-
-              // C1/C2: Reel cell tap overlay
-              Positioned.fill(
-                child: _ReelCellOverlay(onCellTap: (reel, row) {
-                  setState(() {
-                    _reelLensReel = reel;
-                    _reelLensRow = row;
-                    _showReelLens = true;
-                  });
-                }),
-              ),
-
-              // Show reel lens if active
+              // C1/C2: Reel Context Lens (triggered via PremiumSlotPreview.onCellTap)
+              // NOTE: _ReelCellOverlay removed — it blocked underlying touch events.
+              // Cell taps are handled by onCellTap callback on PremiumSlotPreview above.
               if (_showReelLens)
                 _ReelContextLens(
                   reel: _reelLensReel,
@@ -743,7 +740,7 @@ class _HelixScreenState extends State<HelixScreen>
           _buildDockTabBar(),
           // Panel content
           Expanded(child: Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
             child: _buildDockPanel(),
           )),
         ],
@@ -753,46 +750,61 @@ class _HelixScreenState extends State<HelixScreen>
 
   Widget _buildDockTabBar() {
     return Container(
-      height: 38,
+      height: 44,
       decoration: BoxDecoration(
         color: const Color(0xB206060A),
         border: Border(bottom: BorderSide(color: FluxForgeTheme.borderSubtle)),
       ),
       child: Row(
         children: [
-          const SizedBox(width: 16),
-          ..._dockTabDefs.asMap().entries.map((e) {
-            final (icon, label, color) = e.value;
-            final active = _dockTab == e.key;
-            return Padding(
-              padding: const EdgeInsets.only(right: 2),
-              child: _DockTab(
-                icon: icon, label: label, color: color,
-                active: active,
-                onTap: () => setState(() => _dockTab = e.key),
+          const SizedBox(width: 8),
+          // Scrollable tab area
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: _dockTabDefs.asMap().entries.map((e) {
+                  final (icon, label, color) = e.value;
+                  final active = _dockTab == e.key;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 2),
+                    child: _DockTab(
+                      icon: icon, label: label, color: color,
+                      active: active,
+                      onTap: () => setState(() => _dockTab = e.key),
+                    ),
+                  );
+                }).toList(),
               ),
-            );
-          }),
-          const Spacer(),
-          // Resize handle
+            ),
+          ),
+          // Resize handle — hambuger style, easy to grab
           GestureDetector(
             onVerticalDragUpdate: (d) => setState(() {
-              _dockHeight = (_dockHeight - d.delta.dy).clamp(150.0, 500.0);
+              _dockHeight = (_dockHeight - d.delta.dy).clamp(180.0, 600.0);
             }),
-            child: SizedBox(
-              width: 32, height: 38,
-              child: Center(
-                child: Container(
-                  width: 24, height: 3,
-                  decoration: BoxDecoration(
-                    color: FluxForgeTheme.borderSubtle,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+            child: Tooltip(
+              message: 'Drag to resize',
+              child: SizedBox(
+                width: 44, height: 44,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(width: 18, height: 2,
+                      decoration: BoxDecoration(
+                        color: FluxForgeTheme.textTertiary.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(1))),
+                    const SizedBox(height: 3),
+                    Container(width: 12, height: 2,
+                      decoration: BoxDecoration(
+                        color: FluxForgeTheme.textTertiary.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(1))),
+                  ],
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
         ],
       ),
     );
@@ -998,8 +1010,8 @@ class _FlowPanelState extends State<_FlowPanel> {
             ),
             const SizedBox(width: 12),
             // Current state info
-            SizedBox(
-              width: 160,
+            Flexible(
+              flex: 2,
               child: _DockCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1007,8 +1019,9 @@ class _FlowPanelState extends State<_FlowPanel> {
                     _DockLabel('CURRENT STATE'),
                     const SizedBox(height: 8),
                     Text(current.displayName,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontFamily: 'monospace', fontSize: 16,
+                        fontFamily: 'monospace', fontSize: 13,
                         color: FluxForgeTheme.accentBlue, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 6),
                     if (flow.isBaseGame)
@@ -1023,8 +1036,8 @@ class _FlowPanelState extends State<_FlowPanel> {
             ),
             const SizedBox(width: 12),
             // F4: Stage → Audio mapping card
-            SizedBox(
-              width: 200,
+            Flexible(
+              flex: 2,
               child: _DockCard(
                 child: Builder(
                   builder: (_) {
@@ -1102,8 +1115,8 @@ class _SfxPipelinePanel extends StatelessWidget {
         return Row(
           children: [
             // Left: Step navigation
-            SizedBox(
-              width: 180,
+            Flexible(
+              flex: 2,
               child: _DockCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1171,8 +1184,8 @@ class _SfxPipelinePanel extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             // Right: Stats/Preview
-            SizedBox(
-              width: 200,
+            Flexible(
+              flex: 2,
               child: _DockCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1594,8 +1607,8 @@ class _BehaviorTreePanelState extends State<_BehaviorTreePanel> {
     return Row(
       children: [
         // Left: Node palette
-        SizedBox(
-          width: 200,
+        Flexible(
+          flex: 2,
           child: _DockCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2173,8 +2186,8 @@ class _AiGenerationPanelState extends State<_AiGenerationPanel> {
         ),
         const SizedBox(width: 12),
         // Right: Pipeline log
-        SizedBox(
-          width: 220,
+        Flexible(
+          flex: 2,
           child: _DockCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2228,8 +2241,8 @@ class _CloudSyncPanelState extends State<_CloudSyncPanel> {
     return Row(
       children: [
         // Left: Connection status
-        SizedBox(
-          width: 220,
+        Flexible(
+          flex: 2,
           child: _DockCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2488,8 +2501,8 @@ class _AbTestPanelState extends State<_AbTestPanel> {
     return Row(
       children: [
         // Left: Config
-        SizedBox(
-          width: 260,
+        Flexible(
+          flex: 3,
           child: _DockCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2753,7 +2766,7 @@ class _AudioPanelState extends State<_AudioPanel> {
       children: [
         // Master meters + fader (A6) — driven by NeuroAudio × master fader
         SizedBox(
-          width: 130,
+          width: 160,
           child: _DockCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2922,10 +2935,10 @@ class _MathPanelState extends State<_MathPanel> {
         Expanded(
           flex: 3,
           child: GridView.count(
-            crossAxisCount: 6,
+            crossAxisCount: 3,
             mainAxisSpacing: 8,
             crossAxisSpacing: 8,
-            childAspectRatio: 0.9,
+            childAspectRatio: 2.0,
             children: cards.map((c) => _MathCard(
               label: c.$1, value: c.$2, sub: c.$3,
               fill: c.$4, color: c.$5,
@@ -3454,8 +3467,8 @@ class _IntelPanel extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         // Right: Engagement score — real NeuroAudio data
-        SizedBox(
-          width: 200,
+        Flexible(
+          flex: 2,
           child: _DockCard(
             child: Column(
               children: [
@@ -3816,7 +3829,7 @@ class _SpineOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    width: 280,
+    width: 340,
     decoration: BoxDecoration(
       color: FluxForgeTheme.bgSurface.withOpacity(0.95),
       border: Border(right: BorderSide(color: FluxForgeTheme.borderSubtle)),
@@ -4841,7 +4854,7 @@ class _ChannelStripState extends State<_ChannelStrip> {
             borderRadius: BorderRadius.circular(2))),
           const SizedBox(width: 8),
           // Name
-          SizedBox(width: 70, child: Text(widget.name,
+          SizedBox(width: 100, child: Text(widget.name,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontFamily: 'monospace', fontSize: 11,
@@ -5528,17 +5541,18 @@ class _AudioContextLensState extends State<_AudioContextLens> {
           ),
           // Lens panel
           Center(
-            child: Container(
-              width: 480,
-              height: 400,
+            child: LayoutBuilder(
+              builder: (ctx, constraints) => Container(
+              width: (MediaQuery.of(ctx).size.width * 0.5).clamp(520.0, 860.0),
+              height: (MediaQuery.of(ctx).size.height * 0.62).clamp(460.0, 720.0),
               decoration: BoxDecoration(
                 color: FluxForgeTheme.bgSurface,
                 border: Border.all(color: e.color.withOpacity(0.4)),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
                 boxShadow: [BoxShadow(
-                  color: e.color.withOpacity(0.2), blurRadius: 30)],
+                  color: e.color.withOpacity(0.2), blurRadius: 40)],
               ),
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -5671,7 +5685,7 @@ class _AudioContextLensState extends State<_AudioContextLens> {
                   ]),
                 ],
               ),
-            ),
+            )),
           ),
         ],
       ),
@@ -5912,9 +5926,9 @@ class _ReelContextLensState extends State<_ReelContextLens> {
       child: Material(
         color: Colors.transparent,
         child: Container(
-          width: 200,
-          height: 180,
-          padding: const EdgeInsets.all(12),
+          width: 250,
+          height: 230,
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: FluxForgeTheme.bgSurface,
             border: Border.all(color: FluxForgeTheme.accentCyan.withOpacity(0.4)),
