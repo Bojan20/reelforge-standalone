@@ -28,6 +28,8 @@ use rf_slot_lab::{
     parser::GddParser,
     scenario::{ScenarioPlayback, ScenarioRegistry},
 };
+// T2.3: Batch simulation
+use rf_ab_sim;
 use rf_stage::StageEvent;
 
 // P12.0.5: Ultimate FFI bounds checking
@@ -2977,6 +2979,49 @@ pub extern "C" fn slot_lab_win_tier_set_big_win_durations(
         end_duration_ms,
         fade_out_duration_ms
     );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// T2.3: BATCH SIMULATION FFI
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Start a batch simulation. Returns task_id (0 = error).
+/// config_json must be a serialized BatchSimConfig.
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_batch_sim_start(config_json: *const c_char) -> u64 {
+    if config_json.is_null() {
+        return 0;
+    }
+    let json = unsafe {
+        match CStr::from_ptr(config_json).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+    rf_ab_sim::ffi::batch_sim_start_impl(json)
+}
+
+/// Poll simulation progress. Returns 0.0–1.0 (negative = invalid task).
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_batch_sim_progress(task_id: u64) -> f64 {
+    rf_ab_sim::ffi::batch_sim_progress_impl(task_id)
+}
+
+/// Get simulation result JSON. Returns null if not ready yet.
+/// Caller must free the result with slot_lab_free_string.
+/// Task is removed from registry after this call.
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_batch_sim_result(task_id: u64) -> *mut c_char {
+    match rf_ab_sim::ffi::batch_sim_result_impl(task_id) {
+        Some(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        None => ptr::null_mut(),
+    }
+}
+
+/// Cancel a running simulation.
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_batch_sim_cancel(task_id: u64) {
+    rf_ab_sim::ffi::batch_sim_cancel_impl(task_id);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

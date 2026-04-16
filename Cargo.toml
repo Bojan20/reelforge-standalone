@@ -54,6 +54,8 @@ members = [
     "crates/cortex-daemon",
     # Slot Construction Kit — modular blueprint engine
     "crates/rf-slot-builder",
+    # Audio-aware batch spin simulator (T2.3)
+    "crates/rf-ab-sim",
 ]
 
 [workspace.package]
@@ -87,6 +89,7 @@ rf-stage = { path = "crates/rf-stage" }
 rf-ingest = { path = "crates/rf-ingest" }
 rf-connector = { path = "crates/rf-connector" }
 rf-slot-lab = { path = "crates/rf-slot-lab" }
+rf-ab-sim = { path = "crates/rf-ab-sim" }
 rf-ale = { path = "crates/rf-ale" }
 rf-aurexis = { path = "crates/rf-aurexis" }
 rf-offline = { path = "crates/rf-offline" }

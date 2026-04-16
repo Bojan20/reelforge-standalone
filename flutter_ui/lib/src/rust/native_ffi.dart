@@ -28434,6 +28434,75 @@ extension HookGraphAPI on NativeFFI {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // T2.3: BATCH SIMULATION FFI WRAPPERS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Start a batch simulation. Returns task_id (0 = error).
+  int slotLabBatchSimStart(String configJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Uint64 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)
+      >('slot_lab_batch_sim_start');
+
+      final ptr = configJson.toNativeUtf8();
+      try {
+        return fn(ptr);
+      } finally {
+        malloc.free(ptr);
+      }
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// Poll simulation progress (0.0–1.0, negative = invalid).
+  double slotLabBatchSimProgress(int taskId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Double Function(Uint64),
+          double Function(int)
+      >('slot_lab_batch_sim_progress');
+      return fn(taskId);
+    } catch (_) {
+      return -1.0;
+    }
+  }
+
+  /// Get simulation result JSON. Returns null if not ready.
+  String? slotLabBatchSimResult(int taskId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Uint64),
+          Pointer<Utf8> Function(int)
+      >('slot_lab_batch_sim_result');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr = fn(taskId);
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Cancel a running simulation.
+  void slotLabBatchSimCancel(int taskId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Void Function(Uint64),
+          void Function(int)
+      >('slot_lab_batch_sim_cancel');
+      fn(taskId);
+    } catch (_) {}
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // T2.1: PAR FILE PARSER FFI WRAPPERS
   // ═══════════════════════════════════════════════════════════════════════════
 
