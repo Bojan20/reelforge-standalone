@@ -166,6 +166,7 @@ import 'par_import_service.dart'; // T2.1
 import 'batch_sim_service.dart'; // T2.3
 import 'math_audio_bridge_service.dart'; // T2.5+T2.8
 import 'voice_budget_analyzer_service.dart'; // T2.6
+import 'slot_lab_export_service.dart'; // T3.1–T3.6
 
 /// Global service locator instance
 final GetIt sl = GetIt.instance;
@@ -514,6 +515,14 @@ class ServiceLocator {
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<VoiceBudgetAnalyzerService>(
       () => VoiceBudgetAnalyzerService(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.10i-EXPORT: SlotLab Export Service (T3.1–T3.6)
+    // UCP Export Engine — Howler.js / Wwise / FMOD / Generic JSON
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<SlotLabExportService>(
+      () => SlotLabExportService(),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════

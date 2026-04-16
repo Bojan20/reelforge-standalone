@@ -28711,5 +28711,92 @@ extension HookGraphAPI on NativeFFI {
       return null;
     }
   }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // T3: UCP Export Engine — Howler.js, Wwise, FMOD, Generic JSON
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// Export FluxForgeExportProject JSON to a specific format.
+  /// [projectJson] — serialized FluxForgeExportProject
+  /// [format] — "howler" | "wwise" | "fmod" | "json"
+  /// Returns serialized ExportBundle JSON, or null on error.
+  String? slotLabExport(String projectJson, String format) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>)
+      >('slot_lab_export');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final projectPtr = projectJson.toNativeUtf8();
+      final formatPtr = format.toNativeUtf8();
+      try {
+        final ptr = fn(projectPtr, formatPtr);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(projectPtr);
+        malloc.free(formatPtr);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Export FluxForgeExportProject to all formats at once.
+  /// Returns JSON array of FormatExportEntry objects, or null on error.
+  String? slotLabExportAll(String projectJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('slot_lab_export_all');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr2 = projectJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr2);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr2);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Get list of available export formats.
+  /// Returns JSON array of {name, version} objects, or null on error.
+  String? slotLabExportFormats() {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()
+      >('slot_lab_export_formats');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
 }
 

@@ -3329,6 +3329,132 @@ pub extern "C" fn slot_lab_par_plus_template(
     CString::new(template).map(|c| c.into_raw()).unwrap_or(ptr::null_mut())
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// T3.1–T3.5: Export FFI
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Export a FluxForge project JSON to a specific format.
+/// Returns JSON ExportBundle, or null on error.
+///
+/// # Safety
+/// All pointers must be valid null-terminated UTF-8 C strings.
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_export(
+    project_json_ptr: *const c_char,
+    format_ptr: *const c_char,
+) -> *mut c_char {
+    use rf_slot_export::{
+        FluxForgeExportProject, ExportTarget,
+        HowlerAudioSpriteExporter, WwiseBankExporter, FModBankExporter, GenericJsonExporter,
+    };
+
+    let project_json = unsafe {
+        match CStr::from_ptr(project_json_ptr).to_str() {
+            Ok(s) => s,
+            Err(_) => return ptr::null_mut(),
+        }
+    };
+    let format = unsafe {
+        match CStr::from_ptr(format_ptr).to_str() {
+            Ok(s) => s,
+            Err(_) => return ptr::null_mut(),
+        }
+    };
+
+    let project: FluxForgeExportProject = match serde_json::from_str(project_json) {
+        Ok(p) => p,
+        Err(e) => {
+            log::warn!("slot_lab_export: cannot deserialize project: {}", e);
+            return ptr::null_mut();
+        }
+    };
+
+    let result = match format.to_lowercase().as_str() {
+        "howler" | "howler.js" | "audiosprite" => HowlerAudioSpriteExporter.export(&project),
+        "wwise" => WwiseBankExporter.export(&project),
+        "fmod" => FModBankExporter.export(&project),
+        "json" | "generic" | "generic_json" => GenericJsonExporter.export(&project),
+        _ => {
+            log::warn!("slot_lab_export: unknown format '{}'", format);
+            return ptr::null_mut();
+        }
+    };
+
+    match result {
+        Ok(bundle) => match serde_json::to_string(&bundle) {
+            Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+            Err(_) => ptr::null_mut(),
+        },
+        Err(e) => {
+            log::warn!("slot_lab_export: export error: {}", e);
+            ptr::null_mut()
+        }
+    }
+}
+
+/// Export to all available formats at once.
+/// Returns JSON array of ExportBundle objects (one per format), or null on error.
+///
+/// # Safety
+/// `project_json_ptr` must be a valid null-terminated UTF-8 C string.
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_export_all(project_json_ptr: *const c_char) -> *mut c_char {
+    use rf_slot_export::{FluxForgeExportProject, export_all};
+
+    let project_json = unsafe {
+        match CStr::from_ptr(project_json_ptr).to_str() {
+            Ok(s) => s,
+            Err(_) => return ptr::null_mut(),
+        }
+    };
+
+    let project: FluxForgeExportProject = match serde_json::from_str(project_json) {
+        Ok(p) => p,
+        Err(e) => {
+            log::warn!("slot_lab_export_all: cannot deserialize: {}", e);
+            return ptr::null_mut();
+        }
+    };
+
+    let results = export_all(&project);
+    let output: Vec<serde_json::Value> = results.into_iter().map(|(format, result)| {
+        match result {
+            Ok(bundle) => serde_json::json!({
+                "format": format,
+                "success": true,
+                "bundle": bundle,
+            }),
+            Err(e) => serde_json::json!({
+                "format": format,
+                "success": false,
+                "error": e.to_string(),
+            }),
+        }
+    }).collect();
+
+    match serde_json::to_string(&output) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// List all available export formats.
+/// Returns JSON array of {name, version} objects.
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_export_formats() -> *mut c_char {
+    use rf_slot_export::available_formats;
+
+    let formats: Vec<serde_json::Value> = available_formats()
+        .into_iter()
+        .map(|(name, version)| serde_json::json!({ "name": name, "version": version }))
+        .collect();
+
+    match serde_json::to_string(&formats) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
