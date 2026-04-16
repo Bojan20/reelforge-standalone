@@ -164,6 +164,7 @@ import 'hook_graph/hook_graph_service.dart';
 import '../models/slot_audio_events.dart' show SlotCompositeEvent;
 import 'par_import_service.dart'; // T2.1
 import 'batch_sim_service.dart'; // T2.3
+import 'math_audio_bridge_service.dart'; // T2.5+T2.8
 
 /// Global service locator instance
 final GetIt sl = GetIt.instance;
@@ -497,6 +498,14 @@ class ServiceLocator {
     // LAYER 5.9.10f: Batch Simulation Service (T2.3 + T2.4)
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<BatchSimService>(() => BatchSimService());
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.10g-BRIDGE: MathAudio Bridge Service (T2.5 + T2.8)
+    // PAR → AudioEventMap + change notification system
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<MathAudioBridgeService>(
+      () => MathAudioBridgeService(),
+    );
 
     // ═══════════════════════════════════════════════════════════════════════════
     // LAYER 5.9.10e: A/B Test™ Provider (STUB7 — A/B Testing Analytics Engine)
