@@ -1,0 +1,17 @@
+[package]
+name = "rf-copilot"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "AI Co-Pilot™ — Context-aware audio suggestion engine for slot games"
+
+[lib]
+name = "rf_copilot"
+crate-type = ["rlib"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

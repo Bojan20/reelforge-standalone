@@ -28951,5 +28951,59 @@ extension HookGraphAPI on NativeFFI {
       return null;
     }
   }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // T5.1–T5.4: AI Co-Pilot™ — Context-aware suggestion engine
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// Analyze an AudioProjectSpec JSON and return a CopilotReport JSON.
+  /// Returns CopilotReport JSON, or null on error.
+  String? copilotAnalyze(String projectJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('copilot_analyze');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr2 = projectJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr2);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr2);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Get list of available industry benchmarks as JSON array of {name, description}.
+  String? copilotAvailableBenchmarks() {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()
+      >('copilot_available_benchmarks');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
 }
 

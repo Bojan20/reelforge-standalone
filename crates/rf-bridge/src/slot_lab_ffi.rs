@@ -3588,6 +3588,50 @@ pub extern "C" fn neuro_available_archetypes() -> *mut c_char {
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// T5.1–T5.4: AI Co-Pilot™ — Context-aware suggestion engine FFI
+// ─────────────────────────────────────────────────────────────────────────────
+
+use rf_copilot::{SuggestionEngine, AudioProjectSpec};
+
+/// Analyze an AudioProjectSpec JSON and return a CopilotReport JSON.
+/// [project_json] — JSON-encoded AudioProjectSpec
+/// Returns CopilotReport JSON, or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn copilot_analyze(project_json_ptr: *const c_char) -> *mut c_char {
+    let json_str = match unsafe { CStr::from_ptr(project_json_ptr) }.to_str() {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let project: AudioProjectSpec = match serde_json::from_str(json_str) {
+        Ok(p) => p,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let report = SuggestionEngine::analyze(&project);
+    match serde_json::to_string(&report) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Get the list of available industry benchmarks.
+/// Returns JSON array of {name, description} objects.
+#[unsafe(no_mangle)]
+pub extern "C" fn copilot_available_benchmarks() -> *mut c_char {
+    use rf_copilot::benchmarks::available_benchmarks;
+    let list: Vec<serde_json::Value> = available_benchmarks()
+        .into_iter()
+        .map(|(name, desc)| serde_json::json!({ "name": name, "description": desc }))
+        .collect();
+
+    match serde_json::to_string(&list) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

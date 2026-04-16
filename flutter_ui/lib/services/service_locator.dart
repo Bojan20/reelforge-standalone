@@ -168,6 +168,7 @@ import 'math_audio_bridge_service.dart'; // T2.5+T2.8
 import 'voice_budget_analyzer_service.dart'; // T2.6
 import 'slot_lab_export_service.dart'; // T3.1–T3.6
 import 'neuro_audio_service.dart'; // T4.1–T4.2
+import 'ai_copilot_service.dart'; // T5.1–T5.4
 
 /// Global service locator instance
 final GetIt sl = GetIt.instance;
@@ -532,6 +533,14 @@ class ServiceLocator {
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<NeuroAudioService>(
       () => NeuroAudioService(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.10k-COPILOT: AI Co-Pilot Service (T5.1–T5.4)
+    // Rule-based suggestion engine with industry benchmark database
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<AiCopilotService>(
+      () => AiCopilotService(),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
