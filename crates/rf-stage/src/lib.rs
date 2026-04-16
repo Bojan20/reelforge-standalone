@@ -12,12 +12,14 @@
 
 pub mod event;
 pub mod stage;
+pub mod stage_library;
 pub mod taxonomy;
 pub mod timing;
 pub mod trace;
 
 pub use event::*;
 pub use stage::*;
+pub use stage_library::*;
 pub use taxonomy::*;
 pub use timing::*;
 pub use trace::*;
