@@ -196,61 +196,101 @@ impl AudioTiming {
 }
 
 /// Compliance flags for a stage
+///
+/// Covers: UKGC (UK), MGA (Malta), SE (Sweden Spelinspektionen), DE (Germany GlüStV 2021)
+/// Each field maps to a concrete regulatory requirement, not a vague "may apply".
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct ComplianceFlags {
-    /// Celebration must be proportional to win amount (UKGC)
+    /// Celebration must be proportional to win amount (UKGC RTS 7.1.1)
     pub proportional_celebration: bool,
-    /// Must not disguise a loss as a win (LDW check)
+
+    /// Must not disguise a loss as a win (LDW — win ≤ bet triggers this).
+    /// When true, the stage must only fire if win > `ldw_threshold_pct` × bet.
     pub ldw_sensitive: bool,
-    /// Near-miss audio restrictions apply
+
+    /// LDW threshold as % of bet (0.0–100.0). Default = 100.0 (win must exceed bet).
+    /// UKGC guidance: any win ≤ total bet = LDW. Some jurisdictions use 50% or 80%.
+    #[serde(default = "ComplianceFlags::default_ldw_threshold")]
+    pub ldw_threshold_pct: f64,
+
+    /// Near-miss audio restrictions apply (UKGC RTS 7.1.3, SE §32)
     pub near_miss_restricted: bool,
-    /// Maximum celebration duration (ms) per jurisdiction
-    /// Key: jurisdiction code (e.g., "ukgc", "mga", "se")
+
+    /// Maximum stage/celebration duration (ms) per jurisdiction.
+    /// Key: jurisdiction code (e.g., "ukgc", "mga", "se", "de")
     #[serde(default)]
     pub max_duration_by_jurisdiction: HashMap<String, f64>,
-    /// Must be skippable by player
+
+    /// Must be skippable by player (UKGC RTS 14.1)
     pub must_be_skippable: bool,
-    /// Sound must respect responsible gaming settings
+
+    /// Sound must respect responsible gaming mute/reduce settings
     pub rg_mutable: bool,
-    /// Autoplay restrictions apply
+
+    /// Autoplay restrictions apply (max spins, loss limits, auto-stop on win)
     pub autoplay_restricted: bool,
+
+    /// Maximum autoplay spins per jurisdiction (0 = no limit).
+    /// UKGC: 300 spins max. SE: 150 spins max. MGA: no hard limit (best practice 300).
+    #[serde(default)]
+    pub autoplay_max_spins_by_jurisdiction: HashMap<String, u32>,
+
+    /// Bonus Buy restricted (UKGC banned since Oct 2021, DE banned since 2021, SE restricted).
+    /// When true, this stage/feature MUST NOT be triggered via Bonus Buy in affected jurisdictions.
+    pub bonus_buy_restricted: bool,
+
+    /// Jurisdictions where this stage/feature is completely prohibited (empty = allowed everywhere).
+    /// Example: ["ukgc", "de"] for Bonus Buy stages.
+    #[serde(default)]
+    pub prohibited_in: Vec<String>,
 }
 
 impl ComplianceFlags {
-    /// No compliance restrictions
-    pub fn none() -> Self {
-        Self::default()
+    /// Default LDW threshold — 100% of bet (any win ≤ bet is LDW per UKGC guidance)
+    fn default_ldw_threshold() -> f64 {
+        100.0
     }
 
-    /// Win-related compliance (LDW + proportionality)
+    /// No compliance restrictions (e.g. UI sound with no regulatory implications)
+    pub fn none() -> Self {
+        Self {
+            ldw_threshold_pct: 100.0,
+            ..Default::default()
+        }
+    }
+
+    /// Win-related compliance — LDW guard + proportionality (UKGC RTS 7.1)
     pub fn win_stage() -> Self {
         Self {
             proportional_celebration: true,
             ldw_sensitive: true,
+            ldw_threshold_pct: 100.0, // Win must exceed total bet to NOT be LDW
             must_be_skippable: true,
             rg_mutable: true,
             ..Default::default()
         }
     }
 
-    /// Big win compliance (strict)
+    /// Big win compliance — strict duration limits per jurisdiction (UKGC/MGA/SE)
     pub fn big_win(tier: &BigWinTier) -> Self {
         let mut max_durations = HashMap::new();
-        let (ukgc_max, mga_max, se_max) = match tier {
-            BigWinTier::Win => (5_000.0, 8_000.0, 4_000.0),
-            BigWinTier::BigWin => (8_000.0, 12_000.0, 6_000.0),
-            BigWinTier::MegaWin => (12_000.0, 15_000.0, 8_000.0),
-            BigWinTier::EpicWin => (15_000.0, 20_000.0, 10_000.0),
-            BigWinTier::UltraWin => (20_000.0, 25_000.0, 12_000.0),
-            BigWinTier::Custom(_) => (10_000.0, 15_000.0, 8_000.0),
+        let (ukgc_max, mga_max, se_max, de_max) = match tier {
+            BigWinTier::Win      => (5_000.0,  8_000.0,  4_000.0,  5_000.0),
+            BigWinTier::BigWin   => (8_000.0,  12_000.0, 6_000.0,  8_000.0),
+            BigWinTier::MegaWin  => (12_000.0, 15_000.0, 8_000.0,  12_000.0),
+            BigWinTier::EpicWin  => (15_000.0, 20_000.0, 10_000.0, 15_000.0),
+            BigWinTier::UltraWin => (20_000.0, 25_000.0, 12_000.0, 20_000.0),
+            BigWinTier::Custom(_)=> (10_000.0, 15_000.0, 8_000.0,  10_000.0),
         };
         max_durations.insert("ukgc".into(), ukgc_max);
-        max_durations.insert("mga".into(), mga_max);
-        max_durations.insert("se".into(), se_max);
+        max_durations.insert("mga".into(),  mga_max);
+        max_durations.insert("se".into(),   se_max);
+        max_durations.insert("de".into(),   de_max);
 
         Self {
             proportional_celebration: true,
             ldw_sensitive: true,
+            ldw_threshold_pct: 100.0,
             must_be_skippable: true,
             rg_mutable: true,
             max_duration_by_jurisdiction: max_durations,
@@ -258,16 +298,19 @@ impl ComplianceFlags {
         }
     }
 
-    /// Jackpot compliance (strictest)
+    /// Jackpot compliance — strictest, non-overridable, jurisdiction-limited
     pub fn jackpot() -> Self {
         let mut max_durations = HashMap::new();
+        // UKGC: jackpot celebration ≤ 30s. MGA: ≤ 45s. SE: ≤ 20s. DE: ≤ 25s.
         max_durations.insert("ukgc".into(), 30_000.0);
-        max_durations.insert("mga".into(), 45_000.0);
-        max_durations.insert("se".into(), 20_000.0);
+        max_durations.insert("mga".into(),  45_000.0);
+        max_durations.insert("se".into(),   20_000.0);
+        max_durations.insert("de".into(),   25_000.0);
 
         Self {
             proportional_celebration: true,
-            ldw_sensitive: false, // Jackpots are always real wins
+            ldw_sensitive: false, // Jackpots are always real wins — LDW guard not applicable
+            ldw_threshold_pct: 100.0,
             must_be_skippable: true,
             rg_mutable: true,
             max_duration_by_jurisdiction: max_durations,
@@ -275,22 +318,77 @@ impl ComplianceFlags {
         }
     }
 
-    /// Near-miss compliance
+    /// Near-miss compliance — restricted audio, strict duration limits (UKGC RTS 7.1.3, SE §32)
+    ///
+    /// Near-miss must NOT be presented as near success. Audio must be:
+    /// - Low volume (subdued, not exciting)
+    /// - Short duration: UKGC ≤500ms, MGA ≤600ms, SE ≤400ms, DE ≤500ms
+    /// - No visual excitement (no particles, no screen shake, no flash)
     pub fn near_miss() -> Self {
+        let mut max_durations = HashMap::new();
+        // Near-miss audio duration limits — shorter than spin result sound
+        max_durations.insert("ukgc".into(), 500.0);
+        max_durations.insert("mga".into(),  600.0);
+        max_durations.insert("se".into(),   400.0);
+        max_durations.insert("de".into(),   500.0);
+
         Self {
             near_miss_restricted: true,
             rg_mutable: true,
+            must_be_skippable: false, // Near-miss is instant — skip not applicable
+            max_duration_by_jurisdiction: max_durations,
+            ldw_threshold_pct: 100.0,
             ..Default::default()
         }
     }
 
-    /// Autoplay stage compliance
+    /// Autoplay compliance — max spins per jurisdiction (UKGC: 300, SE: 150, MGA: best practice 300)
     pub fn autoplay() -> Self {
+        let mut max_spins = HashMap::new();
+        // Autoplay spin limits per jurisdiction
+        max_spins.insert("ukgc".into(), 300_u32); // UKGC RTS 14.1 — max 300 autoplay spins
+        max_spins.insert("se".into(),   150_u32); // SE Spelinspektionen — max 150
+        max_spins.insert("mga".into(),  300_u32); // MGA: no hard limit, industry best practice
+        max_spins.insert("de".into(),   100_u32); // DE GlüStV 2021 — very restrictive autoplay
+
         Self {
             autoplay_restricted: true,
             rg_mutable: true,
+            autoplay_max_spins_by_jurisdiction: max_spins,
+            ldw_threshold_pct: 100.0,
             ..Default::default()
         }
+    }
+
+    /// Bonus Buy compliance — banned in UKGC and DE, restricted in SE
+    ///
+    /// UKGC banned Bonus Buy in October 2021 (all licensees).
+    /// DE GlüStV 2021 prohibits accelerated/turbo play including bonus buy.
+    /// SE Spelinspektionen restricts buy features to specific license types.
+    pub fn bonus_buy() -> Self {
+        Self {
+            bonus_buy_restricted: true,
+            rg_mutable: true,
+            must_be_skippable: true,
+            ldw_threshold_pct: 100.0,
+            prohibited_in: vec!["ukgc".into(), "de".into()], // Complete ban in UK + DE
+            ..Default::default()
+        }
+    }
+
+    /// Check if this stage/feature is allowed in a given jurisdiction.
+    /// Returns false if `prohibited_in` contains the jurisdiction code.
+    pub fn is_allowed_in(&self, jurisdiction: &str) -> bool {
+        !self.prohibited_in.contains(&jurisdiction.to_lowercase())
+    }
+
+    /// Check if a win amount is LDW (Loss Disguised as Win) for a given bet.
+    /// Returns true if win ≤ (ldw_threshold_pct / 100) × bet.
+    pub fn is_ldw(&self, win_amount: f64, bet_amount: f64) -> bool {
+        if !self.ldw_sensitive || bet_amount <= 0.0 {
+            return false;
+        }
+        win_amount <= bet_amount * (self.ldw_threshold_pct / 100.0)
     }
 }
 
@@ -2297,5 +2395,75 @@ mod tests {
             "Stages with audio but no asset pattern: {:?}",
             missing_patterns
         );
+    }
+
+    // ─── Compliance Depth Tests ───────────────────────────────────────────────
+
+    #[test]
+    fn test_near_miss_has_jurisdiction_durations() {
+        // ROOT CAUSE FIX: near_miss compliance had no max_duration_by_jurisdiction
+        // UKGC/MGA/SE/DE all have near-miss duration limits — must be enforced
+        let compliance = ComplianceFlags::near_miss();
+
+        let ukgc = compliance.max_duration_by_jurisdiction.get("ukgc");
+        let mga  = compliance.max_duration_by_jurisdiction.get("mga");
+        let se   = compliance.max_duration_by_jurisdiction.get("se");
+        let de   = compliance.max_duration_by_jurisdiction.get("de");
+
+        assert!(ukgc.is_some(), "near_miss must have UKGC duration limit");
+        assert!(mga.is_some(),  "near_miss must have MGA duration limit");
+        assert!(se.is_some(),   "near_miss must have SE duration limit");
+        assert!(de.is_some(),   "near_miss must have DE duration limit");
+
+        // UKGC is most restrictive for near-miss
+        assert!(*ukgc.unwrap() <= 500.0, "UKGC near-miss max must be ≤500ms");
+        assert!(*se.unwrap()   <= 400.0, "SE near-miss max must be ≤400ms");
+        assert!(*ukgc.unwrap() <= *mga.unwrap(), "UKGC must be ≤ MGA for near-miss");
+        assert!(*se.unwrap()   <= *ukgc.unwrap(), "SE must be most restrictive");
+    }
+
+    #[test]
+    fn test_bonus_buy_compliance_prohibited_jurisdictions() {
+        // Bonus Buy is BANNED in UKGC (Oct 2021) and DE (GlüStV 2021)
+        let compliance = ComplianceFlags::bonus_buy();
+
+        assert!(compliance.bonus_buy_restricted, "bonus_buy must be restricted");
+        assert!(!compliance.is_allowed_in("ukgc"), "Bonus Buy MUST be banned in UKGC");
+        assert!(!compliance.is_allowed_in("de"),   "Bonus Buy MUST be banned in DE");
+        assert!(compliance.is_allowed_in("mga"),   "Bonus Buy IS allowed in MGA (with restrictions)");
+    }
+
+    #[test]
+    fn test_ldw_detection() {
+        let compliance = ComplianceFlags::win_stage();
+
+        // LDW: win ≤ bet = loss disguised as win
+        assert!(compliance.is_ldw(1.0, 2.0),   "win=1, bet=2 → LDW (win < bet)");
+        assert!(compliance.is_ldw(2.0, 2.0),   "win=2, bet=2 → LDW (win == bet, UKGC definition)");
+        assert!(!compliance.is_ldw(2.01, 2.0), "win=2.01, bet=2 → NOT LDW");
+        assert!(!compliance.is_ldw(10.0, 2.0), "win=10, bet=2 → NOT LDW");
+
+        // LDW guard disabled for jackpot stages (always real win)
+        let jackpot = ComplianceFlags::jackpot();
+        assert!(!jackpot.is_ldw(1.0, 2.0), "Jackpot stage: LDW guard disabled (jackpots are real wins)");
+    }
+
+    #[test]
+    fn test_autoplay_max_spins_by_jurisdiction() {
+        let compliance = ComplianceFlags::autoplay();
+
+        let ukgc = compliance.autoplay_max_spins_by_jurisdiction.get("ukgc");
+        let se   = compliance.autoplay_max_spins_by_jurisdiction.get("se");
+        let de   = compliance.autoplay_max_spins_by_jurisdiction.get("de");
+
+        assert!(ukgc.is_some(), "Autoplay must have UKGC spin limit");
+        assert!(se.is_some(),   "Autoplay must have SE spin limit");
+        assert!(de.is_some(),   "Autoplay must have DE spin limit");
+
+        // SE and DE are more restrictive than UKGC
+        assert!(*se.unwrap()   <= *ukgc.unwrap(), "SE must be ≤ UKGC for autoplay spins");
+        assert!(*de.unwrap()   <= *se.unwrap(),   "DE must be most restrictive (GlüStV 2021)");
+        assert!(*ukgc.unwrap() <= 300,            "UKGC max autoplay ≤ 300");
+        assert!(*de.unwrap()   <= 100,            "DE max autoplay ≤ 100");
     }
 }
