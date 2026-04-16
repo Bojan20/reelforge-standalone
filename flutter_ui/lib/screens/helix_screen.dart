@@ -803,15 +803,69 @@ class _HelixScreenState extends State<HelixScreen>
 
 // ── FLOW Panel ───────────────────────────────────────────────────────────────
 
-class _FlowPanel extends StatelessWidget {
+class _FlowPanel extends StatefulWidget {
   const _FlowPanel();
+
+  @override
+  State<_FlowPanel> createState() => _FlowPanelState();
+}
+
+class _FlowPanelState extends State<_FlowPanel> {
+  // F3: Custom stage nodes
+  final List<({String label, IconData icon, Color color})> _customStages = [];
+
+  void _addCustomStage() {
+    final controller = TextEditingController(text: 'CUSTOM_${_customStages.length + 1}');
+    showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: FluxForgeTheme.bgSurface,
+        title: const Text('Add Custom Stage', style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 14)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: const TextStyle(color: FluxForgeTheme.textPrimary, fontFamily: 'monospace', fontSize: 13),
+          decoration: const InputDecoration(
+            hintText: 'Stage name',
+            hintStyle: TextStyle(color: FluxForgeTheme.textTertiary),
+            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: FluxForgeTheme.textTertiary)),
+            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: FluxForgeTheme.accentCyan)),
+          ),
+          onSubmitted: (val) => Navigator.of(ctx).pop(val),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(controller.text),
+            child: const Text('Add', style: TextStyle(color: FluxForgeTheme.accentCyan)),
+          ),
+        ],
+      ),
+    ).then((name) {
+      if (name != null && name.trim().isNotEmpty) {
+        final colors = [FluxForgeTheme.accentPink, FluxForgeTheme.accentOrange, FluxForgeTheme.accentCyan, FluxForgeTheme.accentGreen];
+        setState(() {
+          _customStages.add((
+            label: name.trim().toUpperCase(),
+            icon: Icons.extension_rounded,
+            color: colors[_customStages.length % colors.length],
+          ));
+        });
+      }
+      controller.dispose();
+    });
+  }
+
+  void _removeCustomStage(int index) {
+    setState(() { _customStages.removeAt(index); });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Consumer<GameFlowProvider>(
       builder: (_, flow, child) {
         final current = flow.currentState;
-        final nodes = [
+        final builtinNodes = [
           (GameFlowState.idle,              'IDLE',    Icons.pause_circle_outline, FluxForgeTheme.textTertiary),
           (GameFlowState.baseGame,          'BASE',    Icons.play_arrow_rounded,   FluxForgeTheme.accentBlue),
           (GameFlowState.cascading,         'CASCADE', Icons.waterfall_chart,      FluxForgeTheme.accentCyan),
@@ -857,29 +911,64 @@ class _FlowPanel extends StatelessWidget {
                     Row(children: [
                       _DockLabel('STAGE FLOW'),
                       const Spacer(),
-                      const Text('tap node to force stage', style: TextStyle(
+                      // F3: Add custom stage button
+                      GestureDetector(
+                        onTap: _addCustomStage,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: FluxForgeTheme.accentCyan.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: FluxForgeTheme.accentCyan.withOpacity(0.3)),
+                          ),
+                          child: const Text('+ STAGE', style: TextStyle(
+                            fontFamily: 'monospace', fontSize: 8,
+                            color: FluxForgeTheme.accentCyan, fontWeight: FontWeight.w600)),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Text('tap=force  right-click=config', style: TextStyle(
                         fontFamily: 'monospace', fontSize: 8,
                         color: FluxForgeTheme.textTertiary)),
                     ]),
                     const SizedBox(height: 8),
                     Expanded(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: nodes.asMap().entries.expand((e) {
-                          final (state, label, icon, color) = e.value;
-                          final active = current == state;
-                          final widgets = <Widget>[
-                            _FlowNode(label: label, icon: icon,
-                              color: color, active: active,
-                              onTap: () => forceState(state)),
-                          ];
-                          if (e.key < nodes.length - 1) {
-                            widgets.add(Icon(Icons.arrow_forward_rounded,
-                              size: 12, color: FluxForgeTheme.textTertiary.withOpacity(0.4)));
-                          }
-                          return widgets;
-                        }).toList(),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            // Built-in nodes
+                            ...builtinNodes.asMap().entries.expand((e) {
+                              final (state, label, icon, color) = e.value;
+                              final active = current == state;
+                              final widgets = <Widget>[
+                                _FlowNode(label: label, icon: icon,
+                                  color: color, active: active,
+                                  onTap: () => forceState(state)),
+                              ];
+                              widgets.add(Icon(Icons.arrow_forward_rounded,
+                                size: 12, color: FluxForgeTheme.textTertiary.withOpacity(0.4)));
+                              return widgets;
+                            }),
+                            // F3: Custom stage nodes
+                            ..._customStages.asMap().entries.expand((e) {
+                              final stage = e.value;
+                              final widgets = <Widget>[
+                                _FlowNode(label: stage.label, icon: stage.icon,
+                                  color: stage.color, active: false,
+                                  onTap: () {}, isCustom: true,
+                                  onRemove: () => _removeCustomStage(e.key)),
+                              ];
+                              if (e.key < _customStages.length - 1) {
+                                widgets.add(Icon(Icons.arrow_forward_rounded,
+                                  size: 12, color: FluxForgeTheme.textTertiary.withOpacity(0.4)));
+                              }
+                              return widgets;
+                            }),
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -2787,8 +2876,11 @@ class _FlowNode extends StatefulWidget {
   final Color color;
   final bool active;
   final VoidCallback? onTap;
+  final bool isCustom;
+  final VoidCallback? onRemove;
   const _FlowNode({required this.label, required this.icon,
-    required this.color, required this.active, this.onTap});
+    required this.color, required this.active, this.onTap,
+    this.isCustom = false, this.onRemove});
 
   @override
   State<_FlowNode> createState() => _FlowNodeState();
@@ -2797,11 +2889,15 @@ class _FlowNode extends StatefulWidget {
 class _FlowNodeState extends State<_FlowNode> {
   bool _hovered = false;
 
+  // F2: Full transition config menu on right-click
   void _showNodeMenu(BuildContext context) {
     final flow = GetIt.instance<GameFlowProvider>();
     final renderBox = context.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
     final offset = renderBox.localToGlobal(Offset.zero);
+    final configs = flow.transitionConfigs;
+    final transitionsEnabled = flow.transitionsEnabled;
+
     showMenu<String>(
       context: context,
       color: FluxForgeTheme.bgSurface,
@@ -2812,23 +2908,93 @@ class _FlowNodeState extends State<_FlowNode> {
         PopupMenuItem<String>(
           enabled: false,
           child: Text('STAGE: ${widget.label}',
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 9,
-              color: FluxForgeTheme.textTertiary)),
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 10,
+              color: FluxForgeTheme.accentCyan, fontWeight: FontWeight.w600)),
         ),
+        const PopupMenuDivider(),
+        // F2: Toggle transitions globally
+        PopupMenuItem<String>(
+          value: 'toggle_transitions',
+          child: Row(children: [
+            Icon(transitionsEnabled ? Icons.check_box : Icons.check_box_outline_blank,
+              size: 14, color: transitionsEnabled ? FluxForgeTheme.accentGreen : FluxForgeTheme.textTertiary),
+            const SizedBox(width: 6),
+            Text('Transitions ${transitionsEnabled ? "ON" : "OFF"}',
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 9,
+                color: FluxForgeTheme.textSecondary)),
+          ]),
+        ),
+        // F2: Show configured transition rules
         PopupMenuItem<String>(
           enabled: false,
-          child: Text('Transitions enabled: ${flow.transitionsEnabled}',
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 9,
-              color: FluxForgeTheme.textSecondary)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('TRANSITION RULES:', style: TextStyle(
+                fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textTertiary)),
+              const SizedBox(height: 4),
+              if (configs.isEmpty)
+                const Text('  (default config)', style: TextStyle(
+                  fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textTertiary))
+              else
+                ...configs.entries.take(5).map((e) => Text(
+                  '  ${e.key}: ${e.value.durationMs}ms',
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 8,
+                    color: FluxForgeTheme.textSecondary),
+                )),
+            ],
+          ),
         ),
+        const PopupMenuDivider(),
+        // F2: Force stage action
         PopupMenuItem<String>(
-          enabled: false,
-          child: Text('Active: ${widget.active}',
-            style: TextStyle(fontFamily: 'monospace', fontSize: 9,
-              color: widget.active ? FluxForgeTheme.accentGreen : FluxForgeTheme.textTertiary)),
+          value: 'force',
+          child: Row(children: [
+            Icon(Icons.play_arrow_rounded, size: 14, color: widget.color),
+            const SizedBox(width: 6),
+            Text('Force → ${widget.label}',
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 9,
+                color: FluxForgeTheme.textSecondary)),
+          ]),
         ),
+        // F2: Reset to base
+        PopupMenuItem<String>(
+          value: 'reset',
+          child: const Row(children: [
+            Icon(Icons.restart_alt_rounded, size: 14, color: FluxForgeTheme.textTertiary),
+            SizedBox(width: 6),
+            Text('Reset to BASE', style: TextStyle(
+              fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textSecondary)),
+          ]),
+        ),
+        // F3: Remove custom stage
+        if (widget.isCustom) ...[
+          const PopupMenuDivider(),
+          PopupMenuItem<String>(
+            value: 'remove',
+            child: Row(children: [
+              const Icon(Icons.delete_outline_rounded, size: 14, color: FluxForgeTheme.accentPink),
+              const SizedBox(width: 6),
+              Text('Remove ${widget.label}',
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 9,
+                  color: FluxForgeTheme.accentPink)),
+            ]),
+          ),
+        ],
       ],
-    );
+    ).then((value) {
+      if (value == null) return;
+      switch (value) {
+        case 'toggle_transitions':
+          flow.configureTransitions(enabled: !transitionsEnabled);
+        case 'force':
+          widget.onTap?.call();
+        case 'reset':
+          flow.resetToBaseGame();
+        case 'remove':
+          widget.onRemove?.call();
+      }
+    });
   }
 
   @override

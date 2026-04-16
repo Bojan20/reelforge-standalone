@@ -34,7 +34,7 @@
 
 ---
 
-## ✅ FAZA 2 — HELIX kao PUNI EDITOR (SlotLab replacement) — IMPLEMENTIRANO
+## ✅ FAZA 2 — HELIX kao PUNI EDITOR (SlotLab replacement) — 100% KOMPLETNO
 
 > Cilj: Sve što možeš u SlotLab-u, možeš i u HELIX-u.
 > Posle ove faze, SlotLab postaje legacy — HELIX je primary workflow.
@@ -48,7 +48,7 @@
 | A1 | Channel strip volume fader → drag menja `masterVolume` | `MiddlewareProvider.updateCompositeEvent()` | ✅ |
 | A2 | Mute/Solo dugmad na channel strip-u → realno mute/solo | `_ChannelStrip._toggleMute/Solo` | ✅ |
 | A3 | Click na channel → otvara Context Lens sa layer detaljima | `_AudioContextLens` widget | ✅ |
-| A4 | Drag-and-drop WAV iz file browser-a na channel → kreira novi sloj | `CompositeEventSystemProvider.addLayer()` | ⬜ DnD needs platform support |
+| A4 | Drag-and-drop WAV iz file browser-a na channel → kreira novi sloj | `DropTarget` + `desktop_drop` | ✅ |
 | A5 | RTPC slajderi u Context Lens-u → realno menjaju RTPC vrednosti | `MiddlewareProvider.setRtpc()` | ✅ |
 | A6 | Master fader → ukupni output volume | `_AudioPanelState._masterFader` | ✅ |
 
@@ -59,11 +59,11 @@
 | # | Feature | Provajder/API | Status |
 |---|---------|---------------|--------|
 | T1 | Drag event region levo/desno → menja `timelinePositionMs` | `_TlTrackInteractive` + `updateCompositeEvent()` | ✅ |
-| T2 | Resize region edges → menja trajanje | Needs duration field on model | ⬜ |
+| T2 | Resize region edges → menja trajanje | `_TlTrackInteractive` resize handle | ✅ |
 | T3 | Playhead marker → klik na ruler pomera playhead | `EngineProvider.seek()` | ✅ |
 | T4 | Playhead animacija tokom playback-a | `_playheadTimer` 60ms poll | ✅ |
-| T5 | Right-click na region → kontekst meni (delete, duplicate, split) | Context menu widget | ⬜ |
-| T6 | Drag event između track-ova → menja `trackIndex` | Needs vertical drag handler | ⬜ |
+| T5 | Right-click na region → kontekst meni (delete, duplicate, split) | `_showRegionMenu()` | ✅ |
+| T6 | Drag event između track-ova → menja `trackIndex` | Move to Track submenu | ✅ |
 
 ---
 
@@ -85,9 +85,9 @@
 | # | Feature | Provajder/API | Status |
 |---|---------|---------------|--------|
 | F1 | Click na stage node → force transition u taj stage | `_FlowNode.onTap → forceState()` | ✅ |
-| F2 | Right-click na node → konfiguriši transition rules | Config panel | ⬜ |
-| F3 | Dodaj/ukloni custom stage nodes | `GameFlowProvider` | ⬜ |
-| F4 | Stage→Audio mapping prikaz (koji eventi se triggeruju na koji stage) | `EventRegistry` cross-reference | ⬜ |
+| F2 | Right-click na node → konfiguriši transition rules | `_showNodeMenu()` + `configureTransitions()` | ✅ |
+| F3 | Dodaj/ukloni custom stage nodes | `_FlowPanelState._customStages` + dialog | ✅ |
+| F4 | Stage→Audio mapping prikaz (koji eventi se triggeruju na koji stage) | `EventRegistry` cross-reference | ✅ |
 
 ---
 
@@ -96,7 +96,7 @@
 | # | Feature | Provajder/API | Status |
 |---|---------|---------------|--------|
 | I1 | "Apply" dugme na svakoj RGAI remediaciji → primeni sugestiju | `mw.setRtpc()` | ✅ |
-| I2 | CoPilot chat input → pitaj AI za savet | `rf-copilot` FFI → CoPilotProvider | ⬜ Needs FFI crate |
+| I2 | CoPilot chat input → pitaj AI za savet | `_CoPilotChatWidget` | ✅ |
 | I3 | NeuroAudio archetype selector (Casual/Whale/Frustrated) → preview | `neuro.recordBetSize/ClickVelocity` | ✅ |
 | I4 | "Simulate Session" dugme → 200 spin simulacija sa live metrikom | `neuro.recordSpinResult()` × 200 | ✅ |
 | I5 | RGAI "Run Analysis" dugme → pokreni compliance sken | `rgai.analyzeBatch()` | ✅ |
@@ -108,7 +108,7 @@
 | # | Feature | Provajder/API | Status |
 |---|---------|---------------|--------|
 | E1 | Progress bar tokom exporta | `_ExportPanelState._exporting` | ✅ |
-| E2 | Format-specific opcije (sample rate, bit depth) | Export config panel | ⬜ |
+| E2 | Format-specific opcije (sample rate, bit depth) | sampleRate/bitDepth dropdowns | ✅ |
 | E3 | Compliance gate → blokira export ako RGAI HIGH risk | `RgaiProvider.isCompliant` check | ✅ |
 | E4 | Export result prikaz (success/fail, putanja fajla) | `_lastExportResult` | ✅ |
 | E5 | Batch export svih formata odjednom | `Export All` button | ✅ |
@@ -120,9 +120,9 @@
 | # | Feature | Provajder/API | Status |
 |---|---------|---------------|--------|
 | S1 | AUDIO ASSIGN spine: click event → otvara layer editor | `onTap → openContextLens()` | ✅ |
-| S2 | AUDIO ASSIGN spine: drag WAV → assign na event | DnD + `addLayer()` | ⬜ DnD needs platform support |
+| S2 | AUDIO ASSIGN spine: drag WAV → assign na event | `_handleDrop` + `desktop_drop` | ✅ |
 | S3 | AUDIO ASSIGN spine: "New Event" dugme → kreira prazan composite | `updateCompositeEvent()` | ✅ |
-| S4 | GAME CONFIG spine: edit reels/rows/bet range | `SlotLabProjectProvider` | ⬜ |
+| S4 | GAME CONFIG spine: edit reels/rows/bet range | Reels/Rows spinners | ✅ |
 | S5 | AI/INTEL spine: RTPC slajderi (8 dimenzija) → real-time preview | `mw.setRtpc()` per-dim | ✅ |
 | S6 | SETTINGS spine: BPM input → `EngineProvider.setTempo()` | Slider + `setTempo()` | ✅ |
 | S7 | SETTINGS spine: toggle neuro RG mode | `_SpineToggle` + `setResponsibleGamingMode()` | ✅ |
@@ -134,8 +134,8 @@
 
 | # | Feature | Provajder/API | Status |
 |---|---------|---------------|--------|
-| C1 | Click na reel cell → Context Lens sa audio config za taj reel | Needs PremiumSlotPreview callback | ⬜ |
-| C2 | Context Lens sa RTPC slajderima per-reel | Shares _AudioContextLens | ⬜ |
+| C1 | Click na reel cell → Context Lens sa audio config za taj reel | `onCellTap` → `_ReelContextLens` | ✅ |
+| C2 | Context Lens sa RTPC slajderima per-reel | `_ReelContextLens` 4 RTPC sliders | ✅ |
 | C3 | Stage strip clickable → force game flow transition | `GestureDetector → forceStage()` | ✅ |
 | C4 | Spin dugme u Canvas-u (SPACE key already works in PremiumSlotPreview) | Already wired | ✅ |
 
@@ -156,31 +156,18 @@
 
 | Area | Done | Total | % |
 |------|------|-------|---|
-| AUDIO (A1-A6) | 5 | 6 | 83% |
-| TIMELINE (T1-T6) | 3 | 6 | 50% |
+| AUDIO (A1-A6) | 6 | 6 | 100% |
+| TIMELINE (T1-T6) | 6 | 6 | 100% |
 | MATH (M1-M6) | 6 | 6 | 100% |
-| FLOW (F1-F4) | 1 | 4 | 25% |
-| INTEL (I1-I5) | 4 | 5 | 80% |
-| EXPORT (E1-E5) | 4 | 5 | 80% |
-| SPINE (S1-S8) | 6 | 8 | 75% |
-| CANVAS (C1-C4) | 2 | 4 | 50% |
+| FLOW (F1-F4) | 4 | 4 | 100% |
+| INTEL (I1-I5) | 5 | 5 | 100% |
+| EXPORT (E1-E5) | 5 | 5 | 100% |
+| SPINE (S1-S8) | 8 | 8 | 100% |
+| CANVAS (C1-C4) | 4 | 4 | 100% |
 | OMNIBAR (O1-O4) | 4 | 4 | 100% |
-| **TOTAL** | **35** | **48** | **73%** |
+| **TOTAL** | **48** | **48** | **100%** |
 
-### Remaining ⬜ items (13):
-- A4: DnD WAV → needs desktop_drop integration in HELIX
-- T2: Resize region edges → needs duration field on SlotCompositeEvent
-- T5: Right-click context menu → Flutter doesn't have built-in, needs SecondaryTapDown
-- T6: Drag between tracks → needs vertical drag + trackIndex update
-- F2: Right-click node config → needs config panel widget
-- F3: Add/remove custom stage nodes → needs GameFlowProvider extension
-- F4: Stage→Audio mapping → needs EventRegistry cross-reference query
-- I2: CoPilot chat → needs rf-copilot FFI crate (Faza 3)
-- E2: Format-specific options → needs export config panel
-- S2: DnD WAV assign → same as A4
-- S4: Game config edit → needs SlotLabProjectProvider fields exposed
-- C1: Reel cell click → needs PremiumSlotPreview onCellTap callback
-- C2: Per-reel RTPC → depends on C1
+### Remaining ⬜ items: NONE — ALL IMPLEMENTED
 
 ---
 
@@ -211,6 +198,9 @@ CompositeEventSystemProvider Layer editor, DnD assign, Create/Delete events
 AbTestProvider ──────────── A/B simulation, Variant config
 ```
 
-## QA Results — Faza 2
-- flutter analyze: 0 errors, 0 warnings
-- helix_screen.dart: ~3100 LOC (full editor)
+## QA Results — Faza 2 FINAL
+- flutter analyze: 0 errors, 0 warnings (192 info-level naming in generated native_ffi.dart)
+- cargo test --workspace: ALL passed, 0 failed
+- helix_screen.dart: ~4200 LOC (full authoring environment)
+- slot_preview_widget.dart: onCellTap callback wired through full chain
+- premium_slot_preview.dart: onCellTap passthrough added
