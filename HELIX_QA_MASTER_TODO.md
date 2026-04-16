@@ -1,72 +1,203 @@
-# HELIX Screen — Master QA TODO
-> Generated: 2026-04-16 | Branch: feature/slotlab-ultimate-mockup
+# HELIX — Master TODO
+> Updated: 2026-04-16 | Branch: feature/slotlab-ultimate-mockup
+> HELIX = Jedini ekran koji ti treba. Editovanje + Monitoring + Authoring.
 
-## ✅ COMPLETED — QA Pass
+---
 
-### Bug Fixes
-| # | Issue | Fix | Status |
-|---|-------|-----|--------|
-| 1 | FocusNode created inline in build() — memory leak | Moved to `_focusNode` in `initState()` + `dispose()` | ✅ |
-| 2 | Double underscore `__` in 6 Consumer builders — analyzer warnings | Replaced with `child` parameter name | ✅ |
-| 3 | Container used instead of SizedBox for resize handle (deprecated child usage) | Changed to SizedBox wrapper | ✅ |
-| 4 | Unused import `helix_screen.dart` in engine_connected_layout.dart | Removed | ✅ |
-| 5 | Project name hardcoded "Untitled Project" in Omnibar | Wired to `SlotLabProjectProvider.projectName` | ✅ |
-| 6 | RTP info chip hardcoded "96.2%" | Wired to `SlotLabProjectProvider.sessionStats.rtp` | ✅ |
+## ✅ FAZA 1 — Vizuelni shell + Read-only wiring (ZAVRŠENO)
 
-### Panel Wiring — Dock Tabs (ZERO hardcoded data)
-| Tab | Before | After | Source |
-|-----|--------|-------|--------|
-| FLOW | ✅ Already wired to GameFlowProvider | No change needed | GameFlowProvider |
-| AUDIO – Master meters | Hardcoded L:0.72 R:0.68 -4.2dBFS | Real arousal/engagement from NeuroAudio + VOL/CMP indicators | NeuroAudioProvider |
-| AUDIO – Channels | Hardcoded 5 fake channel strips | Real composite events with real colors, names, masterVolume | MiddlewareProvider |
-| MATH – RTP | Already wired | No change | SlotLabProjectProvider |
-| MATH – Volatility | Hardcoded "HIGH" 7.4/10 | Real from NeuroAudio riskTolerance × 10 | NeuroAudioProvider |
-| MATH – Hit Freq | Hardcoded "1:4.2" 24% | Real from recentWins.length / totalSpins | SlotLabProjectProvider |
-| MATH – Max Win | Hardcoded "5000×" | Real from max(recentWins.amount) / avgBet | SlotLabProjectProvider |
-| MATH – Bonus Freq | Hardcoded "1:82" | Real from bonus/free wins count / totalSpins | SlotLabProjectProvider |
-| TIMELINE | 5 hardcoded static tracks | Real tracks from compositeEvents grouped by trackIndex | MiddlewareProvider |
-| INTEL – CoPilot | Hardcoded "High-intensity base loop" text | Real from RGAI remediations + NeuroAudio state | RgaiProvider + NeuroAudioProvider |
-| INTEL – RGAI compliance | Partially wired (Session pacing was hardcoded) | Risk level from real NeuroAudio + near-miss from real RGAI | RgaiProvider + NeuroAudioProvider |
-| INTEL – Engagement | Valence-based score | Engagement-based score (×10, 0–10 scale) | NeuroAudioProvider |
-| INTEL – Mini metrics | Hardcoded 94% retention, 7.2s dwell, 1.8× bet, 0.12 fatigue | Real: retention from churnPrediction, session duration, loss streak, fatigue | NeuroAudioProvider |
-| EXPORT | ✅ Already wired to SlotExportProvider | No change needed | SlotExportProvider |
+### Bug Fixes (6/6)
+- [x] FocusNode leak → initState/dispose
+- [x] Double underscore `__` → `child`
+- [x] Container→SizedBox resize handle
+- [x] Unused import engine_connected_layout.dart
+- [x] Hardcoded project name → `projectName`
+- [x] Hardcoded RTP → `sessionStats.rtp`
 
-### Spine Overlay Panels (were ALL empty placeholders)
-| Panel | Before | After | Source |
-|-------|--------|-------|--------|
-| AUDIO ASSIGN | "Content coming soon" | Real composite events list with colors, layer counts | MiddlewareProvider |
-| GAME CONFIG | "Content coming soon" | Real game state, session stats, recent wins | GameFlowProvider + SlotLabProjectProvider |
-| AI / INTEL | "Content coming soon" | Full 8D emotional state vector bars + risk level | NeuroAudioProvider |
-| SETTINGS | "Content coming soon" | Real engine transport (tempo, time sig, position, loop) + neuro params | EngineProvider + NeuroAudioProvider |
-| ANALYTICS | "Content coming soon" | Real session analytics + audio system metrics (RTPC, switch, action counts) | SlotLabProjectProvider + NeuroAudioProvider + MiddlewareProvider |
+### Panel Wiring — Read-Only (12/12)
+- [x] FLOW tab → GameFlowProvider (stage nodes, current state)
+- [x] AUDIO tab meters → NeuroAudioProvider (arousal/engagement)
+- [x] AUDIO tab channels → MiddlewareProvider (composite events)
+- [x] MATH tab → SlotLabProjectProvider + NeuroAudioProvider
+- [x] TIMELINE tab → MiddlewareProvider (real trackIndex grouping)
+- [x] INTEL CoPilot → RgaiProvider remediations + NeuroAudio state
+- [x] INTEL RGAI → RgaiProvider compliance + NeuroAudio risk level
+- [x] INTEL Engagement → NeuroAudioProvider (engagement × 10)
+- [x] INTEL Mini metrics → NeuroAudioProvider (real retention, session, fatigue)
+- [x] EXPORT tab → SlotExportProvider
+- [x] 5 Spine overlay paneli → real provider data
+- [x] Canvas PremiumSlotPreview → 5×3 fullscreen + projectProvider
 
-### Canvas Improvements
-| Item | Before | After |
-|------|--------|-------|
-| PremiumSlotPreview | No params (default 3×3, not fullscreen) | 5 reels × 3 rows, isFullscreen=true, projectProvider wired |
+### QA Results
+- flutter analyze: 0 errors, 0 warnings
+- cargo test: ALL passed, 0 failed
 
-## QA Results
-- `flutter analyze`: **0 errors, 0 warnings**, 192 info (all in generated code)
-- `cargo test --workspace`: **ALL passed, 0 failed**
-- Zero hardcoded values in any dock panel
-- All 5 spine overlay panels have real content
-- All 6 dock tabs wired to real providers
+---
 
-## Provider Dependency Map (helix_screen.dart)
+## 🔴 FAZA 2 — HELIX kao PUNI EDITOR (SlotLab replacement)
+
+> Cilj: Sve što možeš u SlotLab-u, možeš i u HELIX-u.
+> Posle ove faze, SlotLab postaje legacy — HELIX je primary workflow.
+
+---
+
+### 2.1 AUDIO tab → Editovanje (ne samo prikaz)
+
+| # | Feature | Provajder/API | Status |
+|---|---------|---------------|--------|
+| A1 | Channel strip volume fader → drag menja `masterVolume` | `MiddlewareProvider.updateCompositeEventVolume()` | ⬜ |
+| A2 | Mute/Solo dugmad na channel strip-u → realno mute/solo | `MiddlewareProvider` mute/solo API | ⬜ |
+| A3 | Click na channel → otvara Context Lens sa layer detaljima | Novi widget: `_AudioContextLens` | ⬜ |
+| A4 | Drag-and-drop WAV iz file browser-a na channel → kreira novi sloj | `CompositeEventSystemProvider.addLayer()` | ⬜ |
+| A5 | RTPC slajderi u Context Lens-u → realno menjaju RTPC vrednosti | `MiddlewareProvider.setRtpcValue()` | ⬜ |
+| A6 | Master fader → ukupni output volume | `EngineProvider` master volume | ⬜ |
+
+---
+
+### 2.2 TIMELINE tab → Interaktivni editor
+
+| # | Feature | Provajder/API | Status |
+|---|---------|---------------|--------|
+| T1 | Drag event region levo/desno → menja `timelinePositionMs` | `CompositeEventSystemProvider.updateEvent()` | ⬜ |
+| T2 | Resize region edges → menja trajanje | `CompositeEventSystemProvider` | ⬜ |
+| T3 | Playhead marker → klik na ruler pomera playhead | `EngineProvider.seek()` | ⬜ |
+| T4 | Playhead animacija tokom playback-a | `EngineProvider.transport.positionSeconds` | ⬜ |
+| T5 | Right-click na region → kontekst meni (delete, duplicate, split) | Context menu widget | ⬜ |
+| T6 | Drag event između track-ova → menja `trackIndex` | `CompositeEventSystemProvider` | ⬜ |
+
+---
+
+### 2.3 MATH tab → Konfiguracija (ne samo statistika)
+
+| # | Feature | Provajder/API | Status |
+|---|---------|---------------|--------|
+| M1 | Target RTP input field → set target, vizuelni diff sa current | `SlotLabProjectProvider` | ⬜ |
+| M2 | Volatility slider → podešava profil (Low/Med/High/Ultra) | `SlotEngineProvider.setVolatilityProfile()` FFI | ⬜ |
+| M3 | "Run Simulation" dugme → pokreće batch A/B sim sa rezultatom | `rf-ab-sim` FFI → `AbTestProvider` | ⬜ |
+| M4 | Max Win cap input → konfiguracija | `SlotLabProjectProvider` | ⬜ |
+| M5 | Hit frequency target slider | `SlotEngineProvider` config | ⬜ |
+| M6 | Bonus frequency target slider | `SlotEngineProvider` config | ⬜ |
+
+---
+
+### 2.4 FLOW tab → Stage editovanje
+
+| # | Feature | Provajder/API | Status |
+|---|---------|---------------|--------|
+| F1 | Click na stage node → force transition u taj stage | `GameFlowProvider.forceTransition()` | ⬜ |
+| F2 | Right-click na node → konfiguriši transition rules | Config panel | ⬜ |
+| F3 | Dodaj/ukloni custom stage nodes | `GameFlowProvider` | ⬜ |
+| F4 | Stage→Audio mapping prikaz (koji eventi se triggeruju na koji stage) | `EventRegistry` cross-reference | ⬜ |
+
+---
+
+### 2.5 INTEL tab → AI CoPilot interakcija
+
+| # | Feature | Provajder/API | Status |
+|---|---------|---------------|--------|
+| I1 | "Apply" dugme na svakoj RGAI remediaciji → primeni sugestiju | `MiddlewareProvider` / `NeuroAudioProvider` | ⬜ |
+| I2 | CoPilot chat input → pitaj AI za savet | `rf-copilot` FFI → CoPilotProvider | ⬜ |
+| I3 | NeuroAudio archetype selector (Casual/Whale/Frustrated) → preview | `NeuroAudioProvider.setArchetype()` | ⬜ |
+| I4 | "Simulate Session" dugme → 200 spin simulacija sa live metrikom | `NeuroAudioProvider` simulation mode | ⬜ |
+| I5 | RGAI "Run Analysis" dugme → pokreni compliance sken | `RgaiProvider.runAnalysis()` | ⬜ |
+
+---
+
+### 2.6 EXPORT tab → Puni workflow
+
+| # | Feature | Provajder/API | Status |
+|---|---------|---------------|--------|
+| E1 | Progress bar tokom exporta | `SlotExportProvider.isExporting` + progress | ⬜ |
+| E2 | Format-specific opcije (sample rate, bit depth) | Export config panel | ⬜ |
+| E3 | Compliance gate → blokira export ako RGAI HIGH risk | `RgaiProvider.isCompliant` check | ⬜ |
+| E4 | Export result prikaz (success/fail, putanja fajla) | `SlotExportProvider.lastExportResults` | ⬜ |
+| E5 | Batch export svih formata odjednom | `SlotExportProvider.exportAll()` | ⬜ |
+
+---
+
+### 2.7 Spine Panels → Puni editori
+
+| # | Feature | Provajder/API | Status |
+|---|---------|---------------|--------|
+| S1 | AUDIO ASSIGN spine: click event → otvara layer editor | `CompositeEventSystemProvider` | ⬜ |
+| S2 | AUDIO ASSIGN spine: drag WAV → assign na event | DnD + `addLayer()` | ⬜ |
+| S3 | AUDIO ASSIGN spine: "New Event" dugme → kreira prazan composite | `CompositeEventSystemProvider.createEvent()` | ⬜ |
+| S4 | GAME CONFIG spine: edit reels/rows/bet range | `SlotLabProjectProvider` | ⬜ |
+| S5 | AI/INTEL spine: RTPC slajderi (8 dimenzija) → real-time preview | `NeuroAudioProvider` RTPC write | ⬜ |
+| S6 | SETTINGS spine: BPM input → `EngineProvider.setTempo()` | EngineProvider FFI | ⬜ |
+| S7 | SETTINGS spine: toggle neuro RG mode | `NeuroAudioProvider.setResponsibleGamingMode()` | ⬜ |
+| S8 | ANALYTICS spine: export session report button | SlotLabProjectProvider | ⬜ |
+
+---
+
+### 2.8 Canvas → Interaktivni slot machine
+
+| # | Feature | Provajder/API | Status |
+|---|---------|---------------|--------|
+| C1 | Click na reel cell → Context Lens sa audio config za taj reel | Mockup: `openLens()` behavior | ⬜ |
+| C2 | Context Lens sa RTPC slajderima per-reel | `MiddlewareProvider.setRtpcValue()` | ⬜ |
+| C3 | Stage strip clickable → force game flow transition | `GameFlowProvider.forceTransition()` | ⬜ |
+| C4 | Spin dugme u Canvas-u (SPACE key already works in PremiumSlotPreview) | Already wired | ✅ |
+
+---
+
+### 2.9 Omnibar → Workflow controls
+
+| # | Feature | Provajder/API | Status |
+|---|---------|---------------|--------|
+| O1 | Undo/Redo dugmad → realni undo/redo | `SlotLabProjectProvider.undo()/redo()` | ⬜ |
+| O2 | Project name editable (click → inline edit) | `SlotLabProjectProvider.setProjectName()` | ⬜ |
+| O3 | BPM pill clickable → tap to edit tempo | `EngineProvider.setTempo()` | ⬜ |
+| O4 | Record dugme → start recording session | `EngineProvider.record()` | ⬜ |
+
+---
+
+## FAZA 3 — Napredni authoring (posle Faze 2)
+
+| # | Feature | Notes |
+|---|---------|-------|
+| 3.1 | SFX Pipeline Wizard u HELIX-u | 6-step import→export workflow |
+| 3.2 | Behavior Tree visual editor u dock-u | Node-based editor, 22 node types |
+| 3.3 | PAR file import → auto audio mapping | MathAudio Bridge from architecture |
+| 3.4 | Audio DNA / Fingerprint generator | Brand identity generation |
+| 3.5 | AI Generation panel | rf-ai-gen crate → generate audio from text |
+| 3.6 | Cloud Sync status/controls | rf-cloud-sync crate |
+| 3.7 | A/B Split test editor | Full test configuration UI |
+
+---
+
+## Prioritizacija
+
+**Odmah (Faza 2 core):**
+1. A1-A3 (Audio faders + mute/solo + context lens) — ovo je najvidljivije
+2. T1, T3-T4 (Timeline drag + playhead) — osnovna interakcija
+3. I1, I5 (Apply suggestions + Run Analysis) — AI value
+4. O1-O3 (Undo/Redo + edit project name + BPM) — basic workflow
+5. S6-S7 (BPM edit + RG toggle u Settings spine)
+
+**Sledeći sprint:**
+6. F1, F4 (Force stage + stage→audio mapping)
+7. M1-M3 (RTP target + volatility + simulation)
+8. C1-C3 (Context Lens na reel click)
+9. E1-E4 (Export progress + compliance gate)
+
+**Poslednji sprint:**
+10. A4-A5 (DnD audio + RTPC slajderi)
+11. T2, T5-T6 (Resize + context menu + track reorder)
+12. S1-S5 (Spine full editors)
+13. I2-I4 (CoPilot chat + archetype + simulation)
+
+---
+
+## Provider Dependency Map (HELIX full editor)
 ```
-EngineProvider ─────── Omnibar transport, BPM, Settings spine
-GameFlowProvider ───── Canvas glow, Stage strip, FLOW tab, Game Config spine
-MiddlewareProvider ─── AUDIO tab channels, TIMELINE tab tracks, Audio Assign spine, Analytics spine
-SlotLabProjectProvider─ Omnibar project name, RTP chip, MATH tab, Game Config spine, Analytics spine
-NeuroAudioProvider ─── AUDIO tab meters, MATH volatility, INTEL tab (copilot + metrics), AI/Intel spine, Settings spine
-RgaiProvider ───────── INTEL tab compliance, INTEL copilot suggestions
-SlotExportProvider ─── EXPORT tab
+EngineProvider ──────────── Transport, BPM edit, Seek, Record, Master volume
+GameFlowProvider ────────── Stage nodes, Force transition, Stage rules
+MiddlewareProvider ──────── Channels, RTPC read/write, Mute/Solo, Composite CRUD
+SlotLabProjectProvider ──── Project name, Stats, Reels/Rows, Undo/Redo, Win config
+NeuroAudioProvider ──────── 8D state, Archetype select, RG toggle, Session sim
+RgaiProvider ────────────── Compliance, Apply remediation, Run analysis
+SlotExportProvider ──────── Export formats, Progress, Results, Batch
+CompositeEventSystemProvider Layer editor, DnD assign, Create/Delete events
+AbTestProvider ──────────── A/B simulation, Variant config
 ```
-
-## Remaining Items (NOT bugs — feature enhancements)
-| Priority | Item | Notes |
-|----------|------|-------|
-| LOW | GRID info chip hardcoded "5×3" | Need reel/row config from project provider (currently 5×3 default) |
-| LOW | Timeline maxMs heuristic | Assumes ~1s per event for visual width — works fine for now |
-| LOW | Export tab could show progress/results | Currently fires-and-forgets via SlotExportProvider |
-| NONE | 192 analyzer info items | All in generated code (native_ffi.dart, bridge_generated.dart) — not actionable |
