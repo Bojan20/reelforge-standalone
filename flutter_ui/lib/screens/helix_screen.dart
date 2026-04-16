@@ -1146,14 +1146,16 @@ class _AudioPanelState extends State<_AudioPanel> {
                 const SizedBox(height: 6),
                 Row(children: [
                   _DockLabel('VOL'),
-                  const SizedBox(width: 4),
-                  Text('${(out.volumeEnvelopeScale * 100).toStringAsFixed(0)}%',
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.accentCyan)),
+                  const SizedBox(width: 2),
+                  Flexible(child: Text('${(out.volumeEnvelopeScale * 100).toStringAsFixed(0)}%',
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.accentCyan))),
                   const Spacer(),
                   _DockLabel('CMP'),
-                  const SizedBox(width: 4),
-                  Text('${(out.compressionModifier * 100).toStringAsFixed(0)}%',
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.accentPurple)),
+                  const SizedBox(width: 2),
+                  Flexible(child: Text('${(out.compressionModifier * 100).toStringAsFixed(0)}%',
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.accentPurple))),
                 ]),
               ],
             ),
@@ -3181,9 +3183,11 @@ class _ChannelStripState extends State<_ChannelStrip> {
             borderRadius: BorderRadius.circular(2))),
           const SizedBox(width: 8),
           // Name
-          SizedBox(width: 70, child: Text(widget.name, style: TextStyle(
-            fontFamily: 'monospace', fontSize: 11,
-            color: _muted ? FluxForgeTheme.textTertiary : FluxForgeTheme.textSecondary))),
+          SizedBox(width: 70, child: Text(widget.name,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: 'monospace', fontSize: 11,
+              color: _muted ? FluxForgeTheme.textTertiary : FluxForgeTheme.textSecondary))),
           // Fader — drag to change volume
           Expanded(
             child: LayoutBuilder(builder: (_, constraints) {
@@ -3885,12 +3889,16 @@ class _AudioContextLensState extends State<_AudioContextLens> {
                     Container(width: 8, height: 8, decoration: BoxDecoration(
                       color: e.color, shape: BoxShape.circle)),
                     const SizedBox(width: 10),
-                    Text(e.name, style: TextStyle(
-                      fontFamily: 'monospace', fontSize: 14, fontWeight: FontWeight.w600,
-                      color: e.color)),
+                    Flexible(
+                      child: Text(e.name, style: TextStyle(
+                        fontFamily: 'monospace', fontSize: 14, fontWeight: FontWeight.w600,
+                        color: e.color),
+                        overflow: TextOverflow.ellipsis)),
                     const SizedBox(width: 10),
-                    Text('${e.category}  ·  ${e.layers.length} layers',
-                      style: const TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary)),
+                    Flexible(
+                      child: Text('${e.category}  ·  ${e.layers.length} layers',
+                        style: const TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary),
+                        overflow: TextOverflow.ellipsis)),
                     const Spacer(),
                     GestureDetector(
                       onTap: widget.onClose,
