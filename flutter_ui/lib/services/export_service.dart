@@ -17,7 +17,9 @@ import 'package:path/path.dart' as path;
 
 import '../src/rust/native_ffi.dart';
 import '../providers/subsystems/composite_event_system_provider.dart';
+import '../models/aurexis_jurisdiction.dart';
 import 'service_locator.dart';
+import 'rgar_report_service.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ENUMS & DATA CLASSES
@@ -373,6 +375,27 @@ class ExportService extends ChangeNotifier {
   ///
   /// For each event, processes the primary audio layer through the
   /// rf-offline pipeline (format conversion + normalization).
+  // ─── T1.5: Compliance Gate ─────────────────────────────────────────────────
+  /// Run RGAR compliance gate before any export operation.
+  /// Returns [ComplianceGateResult] — check [allowed] before proceeding.
+  Future<ComplianceGateResult> runComplianceGate({
+    String gameName = 'Untitled Project',
+    AurexisJurisdiction jurisdiction = AurexisJurisdiction.ukgc,
+  }) async {
+    final rgarService = sl<RgarReportService>();
+    return rgarService.runComplianceGate(
+      gameName: gameName,
+      jurisdiction: jurisdiction,
+    );
+  }
+
+  /// Export RGAR report to output directory alongside audio assets.
+  Future<List<String>> exportRgarReport(String outputDirectory) async {
+    final rgarService = sl<RgarReportService>();
+    return rgarService.exportToDisk(outputDirectory);
+  }
+  // ──────────────────────────────────────────────────────────────────────────
+
   Future<Map<String, String>> exportSlotLabEvents(SlotLabBatchExportConfig config) async {
     final results = <String, String>{};
 

@@ -207,6 +207,17 @@ class RgarSummary {
 
   bool get isCompliant => prohibitedAssets == 0 && flaggedAssets == 0;
 
+  /// Aggregate risk rating for the whole project
+  AddictionRiskRating? get overallRiskRating {
+    if (prohibitedAssets > 0) return AddictionRiskRating.prohibited;
+    if (flaggedAssets > 0) return AddictionRiskRating.high;
+    if (totalAssets == 0) return null;
+    // Check distribution for medium
+    final medCount = ratingDistribution[AddictionRiskRating.medium] ?? 0;
+    if (medCount > 0) return AddictionRiskRating.medium;
+    return AddictionRiskRating.low;
+  }
+
   Map<String, dynamic> toJson() => {
         'total_assets': totalAssets,
         'passed': passedAssets,

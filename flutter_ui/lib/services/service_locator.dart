@@ -112,6 +112,7 @@ import '../providers/slot_lab/neural_fingerprint_provider.dart';
 import '../providers/slot_lab/spatial_audio_provider.dart';
 import '../providers/slot_lab/ai_copilot_provider.dart';
 import '../providers/slot_lab/game_flow_provider.dart';
+import 'rgar_report_service.dart';
 import '../providers/fluxmacro_provider.dart';
 import '../providers/slot_lab/stage_flow_provider.dart';
 import '../providers/video_provider.dart';
@@ -160,6 +161,7 @@ import '../providers/stage_ingest_provider.dart';
 import '../providers/soundbank_provider.dart';
 import 'extension_sdk_service.dart';
 import 'hook_graph/hook_graph_service.dart';
+import '../models/slot_audio_events.dart' show SlotCompositeEvent;
 
 /// Global service locator instance
 final GetIt sl = GetIt.instance;
@@ -307,6 +309,11 @@ class ServiceLocator {
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<MiddlewareProvider>(
       () => MiddlewareProvider(NativeFFI.instance),
+    );
+
+    // T1.4+T1.6: CompositeEventAccessor — thin bridge for RgarReportService
+    sl.registerLazySingleton<CompositeEventAccessor>(
+      () => _MiddlewareCompositeEventAccessor(sl<MiddlewareProvider>()),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -463,6 +470,13 @@ class ServiceLocator {
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<RgaiProvider>(
       () => RgaiProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.10c-2: RGAR Report Service (T1.4 + T1.6 — auto-analysis + export)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<RgarReportService>(
+      () => RgarReportService(),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -865,4 +879,19 @@ class ServiceLocator {
 extension ServiceLocatorExtension on Object {
   /// Get a registered service
   T getService<T extends Object>() => sl<T>();
+}
+
+// =============================================================================
+// INTERNAL — CompositeEventAccessor implementation (T1.4 / T1.6)
+// =============================================================================
+
+/// Thin wrapper that lets RgarReportService read live composite events
+/// from MiddlewareProvider without creating a circular dependency.
+class _MiddlewareCompositeEventAccessor implements CompositeEventAccessor {
+  final MiddlewareProvider _middleware;
+
+  const _MiddlewareCompositeEventAccessor(this._middleware);
+
+  @override
+  List<SlotCompositeEvent> get events => _middleware.compositeEvents;
 }
