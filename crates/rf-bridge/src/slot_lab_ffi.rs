@@ -3632,6 +3632,249 @@ pub extern "C" fn copilot_available_benchmarks() -> *mut c_char {
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// T6.1–T6.5: Neural Fingerprint™ + A/B Analytics + Honeypot
+// ─────────────────────────────────────────────────────────────────────────────
+
+use rf_fingerprint::{
+    BundleFingerprint, FingerprintSpec, VerificationResult,
+    AbTestConfig, AbTestReport,
+    HoneypotMarker, HoneypotResult,
+};
+
+/// Compute a SHA-256 fingerprint for an audio bundle.
+///
+/// Input JSON (FingerprintRequest):
+/// ```json
+/// {
+///   "game_id": "golden_phoenix",
+///   "tool_version": "1.0.0",
+///   "generated_at": "2026-04-16T12:00:00Z",
+///   "events": [
+///     { "name": "SPIN_START", "category": "BaseGame", "tier": "subtle",
+///       "duration_ms": 150, "voice_count": 1, "is_required": true, "can_loop": false }
+///   ]
+/// }
+/// ```
+/// Returns JSON `BundleFingerprint` or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn fingerprint_compute(request_json_ptr: *const c_char) -> *mut c_char {
+    if request_json_ptr.is_null() { return ptr::null_mut(); }
+    let input = unsafe { CStr::from_ptr(request_json_ptr) };
+    let input_str = match input.to_str() {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    #[derive(serde::Deserialize)]
+    struct FingerprintRequest {
+        game_id: String,
+        tool_version: String,
+        generated_at: String,
+        events: Vec<FingerprintSpec>,
+    }
+
+    let req: FingerprintRequest = match serde_json::from_str(input_str) {
+        Ok(r) => r,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let mut events = req.events;
+    let fp = BundleFingerprint::compute(
+        &req.game_id,
+        &mut events,
+        &req.tool_version,
+        &req.generated_at,
+    );
+
+    match serde_json::to_string(&fp) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Verify a current bundle against a stored fingerprint.
+///
+/// Input JSON (VerifyRequest):
+/// ```json
+/// {
+///   "stored": { ...BundleFingerprint... },
+///   "current": { ...BundleFingerprint... }
+/// }
+/// ```
+/// Returns JSON `VerificationResult` or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn fingerprint_verify(request_json_ptr: *const c_char) -> *mut c_char {
+    if request_json_ptr.is_null() { return ptr::null_mut(); }
+    let input = unsafe { CStr::from_ptr(request_json_ptr) };
+    let input_str = match input.to_str() {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    #[derive(serde::Deserialize)]
+    struct VerifyRequest {
+        stored: BundleFingerprint,
+        current: BundleFingerprint,
+    }
+
+    let req: VerifyRequest = match serde_json::from_str(input_str) {
+        Ok(r) => r,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let result = VerificationResult::verify(&req.stored, &req.current);
+    match serde_json::to_string(&result) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Run A/B test statistical significance analysis.
+///
+/// Input JSON: `AbTestConfig` struct.
+/// Returns JSON `AbTestReport` or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn ab_test_analyze(config_json_ptr: *const c_char) -> *mut c_char {
+    if config_json_ptr.is_null() { return ptr::null_mut(); }
+    let input = unsafe { CStr::from_ptr(config_json_ptr) };
+    let input_str = match input.to_str() {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let config: AbTestConfig = match serde_json::from_str(input_str) {
+        Ok(c) => c,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let report = AbTestReport::analyze(&config);
+    match serde_json::to_string(&report) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Generate a honeypot marker for a recipient.
+///
+/// Input JSON (HoneypotRequest):
+/// ```json
+/// {
+///   "game_id": "golden_phoenix",
+///   "recipient_id": "casino_malta",
+///   "secret_seed": "server_secret",
+///   "issued_at": "2026-04-16T12:00:00Z"
+/// }
+/// ```
+/// Returns JSON `HoneypotMarker` or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn honeypot_generate(request_json_ptr: *const c_char) -> *mut c_char {
+    if request_json_ptr.is_null() { return ptr::null_mut(); }
+    let input = unsafe { CStr::from_ptr(request_json_ptr) };
+    let input_str = match input.to_str() {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    #[derive(serde::Deserialize)]
+    struct HoneypotRequest {
+        game_id: String,
+        recipient_id: String,
+        secret_seed: String,
+        issued_at: String,
+    }
+
+    let req: HoneypotRequest = match serde_json::from_str(input_str) {
+        Ok(r) => r,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let marker = HoneypotMarker::generate(
+        &req.game_id,
+        &req.recipient_id,
+        &req.secret_seed,
+        &req.issued_at,
+    );
+
+    match serde_json::to_string(&marker) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Inject honeypot marker into an export JSON payload.
+///
+/// Input JSON (InjectRequest):
+/// ```json
+/// {
+///   "marker": { ...HoneypotMarker... },
+///   "export_json": "{...}"
+/// }
+/// ```
+/// Returns modified export JSON string or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn honeypot_inject(request_json_ptr: *const c_char) -> *mut c_char {
+    if request_json_ptr.is_null() { return ptr::null_mut(); }
+    let input = unsafe { CStr::from_ptr(request_json_ptr) };
+    let input_str = match input.to_str() {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    #[derive(serde::Deserialize)]
+    struct InjectRequest {
+        marker: HoneypotMarker,
+        export_json: String,
+    }
+
+    let req: InjectRequest = match serde_json::from_str(input_str) {
+        Ok(r) => r,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    match req.marker.inject_into_json(&req.export_json) {
+        Ok(injected) => CString::new(injected).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Detect and attribute a honeypot marker in a leaked export.
+///
+/// Input JSON (DetectRequest):
+/// ```json
+/// {
+///   "export_json": "{...}",
+///   "marker": { ...HoneypotMarker... }  // optional — null if just detecting presence
+/// }
+/// ```
+/// Returns JSON `HoneypotResult` or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn honeypot_detect(request_json_ptr: *const c_char) -> *mut c_char {
+    if request_json_ptr.is_null() { return ptr::null_mut(); }
+    let input = unsafe { CStr::from_ptr(request_json_ptr) };
+    let input_str = match input.to_str() {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    #[derive(serde::Deserialize)]
+    struct DetectRequest {
+        export_json: String,
+        marker: Option<HoneypotMarker>,
+    }
+
+    let req: DetectRequest = match serde_json::from_str(input_str) {
+        Ok(r) => r,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let result = HoneypotResult::detect(&req.export_json, req.marker.as_ref());
+    match serde_json::to_string(&result) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

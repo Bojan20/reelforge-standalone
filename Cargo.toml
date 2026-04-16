@@ -62,6 +62,8 @@ members = [
     "crates/rf-neuro",
     # AI Co-Pilot™ — Context-aware suggestion engine (T5.1–T5.4)
     "crates/rf-copilot",
+    # Neural Fingerprint™ — Audio watermarking + A/B test analytics (T6.1–T6.5)
+    "crates/rf-fingerprint",
 ]
 
 [workspace.package]
@@ -99,6 +101,7 @@ rf-ab-sim = { path = "crates/rf-ab-sim" }
 rf-slot-export = { path = "crates/rf-slot-export" }
 rf-neuro = { path = "crates/rf-neuro" }
 rf-copilot = { path = "crates/rf-copilot" }
+rf-fingerprint = { path = "crates/rf-fingerprint" }
 rf-ale = { path = "crates/rf-ale" }
 rf-aurexis = { path = "crates/rf-aurexis" }
 rf-offline = { path = "crates/rf-offline" }

@@ -29005,5 +29005,183 @@ extension HookGraphAPI on NativeFFI {
       return null;
     }
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // T6.1–T6.5: Neural Fingerprint™ + A/B Analytics + Honeypot
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Compute SHA-256 fingerprint for an audio bundle.
+  /// [requestJson]: FingerprintRequest JSON {game_id, tool_version, generated_at, events[]}
+  /// Returns BundleFingerprint JSON or null on error.
+  String? fingerprintCompute(String requestJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('fingerprint_compute');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr1 = requestJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Verify a current bundle against a stored fingerprint.
+  /// [requestJson]: {stored: BundleFingerprint, current: BundleFingerprint}
+  /// Returns VerificationResult JSON or null on error.
+  String? fingerprintVerify(String requestJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('fingerprint_verify');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr1 = requestJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Run A/B test statistical significance analysis.
+  /// [configJson]: AbTestConfig JSON
+  /// Returns AbTestReport JSON or null on error.
+  String? abTestAnalyze(String configJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('ab_test_analyze');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr1 = configJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Generate a honeypot marker for a recipient.
+  /// [requestJson]: {game_id, recipient_id, secret_seed, issued_at}
+  /// Returns HoneypotMarker JSON or null on error.
+  String? honeypotGenerate(String requestJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('honeypot_generate');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr1 = requestJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Inject a honeypot marker into an export JSON payload.
+  /// [requestJson]: {marker: HoneypotMarker, export_json: String}
+  /// Returns modified export JSON string or null on error.
+  String? honeypotInject(String requestJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('honeypot_inject');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr1 = requestJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Detect and attribute a honeypot marker in a leaked export.
+  /// [requestJson]: {export_json: String, marker?: HoneypotMarker}
+  /// Returns HoneypotResult JSON or null on error.
+  String? honeypotDetect(String requestJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('honeypot_detect');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr1 = requestJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
 }
 
