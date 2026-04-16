@@ -172,6 +172,7 @@ import 'ai_copilot_service.dart'; // T5.1–T5.4
 import 'fingerprint_service.dart'; // T6.1–T6.5
 import 'project_history_service.dart'; // T7.1
 import 'spatial_audio_service.dart'; // T7.2–T7.4
+import 'ai_generation_service.dart'; // T8.1–T8.4
 
 /// Global service locator instance
 final GetIt sl = GetIt.instance;
@@ -574,6 +575,14 @@ class ServiceLocator {
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<SpatialAudioService>(
       () => SpatialAudioService(sl<NativeFFI>()),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.10o-AI-GEN: AI Generation Service (T8.1–T8.4)
+    // Procedural AI audio: prompt parsing, backend adapters, post-processing, FFNC classify
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<AiGenerationService>(
+      () => AiGenerationService(sl<NativeFFI>()),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════

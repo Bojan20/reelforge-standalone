@@ -30,6 +30,7 @@ rf-copilot = { path = "../rf-copilot" }
 rf-fingerprint = { path = "../rf-fingerprint" }
 rf-cloud-sync = { path = "../rf-cloud-sync" }
 rf-slot-spatial = { path = "../rf-slot-spatial" }
+rf-ai-gen = { path = "../rf-ai-gen" }
 rf-ale = { path = "../rf-ale" }
 rf-aurexis = { path = "../rf-aurexis" }
 rf-connector = { path = "../rf-connector" }

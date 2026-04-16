@@ -29448,5 +29448,223 @@ extension HookGraphAPI on NativeFFI {
       return null;
     }
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // T8.1–T8.4: Procedural AI Generation
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Parse a text prompt into an AudioDescriptor JSON (T8.1).
+  String? aiGenParsePrompt(String prompt) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('ai_gen_parse_prompt');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr1 = prompt.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Build a GenerationSpec for a prompt and backend (T8.2).
+  /// [backend]: "audiocraft", "elevenlabs", "stability_ai", "openai", "stub"
+  String? aiGenBuildSpec(String prompt, String backend) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>)
+      >('ai_gen_build_spec');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr1 = prompt.toNativeUtf8();
+      final ptr2 = backend.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1, ptr2);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+        malloc.free(ptr2);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Format a GenerationSpec into a BackendRequest JSON (T8.2).
+  String? aiGenFormatRequest(String specJson, String? apiKey) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>)
+      >('ai_gen_format_request');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr1 = specJson.toNativeUtf8();
+      final ptr2 = (apiKey ?? '').toNativeUtf8();
+      try {
+        final ptr = fn(ptr1, ptr2);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+        malloc.free(ptr2);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Execute generation with stub backend (T8.2 testing).
+  String? aiGenExecuteStub(String specJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('ai_gen_execute_stub');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr1 = specJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Get post-processing config for an AudioDescriptor (T8.3).
+  String? aiGenPostprocessConfig(String descriptorJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('ai_gen_postprocess_config');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr1 = descriptorJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Auto-classify a generated asset into FFNC categories (T8.4).
+  /// [metadataJson]: optional JSON AudioAnalysisMetadata (null to skip)
+  String? aiGenClassifyAsset(String descriptorJson, String? metadataJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>)
+      >('ai_gen_classify_asset');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr1 = descriptorJson.toNativeUtf8();
+      final ptr2 = (metadataJson ?? 'null').toNativeUtf8();
+      try {
+        final ptr = fn(ptr1, ptr2);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+        malloc.free(ptr2);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Get list of available generation backends.
+  String? aiGenAvailableBackends() {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()
+      >('ai_gen_available_backends');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Get all FFNC categories.
+  String? aiGenFfncCategories() {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()
+      >('ai_gen_ffnc_categories');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
 }
 

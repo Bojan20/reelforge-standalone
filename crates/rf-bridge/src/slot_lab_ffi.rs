@@ -4135,6 +4135,213 @@ pub extern "C" fn spatial_available_presets() -> *mut c_char {
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// T8.1–T8.4: Procedural AI Generation — prompt→spec, generation, FFNC classify
+// ─────────────────────────────────────────────────────────────────────────────
+
+use rf_ai_gen::{
+    PromptParser, GenerationPipeline, GenerationBackend, GenerationSpec,
+    FfncClassifier, AudioAnalysisMetadata,
+    PostProcessingConfig,
+};
+
+/// Parse a text prompt into an AudioDescriptor JSON (T8.1).
+///
+/// Returns JSON AudioDescriptor or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn ai_gen_parse_prompt(prompt_ptr: *const c_char) -> *mut c_char {
+    if prompt_ptr.is_null() { return ptr::null_mut(); }
+    let prompt = unsafe {
+        match CStr::from_ptr(prompt_ptr).to_str() { Ok(s) => s, Err(_) => return ptr::null_mut() }
+    };
+    let descriptor = PromptParser::parse(prompt);
+    match serde_json::to_string(&descriptor) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Build a GenerationSpec for a text prompt and backend (T8.2).
+///
+/// [backend_name]: "audiocraft", "elevenlabs", "stability_ai", "openai", "stub"
+/// Returns JSON GenerationSpec or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn ai_gen_build_spec(
+    prompt_ptr: *const c_char,
+    backend_name_ptr: *const c_char,
+) -> *mut c_char {
+    if prompt_ptr.is_null() { return ptr::null_mut(); }
+    let prompt = unsafe {
+        match CStr::from_ptr(prompt_ptr).to_str() { Ok(s) => s, Err(_) => return ptr::null_mut() }
+    };
+    let backend_name = unsafe {
+        if backend_name_ptr.is_null() { "stub" }
+        else { CStr::from_ptr(backend_name_ptr).to_str().unwrap_or("stub") }
+    };
+
+    let backend = match backend_name {
+        "audiocraft"   => GenerationBackend::AudioCraft,
+        "elevenlabs"   => GenerationBackend::ElevenLabs,
+        "stability_ai" => GenerationBackend::StabilityAi,
+        "openai"       => GenerationBackend::OpenAi,
+        _              => GenerationBackend::Stub,
+    };
+
+    let spec = GenerationPipeline::prepare(prompt, backend);
+    match serde_json::to_string(&spec) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Format a GenerationSpec into a BackendRequest JSON (T8.2).
+///
+/// [spec_json]: JSON GenerationSpec
+/// [api_key]: API key string (null = empty)
+/// Returns JSON BackendRequest or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn ai_gen_format_request(
+    spec_json_ptr: *const c_char,
+    api_key_ptr: *const c_char,
+) -> *mut c_char {
+    let spec_str = unsafe {
+        if spec_json_ptr.is_null() { return ptr::null_mut(); }
+        match CStr::from_ptr(spec_json_ptr).to_str() { Ok(s) => s.to_string(), Err(_) => return ptr::null_mut() }
+    };
+    let api_key = if api_key_ptr.is_null() {
+        None
+    } else {
+        Some(unsafe { CStr::from_ptr(api_key_ptr).to_str().unwrap_or("") })
+    };
+
+    let spec: GenerationSpec = match serde_json::from_str(&spec_str) {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let request = GenerationPipeline::format_request(&spec, api_key);
+    match serde_json::to_string(&request) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Execute generation with stub backend (no network, T8.2 testing).
+/// Returns JSON GenerationResult or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn ai_gen_execute_stub(spec_json_ptr: *const c_char) -> *mut c_char {
+    let spec_str = unsafe {
+        if spec_json_ptr.is_null() { return ptr::null_mut(); }
+        match CStr::from_ptr(spec_json_ptr).to_str() { Ok(s) => s.to_string(), Err(_) => return ptr::null_mut() }
+    };
+    let spec: GenerationSpec = match serde_json::from_str(&spec_str) {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+    let result = GenerationPipeline::execute_stub(spec);
+    match serde_json::to_string(&result) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Get post-processing config for a descriptor (T8.3).
+///
+/// [descriptor_json]: JSON AudioDescriptor
+/// Returns JSON PostProcessingConfig or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn ai_gen_postprocess_config(descriptor_json_ptr: *const c_char) -> *mut c_char {
+    let desc_str = unsafe {
+        if descriptor_json_ptr.is_null() { return ptr::null_mut(); }
+        match CStr::from_ptr(descriptor_json_ptr).to_str() { Ok(s) => s.to_string(), Err(_) => return ptr::null_mut() }
+    };
+
+    let descriptor: rf_ai_gen::AudioDescriptor = match serde_json::from_str(&desc_str) {
+        Ok(d) => d,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let config = PostProcessingConfig::for_descriptor(&descriptor);
+    match serde_json::to_string(&config) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Auto-classify a generated asset into FFNC categories (T8.4).
+///
+/// [descriptor_json]: JSON AudioDescriptor
+/// [metadata_json]: Optional JSON AudioAnalysisMetadata (null = skip)
+/// Returns JSON ClassificationResult or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn ai_gen_classify_asset(
+    descriptor_json_ptr: *const c_char,
+    metadata_json_ptr: *const c_char,
+) -> *mut c_char {
+    let desc_str = unsafe {
+        if descriptor_json_ptr.is_null() { return ptr::null_mut(); }
+        match CStr::from_ptr(descriptor_json_ptr).to_str() { Ok(s) => s.to_string(), Err(_) => return ptr::null_mut() }
+    };
+
+    let descriptor: rf_ai_gen::AudioDescriptor = match serde_json::from_str(&desc_str) {
+        Ok(d) => d,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let metadata: Option<AudioAnalysisMetadata> = if !metadata_json_ptr.is_null() {
+        let s = unsafe { CStr::from_ptr(metadata_json_ptr).to_str().unwrap_or("{}") };
+        serde_json::from_str(s).ok()
+    } else {
+        None
+    };
+
+    let result = FfncClassifier::classify(&descriptor, metadata.as_ref());
+    match serde_json::to_string(&result) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Get list of available generation backends.
+/// Returns JSON array of {name, display_name, requires_internet, available} or null.
+#[unsafe(no_mangle)]
+pub extern "C" fn ai_gen_available_backends() -> *mut c_char {
+    let backends = GenerationPipeline::available_backends();
+    let list: Vec<serde_json::Value> = backends.iter().map(|(b, avail)| serde_json::json!({
+        "name": match b {
+            GenerationBackend::AudioCraft   => "audiocraft",
+            GenerationBackend::ElevenLabs   => "elevenlabs",
+            GenerationBackend::StabilityAi  => "stability_ai",
+            GenerationBackend::OpenAi       => "openai",
+            GenerationBackend::Stub         => "stub",
+        },
+        "display_name": b.display_name(),
+        "requires_internet": b.requires_internet(),
+        "available": avail,
+    })).collect();
+
+    match serde_json::to_string(&list) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Get all FFNC categories.
+/// Returns JSON array of {code, display_name} or null.
+#[unsafe(no_mangle)]
+pub extern "C" fn ai_gen_ffnc_categories() -> *mut c_char {
+    let cats = FfncClassifier::all_categories();
+    let list: Vec<serde_json::Value> = cats.iter().map(|c| serde_json::json!({
+        "code": c.ffnc_code(),
+        "display_name": c.display_name(),
+    })).collect();
+
+    match serde_json::to_string(&list) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
