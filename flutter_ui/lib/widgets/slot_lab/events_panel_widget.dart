@@ -32,6 +32,7 @@ import '../common/fluxforge_search_field.dart';
 import 'create_event_dialog.dart';
 import 'audio_hover_preview.dart';
 import 'stage_editor_dialog.dart';
+import '../../providers/slot_lab/rgai_provider.dart'; // T1.7
 
 // ═══════════════════════════════════════════════════════════════════════════
 // P0 PERFORMANCE: Top-level isolate function for async directory scanning
@@ -1053,6 +1054,30 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                       size: 12,
                       color: Colors.white24,
                     ),
+                  // T1.7: RGAI compliance badge
+                  Builder(builder: (ctx) {
+                    final rgai = GetIt.instance<RgaiProvider>();
+                    final eventAnalyses = rgai.liveAnalyses.where(
+                      (a) => event.layers.any((l) => a.assetId == '${event.id}_${l.id}'),
+                    ).toList();
+                    if (eventAnalyses.isEmpty) return const SizedBox.shrink();
+                    final worst = eventAnalyses.fold<AddictionRiskRating>(
+                      AddictionRiskRating.low,
+                      (prev, a) => a.riskRating.index > prev.index ? a.riskRating : prev,
+                    );
+                    if (worst == AddictionRiskRating.low) return const SizedBox.shrink();
+                    return Tooltip(
+                      message: 'RGAI: ${worst.displayName}',
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 2),
+                        child: Icon(
+                          Icons.shield,
+                          size: 11,
+                          color: Color(worst.colorValue),
+                        ),
+                      ),
+                    );
+                  }),
                 ],
               ),
             ),
