@@ -228,12 +228,16 @@ class _HelixScreenState extends State<HelixScreen>
     } else if (key == LogicalKeyboardKey.keyA) {
       setState(() => _mode = _mode == 2 ? 0 : 2);
     }
-    // 1-9,0 → dock tabs (0 = tab 10)
+    // 1-9,0 → dock tabs (0 = tab 10), -/= → tabs 11/12
     final digit = int.tryParse(e.character ?? '');
     if (digit != null && digit >= 1 && digit <= 9) {
       setState(() => _dockTab = digit - 1);
     } else if (digit == 0) {
       setState(() => _dockTab = 9);
+    } else if (key == LogicalKeyboardKey.minus) {
+      setState(() => _dockTab = 10);
+    } else if (key == LogicalKeyboardKey.equal) {
+      setState(() => _dockTab = 11);
     }
   }
 
@@ -727,13 +731,14 @@ class _HelixScreenState extends State<HelixScreen>
   Widget _buildDock() {
     final dockH = _mode == 2 ? MediaQuery.of(context).size.height * 0.5 : _dockHeight;
 
+    final activeColor = _dockTabDefs[_dockTab].$3;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeInOut,
       height: dockH,
       decoration: BoxDecoration(
         color: FluxForgeTheme.bgDeepest,
-        border: Border(top: BorderSide(color: FluxForgeTheme.borderSubtle)),
+        border: Border(top: BorderSide(color: activeColor.withOpacity(0.25), width: 1.5)),
       ),
       child: Column(
         children: [
@@ -750,11 +755,15 @@ class _HelixScreenState extends State<HelixScreen>
   }
 
   Widget _buildDockTabBar() {
+    final activeColor = _dockTabDefs[_dockTab].$3;
     return Container(
       height: 44,
       decoration: BoxDecoration(
         color: FluxForgeTheme.bgVoid.withOpacity(0.7),
-        border: Border(bottom: BorderSide(color: FluxForgeTheme.borderSubtle)),
+        border: Border(
+          bottom: BorderSide(color: activeColor.withOpacity(0.15)),
+          top: BorderSide(color: activeColor.withOpacity(0.08)),
+        ),
       ),
       child: Row(
         children: [
@@ -939,11 +948,12 @@ class _FlowPanelState extends State<_FlowPanel> {
             Expanded(
               flex: 3,
               child: _DockCard(
+                accent: FluxForgeTheme.accentBlue,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(children: [
-                      _DockLabel('STAGE FLOW'),
+                      _DockLabel('STAGE FLOW', color: FluxForgeTheme.accentBlue),
                       const Spacer(),
                       // F3: Add custom stage button
                       GestureDetector(
@@ -1014,10 +1024,11 @@ class _FlowPanelState extends State<_FlowPanel> {
             Flexible(
               flex: 2,
               child: _DockCard(
+                accent: FluxForgeTheme.accentBlue,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _DockLabel('CURRENT STATE'),
+                    _DockLabel('CURRENT STATE', color: FluxForgeTheme.accentBlue),
                     const SizedBox(height: 8),
                     Text(current.displayName,
                       overflow: TextOverflow.ellipsis,
@@ -1040,6 +1051,7 @@ class _FlowPanelState extends State<_FlowPanel> {
             Flexible(
               flex: 2,
               child: _DockCard(
+                accent: FluxForgeTheme.accentBlue,
                 child: Builder(
                   builder: (_) {
                     final mw = GetIt.instance<MiddlewareProvider>();
@@ -1052,7 +1064,7 @@ class _FlowPanelState extends State<_FlowPanel> {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _DockLabel('STAGE → AUDIO'),
+                        _DockLabel('STAGE → AUDIO', color: FluxForgeTheme.accentBlue),
                         const SizedBox(height: 8),
                         if (stageMap.isEmpty)
                           const Expanded(child: Center(child: Text('No stage mappings',
@@ -1119,10 +1131,11 @@ class _SfxPipelinePanel extends StatelessWidget {
             Flexible(
               flex: 2,
               child: _DockCard(
+                accent: FluxForgeTheme.accentCyan,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _DockLabel('SFX PIPELINE'),
+                    _DockLabel('SFX PIPELINE', color: FluxForgeTheme.accentCyan),
                     const SizedBox(height: 8),
                     Expanded(
                       child: ListView(
@@ -1180,6 +1193,7 @@ class _SfxPipelinePanel extends StatelessWidget {
             Expanded(
               flex: 3,
               child: _DockCard(
+                accent: FluxForgeTheme.accentCyan,
                 child: _buildStepContent(sfx, step),
               ),
             ),
@@ -1188,10 +1202,11 @@ class _SfxPipelinePanel extends StatelessWidget {
             Flexible(
               flex: 2,
               child: _DockCard(
+                accent: FluxForgeTheme.accentCyan,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _DockLabel('STATS'),
+                    _DockLabel('STATS', color: FluxForgeTheme.accentCyan),
                     const SizedBox(height: 8),
                     _StatRow('Scanned', '${sfx.totalScanned}'),
                     _StatRow('Selected', '${sfx.selectedCount}'),
@@ -1200,7 +1215,7 @@ class _SfxPipelinePanel extends StatelessWidget {
                     _StatRow('With Silence', '${sfx.filesWithSilence}'),
                     _StatRow('DC Offset', '${sfx.filesWithDcOffset}'),
                     const SizedBox(height: 12),
-                    _DockLabel('LOUDNESS'),
+                    _DockLabel('LOUDNESS', color: FluxForgeTheme.accentCyan),
                     const SizedBox(height: 6),
                     _StatRow('Loudest', '${sfx.loudestLufs.toStringAsFixed(1)} LUFS'),
                     _StatRow('Quietest', '${sfx.quietestLufs.toStringAsFixed(1)} LUFS'),
@@ -1247,7 +1262,7 @@ class _SfxPipelinePanel extends StatelessWidget {
       SfxWizardStep.importScan => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _DockLabel('IMPORT & SCAN'),
+          _DockLabel('IMPORT & SCAN', color: FluxForgeTheme.accentCyan),
           const SizedBox(height: 8),
           const Text('Drop WAV/FLAC files or select a folder to scan.',
             style: TextStyle(fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textSecondary)),
@@ -1255,9 +1270,12 @@ class _SfxPipelinePanel extends StatelessWidget {
           Expanded(
             child: sfx.scanResults.isEmpty
               ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.folder_open_rounded, size: 48, color: FluxForgeTheme.textTertiary.withOpacity(0.3)),
+                  Icon(Icons.folder_open_rounded, size: 48, color: FluxForgeTheme.accentCyan.withOpacity(0.15)),
                   const SizedBox(height: 12),
                   const Text('No files scanned yet', style: TextStyle(fontFamily: 'monospace', fontSize: 11, color: FluxForgeTheme.textTertiary)),
+                  const SizedBox(height: 4),
+                  Text('Drop WAV/FLAC files here to begin',
+                    style: TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary.withOpacity(0.6))),
                 ]))
               : ListView.builder(
                   itemCount: sfx.scanResults.length,
@@ -1288,7 +1306,7 @@ class _SfxPipelinePanel extends StatelessWidget {
       SfxWizardStep.trimClean => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _DockLabel('TRIM & CLEAN'),
+          _DockLabel('TRIM & CLEAN', color: FluxForgeTheme.accentCyan),
           const SizedBox(height: 8),
           _SfxPresetSlider(label: 'Silence Threshold', value: sfx.preset.thresholdDb,
             min: -80, max: -20, suffix: 'dB',
@@ -1312,7 +1330,7 @@ class _SfxPipelinePanel extends StatelessWidget {
       SfxWizardStep.loudnessLevel => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _DockLabel('LOUDNESS & LEVEL'),
+          _DockLabel('LOUDNESS & LEVEL', color: FluxForgeTheme.accentCyan),
           const SizedBox(height: 8),
           _SfxPresetSlider(label: 'Target LUFS', value: sfx.preset.targetLufs,
             min: -30, max: -6, suffix: 'LUFS',
@@ -1338,7 +1356,7 @@ class _SfxPipelinePanel extends StatelessWidget {
       SfxWizardStep.formatChannel => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _DockLabel('FORMAT & CHANNELS'),
+          _DockLabel('FORMAT & CHANNELS', color: FluxForgeTheme.accentCyan),
           const SizedBox(height: 8),
           _SfxPresetSlider(label: 'Sample Rate', value: sfx.preset.sampleRate.toDouble(),
             min: 22050, max: 96000, suffix: 'Hz',
@@ -1363,7 +1381,7 @@ class _SfxPipelinePanel extends StatelessWidget {
       SfxWizardStep.namingAssign => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _DockLabel('NAMING & ASSIGN'),
+          _DockLabel('NAMING & ASSIGN', color: FluxForgeTheme.accentCyan),
           const SizedBox(height: 8),
           const Text('Map processed files to game stages for auto-assignment.',
             style: TextStyle(fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textSecondary)),
@@ -1403,7 +1421,7 @@ class _SfxPipelinePanel extends StatelessWidget {
       SfxWizardStep.exportFinish => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _DockLabel('EXPORT & FINISH'),
+          _DockLabel('EXPORT & FINISH', color: FluxForgeTheme.accentCyan),
           const SizedBox(height: 8),
           if (sfx.isCompleted && sfx.result != null) ...[
             Container(
@@ -1485,31 +1503,35 @@ class _SfxPresetSlider extends StatelessWidget {
   final double max;
   final String suffix;
   final ValueChanged<double> onChanged;
+  final Color? color;
   const _SfxPresetSlider({required this.label, required this.value,
     required this.min, required this.max, required this.suffix,
-    required this.onChanged});
+    required this.onChanged, this.color});
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 12),
-    child: Row(children: [
-      SizedBox(width: 120, child: Text(label,
-        style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textSecondary))),
-      Expanded(child: SliderTheme(
-        data: SliderThemeData(
-          trackHeight: 3,
-          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-          activeTrackColor: FluxForgeTheme.accentCyan,
-          inactiveTrackColor: FluxForgeTheme.bgSurface,
-          thumbColor: FluxForgeTheme.accentCyan,
-          overlayColor: FluxForgeTheme.accentCyan.withOpacity(0.1),
-        ),
-        child: Slider(value: value.clamp(min, max), min: min, max: max, onChanged: onChanged),
-      )),
-      SizedBox(width: 70, child: Text('${value.toStringAsFixed(1)} $suffix',
-        style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.accentCyan),
-        textAlign: TextAlign.right)),
-    ]),
-  );
+  Widget build(BuildContext context) {
+    final c = color ?? FluxForgeTheme.accentCyan;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(children: [
+        SizedBox(width: 120, child: Text(label,
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textSecondary))),
+        Expanded(child: SliderTheme(
+          data: SliderThemeData(
+            trackHeight: 3,
+            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+            activeTrackColor: c,
+            inactiveTrackColor: FluxForgeTheme.bgSurface,
+            thumbColor: c,
+            overlayColor: c.withOpacity(0.1),
+          ),
+          child: Slider(value: value.clamp(min, max), min: min, max: max, onChanged: onChanged),
+        )),
+        SizedBox(width: 70, child: Text('${value.toStringAsFixed(1)} $suffix',
+          style: TextStyle(fontFamily: 'monospace', fontSize: 9, color: c),
+          textAlign: TextAlign.right)),
+      ]),
+    );
+  }
 }
 
 class _SfxToggle extends StatelessWidget {
@@ -1612,10 +1634,11 @@ class _BehaviorTreePanelState extends State<_BehaviorTreePanel> {
         Flexible(
           flex: 2,
           child: _DockCard(
+            accent: FluxForgeTheme.accentOrange,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _DockLabel('NODE PALETTE'),
+                _DockLabel('NODE PALETTE', color: FluxForgeTheme.accentOrange),
                 const SizedBox(height: 6),
                 // Category tabs
                 SizedBox(
@@ -1683,11 +1706,12 @@ class _BehaviorTreePanelState extends State<_BehaviorTreePanel> {
         Expanded(
           flex: 4,
           child: _DockCard(
+            accent: FluxForgeTheme.accentOrange,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(children: [
-                  _DockLabel('BEHAVIOR TREE CANVAS'),
+                  _DockLabel('BEHAVIOR TREE CANVAS', color: FluxForgeTheme.accentOrange),
                   const Spacer(),
                   Text('${_canvasNodes.length} nodes  ${_connections.length} edges',
                     style: const TextStyle(fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textTertiary)),
@@ -1712,8 +1736,15 @@ class _BehaviorTreePanelState extends State<_BehaviorTreePanel> {
                     child: Container(
                       color: FluxForgeTheme.bgVoid,
                       child: _canvasNodes.isEmpty
-                        ? const Center(child: Text('Click a node in the palette to add it to the canvas',
-                            style: TextStyle(fontFamily: 'monospace', fontSize: 11, color: FluxForgeTheme.textTertiary)))
+                        ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                            Icon(Icons.hub_rounded, size: 48, color: FluxForgeTheme.accentOrange.withOpacity(0.15)),
+                            const SizedBox(height: 12),
+                            const Text('Click a node in the palette to add it',
+                              style: TextStyle(fontFamily: 'monospace', fontSize: 11, color: FluxForgeTheme.textTertiary)),
+                            const SizedBox(height: 4),
+                            Text('Click two nodes to connect them',
+                              style: TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary.withOpacity(0.6))),
+                          ]))
                         : CustomPaint(
                             painter: _BtConnectionPainter(_canvasNodes, _connections),
                             child: Stack(
@@ -1855,10 +1886,11 @@ class _AudioDnaPanelState extends State<_AudioDnaPanel> {
         Expanded(
           flex: 2,
           child: _DockCard(
+            accent: FluxForgeTheme.accentPink,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _DockLabel('BRAND IDENTITY'),
+                _DockLabel('BRAND IDENTITY', color: FluxForgeTheme.accentPink),
                 const SizedBox(height: 8),
                 _DnaField('Brand', _brand, (v) => setState(() => _brand = v)),
                 const SizedBox(height: 8),
@@ -1901,9 +1933,9 @@ class _AudioDnaPanelState extends State<_AudioDnaPanel> {
                 ]),
                 const SizedBox(height: 12),
                 _SfxPresetSlider(label: 'BPM Min', value: _bpmMin, min: 60, max: 200, suffix: '',
-                  onChanged: (v) => setState(() => _bpmMin = v)),
+                  color: FluxForgeTheme.accentPink, onChanged: (v) => setState(() => _bpmMin = v)),
                 _SfxPresetSlider(label: 'BPM Max', value: _bpmMax, min: 60, max: 200, suffix: '',
-                  onChanged: (v) => setState(() => _bpmMax = v)),
+                  color: FluxForgeTheme.accentPink, onChanged: (v) => setState(() => _bpmMax = v)),
               ],
             ),
           ),
@@ -1913,10 +1945,11 @@ class _AudioDnaPanelState extends State<_AudioDnaPanel> {
         Expanded(
           flex: 2,
           child: _DockCard(
+            accent: FluxForgeTheme.accentPink,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _DockLabel('INSTRUMENT PALETTE'),
+                _DockLabel('INSTRUMENT PALETTE', color: FluxForgeTheme.accentPink),
                 const SizedBox(height: 8),
                 Expanded(
                   child: Wrap(spacing: 6, runSpacing: 6, children: _allInstruments.map((inst) {
@@ -1950,21 +1983,22 @@ class _AudioDnaPanelState extends State<_AudioDnaPanel> {
         Expanded(
           flex: 1,
           child: _DockCard(
+            accent: FluxForgeTheme.accentPink,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _DockLabel('AUDIO PROFILES'),
+                _DockLabel('AUDIO PROFILES', color: FluxForgeTheme.accentPink),
                 const SizedBox(height: 8),
                 _DnaField('Base', _baseProfile, (v) => setState(() => _baseProfile = v)),
                 const SizedBox(height: 6),
                 _DnaField('Feature', _featureProfile, (v) => setState(() => _featureProfile = v)),
                 const SizedBox(height: 12),
-                _DockLabel('ESCALATION'),
+                _DockLabel('ESCALATION', color: FluxForgeTheme.accentPink),
                 const SizedBox(height: 6),
                 _SfxPresetSlider(label: 'Win Scale', value: _winEscalation, min: 1, max: 3, suffix: 'x',
-                  onChanged: (v) => setState(() => _winEscalation = v)),
+                  color: FluxForgeTheme.accentPink, onChanged: (v) => setState(() => _winEscalation = v)),
                 _SfxPresetSlider(label: 'Ambient Layers', value: _ambientLayerCount, min: 1, max: 8, suffix: '',
-                  onChanged: (v) => setState(() => _ambientLayerCount = v)),
+                  color: FluxForgeTheme.accentPink, onChanged: (v) => setState(() => _ambientLayerCount = v)),
                 const Spacer(),
                 // DNA fingerprint visual
                 Container(
@@ -1997,19 +2031,46 @@ class _AudioDnaPanelState extends State<_AudioDnaPanel> {
   }
 }
 
-class _DnaField extends StatelessWidget {
+class _DnaField extends StatefulWidget {
   final String label;
   final String value;
   final ValueChanged<String> onChanged;
   const _DnaField(this.label, this.value, this.onChanged);
   @override
+  State<_DnaField> createState() => _DnaFieldState();
+}
+
+class _DnaFieldState extends State<_DnaField> {
+  late final TextEditingController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: widget.value);
+  }
+
+  @override
+  void didUpdateWidget(_DnaField old) {
+    super.didUpdateWidget(old);
+    if (old.value != widget.value && _ctrl.text != widget.value) {
+      _ctrl.text = widget.value;
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) => Row(children: [
-    SizedBox(width: 80, child: Text(label,
+    SizedBox(width: 80, child: Text(widget.label,
       style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textSecondary))),
     Expanded(child: SizedBox(
       height: 24,
       child: TextField(
-        controller: TextEditingController(text: value),
+        controller: _ctrl,
         style: const TextStyle(fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textPrimary),
         decoration: InputDecoration(
           isDense: true,
@@ -2018,7 +2079,7 @@ class _DnaField extends StatelessWidget {
           enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: FluxForgeTheme.borderSubtle)),
           focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: FluxForgeTheme.accentPink)),
         ),
-        onSubmitted: onChanged,
+        onSubmitted: widget.onChanged,
       ),
     )),
   ]);
@@ -2098,10 +2159,11 @@ class _AiGenerationPanelState extends State<_AiGenerationPanel> {
         Expanded(
           flex: 3,
           child: _DockCard(
+            accent: FluxForgeTheme.accentPurple,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _DockLabel('AI AUDIO GENERATION'),
+                _DockLabel('AI AUDIO GENERATION', color: FluxForgeTheme.accentPurple),
                 const SizedBox(height: 8),
                 const Text('Describe the sound you want to generate:',
                   style: TextStyle(fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textSecondary)),
@@ -2191,10 +2253,11 @@ class _AiGenerationPanelState extends State<_AiGenerationPanel> {
         Flexible(
           flex: 2,
           child: _DockCard(
+            accent: FluxForgeTheme.accentPurple,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _DockLabel('PIPELINE LOG'),
+                _DockLabel('PIPELINE LOG', color: FluxForgeTheme.accentPurple),
                 const SizedBox(height: 8),
                 Expanded(
                   child: ListView(
@@ -2239,6 +2302,13 @@ class _CloudSyncPanelState extends State<_CloudSyncPanel> {
   CloudSyncService get _cloud => CloudSyncService.instance;
 
   @override
+  void initState() {
+    super.initState();
+    // Ensure cloud service is initialized
+    _cloud.init().catchError((_) {});
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Row(
       children: [
@@ -2246,10 +2316,11 @@ class _CloudSyncPanelState extends State<_CloudSyncPanel> {
         Flexible(
           flex: 2,
           child: _DockCard(
+            accent: FluxForgeTheme.accentBlue,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _DockLabel('CLOUD STATUS'),
+                _DockLabel('CLOUD STATUS', color: FluxForgeTheme.accentBlue),
                 const SizedBox(height: 8),
                 _CloudStatusRow('Provider', _cloud.provider.name.toUpperCase()),
                 _CloudStatusRow('Status', _cloud.status.name.toUpperCase()),
@@ -2258,7 +2329,7 @@ class _CloudSyncPanelState extends State<_CloudSyncPanel> {
                 _CloudStatusRow('Last Sync', _cloud.lastSyncTime?.toString().substring(0, 19) ?? 'Never'),
                 const SizedBox(height: 12),
                 // Provider selector
-                _DockLabel('PROVIDER'),
+                _DockLabel('PROVIDER', color: FluxForgeTheme.accentBlue),
                 const SizedBox(height: 6),
                 Row(children: CloudProvider.values.map((p) => GestureDetector(
                   onTap: () async {
@@ -2317,11 +2388,12 @@ class _CloudSyncPanelState extends State<_CloudSyncPanel> {
         Expanded(
           flex: 3,
           child: _DockCard(
+            accent: FluxForgeTheme.accentBlue,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(children: [
-                  _DockLabel('CLOUD PROJECTS'),
+                  _DockLabel('CLOUD PROJECTS', color: FluxForgeTheme.accentBlue),
                   const Spacer(),
                   GestureDetector(
                     onTap: () async {
@@ -2369,8 +2441,15 @@ class _CloudSyncPanelState extends State<_CloudSyncPanel> {
                 const SizedBox(height: 8),
                 Expanded(
                   child: _cloud.projects.isEmpty
-                    ? const Center(child: Text('No cloud projects', style: TextStyle(
-                        fontFamily: 'monospace', fontSize: 11, color: FluxForgeTheme.textTertiary)))
+                    ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.cloud_off_rounded, size: 36, color: FluxForgeTheme.accentBlue.withOpacity(0.15)),
+                        const SizedBox(height: 10),
+                        const Text('No cloud projects', style: TextStyle(
+                          fontFamily: 'monospace', fontSize: 11, color: FluxForgeTheme.textTertiary)),
+                        const SizedBox(height: 4),
+                        Text('Upload a project to start syncing',
+                          style: TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary.withOpacity(0.6))),
+                      ]))
                     : ListView.builder(
                         itemCount: _cloud.projects.length,
                         itemBuilder: (_, i) {
@@ -2506,10 +2585,11 @@ class _AbTestPanelState extends State<_AbTestPanel> {
         Flexible(
           flex: 3,
           child: _DockCard(
+            accent: FluxForgeTheme.accentGreen,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _DockLabel('A/B SPLIT TEST CONFIG'),
+                _DockLabel('A/B SPLIT TEST CONFIG', color: FluxForgeTheme.accentGreen),
                 const SizedBox(height: 8),
                 // Variant A
                 Container(
@@ -2550,7 +2630,7 @@ class _AbTestPanelState extends State<_AbTestPanel> {
                 // Spin count
                 _SfxPresetSlider(label: 'Spins/Variant', value: _spinCount.toDouble(),
                   min: 10000, max: 1000000, suffix: '',
-                  onChanged: (v) => setState(() => _spinCount = v.round())),
+                  color: FluxForgeTheme.accentGreen, onChanged: (v) => setState(() => _spinCount = v.round())),
                 const Spacer(),
                 GestureDetector(
                   onTap: _isRunning ? null : _runSimulation,
@@ -2587,10 +2667,11 @@ class _AbTestPanelState extends State<_AbTestPanel> {
         Expanded(
           flex: 3,
           child: _DockCard(
+            accent: FluxForgeTheme.accentGreen,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _DockLabel('RESULTS'),
+                _DockLabel('RESULTS', color: FluxForgeTheme.accentGreen),
                 const SizedBox(height: 8),
                 if (_isRunning) ...[
                   Builder(builder: (_) {
@@ -2611,12 +2692,15 @@ class _AbTestPanelState extends State<_AbTestPanel> {
                     child: _buildResultsTable(),
                   ),
                 ] else ...[
-                  const Expanded(
+                  Expanded(
                     child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.science_outlined, size: 48, color: FluxForgeTheme.borderSubtle),
-                      SizedBox(height: 12),
-                      Text('Configure variants and run simulation',
+                      Icon(Icons.science_outlined, size: 48, color: FluxForgeTheme.accentGreen.withOpacity(0.2)),
+                      const SizedBox(height: 12),
+                      const Text('Configure variants and run simulation',
                         style: TextStyle(fontFamily: 'monospace', fontSize: 11, color: FluxForgeTheme.textTertiary)),
+                      const SizedBox(height: 6),
+                      Text('Up to 1M spins per variant',
+                        style: TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary.withOpacity(0.6))),
                     ])),
                   ),
                 ],
@@ -2767,13 +2851,14 @@ class _AudioPanelState extends State<_AudioPanel> {
     return Row(
       children: [
         // Master meters + fader (A6) — driven by NeuroAudio × master fader
-        SizedBox(
-          width: 160,
+        Flexible(
+          flex: 2,
           child: _DockCard(
+            accent: FluxForgeTheme.accentCyan,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _DockLabel('MASTER'),
+                _DockLabel('MASTER', color: FluxForgeTheme.accentCyan),
                 const SizedBox(height: 8),
                 _MeterRow(label: 'L', value: masterL),
                 const SizedBox(height: 6),
@@ -2781,7 +2866,7 @@ class _AudioPanelState extends State<_AudioPanel> {
                 const SizedBox(height: 8),
                 // A6: Master fader — draggable
                 Row(children: [
-                  _DockLabel('FADER'),
+                  _DockLabel('FADER', color: FluxForgeTheme.accentCyan),
                   const SizedBox(width: 6),
                   Expanded(
                     child: LayoutBuilder(builder: (_, c) => GestureDetector(
@@ -2818,13 +2903,13 @@ class _AudioPanelState extends State<_AudioPanel> {
                     fontSize: 10, color: peakDb > -6 ? FluxForgeTheme.accentOrange : FluxForgeTheme.accentGreen)),
                 const SizedBox(height: 6),
                 Row(children: [
-                  _DockLabel('VOL'),
+                  _DockLabel('VOL', color: FluxForgeTheme.accentCyan),
                   const SizedBox(width: 2),
                   Flexible(child: Text('${(out.volumeEnvelopeScale * 100).toStringAsFixed(0)}%',
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.accentCyan))),
                   const Spacer(),
-                  _DockLabel('CMP'),
+                  _DockLabel('CMP', color: FluxForgeTheme.accentPurple),
                   const SizedBox(width: 2),
                   Flexible(child: Text('${(out.compressionModifier * 100).toStringAsFixed(0)}%',
                     overflow: TextOverflow.ellipsis,
@@ -2838,11 +2923,12 @@ class _AudioPanelState extends State<_AudioPanel> {
         // Channel strips — interactive, wired to middleware
         Expanded(
           child: _DockCard(
+            accent: FluxForgeTheme.accentCyan,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(children: [
-                  _DockLabel('CHANNELS'),
+                  _DockLabel('CHANNELS', color: FluxForgeTheme.accentCyan),
                   const Spacer(),
                   Text('${events.length} events  ·  tap to open lens', style: const TextStyle(
                     fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary)),
@@ -2994,7 +3080,7 @@ class _MathPanelState extends State<_MathPanel> {
               )),
               const SizedBox(width: 8),
               // M3: Run Sim button
-              SizedBox(width: 140, child: _RunSimButton()),
+              Flexible(child: _RunSimButton()),
             ],
           ),
         ),
@@ -3117,6 +3203,7 @@ class _TimelinePanelState extends State<_TimelinePanel> {
     final rulerLabels = List.generate(rulerCount, (i) => '0:${i.toString().padLeft(2, '0')}');
 
     return _DockCard(
+      accent: FluxForgeTheme.accentOrange,
       child: Column(
         children: [
           // Ruler — clickable to seek (T3)
@@ -3259,6 +3346,7 @@ class _IntelPanel extends StatelessWidget {
             children: [
               Expanded(
                 child: _DockCard(
+                  accent: FluxForgeTheme.accentPurple,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -3269,7 +3357,7 @@ class _IntelPanel extends StatelessWidget {
                               ? FluxForgeTheme.accentOrange : FluxForgeTheme.accentGreen,
                             shape: BoxShape.circle)),
                         const SizedBox(width: 6),
-                        _DockLabel('AI COPILOT'),
+                        _DockLabel('AI COPILOT', color: FluxForgeTheme.accentPurple),
                         const Spacer(),
                         if (allRemediations.isNotEmpty)
                           Text('${allRemediations.length} suggestions', style: const TextStyle(
@@ -3315,7 +3403,7 @@ class _IntelPanel extends StatelessWidget {
                       const SizedBox(height: 6),
                       // I3: Archetype selector
                       Row(children: [
-                        _DockLabel('ARCHETYPE'),
+                        _DockLabel('ARCHETYPE', color: FluxForgeTheme.accentPurple),
                         const Spacer(),
                         ...['Casual', 'Regular', 'Whale', 'Frustrated'].map((a) =>
                           Padding(
@@ -3395,11 +3483,12 @@ class _IntelPanel extends StatelessWidget {
               const SizedBox(height: 8),
               Expanded(
                 child: _DockCard(
+                  accent: FluxForgeTheme.accentPurple,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(children: [
-                        _DockLabel('RGAI COMPLIANCE'),
+                        _DockLabel('RGAI COMPLIANCE', color: FluxForgeTheme.accentPurple),
                         const Spacer(),
                         // I5: Run Analysis button
                         GestureDetector(
@@ -3472,9 +3561,10 @@ class _IntelPanel extends StatelessWidget {
         Flexible(
           flex: 2,
           child: _DockCard(
+            accent: FluxForgeTheme.accentPurple,
             child: Column(
               children: [
-                _DockLabel('ENGAGEMENT SCORE'),
+                _DockLabel('ENGAGEMENT SCORE', color: FluxForgeTheme.accentPurple),
                 const Spacer(),
                 Text(score.toStringAsFixed(1),
                   style: const TextStyle(
@@ -4459,30 +4549,26 @@ class _DockTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) => GestureDetector(
     onTap: onTap,
-    child: Container(
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
       height: 30,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: active ? FluxForgeTheme.bgSurface : Colors.transparent,
+        color: active ? color.withOpacity(0.08) : Colors.transparent,
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: active ? FluxForgeTheme.borderSubtle : Colors.transparent),
+          color: active ? color.withOpacity(0.35) : Colors.transparent),
+        boxShadow: active ? [BoxShadow(color: color.withOpacity(0.08), blurRadius: 8)] : null,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 6, height: 6,
-            decoration: BoxDecoration(
-              color: color.withOpacity(active ? 1.0 : 0.5),
-              shape: BoxShape.circle,
-            ),
-          ),
+          Icon(icon, size: 12, color: color.withOpacity(active ? 1.0 : 0.4)),
           const SizedBox(width: 6),
           Text(label, style: TextStyle(
             fontFamily: 'monospace', fontSize: 11,
-            fontWeight: FontWeight.w500, letterSpacing: 0.04,
-            color: active ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary)),
+            fontWeight: active ? FontWeight.w600 : FontWeight.w400, letterSpacing: 0.04,
+            color: active ? color : FluxForgeTheme.textTertiary)),
         ],
       ),
     ),
@@ -4491,15 +4577,17 @@ class _DockTab extends StatelessWidget {
 
 class _DockCard extends StatelessWidget {
   final Widget child;
-  const _DockCard({required this.child});
+  final Color? accent;
+  const _DockCard({required this.child, this.accent});
 
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
       color: FluxForgeTheme.bgVoid.withOpacity(0.5),
-      border: Border.all(color: FluxForgeTheme.borderSubtle),
+      border: Border.all(color: accent?.withOpacity(0.15) ?? FluxForgeTheme.borderSubtle),
       borderRadius: BorderRadius.circular(8),
+      boxShadow: accent != null ? [BoxShadow(color: accent!.withOpacity(0.04), blurRadius: 12)] : null,
     ),
     child: child,
   );
@@ -4507,13 +4595,14 @@ class _DockCard extends StatelessWidget {
 
 class _DockLabel extends StatelessWidget {
   final String text;
-  const _DockLabel(this.text);
+  final Color? color;
+  const _DockLabel(this.text, {this.color});
 
   @override
   Widget build(BuildContext context) => Text(text,
-    style: const TextStyle(
-      fontFamily: 'monospace', fontSize: 9,
-      color: FluxForgeTheme.textTertiary, letterSpacing: 0.12));
+    style: TextStyle(
+      fontFamily: 'monospace', fontSize: 9, fontWeight: FontWeight.w600,
+      color: color ?? FluxForgeTheme.textTertiary, letterSpacing: 0.12));
 }
 
 class _StageNode extends StatelessWidget {
