@@ -87,11 +87,36 @@ class _HelixScreenState extends State<HelixScreen>
   bool _bpmEditing = false;
   late final TextEditingController _bpmController;
 
+  // ── Project name inline edit (O2) ─────────────────────────────────────────
+  bool _projectNameEditing = false;
+  late final TextEditingController _projectNameController;
+
+  // ── Record toggle (O4) ────────────────────────────────────────────────────
+  bool _recording = false;
+
+  // ── Audio Context Lens (A3) ───────────────────────────────────────────────
+  SlotCompositeEvent? _contextLensEvent;
+
+  // ── Playhead (T3/T4) ─────────────────────────────────────────────────────
+  late Timer _playheadTimer;
+  double _playheadSeconds = 0;
+
+  // ── Public API for child widgets ──────────────────────────────────────────
+  void openContextLens(SlotCompositeEvent event) {
+    setState(() => _contextLensEvent = event);
+  }
+
+  void setPlayhead(double seconds) {
+    setState(() => _playheadSeconds = seconds);
+  }
+
   @override
   void initState() {
     super.initState();
     _focusNode = FocusNode()..requestFocus();
     _bpmController = TextEditingController(text: '128.0');
+    _projectNameController = TextEditingController(
+      text: GetIt.instance<SlotLabProjectProvider>().projectName);
     _glowCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 4))
       ..repeat(reverse: true);
     _glowAnim = Tween<double>(begin: 0.06, end: 0.12).animate(
@@ -115,15 +140,28 @@ class _HelixScreenState extends State<HelixScreen>
         setState(() => _bpmDisplay = t.tempo > 0 ? t.tempo : _bpmDisplay);
       } catch (_) {}
     });
+
+    // Playhead sync timer — polls engine position for timeline animation
+    _playheadTimer = Timer.periodic(const Duration(milliseconds: 60), (_) {
+      if (!mounted) return;
+      try {
+        final t = GetIt.instance<EngineProvider>().transport;
+        if (t.isPlaying && t.positionSeconds != _playheadSeconds) {
+          setState(() => _playheadSeconds = t.positionSeconds);
+        }
+      } catch (_) {}
+    });
   }
 
   @override
   void dispose() {
     _focusNode.dispose();
     _bpmController.dispose();
+    _projectNameController.dispose();
     _glowCtrl.dispose();
     _waveTimer.cancel();
     _bpmTimer.cancel();
+    _playheadTimer.cancel();
     super.dispose();
   }
 
@@ -137,23 +175,33 @@ class _HelixScreenState extends State<HelixScreen>
       focusNode: _focusNode,
       autofocus: true,
       onKeyEvent: _onKey,
-      child: Container(
-        color: FluxForgeTheme.bgVoid,
-        child: Column(
-          children: [
-            _buildOmnibar(),
-            Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildSpine(),
-                  Expanded(child: _buildCanvas()),
-                ],
-              ),
+      child: Stack(
+        children: [
+          Container(
+            color: FluxForgeTheme.bgVoid,
+            child: Column(
+              children: [
+                _buildOmnibar(),
+                Expanded(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildSpine(),
+                      Expanded(child: _buildCanvas()),
+                    ],
+                  ),
+                ),
+                if (_mode != 1) _buildDock(),
+              ],
             ),
-            if (_mode != 1) _buildDock(),
-          ],
-        ),
+          ),
+          // Audio Context Lens overlay (A3)
+          if (_contextLensEvent != null)
+            _AudioContextLens(
+              event: _contextLensEvent!,
+              onClose: () => setState(() => _contextLensEvent = null),
+            ),
+        ],
       ),
     );
   }
@@ -162,7 +210,7 @@ class _HelixScreenState extends State<HelixScreen>
     if (e is! KeyDownEvent) return;
     final key = e.logicalKey;
     if (key == LogicalKeyboardKey.escape) {
-      setState(() { _spineOpen = null; _mode = 0; });
+      setState(() { _spineOpen = null; _mode = 0; _contextLensEvent = null; });
     } else if (key == LogicalKeyboardKey.keyF) {
       setState(() => _mode = _mode == 1 ? 0 : 1);
     } else if (key == LogicalKeyboardKey.keyA) {
@@ -212,16 +260,49 @@ class _HelixScreenState extends State<HelixScreen>
           const SizedBox(width: 12),
           Container(width: 1, height: 24, color: FluxForgeTheme.borderSubtle),
           const SizedBox(width: 12),
-          // Project name
-          _OmniPill(
-            child: Row(children: [
-              Container(width: 6, height: 6, decoration: BoxDecoration(
-                color: FluxForgeTheme.accentGreen, shape: BoxShape.circle)),
-              const SizedBox(width: 6),
-              Text(GetIt.instance<SlotLabProjectProvider>().projectName,
-                style: const TextStyle(
-                  fontFamily: 'monospace', fontSize: 11, color: FluxForgeTheme.textPrimary)),
-            ]),
+          // Project name — tap to edit inline (O2)
+          GestureDetector(
+            onTap: () {
+              _projectNameController.text =
+                GetIt.instance<SlotLabProjectProvider>().projectName;
+              setState(() => _projectNameEditing = true);
+            },
+            child: _OmniPill(
+              border: _projectNameEditing
+                ? FluxForgeTheme.accentGreen.withOpacity(0.5)
+                : null,
+              child: Row(children: [
+                Container(width: 6, height: 6, decoration: BoxDecoration(
+                  color: FluxForgeTheme.accentGreen, shape: BoxShape.circle)),
+                const SizedBox(width: 6),
+                if (_projectNameEditing)
+                  SizedBox(
+                    width: 140,
+                    child: TextField(
+                      controller: _projectNameController,
+                      autofocus: true,
+                      style: const TextStyle(
+                        fontFamily: 'monospace', fontSize: 11,
+                        color: FluxForgeTheme.textPrimary),
+                      decoration: const InputDecoration(
+                        isDense: true, border: InputBorder.none,
+                        contentPadding: EdgeInsets.zero),
+                      onSubmitted: (v) {
+                        if (v.trim().isNotEmpty) {
+                          GetIt.instance<SlotLabProjectProvider>().newProject(v.trim());
+                        }
+                        setState(() => _projectNameEditing = false);
+                      },
+                      onTapOutside: (_) => setState(() => _projectNameEditing = false),
+                    ),
+                  )
+                else
+                  Text(GetIt.instance<SlotLabProjectProvider>().projectName,
+                    style: const TextStyle(
+                      fontFamily: 'monospace', fontSize: 11,
+                      color: FluxForgeTheme.textPrimary)),
+              ]),
+            ),
           ),
           const Spacer(),
           // Undo/Redo — wired to SlotLabProjectProvider
@@ -337,7 +418,8 @@ class _HelixScreenState extends State<HelixScreen>
             _TransportBtn(
               icon: Icons.fiber_manual_record_rounded,
               color: FluxForgeTheme.accentRed,
-              onTap: () {},
+              active: _recording,
+              onTap: () => setState(() => _recording = !_recording),
             ),
           ],
         );
@@ -445,11 +527,11 @@ class _HelixScreenState extends State<HelixScreen>
                 child: _buildInfoChips(),
               ),
 
-              // Stage strip — bottom center (above dock)
+              // Stage strip — clickable (C3: force game flow transition)
               Positioned(
                 bottom: 20,
                 left: 0, right: 0,
-                child: Center(child: _buildStageStrip(stage)),
+                child: Center(child: _buildStageStrip(stage, flow)),
               ),
 
               // Waveform bars — below stage strip
@@ -497,7 +579,7 @@ class _HelixScreenState extends State<HelixScreen>
     );
   }
 
-  Widget _buildStageStrip(GameFlowState current) {
+  Widget _buildStageStrip(GameFlowState current, GameFlowProvider flow) {
     final stages = [
       (GameFlowState.idle, 'IDLE', FluxForgeTheme.textTertiary),
       (GameFlowState.baseGame, 'BASE', FluxForgeTheme.accentBlue),
@@ -505,6 +587,22 @@ class _HelixScreenState extends State<HelixScreen>
       (GameFlowState.bonusGame, 'BONUS', FluxForgeTheme.accentOrange),
       (GameFlowState.jackpotPresentation, 'JACKPOT', FluxForgeTheme.accentGreen),
     ];
+
+    // C3: force transition function
+    void forceStage(GameFlowState target) {
+      switch (target) {
+        case GameFlowState.idle || GameFlowState.baseGame:
+          flow.resetToBaseGame();
+        case GameFlowState.freeSpins:
+          flow.triggerManual(TransitionTrigger.scatterCount, context: {'scatterCount': 3});
+        case GameFlowState.bonusGame:
+          flow.triggerManual(TransitionTrigger.bonusSymbolCount, context: {'bonusCount': 3});
+        case GameFlowState.jackpotPresentation:
+          flow.triggerManual(TransitionTrigger.jackpotTriggered);
+        default:
+          flow.resetToBaseGame();
+      }
+    }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
@@ -519,7 +617,10 @@ class _HelixScreenState extends State<HelixScreen>
           final (state, label, color) = e.value;
           final isActive = current == state;
           final widgets = <Widget>[
-            _StageNode(label: label, color: color, active: isActive),
+            GestureDetector(
+              onTap: () => forceStage(state),
+              child: _StageNode(label: label, color: color, active: isActive),
+            ),
           ];
           if (e.key < stages.length - 1) {
             widgets.add(const Padding(
@@ -776,8 +877,15 @@ class _FlowPanel extends StatelessWidget {
 
 // ── AUDIO Panel ──────────────────────────────────────────────────────────────
 
-class _AudioPanel extends StatelessWidget {
+class _AudioPanel extends StatefulWidget {
   const _AudioPanel();
+
+  @override
+  State<_AudioPanel> createState() => _AudioPanelState();
+}
+
+class _AudioPanelState extends State<_AudioPanel> {
+  double _masterFader = 0.8; // A6: master output fader
 
   @override
   Widget build(BuildContext context) {
@@ -786,15 +894,18 @@ class _AudioPanel extends StatelessWidget {
     final events = mw.compositeEvents.take(8).toList();
     final out = neuro.output;
 
-    // Derive master levels from neuro audio adaptation output
-    final masterL = (out.arousal * 0.6 + out.engagement * 0.4).clamp(0.0, 1.0);
-    final masterR = (out.arousal * 0.55 + out.engagement * 0.45).clamp(0.0, 1.0);
+    // Derive master levels from neuro audio adaptation output × master fader
+    final masterL = (out.arousal * 0.6 + out.engagement * 0.4).clamp(0.0, 1.0) * _masterFader;
+    final masterR = (out.arousal * 0.55 + out.engagement * 0.45).clamp(0.0, 1.0) * _masterFader;
     final peak = math.max(masterL, masterR);
     final peakDb = peak > 0.001 ? (20 * math.log(peak) / 2.302585) : -60.0;
 
+    // Access parent state for context lens
+    final helixState = context.findAncestorStateOfType<_HelixScreenState>();
+
     return Row(
       children: [
-        // Master meters — driven by NeuroAudio engagement/arousal
+        // Master meters + fader (A6) — driven by NeuroAudio × master fader
         SizedBox(
           width: 130,
           child: _DockCard(
@@ -806,6 +917,40 @@ class _AudioPanel extends StatelessWidget {
                 _MeterRow(label: 'L', value: masterL),
                 const SizedBox(height: 6),
                 _MeterRow(label: 'R', value: masterR),
+                const SizedBox(height: 8),
+                // A6: Master fader — draggable
+                Row(children: [
+                  _DockLabel('FADER'),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: LayoutBuilder(builder: (_, c) => GestureDetector(
+                      onTapDown: (d) => setState(() =>
+                        _masterFader = (d.localPosition.dx / c.maxWidth).clamp(0.0, 1.0)),
+                      onHorizontalDragUpdate: (d) => setState(() =>
+                        _masterFader = (d.localPosition.dx / c.maxWidth).clamp(0.0, 1.0)),
+                      child: Container(
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: FluxForgeTheme.bgElevated,
+                          borderRadius: BorderRadius.circular(3)),
+                        child: Stack(children: [
+                          FractionallySizedBox(
+                            widthFactor: _masterFader,
+                            alignment: Alignment.centerLeft,
+                            child: Container(decoration: BoxDecoration(
+                              gradient: const LinearGradient(colors: [
+                                FluxForgeTheme.accentGreen, FluxForgeTheme.accentCyan]),
+                              borderRadius: BorderRadius.circular(3))),
+                          ),
+                        ]),
+                      ),
+                    )),
+                  ),
+                  const SizedBox(width: 4),
+                  Text('${(_masterFader * 100).toStringAsFixed(0)}%',
+                    style: const TextStyle(fontFamily: 'monospace', fontSize: 8,
+                      color: FluxForgeTheme.accentCyan)),
+                ]),
                 const Spacer(),
                 Text('${peakDb.toStringAsFixed(1)} dBFS',
                   style: TextStyle(fontFamily: 'monospace',
@@ -836,7 +981,7 @@ class _AudioPanel extends StatelessWidget {
                 Row(children: [
                   _DockLabel('CHANNELS'),
                   const Spacer(),
-                  Text('${events.length} events', style: const TextStyle(
+                  Text('${events.length} events  ·  tap to open lens', style: const TextStyle(
                     fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary)),
                 ]),
                 const SizedBox(height: 8),
@@ -852,6 +997,8 @@ class _AudioPanel extends StatelessWidget {
                             event: e,
                             name: name,
                             middleware: mw,
+                            // A3: tap channel → open context lens
+                            onTap: () => helixState?.openContextLens(e),
                           );
                         }).toList(),
                       ),
@@ -867,8 +1014,19 @@ class _AudioPanel extends StatelessWidget {
 
 // ── MATH Panel ───────────────────────────────────────────────────────────────
 
-class _MathPanel extends StatelessWidget {
+class _MathPanel extends StatefulWidget {
   const _MathPanel();
+
+  @override
+  State<_MathPanel> createState() => _MathPanelState();
+}
+
+class _MathPanelState extends State<_MathPanel> {
+  double _targetRtp = 96.0; // M1
+  double _volatilitySlider = 5.0; // M2
+  double _maxWinCap = 5000.0; // M4
+  double _hitFreqTarget = 30.0; // M5
+  double _bonusFreqTarget = 2.0; // M6
 
   @override
   Widget build(BuildContext context) {
@@ -897,18 +1055,24 @@ class _MathPanel extends StatelessWidget {
         ? '1:${(stats.totalSpins / bonusWins).toStringAsFixed(0)}' : '—';
     final bonusFill = stats.totalSpins > 0 ? (bonusWins / stats.totalSpins).clamp(0.0, 1.0) : 0.0;
 
+    // RTP diff from target (M1)
+    final rtpDiff = rtp > 0 ? rtp - _targetRtp : 0.0;
+    final rtpDiffStr = rtpDiff >= 0 ? '+${rtpDiff.toStringAsFixed(1)}' : rtpDiff.toStringAsFixed(1);
+
     final cards = [
-      ('RTP',         rtp > 0 ? '${rtp.toStringAsFixed(1)}%' : '—', 'Target: 96.0%', (rtp / 100).clamp(0.0, 1.0), FluxForgeTheme.accentGreen),
-      ('VOLATILITY',  volLabel,  'Index: ${volIdx.toStringAsFixed(1)} / 10', volIdx / 10, FluxForgeTheme.accentOrange),
-      ('HIT FREQ',    hitFreqStr, '${(hitRate * 100).toStringAsFixed(0)}% hit rate', hitRate.clamp(0.0, 1.0), FluxForgeTheme.accentBlue),
-      ('MAX WIN',     maxWinMult > 0 ? '${maxWinMult.toStringAsFixed(0)}×' : '—', 'Bet multiplier', (maxWinMult / 5000).clamp(0.0, 1.0), FluxForgeTheme.accentYellow),
+      ('RTP',         rtp > 0 ? '${rtp.toStringAsFixed(1)}%' : '—', 'Target: ${_targetRtp.toStringAsFixed(1)}% ($rtpDiffStr)', (rtp / 100).clamp(0.0, 1.0), FluxForgeTheme.accentGreen),
+      ('VOLATILITY',  volLabel,  'Target: ${_volatilitySlider.toStringAsFixed(0)} / 10', volIdx / 10, FluxForgeTheme.accentOrange),
+      ('HIT FREQ',    hitFreqStr, 'Target: ${_hitFreqTarget.toStringAsFixed(0)}%', hitRate.clamp(0.0, 1.0), FluxForgeTheme.accentBlue),
+      ('MAX WIN',     maxWinMult > 0 ? '${maxWinMult.toStringAsFixed(0)}×' : '—', 'Cap: ${_maxWinCap.toStringAsFixed(0)}×', (maxWinMult / _maxWinCap).clamp(0.0, 1.0), FluxForgeTheme.accentYellow),
       ('SIMULATIONS', '${stats.totalSpins}', 'Spins recorded', stats.totalSpins > 0 ? 1.0 : 0.0, FluxForgeTheme.accentPurple),
-      ('BONUS FREQ',  bonusFreq, 'Feature triggers', bonusFill, FluxForgeTheme.accentCyan),
+      ('BONUS FREQ',  bonusFreq, 'Target: 1:${(100 / _bonusFreqTarget).toStringAsFixed(0)}', bonusFill, FluxForgeTheme.accentCyan),
     ];
 
     return Column(
       children: [
+        // Stats grid
         Expanded(
+          flex: 3,
           child: GridView.count(
             crossAxisCount: 6,
             mainAxisSpacing: 8,
@@ -920,10 +1084,56 @@ class _MathPanel extends StatelessWidget {
             )).toList(),
           ),
         ),
-        // Run Simulation button
-        Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: _RunSimButton(),
+        const SizedBox(height: 4),
+        // Config sliders row (M1, M2, M4, M5, M6)
+        Expanded(
+          flex: 2,
+          child: Row(
+            children: [
+              // M1: Target RTP
+              Expanded(child: _MathSlider(
+                label: 'TARGET RTP', value: _targetRtp,
+                min: 85, max: 99, suffix: '%',
+                color: FluxForgeTheme.accentGreen,
+                onChanged: (v) => setState(() => _targetRtp = v),
+              )),
+              const SizedBox(width: 8),
+              // M2: Volatility
+              Expanded(child: _MathSlider(
+                label: 'VOLATILITY', value: _volatilitySlider,
+                min: 1, max: 10, suffix: '',
+                color: FluxForgeTheme.accentOrange,
+                onChanged: (v) => setState(() => _volatilitySlider = v),
+              )),
+              const SizedBox(width: 8),
+              // M4: Max Win Cap
+              Expanded(child: _MathSlider(
+                label: 'MAX WIN CAP', value: _maxWinCap,
+                min: 100, max: 25000, suffix: '×',
+                color: FluxForgeTheme.accentYellow,
+                onChanged: (v) => setState(() => _maxWinCap = v),
+              )),
+              const SizedBox(width: 8),
+              // M5: Hit Frequency
+              Expanded(child: _MathSlider(
+                label: 'HIT FREQ', value: _hitFreqTarget,
+                min: 10, max: 60, suffix: '%',
+                color: FluxForgeTheme.accentBlue,
+                onChanged: (v) => setState(() => _hitFreqTarget = v),
+              )),
+              const SizedBox(width: 8),
+              // M6: Bonus Frequency
+              Expanded(child: _MathSlider(
+                label: 'BONUS FREQ', value: _bonusFreqTarget,
+                min: 0.5, max: 10, suffix: '%',
+                color: FluxForgeTheme.accentCyan,
+                onChanged: (v) => setState(() => _bonusFreqTarget = v),
+              )),
+              const SizedBox(width: 8),
+              // M3: Run Sim button
+              SizedBox(width: 140, child: _RunSimButton()),
+            ],
+          ),
         ),
       ],
     );
@@ -997,13 +1207,28 @@ class _RunSimButtonState extends State<_RunSimButton> {
 
 // ── TIMELINE Panel ───────────────────────────────────────────────────────────
 
-class _TimelinePanel extends StatelessWidget {
+class _TimelinePanel extends StatefulWidget {
   const _TimelinePanel();
+
+  @override
+  State<_TimelinePanel> createState() => _TimelinePanelState();
+}
+
+class _TimelinePanelState extends State<_TimelinePanel> {
+  // T1: drag state
+  String? _draggingEventId;
+  double _dragStartMs = 0;
+  double _dragStartX = 0;
 
   @override
   Widget build(BuildContext context) {
     final mw = GetIt.instance<MiddlewareProvider>();
+    final engine = GetIt.instance<EngineProvider>();
     final events = mw.compositeEvents;
+
+    // Access playhead from parent
+    final helixState = context.findAncestorStateOfType<_HelixScreenState>();
+    final playheadSec = helixState?._playheadSeconds ?? 0.0;
 
     // Group events by trackIndex, build real timeline tracks
     final trackMap = <int, List<SlotCompositeEvent>>{};
@@ -1014,24 +1239,15 @@ class _TimelinePanel extends StatelessWidget {
     // Find timeline extent (max position + reasonable width)
     double maxMs = 8000; // 8 second default view
     for (final e in events) {
-      final end = e.timelinePositionMs + 1000; // assume ~1s per event
+      final end = e.timelinePositionMs + 1000;
       if (end > maxMs) maxMs = end;
     }
 
-    // Build track list from real data, or show empty state
+    // Playhead fraction
+    final playheadFrac = maxMs > 0 ? ((playheadSec * 1000) / maxMs).clamp(0.0, 1.0) : 0.0;
+
+    // Build track list from real data
     final sortedTracks = trackMap.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
-    final trackWidgets = sortedTracks.take(6).map((entry) {
-      final trackEvents = entry.value;
-      final trackName = trackEvents.first.name.length > 10
-          ? trackEvents.first.name.substring(0, 10) : trackEvents.first.name;
-      final color = trackEvents.first.color;
-      final regions = trackEvents.map((e) {
-        final start = (e.timelinePositionMs / maxMs).clamp(0.0, 1.0);
-        final width = (1000 / maxMs).clamp(0.02, 0.3); // each event ~1s visual width
-        return (start, width);
-      }).toList();
-      return _TlTrack(name: trackName, color: color, regions: regions);
-    }).toList();
 
     // Ruler marks
     final rulerCount = (maxMs / 1000).ceil().clamp(4, 10);
@@ -1040,27 +1256,79 @@ class _TimelinePanel extends StatelessWidget {
     return _DockCard(
       child: Column(
         children: [
-          // Ruler
-          Row(
-            children: [
-              const SizedBox(width: 80),
-              ...rulerLabels.map((t) => Expanded(child: Text(t, style: const TextStyle(
-                fontFamily: 'monospace', fontSize: 9,
-                color: FluxForgeTheme.textTertiary)))),
-            ],
+          // Ruler — clickable to seek (T3)
+          GestureDetector(
+            onTapDown: (d) {
+              // Ruler starts at offset 80 (track label width)
+              final rulerWidth = (context.size?.width ?? 400) - 80 - 24; // 24 for padding
+              final frac = ((d.localPosition.dx - 80) / rulerWidth).clamp(0.0, 1.0);
+              final seekSec = (frac * maxMs) / 1000.0;
+              engine.seek(seekSec);
+              helixState?.setPlayhead(seekSec);
+            },
+            child: Row(
+              children: [
+                const SizedBox(width: 80),
+                ...rulerLabels.map((t) => Expanded(child: Text(t, style: const TextStyle(
+                  fontFamily: 'monospace', fontSize: 9,
+                  color: FluxForgeTheme.textTertiary)))),
+              ],
+            ),
           ),
           const SizedBox(height: 4),
           const Divider(height: 1, color: FluxForgeTheme.borderSubtle),
           const SizedBox(height: 4),
-          // Tracks
+          // Tracks with playhead overlay
           Expanded(
-            child: trackWidgets.isEmpty
+            child: sortedTracks.isEmpty
               ? const Center(child: Text('No events on timeline.\nAssign composite events in SlotLab.',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, height: 1.5)))
-              : Column(
-                  children: trackWidgets.map((t) => Expanded(child: t)).toList(),
-                ),
+              : LayoutBuilder(builder: (_, constraints) {
+                  final trackAreaWidth = constraints.maxWidth - 80;
+                  return Stack(
+                    children: [
+                      // Tracks
+                      Column(
+                        children: sortedTracks.take(6).map((entry) {
+                          final trackEvents = entry.value;
+                          final trackName = trackEvents.first.name.length > 10
+                              ? trackEvents.first.name.substring(0, 10) : trackEvents.first.name;
+                          final color = trackEvents.first.color;
+                          return Expanded(child: _TlTrackInteractive(
+                            name: trackName,
+                            color: color,
+                            events: trackEvents,
+                            maxMs: maxMs,
+                            trackAreaWidth: trackAreaWidth,
+                            middleware: mw,
+                          ));
+                        }).toList(),
+                      ),
+                      // T4: Playhead line
+                      if (playheadFrac > 0)
+                        Positioned(
+                          left: 80 + (playheadFrac * trackAreaWidth),
+                          top: 0, bottom: 0,
+                          child: Container(
+                            width: 2,
+                            color: FluxForgeTheme.accentRed.withOpacity(0.8),
+                          ),
+                        ),
+                      // Playhead triangle at top
+                      if (playheadFrac > 0)
+                        Positioned(
+                          left: 80 + (playheadFrac * trackAreaWidth) - 4,
+                          top: 0,
+                          child: CustomPaint(
+                            size: const Size(8, 6),
+                            painter: _PlayheadTrianglePainter(
+                              color: FluxForgeTheme.accentRed),
+                          ),
+                        ),
+                    ],
+                  );
+                }),
           ),
         ],
       ),
@@ -1178,11 +1446,82 @@ class _IntelPanel extends StatelessWidget {
                             ]),
                           ),
                         ),
+                      const SizedBox(height: 6),
+                      // I3: Archetype selector
+                      Row(children: [
+                        _DockLabel('ARCHETYPE'),
+                        const Spacer(),
+                        ...['Casual', 'Regular', 'Whale', 'Frustrated'].map((a) =>
+                          Padding(
+                            padding: const EdgeInsets.only(left: 3),
+                            child: GestureDetector(
+                              onTap: () {
+                                // Archetype simulation: adjust neuro signals
+                                switch (a) {
+                                  case 'Casual':
+                                    neuro.recordBetSize(0.2);
+                                    neuro.recordClickVelocity(3000);
+                                  case 'Whale':
+                                    neuro.recordBetSize(0.9);
+                                    neuro.recordClickVelocity(800);
+                                  case 'Frustrated':
+                                    neuro.recordBetSize(0.7);
+                                    neuro.recordSpinResult(0);
+                                    neuro.recordSpinResult(0);
+                                  default:
+                                    neuro.recordBetSize(0.5);
+                                    neuro.recordClickVelocity(1500);
+                                }
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: FluxForgeTheme.accentCyan.withOpacity(0.05),
+                                  border: Border.all(color: FluxForgeTheme.accentCyan.withOpacity(0.2)),
+                                  borderRadius: BorderRadius.circular(4)),
+                                child: Text(a, style: const TextStyle(
+                                  fontFamily: 'monospace', fontSize: 8,
+                                  color: FluxForgeTheme.accentCyan)),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ]),
                       const Spacer(),
-                      Text(neuro.responsibleGamingMode ? '⚠ RG MODE' : '✓ RG mode stable',
-                        style: TextStyle(fontSize: 10,
-                          color: neuro.responsibleGamingMode
-                            ? FluxForgeTheme.accentOrange : FluxForgeTheme.accentGreen)),
+                      // I4: Simulate Session button
+                      Row(children: [
+                        GestureDetector(
+                          onTap: () {
+                            // Run 200 spin neuro simulation
+                            final rng = math.Random();
+                            for (int i = 0; i < 200; i++) {
+                              neuro.recordClickVelocity(500 + rng.nextDouble() * 3000);
+                              neuro.recordPauseDuration(200 + rng.nextDouble() * 2000);
+                              neuro.recordBetSize(rng.nextDouble());
+                              final winMult = rng.nextDouble() < 0.25 ? rng.nextDouble() * 10 : 0.0;
+                              neuro.recordSpinResult(winMult);
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: FluxForgeTheme.accentCyan.withOpacity(0.06),
+                              border: Border.all(color: FluxForgeTheme.accentCyan.withOpacity(0.3)),
+                              borderRadius: BorderRadius.circular(5)),
+                            child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                              Icon(Icons.play_circle_outlined, size: 10, color: FluxForgeTheme.accentCyan),
+                              SizedBox(width: 4),
+                              Text('Simulate 200 spins', style: TextStyle(
+                                fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.accentCyan)),
+                            ]),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(neuro.responsibleGamingMode ? '⚠ RG MODE' : '✓ RG stable',
+                          style: TextStyle(fontSize: 9,
+                            color: neuro.responsibleGamingMode
+                              ? FluxForgeTheme.accentOrange : FluxForgeTheme.accentGreen)),
+                      ]),
                     ],
                   ),
                 ),
@@ -1196,6 +1535,49 @@ class _IntelPanel extends StatelessWidget {
                       Row(children: [
                         _DockLabel('RGAI COMPLIANCE'),
                         const Spacer(),
+                        // I5: Run Analysis button
+                        GestureDetector(
+                          onTap: () {
+                            try {
+                              final mw = GetIt.instance<MiddlewareProvider>();
+                              final ces = mw.compositeEvents;
+                              if (ces.isNotEmpty) {
+                                rgai.analyzeBatch(
+                                  gameName: GetIt.instance<SlotLabProjectProvider>().projectName,
+                                  assets: ces.map((e) => (
+                                    id: e.id,
+                                    name: e.name,
+                                    stage: e.triggerStages.isNotEmpty ? e.triggerStages.first : 'base',
+                                    volumeDb: -6.0 + (e.masterVolume * 6),
+                                    durationS: 1.5,
+                                    tempo: 1.0,
+                                    spectralHz: 2000.0,
+                                    isWin: e.category.contains('win'),
+                                    isNearMiss: e.category.contains('near'),
+                                    isLoss: e.category.contains('loss'),
+                                    betMult: 1.0,
+                                  )).toList(),
+                                );
+                              }
+                            } catch (_) {}
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: FluxForgeTheme.accentPurple.withOpacity(0.08),
+                              border: Border.all(color: FluxForgeTheme.accentPurple.withOpacity(0.3)),
+                              borderRadius: BorderRadius.circular(4)),
+                            child: Row(mainAxisSize: MainAxisSize.min, children: [
+                              Icon(Icons.shield_rounded, size: 9,
+                                color: rgai.isAnalyzing ? FluxForgeTheme.accentYellow : FluxForgeTheme.accentPurple),
+                              const SizedBox(width: 4),
+                              Text(rgai.isAnalyzing ? 'Analyzing...' : 'Run Analysis',
+                                style: TextStyle(fontFamily: 'monospace', fontSize: 8,
+                                  color: rgai.isAnalyzing ? FluxForgeTheme.accentYellow : FluxForgeTheme.accentPurple)),
+                            ]),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
                         if (summary != null)
                           Text('${summary.passedAssets}/${summary.totalAssets}', style: const TextStyle(
                             fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary)),
@@ -1268,8 +1650,16 @@ class _IntelPanel extends StatelessWidget {
 
 // ── EXPORT Panel ─────────────────────────────────────────────────────────────
 
-class _ExportPanel extends StatelessWidget {
+class _ExportPanel extends StatefulWidget {
   const _ExportPanel();
+
+  @override
+  State<_ExportPanel> createState() => _ExportPanelState();
+}
+
+class _ExportPanelState extends State<_ExportPanel> {
+  String? _lastExportResult; // E4
+  bool _exporting = false; // E1
 
   static const _exports = [
     ('📦', 'UCP',   'Universal Content Package', FluxForgeTheme.accentYellow),
@@ -1278,28 +1668,103 @@ class _ExportPanel extends StatelessWidget {
     ('📄', 'GDD',   'Game Design Doc',            FluxForgeTheme.accentPurple),
   ];
 
+  Future<void> _doExport(String format, String label) async {
+    // E3: Compliance gate — block export if RGAI HIGH risk
+    try {
+      final rgai = GetIt.instance<RgaiProvider>();
+      if (rgai.report?.summary != null && !rgai.report!.summary.isCompliant) {
+        setState(() => _lastExportResult = '⛔ BLOCKED: RGAI compliance check failed. Fix issues first.');
+        return;
+      }
+    } catch (_) {}
+
+    setState(() { _exporting = true; _lastExportResult = null; });
+    try {
+      final provider = GetIt.instance<SlotExportProvider>();
+      provider.exportSingle({
+        'format': format,
+        'name': GetIt.instance<SlotLabProjectProvider>().projectName,
+      }, format);
+      await Future.delayed(const Duration(milliseconds: 600));
+      if (mounted) {
+        setState(() {
+          _exporting = false;
+          _lastExportResult = '✓ $label export complete';
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() {
+        _exporting = false;
+        _lastExportResult = '✗ Export failed: $e';
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: _exports.map((e) {
-        return Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: _ExportCard(
-              emoji: e.$1, label: e.$2, sub: e.$3, color: e.$4,
-              onTap: () {
-                try {
-                  final provider = GetIt.instance<SlotExportProvider>();
-                  provider.exportSingle({
-                    'format': e.$2.toLowerCase(),
-                    'name': 'Project',
-                  }, e.$2.toLowerCase());
-                } catch (_) {}
-              },
-            ),
+    return Column(
+      children: [
+        Expanded(
+          child: Row(
+            children: _exports.map((e) {
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: _ExportCard(
+                    emoji: e.$1, label: e.$2, sub: e.$3, color: e.$4,
+                    onTap: () => _doExport(e.$2.toLowerCase(), e.$2),
+                  ),
+                ),
+              );
+            }).toList(),
           ),
-        );
-      }).toList(),
+        ),
+        // E1: Progress bar + E4: Result display
+        Container(
+          height: 28,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              if (_exporting) ...[
+                SizedBox(
+                  width: 12, height: 12,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.5, color: FluxForgeTheme.accentYellow),
+                ),
+                const SizedBox(width: 8),
+                const Text('Exporting...', style: TextStyle(
+                  fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.accentYellow)),
+              ] else if (_lastExportResult != null) ...[
+                Expanded(child: Text(_lastExportResult!, style: TextStyle(
+                  fontFamily: 'monospace', fontSize: 10,
+                  color: _lastExportResult!.startsWith('✓')
+                    ? FluxForgeTheme.accentGreen
+                    : _lastExportResult!.startsWith('⛔')
+                      ? FluxForgeTheme.accentRed
+                      : FluxForgeTheme.accentOrange))),
+              ],
+              const Spacer(),
+              // E5: Batch export
+              GestureDetector(
+                onTap: () async {
+                  for (final e in _exports) {
+                    await _doExport(e.$2.toLowerCase(), e.$2);
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: FluxForgeTheme.accentYellow.withOpacity(0.06),
+                    border: Border.all(color: FluxForgeTheme.accentYellow.withOpacity(0.2)),
+                    borderRadius: BorderRadius.circular(4)),
+                  child: const Text('Export All', style: TextStyle(
+                    fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.accentYellow)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1488,6 +1953,9 @@ class _SpineAudioAssign extends StatelessWidget {
   Widget build(BuildContext context) {
     final mw = GetIt.instance<MiddlewareProvider>();
     final events = mw.compositeEvents;
+    // Access helix state for context lens
+    final helixState = context.findAncestorStateOfType<_HelixScreenState>();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1496,6 +1964,38 @@ class _SpineAudioAssign extends StatelessWidget {
             fontFamily: 'monospace', fontSize: 18, color: FluxForgeTheme.accentCyan, fontWeight: FontWeight.w600)),
           const SizedBox(width: 6),
           const Text('events assigned', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary)),
+          const Spacer(),
+          // S3: New Event button
+          GestureDetector(
+            onTap: () {
+              try {
+                final now = DateTime.now();
+                GetIt.instance<MiddlewareProvider>().updateCompositeEvent(
+                  SlotCompositeEvent(
+                    id: 'helix_new_${now.millisecondsSinceEpoch}',
+                    name: 'New Event ${events.length + 1}',
+                    category: 'custom',
+                    color: FluxForgeTheme.accentCyan,
+                    createdAt: now,
+                    modifiedAt: now,
+                  ),
+                );
+              } catch (_) {}
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: FluxForgeTheme.accentCyan.withOpacity(0.08),
+                border: Border.all(color: FluxForgeTheme.accentCyan.withOpacity(0.3)),
+                borderRadius: BorderRadius.circular(4)),
+              child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.add_rounded, size: 10, color: FluxForgeTheme.accentCyan),
+                SizedBox(width: 2),
+                Text('New', style: TextStyle(
+                  fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.accentCyan)),
+              ]),
+            ),
+          ),
         ]),
         const SizedBox(height: 12),
         Expanded(
@@ -1504,24 +2004,31 @@ class _SpineAudioAssign extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, height: 1.5)))
             : ListView(
-                children: events.take(12).map((e) => Container(
-                  margin: const EdgeInsets.only(bottom: 4),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: e.color.withOpacity(0.05),
-                    border: Border.all(color: e.color.withOpacity(0.15)),
-                    borderRadius: BorderRadius.circular(6),
+                children: events.take(12).map((e) => GestureDetector(
+                  // S1: click event → open layer editor (context lens)
+                  onTap: () => helixState?.openContextLens(e),
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: e.color.withOpacity(0.05),
+                      border: Border.all(color: e.color.withOpacity(0.15)),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(children: [
+                      Container(width: 4, height: 4, decoration: BoxDecoration(
+                        color: e.color, shape: BoxShape.circle)),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(e.name, style: const TextStyle(
+                        fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textSecondary),
+                        overflow: TextOverflow.ellipsis)),
+                      Text('${e.layers.length}L', style: const TextStyle(
+                        fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary)),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.chevron_right_rounded, size: 12,
+                        color: FluxForgeTheme.textTertiary),
+                    ]),
                   ),
-                  child: Row(children: [
-                    Container(width: 4, height: 4, decoration: BoxDecoration(
-                      color: e.color, shape: BoxShape.circle)),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(e.name, style: const TextStyle(
-                      fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textSecondary),
-                      overflow: TextOverflow.ellipsis)),
-                    Text('${e.layers.length}L', style: const TextStyle(
-                      fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary)),
-                  ]),
                 )).toList(),
               ),
         ),
@@ -1573,52 +2080,76 @@ class _SpineGameConfig extends StatelessWidget {
 
 // ── Spine: AI / INTEL ───────────────────────────────────────────────────────
 
-class _SpineAiIntel extends StatelessWidget {
+class _SpineAiIntel extends StatefulWidget {
+  @override
+  State<_SpineAiIntel> createState() => _SpineAiIntelState();
+}
+
+class _SpineAiIntelState extends State<_SpineAiIntel> {
+  // S5: RTPC write sliders
+  final List<double> _rtpcOverrides = List.filled(8, -1); // -1 = not overridden
+
   @override
   Widget build(BuildContext context) {
     final neuro = GetIt.instance<NeuroAudioProvider>();
+    final mw = GetIt.instance<MiddlewareProvider>();
     final out = neuro.output;
     final dims = [
-      ('Arousal',       out.arousal,        FluxForgeTheme.accentRed),
-      ('Valence',       (out.valence + 1) / 2, FluxForgeTheme.accentGreen),
-      ('Engagement',    out.engagement,     FluxForgeTheme.accentBlue),
-      ('Risk tolerance',out.riskTolerance,  FluxForgeTheme.accentOrange),
-      ('Frustration',   out.frustration,    FluxForgeTheme.accentYellow),
-      ('Flow depth',    out.flowDepth,      FluxForgeTheme.accentCyan),
-      ('Churn risk',    out.churnPrediction,FluxForgeTheme.accentPurple),
-      ('Fatigue',       out.sessionFatigue, FluxForgeTheme.accentOrange),
+      ('Arousal',       out.arousal,        FluxForgeTheme.accentRed,     0),
+      ('Valence',       (out.valence + 1) / 2, FluxForgeTheme.accentGreen, 1),
+      ('Engagement',    out.engagement,     FluxForgeTheme.accentBlue,    2),
+      ('Risk tolerance',out.riskTolerance,  FluxForgeTheme.accentOrange,  3),
+      ('Frustration',   out.frustration,    FluxForgeTheme.accentYellow,  4),
+      ('Flow depth',    out.flowDepth,      FluxForgeTheme.accentCyan,    5),
+      ('Churn risk',    out.churnPrediction,FluxForgeTheme.accentPurple,  6),
+      ('Fatigue',       out.sessionFatigue, FluxForgeTheme.accentOrange,  7),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('8D EMOTIONAL STATE', style: TextStyle(
-          fontFamily: 'monospace', fontSize: 9, letterSpacing: 0.1,
-          color: FluxForgeTheme.textTertiary)),
+        Row(children: [
+          const Text('8D EMOTIONAL STATE', style: TextStyle(
+            fontFamily: 'monospace', fontSize: 9, letterSpacing: 0.1,
+            color: FluxForgeTheme.textTertiary)),
+          const Spacer(),
+          const Text('drag to override', style: TextStyle(
+            fontFamily: 'monospace', fontSize: 7, color: FluxForgeTheme.textTertiary)),
+        ]),
         const SizedBox(height: 8),
         ...dims.map((d) => Padding(
-          padding: const EdgeInsets.only(bottom: 6),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Row(
             children: [
-              Row(children: [
-                Expanded(child: Text(d.$1, style: const TextStyle(
-                  fontSize: 10, color: FluxForgeTheme.textSecondary))),
-                Text('${(d.$2 * 100).toStringAsFixed(0)}%', style: TextStyle(
-                  fontFamily: 'monospace', fontSize: 9, color: d.$3)),
-              ]),
-              const SizedBox(height: 3),
-              Container(
-                height: 3,
-                decoration: BoxDecoration(
-                  color: FluxForgeTheme.bgElevated,
-                  borderRadius: BorderRadius.circular(2)),
-                child: FractionallySizedBox(
-                  widthFactor: d.$2.clamp(0.0, 1.0),
-                  alignment: Alignment.centerLeft,
-                  child: Container(decoration: BoxDecoration(
-                    color: d.$3, borderRadius: BorderRadius.circular(2))),
+              SizedBox(width: 70, child: Text(d.$1, style: const TextStyle(
+                fontSize: 9, color: FluxForgeTheme.textSecondary))),
+              // S5: Interactive RTPC slider
+              Expanded(
+                child: GestureDetector(
+                  onHorizontalDragUpdate: (det) {
+                    final box = context.findRenderObject() as RenderBox?;
+                    if (box == null) return;
+                    final frac = (det.localPosition.dx / (box.size.width - 100)).clamp(0.0, 1.0);
+                    setState(() => _rtpcOverrides[d.$4] = frac);
+                    try { mw.setRtpc(d.$4, frac, interpolationMs: 100); } catch (_) {}
+                  },
+                  child: Container(
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: FluxForgeTheme.bgElevated,
+                      borderRadius: BorderRadius.circular(2)),
+                    child: FractionallySizedBox(
+                      widthFactor: (_rtpcOverrides[d.$4] >= 0 ? _rtpcOverrides[d.$4] : d.$2).clamp(0.0, 1.0),
+                      alignment: Alignment.centerLeft,
+                      child: Container(decoration: BoxDecoration(
+                        color: d.$3, borderRadius: BorderRadius.circular(2))),
+                    ),
+                  ),
                 ),
               ),
+              SizedBox(width: 32, child: Text(
+                '${((_rtpcOverrides[d.$4] >= 0 ? _rtpcOverrides[d.$4] : d.$2) * 100).toStringAsFixed(0)}%',
+                style: TextStyle(fontFamily: 'monospace', fontSize: 8, color: d.$3),
+                textAlign: TextAlign.right)),
             ],
           ),
         )),
@@ -1792,6 +2323,33 @@ class _SpineAnalytics extends StatelessWidget {
         _SpineRow('RTPC updates', '${mw.rtpcUpdateCount}'),
         _SpineRow('Switch changes', '${mw.switchChangeCount}'),
         _SpineRow('Actions', '${mw.actionCount}'),
+        const Spacer(),
+        // S8: Export session report
+        GestureDetector(
+          onTap: () {
+            try {
+              GetIt.instance<SlotExportProvider>().exportSingle({
+                'format': 'session_report',
+                'name': proj.projectName,
+                'spins': stats.totalSpins,
+                'rtp': stats.rtp,
+              }, 'session_report');
+            } catch (_) {}
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: FluxForgeTheme.accentPurple.withOpacity(0.06),
+              border: Border.all(color: FluxForgeTheme.accentPurple.withOpacity(0.2)),
+              borderRadius: BorderRadius.circular(4)),
+            child: const Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.download_rounded, size: 10, color: FluxForgeTheme.accentPurple),
+              SizedBox(width: 4),
+              Text('Export Report', style: TextStyle(
+                fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.accentPurple)),
+            ]),
+          ),
+        ),
       ],
     );
   }
@@ -2037,10 +2595,12 @@ class _ChannelStrip extends StatefulWidget {
   final SlotCompositeEvent event;
   final String name;
   final MiddlewareProvider middleware;
+  final VoidCallback? onTap;
   const _ChannelStrip({
     required this.event,
     required this.name,
     required this.middleware,
+    this.onTap,
   });
 
   @override
@@ -2090,7 +2650,9 @@ class _ChannelStripState extends State<_ChannelStrip> {
   @override
   Widget build(BuildContext context) {
     final dBStr = _muted ? '—∞' : '${(-20 + _level * 20).toStringAsFixed(0)}dB';
-    return Container(
+    return GestureDetector(
+    onDoubleTap: widget.onTap, // A3: double-tap channel → context lens
+    child: Container(
       margin: const EdgeInsets.only(bottom: 6),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
@@ -2189,6 +2751,7 @@ class _ChannelStripState extends State<_ChannelStrip> {
           ),
         ],
       ),
+    ),
     );
   }
 }
@@ -2418,4 +2981,347 @@ class _InfoChip extends StatelessWidget {
       ],
     ),
   );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MATH SLIDER (M1, M2, M4, M5, M6)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _MathSlider extends StatelessWidget {
+  final String label;
+  final double value, min, max;
+  final String suffix;
+  final Color color;
+  final ValueChanged<double> onChanged;
+  const _MathSlider({required this.label, required this.value,
+    required this.min, required this.max, required this.suffix,
+    required this.color, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Row(children: [
+        Text(label, style: const TextStyle(
+          fontFamily: 'monospace', fontSize: 8, letterSpacing: 0.1,
+          color: FluxForgeTheme.textTertiary)),
+        const Spacer(),
+        Text('${value.toStringAsFixed(value > 100 ? 0 : 1)}$suffix',
+          style: TextStyle(fontFamily: 'monospace', fontSize: 9, color: color)),
+      ]),
+      const SizedBox(height: 4),
+      SliderTheme(
+        data: SliderThemeData(
+          trackHeight: 3,
+          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+          activeTrackColor: color,
+          inactiveTrackColor: FluxForgeTheme.bgElevated,
+          thumbColor: color,
+          overlayColor: color.withOpacity(0.1),
+        ),
+        child: SizedBox(
+          height: 24,
+          child: Slider(
+            value: value, min: min, max: max,
+            onChanged: onChanged,
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INTERACTIVE TIMELINE TRACK (T1)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _TlTrackInteractive extends StatefulWidget {
+  final String name;
+  final Color color;
+  final List<SlotCompositeEvent> events;
+  final double maxMs;
+  final double trackAreaWidth;
+  final MiddlewareProvider middleware;
+  const _TlTrackInteractive({required this.name, required this.color,
+    required this.events, required this.maxMs, required this.trackAreaWidth,
+    required this.middleware});
+
+  @override
+  State<_TlTrackInteractive> createState() => _TlTrackInteractiveState();
+}
+
+class _TlTrackInteractiveState extends State<_TlTrackInteractive> {
+  String? _draggingId;
+  double _dragStartMs = 0;
+  double _dragStartX = 0;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 4),
+    child: Row(
+      children: [
+        SizedBox(width: 80, child: Text(widget.name, style: const TextStyle(
+          fontFamily: 'monospace', fontSize: 9,
+          color: FluxForgeTheme.textTertiary))),
+        Expanded(
+          child: LayoutBuilder(
+            builder: (_, c) => Stack(
+              children: [
+                Container(height: 18, decoration: BoxDecoration(
+                  color: FluxForgeTheme.bgDeep,
+                  border: Border.all(color: FluxForgeTheme.borderSubtle),
+                  borderRadius: BorderRadius.circular(3))),
+                // T1: draggable regions
+                ...widget.events.map((e) {
+                  final start = (e.timelinePositionMs / widget.maxMs).clamp(0.0, 1.0);
+                  final width = (1000 / widget.maxMs).clamp(0.02, 0.3);
+                  return Positioned(
+                    left: start * c.maxWidth,
+                    width: width * c.maxWidth,
+                    top: 2, bottom: 2,
+                    child: GestureDetector(
+                      onHorizontalDragStart: (d) {
+                        _draggingId = e.id;
+                        _dragStartMs = e.timelinePositionMs;
+                        _dragStartX = d.globalPosition.dx;
+                      },
+                      onHorizontalDragUpdate: (d) {
+                        if (_draggingId != e.id) return;
+                        final deltaX = d.globalPosition.dx - _dragStartX;
+                        final deltaMs = (deltaX / c.maxWidth) * widget.maxMs;
+                        final newMs = (_dragStartMs + deltaMs).clamp(0.0, widget.maxMs - 1000);
+                        widget.middleware.updateCompositeEvent(
+                          e.copyWith(timelinePositionMs: newMs));
+                      },
+                      onHorizontalDragEnd: (_) => _draggingId = null,
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.move,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: widget.color.withOpacity(0.25),
+                            border: Border.all(color: widget.color.withOpacity(0.5)),
+                            borderRadius: BorderRadius.circular(2)),
+                          child: Center(child: Text(
+                            e.name.length > 6 ? e.name.substring(0, 6) : e.name,
+                            style: TextStyle(fontFamily: 'monospace', fontSize: 7,
+                              color: widget.color.withOpacity(0.8)),
+                            overflow: TextOverflow.clip)),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PLAYHEAD TRIANGLE PAINTER (T4)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PlayheadTrianglePainter extends CustomPainter {
+  final Color color;
+  _PlayheadTrianglePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color..style = PaintingStyle.fill;
+    final path = Path()
+      ..moveTo(size.width / 2, size.height)
+      ..lineTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUDIO CONTEXT LENS (A3 + A5)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _AudioContextLens extends StatefulWidget {
+  final SlotCompositeEvent event;
+  final VoidCallback onClose;
+  const _AudioContextLens({required this.event, required this.onClose});
+
+  @override
+  State<_AudioContextLens> createState() => _AudioContextLensState();
+}
+
+class _AudioContextLensState extends State<_AudioContextLens> {
+  // A5: RTPC slider values
+  final List<double> _rtpcValues = List.filled(8, 0.5);
+
+  static const _rtpcNames = [
+    'Arousal', 'Valence', 'Risk Tolerance', 'Engagement',
+    'Tempo Mod', 'Reverb Depth', 'Compression', 'Win Magnitude',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final e = widget.event;
+    return Positioned.fill(
+      child: Stack(
+        children: [
+          // Dimmed background
+          GestureDetector(
+            onTap: widget.onClose,
+            child: Container(color: Colors.black.withOpacity(0.5)),
+          ),
+          // Lens panel
+          Center(
+            child: Container(
+              width: 480,
+              height: 400,
+              decoration: BoxDecoration(
+                color: FluxForgeTheme.bgSurface,
+                border: Border.all(color: e.color.withOpacity(0.4)),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [BoxShadow(
+                  color: e.color.withOpacity(0.2), blurRadius: 30)],
+              ),
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header
+                  Row(children: [
+                    Container(width: 8, height: 8, decoration: BoxDecoration(
+                      color: e.color, shape: BoxShape.circle)),
+                    const SizedBox(width: 10),
+                    Text(e.name, style: TextStyle(
+                      fontFamily: 'monospace', fontSize: 14, fontWeight: FontWeight.w600,
+                      color: e.color)),
+                    const SizedBox(width: 10),
+                    Text('${e.category}  ·  ${e.layers.length} layers',
+                      style: const TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary)),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: widget.onClose,
+                      child: const Icon(Icons.close_rounded, size: 18,
+                        color: FluxForgeTheme.textTertiary)),
+                  ]),
+                  const SizedBox(height: 12),
+                  const Divider(height: 1, color: FluxForgeTheme.borderSubtle),
+                  const SizedBox(height: 12),
+                  // Layer list
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Left: Layers
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('LAYERS', style: TextStyle(
+                              fontFamily: 'monospace', fontSize: 9, letterSpacing: 0.1,
+                              color: FluxForgeTheme.textTertiary)),
+                            const SizedBox(height: 8),
+                            ...e.layers.take(6).map((l) => Container(
+                              margin: const EdgeInsets.only(bottom: 4),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: FluxForgeTheme.bgElevated,
+                                borderRadius: BorderRadius.circular(5),
+                                border: Border.all(color: FluxForgeTheme.borderSubtle)),
+                              child: Row(children: [
+                                Container(width: 4, height: 4, decoration: BoxDecoration(
+                                  color: l.muted ? FluxForgeTheme.textTertiary : e.color,
+                                  shape: BoxShape.circle)),
+                                const SizedBox(width: 6),
+                                Expanded(child: Text(
+                                  l.name.isNotEmpty ? l.name : l.audioPath.split('/').last,
+                                  style: TextStyle(fontFamily: 'monospace', fontSize: 10,
+                                    color: l.muted ? FluxForgeTheme.textTertiary : FluxForgeTheme.textSecondary),
+                                  overflow: TextOverflow.ellipsis)),
+                                Text('${(l.volume * 100).toStringAsFixed(0)}%',
+                                  style: const TextStyle(fontFamily: 'monospace', fontSize: 9,
+                                    color: FluxForgeTheme.textTertiary)),
+                              ]),
+                            )),
+                            if (e.layers.isEmpty)
+                              const Text('No layers', style: TextStyle(
+                                fontSize: 10, color: FluxForgeTheme.textTertiary)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      // Right: RTPC sliders (A5)
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('RTPC PARAMETERS', style: TextStyle(
+                              fontFamily: 'monospace', fontSize: 9, letterSpacing: 0.1,
+                              color: FluxForgeTheme.textTertiary)),
+                            const SizedBox(height: 8),
+                            ...List.generate(8, (i) => Padding(
+                              padding: const EdgeInsets.only(bottom: 6),
+                              child: Row(children: [
+                                SizedBox(width: 80, child: Text(_rtpcNames[i],
+                                  style: const TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary))),
+                                Expanded(
+                                  child: SliderTheme(
+                                    data: SliderThemeData(
+                                      trackHeight: 2,
+                                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 4),
+                                      activeTrackColor: e.color,
+                                      inactiveTrackColor: FluxForgeTheme.bgElevated,
+                                      thumbColor: e.color,
+                                      overlayColor: e.color.withOpacity(0.1),
+                                    ),
+                                    child: SizedBox(
+                                      height: 18,
+                                      child: Slider(
+                                        value: _rtpcValues[i],
+                                        onChanged: (v) {
+                                          setState(() => _rtpcValues[i] = v);
+                                          try {
+                                            GetIt.instance<MiddlewareProvider>()
+                                              .setRtpc(i, v, interpolationMs: 200);
+                                          } catch (_) {}
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(width: 28, child: Text(
+                                  '${(_rtpcValues[i] * 100).toStringAsFixed(0)}%',
+                                  style: TextStyle(fontFamily: 'monospace', fontSize: 8,
+                                    color: e.color))),
+                              ]),
+                            )),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  // Footer info
+                  Row(children: [
+                    Text('Track: ${e.trackIndex}  ·  Position: ${e.timelinePositionMs.toStringAsFixed(0)}ms',
+                      style: const TextStyle(fontFamily: 'monospace', fontSize: 9,
+                        color: FluxForgeTheme.textTertiary)),
+                    const Spacer(),
+                    Text('Vol: ${(e.masterVolume * 100).toStringAsFixed(0)}%  ·  ${e.looping ? "Loop" : "One-shot"}',
+                      style: TextStyle(fontFamily: 'monospace', fontSize: 9,
+                        color: e.color.withOpacity(0.7))),
+                  ]),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
