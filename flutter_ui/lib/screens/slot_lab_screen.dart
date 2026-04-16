@@ -73,6 +73,7 @@ import '../widgets/slot_lab/spatial_audio_panel.dart' as spatial_panel;
 import '../widgets/slot_lab/ab_sim_panel.dart';
 import '../widgets/slot_lab/ucp_export_panel.dart';
 import '../widgets/slot_lab/slot_cabinet/slot_cabinet_widget.dart' as cabinet;
+import 'helix_screen.dart';
 import '../providers/slot_lab/game_flow_integration.dart';
 import '../providers/slot_lab/game_flow_provider.dart';
 import '../providers/ale_provider.dart';
@@ -3662,6 +3663,22 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                                               _useCabinetView ? 'Classic' : 'Cabinet',
                                               _useCabinetView ? const Color(0xFF40C8FF) : const Color(0xFFFF6B6B),
                                               () => setState(() => _useCabinetView = !_useCabinetView),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            // HELIX view — full neural design environment
+                                            _buildCenterToolBtn(
+                                              Icons.hub_rounded,
+                                              'HELIX',
+                                              const Color(0xFF5AA8FF),
+                                              () => Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  fullscreenDialog: true,
+                                                  builder: (_) => HelixScreen(
+                                                    onClose: () => Navigator.of(context).pop(),
+                                                    audioPool: widget.audioPool,
+                                                  ),
+                                                ),
+                                              ),
                                             ),
                                             const SizedBox(width: 6),
                                           ],
