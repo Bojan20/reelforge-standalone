@@ -70,6 +70,8 @@ members = [
     "crates/rf-slot-spatial",
     # Procedural AI Generation — prompt→spec pipeline, FFNC auto-classification (T8.1–T8.4)
     "crates/rf-ai-gen",
+    # RGAI™ — Responsible Gaming Audio Intelligence (T1.1–T1.7)
+    "crates/rf-rgai",
 ]
 
 [workspace.package]
@@ -111,6 +113,7 @@ rf-fingerprint = { path = "crates/rf-fingerprint" }
 rf-cloud-sync = { path = "crates/rf-cloud-sync" }
 rf-slot-spatial = { path = "crates/rf-slot-spatial" }
 rf-ai-gen = { path = "crates/rf-ai-gen" }
+rf-rgai = { path = "crates/rf-rgai" }
 rf-ale = { path = "crates/rf-ale" }
 rf-aurexis = { path = "crates/rf-aurexis" }
 rf-offline = { path = "crates/rf-offline" }
