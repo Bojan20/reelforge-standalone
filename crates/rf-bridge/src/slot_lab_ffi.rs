@@ -2979,6 +2979,216 @@ pub extern "C" fn slot_lab_win_tier_set_big_win_durations(
     );
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// T2.1: PAR FILE PARSER FFI
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Parse PAR file content and return JSON ParDocument.
+/// `format` is a C string: "json", "csv", "xlsx_csv", or "auto" (default).
+/// Returns JSON string (caller must free with slot_lab_free_string).
+/// Returns null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_par_parse(
+    data_ptr: *const c_char,
+    format_ptr: *const c_char,
+) -> *mut c_char {
+    use rf_slot_lab::parser::ParParser;
+
+    if data_ptr.is_null() {
+        return ptr::null_mut();
+    }
+    let content = unsafe {
+        match CStr::from_ptr(data_ptr).to_str() {
+            Ok(s) => s,
+            Err(_) => return ptr::null_mut(),
+        }
+    };
+    let format = if format_ptr.is_null() {
+        "auto"
+    } else {
+        unsafe {
+            CStr::from_ptr(format_ptr)
+                .to_str()
+                .unwrap_or("auto")
+        }
+    };
+
+    let parser = ParParser::new();
+    let result = match format.to_lowercase().as_str() {
+        "json" => parser.parse_json(content),
+        "csv" => parser.parse_csv(content),
+        "xlsx_csv" => parser.parse_xlsx_csv(content),
+        _ => parser.parse_auto(content),
+    };
+
+    match result {
+        Ok(doc) => match serde_json::to_string(&doc) {
+            Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+            Err(_) => ptr::null_mut(),
+        },
+        Err(e) => {
+            log::warn!("slot_lab_par_parse error: {}", e);
+            ptr::null_mut()
+        }
+    }
+}
+
+/// Validate a PAR JSON document.
+/// Returns JSON ParValidationReport.
+/// Returns null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_par_validate(par_json_ptr: *const c_char) -> *mut c_char {
+    use rf_slot_lab::parser::{ParDocument, ParParser};
+
+    if par_json_ptr.is_null() {
+        return ptr::null_mut();
+    }
+    let json = unsafe {
+        match CStr::from_ptr(par_json_ptr).to_str() {
+            Ok(s) => s,
+            Err(_) => return ptr::null_mut(),
+        }
+    };
+
+    let doc: ParDocument = match serde_json::from_str(json) {
+        Ok(d) => d,
+        Err(e) => {
+            log::warn!("slot_lab_par_validate: cannot deserialize ParDocument: {}", e);
+            return ptr::null_mut();
+        }
+    };
+
+    let parser = ParParser::new();
+    let report = parser.validate(&doc);
+    match serde_json::to_string(&report) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Auto-calibrate win tiers from PAR document JSON.
+/// Returns JSON CalibrationResult (contains RegularWinConfig + diagnostics).
+/// Returns null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_par_calibrate_win_tiers(par_json_ptr: *const c_char) -> *mut c_char {
+    use rf_slot_lab::{parser::ParDocument, auto_calibrate_win_tiers};
+
+    if par_json_ptr.is_null() {
+        return ptr::null_mut();
+    }
+    let json = unsafe {
+        match CStr::from_ptr(par_json_ptr).to_str() {
+            Ok(s) => s,
+            Err(_) => return ptr::null_mut(),
+        }
+    };
+
+    let doc: ParDocument = match serde_json::from_str(json) {
+        Ok(d) => d,
+        Err(e) => {
+            log::warn!("slot_lab_par_calibrate_win_tiers: cannot deserialize: {}", e);
+            return ptr::null_mut();
+        }
+    };
+
+    let result = auto_calibrate_win_tiers(&doc);
+    match serde_json::to_string(&result) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Convert a PAR document to a GameModel JSON.
+/// Returns null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_par_to_game_model(par_json_ptr: *const c_char) -> *mut c_char {
+    use rf_slot_lab::{parser::{ParDocument, ParParser}, GameModel};
+    use rf_slot_lab::model::{GameInfo, WinMechanism};
+    use rf_slot_lab::config::GridSpec;
+    use rf_slot_lab::timing::TimingConfig;
+
+    if par_json_ptr.is_null() {
+        return ptr::null_mut();
+    }
+    let json = unsafe {
+        match CStr::from_ptr(par_json_ptr).to_str() {
+            Ok(s) => s,
+            Err(_) => return ptr::null_mut(),
+        }
+    };
+
+    let doc: ParDocument = match serde_json::from_str(json) {
+        Ok(d) => d,
+        Err(e) => {
+            log::warn!("slot_lab_par_to_game_model: cannot deserialize: {}", e);
+            return ptr::null_mut();
+        }
+    };
+
+    // Build a GameModel from PAR data
+    let volatility = match doc.volatility {
+        rf_slot_lab::parser::ParVolatility::Low => rf_slot_lab::model::Volatility::Low,
+        rf_slot_lab::parser::ParVolatility::Medium => rf_slot_lab::model::Volatility::Medium,
+        rf_slot_lab::parser::ParVolatility::High => rf_slot_lab::model::Volatility::High,
+        rf_slot_lab::parser::ParVolatility::VeryHigh => rf_slot_lab::model::Volatility::VeryHigh,
+        rf_slot_lab::parser::ParVolatility::Extreme => rf_slot_lab::model::Volatility::VeryHigh,
+    };
+
+    let info = GameInfo::new(&doc.game_name, &doc.game_id)
+        .with_volatility(volatility)
+        .with_rtp(doc.rtp_target / 100.0);
+
+    let grid = GridSpec {
+        reels: doc.reels,
+        rows: doc.rows,
+        paylines: doc.paylines,
+    };
+
+    let win_mechanism = if let Some(ways) = doc.ways_to_win {
+        match ways {
+            243 => WinMechanism::ways_243(),
+            1024 => WinMechanism::ways_1024(),
+            _ => WinMechanism::ways_243(),
+        }
+    } else if doc.paylines > 0 {
+        WinMechanism::standard_20_paylines()
+    } else {
+        WinMechanism::standard_20_paylines()
+    };
+
+    // Calibrate win tiers from PAR data
+    let calibration = rf_slot_lab::auto_calibrate_win_tiers(&doc);
+    let win_tiers_legacy = rf_slot_lab::WinTierConfig::standard(); // Legacy compat
+
+    let model = GameModel {
+        info,
+        grid,
+        symbols: rf_slot_lab::model::SymbolSetConfig::Standard,
+        win_mechanism,
+        features: doc.features.iter().map(|f| rf_slot_lab::model::FeatureRef {
+            id: format!("{:?}", f.feature_type).to_lowercase(),
+            config: None,
+            builtin: true,
+        }).collect(),
+        win_tiers: win_tiers_legacy,
+        timing: TimingConfig::normal(),
+        mode: rf_slot_lab::model::GameMode::GddOnly,
+        math: None,
+    };
+
+    // Include calibration result alongside the model in a wrapper
+    let output = serde_json::json!({
+        "game_model": serde_json::to_value(&model).unwrap_or_default(),
+        "calibrated_win_tiers": serde_json::to_value(&calibration.regular_win_config).unwrap_or_default(),
+        "calibration_diagnostics": serde_json::to_value(&calibration.diagnostics).unwrap_or_default(),
+    });
+
+    match serde_json::to_string(&output) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

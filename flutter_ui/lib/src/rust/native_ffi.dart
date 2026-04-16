@@ -28432,5 +28432,125 @@ extension HookGraphAPI on NativeFFI {
       return null;
     }
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // T2.1: PAR FILE PARSER FFI WRAPPERS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Parse PAR content (CSV / JSON / auto-detect).
+  /// [format]: "json", "csv", "xlsx_csv", or "auto"
+  /// Returns raw JSON string of ParDocument, or null on error.
+  String? slotLabParParse(String content, String format) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>)
+      >('slot_lab_par_parse');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final contentPtr = content.toNativeUtf8();
+      final formatPtr = format.toNativeUtf8();
+      try {
+        final ptr = fn(contentPtr, formatPtr);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(contentPtr);
+        malloc.free(formatPtr);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Validate a PAR JSON document.
+  /// Returns raw JSON string of ParValidationReport, or null on error.
+  String? slotLabParValidate(String parJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('slot_lab_par_validate');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final jsonPtr = parJson.toNativeUtf8();
+      try {
+        final ptr = fn(jsonPtr);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(jsonPtr);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Auto-calibrate win tiers from PAR JSON document.
+  /// Returns raw JSON string of CalibrationResult, or null on error.
+  String? slotLabParCalibrateWinTiers(String parJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('slot_lab_par_calibrate_win_tiers');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final jsonPtr = parJson.toNativeUtf8();
+      try {
+        final ptr = fn(jsonPtr);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(jsonPtr);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Convert PAR JSON document to GameModel + calibrated tiers.
+  /// Returns raw JSON string with {game_model, calibrated_win_tiers, calibration_diagnostics},
+  /// or null on error.
+  String? slotLabParToGameModel(String parJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('slot_lab_par_to_game_model');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final jsonPtr = parJson.toNativeUtf8();
+      try {
+        final ptr = fn(jsonPtr);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(jsonPtr);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
 }
 

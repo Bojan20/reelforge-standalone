@@ -17,9 +17,18 @@
 
 pub mod schema;
 pub mod validator;
+pub mod par;
 
 pub use schema::GddSchema;
 pub use validator::{ValidationReport, validate_constraints};
+pub use par::{
+    ParParser, ParDocument, ParParseError, ParValidationReport, ParFinding, ParFindingSeverity,
+    ParSymbol, PayCombination, ParFeature, ParFeatureType, ParVolatility, RtpBreakdown,
+    ParJackpotLevel, ParLimits, CalibrationResult, CalibrationDiagnostics,
+    auto_calibrate_win_tiers,
+};
+// Re-export RegularWinConfig since it's returned by calibration
+pub use crate::model::RegularWinConfig;
 
 use serde::{Deserialize, Serialize};
 
