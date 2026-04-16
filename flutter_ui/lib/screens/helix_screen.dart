@@ -37,6 +37,7 @@ import '../providers/slot_export_provider.dart';
 import '../providers/middleware_provider.dart';
 import '../widgets/slot_lab/premium_slot_preview.dart';
 import '../models/game_flow_models.dart';
+import '../models/slot_audio_events.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELIX SCREEN
@@ -79,9 +80,13 @@ class _HelixScreenState extends State<HelixScreen>
   late Timer _bpmTimer;
   double _bpmDisplay = 128.0;
 
+  // ── FocusNode (CLAUDE.md: initState, not build) ───────────────────────────
+  late final FocusNode _focusNode;
+
   @override
   void initState() {
     super.initState();
+    _focusNode = FocusNode()..requestFocus();
     _glowCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 4))
       ..repeat(reverse: true);
     _glowAnim = Tween<double>(begin: 0.06, end: 0.12).animate(
@@ -109,6 +114,7 @@ class _HelixScreenState extends State<HelixScreen>
 
   @override
   void dispose() {
+    _focusNode.dispose();
     _glowCtrl.dispose();
     _waveTimer.cancel();
     _bpmTimer.cancel();
@@ -122,7 +128,7 @@ class _HelixScreenState extends State<HelixScreen>
   @override
   Widget build(BuildContext context) {
     return KeyboardListener(
-      focusNode: FocusNode()..requestFocus(),
+      focusNode: _focusNode,
       autofocus: true,
       onKeyEvent: _onKey,
       child: Container(
@@ -206,8 +212,9 @@ class _HelixScreenState extends State<HelixScreen>
               Container(width: 6, height: 6, decoration: BoxDecoration(
                 color: FluxForgeTheme.accentGreen, shape: BoxShape.circle)),
               const SizedBox(width: 6),
-              const Text('Untitled Project', style: TextStyle(
-                fontFamily: 'monospace', fontSize: 11, color: FluxForgeTheme.textPrimary)),
+              Text(GetIt.instance<SlotLabProjectProvider>().projectName,
+                style: const TextStyle(
+                  fontFamily: 'monospace', fontSize: 11, color: FluxForgeTheme.textPrimary)),
             ]),
           ),
           const Spacer(),
@@ -355,7 +362,7 @@ class _HelixScreenState extends State<HelixScreen>
               // Stage glow background
               AnimatedBuilder(
                 animation: _glowAnim,
-                builder: (_, __) => Center(
+                builder: (_, child) => Center(
                   child: Container(
                     width: MediaQuery.of(context).size.width * 0.6,
                     height: MediaQuery.of(context).size.height * 0.5,
@@ -370,10 +377,14 @@ class _HelixScreenState extends State<HelixScreen>
                 ),
               ),
 
-              // Slot preview — center
+              // Slot preview — center (wired to project provider)
               Center(
                 child: PremiumSlotPreview(
                   onExit: widget.onClose ?? () {},
+                  reels: 5,
+                  rows: 3,
+                  isFullscreen: true,
+                  projectProvider: GetIt.instance<SlotLabProjectProvider>(),
                 ),
               ),
 
@@ -415,10 +426,13 @@ class _HelixScreenState extends State<HelixScreen>
   };
 
   Widget _buildInfoChips() {
+    final proj = GetIt.instance<SlotLabProjectProvider>();
+    final rtp = proj.sessionStats.rtp;
+    final rtpStr = rtp.isNaN || rtp.isInfinite ? '—' : '${rtp.toStringAsFixed(1)}%';
     return Consumer<GameFlowProvider>(
       builder: (context, flow, _) => Row(
         children: [
-          const _InfoChip(label: 'RTP', value: '96.2%'),
+          _InfoChip(label: 'RTP', value: rtpStr),
           const SizedBox(width: 6),
           const _InfoChip(label: 'GRID', value: '5×3'),
           const SizedBox(width: 6),
@@ -556,7 +570,7 @@ class _HelixScreenState extends State<HelixScreen>
             onVerticalDragUpdate: (d) => setState(() {
               _dockHeight = (_dockHeight - d.delta.dy).clamp(150.0, 500.0);
             }),
-            child: Container(
+            child: SizedBox(
               width: 32, height: 38,
               child: Center(
                 child: Container(
@@ -600,7 +614,7 @@ class _FlowPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Consumer<GameFlowProvider>(
-      builder: (_, flow, __) {
+      builder: (_, flow, child) {
         final current = flow.currentState;
         final nodes = [
           (GameFlowState.idle,              'IDLE',    Icons.pause_circle_outline, FluxForgeTheme.textTertiary),
@@ -685,65 +699,83 @@ class _AudioPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<MiddlewareProvider>(
-      builder: (_, mw, __) {
-        final events = mw.compositeEvents.take(6).toList();
+    final mw = GetIt.instance<MiddlewareProvider>();
+    final neuro = GetIt.instance<NeuroAudioProvider>();
+    final events = mw.compositeEvents.take(8).toList();
+    final out = neuro.output;
 
-        return Row(
-          children: [
-            // Master meters
-            SizedBox(
-              width: 120,
-              child: _DockCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _DockLabel('MASTER'),
-                    const SizedBox(height: 8),
-                    _MeterRow(label: 'L', value: 0.72),
-                    const SizedBox(height: 6),
-                    _MeterRow(label: 'R', value: 0.68),
-                    const Spacer(),
-                    const Text('-4.2 dBFS',
-                      style: TextStyle(fontFamily: 'monospace',
-                        fontSize: 10, color: FluxForgeTheme.accentGreen)),
-                  ],
-                ),
-              ),
+    // Derive master levels from neuro audio adaptation output
+    final masterL = (out.arousal * 0.6 + out.engagement * 0.4).clamp(0.0, 1.0);
+    final masterR = (out.arousal * 0.55 + out.engagement * 0.45).clamp(0.0, 1.0);
+    final peak = math.max(masterL, masterR);
+    final peakDb = peak > 0.001 ? (20 * math.log(peak) / 2.302585) : -60.0;
+
+    return Row(
+      children: [
+        // Master meters — driven by NeuroAudio engagement/arousal
+        SizedBox(
+          width: 130,
+          child: _DockCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _DockLabel('MASTER'),
+                const SizedBox(height: 8),
+                _MeterRow(label: 'L', value: masterL),
+                const SizedBox(height: 6),
+                _MeterRow(label: 'R', value: masterR),
+                const Spacer(),
+                Text('${peakDb.toStringAsFixed(1)} dBFS',
+                  style: TextStyle(fontFamily: 'monospace',
+                    fontSize: 10, color: peakDb > -6 ? FluxForgeTheme.accentOrange : FluxForgeTheme.accentGreen)),
+                const SizedBox(height: 6),
+                Row(children: [
+                  _DockLabel('VOL'),
+                  const SizedBox(width: 4),
+                  Text('${(out.volumeEnvelopeScale * 100).toStringAsFixed(0)}%',
+                    style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.accentCyan)),
+                  const Spacer(),
+                  _DockLabel('CMP'),
+                  const SizedBox(width: 4),
+                  Text('${(out.compressionModifier * 100).toStringAsFixed(0)}%',
+                    style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.accentPurple)),
+                ]),
+              ],
             ),
-            const SizedBox(width: 12),
-            // Channel strips
-            Expanded(
-              child: _DockCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _DockLabel('CHANNELS'),
-                    const SizedBox(height: 8),
-                    Expanded(
-                      child: ListView(
-                        children: events.isEmpty
-                          ? [
-                              _ChannelStrip(name: 'BASE_LOOP', color: FluxForgeTheme.accentBlue,   level: 0.75),
-                              _ChannelStrip(name: 'TRIG_STG',  color: FluxForgeTheme.accentOrange, level: 0.60),
-                              _ChannelStrip(name: 'BONUS_FX',  color: FluxForgeTheme.accentYellow, level: 0.70),
-                              _ChannelStrip(name: 'WIN_CEL',   color: FluxForgeTheme.accentGreen,  level: 0.85),
-                              _ChannelStrip(name: 'NEURO_MX',  color: FluxForgeTheme.accentPurple, level: 0.45),
-                            ]
-                          : events.map((e) => _ChannelStrip(
-                              name: e.name.length > 10 ? e.name.substring(0, 10) : e.name,
-                              color: FluxForgeTheme.accentBlue,
-                              level: 0.65,
-                            )).toList(),
+          ),
+        ),
+        const SizedBox(width: 12),
+        // Channel strips — real composite events
+        Expanded(
+          child: _DockCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  _DockLabel('CHANNELS'),
+                  const Spacer(),
+                  Text('${events.length} events', style: const TextStyle(
+                    fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary)),
+                ]),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: events.isEmpty
+                    ? const Center(child: Text('No composite events loaded.\nAssign audio in SlotLab.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, height: 1.5)))
+                    : ListView(
+                        children: events.map((e) {
+                          final name = e.name.length > 12 ? e.name.substring(0, 12) : e.name;
+                          final level = e.masterVolume.clamp(0.0, 1.0);
+                          return _ChannelStrip(name: name, color: e.color, level: level);
+                        }).toList(),
                       ),
-                    ),
-                  ],
                 ),
-              ),
+              ],
             ),
-          ],
-        );
-      },
+          ),
+        ),
+      ],
     );
   }
 }
@@ -755,31 +787,49 @@ class _MathPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<SlotLabProjectProvider>(
-      builder: (_, proj, __) {
-        final stats = proj.sessionStats;
-        final rtp = stats.rtp.isNaN || stats.rtp.isInfinite ? 96.0 : stats.rtp;
+    final proj = GetIt.instance<SlotLabProjectProvider>();
+    final neuro = GetIt.instance<NeuroAudioProvider>();
+    final stats = proj.sessionStats;
+    final wins = proj.recentWins;
+    final rtp = stats.rtp.isNaN || stats.rtp.isInfinite ? 0.0 : stats.rtp;
 
-        final cards = [
-          ('RTP',         '${rtp.toStringAsFixed(1)}%',  'Target: 96.0%', rtp / 100, FluxForgeTheme.accentGreen),
-          ('VOLATILITY',  'HIGH',            'Index: 7.4 / 10',   0.74, FluxForgeTheme.accentOrange),
-          ('HIT FREQ',    '1:4.2',           '24% hit rate',      0.24, FluxForgeTheme.accentBlue),
-          ('MAX WIN',     '5000×',           'Bet multiplier',    1.0,  FluxForgeTheme.accentYellow),
-          ('SIMULATIONS', '${stats.totalSpins}', 'Spins recorded', 1.0, FluxForgeTheme.accentPurple),
-          ('BONUS FREQ',  '1:82',            'Free spins trigger', 0.12, FluxForgeTheme.accentCyan),
-        ];
+    // Volatility from NeuroAudio risk tolerance (real Rust FFI data)
+    final volIdx = (neuro.output.riskTolerance * 10).clamp(0.0, 10.0);
+    final volLabel = volIdx > 7 ? 'HIGH' : volIdx > 4 ? 'MED' : 'LOW';
 
-        return GridView.count(
-          crossAxisCount: 6,
-          mainAxisSpacing: 8,
-          crossAxisSpacing: 8,
-          childAspectRatio: 0.9,
-          children: cards.map((c) => _MathCard(
-            label: c.$1, value: c.$2, sub: c.$3,
-            fill: c.$4, color: c.$5,
-          )).toList(),
-        );
-      },
+    // Hit frequency from actual session data
+    final hitRate = stats.totalSpins > 0 ? wins.length / stats.totalSpins : 0.0;
+    final hitFreqStr = hitRate > 0 ? '1:${(1 / hitRate).toStringAsFixed(1)}' : '—';
+
+    // Max win multiplier from actual wins
+    final avgBet = stats.totalSpins > 0 ? stats.totalBet / stats.totalSpins : 1.0;
+    final maxWinAmt = wins.isEmpty ? 0.0 : wins.map((w) => w.amount).reduce(math.max);
+    final maxWinMult = avgBet > 0 ? maxWinAmt / avgBet : 0.0;
+
+    // Bonus frequency from feature wins
+    final bonusWins = wins.where((w) => w.tier.toUpperCase().contains('BONUS') || w.tier.toUpperCase().contains('FREE')).length;
+    final bonusFreq = stats.totalSpins > 0 && bonusWins > 0
+        ? '1:${(stats.totalSpins / bonusWins).toStringAsFixed(0)}' : '—';
+    final bonusFill = stats.totalSpins > 0 ? (bonusWins / stats.totalSpins).clamp(0.0, 1.0) : 0.0;
+
+    final cards = [
+      ('RTP',         rtp > 0 ? '${rtp.toStringAsFixed(1)}%' : '—', 'Target: 96.0%', (rtp / 100).clamp(0.0, 1.0), FluxForgeTheme.accentGreen),
+      ('VOLATILITY',  volLabel,  'Index: ${volIdx.toStringAsFixed(1)} / 10', volIdx / 10, FluxForgeTheme.accentOrange),
+      ('HIT FREQ',    hitFreqStr, '${(hitRate * 100).toStringAsFixed(0)}% hit rate', hitRate.clamp(0.0, 1.0), FluxForgeTheme.accentBlue),
+      ('MAX WIN',     maxWinMult > 0 ? '${maxWinMult.toStringAsFixed(0)}×' : '—', 'Bet multiplier', (maxWinMult / 5000).clamp(0.0, 1.0), FluxForgeTheme.accentYellow),
+      ('SIMULATIONS', '${stats.totalSpins}', 'Spins recorded', stats.totalSpins > 0 ? 1.0 : 0.0, FluxForgeTheme.accentPurple),
+      ('BONUS FREQ',  bonusFreq, 'Feature triggers', bonusFill, FluxForgeTheme.accentCyan),
+    ];
+
+    return GridView.count(
+      crossAxisCount: 6,
+      mainAxisSpacing: 8,
+      crossAxisSpacing: 8,
+      childAspectRatio: 0.9,
+      children: cards.map((c) => _MathCard(
+        label: c.$1, value: c.$2, sub: c.$3,
+        fill: c.$4, color: c.$5,
+      )).toList(),
     );
   }
 }
@@ -789,16 +839,43 @@ class _MathPanel extends StatelessWidget {
 class _TimelinePanel extends StatelessWidget {
   const _TimelinePanel();
 
-  static const _tracks = [
-    ('BASE_LOOP',   FluxForgeTheme.accentBlue,   [(0.03, 0.85)]),
-    ('REEL_SFX',    FluxForgeTheme.accentCyan,   [(0.03, 0.18), (0.22, 0.22)]),
-    ('WIN_CEL',     FluxForgeTheme.accentGreen,  [(0.46, 0.30)]),
-    ('NEURO_ADAPT', FluxForgeTheme.accentPurple, [(0.03, 0.92)]),
-    ('STINGERS',    FluxForgeTheme.accentOrange, [(0.38, 0.08)]),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final mw = GetIt.instance<MiddlewareProvider>();
+    final events = mw.compositeEvents;
+
+    // Group events by trackIndex, build real timeline tracks
+    final trackMap = <int, List<SlotCompositeEvent>>{};
+    for (final e in events) {
+      trackMap.putIfAbsent(e.trackIndex, () => []).add(e);
+    }
+
+    // Find timeline extent (max position + reasonable width)
+    double maxMs = 8000; // 8 second default view
+    for (final e in events) {
+      final end = e.timelinePositionMs + 1000; // assume ~1s per event
+      if (end > maxMs) maxMs = end;
+    }
+
+    // Build track list from real data, or show empty state
+    final sortedTracks = trackMap.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
+    final trackWidgets = sortedTracks.take(6).map((entry) {
+      final trackEvents = entry.value;
+      final trackName = trackEvents.first.name.length > 10
+          ? trackEvents.first.name.substring(0, 10) : trackEvents.first.name;
+      final color = trackEvents.first.color;
+      final regions = trackEvents.map((e) {
+        final start = (e.timelinePositionMs / maxMs).clamp(0.0, 1.0);
+        final width = (1000 / maxMs).clamp(0.02, 0.3); // each event ~1s visual width
+        return (start, width);
+      }).toList();
+      return _TlTrack(name: trackName, color: color, regions: regions);
+    }).toList();
+
+    // Ruler marks
+    final rulerCount = (maxMs / 1000).ceil().clamp(4, 10);
+    final rulerLabels = List.generate(rulerCount, (i) => '0:${i.toString().padLeft(2, '0')}');
+
     return _DockCard(
       child: Column(
         children: [
@@ -806,10 +883,9 @@ class _TimelinePanel extends StatelessWidget {
           Row(
             children: [
               const SizedBox(width: 80),
-              ...['0:00','0:01','0:02','0:03','0:04','0:05','0:06','0:07']
-                .map((t) => Expanded(child: Text(t, style: const TextStyle(
-                  fontFamily: 'monospace', fontSize: 9,
-                  color: FluxForgeTheme.textTertiary)))),
+              ...rulerLabels.map((t) => Expanded(child: Text(t, style: const TextStyle(
+                fontFamily: 'monospace', fontSize: 9,
+                color: FluxForgeTheme.textTertiary)))),
             ],
           ),
           const SizedBox(height: 4),
@@ -817,13 +893,13 @@ class _TimelinePanel extends StatelessWidget {
           const SizedBox(height: 4),
           // Tracks
           Expanded(
-            child: Column(
-              children: _tracks.map((t) => Expanded(
-                child: _TlTrack(
-                  name: t.$1, color: t.$2, regions: t.$3,
+            child: trackWidgets.isEmpty
+              ? const Center(child: Text('No events on timeline.\nAssign composite events in SlotLab.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, height: 1.5)))
+              : Column(
+                  children: trackWidgets.map((t) => Expanded(child: t)).toList(),
                 ),
-              )).toList(),
-            ),
           ),
         ],
       ),
@@ -838,6 +914,51 @@ class _IntelPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final rgai = GetIt.instance<RgaiProvider>();
+    final neuro = GetIt.instance<NeuroAudioProvider>();
+    final out = neuro.output;
+    final report = rgai.report;
+    final summary = report?.summary;
+
+    // Build copilot suggestions from real RGAI remediations
+    final allRemediations = <RemediationSuggestion>[];
+    for (final asset in report?.assets ?? <RgarAssetAnalysis>[]) {
+      allRemediations.addAll(asset.remediations);
+    }
+
+    // Build copilot text from real data
+    String copilotText;
+    if (allRemediations.isNotEmpty) {
+      final top = allRemediations.first;
+      copilotText = 'Suggest: ${top.parameter} ${top.currentValue} → ${top.suggestedValue}\n'
+          '${top.reason}';
+    } else if (neuro.responsibleGamingMode) {
+      copilotText = 'RG mode active. Audio intensity reduced.\n'
+          'Monitoring player risk level: ${neuro.riskLevel.name}.';
+    } else if (out.frustration > 0.6) {
+      copilotText = 'High frustration detected (${(out.frustration * 100).toStringAsFixed(0)}%).\n'
+          'Suggest: Increase reverb depth, reduce tempo.';
+    } else if (out.engagement > 0.7) {
+      copilotText = 'Player in flow state (${(out.flowDepth * 100).toStringAsFixed(0)}% depth).\n'
+          'Audio adaptation: maintaining current balance.';
+    } else {
+      copilotText = 'Session active. ${neuro.totalSpins} spins tracked.\n'
+          'All parameters within normal range.';
+    }
+
+    final stimPass = summary?.isCompliant ?? true;
+    final riskRating = summary?.overallRiskRating;
+    final nearMissOk = (summary?.maxNearMissDeception ?? 0) < 0.5;
+
+    // Real engagement score
+    final score = (out.engagement * 10).clamp(0.0, 10.0);
+
+    // Real mini metrics from NeuroAudioProvider
+    final retention = ((1.0 - out.churnPrediction) * 100).toStringAsFixed(0);
+    final dwell = '${neuro.sessionDurationMinutes.toStringAsFixed(1)}m';
+    final fatigueIdx = out.sessionFatigue.toStringAsFixed(2);
+    final losses = '${neuro.consecutiveLosses}';
+
     return Row(
       children: [
         // Left: AI Copilot + RGAI
@@ -851,97 +972,96 @@ class _IntelPanel extends StatelessWidget {
                     children: [
                       Row(children: [
                         Container(width: 6, height: 6,
-                          decoration: const BoxDecoration(
-                            color: FluxForgeTheme.accentGreen, shape: BoxShape.circle)),
+                          decoration: BoxDecoration(
+                            color: neuro.responsibleGamingMode
+                              ? FluxForgeTheme.accentOrange : FluxForgeTheme.accentGreen,
+                            shape: BoxShape.circle)),
                         const SizedBox(width: 6),
                         _DockLabel('AI COPILOT'),
+                        const Spacer(),
+                        if (allRemediations.isNotEmpty)
+                          Text('${allRemediations.length} suggestions', style: const TextStyle(
+                            fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.accentYellow)),
                       ]),
                       const SizedBox(height: 8),
-                      const Text(
-                        'Detected: High-intensity base loop.\n'
-                        'Suggest: ↓ reverb 15% for clarity.',
-                        style: TextStyle(fontSize: 10, height: 1.5,
+                      Text(copilotText,
+                        style: const TextStyle(fontSize: 10, height: 1.5,
                           color: FluxForgeTheme.textSecondary)),
-                      const SizedBox(height: 4),
-                      const Text('✓ RG mode stable', style: TextStyle(
-                        fontSize: 10, color: FluxForgeTheme.accentGreen)),
+                      const Spacer(),
+                      Text(neuro.responsibleGamingMode ? '⚠ RG MODE' : '✓ RG mode stable',
+                        style: TextStyle(fontSize: 10,
+                          color: neuro.responsibleGamingMode
+                            ? FluxForgeTheme.accentOrange : FluxForgeTheme.accentGreen)),
                     ],
                   ),
                 ),
               ),
               const SizedBox(height: 8),
               Expanded(
-                child: Consumer<RgaiProvider>(
-                  builder: (_, rgai, __) {
-                    final report = rgai.report;
-                    final summary = report?.summary;
-                    final stimPass = summary?.isCompliant ?? true;
-                    final riskRating = summary?.overallRiskRating;
-
-                    return _DockCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _DockLabel('RGAI COMPLIANCE'),
-                          const SizedBox(height: 8),
-                          _IntelRow('Stimulation index',
-                            stimPass ? 'PASS' : 'FAIL',
-                            stimPass ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentRed),
-                          _IntelRow('Near-miss exposure',
-                            riskRating == AddictionRiskRating.low ? 'OK' : 'WARN',
-                            riskRating == AddictionRiskRating.low
-                              ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentYellow),
-                          _IntelRow('Session pacing', 'OK', FluxForgeTheme.accentGreen),
-                        ],
-                      ),
-                    );
-                  },
+                child: _DockCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(children: [
+                        _DockLabel('RGAI COMPLIANCE'),
+                        const Spacer(),
+                        if (summary != null)
+                          Text('${summary.passedAssets}/${summary.totalAssets}', style: const TextStyle(
+                            fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary)),
+                      ]),
+                      const SizedBox(height: 8),
+                      _IntelRow('Stimulation index',
+                        stimPass ? 'PASS' : 'FAIL',
+                        stimPass ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentRed),
+                      _IntelRow('Near-miss exposure',
+                        nearMissOk ? 'OK' : 'WARN',
+                        nearMissOk ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentYellow),
+                      _IntelRow('Risk level',
+                        neuro.riskLevel.name.toUpperCase(),
+                        neuro.riskLevel == PlayerRiskLevel.low ? FluxForgeTheme.accentGreen
+                          : neuro.riskLevel == PlayerRiskLevel.high ? FluxForgeTheme.accentRed
+                          : FluxForgeTheme.accentYellow),
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
         ),
         const SizedBox(width: 12),
-        // Right: Engagement score
+        // Right: Engagement score — real NeuroAudio data
         SizedBox(
           width: 200,
-          child: Consumer<NeuroAudioProvider>(
-            builder: (_, neuro, __) {
-              final score = (neuro.output.valence * 5 + 5)
-                  .clamp(0.0, 10.0);
-
-              return _DockCard(
-                child: Column(
+          child: _DockCard(
+            child: Column(
+              children: [
+                _DockLabel('ENGAGEMENT SCORE'),
+                const Spacer(),
+                Text(score.toStringAsFixed(1),
+                  style: const TextStyle(
+                    fontFamily: 'monospace', fontSize: 40,
+                    color: FluxForgeTheme.accentBlue, fontWeight: FontWeight.w300)),
+                Text('/ 10.0 — ${_engagementLabel(score)}',
+                  style: const TextStyle(
+                    fontSize: 9, color: FluxForgeTheme.textTertiary,
+                    letterSpacing: 0.05)),
+                const Spacer(),
+                // 4 real mini metrics from NeuroAudioProvider
+                GridView.count(
+                  crossAxisCount: 2,
+                  shrinkWrap: true,
+                  childAspectRatio: 2.5,
+                  mainAxisSpacing: 4,
+                  crossAxisSpacing: 4,
                   children: [
-                    _DockLabel('ENGAGEMENT SCORE'),
-                    const Spacer(),
-                    Text(score.toStringAsFixed(1),
-                      style: const TextStyle(
-                        fontFamily: 'monospace', fontSize: 40,
-                        color: FluxForgeTheme.accentBlue, fontWeight: FontWeight.w300)),
-                    Text('/ 10.0 — ${_engagementLabel(score)}',
-                      style: const TextStyle(
-                        fontSize: 9, color: FluxForgeTheme.textTertiary,
-                        letterSpacing: 0.05)),
-                    const Spacer(),
-                    // 4 mini metrics
-                    GridView.count(
-                      crossAxisCount: 2,
-                      shrinkWrap: true,
-                      childAspectRatio: 2.5,
-                      mainAxisSpacing: 4,
-                      crossAxisSpacing: 4,
-                      children: [
-                        _MiniMetric('94%',  'Retention',  FluxForgeTheme.accentBlue),
-                        _MiniMetric('7.2s', 'Avg dwell',  FluxForgeTheme.accentPurple),
-                        _MiniMetric('1.8×', 'Bet increase', FluxForgeTheme.accentOrange),
-                        _MiniMetric('0.12', 'Fatigue idx', FluxForgeTheme.accentGreen),
-                      ],
-                    ),
+                    _MiniMetric('$retention%', 'Retention',   FluxForgeTheme.accentBlue),
+                    _MiniMetric(dwell,         'Session',     FluxForgeTheme.accentPurple),
+                    _MiniMetric(losses,        'Loss streak', FluxForgeTheme.accentOrange),
+                    _MiniMetric(fatigueIdx,    'Fatigue idx', FluxForgeTheme.accentGreen),
                   ],
                 ),
-              );
-            },
+              ],
+            ),
           ),
         ),
       ],
@@ -1123,7 +1243,7 @@ class _SpineOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    width: 260,
+    width: 280,
     decoration: BoxDecoration(
       color: FluxForgeTheme.bgSurface.withOpacity(0.95),
       border: Border(right: BorderSide(color: FluxForgeTheme.borderSubtle)),
@@ -1150,12 +1270,265 @@ class _SpineOverlay extends StatelessWidget {
         const Divider(height: 1, color: FluxForgeTheme.borderSubtle),
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              'Panel: $title\n(Content coming soon)',
-              style: const TextStyle(fontSize: 11, color: FluxForgeTheme.textTertiary)),
+            padding: const EdgeInsets.all(12),
+            child: _buildSpineContent(spineIndex),
           ),
         ),
+      ],
+    ),
+  );
+
+  static Widget _buildSpineContent(int index) {
+    switch (index) {
+      case 0: return _SpineAudioAssign();
+      case 1: return _SpineGameConfig();
+      case 2: return _SpineAiIntel();
+      case 3: return _SpineSettings();
+      case 4: return _SpineAnalytics();
+      default: return const SizedBox();
+    }
+  }
+}
+
+// ── Spine: AUDIO ASSIGN ─────────────────────────────────────────────────────
+
+class _SpineAudioAssign extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final mw = GetIt.instance<MiddlewareProvider>();
+    final events = mw.compositeEvents;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          Text('${events.length}', style: const TextStyle(
+            fontFamily: 'monospace', fontSize: 18, color: FluxForgeTheme.accentCyan, fontWeight: FontWeight.w600)),
+          const SizedBox(width: 6),
+          const Text('events assigned', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary)),
+        ]),
+        const SizedBox(height: 12),
+        Expanded(
+          child: events.isEmpty
+            ? const Center(child: Text('No audio events.\nCreate in SlotLab ASSIGN tab.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, height: 1.5)))
+            : ListView(
+                children: events.take(12).map((e) => Container(
+                  margin: const EdgeInsets.only(bottom: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: e.color.withOpacity(0.05),
+                    border: Border.all(color: e.color.withOpacity(0.15)),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(children: [
+                    Container(width: 4, height: 4, decoration: BoxDecoration(
+                      color: e.color, shape: BoxShape.circle)),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(e.name, style: const TextStyle(
+                      fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textSecondary),
+                      overflow: TextOverflow.ellipsis)),
+                    Text('${e.layers.length}L', style: const TextStyle(
+                      fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary)),
+                  ]),
+                )).toList(),
+              ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Spine: GAME CONFIG ──────────────────────────────────────────────────────
+
+class _SpineGameConfig extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final flow = GetIt.instance<GameFlowProvider>();
+    final proj = GetIt.instance<SlotLabProjectProvider>();
+    final stats = proj.sessionStats;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SpineRow('State', flow.currentState.displayName),
+        _SpineRow('Total spins', '${stats.totalSpins}'),
+        _SpineRow('Total bet', stats.totalBet.toStringAsFixed(2)),
+        _SpineRow('Total win', stats.totalWin.toStringAsFixed(2)),
+        _SpineRow('RTP', stats.rtp.isNaN ? '—' : '${stats.rtp.toStringAsFixed(1)}%'),
+        const SizedBox(height: 12),
+        const Text('RECENT WINS', style: TextStyle(
+          fontFamily: 'monospace', fontSize: 9, letterSpacing: 0.1,
+          color: FluxForgeTheme.textTertiary)),
+        const SizedBox(height: 6),
+        Expanded(
+          child: proj.recentWins.isEmpty
+            ? const Center(child: Text('No wins recorded', style: TextStyle(
+                fontSize: 10, color: FluxForgeTheme.textTertiary)))
+            : ListView(children: proj.recentWins.take(10).map((w) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(children: [
+                  Text(w.tier, style: const TextStyle(
+                    fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.accentYellow)),
+                  const Spacer(),
+                  Text(w.amount.toStringAsFixed(2), style: const TextStyle(
+                    fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textPrimary)),
+                ]),
+              )).toList()),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Spine: AI / INTEL ───────────────────────────────────────────────────────
+
+class _SpineAiIntel extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final neuro = GetIt.instance<NeuroAudioProvider>();
+    final out = neuro.output;
+    final dims = [
+      ('Arousal',       out.arousal,        FluxForgeTheme.accentRed),
+      ('Valence',       (out.valence + 1) / 2, FluxForgeTheme.accentGreen),
+      ('Engagement',    out.engagement,     FluxForgeTheme.accentBlue),
+      ('Risk tolerance',out.riskTolerance,  FluxForgeTheme.accentOrange),
+      ('Frustration',   out.frustration,    FluxForgeTheme.accentYellow),
+      ('Flow depth',    out.flowDepth,      FluxForgeTheme.accentCyan),
+      ('Churn risk',    out.churnPrediction,FluxForgeTheme.accentPurple),
+      ('Fatigue',       out.sessionFatigue, FluxForgeTheme.accentOrange),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('8D EMOTIONAL STATE', style: TextStyle(
+          fontFamily: 'monospace', fontSize: 9, letterSpacing: 0.1,
+          color: FluxForgeTheme.textTertiary)),
+        const SizedBox(height: 8),
+        ...dims.map((d) => Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                Expanded(child: Text(d.$1, style: const TextStyle(
+                  fontSize: 10, color: FluxForgeTheme.textSecondary))),
+                Text('${(d.$2 * 100).toStringAsFixed(0)}%', style: TextStyle(
+                  fontFamily: 'monospace', fontSize: 9, color: d.$3)),
+              ]),
+              const SizedBox(height: 3),
+              Container(
+                height: 3,
+                decoration: BoxDecoration(
+                  color: FluxForgeTheme.bgElevated,
+                  borderRadius: BorderRadius.circular(2)),
+                child: FractionallySizedBox(
+                  widthFactor: d.$2.clamp(0.0, 1.0),
+                  alignment: Alignment.centerLeft,
+                  child: Container(decoration: BoxDecoration(
+                    color: d.$3, borderRadius: BorderRadius.circular(2))),
+                ),
+              ),
+            ],
+          ),
+        )),
+        const Spacer(),
+        Row(children: [
+          const Text('Risk: ', style: TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary)),
+          Text(neuro.riskLevel.name.toUpperCase(), style: TextStyle(
+            fontFamily: 'monospace', fontSize: 10, fontWeight: FontWeight.w600,
+            color: neuro.riskLevel == PlayerRiskLevel.low ? FluxForgeTheme.accentGreen
+              : neuro.riskLevel == PlayerRiskLevel.high ? FluxForgeTheme.accentRed
+              : FluxForgeTheme.accentYellow)),
+        ]),
+      ],
+    );
+  }
+}
+
+// ── Spine: SETTINGS ─────────────────────────────────────────────────────────
+
+class _SpineSettings extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final engine = GetIt.instance<EngineProvider>();
+    final t = engine.transport;
+    final neuro = GetIt.instance<NeuroAudioProvider>();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('ENGINE', style: TextStyle(
+          fontFamily: 'monospace', fontSize: 9, letterSpacing: 0.1,
+          color: FluxForgeTheme.textTertiary)),
+        const SizedBox(height: 8),
+        _SpineRow('Tempo', '${t.tempo.toStringAsFixed(1)} BPM'),
+        _SpineRow('Time sig', '${t.timeSigNum}/${t.timeSigDenom}'),
+        _SpineRow('Position', '${t.positionSeconds.toStringAsFixed(1)}s'),
+        _SpineRow('Playing', t.isPlaying ? 'YES' : 'NO'),
+        _SpineRow('Loop', t.loopEnabled ? 'ON' : 'OFF'),
+        const SizedBox(height: 12),
+        const Text('NEURO AUDIO', style: TextStyle(
+          fontFamily: 'monospace', fontSize: 9, letterSpacing: 0.1,
+          color: FluxForgeTheme.textTertiary)),
+        const SizedBox(height: 8),
+        _SpineRow('Enabled', neuro.enabled ? 'YES' : 'NO'),
+        _SpineRow('RG Mode', neuro.responsibleGamingMode ? 'ON' : 'OFF'),
+        _SpineRow('Tempo mod', '${(neuro.output.tempoModifier * 100).toStringAsFixed(0)}%'),
+        _SpineRow('Reverb mod', '${(neuro.output.reverbDepthModifier * 100).toStringAsFixed(0)}%'),
+      ],
+    );
+  }
+}
+
+// ── Spine: ANALYTICS ────────────────────────────────────────────────────────
+
+class _SpineAnalytics extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final proj = GetIt.instance<SlotLabProjectProvider>();
+    final neuro = GetIt.instance<NeuroAudioProvider>();
+    final mw = GetIt.instance<MiddlewareProvider>();
+    final stats = proj.sessionStats;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('SESSION ANALYTICS', style: TextStyle(
+          fontFamily: 'monospace', fontSize: 9, letterSpacing: 0.1,
+          color: FluxForgeTheme.textTertiary)),
+        const SizedBox(height: 8),
+        _SpineRow('Spins', '${stats.totalSpins}'),
+        _SpineRow('RTP', stats.rtp.isNaN ? '—' : '${stats.rtp.toStringAsFixed(1)}%'),
+        _SpineRow('Win count', '${proj.recentWins.length}'),
+        _SpineRow('Duration', '${neuro.sessionDurationMinutes.toStringAsFixed(1)} min'),
+        const SizedBox(height: 12),
+        const Text('AUDIO SYSTEM', style: TextStyle(
+          fontFamily: 'monospace', fontSize: 9, letterSpacing: 0.1,
+          color: FluxForgeTheme.textTertiary)),
+        const SizedBox(height: 8),
+        _SpineRow('Events', '${mw.compositeEvents.length}'),
+        _SpineRow('RTPC updates', '${mw.rtpcUpdateCount}'),
+        _SpineRow('Switch changes', '${mw.switchChangeCount}'),
+        _SpineRow('Actions', '${mw.actionCount}'),
+      ],
+    );
+  }
+}
+
+// ── Spine helper row ────────────────────────────────────────────────────────
+
+class _SpineRow extends StatelessWidget {
+  final String label, value;
+  const _SpineRow(this.label, this.value);
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 5),
+    child: Row(
+      children: [
+        Expanded(child: Text(label, style: const TextStyle(
+          fontSize: 10, color: FluxForgeTheme.textTertiary))),
+        Text(value, style: const TextStyle(
+          fontFamily: 'monospace', fontSize: 10,
+          color: FluxForgeTheme.textPrimary, fontWeight: FontWeight.w500)),
       ],
     ),
   );

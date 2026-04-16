@@ -111,7 +111,6 @@ import '../widgets/editor/clip_editor.dart' as clip_editor;
 import '../widgets/editors/crossfade_editor.dart';
 import '../widgets/timeline/automation_lane.dart';
 import 'slot_lab_screen.dart';
-import 'helix_screen.dart';
 import '../widgets/dsp/time_stretch_panel.dart';
 import '../widgets/dsp/delay_panel.dart';
 import '../widgets/dsp/dynamics_panel.dart';
