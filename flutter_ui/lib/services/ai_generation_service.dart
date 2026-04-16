@@ -216,7 +216,7 @@ class GenerationResult {
       actualDurationMs: json['actual_duration_ms'] as int? ?? 0,
       generationTimeMs: json['generation_time_ms'] as int? ?? 0,
       suggestedFilename: json['suggested_filename'] as String? ?? 'audio.wav',
-      failureReason: statusData is Map ? (statusData as Map)['Failed'] != null ? ((statusData as Map)['Failed'] as Map)['reason'] as String? : null : null,
+      failureReason: statusData is Map ? statusData['Failed'] != null ? (statusData['Failed'] as Map)['reason'] as String? : null : null,
     );
   }
 

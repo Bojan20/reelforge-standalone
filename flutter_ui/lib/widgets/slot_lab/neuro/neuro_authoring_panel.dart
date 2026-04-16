@@ -488,7 +488,7 @@ class _NeuroAuthoringPanelState extends State<NeuroAuthoringPanel>
     final isHigh = state.riskLevel == RiskLevel.high;
     return AnimatedBuilder(
       animation: _pulseController,
-      builder: (_, __) => Opacity(
+      builder: (_, _) => Opacity(
         opacity: 0.7 + _pulseController.value * 0.3,
         child: Container(
           margin: const EdgeInsets.only(bottom: 8),

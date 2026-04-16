@@ -20,9 +20,6 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import '../../models/aurexis_jurisdiction.dart';
-import '../aurexis_provider.dart';
-import 'emotional_state_provider.dart';
-import 'neuro_audio_provider.dart';
 
 // =============================================================================
 // RISK RATINGS

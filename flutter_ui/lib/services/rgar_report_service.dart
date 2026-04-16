@@ -19,7 +19,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
-import 'package:get_it/get_it.dart';
 import 'package:path/path.dart' as p;
 
 import '../models/aurexis_jurisdiction.dart';
