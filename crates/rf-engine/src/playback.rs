@@ -19,7 +19,8 @@ use std::panic::AssertUnwindSafe;
 use std::thread;
 
 use crossbeam_channel::{Sender, bounded};
-use parking_lot::RwLock;
+use dashmap::DashMap;
+use parking_lot::{Mutex, RwLock};
 use rayon::prelude::*;
 
 use crate::sinc_table::{self, ResampleMode, SincTable};
@@ -1016,6 +1017,36 @@ pub struct OneShotVoice {
 /// Read path uses RwLock read guard (fast, no contention on audio thread).
 static PLAYBACK_SINC_TABLE: std::sync::LazyLock<parking_lot::RwLock<SincTable>> =
     std::sync::LazyLock::new(|| parking_lot::RwLock::new(SincTable::new(64, 256)));
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LIVE MIDI INJECTION (BUG #24)
+// ─────────────────────────────────────────────────────────────────────────────
+// Dart UI injects note-on/off via FFI → merged with clip MIDI before each
+// plugin.process() call.  DashMap<track_id → Mutex<Vec<LiveMidiNote>>> gives
+// per-track granularity with minimal lock contention on the audio thread.
+
+/// Raw live MIDI note (stack-only, no heap).
+#[derive(Clone, Copy)]
+struct LiveMidiNote {
+    channel: u8,
+    note: u8,
+    velocity: u8,
+    is_note_on: bool,
+}
+
+/// Per-track live MIDI inject queue.
+/// Dart FFI pushes here; audio thread drains + merges into instrument MIDI buffer.
+static LIVE_MIDI_INJECT: std::sync::LazyLock<DashMap<u64, Mutex<Vec<LiveMidiNote>>>> =
+    std::sync::LazyLock::new(DashMap::new);
+
+/// Push a live MIDI note event for a specific instrument track.
+/// Called from Dart FFI (rf-bridge), safe from any thread.
+pub fn inject_live_midi_note(track_id: u64, channel: u8, note: u8, velocity: u8, is_note_on: bool) {
+    let entry = LIVE_MIDI_INJECT
+        .entry(track_id)
+        .or_insert_with(|| Mutex::new(Vec::with_capacity(32)));
+    entry.lock().push(LiveMidiNote { channel, note, velocity, is_note_on });
+}
 
 /// Current playback resample mode (default: Sinc(64))
 static PLAYBACK_RESAMPLE_MODE: std::sync::atomic::AtomicU16 =
@@ -6108,6 +6139,23 @@ impl PlaybackEngine {
                                 ticks_per_sample,
                                 &mut midi_buf,
                             );
+                        }
+
+                        // Merge live MIDI (from Dart UI / piano roll / controller).
+                        // try_lock — if contended, events stay for next block (never stall audio thread).
+                        if let Some(live_queue) = LIVE_MIDI_INJECT.get(&track.id.0) {
+                            if let Some(mut live) = live_queue.try_lock() {
+                                for ev in live.drain(..) {
+                                    // MidiChannel = u8, NoteNumber = u8, Velocity = u16
+                                    let vel16 = (ev.velocity as u16) * 128; // scale 0-127 → 0-16256
+                                    let event = if ev.is_note_on {
+                                        rf_core::MidiEvent::note_on(0, ev.channel, ev.note, vel16)
+                                    } else {
+                                        rf_core::MidiEvent::note_off(0, ev.channel, ev.note, vel16)
+                                    };
+                                    midi_buf.push(event);
+                                }
+                            }
                         }
 
                         // Process instrument plugin: empty audio in → audio out + MIDI

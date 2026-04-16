@@ -750,6 +750,31 @@ class PluginProvider extends ChangeNotifier {
         return PluginCategory.utility;
     }
   }
+
+  // ─── LIVE MIDI INJECTION (BUG #24) ────────────────────────────────────────
+  // Routes live MIDI from Flutter UI (piano roll, MIDI keyboard) directly to
+  // the instrument plugin loaded on [trackId].  Events are merged with timeline
+  // MIDI clips in the audio thread — no latency overhead, no new allocations.
+
+  /// Inject note-on into the instrument plugin loaded on [trackId].
+  /// [channel] MIDI channel 0-15, [note] 0-127, [velocity] 0-127.
+  bool injectNoteOn(int trackId, int note, {int channel = 0, int velocity = 100}) {
+    if (!_ffi.isLoaded) return false;
+    return _ffi.midiInjectNoteOnToTrack(trackId, channel, note, velocity);
+  }
+
+  /// Inject note-off into the instrument plugin loaded on [trackId].
+  bool injectNoteOff(int trackId, int note, {int channel = 0, int velocity = 64}) {
+    if (!_ffi.isLoaded) return false;
+    return _ffi.midiInjectNoteOffToTrack(trackId, channel, note, velocity);
+  }
+
+  /// Inject all-notes-off (panic) into the instrument plugin on [trackId].
+  /// Call on transport stop or when stuck notes occur.
+  bool injectAllNotesOff(int trackId) {
+    if (!_ffi.isLoaded) return false;
+    return _ffi.midiInjectAllNotesOffToTrack(trackId);
+  }
 }
 
 // ============ Plugin Browser Widget State ============

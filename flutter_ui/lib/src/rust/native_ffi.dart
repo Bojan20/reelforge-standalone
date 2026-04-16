@@ -22775,6 +22775,39 @@ extension ProfilerFFI on NativeFFI {
   /// Total commands that failed healing or had no effect.
   int cortexGetCommandsFailed() => _cortexGetCommandsFailed();
 
+  // ═══ PLUGIN INSTRUMENT MIDI INJECTION (BUG #24) ═══
+  // Routes live MIDI from Dart UI → instrument plugin instances via audio thread.
+
+  static final _midiInjectNoteOnToTrack = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint64, Uint8, Uint8, Uint8),
+      int Function(int, int, int, int)>('midi_inject_note_on_to_track');
+
+  static final _midiInjectNoteOffToTrack = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint64, Uint8, Uint8, Uint8),
+      int Function(int, int, int, int)>('midi_inject_note_off_to_track');
+
+  static final _midiInjectAllNotesOffToTrack = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint64),
+      int Function(int)>('midi_inject_all_notes_off_to_track');
+
+  /// Inject note-on into an instrument track's plugin.
+  /// [trackId] — the instrument track ID.
+  /// [channel] — MIDI channel 0-15.
+  /// [note] — MIDI note number 0-127.
+  /// [velocity] — note velocity 0-127.
+  /// Returns true on success.
+  bool midiInjectNoteOnToTrack(int trackId, int channel, int note, int velocity) =>
+      _midiInjectNoteOnToTrack(trackId, channel, note, velocity) == 1;
+
+  /// Inject note-off into an instrument track's plugin.
+  bool midiInjectNoteOffToTrack(int trackId, int channel, int note, int velocity) =>
+      _midiInjectNoteOffToTrack(trackId, channel, note, velocity) == 1;
+
+  /// Inject all-notes-off (panic) into an instrument track's plugin.
+  /// Silences all stuck notes — call on stop/panic.
+  bool midiInjectAllNotesOffToTrack(int trackId) =>
+      _midiInjectAllNotesOffToTrack(trackId) == 1;
+
   // ═══ CORTEX VISION FFI ═══
 
   static final _cortexReportVision = _loadNativeLibrary().lookupFunction<
