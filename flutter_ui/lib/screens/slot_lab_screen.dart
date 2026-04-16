@@ -72,6 +72,7 @@ import '../widgets/slot_lab/rgai_compliance_panel.dart';
 import '../widgets/slot_lab/spatial_audio_panel.dart' as spatial_panel;
 import '../widgets/slot_lab/ab_sim_panel.dart';
 import '../widgets/slot_lab/ucp_export_panel.dart';
+import '../widgets/slot_lab/slot_cabinet/slot_cabinet_widget.dart' as cabinet;
 import '../providers/slot_lab/game_flow_integration.dart';
 import '../providers/slot_lab/game_flow_provider.dart';
 import '../providers/ale_provider.dart';
@@ -1330,6 +1331,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   // Fullscreen preview mode
   bool _isPreviewMode = false;
   bool _showSplashOnPreview = false; // Splash after CREATE, auto-bind complete, or manual reload
+  bool _useCabinetView = false; // Toggle: PremiumSlotPreview vs SlotCabinetWidget
 
   // Audio browser
   String _browserSearchQuery = '';
@@ -3654,6 +3656,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                                             const SizedBox(width: 6),
                                             _buildCenterToolBtn(Icons.refresh, 'Reload', const Color(0xFFFFD700), _reloadSlotMachine),
                                             const Spacer(),
+                                            // Cabinet view toggle
+                                            _buildCenterToolBtn(
+                                              _useCabinetView ? Icons.view_carousel : Icons.casino,
+                                              _useCabinetView ? 'Classic' : 'Cabinet',
+                                              _useCabinetView ? const Color(0xFF40C8FF) : const Color(0xFFFF6B6B),
+                                              () => setState(() => _useCabinetView = !_useCabinetView),
+                                            ),
+                                            const SizedBox(width: 6),
                                           ],
                                         ),
                                       ),
@@ -11523,6 +11533,18 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   }
 
   Widget _buildMockSlot() {
+    if (_useCabinetView) {
+      return Container(
+        margin: const EdgeInsets.fromLTRB(4, 4, 4, 4),
+        clipBehavior: Clip.hardEdge,
+        decoration: const BoxDecoration(),
+        child: cabinet.SlotCabinetWidget(
+          key: const ValueKey('slot_cabinet_view'),
+          onSpinComplete: _onCabinetSpinComplete,
+          onStageChange: _onCabinetStageChange,
+        ),
+      );
+    }
     return Container(
       margin: const EdgeInsets.fromLTRB(4, 4, 4, 4),
       clipBehavior: Clip.hardEdge,
@@ -11540,6 +11562,22 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         projectProvider: context.read<SlotLabProjectProvider>(),
       ),
     );
+  }
+
+  /// Cabinet view spin complete → bridge to SlotLab stage/audio system
+  void _onCabinetSpinComplete(cabinet.SpinOutcome outcome) {
+    // Update balance/win display
+    setState(() {
+      _lastWin = outcome.winAmount;
+    });
+    // Trigger win tier stage audio via EventRegistry
+    final tierStage = outcome.tier.toUpperCase().replaceAll(' ', '_');
+    EventRegistry.instance.triggerStage(tierStage);
+  }
+
+  /// Cabinet view stage change → forward to HELIX bus/event system
+  void _onCabinetStageChange(String stage) {
+    EventRegistry.instance.triggerStage(stage.toUpperCase());
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

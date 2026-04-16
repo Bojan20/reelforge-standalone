@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
-import '../../providers/slot_export_provider.dart';
+import '../../providers/slot_lab_project_provider.dart';
+import '../../providers/slot_lab/feature_composer_provider.dart';
 
-/// UCP Export™ Panel — Universal Compliance Package Export Dashboard.
+/// UCP Export™ Panel — Universal Compliance Package Overview.
 ///
-/// Real-time export control powered by rf-slot-export Rust engine via FFI.
-/// Shows available formats, batch export, per-format results.
+/// Reads REAL project data:
+/// - Audio assignments per stage from SlotLabProjectProvider
+/// - Composed stages + enabled mechanics from FeatureComposerProvider
+/// - Win tier configuration and coverage
+/// - Export readiness assessment
 class UcpExportPanel extends StatefulWidget {
   const UcpExportPanel({super.key});
 
@@ -14,20 +18,22 @@ class UcpExportPanel extends StatefulWidget {
 }
 
 class _UcpExportPanelState extends State<UcpExportPanel> {
-  late final SlotExportProvider _provider;
-  String? _selectedFormat;
+  late final SlotLabProjectProvider _project;
+  late final FeatureComposerProvider _composer;
 
   @override
   void initState() {
     super.initState();
-    _provider = GetIt.instance<SlotExportProvider>();
-    _provider.addListener(_onUpdate);
-    _provider.loadFormats();
+    _project = GetIt.instance<SlotLabProjectProvider>();
+    _composer = GetIt.instance<FeatureComposerProvider>();
+    _project.addListener(_onUpdate);
+    _composer.addListener(_onUpdate);
   }
 
   @override
   void dispose() {
-    _provider.removeListener(_onUpdate);
+    _project.removeListener(_onUpdate);
+    _composer.removeListener(_onUpdate);
     super.dispose();
   }
 
@@ -49,23 +55,30 @@ class _UcpExportPanelState extends State<UcpExportPanel> {
         children: [
           _buildHeader(),
           const SizedBox(height: 8),
-          _buildFormatGrid(),
+          _buildCoverageBar(),
           const SizedBox(height: 8),
-          Expanded(child: _buildResults()),
-          const SizedBox(height: 6),
-          _buildActions(),
+          Expanded(child: _buildContent()),
         ],
       ),
     );
   }
 
   Widget _buildHeader() {
+    final assignments = _project.audioAssignments;
+    final stages = _composer.composedStages;
+    final coverage = stages.isEmpty ? 0.0 : assignments.length / stages.length;
+    final readyColor = coverage >= 1.0
+        ? const Color(0xFF4CAF50)
+        : coverage >= 0.5
+            ? const Color(0xFFFFBB33)
+            : const Color(0xFFFF5252);
+
     return Row(
       children: [
         const Icon(Icons.file_download, size: 14, color: Color(0xFF40C8FF)),
         const SizedBox(width: 4),
         Text(
-          'UCP Export™',
+          'UCP Export',
           style: TextStyle(
             color: Colors.white.withValues(alpha: 0.9),
             fontSize: 11,
@@ -76,235 +89,204 @@ class _UcpExportPanelState extends State<UcpExportPanel> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
-            color: const Color(0xFF2A2A4A),
+            color: readyColor.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: readyColor.withValues(alpha: 0.4)),
           ),
           child: Text(
-            '${_provider.availableFormats.length} formats',
+            coverage >= 1.0 ? 'READY' : '${(coverage * 100).toStringAsFixed(0)}% COVERAGE',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.6),
+              color: readyColor,
               fontSize: 9,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),
         const Spacer(),
-        if (_provider.isExporting)
-          SizedBox(
-            width: 12,
-            height: 12,
-            child: CircularProgressIndicator(
-              strokeWidth: 1.5,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                  Colors.white.withValues(alpha: 0.5)),
-            ),
-          ),
+        Text(
+          '${assignments.length}/${stages.length} stages',
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 9),
+        ),
       ],
     );
   }
 
-  Widget _buildFormatGrid() {
-    final formats = _provider.availableFormats;
-    if (formats.isEmpty) {
-      return Text(
-        'Loading formats...',
-        style: TextStyle(color: Colors.white.withValues(alpha: 0.35), fontSize: 10),
-      );
-    }
+  Widget _buildCoverageBar() {
+    final assignments = _project.audioAssignments;
+    final stages = _composer.composedStages;
+    final coverage = stages.isEmpty ? 0.0 : assignments.length / stages.length;
+    final covColor = coverage >= 1.0
+        ? const Color(0xFF4CAF50)
+        : coverage >= 0.5
+            ? const Color(0xFFFFBB33)
+            : const Color(0xFFFF5252);
 
-    return Wrap(
-      spacing: 4,
-      runSpacing: 4,
-      children: formats.map((fmt) {
-        final name = fmt['name'] as String? ?? '?';
-        final version = fmt['version'] as String? ?? '';
-        final isSelected = _selectedFormat == name.toLowerCase();
-
-        return GestureDetector(
-          onTap: () => setState(() {
-            _selectedFormat = isSelected ? null : name.toLowerCase();
-          }),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? const Color(0xFF40C8FF).withValues(alpha: 0.15)
-                  : const Color(0xFF1E1E36),
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(
-                color: isSelected
-                    ? const Color(0xFF40C8FF).withValues(alpha: 0.5)
-                    : const Color(0xFF3A3A5C),
-                width: isSelected ? 1.0 : 0.5,
-              ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  name,
-                  style: TextStyle(
-                    color: isSelected
-                        ? const Color(0xFF40C8FF)
-                        : Colors.white.withValues(alpha: 0.8),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (version.isNotEmpty)
-                  Text(
-                    'v$version',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.3),
-                      fontSize: 8,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildResults() {
-    final results = _provider.lastExportResults;
-    if (results.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
           children: [
-            Icon(Icons.file_download_outlined,
-                size: 32, color: Colors.white.withValues(alpha: 0.15)),
-            const SizedBox(height: 8),
-            Text(
-              'No export results yet.\nSelect a format and export.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.35), fontSize: 11),
-            ),
+            Text('Audio Coverage', style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 9)),
+            const Spacer(),
+            Text('${(coverage * 100).toStringAsFixed(1)}%',
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 9, fontWeight: FontWeight.w600)),
           ],
         ),
-      );
-    }
-
-    return ListView.builder(
-      itemCount: results.length,
-      itemBuilder: (context, index) {
-        final r = results[index];
-        final format = r['format'] as String? ?? '?';
-        final success = r['success'] as bool? ?? false;
-        final eventCount = r['event_count'] ?? 0;
-        final fileCount = r['file_count'] ?? 0;
-        final error = r['error'] as String?;
-
-        return Container(
-          margin: const EdgeInsets.only(bottom: 4),
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1E1E36),
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(
-              color: (success ? const Color(0xFF4CAF50) : const Color(0xFFFF5252))
-                  .withValues(alpha: 0.3),
-              width: 0.5,
-            ),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                success ? Icons.check_circle : Icons.error,
-                size: 14,
-                color: success ? const Color(0xFF4CAF50) : const Color(0xFFFF5252),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      format,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    if (success)
-                      Text(
-                        '$eventCount events, $fileCount files',
-                        style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.5), fontSize: 9),
-                      ),
-                    if (error != null)
-                      Text(
-                        error,
-                        style: const TextStyle(
-                            color: Color(0xFFFF5252), fontSize: 9),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+        const SizedBox(height: 4),
+        LinearProgressIndicator(
+          value: coverage.clamp(0.0, 1.0),
+          backgroundColor: const Color(0xFF2A2A4A),
+          valueColor: AlwaysStoppedAnimation<Color>(covColor),
+          minHeight: 5,
+          borderRadius: BorderRadius.circular(2.5),
+        ),
+      ],
     );
   }
 
-  Widget _buildActions() {
-    return Row(
-      children: [
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: _provider.isExporting ? null : _exportAll,
-            icon: const Icon(Icons.file_download, size: 14),
-            label: const Text('Export All', style: TextStyle(fontSize: 10)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF40C8FF),
-              foregroundColor: Colors.black,
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4)),
-            ),
+  Widget _buildContent() {
+    final assignments = _project.audioAssignments;
+    final stages = _composer.composedStages;
+    final mechanics = _composer.enabledMechanics;
+
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Enabled mechanics
+          _buildSectionTitle('Active Mechanics (${mechanics.length})'),
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            children: mechanics.map((m) => _buildMechanicChip(m)).toList(),
           ),
+
+          const SizedBox(height: 10),
+
+          // Stage coverage list
+          _buildSectionTitle('Stage Coverage (${stages.length} stages)'),
+          const SizedBox(height: 4),
+          ...stages.map((stage) {
+            final hasAudio = assignments.containsKey(stage.id);
+            return _buildStageRow(stage.id, stage.layer.name, hasAudio);
+          }),
+
+          const SizedBox(height: 10),
+
+          // Win tier stages
+          _buildSectionTitle('Win Tier Stages'),
+          const SizedBox(height: 4),
+          ..._project.allWinTierStages.map((stage) {
+            final hasAudio = assignments.containsKey(stage);
+            return _buildStageRow(stage, 'win-tier', hasAudio);
+          }),
+
+          const SizedBox(height: 10),
+
+          // Export package summary
+          _buildSectionTitle('Package Summary'),
+          const SizedBox(height: 4),
+          _buildKeyValue('Total Stages', '${stages.length}'),
+          _buildKeyValue('Assigned Audio', '${assignments.length}'),
+          _buildKeyValue('Missing Audio', '${stages.length - assignments.length}'),
+          _buildKeyValue('Unique Assets', '${assignments.values.toSet().length}'),
+          _buildKeyValue('Win Tier Stages', '${_project.allWinTierStages.length}'),
+          _buildKeyValue('Active Mechanics', '${mechanics.length}'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMechanicChip(SlotMechanic mechanic) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF40C8FF).withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: const Color(0xFF40C8FF).withValues(alpha: 0.3), width: 0.5),
+      ),
+      child: Text(
+        mechanic.displayName,
+        style: const TextStyle(
+          color: Color(0xFF40C8FF),
+          fontSize: 9,
+          fontWeight: FontWeight.w600,
         ),
-        if (_selectedFormat != null) ...[
+      ),
+    );
+  }
+
+  Widget _buildStageRow(String stageName, String source, bool hasAudio) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E36),
+        borderRadius: BorderRadius.circular(3),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            hasAudio ? Icons.check_circle : Icons.radio_button_unchecked,
+            size: 10,
+            color: hasAudio ? const Color(0xFF4CAF50) : const Color(0xFF3A3A5C),
+          ),
           const SizedBox(width: 6),
           Expanded(
-            child: OutlinedButton.icon(
-              onPressed: _provider.isExporting ? null : _exportSingle,
-              icon: const Icon(Icons.file_download_outlined, size: 14),
-              label: Text('Export ${_selectedFormat!.toUpperCase()}',
-                  style: const TextStyle(fontSize: 10)),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF40C8FF),
-                side: const BorderSide(color: Color(0xFF40C8FF)),
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4)),
+            child: Text(
+              stageName,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: hasAudio ? 0.8 : 0.4),
+                fontSize: 9,
+                fontWeight: hasAudio ? FontWeight.w500 : FontWeight.normal,
               ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2A2A4A),
+              borderRadius: BorderRadius.circular(2),
+            ),
+            child: Text(
+              source,
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 7),
             ),
           ),
         ],
-      ],
+      ),
     );
   }
 
-  void _exportAll() {
-    _provider.exportAll({
-      'game_id': 'demo_slot',
-      'events': [],
-    });
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: TextStyle(
+        color: Colors.white.withValues(alpha: 0.8),
+        fontSize: 10,
+        fontWeight: FontWeight.w600,
+      ),
+    );
   }
 
-  void _exportSingle() {
-    if (_selectedFormat == null) return;
-    _provider.exportSingle({
-      'game_id': 'demo_slot',
-      'events': [],
-    }, _selectedFormat!);
+  Widget _buildKeyValue(String key, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(key,
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 9)),
+          ),
+          Expanded(
+            child: Text(value,
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 9)),
+          ),
+        ],
+      ),
+    );
   }
 }

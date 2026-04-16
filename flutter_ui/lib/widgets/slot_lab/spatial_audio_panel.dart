@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
-import '../../providers/slot_spatial_provider.dart';
+import '../../providers/slot_lab/neuro_audio_provider.dart';
 
-/// Slot Spatial Audio™ Panel — 3D Positional Audio Visualizer.
+/// NeuroAudio™ Spatial Panel — 8D Emotional State Visualizer.
 ///
-/// Real-time spatial scene view powered by rf-slot-spatial Rust engine via FFI.
-/// Shows 3D source positions, gain radii, scene overview.
+/// Reads REAL data from NeuroAudioProvider:
+/// - 8D emotional state vector (arousal, valence, risk, engagement, churn, frustration, flow, fatigue)
+/// - Audio adaptation parameters (tempo, reverb, compression, win magnitude, etc.)
+/// - Player risk level classification
+/// - Behavioral signal history (click velocity, pause, bet, win/loss, near-miss)
 class SpatialAudioPanel extends StatefulWidget {
   const SpatialAudioPanel({super.key});
 
@@ -14,16 +17,13 @@ class SpatialAudioPanel extends StatefulWidget {
 }
 
 class _SpatialAudioPanelState extends State<SpatialAudioPanel> {
-  late final SlotSpatialProvider _provider;
+  late final NeuroAudioProvider _provider;
 
   @override
   void initState() {
     super.initState();
-    _provider = GetIt.instance<SlotSpatialProvider>();
+    _provider = GetIt.instance<NeuroAudioProvider>();
     _provider.addListener(_onUpdate);
-    if (!_provider.initialized) {
-      _provider.init();
-    }
   }
 
   @override
@@ -50,21 +50,24 @@ class _SpatialAudioPanelState extends State<SpatialAudioPanel> {
         children: [
           _buildHeader(),
           const SizedBox(height: 8),
-          Expanded(child: _buildSceneView()),
+          Expanded(child: _buildContent()),
           const SizedBox(height: 6),
-          _buildSourceList(),
+          _buildRtpcBar(),
         ],
       ),
     );
   }
 
   Widget _buildHeader() {
+    final risk = _provider.riskLevel;
+    final riskColor = Color(risk.colorValue);
+
     return Row(
       children: [
-        const Icon(Icons.surround_sound, size: 14, color: Color(0xFF40C8FF)),
+        const Icon(Icons.psychology, size: 14, color: Color(0xFF40C8FF)),
         const SizedBox(width: 4),
         Text(
-          '3D Spatial Audio',
+          'NeuroAudio™',
           style: TextStyle(
             color: Colors.white.withValues(alpha: 0.9),
             fontSize: 11,
@@ -72,180 +75,257 @@ class _SpatialAudioPanelState extends State<SpatialAudioPanel> {
           ),
         ),
         const SizedBox(width: 8),
+        // Risk level badge
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
-            color: const Color(0xFF2A2A4A),
+            color: riskColor.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: riskColor.withValues(alpha: 0.4)),
           ),
           child: Text(
-            '${_provider.sourceCount} sources',
+            risk.displayName,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.6),
+              color: riskColor,
               fontSize: 9,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),
         const Spacer(),
-        Text(
-          _provider.gameId,
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.4),
-            fontSize: 9,
+        // Enable/disable toggle
+        GestureDetector(
+          onTap: () => _provider.setEnabled(!_provider.enabled),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: (_provider.enabled ? const Color(0xFF4CAF50) : const Color(0xFF3A3A5C))
+                  .withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: Text(
+              _provider.enabled ? 'ON' : 'OFF',
+              style: TextStyle(
+                color: _provider.enabled ? const Color(0xFF4CAF50) : Colors.white54,
+                fontSize: 8,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
         ),
       ],
     );
   }
 
-  /// Top-down 2D projection of the 3D scene.
-  Widget _buildSceneView() {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF12121F),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: const Color(0xFF3A3A5C), width: 0.5),
+  Widget _buildContent() {
+    final o = _provider.output;
+
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 8D Emotional State Vector
+          _buildSectionTitle('8D Emotional State'),
+          const SizedBox(height: 6),
+          _buildStateBar('Arousal', o.arousal, 0.0, 1.0, _arousalColor(o.arousal)),
+          _buildStateBar('Valence', o.valence, -1.0, 1.0, _valenceColor(o.valence)),
+          _buildStateBar('Risk Tolerance', o.riskTolerance, 0.0, 1.0, _riskColor(o.riskTolerance)),
+          _buildStateBar('Engagement', o.engagement, 0.0, 1.0, const Color(0xFF40C8FF)),
+          _buildStateBar('Churn Predict', o.churnPrediction, 0.0, 1.0, _churnColor(o.churnPrediction)),
+          _buildStateBar('Frustration', o.frustration, 0.0, 1.0, _frustrationColor(o.frustration)),
+          _buildStateBar('Flow Depth', o.flowDepth, 0.0, 1.0, const Color(0xFF7C4DFF)),
+          _buildStateBar('Session Fatigue', o.sessionFatigue, 0.0, 1.0, _fatigueColor(o.sessionFatigue)),
+
+          const SizedBox(height: 10),
+
+          // Audio adaptation parameters
+          _buildSectionTitle('Audio Adaptation'),
+          const SizedBox(height: 6),
+          _buildParamRow('Tempo', o.tempoModifier, '${(o.tempoModifier * 100 - 100).toStringAsFixed(0)}%'),
+          _buildParamRow('Reverb Depth', o.reverbDepthModifier, 'x${o.reverbDepthModifier.toStringAsFixed(2)}'),
+          _buildParamRow('Compression', o.compressionModifier, 'x${o.compressionModifier.toStringAsFixed(2)}'),
+          _buildParamRow('Win Magnitude', o.winSoundMagnitude, 'x${o.winSoundMagnitude.toStringAsFixed(2)}'),
+          _buildParamRow('Near-miss Tension', o.nearMissTension, o.nearMissTension.toStringAsFixed(2)),
+          _buildParamRow('Volume Envelope', o.volumeEnvelopeScale, 'x${o.volumeEnvelopeScale.toStringAsFixed(2)}'),
+
+          const SizedBox(height: 10),
+
+          // Session info
+          _buildSectionTitle('Session'),
+          const SizedBox(height: 4),
+          _buildInfoRow('Total Spins', '${_provider.totalSpins}'),
+          _buildInfoRow('Session Duration', '${_provider.sessionDurationMinutes.toStringAsFixed(1)} min'),
+          _buildInfoRow('Consecutive Losses', '${_provider.consecutiveLosses}'),
+          _buildInfoRow('RG Mode', _provider.responsibleGamingMode ? 'Active' : 'Disabled'),
+        ],
       ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final scene = _provider.sceneSnapshot;
-          if (scene == null) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+    );
+  }
+
+  Widget _buildStateBar(String label, double value, double min, double max, Color color) {
+    final normalized = max > min ? (value - min) / (max - min) : 0.0;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 85,
+            child: Text(
+              label,
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 9),
+            ),
+          ),
+          Expanded(
+            child: Container(
+              height: 6,
+              decoration: BoxDecoration(
+                color: const Color(0xFF2A2A4A),
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Stack(
                 children: [
-                  Icon(Icons.spatial_audio_off,
-                      size: 32, color: Colors.white.withValues(alpha: 0.15)),
-                  const SizedBox(height: 8),
-                  Text(
-                    'No spatial scene loaded',
-                    style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.35), fontSize: 11),
+                  FractionallySizedBox(
+                    alignment: Alignment.centerLeft,
+                    widthFactor: normalized.clamp(0.0, 1.0),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: color,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
                   ),
                 ],
               ),
-            );
-          }
-
-          return CustomPaint(
-            painter: _SpatialScenePainter(scene),
-            size: Size(constraints.maxWidth, constraints.maxHeight),
-          );
-        },
+            ),
+          ),
+          const SizedBox(width: 4),
+          SizedBox(
+            width: 34,
+            child: Text(
+              value.toStringAsFixed(2),
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.7),
+                fontSize: 8,
+                fontFamily: 'monospace',
+              ),
+              textAlign: TextAlign.right,
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildSourceList() {
-    final scene = _provider.sceneSnapshot;
-    final sources = (scene?['sources'] as List?) ?? [];
-
-    if (sources.isEmpty) {
-      return Text(
-        'No sources in scene',
-        style: TextStyle(color: Colors.white.withValues(alpha: 0.35), fontSize: 9),
-      );
-    }
-
-    return SizedBox(
-      height: 60,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: sources.length,
-        itemBuilder: (context, index) {
-          final src = sources[index] as Map<String, dynamic>;
-          final eventId = src['event_id'] as String? ?? '?';
-          return Container(
+  Widget _buildParamRow(String label, double value, String display) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 3),
+      child: Row(
+        children: [
+          SizedBox(
             width: 100,
-            margin: const EdgeInsets.only(right: 4),
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E1E36),
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: const Color(0xFF3A3A5C), width: 0.5),
+            child: Text(label,
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 9)),
+          ),
+          Expanded(
+            child: Text(
+              display,
+              style: TextStyle(
+                color: const Color(0xFF40C8FF).withValues(alpha: 0.8),
+                fontSize: 9,
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.w600,
+              ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  eventId,
-                  style: const TextStyle(
-                    color: Color(0xFF40C8FF),
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const Spacer(),
-                Text(
-                  'pos: (${_fmt(src['x'])}, ${_fmt(src['y'])}, ${_fmt(src['z'])})',
-                  style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.5), fontSize: 8),
-                ),
-              ],
-            ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }
 
-  String _fmt(dynamic v) => (v as num?)?.toStringAsFixed(1) ?? '0';
-}
-
-/// Custom painter for top-down 2D spatial view.
-class _SpatialScenePainter extends CustomPainter {
-  final Map<String, dynamic> scene;
-
-  _SpatialScenePainter(this.scene);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final scale = size.shortestSide / 4;
-
-    // Grid
-    final gridPaint = Paint()
-      ..color = const Color(0xFF2A2A4A)
-      ..strokeWidth = 0.5;
-
-    for (int i = -2; i <= 2; i++) {
-      canvas.drawLine(
-        Offset(center.dx + i * scale, 0),
-        Offset(center.dx + i * scale, size.height),
-        gridPaint,
-      );
-      canvas.drawLine(
-        Offset(0, center.dy + i * scale),
-        Offset(size.width, center.dy + i * scale),
-        gridPaint,
-      );
-    }
-
-    // Listener (center)
-    final listenerPaint = Paint()..color = const Color(0xFF40C8FF);
-    canvas.drawCircle(center, 6, listenerPaint);
-
-    // Sources
-    final sources = (scene['sources'] as List?) ?? [];
-    final srcPaint = Paint()..color = const Color(0xFFFF6B6B);
-    final radiusPaint = Paint()
-      ..color = const Color(0xFFFF6B6B).withValues(alpha: 0.1)
-      ..style = PaintingStyle.fill;
-
-    for (final src in sources) {
-      if (src is! Map<String, dynamic>) continue;
-      final x = (src['x'] as num?)?.toDouble() ?? 0;
-      final z = (src['z'] as num?)?.toDouble() ?? 0;
-      final radius = (src['radius'] as num?)?.toDouble() ?? 1.0;
-
-      final pos = Offset(center.dx + x * scale, center.dy - z * scale);
-      canvas.drawCircle(pos, radius * scale, radiusPaint);
-      canvas.drawCircle(pos, 4, srcPaint);
-    }
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 110,
+            child: Text(label,
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 9)),
+          ),
+          Text(value,
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 9)),
+        ],
+      ),
+    );
   }
 
-  @override
-  bool shouldRepaint(covariant _SpatialScenePainter oldDelegate) =>
-      oldDelegate.scene != scene;
+  Widget _buildRtpcBar() {
+    final o = _provider.output;
+    // Quick-glance RTPC status bar
+    return Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF12121F),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _buildMiniGauge('A', o.arousal, _arousalColor(o.arousal)),
+          _buildMiniGauge('V', (o.valence + 1) / 2, _valenceColor(o.valence)),
+          _buildMiniGauge('E', o.engagement, const Color(0xFF40C8FF)),
+          _buildMiniGauge('F', o.flowDepth, const Color(0xFF7C4DFF)),
+          _buildMiniGauge('R', o.riskTolerance, _riskColor(o.riskTolerance)),
+          _buildMiniGauge('C', o.churnPrediction, _churnColor(o.churnPrediction)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMiniGauge(String label, double value, Color color) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(
+            value: value.clamp(0.0, 1.0),
+            strokeWidth: 2.5,
+            backgroundColor: const Color(0xFF2A2A4A),
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(label,
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 8, fontWeight: FontWeight.w600)),
+      ],
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: TextStyle(
+        color: Colors.white.withValues(alpha: 0.8),
+        fontSize: 10,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+  }
+
+  // Color helpers
+  Color _arousalColor(double v) =>
+      v > 0.7 ? const Color(0xFFFF5252) : v > 0.4 ? const Color(0xFFFFBB33) : const Color(0xFF4CAF50);
+  Color _valenceColor(double v) =>
+      v > 0.3 ? const Color(0xFF4CAF50) : v < -0.3 ? const Color(0xFFFF5252) : const Color(0xFFFFBB33);
+  Color _riskColor(double v) =>
+      v > 0.7 ? const Color(0xFFFF5252) : v > 0.4 ? const Color(0xFFFFBB33) : const Color(0xFF4CAF50);
+  Color _churnColor(double v) =>
+      v > 0.6 ? const Color(0xFFFF5252) : v > 0.3 ? const Color(0xFFFFBB33) : const Color(0xFF4CAF50);
+  Color _frustrationColor(double v) =>
+      v > 0.6 ? const Color(0xFFFF5252) : v > 0.3 ? const Color(0xFFFFBB33) : const Color(0xFF4CAF50);
+  Color _fatigueColor(double v) =>
+      v > 0.7 ? const Color(0xFFFF5252) : v > 0.4 ? const Color(0xFFFFBB33) : const Color(0xFF4CAF50);
 }
