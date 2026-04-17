@@ -1795,26 +1795,27 @@ class _BehaviorTreePanelState extends State<_BehaviorTreePanel> {
                   height: 24,
                   child: ListView(
                     scrollDirection: Axis.horizontal,
-                    children: _nodeCategories.keys.map((cat) => GestureDetector(
-                      onTap: () => setState(() => _selectedCategory = cat),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        margin: const EdgeInsets.only(right: 4),
-                        decoration: BoxDecoration(
-                          color: _selectedCategory == cat
-                            ? FluxForgeTheme.accentOrange.withOpacity(0.15) : Colors.transparent,
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(
-                            color: _selectedCategory == cat
-                              ? FluxForgeTheme.accentOrange.withOpacity(0.5)
-                              : FluxForgeTheme.borderSubtle,
+                    children: _nodeCategories.keys.map((cat) {
+                      final catColor = _categoryColor(cat);
+                      final isActive = _selectedCategory == cat;
+                      return GestureDetector(
+                        onTap: () => setState(() => _selectedCategory = cat),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          margin: const EdgeInsets.only(right: 4),
+                          decoration: BoxDecoration(
+                            color: isActive ? catColor.withOpacity(0.15) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: isActive ? catColor.withOpacity(0.55) : FluxForgeTheme.borderSubtle,
+                            ),
                           ),
+                          child: Text(cat, style: TextStyle(fontFamily: 'monospace', fontSize: 8,
+                            color: isActive ? catColor : FluxForgeTheme.textTertiary,
+                            fontWeight: FontWeight.w600)),
                         ),
-                        child: Text(cat, style: TextStyle(fontFamily: 'monospace', fontSize: 8,
-                          color: _selectedCategory == cat ? FluxForgeTheme.accentOrange : FluxForgeTheme.textTertiary,
-                          fontWeight: FontWeight.w600)),
-                      ),
-                    )).toList(),
+                      );
+                    }).toList(),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -2517,20 +2518,26 @@ class _CloudSyncPanelState extends State<_CloudSyncPanel> {
                       }
                     });
                   },
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: _autoSyncEnabled ? FluxForgeTheme.accentBlue.withOpacity(0.08) : Colors.transparent,
+                      color: _autoSyncEnabled
+                        ? FluxForgeTheme.accentBlue.withOpacity(0.15)
+                        : FluxForgeTheme.bgSurface,
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: FluxForgeTheme.borderSubtle),
+                      border: Border.all(color: _autoSyncEnabled
+                        ? FluxForgeTheme.accentBlue.withOpacity(0.5)
+                        : FluxForgeTheme.borderSubtle),
                     ),
                     child: Row(children: [
                       Icon(_autoSyncEnabled ? Icons.sync_rounded : Icons.sync_disabled_rounded,
-                        size: 14, color: _autoSyncEnabled ? FluxForgeTheme.accentBlue : FluxForgeTheme.textTertiary),
-                      const SizedBox(width: 8),
+                        size: 13, color: _autoSyncEnabled ? FluxForgeTheme.accentBlue : FluxForgeTheme.textTertiary),
+                      const SizedBox(width: 7),
                       Text('Auto-Sync ${_autoSyncEnabled ? "ON" : "OFF"}',
-                        style: TextStyle(fontFamily: 'monospace', fontSize: 10,
-                          color: _autoSyncEnabled ? FluxForgeTheme.accentBlue : FluxForgeTheme.textTertiary)),
+                        style: TextStyle(fontFamily: 'monospace', fontSize: 9,
+                          fontWeight: _autoSyncEnabled ? FontWeight.w600 : FontWeight.w400,
+                          color: _autoSyncEnabled ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary)),
                     ]),
                   ),
                 ),
@@ -3499,8 +3506,14 @@ class _TimelinePanelState extends State<_TimelinePanel> {
 
 // ── INTEL Panel ──────────────────────────────────────────────────────────────
 
-class _IntelPanel extends StatelessWidget {
+class _IntelPanel extends StatefulWidget {
   const _IntelPanel();
+  @override
+  State<_IntelPanel> createState() => _IntelPanelState();
+}
+
+class _IntelPanelState extends State<_IntelPanel> {
+  String? _selectedArchetype;
 
   @override
   Widget build(BuildContext context) {
@@ -3627,11 +3640,14 @@ class _IntelPanel extends StatelessWidget {
                       Row(children: [
                         _DockLabel('ARCHETYPE', color: FluxForgeTheme.accentPurple),
                         const Spacer(),
-                        ...['Casual', 'Regular', 'Whale', 'Frustrated'].map((a) =>
-                          Padding(
-                            padding: const EdgeInsets.only(left: 3),
+                        ...['Casual', 'Regular', 'Whale', 'Frustrated'].map((a) {
+                          final isActive = _selectedArchetype == a;
+                          const c = FluxForgeTheme.accentCyan;
+                          return Padding(
+                            padding: const EdgeInsets.only(left: 4),
                             child: GestureDetector(
                               onTap: () {
+                                setState(() => _selectedArchetype = a);
                                 // Archetype simulation: adjust neuro signals
                                 switch (a) {
                                   case 'Casual':
@@ -3649,19 +3665,22 @@ class _IntelPanel extends StatelessWidget {
                                     neuro.recordClickVelocity(1500);
                                 }
                               },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 120),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(
-                                  color: FluxForgeTheme.accentCyan.withOpacity(0.05),
-                                  border: Border.all(color: FluxForgeTheme.accentCyan.withOpacity(0.2)),
+                                  color: isActive ? c.withOpacity(0.18) : c.withOpacity(0.05),
+                                  border: Border.all(
+                                    color: isActive ? c.withOpacity(0.6) : c.withOpacity(0.25)),
                                   borderRadius: BorderRadius.circular(4)),
-                                child: Text(a, style: const TextStyle(
+                                child: Text(a, style: TextStyle(
                                   fontFamily: 'monospace', fontSize: 8,
-                                  color: FluxForgeTheme.accentCyan)),
+                                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                                  color: isActive ? c : c.withOpacity(0.7))),
                               ),
                             ),
-                          ),
-                        ),
+                          );
+                        }),
                       ]),
                       const Spacer(),
                       // I4: Simulate Session button
@@ -5553,28 +5572,42 @@ class _ChannelStripState extends State<_ChannelStrip> {
   }
 }
 
-class _MsBtn extends StatelessWidget {
+class _MsBtn extends StatefulWidget {
   final String label;
   final bool active;
   final Color activeColor;
   final VoidCallback onTap;
   const _MsBtn({required this.label, required this.active,
     required this.activeColor, required this.onTap});
-
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: AnimatedContainer(
-      duration: const Duration(milliseconds: 120),
-      width: 18, height: 18,
-      decoration: BoxDecoration(
-        color: active ? activeColor.withOpacity(0.2) : Colors.transparent,
-        border: Border.all(
-          color: active ? activeColor : FluxForgeTheme.borderSubtle),
-        borderRadius: BorderRadius.circular(3)),
-      child: Center(child: Text(label, style: TextStyle(
-        fontFamily: 'monospace', fontSize: 8, fontWeight: FontWeight.w700,
-        color: active ? activeColor : FluxForgeTheme.textTertiary))),
+  State<_MsBtn> createState() => _MsBtnState();
+}
+
+class _MsBtnState extends State<_MsBtn> {
+  bool _hovered = false;
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+    cursor: SystemMouseCursors.click,
+    onEnter: (_) => setState(() => _hovered = true),
+    onExit: (_) => setState(() => _hovered = false),
+    child: GestureDetector(
+      onTap: widget.onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 100),
+        width: 20, height: 20,
+        decoration: BoxDecoration(
+          color: widget.active
+            ? widget.activeColor.withOpacity(0.25)
+            : _hovered ? FluxForgeTheme.bgSurface : Colors.transparent,
+          border: Border.all(
+            color: widget.active
+              ? widget.activeColor.withOpacity(0.8)
+              : _hovered ? FluxForgeTheme.borderSubtle : FluxForgeTheme.borderSubtle.withOpacity(0.5)),
+          borderRadius: BorderRadius.circular(3)),
+        child: Center(child: Text(widget.label, style: TextStyle(
+          fontFamily: 'monospace', fontSize: 8, fontWeight: FontWeight.w700,
+          color: widget.active ? widget.activeColor : (_hovered ? FluxForgeTheme.textSecondary : FluxForgeTheme.textTertiary)))),
+      ),
     ),
   );
 }
