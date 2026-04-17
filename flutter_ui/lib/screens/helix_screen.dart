@@ -47,6 +47,7 @@ import '../services/cloud_sync_service.dart';
 import '../services/ai_generation_service.dart';
 import '../services/cortex_vision_service.dart';
 import '../services/cortex_eye_server.dart';
+import '../services/event_registry.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELIX SCREEN
@@ -167,10 +168,41 @@ class _HelixScreenState extends State<HelixScreen>
       await vision.captureFullWindow(metadata: {'trigger': 'helix_startup', 'tab': _dockTab});
     });
 
-    // CortexEye: register tab-switching callback so CORTEX can navigate tabs
-    CortexEyeNav.instance.onHelixTab = (tab) {
+    // CortexEye: register all HELIX control callbacks for CORTEX autonomy
+    final nav = CortexEyeNav.instance;
+    nav.onHelixTab = (tab) {
       if (!mounted) return;
       setState(() => _dockTab = tab.clamp(0, 11));
+    };
+    nav.onHelixSpine = (index) {
+      if (!mounted) return;
+      setState(() => _spineOpen = _spineOpen == index ? null : index);
+    };
+    nav.onHelixMode = (mode) {
+      if (!mounted) return;
+      setState(() => _mode = mode.clamp(0, 2));
+    };
+    nav.onHelixAction = (action, params) {
+      if (!mounted) return;
+      switch (action) {
+        case 'stage_force':
+          final stage = params['stage'] as String?;
+          if (stage != null) {
+            try {
+              EventRegistry.instance.triggerStage(stage.toUpperCase());
+            } catch (_) {}
+          }
+        case 'play':
+          try { GetIt.instance<EngineProvider>().play(); } catch (_) {}
+        case 'pause':
+        case 'stop':
+          try { GetIt.instance<EngineProvider>().stop(); } catch (_) {}
+        case 'transport_toggle':
+          try {
+            final e = GetIt.instance<EngineProvider>();
+            e.transport.isPlaying ? e.stop() : e.play();
+          } catch (_) {}
+      }
     };
 
     // Playhead sync timer — polls engine position for timeline animation
@@ -187,6 +219,13 @@ class _HelixScreenState extends State<HelixScreen>
 
   @override
   void dispose() {
+    // Clean up CortexEye callbacks
+    final nav = CortexEyeNav.instance;
+    nav.onHelixTab = null;
+    nav.onHelixSpine = null;
+    nav.onHelixMode = null;
+    nav.onHelixAction = null;
+
     _focusNode.dispose();
     _bpmController.dispose();
     _projectNameController.dispose();
@@ -319,10 +358,25 @@ class _HelixScreenState extends State<HelixScreen>
                     ],
                   ),
                 ),
+                // Stage strip + waveform bars — OUTSIDE Canvas Stack
+                // (Prevents blocking PremiumSlotPreview Control Bar clicks)
+                Consumer<GameFlowProvider>(
+                  builder: (ctx, flow, _) => _buildStageRow(flow),
+                ),
                 if (_mode != 1) _buildDock(),
               ],
             ),
           ),
+          // Spine overlay panel — rendered in main Stack so it floats ABOVE the canvas
+          if (_spineOpen != null)
+            Positioned(
+              left: 48, top: 48, bottom: 0, // top: 48 = below omnibar
+              child: _SpineOverlay(
+                title: _spineIcons[_spineOpen!].$2,
+                spineIndex: _spineOpen!,
+                onClose: () => setState(() => _spineOpen = null),
+              ),
+            ),
           // Audio Context Lens overlay (A3)
           if (_contextLensEvent != null)
             _AudioContextLens(
@@ -568,53 +622,42 @@ class _HelixScreenState extends State<HelixScreen>
   // NEURAL SPINE
   // ─────────────────────────────────────────────────────────────────────────
 
-  Widget _buildSpine() {
-    final icons = [
-      (Icons.music_note_rounded, 'AUDIO ASSIGN'),
-      (Icons.grid_view_rounded, 'GAME CONFIG'),
-      (Icons.psychology_rounded, 'AI / INTEL'),
-      (Icons.tune_rounded, 'SETTINGS'),
-      (Icons.bar_chart_rounded, 'ANALYTICS'),
-    ];
+  // Spine icon definitions — shared between _buildSpine() and spine overlay in build()
+  static const _spineIcons = [
+    (Icons.music_note_rounded, 'AUDIO ASSIGN'),
+    (Icons.grid_view_rounded, 'GAME CONFIG'),
+    (Icons.psychology_rounded, 'AI / INTEL'),
+    (Icons.tune_rounded, 'SETTINGS'),
+    (Icons.bar_chart_rounded, 'ANALYTICS'),
+  ];
 
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Container(
-          width: 48,
-          decoration: const BoxDecoration(
-            color: FluxForgeTheme.bgDeepest, // #08080C = --abyss (matches mockup)
-            border: Border(right: BorderSide(color: FluxForgeTheme.borderSubtle)),
-          ),
-          child: Column(
-            children: [
-              const SizedBox(height: 12),
-              ...icons.asMap().entries.map((e) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _SpineItem(
-                  icon: e.value.$1,
-                  label: e.value.$2,
-                  active: _spineOpen == e.key,
-                  onTap: () => setState(() =>
-                    _spineOpen = _spineOpen == e.key ? null : e.key),
-                ),
-              )),
-              const Spacer(),
-              const SizedBox(height: 12),
-            ],
-          ),
-        ),
-        // Spine overlay panel
-        if (_spineOpen != null)
-          Positioned(
-            left: 48, top: 0, bottom: 0,
-            child: _SpineOverlay(
-              title: icons[_spineOpen!].$2,
-              spineIndex: _spineOpen!,
-              onClose: () => setState(() => _spineOpen = null),
+  Widget _buildSpine() {
+    final icons = _spineIcons;
+
+    // Spine is just the icon column — overlay is rendered in the main Stack
+    return Container(
+      width: 48,
+      decoration: const BoxDecoration(
+        color: FluxForgeTheme.bgDeepest, // #08080C = --abyss (matches mockup)
+        border: Border(right: BorderSide(color: FluxForgeTheme.borderSubtle)),
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: 12),
+          ...icons.asMap().entries.map((e) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _SpineItem(
+              icon: e.value.$1,
+              label: e.value.$2,
+              active: _spineOpen == e.key,
+              onTap: () => setState(() =>
+                _spineOpen = _spineOpen == e.key ? null : e.key),
             ),
-          ),
-      ],
+          )),
+          const Spacer(),
+          const SizedBox(height: 12),
+        ],
+      ),
     );
   }
 
@@ -684,23 +727,10 @@ class _HelixScreenState extends State<HelixScreen>
                 ),
               ),
 
-              // Info chips — top right
+              // Info chips — top right (read-only, no click interception)
               Positioned(
                 top: 14, right: 14,
-                child: _buildInfoChips(),
-              ),
-
-              // Waveform bars — behind stage strip
-              Positioned(
-                bottom: 52, left: 0, right: 0,
-                child: Center(child: _buildWaveformBars(glowColor)),
-              ),
-
-              // Stage strip — clickable (C3: force game flow transition)
-              Positioned(
-                bottom: 16,
-                left: 0, right: 0,
-                child: Center(child: _buildStageStrip(stage, flow)),
+                child: IgnorePointer(child: _buildInfoChips()),
               ),
 
               // C1/C2: Reel Context Lens (triggered via PremiumSlotPreview.onCellTap)
@@ -825,6 +855,26 @@ class _HelixScreenState extends State<HelixScreen>
             borderRadius: BorderRadius.circular(2),
           ),
         )).toList(),
+      ),
+    );
+  }
+
+  /// Combined waveform + stage strip row — sits BETWEEN canvas and dock.
+  /// Moved out of Canvas Stack to avoid blocking PremiumSlotPreview Control Bar.
+  Widget _buildStageRow(GameFlowProvider flow) {
+    final stage = flow.currentState;
+    final glowColor = _stageGlowColor(stage);
+    return Container(
+      height: 48,
+      color: FluxForgeTheme.bgDeep,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Waveform bars — decorative, behind stage strip
+          IgnorePointer(child: _buildWaveformBars(glowColor)),
+          // Stage strip — fully interactive (no blocking from canvas)
+          _buildStageStrip(stage, flow),
+        ],
       ),
     );
   }
@@ -3195,8 +3245,16 @@ class _MathPanelState extends State<_MathPanel> {
     final rtpDiff = rtp > 0 ? rtp - _targetRtp : 0.0;
     final rtpDiffStr = rtpDiff >= 0 ? '+${rtpDiff.toStringAsFixed(1)}' : rtpDiff.toStringAsFixed(1);
 
+    // RTP status color: green if within ±2% of target, orange ±5%, red beyond
+    final rtpColor = rtp <= 0 ? FluxForgeTheme.textTertiary
+        : rtpDiff.abs() <= 2.0 ? FluxForgeTheme.accentGreen
+        : rtpDiff.abs() <= 5.0 ? FluxForgeTheme.accentOrange
+        : FluxForgeTheme.accentPink;
+    // Fill bar: show deviation magnitude (0=perfect, 1=max deviation)
+    final rtpFill = rtp > 0 ? (1.0 - (rtpDiff.abs() / 20.0)).clamp(0.0, 1.0) : 0.0;
+
     final cards = [
-      ('RTP',         rtp > 0 ? '${rtp.toStringAsFixed(1)}%' : '—', 'Target: ${_targetRtp.toStringAsFixed(1)}% ($rtpDiffStr)', (rtp / 100).clamp(0.0, 1.0), FluxForgeTheme.accentGreen),
+      ('RTP',         rtp > 0 ? '${rtp.toStringAsFixed(1)}%' : '—', 'Target: ${_targetRtp.toStringAsFixed(1)}% ($rtpDiffStr)', rtpFill, rtpColor),
       ('VOLATILITY',  volLabel,  'Target: ${_volatilitySlider.toStringAsFixed(0)} / 10', volIdx / 10, FluxForgeTheme.accentOrange),
       ('HIT FREQ',    hitFreqStr, 'Target: ${_hitFreqTarget.toStringAsFixed(0)}%', hitRate.clamp(0.0, 1.0), FluxForgeTheme.accentBlue),
       ('MAX WIN',     maxWinMult > 0 ? '${maxWinMult.toStringAsFixed(0)}×' : '—', 'Cap: ${_maxWinCap.toStringAsFixed(0)}×', (maxWinMult / _maxWinCap).clamp(0.0, 1.0), FluxForgeTheme.accentYellow),
@@ -4145,102 +4203,160 @@ class _OmniPill extends StatelessWidget {
   );
 }
 
-class _OmniIconBtn extends StatelessWidget {
+class _OmniIconBtn extends StatefulWidget {
   final IconData icon;
   final VoidCallback? onTap;
   final Color? color;
   const _OmniIconBtn({required this.icon, this.onTap, this.color});
-
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: Container(
-      width: 28, height: 28,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(5),
-        border: Border.all(color: FluxForgeTheme.borderSubtle),
+  State<_OmniIconBtn> createState() => _OmniIconBtnState();
+}
+class _OmniIconBtnState extends State<_OmniIconBtn> {
+  bool _hovered = false;
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+    cursor: widget.onTap != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
+    onEnter: (_) { if (widget.onTap != null) setState(() => _hovered = true); },
+    onExit: (_) => setState(() => _hovered = false),
+    child: GestureDetector(
+      onTap: widget.onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 110),
+        width: 28, height: 28,
+        decoration: BoxDecoration(
+          color: _hovered ? FluxForgeTheme.bgSurface : Colors.transparent,
+          borderRadius: BorderRadius.circular(5),
+          border: Border.all(color: _hovered ? FluxForgeTheme.borderSubtle.withOpacity(0.8) : FluxForgeTheme.borderSubtle),
+        ),
+        child: Icon(widget.icon, size: 14,
+          color: _hovered ? FluxForgeTheme.textPrimary : (widget.color ?? FluxForgeTheme.textSecondary)),
       ),
-      child: Icon(icon, size: 14,
-        color: color ?? FluxForgeTheme.textSecondary),
     ),
   );
 }
 
-class _ModeBadge extends StatelessWidget {
+class _ModeBadge extends StatefulWidget {
   final String label;
   final bool active;
   final VoidCallback onTap;
   const _ModeBadge({required this.label, required this.active, required this.onTap});
-
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: active ? FluxForgeTheme.accentBlue.withOpacity(0.12) : Colors.transparent,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(
-          color: active ? FluxForgeTheme.accentBlue.withOpacity(0.3) : FluxForgeTheme.borderSubtle),
+  State<_ModeBadge> createState() => _ModeBadgeState();
+}
+class _ModeBadgeState extends State<_ModeBadge> {
+  bool _hovered = false;
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+    cursor: SystemMouseCursors.click,
+    onEnter: (_) => setState(() => _hovered = true),
+    onExit: (_) => setState(() => _hovered = false),
+    child: GestureDetector(
+      onTap: widget.onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 110),
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+        decoration: BoxDecoration(
+          color: widget.active
+            ? FluxForgeTheme.accentBlue.withOpacity(0.16)
+            : _hovered ? FluxForgeTheme.bgSurface : Colors.transparent,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: widget.active
+              ? FluxForgeTheme.accentBlue.withOpacity(0.5)
+              : _hovered ? FluxForgeTheme.borderSubtle : FluxForgeTheme.borderSubtle.withOpacity(0.5)),
+        ),
+        child: Text(widget.label, style: TextStyle(
+          fontFamily: 'monospace', fontSize: 9, fontWeight: FontWeight.w600,
+          letterSpacing: 0.5,
+          color: widget.active
+            ? FluxForgeTheme.accentBlue
+            : _hovered ? FluxForgeTheme.textSecondary : FluxForgeTheme.textTertiary)),
       ),
-      child: Text(label, style: TextStyle(
-        fontFamily: 'monospace', fontSize: 9, fontWeight: FontWeight.w600,
-        letterSpacing: 0.08,
-        color: active ? FluxForgeTheme.accentBlue : FluxForgeTheme.textTertiary)),
     ),
   );
 }
 
-class _TransportBtn extends StatelessWidget {
+class _TransportBtn extends StatefulWidget {
   final IconData icon;
   final Color? color;
   final bool active;
   final VoidCallback? onTap;
   const _TransportBtn({required this.icon, this.color, this.active = false, this.onTap});
-
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: Container(
-      width: 32, height: 32,
-      decoration: BoxDecoration(
-        color: active && color != null ? color!.withOpacity(0.1) : FluxForgeTheme.bgSurface,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: color != null ? color!.withOpacity(0.3) : FluxForgeTheme.borderSubtle),
+  State<_TransportBtn> createState() => _TransportBtnState();
+}
+class _TransportBtnState extends State<_TransportBtn> {
+  bool _hovered = false;
+  @override
+  Widget build(BuildContext context) {
+    final c = widget.color;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 110),
+          width: 32, height: 32,
+          decoration: BoxDecoration(
+            color: widget.active && c != null
+              ? c.withOpacity(_hovered ? 0.18 : 0.1)
+              : _hovered ? FluxForgeTheme.bgSurface : FluxForgeTheme.bgSurface.withOpacity(0.7),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: c != null
+                ? c.withOpacity(_hovered ? 0.5 : 0.3)
+                : FluxForgeTheme.borderSubtle),
+          ),
+          child: Icon(widget.icon, size: 14,
+            color: c ?? (_hovered ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary)),
+        ),
       ),
-      child: Icon(icon, size: 14, color: color ?? FluxForgeTheme.textSecondary),
-    ),
-  );
+    );
+  }
 }
 
-class _SpineItem extends StatelessWidget {
+class _SpineItem extends StatefulWidget {
   final IconData icon;
   final String label;
   final bool active;
   final VoidCallback onTap;
   const _SpineItem({required this.icon, required this.label,
     required this.active, required this.onTap});
-
+  @override
+  State<_SpineItem> createState() => _SpineItemState();
+}
+class _SpineItemState extends State<_SpineItem> {
+  bool _hovered = false;
   @override
   Widget build(BuildContext context) => Tooltip(
-    message: label,
+    message: widget.label,
     preferBelow: false,
-    child: GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: 36, height: 36,
-        decoration: BoxDecoration(
-          // Active: rgba(90,168,255,0.10) — matches mockup .spine-item.active
-          color: active ? FluxForgeTheme.accentBlue.withOpacity(0.10) : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: active
-              ? FluxForgeTheme.accentBlue.withOpacity(0.25) : Colors.transparent),
+    child: MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          width: 36, height: 36,
+          decoration: BoxDecoration(
+            color: widget.active
+              ? FluxForgeTheme.accentBlue.withOpacity(0.15)
+              : _hovered ? FluxForgeTheme.accentBlue.withOpacity(0.07) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: widget.active
+                ? FluxForgeTheme.accentBlue.withOpacity(0.4)
+                : _hovered ? FluxForgeTheme.accentBlue.withOpacity(0.2) : Colors.transparent),
+          ),
+          child: Icon(widget.icon, size: 15,
+            color: widget.active
+              ? FluxForgeTheme.accentBlue
+              : _hovered ? FluxForgeTheme.textSecondary : FluxForgeTheme.textTertiary),
         ),
-        child: Icon(icon, size: 14, // 14px matches mockup font-size:14px
-          color: active ? FluxForgeTheme.accentBlue : FluxForgeTheme.textTertiary),
       ),
     ),
   );

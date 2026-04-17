@@ -41,6 +41,15 @@ class CortexEyeNav extends ChangeNotifier {
   /// Called when CORTEX wants to change HELIX dock tab (0-11)
   void Function(int tab)? onHelixTab;
 
+  /// Called when CORTEX wants to toggle a HELIX spine panel (0-4)
+  void Function(int index)? onHelixSpine;
+
+  /// Called when CORTEX wants to change HELIX mode (0=COMPOSE, 1=FOCUS, 2=ARCHITECT)
+  void Function(int mode)? onHelixMode;
+
+  /// Called when CORTEX wants to perform a named action
+  void Function(String action, Map<String, dynamic> params)? onHelixAction;
+
   /// Navigate to a destination: 'slotlab', 'daw', 'helix', 'launcher'
   void navigate(String destination) {
     onNavigate?.call(destination);
@@ -49,6 +58,21 @@ class CortexEyeNav extends ChangeNotifier {
   /// Switch HELIX dock tab
   void setHelixTab(int tab) {
     onHelixTab?.call(tab);
+  }
+
+  /// Toggle HELIX spine panel
+  void setHelixSpine(int index) {
+    onHelixSpine?.call(index);
+  }
+
+  /// Set HELIX mode
+  void setHelixMode(int mode) {
+    onHelixMode?.call(mode);
+  }
+
+  /// Execute named action
+  void helixAction(String action, Map<String, dynamic> params) {
+    onHelixAction?.call(action, params);
   }
 }
 
@@ -130,6 +154,12 @@ class CortexEyeServer {
         await _handleNavigate(request);
       } else if (method == 'POST' && path == '/eye/helix_tab') {
         await _handleHelixTab(request);
+      } else if (method == 'POST' && path == '/eye/helix_spine') {
+        await _handleHelixSpine(request);
+      } else if (method == 'POST' && path == '/eye/helix_mode') {
+        await _handleHelixMode(request);
+      } else if (method == 'POST' && path == '/eye/helix_action') {
+        await _handleHelixAction(request);
       } else if (method == 'GET' && path == '/eye/ping') {
         await _json(request, {'status': 'alive', 'port': port});
       } else {
@@ -143,6 +173,12 @@ class CortexEyeServer {
             'GET /eye/state',
             'GET /eye/latest',
             'POST /eye/observe',
+            'POST /eye/navigate',
+            'POST /eye/helix_tab',
+            'POST /eye/helix_spine',
+            'POST /eye/helix_mode',
+            'POST /eye/helix_action',
+            'POST /eye/click',
             'GET /eye/ping',
           ],
         });
@@ -403,6 +439,105 @@ class CortexEyeServer {
       'tab': tabIndex,
       'snapshotFile': snapshot?.filePath,
     });
+  }
+
+  /// POST /eye/helix_spine — Toggle HELIX spine panel (0-4)
+  /// Body: {"index": 0} → AUDIO ASSIGN, 1=GAME CONFIG, 2=AI/INTEL, 3=SETTINGS, 4=ANALYTICS
+  Future<void> _handleHelixSpine(HttpRequest request) async {
+    final body = await utf8.decodeStream(request);
+    Map<String, dynamic> params = {};
+    try { params = jsonDecode(body) as Map<String, dynamic>; } catch (_) {}
+
+    final index = params['index'] as int?;
+    if (index == null || index < 0 || index > 4) {
+      request.response.statusCode = 400;
+      await _json(request, {'error': 'Required: index (0-4)', 'panels': {
+        0: 'AUDIO ASSIGN', 1: 'GAME CONFIG', 2: 'AI / INTEL', 3: 'SETTINGS', 4: 'ANALYTICS',
+      }});
+      return;
+    }
+
+    final nav = CortexEyeNav.instance;
+    if (nav.onHelixSpine == null) {
+      request.response.statusCode = 503;
+      await _json(request, {'error': 'HELIX not open'});
+      return;
+    }
+
+    nav.setHelixSpine(index);
+    await Future.delayed(const Duration(milliseconds: 400));
+
+    final snapshot = await CortexVisionService.instance.captureFullWindow(
+      metadata: {'trigger': 'helix_spine', 'index': index},
+    );
+    await _json(request, {'success': true, 'spineIndex': index, 'snapshotFile': snapshot?.filePath});
+  }
+
+  /// POST /eye/helix_mode — Set HELIX mode (0=COMPOSE, 1=FOCUS, 2=ARCHITECT)
+  Future<void> _handleHelixMode(HttpRequest request) async {
+    final body = await utf8.decodeStream(request);
+    Map<String, dynamic> params = {};
+    try { params = jsonDecode(body) as Map<String, dynamic>; } catch (_) {}
+
+    const modeNames = {'compose': 0, 'focus': 1, 'architect': 2};
+    int? mode;
+    final modeParam = params['mode'];
+    if (modeParam is int) mode = modeParam;
+    else if (modeParam is String) mode = modeNames[modeParam.toLowerCase()];
+
+    if (mode == null || mode < 0 || mode > 2) {
+      request.response.statusCode = 400;
+      await _json(request, {'error': 'Required: mode (0-2 or name)', 'modes': modeNames});
+      return;
+    }
+
+    final nav = CortexEyeNav.instance;
+    if (nav.onHelixMode == null) {
+      request.response.statusCode = 503;
+      await _json(request, {'error': 'HELIX not open'});
+      return;
+    }
+
+    nav.setHelixMode(mode);
+    await Future.delayed(const Duration(milliseconds: 400));
+
+    final snapshot = await CortexVisionService.instance.captureFullWindow(
+      metadata: {'trigger': 'helix_mode', 'mode': mode},
+    );
+    await _json(request, {'success': true, 'mode': mode, 'snapshotFile': snapshot?.filePath});
+  }
+
+  /// POST /eye/helix_action — Execute a named action in HELIX
+  /// Body: {"action": "stage_force", "params": {"stage": "baseGame"}}
+  Future<void> _handleHelixAction(HttpRequest request) async {
+    final body = await utf8.decodeStream(request);
+    Map<String, dynamic> params = {};
+    try { params = jsonDecode(body) as Map<String, dynamic>; } catch (_) {}
+
+    final action = params['action'] as String?;
+    if (action == null) {
+      request.response.statusCode = 400;
+      await _json(request, {'error': 'Required: action', 'actions': [
+        'stage_force', 'spin', 'stop', 'play', 'pause', 'transport_toggle',
+      ]});
+      return;
+    }
+
+    final nav = CortexEyeNav.instance;
+    if (nav.onHelixAction == null) {
+      request.response.statusCode = 503;
+      await _json(request, {'error': 'HELIX not open'});
+      return;
+    }
+
+    final actionParams = (params['params'] as Map<String, dynamic>?) ?? {};
+    nav.helixAction(action, actionParams);
+    await Future.delayed(const Duration(milliseconds: 600));
+
+    final snapshot = await CortexVisionService.instance.captureFullWindow(
+      metadata: {'trigger': 'helix_action', 'action': action},
+    );
+    await _json(request, {'success': true, 'action': action, 'snapshotFile': snapshot?.filePath});
   }
 
   /// POST /eye/navigate — Flutter-level navigation (no OS accessibility needed)
