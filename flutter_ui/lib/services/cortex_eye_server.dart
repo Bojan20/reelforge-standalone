@@ -19,6 +19,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show ChangeNotifier;
+
 import 'package:flutter/foundation.dart';
 
 import 'cortex_vision_service.dart';
@@ -27,6 +29,20 @@ import 'vision_diff_engine.dart';
 // ═══════════════════════════════════════════════════════════════════════════
 // CORTEX EYE SERVER
 // ═══════════════════════════════════════════════════════════════════════════
+
+/// Navigation callbacks registered by the Flutter app
+class CortexEyeNav extends ChangeNotifier {
+  CortexEyeNav._();
+  static final instance = CortexEyeNav._();
+
+  /// Called when CORTEX requests navigation
+  void Function(String destination)? onNavigate;
+
+  /// Navigate to a destination: 'slotlab', 'daw', 'helix', 'launcher'
+  void navigate(String destination) {
+    onNavigate?.call(destination);
+  }
+}
 
 class CortexEyeServer {
   CortexEyeServer._();
@@ -100,6 +116,10 @@ class CortexEyeServer {
         await _handleLatest(request);
       } else if (method == 'POST' && path == '/eye/observe') {
         await _handleObserve(request);
+      } else if (method == 'POST' && path == '/eye/click') {
+        await _handleClick(request);
+      } else if (method == 'POST' && path == '/eye/navigate') {
+        await _handleNavigate(request);
       } else if (method == 'GET' && path == '/eye/ping') {
         await _json(request, {'status': 'alive', 'port': port});
       } else {
@@ -265,6 +285,101 @@ class CortexEyeServer {
       'resolution': latest.resolution,
       'size': latest.sizeKB,
       'capturedAt': latest.capturedAt.toIso8601String(),
+    });
+  }
+
+  /// POST /eye/click — simulate mouse click at screen coordinates (macOS only)
+  /// Body: {"x": 450, "y": 425, "double": false}
+  Future<void> _handleClick(HttpRequest request) async {
+    final body = await utf8.decodeStream(request);
+    Map<String, dynamic> params = {};
+    try {
+      params = jsonDecode(body) as Map<String, dynamic>;
+    } catch (_) {}
+
+    final x = (params['x'] as num?)?.toInt();
+    final y = (params['y'] as num?)?.toInt();
+    final isDouble = params['double'] as bool? ?? false;
+
+    if (x == null || y == null) {
+      request.response.statusCode = 400;
+      await _json(request, {'error': 'Required: x and y coordinates'});
+      return;
+    }
+
+    try {
+      // macOS: osascript to simulate click at absolute screen coordinates
+      final clickCmd = isDouble
+          ? 'tell application "System Events" to double click at {$x, $y}'
+          : 'tell application "System Events" to click at {$x, $y}';
+
+      final result = await Process.run('osascript', ['-e', clickCmd]);
+
+      if (result.exitCode == 0) {
+        // Wait a bit then capture screenshot to confirm
+        await Future.delayed(const Duration(milliseconds: 500));
+        final snapshot = await CortexVisionService.instance.captureFullWindow(
+          metadata: {'trigger': 'post_click', 'x': x, 'y': y},
+        );
+        await _json(request, {
+          'success': true,
+          'x': x,
+          'y': y,
+          'double': isDouble,
+          'snapshotFile': snapshot?.filePath,
+        });
+      } else {
+        await _json(request, {
+          'success': false,
+          'error': result.stderr.toString(),
+          'hint': 'Ensure Accessibility permissions are granted for Terminal/Claude',
+        });
+      }
+    } catch (e) {
+      request.response.statusCode = 500;
+      await _json(request, {'error': e.toString()});
+    }
+  }
+
+  /// POST /eye/navigate — Flutter-level navigation (no OS accessibility needed)
+  /// Body: {"to": "slotlab"} or {"to": "daw"} or {"to": "helix"} or {"to": "launcher"}
+  Future<void> _handleNavigate(HttpRequest request) async {
+    final body = await utf8.decodeStream(request);
+    Map<String, dynamic> params = {};
+    try {
+      params = jsonDecode(body) as Map<String, dynamic>;
+    } catch (_) {}
+
+    final destination = params['to'] as String?;
+    if (destination == null) {
+      request.response.statusCode = 400;
+      await _json(request, {'error': 'Required: to (destination name)'});
+      return;
+    }
+
+    final nav = CortexEyeNav.instance;
+    if (nav.onNavigate == null) {
+      request.response.statusCode = 503;
+      await _json(request, {
+        'error': 'Navigation not registered yet — app may still be initializing',
+      });
+      return;
+    }
+
+    nav.navigate(destination);
+
+    // Wait for navigation to settle
+    await Future.delayed(const Duration(milliseconds: 800));
+
+    // Capture post-navigation screenshot
+    final snapshot = await CortexVisionService.instance.captureFullWindow(
+      metadata: {'trigger': 'post_navigate', 'destination': destination},
+    );
+
+    await _json(request, {
+      'success': true,
+      'navigatedTo': destination,
+      'snapshotFile': snapshot?.filePath,
     });
   }
 

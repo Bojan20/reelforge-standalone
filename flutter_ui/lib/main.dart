@@ -561,7 +561,25 @@ class _AppInitializerState extends State<_AppInitializer> {
         intelligence.start(); // 30s cycle: capture → analyze → suggest
       }
 
-      // Phase 6: Engine ready — enable launcher buttons
+      // Phase 6: Register CortexEye navigation handler (CORTEX can navigate the app)
+      CortexEyeNav.instance.onNavigate = (destination) {
+        if (!mounted) return;
+        switch (destination) {
+          case 'slotlab':
+            _handleModeSelected(AppMode.slotLab);
+          case 'daw':
+            _handleModeSelected(AppMode.daw);
+          case 'launcher':
+            _handleBackToLauncher();
+          case 'helix':
+            // HELIX is a panel within SLOTLAB — navigate there first
+            _handleModeSelected(AppMode.slotLab);
+          default:
+            debugPrint('[CortexEye] Unknown nav destination: $destination');
+        }
+      };
+
+      // Phase 7: Engine ready — enable launcher buttons
       if (mounted) {
         setState(() => _engineReady = true);
       }
