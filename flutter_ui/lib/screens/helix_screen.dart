@@ -3185,18 +3185,41 @@ class _MathPanelState extends State<_MathPanel> {
 
     return Column(
       children: [
-        // Stats grid
+        // Stats grid — 2 rows of 3 using Row/Expanded so height is properly constrained
         Expanded(
           flex: 3,
-          child: GridView.count(
-            crossAxisCount: 3,
-            mainAxisSpacing: 8,
-            crossAxisSpacing: 8,
-            childAspectRatio: 2.0,
-            children: cards.map((c) => _MathCard(
-              label: c.$1, value: c.$2, sub: c.$3,
-              fill: c.$4, color: c.$5,
-            )).toList(),
+          child: Column(
+            children: [
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (int i = 0; i < 3; i++) ...[
+                      if (i > 0) const SizedBox(width: 8),
+                      Expanded(child: _MathCard(
+                        label: cards[i].$1, value: cards[i].$2, sub: cards[i].$3,
+                        fill: cards[i].$4, color: cards[i].$5,
+                      )),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (int i = 3; i < 6; i++) ...[
+                      if (i > 3) const SizedBox(width: 8),
+                      Expanded(child: _MathCard(
+                        label: cards[i].$1, value: cards[i].$2, sub: cards[i].$3,
+                        fill: cards[i].$4, color: cards[i].$5,
+                      )),
+                    ],
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 4),
@@ -5388,14 +5411,15 @@ class _MathCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(10),
+    clipBehavior: Clip.antiAlias,
+    padding: const EdgeInsets.all(8),
     decoration: BoxDecoration(
       gradient: LinearGradient(
         begin: Alignment.topLeft, end: Alignment.bottomRight,
         colors: [color.withOpacity(0.18), color.withOpacity(0.05)],
       ),
       border: Border.all(color: color.withOpacity(0.4), width: 1.2),
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(8),
       boxShadow: [BoxShadow(color: color.withOpacity(0.10), blurRadius: 16, spreadRadius: -2)],
     ),
     child: Column(
@@ -5405,21 +5429,20 @@ class _MathCard extends StatelessWidget {
           Container(width: 5, height: 5, decoration: BoxDecoration(
             color: color, shape: BoxShape.circle,
             boxShadow: [BoxShadow(color: color.withOpacity(0.5), blurRadius: 4)])),
-          const SizedBox(width: 6),
+          const SizedBox(width: 5),
           Text(label, style: TextStyle(
-            fontFamily: 'monospace', fontSize: 10, fontWeight: FontWeight.w700,
+            fontFamily: 'monospace', fontSize: 9, fontWeight: FontWeight.w700,
             letterSpacing: 0.2, color: color)),
         ]),
         const Spacer(),
         Text(value, style: TextStyle(
-          fontFamily: 'monospace', fontSize: 24, fontWeight: FontWeight.w300,
-          color: color)),
-        const SizedBox(height: 2),
+          fontFamily: 'monospace', fontSize: 18, fontWeight: FontWeight.w300,
+          color: color, height: 1.1)),
         Text(sub, style: const TextStyle(
-          fontSize: 10, color: FluxForgeTheme.textSecondary)),
-        const SizedBox(height: 6),
+          fontSize: 9, color: FluxForgeTheme.textSecondary, height: 1.2)),
+        const SizedBox(height: 3),
         Container(
-          height: 4,
+          height: 3,
           decoration: BoxDecoration(
             color: FluxForgeTheme.bgElevated,
             borderRadius: BorderRadius.circular(2)),
