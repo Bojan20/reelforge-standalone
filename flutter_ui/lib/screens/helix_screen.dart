@@ -1090,10 +1090,6 @@ class _FlowPanelState extends State<_FlowPanel> {
                             color: FluxForgeTheme.accentCyan, fontWeight: FontWeight.w600)),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      const Text('tap=force  rc=config', style: TextStyle(
-                        fontFamily: 'monospace', fontSize: 8,
-                        color: FluxForgeTheme.textTertiary)),
                     ]),
                     const SizedBox(height: 8),
                     Expanded(
@@ -1421,10 +1417,10 @@ class _SfxPipelinePanel extends StatelessWidget {
                 ),
           ),
           Row(children: [
-            _SfxNavButton(label: 'SELECT ALL', onTap: sfx.selectAllFiles),
-            const SizedBox(width: 8),
+            _SfxNavButton(label: 'SELECT ALL', onTap: sfx.selectAllFiles, primary: true),
+            const SizedBox(width: 6),
             _SfxNavButton(label: 'DESELECT ALL', onTap: sfx.deselectAllFiles),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             _SfxNavButton(label: 'INVERT', onTap: sfx.invertSelection),
           ]),
         ],
@@ -1600,26 +1596,53 @@ class _StatRow extends StatelessWidget {
   );
 }
 
-class _SfxNavButton extends StatelessWidget {
+class _SfxNavButton extends StatefulWidget {
   final String label;
   final VoidCallback onTap;
   final bool primary;
   const _SfxNavButton({required this.label, required this.onTap, this.primary = false});
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: primary ? FluxForgeTheme.accentCyan.withOpacity(0.15) : FluxForgeTheme.bgSurface,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: primary ? FluxForgeTheme.accentCyan.withOpacity(0.4) : FluxForgeTheme.borderSubtle),
+  State<_SfxNavButton> createState() => _SfxNavButtonState();
+}
+
+class _SfxNavButtonState extends State<_SfxNavButton> {
+  bool _hovered = false;
+  @override
+  Widget build(BuildContext context) {
+    final accent = FluxForgeTheme.accentCyan;
+    final isActive = widget.primary;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: isActive
+              ? accent.withOpacity(_hovered ? 0.22 : 0.15)
+              : _hovered
+                ? FluxForgeTheme.bgSurface.withOpacity(0.8)
+                : FluxForgeTheme.bgSurface,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: isActive
+                ? accent.withOpacity(_hovered ? 0.6 : 0.4)
+                : _hovered
+                  ? FluxForgeTheme.borderSubtle.withOpacity(0.8)
+                  : FluxForgeTheme.borderSubtle,
+            ),
+          ),
+          child: Text(widget.label, style: TextStyle(
+            fontFamily: 'monospace', fontSize: 9,
+            color: isActive ? accent : (_hovered ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary),
+            fontWeight: FontWeight.w600)),
+        ),
       ),
-      child: Text(label, style: TextStyle(fontFamily: 'monospace', fontSize: 9,
-        color: primary ? FluxForgeTheme.accentCyan : FluxForgeTheme.textSecondary,
-        fontWeight: FontWeight.w600)),
-    ),
-  );
+    );
+  }
 }
 
 class _SfxPresetSlider extends StatelessWidget {
@@ -1781,6 +1804,11 @@ class _BehaviorTreePanelState extends State<_BehaviorTreePanel> {
                           color: _selectedCategory == cat
                             ? FluxForgeTheme.accentOrange.withOpacity(0.15) : Colors.transparent,
                           borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: _selectedCategory == cat
+                              ? FluxForgeTheme.accentOrange.withOpacity(0.5)
+                              : FluxForgeTheme.borderSubtle,
+                          ),
                         ),
                         child: Text(cat, style: TextStyle(fontFamily: 'monospace', fontSize: 8,
                           color: _selectedCategory == cat ? FluxForgeTheme.accentOrange : FluxForgeTheme.textTertiary,
@@ -3966,13 +3994,16 @@ class _ExportPanelState extends State<_ExportPanel> {
                   }
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                   decoration: BoxDecoration(
-                    color: FluxForgeTheme.accentYellow.withOpacity(0.06),
-                    border: Border.all(color: FluxForgeTheme.accentYellow.withOpacity(0.2)),
+                    color: FluxForgeTheme.accentYellow.withOpacity(0.12),
+                    border: Border.all(color: FluxForgeTheme.accentYellow.withOpacity(0.45)),
                     borderRadius: BorderRadius.circular(4)),
-                  child: const Text('Export All', style: TextStyle(
-                    fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.accentYellow)),
+                  child: const Text('EXPORT ALL', style: TextStyle(
+                    fontFamily: 'monospace', fontSize: 9,
+                    color: FluxForgeTheme.accentYellow,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5)),
                 ),
               ),
             ],
@@ -3986,6 +4017,96 @@ class _ExportPanelState extends State<_ExportPanel> {
 // ─────────────────────────────────────────────────────────────────────────────
 // REUSABLE COMPONENTS
 // ─────────────────────────────────────────────────────────────────────────────
+
+/// Unified HELIX button — primary / toggle / ghost variant.
+/// All HELIX buttons should use this instead of inline GestureDetector+Container.
+enum _HBtnVariant { primary, toggle, ghost }
+
+class _HBtn extends StatefulWidget {
+  final String label;
+  final VoidCallback? onTap;
+  final Color accent;
+  final _HBtnVariant variant;
+  final bool active;   // for toggle variant
+  final IconData? icon;
+
+  const _HBtn({
+    required this.label,
+    required this.accent,
+    this.onTap,
+    this.variant = _HBtnVariant.ghost,
+    this.active = false,
+    this.icon,
+  });
+
+  @override
+  State<_HBtn> createState() => _HBtnState();
+}
+
+class _HBtnState extends State<_HBtn> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final disabled = widget.onTap == null;
+    final a = widget.accent;
+
+    Color bg;
+    Color border;
+    Color fg;
+
+    switch (widget.variant) {
+      case _HBtnVariant.primary:
+        bg = disabled
+          ? FluxForgeTheme.bgSurface
+          : a.withOpacity(_hovered ? 0.22 : 0.15);
+        border = disabled
+          ? FluxForgeTheme.borderSubtle
+          : a.withOpacity(_hovered ? 0.65 : 0.45);
+        fg = disabled ? FluxForgeTheme.textTertiary : a;
+      case _HBtnVariant.toggle:
+        bg = widget.active
+          ? a.withOpacity(_hovered ? 0.22 : 0.15)
+          : _hovered ? FluxForgeTheme.bgSurface : Colors.transparent;
+        border = widget.active
+          ? a.withOpacity(_hovered ? 0.65 : 0.45)
+          : FluxForgeTheme.borderSubtle;
+        fg = widget.active ? a : (_hovered ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary);
+      case _HBtnVariant.ghost:
+        bg = _hovered ? FluxForgeTheme.bgSurface : Colors.transparent;
+        border = _hovered ? FluxForgeTheme.borderSubtle : Colors.transparent;
+        fg = _hovered ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary;
+    }
+
+    return MouseRegion(
+      cursor: disabled ? SystemMouseCursors.basic : SystemMouseCursors.click,
+      onEnter: (_) { if (!disabled) setState(() => _hovered = true); },
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: border),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            if (widget.icon != null) ...[
+              Icon(widget.icon, size: 11, color: fg),
+              const SizedBox(width: 5),
+            ],
+            Text(widget.label, style: TextStyle(
+              fontFamily: 'monospace', fontSize: 9,
+              color: fg, fontWeight: FontWeight.w600,
+              letterSpacing: 0.3)),
+          ]),
+        ),
+      ),
+    );
+  }
+}
 
 class _OmniPill extends StatelessWidget {
   final Widget child;
