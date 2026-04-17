@@ -368,8 +368,7 @@ class _HelixScreenState extends State<HelixScreen>
         gradient: const LinearGradient(
           colors: [FluxForgeTheme.bgDeep, FluxForgeTheme.bgDeepest],
         ),
-        border: Border(bottom: BorderSide(color: FluxForgeTheme.borderMedium, width: 1)),
-        boxShadow: [BoxShadow(color: FluxForgeTheme.bgVoid.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2))],
+        border: const Border(bottom: BorderSide(color: FluxForgeTheme.borderSubtle, width: 1)),
       ),
       child: Row(
         children: [
@@ -583,9 +582,9 @@ class _HelixScreenState extends State<HelixScreen>
       children: [
         Container(
           width: 48,
-          decoration: BoxDecoration(
-            color: FluxForgeTheme.bgDeep,
-            border: Border(right: BorderSide(color: FluxForgeTheme.borderMedium)),
+          decoration: const BoxDecoration(
+            color: FluxForgeTheme.bgDeepest, // #08080C = --abyss (matches mockup)
+            border: Border(right: BorderSide(color: FluxForgeTheme.borderSubtle)),
           ),
           child: Column(
             children: [
@@ -4090,18 +4089,18 @@ class _SpineItem extends StatelessWidget {
     child: GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
+        duration: const Duration(milliseconds: 200),
         width: 36, height: 36,
         decoration: BoxDecoration(
-          color: active ? FluxForgeTheme.accentBlue.withOpacity(0.18) : Colors.transparent,
+          // Active: rgba(90,168,255,0.10) — matches mockup .spine-item.active
+          color: active ? FluxForgeTheme.accentBlue.withOpacity(0.10) : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: active
-              ? FluxForgeTheme.accentBlue.withOpacity(0.5) : Colors.transparent),
-          boxShadow: active ? [BoxShadow(color: FluxForgeTheme.accentBlue.withOpacity(0.15), blurRadius: 8)] : null,
+              ? FluxForgeTheme.accentBlue.withOpacity(0.25) : Colors.transparent),
         ),
-        child: Icon(icon, size: 18,
-          color: active ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary),
+        child: Icon(icon, size: 14, // 14px matches mockup font-size:14px
+          color: active ? FluxForgeTheme.accentBlue : FluxForgeTheme.textTertiary),
       ),
     ),
   );
