@@ -187,24 +187,22 @@ impl NeuroEngine {
             }
 
             // ── Bet change ─────────────────────────────────────────────────
-            BehavioralEvent::BetChange { new_bet, prev_bet, after_loss } => {
-                if *prev_bet > 0.0 {
+            BehavioralEvent::BetChange { new_bet, prev_bet, after_loss }
+                if *prev_bet > 0.0 => {
                     // Normalized bet delta: +0.5 = bet doubled, -0.5 = bet halved
                     let delta = ((new_bet - prev_bet) / prev_bet).clamp(-1.0, 1.0);
                     // Positive chasing signal: increased bet after a loss
                     let chasing = if *after_loss && delta > 0.0 { delta } else { 0.0 };
                     self.bet_change.push(ts, chasing);
                 }
-            }
 
             // ── Pause ──────────────────────────────────────────────────────
-            BehavioralEvent::Pause { duration_ms, after_loss } => {
+            BehavioralEvent::Pause { duration_ms, after_loss }
                 // Pause >5s after loss is a frustration/churn signal
-                if *after_loss && *duration_ms > 5_000 {
+                if *after_loss && *duration_ms > 5_000 => {
                     let frustration_signal = (*duration_ms as f64 / 30_000.0).clamp(0.0, 1.0);
                     self.pause_signal.push(ts, frustration_signal);
                 }
-            }
 
             BehavioralEvent::FeatureEnd { .. } => {
                 self.in_feature = false;

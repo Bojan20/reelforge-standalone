@@ -169,6 +169,7 @@ import '../widgets/slot_lab/feature_builder_panel.dart';
 import '../widgets/slot_lab/gad_panel.dart';
 import '../widgets/slot_lab/sss_panel.dart';
 import '../models/template_models.dart' show BuiltTemplate, FeatureModuleType;
+import '../services/cortex_eye_server.dart';
 // =============================================================================
 // SLOT LAB TRACK ID ISOLATION
 // =============================================================================
@@ -1496,6 +1497,20 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
+        // CortexEye: register HELIX launch so CORTEX can open it autonomously
+        CortexEyeNav.instance.onNavigate = (destination) {
+          if (!mounted) return;
+          if (destination == 'helix') {
+            Navigator.of(context).push(MaterialPageRoute(
+              fullscreenDialog: true,
+              builder: (_) => HelixScreen(
+                onClose: () => Navigator.of(context).pop(),
+                audioPool: widget.audioPool,
+              ),
+            ));
+          }
+        };
+
         // Clean false-positive audio assignments from previous sessions
         Provider.of<SlotLabProjectProvider>(context, listen: false).sanitizeAssignments();
 

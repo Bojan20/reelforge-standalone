@@ -488,8 +488,8 @@ fn rule_timing_benchmarks(
 
     // R-TB-2: Ambient loop too short
     for event in &project.audio_events {
-        if event.name.contains("AMBIENT") && event.can_loop {
-            if event.duration_ms < 30_000 {
+        if event.name.contains("AMBIENT") && event.can_loop
+            && event.duration_ms < 30_000 {
                 out.push(CopilotSuggestion {
                     rule_id: "R-TB-2".to_string(),
                     category: SuggestionCategory::TimingBenchmark,
@@ -506,7 +506,6 @@ fn rule_timing_benchmarks(
                     auto_applicable: false,
                 });
             }
-        }
     }
 }
 

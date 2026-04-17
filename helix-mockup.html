@@ -1,0 +1,2242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HELIX — Neural Slot Design Environment</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --void: #06060A;
+    --abyss: #08080C;
+    --deep: #0E0E14;
+    --mid: #16161E;
+    --surface: #1E1E28;
+    --elevated: #26263A;
+    --hover: #2E2E42;
+    --blue: #5AA8FF;
+    --cyan: #50D8FF;
+    --green: #50FF98;
+    --orange: #FF9850;
+    --purple: #B080FF;
+    --gold: #FFE050;
+    --red: #FF5068;
+    --pink: #FF80B0;
+    --text-primary: #F0F0F4;
+    --text-secondary: #B8B8C0;
+    --text-tertiary: #808088;
+    --border: rgba(255,255,255,0.055);
+    --glass: rgba(22,22,30,0.88);
+    --font-sans: 'Inter', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+    --spring: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--void);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* Noise texture overlay */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0.4;
+  }
+
+  /* ═══════════════════════════════════════
+     LAYOUT
+  ═══════════════════════════════════════ */
+  #app {
+    display: grid;
+    grid-template-rows: 48px 1fr 340px;
+    grid-template-columns: 48px 1fr;
+    width: 100vw; height: 100vh;
+  }
+
+  /* ═══════════════════════════════════════
+     OMNIBAR
+  ═══════════════════════════════════════ */
+  #omnibar {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    background: rgba(8,8,12,0.95);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 0;
+    backdrop-filter: blur(20px);
+    z-index: 100;
+    position: relative;
+  }
+
+  .omni-logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-right: 20px;
+    flex-shrink: 0;
+  }
+
+  .omni-logo-mark {
+    width: 24px; height: 24px;
+    background: linear-gradient(135deg, var(--blue), var(--purple));
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    color: white;
+    flex-shrink: 0;
+    animation: logo-breathe 3s ease-in-out infinite;
+  }
+
+  @keyframes logo-breathe {
+    0%,100% { box-shadow: 0 0 8px rgba(90,168,255,0.3); }
+    50% { box-shadow: 0 0 20px rgba(90,168,255,0.6), 0 0 40px rgba(176,128,255,0.2); }
+  }
+
+  .omni-logo-text {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    color: var(--text-primary);
+  }
+
+  .omni-divider {
+    width: 1px; height: 24px;
+    background: var(--border);
+    margin: 0 12px;
+    flex-shrink: 0;
+  }
+
+  .omni-project {
+    display: flex; align-items: center; gap: 6px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+    transition: background 0.15s;
+    font-size: 12px;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+  }
+
+  .omni-project:hover { background: var(--elevated); }
+
+  .omni-project-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: pulse 2s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .omni-spacer { flex: 1; }
+
+  /* Undo/Redo */
+  .omni-undoredo {
+    display: flex; gap: 2px;
+    margin-right: 12px;
+  }
+
+  .omni-btn {
+    width: 28px; height: 28px;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+
+  .omni-btn:hover { background: var(--surface); color: var(--text-primary); }
+
+  /* BPM pill */
+  .omni-bpm {
+    display: flex; align-items: center; gap: 6px;
+    padding: 4px 12px;
+    border-radius: 6px;
+    border: 1px solid rgba(80,216,255,0.2);
+    background: rgba(80,216,255,0.05);
+    margin-right: 12px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--cyan);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .omni-bpm:hover { background: rgba(80,216,255,0.1); }
+
+  .omni-bpm-label { color: var(--text-tertiary); font-size: 9px; letter-spacing: 0.1em; }
+
+  /* Transport */
+  .omni-transport {
+    display: flex; gap: 4px;
+    align-items: center;
+  }
+
+  .transport-btn {
+    width: 32px; height: 32px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-secondary);
+    font-size: 11px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s var(--spring);
+  }
+
+  .transport-btn:hover { transform: scale(1.08); }
+  .transport-btn.play { border-color: rgba(80,255,152,0.3); color: var(--green); }
+  .transport-btn.play:hover { background: rgba(80,255,152,0.1); box-shadow: 0 0 16px rgba(80,255,152,0.2); }
+  .transport-btn.rec { border-color: rgba(255,80,104,0.3); color: var(--red); }
+  .transport-btn.rec:hover { background: rgba(255,80,104,0.1); }
+  .transport-btn.stop { border-color: rgba(255,255,255,0.1); }
+
+  /* Mode badges */
+  .omni-modes {
+    display: flex; gap: 3px;
+    margin-left: 12px;
+  }
+
+  .mode-badge {
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 9px;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    color: var(--text-tertiary);
+    transition: all 0.15s;
+  }
+
+  .mode-badge:hover { color: var(--text-secondary); background: var(--surface); }
+
+  .mode-badge.active {
+    background: rgba(90,168,255,0.12);
+    border-color: rgba(90,168,255,0.3);
+    color: var(--blue);
+  }
+
+  /* ═══════════════════════════════════════
+     NEURAL SPINE
+  ═══════════════════════════════════════ */
+  #spine {
+    grid-column: 1;
+    grid-row: 2;
+    background: var(--abyss);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px 0;
+    gap: 4px;
+    z-index: 50;
+    position: relative;
+  }
+
+  .spine-item {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--text-tertiary);
+    transition: all 0.2s var(--spring);
+    position: relative;
+    border: 1px solid transparent;
+  }
+
+  .spine-item:hover {
+    background: var(--surface);
+    color: var(--text-primary);
+    border-color: var(--border);
+    transform: scale(1.1);
+  }
+
+  .spine-item.active {
+    background: rgba(90,168,255,0.1);
+    border-color: rgba(90,168,255,0.25);
+    color: var(--blue);
+  }
+
+  .spine-item.active::after {
+    content: '';
+    position: absolute;
+    left: -1px;
+    width: 2px; height: 20px;
+    background: var(--blue);
+    border-radius: 0 2px 2px 0;
+    box-shadow: 0 0 8px var(--blue);
+  }
+
+  .spine-tooltip {
+    position: absolute;
+    left: calc(100% + 10px);
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--elevated);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: 5px;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--text-primary);
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 200;
+  }
+
+  .spine-item:hover .spine-tooltip { opacity: 1; }
+
+  .spine-spacer { flex: 1; }
+
+  /* ═══════════════════════════════════════
+     NEURAL CANVAS
+  ═══════════════════════════════════════ */
+  #canvas {
+    grid-column: 2;
+    grid-row: 2;
+    position: relative;
+    background: var(--deep);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  /* Stage glow background */
+  .canvas-glow {
+    position: absolute;
+    width: 60%; height: 60%;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.08;
+    transition: all 1.5s ease;
+    pointer-events: none;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -55%);
+  }
+
+  .canvas-glow.base { background: var(--blue); }
+  .canvas-glow.trigger { background: var(--orange); }
+  .canvas-glow.bonus { background: var(--gold); }
+  .canvas-glow.win { background: var(--green); }
+
+  /* Slot machine container */
+  .slot-machine {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    z-index: 10;
+  }
+
+  .slot-frame {
+    background: rgba(14,14,20,0.9);
+    border: 1px solid rgba(90,168,255,0.15);
+    border-radius: 16px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    box-shadow:
+      0 0 0 1px rgba(90,168,255,0.08),
+      0 0 40px rgba(0,0,0,0.6),
+      inset 0 1px 0 rgba(255,255,255,0.04);
+    backdrop-filter: blur(10px);
+    transition: box-shadow 0.8s ease;
+  }
+
+  .slot-frame:hover {
+    box-shadow:
+      0 0 0 1px rgba(90,168,255,0.2),
+      0 0 60px rgba(0,0,0,0.8),
+      0 0 80px rgba(90,168,255,0.06),
+      inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+
+  .slot-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .slot-title {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: var(--text-tertiary);
+    flex: 1;
+  }
+
+  .slot-rtp-badge {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    padding: 2px 7px;
+    border-radius: 3px;
+    background: rgba(80,255,152,0.08);
+    border: 1px solid rgba(80,255,152,0.15);
+    color: var(--green);
+  }
+
+  /* Reels */
+  .reels-container {
+    display: flex;
+    gap: 6px;
+    position: relative;
+  }
+
+  .reel {
+    width: 80px;
+    border-radius: 8px;
+    background: rgba(6,6,10,0.95);
+    border: 1px solid rgba(90,168,255,0.1);
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.2s var(--spring);
+    position: relative;
+  }
+
+  .reel:hover {
+    border-color: rgba(90,168,255,0.4);
+    box-shadow: 0 0 20px rgba(90,168,255,0.15);
+    transform: scaleY(1.02);
+  }
+
+  .reel-inner {
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.3s ease;
+  }
+
+  .reel.spinning .reel-inner {
+    animation: reel-spin 0.08s steps(1) infinite;
+  }
+
+  @keyframes reel-spin {
+    0% { transform: translateY(0); }
+    25% { transform: translateY(-84px); }
+    50% { transform: translateY(-168px); }
+    75% { transform: translateY(-252px); }
+    100% { transform: translateY(0); }
+  }
+
+  .reel-cell {
+    width: 80px; height: 80px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+
+  /* Win line highlight */
+  .reel-win-overlay {
+    position: absolute;
+    top: 80px; left: 0; right: 0;
+    height: 82px;
+    background: linear-gradient(90deg, transparent, rgba(255,224,80,0.04), transparent);
+    pointer-events: none;
+    border-top: 1px solid rgba(255,224,80,0.08);
+    border-bottom: 1px solid rgba(255,224,80,0.08);
+  }
+
+  /* Waveform halo around reels */
+  .waveform-halo {
+    position: absolute;
+    inset: -12px;
+    border-radius: 12px;
+    pointer-events: none;
+    opacity: 0.6;
+    background:
+      radial-gradient(ellipse at top, rgba(90,168,255,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse at bottom, rgba(176,128,255,0.04) 0%, transparent 60%);
+    animation: halo-breathe 4s ease-in-out infinite;
+  }
+
+  @keyframes halo-breathe {
+    0%,100% { opacity: 0.4; transform: scale(1); }
+    50% { opacity: 0.8; transform: scale(1.02); }
+  }
+
+  /* Waveform bars visualization */
+  .waveform-bars {
+    position: absolute;
+    bottom: -28px;
+    left: 50%; transform: translateX(-50%);
+    display: flex; gap: 2px; align-items: flex-end;
+    height: 20px;
+  }
+
+  .wave-bar {
+    width: 3px;
+    background: linear-gradient(to top, var(--cyan), transparent);
+    border-radius: 2px;
+    animation: wave 1.2s ease-in-out infinite;
+    opacity: 0.6;
+  }
+
+  @keyframes wave {
+    0%,100% { transform: scaleY(0.3); }
+    50% { transform: scaleY(1); }
+  }
+
+  /* Stage pill strip */
+  .stage-strip {
+    position: absolute;
+    bottom: 20px;
+    left: 50%; transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 0;
+    background: rgba(8,8,12,0.9);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 5px 14px;
+    backdrop-filter: blur(10px);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    white-space: nowrap;
+  }
+
+  .stage-node {
+    display: flex; align-items: center; gap: 5px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--text-tertiary);
+    font-size: 10px;
+  }
+
+  .stage-node.active {
+    background: rgba(90,168,255,0.12);
+    color: var(--blue);
+  }
+
+  .stage-node-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  .stage-arrow {
+    color: var(--text-tertiary);
+    opacity: 0.3;
+    font-size: 8px;
+    margin: 0 2px;
+  }
+
+  /* Context info bar below canvas */
+  .canvas-info-bar {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .info-chip {
+    padding: 3px 9px;
+    border-radius: 5px;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    border: 1px solid var(--border);
+    background: rgba(8,8,12,0.8);
+    backdrop-filter: blur(8px);
+    display: flex; align-items: center; gap: 5px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .info-chip:hover { background: var(--surface); border-color: rgba(255,255,255,0.12); }
+
+  .info-chip-label { color: var(--text-tertiary); font-size: 9px; }
+  .info-chip-value { color: var(--text-primary); font-weight: 500; }
+
+  .intensity-bar {
+    display: flex; gap: 1px;
+  }
+
+  .intensity-seg {
+    width: 4px; height: 8px;
+    border-radius: 1px;
+    background: var(--elevated);
+  }
+
+  .intensity-seg.on { background: var(--blue); }
+  .intensity-seg.on.med { background: var(--cyan); }
+  .intensity-seg.on.high { background: var(--orange); }
+
+  /* ═══════════════════════════════════════
+     CONTEXT LENS
+  ═══════════════════════════════════════ */
+  #context-lens {
+    position: absolute;
+    right: 14px;
+    top: 50px;
+    width: 280px;
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    backdrop-filter: blur(24px);
+    padding: 16px;
+    z-index: 60;
+    transform: translateX(320px);
+    transition: transform 0.38s var(--spring), opacity 0.25s ease;
+    opacity: 0;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.03);
+  }
+
+  #context-lens.open {
+    transform: translateX(0);
+    opacity: 1;
+  }
+
+  .lens-header {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .lens-icon {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    background: rgba(90,168,255,0.12);
+    border: 1px solid rgba(90,168,255,0.2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+  }
+
+  .lens-title {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-primary);
+    flex: 1;
+  }
+
+  .lens-close {
+    width: 20px; height: 20px;
+    border-radius: 4px;
+    background: transparent;
+    border: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+    transition: all 0.15s;
+  }
+
+  .lens-close:hover { background: var(--surface); color: var(--text-primary); }
+
+  .lens-section {
+    margin-bottom: 12px;
+  }
+
+  .lens-section-title {
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    color: var(--text-tertiary);
+    font-family: var(--font-mono);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+
+  .lens-row {
+    display: flex; align-items: center;
+    margin-bottom: 7px;
+    gap: 10px;
+  }
+
+  .lens-row-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    width: 70px;
+    flex-shrink: 0;
+  }
+
+  .lens-slider {
+    flex: 1;
+    height: 3px;
+    background: var(--elevated);
+    border-radius: 2px;
+    position: relative;
+    cursor: pointer;
+  }
+
+  .lens-slider-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--blue), var(--cyan));
+    position: relative;
+  }
+
+  .lens-slider-thumb {
+    position: absolute;
+    right: -4px; top: -4px;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: white;
+    box-shadow: 0 0 6px rgba(90,168,255,0.5);
+  }
+
+  .lens-value {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--blue);
+    width: 30px;
+    text-align: right;
+  }
+
+  .lens-event-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .lens-event-tag {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 8px;
+    border-radius: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    font-size: 10px;
+    font-family: var(--font-mono);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .lens-event-tag:hover { background: var(--elevated); border-color: rgba(255,255,255,0.1); }
+
+  .lens-event-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* ═══════════════════════════════════════
+     COMMAND DOCK
+  ═══════════════════════════════════════ */
+  #dock {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    background: var(--abyss);
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .dock-tabbar {
+    display: flex;
+    align-items: center;
+    height: 38px;
+    border-bottom: 1px solid var(--border);
+    padding: 0 16px;
+    gap: 2px;
+    flex-shrink: 0;
+    background: rgba(6,6,10,0.7);
+  }
+
+  .dock-tab {
+    display: flex; align-items: center; gap: 6px;
+    padding: 0 12px;
+    height: 30px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    color: var(--text-tertiary);
+    border: 1px solid transparent;
+    transition: all 0.18s var(--spring);
+    position: relative;
+  }
+
+  .dock-tab:hover { color: var(--text-secondary); background: var(--surface); }
+
+  .dock-tab.active {
+    color: var(--text-primary);
+    background: var(--surface);
+    border-color: var(--border);
+  }
+
+  .dock-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -8px; left: 50%;
+    transform: translateX(-50%);
+    width: 60%; height: 1px;
+    background: var(--tab-color, var(--blue));
+    box-shadow: 0 0 8px var(--tab-color, var(--blue));
+    border-radius: 1px;
+  }
+
+  .dock-tab-icon {
+    width: 14px; height: 14px;
+    border-radius: 3px;
+    background: var(--tab-color, var(--blue));
+    opacity: 0.7;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 8px;
+    color: white;
+    transition: opacity 0.15s;
+  }
+
+  .dock-tab.active .dock-tab-icon { opacity: 1; }
+  .dock-tab:hover .dock-tab-icon { opacity: 0.9; }
+
+  .dock-spacer { flex: 1; }
+
+  .dock-actions {
+    display: flex; gap: 4px;
+  }
+
+  /* Dock content */
+  .dock-content {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    padding: 14px 16px;
+  }
+
+  .dock-panel {
+    display: none;
+    width: 100%; height: 100%;
+  }
+
+  .dock-panel.active { display: flex; gap: 12px; }
+
+  /* FLOW panel */
+  .flow-stage-map {
+    flex: 1;
+    background: rgba(6,6,10,0.5);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow: hidden;
+  }
+
+  .flow-title {
+    font-size: 9px;
+    font-family: var(--font-mono);
+    color: var(--text-tertiary);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .flow-nodes {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+  }
+
+  .flow-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .flow-node:hover { transform: translateY(-2px); }
+
+  .flow-node-box {
+    width: 70px; height: 44px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    font-size: 9px;
+    font-family: var(--font-mono);
+    gap: 3px;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .flow-node-box::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: var(--node-color);
+    opacity: 0.05;
+    transition: opacity 0.2s;
+  }
+
+  .flow-node-box:hover::before { opacity: 0.12; }
+
+  .flow-node.current .flow-node-box {
+    border-color: var(--node-color);
+    box-shadow: 0 0 12px rgba(var(--node-rgb),0.2);
+  }
+
+  .flow-node-label { font-size: 10px; color: var(--text-secondary); font-family: var(--font-mono); }
+
+  .flow-connector {
+    display: flex; align-items: center;
+    color: var(--text-tertiary);
+    font-size: 14px;
+    opacity: 0.4;
+    flex: 0.3;
+    justify-content: center;
+  }
+
+  /* AUDIO panel */
+  .audio-meters {
+    width: 120px;
+    background: rgba(6,6,10,0.5);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .meter-channel {
+    display: flex; flex-direction: column; gap: 3px;
+  }
+
+  .meter-label {
+    font-size: 8px;
+    font-family: var(--font-mono);
+    color: var(--text-tertiary);
+  }
+
+  .meter-bar {
+    height: 6px;
+    background: var(--elevated);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .meter-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--green) 0%, var(--green) 60%, var(--gold) 75%, var(--orange) 88%, var(--red) 100%);
+    border-radius: 2px;
+    transition: width 0.05s ease;
+  }
+
+  .audio-channels {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow-y: auto;
+  }
+
+  .audio-channel-strip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    background: rgba(6,6,10,0.5);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .audio-channel-strip:hover { background: var(--surface); border-color: rgba(255,255,255,0.1); }
+
+  .channel-color {
+    width: 3px; height: 28px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  .channel-name {
+    font-size: 11px;
+    color: var(--text-secondary);
+    flex: 1;
+    font-family: var(--font-mono);
+  }
+
+  .channel-fader {
+    width: 80px;
+    height: 3px;
+    background: var(--elevated);
+    border-radius: 2px;
+    position: relative;
+  }
+
+  .channel-fader-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--channel-c);
+    position: relative;
+  }
+
+  .channel-fader-thumb {
+    position: absolute; right: -4px; top: -4px;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: white;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+  }
+
+  .channel-db {
+    font-size: 9px;
+    font-family: var(--font-mono);
+    color: var(--text-tertiary);
+    width: 28px;
+    text-align: right;
+  }
+
+  .channel-mute-solo {
+    display: flex; gap: 2px;
+  }
+
+  .ms-btn {
+    width: 16px; height: 16px;
+    border-radius: 3px;
+    font-size: 7px;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+
+  .ms-btn.m:hover { background: rgba(255,80,104,0.15); color: var(--red); }
+  .ms-btn.s:hover { background: rgba(255,224,80,0.15); color: var(--gold); }
+
+  /* MATH panel */
+  .math-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+  }
+
+  .math-card {
+    background: rgba(6,6,10,0.5);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .math-card:hover { background: var(--surface); border-color: rgba(255,255,255,0.1); transform: translateY(-1px); }
+
+  .math-card-label {
+    font-size: 9px;
+    font-family: var(--font-mono);
+    color: var(--text-tertiary);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .math-card-value {
+    font-size: 22px;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1;
+  }
+
+  .math-card-sub {
+    font-size: 10px;
+    color: var(--text-tertiary);
+  }
+
+  .math-card-bar {
+    height: 2px;
+    background: var(--elevated);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+
+  .math-card-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--card-color, var(--blue));
+  }
+
+  /* Timeline mini panel */
+  .timeline-mini {
+    flex: 1;
+    background: rgba(6,6,10,0.5);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .timeline-ruler-mini {
+    height: 20px;
+    background: rgba(14,14,20,0.8);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    gap: 16px;
+  }
+
+  .ruler-mark {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: var(--text-tertiary);
+  }
+
+  .timeline-tracks {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .tl-track {
+    height: 28px;
+    border-radius: 5px;
+    background: rgba(14,14,20,0.6);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 0;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+
+  .tl-track:hover { border-color: rgba(255,255,255,0.12); }
+
+  .tl-track-label {
+    width: 90px;
+    padding: 0 8px;
+    font-size: 9px;
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+    flex-shrink: 0;
+    border-right: 1px solid var(--border);
+  }
+
+  .tl-track-area {
+    flex: 1;
+    height: 100%;
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding: 3px;
+  }
+
+  .tl-region {
+    position: absolute;
+    height: 22px;
+    border-radius: 4px;
+    opacity: 0.8;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    padding: 0 5px;
+    font-size: 8px;
+    font-family: var(--font-mono);
+    color: rgba(255,255,255,0.7);
+  }
+
+  .tl-region:hover { opacity: 1; }
+
+  /* INTEL panel */
+  .intel-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1.2fr;
+    gap: 10px;
+  }
+
+  .intel-card {
+    background: rgba(6,6,10,0.5);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .intel-card-title {
+    font-size: 9px;
+    font-family: var(--font-mono);
+    color: var(--text-tertiary);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .intel-status-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: pulse 2s infinite;
+  }
+
+  .intel-metric-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 10px;
+  }
+
+  .intel-metric-label { color: var(--text-tertiary); }
+  .intel-metric-value { font-family: var(--font-mono); color: var(--text-primary); font-size: 11px; }
+
+  .intel-score {
+    font-size: 36px;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--green);
+    text-align: center;
+    line-height: 1;
+  }
+
+  .intel-score-label { font-size: 9px; color: var(--text-tertiary); text-align: center; font-family: var(--font-mono); }
+
+  /* EXPORT panel */
+  .export-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+
+  .export-card {
+    background: rgba(6,6,10,0.5);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.2s var(--spring);
+  }
+
+  .export-card:hover {
+    background: var(--surface);
+    transform: translateY(-2px);
+    border-color: rgba(255,255,255,0.12);
+  }
+
+  .export-icon {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .export-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-secondary);
+    text-align: center;
+  }
+
+  .export-sublabel {
+    font-size: 9px;
+    color: var(--text-tertiary);
+    text-align: center;
+  }
+
+  /* Spine glass panel overlay */
+  .spine-overlay {
+    position: absolute;
+    left: 60px;
+    top: 8px;
+    width: 260px;
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    backdrop-filter: blur(24px);
+    padding: 16px;
+    z-index: 60;
+    transform: translateX(-20px);
+    transition: transform 0.3s var(--spring), opacity 0.2s ease;
+    opacity: 0;
+    pointer-events: none;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+  }
+
+  .spine-overlay.open {
+    transform: translateX(0);
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  /* Scrollbars */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--elevated); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--hover); }
+
+  /* Glow pulse animation for win state */
+  @keyframes win-flash {
+    0%,100% { opacity: 0.08; }
+    50% { opacity: 0.22; }
+  }
+
+  .canvas-glow.win { animation: win-flash 0.6s ease-in-out infinite; }
+
+  /* Spin button */
+  .spin-btn {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 8px 24px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, rgba(90,168,255,0.15), rgba(176,128,255,0.1));
+    border: 1px solid rgba(90,168,255,0.3);
+    color: var(--blue);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: all 0.25s var(--spring);
+    margin-top: 32px;
+  }
+
+  .spin-btn:hover {
+    background: linear-gradient(135deg, rgba(90,168,255,0.25), rgba(176,128,255,0.18));
+    border-color: rgba(90,168,255,0.5);
+    box-shadow: 0 0 24px rgba(90,168,255,0.2);
+    transform: scale(1.04);
+  }
+
+  .spin-btn:active { transform: scale(0.98); }
+
+  /* Neuro glow indicator */
+  .neuro-indicator {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: rgba(8,8,12,0.85);
+    border: 1px solid rgba(176,128,255,0.2);
+    border-radius: 20px;
+    backdrop-filter: blur(8px);
+    font-size: 9px;
+    font-family: var(--font-mono);
+    color: var(--purple);
+  }
+
+  .neuro-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--purple);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ═══════ OMNIBAR ═══════ -->
+  <header id="omnibar">
+    <div class="omni-logo">
+      <div class="omni-logo-mark">HX</div>
+      <span class="omni-logo-text">HELIX</span>
+    </div>
+    <div class="omni-divider"></div>
+    <div class="omni-project">
+      <div class="omni-project-dot"></div>
+      <span>AztecGold_v3</span>
+      <span style="color:var(--text-tertiary);font-size:10px">▾</span>
+    </div>
+    <div class="omni-spacer"></div>
+    <div class="omni-undoredo">
+      <button class="omni-btn" title="Undo">↩</button>
+      <button class="omni-btn" title="Redo">↪</button>
+    </div>
+    <div class="omni-bpm">
+      <span class="omni-bpm-label">BPM</span>
+      <span id="bpm-value">128.0</span>
+    </div>
+    <div class="omni-transport">
+      <button class="transport-btn rec">●</button>
+      <button class="transport-btn stop">■</button>
+      <button class="transport-btn play" id="play-btn">▶</button>
+    </div>
+    <div class="omni-modes">
+      <div class="mode-badge active" data-mode="compose">COMPOSE</div>
+      <div class="mode-badge" data-mode="focus">FOCUS</div>
+      <div class="mode-badge" data-mode="architect">ARCHITECT</div>
+    </div>
+  </header>
+
+  <!-- ═══════ NEURAL SPINE ═══════ -->
+  <nav id="spine">
+    <div class="spine-item active" data-spine="audio" onclick="toggleSpinePanel('audio')">
+      🎵
+      <div class="spine-tooltip">AUDIO ASSIGN</div>
+    </div>
+    <div class="spine-item" data-spine="game" onclick="toggleSpinePanel('game')">
+      🎮
+      <div class="spine-tooltip">GAME CONFIG</div>
+    </div>
+    <div class="spine-item" data-spine="ai" onclick="toggleSpinePanel('ai')">
+      🧠
+      <div class="spine-tooltip">AI / INTEL</div>
+    </div>
+    <div class="spine-item" data-spine="settings" onclick="toggleSpinePanel('settings')">
+      ⚙️
+      <div class="spine-tooltip">SETTINGS</div>
+    </div>
+    <div class="spine-spacer"></div>
+    <div class="spine-item" data-spine="analytics" onclick="toggleSpinePanel('analytics')">
+      📊
+      <div class="spine-tooltip">ANALYTICS</div>
+    </div>
+  </nav>
+
+  <!-- Spine overlay panel -->
+  <div class="spine-overlay" id="spine-overlay">
+    <div class="lens-header">
+      <div class="lens-icon">🎵</div>
+      <div class="lens-title" id="spine-overlay-title">AUDIO ASSIGN</div>
+      <button class="lens-close" onclick="closeSpinePanel()">✕</button>
+    </div>
+    <div id="spine-overlay-content">
+      <div class="lens-section-title">EVENTS</div>
+      <div class="lens-event-list">
+        <div class="lens-event-tag"><div class="lens-event-dot" style="background:var(--blue)"></div>BASE_SPIN_START</div>
+        <div class="lens-event-tag"><div class="lens-event-dot" style="background:var(--cyan)"></div>BASE_SPIN_IDLE</div>
+        <div class="lens-event-tag"><div class="lens-event-dot" style="background:var(--green)"></div>WIN_SMALL_01</div>
+        <div class="lens-event-tag"><div class="lens-event-dot" style="background:var(--gold)"></div>WIN_BIG_01</div>
+        <div class="lens-event-tag"><div class="lens-event-dot" style="background:var(--orange)"></div>BONUS_TRIGGER</div>
+        <div class="lens-event-tag"><div class="lens-event-dot" style="background:var(--purple)"></div>NEURO_ADAPT_01</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ NEURAL CANVAS ═══════ -->
+  <main id="canvas">
+    <div class="canvas-glow base" id="canvas-glow"></div>
+
+    <!-- Top info bar -->
+    <div class="canvas-info-bar">
+      <div class="info-chip">
+        <span class="info-chip-label">RTP</span>
+        <span class="info-chip-value">96.2%</span>
+      </div>
+      <div class="info-chip">
+        <span class="info-chip-label">HITS</span>
+        <span class="info-chip-value">1:4.2</span>
+      </div>
+      <div class="info-chip">
+        <span class="info-chip-label">VOL</span>
+        <span class="info-chip-value">HIGH</span>
+      </div>
+      <div class="info-chip">
+        <span class="info-chip-label">INTENSITY</span>
+        <div class="intensity-bar" id="intensity-bar">
+          <div class="intensity-seg on"></div>
+          <div class="intensity-seg on"></div>
+          <div class="intensity-seg on med"></div>
+          <div class="intensity-seg on med"></div>
+          <div class="intensity-seg on high"></div>
+          <div class="intensity-seg"></div>
+          <div class="intensity-seg"></div>
+          <div class="intensity-seg"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Neuro indicator -->
+    <div class="neuro-indicator">
+      <div class="neuro-dot"></div>
+      <span>NEURO ACTIVE</span>
+    </div>
+
+    <!-- Slot machine -->
+    <div class="slot-machine">
+      <div class="slot-frame" id="slot-frame">
+        <div class="slot-header">
+          <span class="slot-title">AZTEC GOLD — V3.2.1</span>
+          <span class="slot-rtp-badge">RTP 96.2%</span>
+        </div>
+
+        <div class="reels-container" id="reels-container">
+          <div class="waveform-halo"></div>
+
+          <div class="reel" id="reel-0" onclick="openLens('reel', 0)">
+            <div class="reel-inner">
+              <div class="reel-cell">🏺</div>
+              <div class="reel-cell">⚡</div>
+              <div class="reel-cell">💎</div>
+              <div class="reel-cell">🐍</div>
+            </div>
+            <div class="reel-win-overlay"></div>
+          </div>
+
+          <div class="reel" id="reel-1" onclick="openLens('reel', 1)">
+            <div class="reel-inner">
+              <div class="reel-cell">💎</div>
+              <div class="reel-cell">🏺</div>
+              <div class="reel-cell">⚡</div>
+              <div class="reel-cell">🌙</div>
+            </div>
+            <div class="reel-win-overlay"></div>
+          </div>
+
+          <div class="reel" id="reel-2" onclick="openLens('reel', 2)">
+            <div class="reel-inner">
+              <div class="reel-cell">⚡</div>
+              <div class="reel-cell">💎</div>
+              <div class="reel-cell">🏺</div>
+              <div class="reel-cell">🦅</div>
+            </div>
+            <div class="reel-win-overlay"></div>
+          </div>
+
+          <div class="reel" id="reel-3" onclick="openLens('reel', 3)">
+            <div class="reel-inner">
+              <div class="reel-cell">🌙</div>
+              <div class="reel-cell">⚡</div>
+              <div class="reel-cell">💎</div>
+              <div class="reel-cell">🏺</div>
+            </div>
+            <div class="reel-win-overlay"></div>
+          </div>
+
+          <div class="reel" id="reel-4" onclick="openLens('reel', 4)">
+            <div class="reel-inner">
+              <div class="reel-cell">🦅</div>
+              <div class="reel-cell">🌙</div>
+              <div class="reel-cell">⚡</div>
+              <div class="reel-cell">💎</div>
+            </div>
+            <div class="reel-win-overlay"></div>
+          </div>
+        </div>
+
+        <!-- Waveform bars below reels -->
+        <div class="waveform-bars" id="waveform-bars">
+          <!-- generated by JS -->
+        </div>
+      </div>
+
+      <!-- SPIN button -->
+      <button class="spin-btn" id="spin-btn" onclick="doSpin()">
+        ▶ SPIN
+      </button>
+    </div>
+
+    <!-- Stage strip -->
+    <div class="stage-strip">
+      <div class="stage-node active" id="stage-base" onclick="setStage('base')">
+        <div class="stage-node-dot"></div>BASE
+      </div>
+      <div class="stage-arrow">›</div>
+      <div class="stage-node" id="stage-trigger" onclick="setStage('trigger')">
+        <div class="stage-node-dot"></div>TRIGGER
+      </div>
+      <div class="stage-arrow">›</div>
+      <div class="stage-node" id="stage-bonus" onclick="setStage('bonus')">
+        <div class="stage-node-dot"></div>BONUS
+      </div>
+      <div class="stage-arrow">›</div>
+      <div class="stage-node" id="stage-win" onclick="setStage('win')">
+        <div class="stage-node-dot"></div>WIN
+      </div>
+    </div>
+
+    <!-- Context Lens -->
+    <div id="context-lens">
+      <div class="lens-header">
+        <div class="lens-icon" id="lens-icon">🎰</div>
+        <div class="lens-title" id="lens-title">REEL 1 — Audio Config</div>
+        <button class="lens-close" onclick="closeLens()">✕</button>
+      </div>
+      <div id="lens-content">
+        <div class="lens-section">
+          <div class="lens-section-title">AUDIO EVENTS</div>
+          <div class="lens-event-list">
+            <div class="lens-event-tag"><div class="lens-event-dot" style="background:var(--blue)"></div>REEL_SPIN_START</div>
+            <div class="lens-event-tag"><div class="lens-event-dot" style="background:var(--cyan)"></div>REEL_SPIN_LOOP</div>
+            <div class="lens-event-tag"><div class="lens-event-dot" style="background:var(--green)"></div>REEL_LAND</div>
+          </div>
+        </div>
+        <div class="lens-section">
+          <div class="lens-section-title">RTPC</div>
+          <div class="lens-row">
+            <span class="lens-row-label">Volume</span>
+            <div class="lens-slider"><div class="lens-slider-fill" style="width:78%"><div class="lens-slider-thumb"></div></div></div>
+            <span class="lens-value">-3dB</span>
+          </div>
+          <div class="lens-row">
+            <span class="lens-row-label">Pitch</span>
+            <div class="lens-slider"><div class="lens-slider-fill" style="width:52%;background:linear-gradient(90deg,var(--purple),var(--pink))"><div class="lens-slider-thumb"></div></div></div>
+            <span class="lens-value" style="color:var(--purple)">+0.2</span>
+          </div>
+          <div class="lens-row">
+            <span class="lens-row-label">Reverb</span>
+            <div class="lens-slider"><div class="lens-slider-fill" style="width:30%;background:linear-gradient(90deg,var(--cyan),var(--blue))"><div class="lens-slider-thumb"></div></div></div>
+            <span class="lens-value" style="color:var(--cyan)">0.30</span>
+          </div>
+        </div>
+        <div class="lens-section">
+          <div class="lens-section-title">NEURO ADAPT</div>
+          <div class="lens-row">
+            <span class="lens-row-label">Tempo</span>
+            <div class="lens-slider"><div class="lens-slider-fill" style="width:62%;background:linear-gradient(90deg,var(--orange),var(--gold))"><div class="lens-slider-thumb"></div></div></div>
+            <span class="lens-value" style="color:var(--orange)">+8%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ═══════ COMMAND DOCK ═══════ -->
+  <footer id="dock">
+    <div class="dock-tabbar">
+      <div class="dock-tab active" data-tab="flow" style="--tab-color:var(--orange)" onclick="setDockTab('flow')">
+        <div class="dock-tab-icon" style="--tab-color:var(--orange)">◉</div>
+        FLOW
+      </div>
+      <div class="dock-tab" data-tab="audio" style="--tab-color:var(--cyan)" onclick="setDockTab('audio')">
+        <div class="dock-tab-icon" style="--tab-color:var(--cyan)">≋</div>
+        AUDIO
+      </div>
+      <div class="dock-tab" data-tab="math" style="--tab-color:var(--purple)" onclick="setDockTab('math')">
+        <div class="dock-tab-icon" style="--tab-color:var(--purple)">⊞</div>
+        MATH
+      </div>
+      <div class="dock-tab" data-tab="timeline" style="--tab-color:var(--blue)" onclick="setDockTab('timeline')">
+        <div class="dock-tab-icon" style="--tab-color:var(--blue)">⧖</div>
+        TIMELINE
+      </div>
+      <div class="dock-tab" data-tab="intel" style="--tab-color:var(--green)" onclick="setDockTab('intel')">
+        <div class="dock-tab-icon" style="--tab-color:var(--green)">◈</div>
+        INTEL
+      </div>
+      <div class="dock-tab" data-tab="export" style="--tab-color:var(--gold)" onclick="setDockTab('export')">
+        <div class="dock-tab-icon" style="--tab-color:var(--gold)">⊕</div>
+        EXPORT
+      </div>
+      <div class="dock-spacer"></div>
+      <div style="font-size:9px;font-family:var(--font-mono);color:var(--text-tertiary);display:flex;align-items:center;gap:8px;">
+        <span>1-6 TAB SWITCH</span>
+        <span>F FOCUS</span>
+        <span>A ARCHITECT</span>
+      </div>
+    </div>
+
+    <div class="dock-content">
+
+      <!-- FLOW -->
+      <div class="dock-panel active" id="panel-flow">
+        <div class="flow-stage-map">
+          <div class="flow-title">STAGE FLOW</div>
+          <div class="flow-nodes">
+            <div class="flow-node current" style="--node-color:var(--blue);--node-rgb:90,168,255">
+              <div class="flow-node-box" style="--node-color:var(--blue)">
+                <span style="color:var(--blue);font-size:11px">BASE</span>
+                <span style="color:var(--text-tertiary);font-size:8px">Idle</span>
+              </div>
+              <div class="flow-node-label">Spin Loop</div>
+            </div>
+            <div class="flow-connector">→</div>
+            <div class="flow-node" style="--node-color:var(--orange)">
+              <div class="flow-node-box" style="--node-color:var(--orange)">
+                <span style="color:var(--orange);font-size:11px">TRIG</span>
+                <span style="color:var(--text-tertiary);font-size:8px">1:12</span>
+              </div>
+              <div class="flow-node-label">Scatter Hit</div>
+            </div>
+            <div class="flow-connector">→</div>
+            <div class="flow-node" style="--node-color:var(--gold)">
+              <div class="flow-node-box" style="--node-color:var(--gold)">
+                <span style="color:var(--gold);font-size:11px">BONUS</span>
+                <span style="color:var(--text-tertiary);font-size:8px">3×FS</span>
+              </div>
+              <div class="flow-node-label">Free Spins</div>
+            </div>
+            <div class="flow-connector">→</div>
+            <div class="flow-node" style="--node-color:var(--green)">
+              <div class="flow-node-box" style="--node-color:var(--green)">
+                <span style="color:var(--green);font-size:11px">WIN</span>
+                <span style="color:var(--text-tertiary);font-size:8px">×2.4</span>
+              </div>
+              <div class="flow-node-label">Celebration</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="width:220px;display:flex;flex-direction:column;gap:8px;">
+          <div class="flow-stage-map" style="flex:0;padding:10px">
+            <div class="flow-title">TRANSITIONS</div>
+            <div style="display:flex;flex-direction:column;gap:5px;margin-top:6px">
+              <div style="display:flex;justify-content:space-between;font-size:10px">
+                <span style="color:var(--text-secondary);font-family:var(--font-mono)">BASE → TRIG</span>
+                <span style="color:var(--orange);font-family:var(--font-mono)">200ms xfade</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;font-size:10px">
+                <span style="color:var(--text-secondary);font-family:var(--font-mono)">TRIG → BONUS</span>
+                <span style="color:var(--gold);font-family:var(--font-mono)">stinger</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;font-size:10px">
+                <span style="color:var(--text-secondary);font-family:var(--font-mono)">BONUS → WIN</span>
+                <span style="color:var(--green);font-family:var(--font-mono)">burst + layer</span>
+              </div>
+            </div>
+          </div>
+          <div class="flow-stage-map" style="flex:1;padding:10px">
+            <div class="flow-title">BEHAVIORS</div>
+            <div style="display:flex;flex-direction:column;gap:5px;margin-top:6px">
+              <div style="display:flex;align-items:center;gap:6px;font-size:10px">
+                <div style="width:6px;height:6px;border-radius:50%;background:var(--green);flex-shrink:0"></div>
+                <span style="color:var(--text-secondary);font-family:var(--font-mono)">Win anticipation</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;font-size:10px">
+                <div style="width:6px;height:6px;border-radius:50%;background:var(--blue);flex-shrink:0"></div>
+                <span style="color:var(--text-secondary);font-family:var(--font-mono)">Near-miss tension</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;font-size:10px">
+                <div style="width:6px;height:6px;border-radius:50%;background:var(--purple);flex-shrink:0"></div>
+                <span style="color:var(--text-secondary);font-family:var(--font-mono)">Session fatigue</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;font-size:10px">
+                <div style="width:6px;height:6px;border-radius:50%;background:var(--orange);flex-shrink:0"></div>
+                <span style="color:var(--text-secondary);font-family:var(--font-mono)">Bet escalation</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AUDIO -->
+      <div class="dock-panel" id="panel-audio">
+        <div class="audio-meters">
+          <div class="flow-title">MASTER BUS</div>
+          <div class="meter-channel">
+            <div class="meter-label">L</div>
+            <div class="meter-bar"><div class="meter-fill" id="meter-l" style="width:72%"></div></div>
+          </div>
+          <div class="meter-channel">
+            <div class="meter-label">R</div>
+            <div class="meter-bar"><div class="meter-fill" id="meter-r" style="width:68%"></div></div>
+          </div>
+          <div style="height:1px;background:var(--border);margin:4px 0"></div>
+          <div class="meter-channel">
+            <div class="meter-label">LUFS</div>
+            <div style="font-family:var(--font-mono);font-size:12px;color:var(--green)">-14.2</div>
+          </div>
+          <div class="meter-channel">
+            <div class="meter-label">PEAK</div>
+            <div style="font-family:var(--font-mono);font-size:12px;color:var(--gold)">-3.1dB</div>
+          </div>
+          <div class="meter-channel">
+            <div class="meter-label">CORR</div>
+            <div style="font-family:var(--font-mono);font-size:12px;color:var(--blue)">+0.94</div>
+          </div>
+        </div>
+        <div class="audio-channels">
+          <div style="font-size:9px;font-family:var(--font-mono);color:var(--text-tertiary);letter-spacing:0.1em;margin-bottom:2px">CHANNELS</div>
+          <div class="audio-channel-strip">
+            <div class="channel-color" style="background:var(--blue)"></div>
+            <span class="channel-name">BASE_MX</span>
+            <div class="channel-fader" style="--channel-c:var(--blue)"><div class="channel-fader-fill" style="width:78%;background:var(--blue)"><div class="channel-fader-thumb"></div></div></div>
+            <span class="channel-db">-3dB</span>
+            <div class="channel-mute-solo"><button class="ms-btn m">M</button><button class="ms-btn s">S</button></div>
+          </div>
+          <div class="audio-channel-strip">
+            <div class="channel-color" style="background:var(--orange)"></div>
+            <span class="channel-name">TRIG_STG</span>
+            <div class="channel-fader"><div class="channel-fader-fill" style="width:60%;background:var(--orange)"><div class="channel-fader-thumb"></div></div></div>
+            <span class="channel-db">-6dB</span>
+            <div class="channel-mute-solo"><button class="ms-btn m">M</button><button class="ms-btn s">S</button></div>
+          </div>
+          <div class="audio-channel-strip">
+            <div class="channel-color" style="background:var(--gold)"></div>
+            <span class="channel-name">BONUS_FX</span>
+            <div class="channel-fader"><div class="channel-fader-fill" style="width:70%;background:var(--gold)"><div class="channel-fader-thumb"></div></div></div>
+            <span class="channel-db">-4dB</span>
+            <div class="channel-mute-solo"><button class="ms-btn m">M</button><button class="ms-btn s">S</button></div>
+          </div>
+          <div class="audio-channel-strip">
+            <div class="channel-color" style="background:var(--green)"></div>
+            <span class="channel-name">WIN_CEL</span>
+            <div class="channel-fader"><div class="channel-fader-fill" style="width:85%;background:var(--green)"><div class="channel-fader-thumb"></div></div></div>
+            <span class="channel-db">-1dB</span>
+            <div class="channel-mute-solo"><button class="ms-btn m">M</button><button class="ms-btn s">S</button></div>
+          </div>
+          <div class="audio-channel-strip">
+            <div class="channel-color" style="background:var(--purple)"></div>
+            <span class="channel-name">NEURO_MX</span>
+            <div class="channel-fader"><div class="channel-fader-fill" style="width:45%;background:var(--purple)"><div class="channel-fader-thumb"></div></div></div>
+            <span class="channel-db">-9dB</span>
+            <div class="channel-mute-solo"><button class="ms-btn m">M</button><button class="ms-btn s">S</button></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MATH -->
+      <div class="dock-panel" id="panel-math">
+        <div class="math-grid">
+          <div class="math-card" style="--card-color:var(--green)">
+            <div class="math-card-label">RTP</div>
+            <div class="math-card-value">96.2<span style="font-size:14px">%</span></div>
+            <div class="math-card-sub">Target: 96.0%</div>
+            <div class="math-card-bar"><div class="math-card-bar-fill" style="width:96.2%;background:var(--green)"></div></div>
+          </div>
+          <div class="math-card" style="--card-color:var(--orange)">
+            <div class="math-card-label">VOLATILITY</div>
+            <div class="math-card-value">HIGH</div>
+            <div class="math-card-sub">Index: 7.4 / 10</div>
+            <div class="math-card-bar"><div class="math-card-bar-fill" style="width:74%;background:var(--orange)"></div></div>
+          </div>
+          <div class="math-card" style="--card-color:var(--blue)">
+            <div class="math-card-label">HIT FREQ</div>
+            <div class="math-card-value">1:4.2</div>
+            <div class="math-card-sub">24% hit rate</div>
+            <div class="math-card-bar"><div class="math-card-bar-fill" style="width:24%;background:var(--blue)"></div></div>
+          </div>
+          <div class="math-card" style="--card-color:var(--gold)">
+            <div class="math-card-label">MAX WIN</div>
+            <div class="math-card-value">5000×</div>
+            <div class="math-card-sub">Bet multiplier</div>
+            <div class="math-card-bar"><div class="math-card-bar-fill" style="width:100%;background:linear-gradient(90deg,var(--gold),var(--red))"></div></div>
+          </div>
+          <div class="math-card" style="--card-color:var(--purple)">
+            <div class="math-card-label">SIMULATIONS</div>
+            <div class="math-card-value">1M</div>
+            <div class="math-card-sub">Spins analyzed</div>
+            <div class="math-card-bar"><div class="math-card-bar-fill" style="width:100%;background:var(--purple)"></div></div>
+          </div>
+          <div class="math-card" style="--card-color:var(--cyan)">
+            <div class="math-card-label">BONUS FREQ</div>
+            <div class="math-card-value">1:82</div>
+            <div class="math-card-sub">Free spins trigger</div>
+            <div class="math-card-bar"><div class="math-card-bar-fill" style="width:12%;background:var(--cyan)"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TIMELINE -->
+      <div class="dock-panel" id="panel-timeline">
+        <div class="timeline-mini">
+          <div class="timeline-ruler-mini">
+            <span class="ruler-mark">0:00</span>
+            <span class="ruler-mark">0:01</span>
+            <span class="ruler-mark">0:02</span>
+            <span class="ruler-mark">0:03</span>
+            <span class="ruler-mark">0:04</span>
+            <span class="ruler-mark">0:05</span>
+            <span class="ruler-mark">0:06</span>
+            <span class="ruler-mark">0:07</span>
+          </div>
+          <div class="timeline-tracks">
+            <div class="tl-track">
+              <div class="tl-track-label">BASE_LOOP</div>
+              <div class="tl-track-area">
+                <div class="tl-region" style="left:6px;width:85%;background:rgba(90,168,255,0.25);border:1px solid rgba(90,168,255,0.4)">BASE_SPIN_LOOP</div>
+              </div>
+            </div>
+            <div class="tl-track">
+              <div class="tl-track-label">REEL_SFX</div>
+              <div class="tl-track-area">
+                <div class="tl-region" style="left:6px;width:18%;background:rgba(80,216,255,0.25);border:1px solid rgba(80,216,255,0.4)">SPIN</div>
+                <div class="tl-region" style="left:22%;width:22%;background:rgba(80,216,255,0.2);border:1px solid rgba(80,216,255,0.3)">LAND</div>
+              </div>
+            </div>
+            <div class="tl-track">
+              <div class="tl-track-label">WIN_CEL</div>
+              <div class="tl-track-area">
+                <div class="tl-region" style="left:46%;width:30%;background:rgba(80,255,152,0.25);border:1px solid rgba(80,255,152,0.4)">WIN_SMALL_01</div>
+              </div>
+            </div>
+            <div class="tl-track">
+              <div class="tl-track-label">NEURO_ADAPT</div>
+              <div class="tl-track-area">
+                <div class="tl-region" style="left:6px;width:92%;background:rgba(176,128,255,0.15);border:1px solid rgba(176,128,255,0.3)">Continuous adaption</div>
+              </div>
+            </div>
+            <div class="tl-track">
+              <div class="tl-track-label">STINGERS</div>
+              <div class="tl-track-area">
+                <div class="tl-region" style="left:38%;width:8%;background:rgba(255,152,80,0.3);border:1px solid rgba(255,152,80,0.5)">TRIG</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- INTEL -->
+      <div class="dock-panel" id="panel-intel">
+        <div class="intel-grid">
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div class="intel-card">
+              <div class="intel-card-title">
+                <div class="intel-status-dot"></div>
+                AI COPILOT
+              </div>
+              <div style="font-size:10px;color:var(--text-secondary);line-height:1.5">
+                Detected: High-intensity base loop.<br>
+                Suggest: ↓ reverb 15% for clarity.<br>
+                <span style="color:var(--green)">✓ RG mode stable</span>
+              </div>
+            </div>
+            <div class="intel-card">
+              <div class="intel-card-title">RGAI COMPLIANCE</div>
+              <div class="intel-metric-row">
+                <span class="intel-metric-label">Stimulation index</span>
+                <span class="intel-metric-value" style="color:var(--green)">PASS</span>
+              </div>
+              <div class="intel-metric-row">
+                <span class="intel-metric-label">Near-miss exposure</span>
+                <span class="intel-metric-value" style="color:var(--gold)">WARN</span>
+              </div>
+              <div class="intel-metric-row">
+                <span class="intel-metric-label">Session pacing</span>
+                <span class="intel-metric-value" style="color:var(--green)">OK</span>
+              </div>
+            </div>
+          </div>
+          <div class="intel-card" style="align-items:center;justify-content:center;gap:12px">
+            <div class="intel-card-title" style="align-self:flex-start">ENGAGEMENT SCORE</div>
+            <div class="intel-score">8.4</div>
+            <div class="intel-score-label">/ 10.0 — HIGH ENGAGEMENT</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;margin-top:4px">
+              <div style="text-align:center">
+                <div style="font-family:var(--font-mono);font-size:16px;color:var(--blue)">94%</div>
+                <div style="font-size:9px;color:var(--text-tertiary)">Retention</div>
+              </div>
+              <div style="text-align:center">
+                <div style="font-family:var(--font-mono);font-size:16px;color:var(--purple)">7.2s</div>
+                <div style="font-size:9px;color:var(--text-tertiary)">Avg dwell</div>
+              </div>
+              <div style="text-align:center">
+                <div style="font-family:var(--font-mono);font-size:16px;color:var(--orange)">1.8×</div>
+                <div style="font-size:9px;color:var(--text-tertiary)">Bet increase</div>
+              </div>
+              <div style="text-align:center">
+                <div style="font-family:var(--font-mono);font-size:16px;color:var(--green)">0.12</div>
+                <div style="font-size:9px;color:var(--text-tertiary)">Fatigue idx</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- EXPORT -->
+      <div class="dock-panel" id="panel-export">
+        <div class="export-grid">
+          <div class="export-card">
+            <div class="export-icon" style="background:rgba(255,224,80,0.1);border:1px solid rgba(255,224,80,0.2)">📦</div>
+            <div class="export-label" style="color:var(--gold)">UCP</div>
+            <div class="export-sublabel">Universal Content Package</div>
+          </div>
+          <div class="export-card">
+            <div class="export-icon" style="background:rgba(90,168,255,0.1);border:1px solid rgba(90,168,255,0.2)">🎵</div>
+            <div class="export-label" style="color:var(--blue)">WWISE</div>
+            <div class="export-sublabel">Audiokinetic project</div>
+          </div>
+          <div class="export-card">
+            <div class="export-icon" style="background:rgba(80,255,152,0.1);border:1px solid rgba(80,255,152,0.2)">🎛️</div>
+            <div class="export-label" style="color:var(--green)">FMOD</div>
+            <div class="export-sublabel">FMOD Studio bank</div>
+          </div>
+          <div class="export-card">
+            <div class="export-icon" style="background:rgba(176,128,255,0.1);border:1px solid rgba(176,128,255,0.2)">📄</div>
+            <div class="export-label" style="color:var(--purple)">GDD</div>
+            <div class="export-sublabel">Game Design Doc</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </footer>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+// State
+// ═══════════════════════════════════════
+let currentStage = 'base';
+let isSpinning = false;
+let spineOpen = null;
+
+const stageColors = {
+  base: { cls: 'base', glow: '#5AA8FF', border: 'rgba(90,168,255,0.15)' },
+  trigger: { cls: 'trigger', glow: '#FF9850', border: 'rgba(255,152,80,0.2)' },
+  bonus: { cls: 'bonus', glow: '#FFE050', border: 'rgba(255,224,80,0.2)' },
+  win: { cls: 'win', glow: '#50FF98', border: 'rgba(80,255,152,0.2)' }
+};
+
+// ═══════════════════════════════════════
+// Waveform bars init
+// ═══════════════════════════════════════
+const waveBars = document.getElementById('waveform-bars');
+for (let i = 0; i < 36; i++) {
+  const bar = document.createElement('div');
+  bar.className = 'wave-bar';
+  bar.style.animationDelay = `${i * 0.035}s`;
+  bar.style.height = `${Math.random() * 14 + 4}px`;
+  waveBars.appendChild(bar);
+}
+
+// ═══════════════════════════════════════
+// Stage switching
+// ═══════════════════════════════════════
+function setStage(stage) {
+  currentStage = stage;
+  document.querySelectorAll('.stage-node').forEach(n => n.classList.remove('active'));
+  document.getElementById('stage-' + stage).classList.add('active');
+
+  const glow = document.getElementById('canvas-glow');
+  glow.className = 'canvas-glow ' + stageColors[stage].cls;
+
+  const frame = document.getElementById('slot-frame');
+  frame.style.borderColor = stageColors[stage].border;
+
+  // Update wave bar colors
+  const colors = {
+    base: 'var(--blue)', trigger: 'var(--orange)', bonus: 'var(--gold)', win: 'var(--green)'
+  };
+  document.querySelectorAll('.wave-bar').forEach(b => {
+    b.style.background = `linear-gradient(to top, ${colors[stage]}, transparent)`;
+  });
+}
+
+// ═══════════════════════════════════════
+// Spin simulation
+// ═══════════════════════════════════════
+function doSpin() {
+  if (isSpinning) return;
+  isSpinning = true;
+
+  const btn = document.getElementById('spin-btn');
+  btn.textContent = '⏸ SPINNING...';
+  btn.style.opacity = '0.6';
+
+  const reels = document.querySelectorAll('.reel');
+  const symbols = ['🏺','⚡','💎','🐍','🌙','🦅','⭐','🔥'];
+
+  reels.forEach((reel, i) => {
+    reel.classList.add('spinning');
+    setTimeout(() => {
+      reel.classList.remove('spinning');
+      const inner = reel.querySelector('.reel-inner');
+      // randomize cells
+      inner.querySelectorAll('.reel-cell').forEach(cell => {
+        cell.textContent = symbols[Math.floor(Math.random() * symbols.length)];
+      });
+    }, 600 + i * 120);
+  });
+
+  setTimeout(() => {
+    isSpinning = false;
+    btn.textContent = '▶ SPIN';
+    btn.style.opacity = '1';
+
+    // Random outcome
+    const outcomes = ['base', 'base', 'base', 'win', 'trigger', 'bonus'];
+    const outcome = outcomes[Math.floor(Math.random() * outcomes.length)];
+    setStage(outcome);
+
+    // Reset to base after win
+    if (outcome !== 'base') {
+      setTimeout(() => setStage('base'), 2000);
+    }
+  }, 900);
+}
+
+// ═══════════════════════════════════════
+// Context Lens
+// ═══════════════════════════════════════
+function openLens(type, id) {
+  const lens = document.getElementById('context-lens');
+  const title = document.getElementById('lens-title');
+  const icon = document.getElementById('lens-icon');
+
+  if (type === 'reel') {
+    icon.textContent = '🎰';
+    title.textContent = `REEL ${id + 1} — Audio Config`;
+  }
+
+  lens.classList.add('open');
+}
+
+function closeLens() {
+  document.getElementById('context-lens').classList.remove('open');
+}
+
+// Click outside closes lens
+document.getElementById('canvas').addEventListener('click', function(e) {
+  const lens = document.getElementById('context-lens');
+  if (!lens.contains(e.target) && !e.target.closest('.reel')) {
+    closeLens();
+  }
+});
+
+// ═══════════════════════════════════════
+// Spine overlay
+// ═══════════════════════════════════════
+const spineTitles = {
+  audio: 'AUDIO ASSIGN',
+  game: 'GAME CONFIG',
+  ai: 'AI / INTEL',
+  settings: 'SETTINGS',
+  analytics: 'ANALYTICS'
+};
+
+function toggleSpinePanel(name) {
+  const overlay = document.getElementById('spine-overlay');
+  const titleEl = document.getElementById('spine-overlay-title');
+
+  document.querySelectorAll('.spine-item').forEach(i => i.classList.remove('active'));
+  document.querySelector(`[data-spine="${name}"]`).classList.add('active');
+
+  if (spineOpen === name) {
+    overlay.classList.remove('open');
+    spineOpen = null;
+  } else {
+    titleEl.textContent = spineTitles[name];
+    overlay.classList.add('open');
+    spineOpen = name;
+  }
+}
+
+function closeSpinePanel() {
+  document.getElementById('spine-overlay').classList.remove('open');
+  spineOpen = null;
+}
+
+// ═══════════════════════════════════════
+// Dock tabs
+// ═══════════════════════════════════════
+function setDockTab(tab) {
+  document.querySelectorAll('.dock-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.dock-panel').forEach(p => p.classList.remove('active'));
+
+  document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+  document.getElementById('panel-' + tab).classList.add('active');
+}
+
+// ═══════════════════════════════════════
+// Mode switching
+// ═══════════════════════════════════════
+document.querySelectorAll('.mode-badge').forEach(badge => {
+  badge.addEventListener('click', function() {
+    document.querySelectorAll('.mode-badge').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+
+    const mode = this.dataset.mode;
+    const dock = document.getElementById('dock');
+    const canvas = document.getElementById('canvas');
+
+    if (mode === 'focus') {
+      dock.style.height = '42px';
+      dock.querySelector('.dock-content').style.display = 'none';
+    } else if (mode === 'architect') {
+      dock.style.height = '55vh';
+      dock.querySelector('.dock-content').style.display = '';
+    } else {
+      dock.style.height = '340px';
+      dock.querySelector('.dock-content').style.display = '';
+    }
+  });
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+  const tabs = ['flow','audio','math','timeline','intel','export'];
+  const n = parseInt(e.key);
+  if (n >= 1 && n <= 6) setDockTab(tabs[n-1]);
+  if (e.key === 'f' || e.key === 'F') {
+    document.querySelector('[data-mode="focus"]').click();
+  }
+  if (e.key === 'a' || e.key === 'A') {
+    if (!e.target.matches('input, textarea')) {
+      document.querySelector('[data-mode="architect"]').click();
+    }
+  }
+  if (e.key === 'Escape') {
+    closeLens();
+    closeSpinePanel();
+    document.querySelector('[data-mode="compose"]').click();
+  }
+  if (e.key === ' ' && !e.target.matches('input, textarea')) {
+    e.preventDefault();
+    doSpin();
+  }
+});
+
+// ═══════════════════════════════════════
+// Live meters animation
+// ═══════════════════════════════════════
+setInterval(() => {
+  const l = document.getElementById('meter-l');
+  const r = document.getElementById('meter-r');
+  if (l) l.style.width = (50 + Math.random() * 40) + '%';
+  if (r) r.style.width = (45 + Math.random() * 40) + '%';
+}, 80);
+
+// BPM flicker
+setInterval(() => {
+  const bpm = document.getElementById('bpm-value');
+  if (bpm) {
+    const base = 128.0;
+    bpm.textContent = (base + (Math.random() * 0.4 - 0.2)).toFixed(1);
+  }
+}, 2000);
+</script>
+</body>
+</html>

@@ -1284,7 +1284,7 @@ impl BridgeRustHandle {
                     Err(e) => CortexResponse::error(
                         request.id,
                         5010,
-                        &format!("Load failed: {e}"),
+                        format!("Load failed: {e}"),
                     ),
                 }
             }
@@ -1295,7 +1295,7 @@ impl BridgeRustHandle {
                     Err(e) => CortexResponse::error(
                         request.id,
                         5011,
-                        &format!("Save failed: {e}"),
+                        format!("Save failed: {e}"),
                     ),
                 }
             }
@@ -1341,7 +1341,7 @@ impl BridgeRustHandle {
                     Err(e) => CortexResponse::error(
                         request.id,
                         5012,
-                        &format!("Export failed: {e:?}"),
+                        format!("Export failed: {e:?}"),
                     ),
                 }
             }

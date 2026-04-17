@@ -120,7 +120,6 @@ class BatchDistributionDialog extends StatelessWidget {
             icon: Icon(Icons.edit, size: 16, color: FluxForgeTheme.accentOrange),
             label: const Text('Manual Assign Unmatched'),
             onPressed: () {
-              // TODO: Open manual assignment dialog
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('Manual assignment: ${unmatched.length} files'),

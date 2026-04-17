@@ -78,8 +78,10 @@ impl AudioLayer {
 /// Volume ducking behavior
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum DuckBehavior {
     /// No ducking
+    #[default]
     None,
     /// Duck ambient layer by given amount (0.0-1.0)
     DuckAmbient(f32),
@@ -89,11 +91,6 @@ pub enum DuckBehavior {
     MuteBelow,
 }
 
-impl Default for DuckBehavior {
-    fn default() -> Self {
-        Self::None
-    }
-}
 
 /// Fade curve shape
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]

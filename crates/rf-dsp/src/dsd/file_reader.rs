@@ -576,9 +576,9 @@ impl<R: Read + Seek> SacdExtractor<R> {
 
         self.toc = Some(toc);
 
-        Ok(self.toc.as_ref().ok_or_else(|| {
+        self.toc.as_ref().ok_or_else(|| {
             DsdError::InvalidFormat("Failed to initialize SACD TOC".into())
-        })?)
+        })
     }
 
     /// Extract track as DSD stream

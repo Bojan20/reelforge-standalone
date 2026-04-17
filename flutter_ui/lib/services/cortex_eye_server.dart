@@ -38,9 +38,17 @@ class CortexEyeNav extends ChangeNotifier {
   /// Called when CORTEX requests navigation
   void Function(String destination)? onNavigate;
 
+  /// Called when CORTEX wants to change HELIX dock tab (0-11)
+  void Function(int tab)? onHelixTab;
+
   /// Navigate to a destination: 'slotlab', 'daw', 'helix', 'launcher'
   void navigate(String destination) {
     onNavigate?.call(destination);
+  }
+
+  /// Switch HELIX dock tab
+  void setHelixTab(int tab) {
+    onHelixTab?.call(tab);
   }
 }
 
@@ -120,6 +128,8 @@ class CortexEyeServer {
         await _handleClick(request);
       } else if (method == 'POST' && path == '/eye/navigate') {
         await _handleNavigate(request);
+      } else if (method == 'POST' && path == '/eye/helix_tab') {
+        await _handleHelixTab(request);
       } else if (method == 'GET' && path == '/eye/ping') {
         await _json(request, {'status': 'alive', 'port': port});
       } else {
@@ -339,6 +349,60 @@ class CortexEyeServer {
       request.response.statusCode = 500;
       await _json(request, {'error': e.toString()});
     }
+  }
+
+  /// POST /eye/helix_tab — Switch HELIX dock tab
+  /// Body: {"tab": 0} or {"tab": "AUDIO"}
+  /// Tabs: 0=FLOW 1=AUDIO 2=MATH 3=TIMELINE 4=INTEL 5=EXPORT 6=SFX 7=BT 8=DNA 9=AI 10=CLOUD 11=A/B
+  Future<void> _handleHelixTab(HttpRequest request) async {
+    final body = await utf8.decodeStream(request);
+    Map<String, dynamic> params = {};
+    try {
+      params = jsonDecode(body) as Map<String, dynamic>;
+    } catch (_) {}
+
+    const tabNames = {
+      'flow': 0, 'audio': 1, 'math': 2, 'timeline': 3,
+      'intel': 4, 'export': 5, 'sfx': 6, 'bt': 7,
+      'dna': 8, 'ai': 9, 'cloud': 10, 'ab': 11,
+    };
+
+    int? tabIndex;
+    final tabParam = params['tab'];
+    if (tabParam is int) {
+      tabIndex = tabParam;
+    } else if (tabParam is String) {
+      tabIndex = tabNames[tabParam.toLowerCase()];
+    }
+
+    if (tabIndex == null || tabIndex < 0 || tabIndex > 11) {
+      request.response.statusCode = 400;
+      await _json(request, {
+        'error': 'Required: tab (0-11 or name)',
+        'tabs': tabNames,
+      });
+      return;
+    }
+
+    final nav = CortexEyeNav.instance;
+    if (nav.onHelixTab == null) {
+      request.response.statusCode = 503;
+      await _json(request, {'error': 'HELIX not open — navigate to slotlab first'});
+      return;
+    }
+
+    nav.setHelixTab(tabIndex);
+    await Future.delayed(const Duration(milliseconds: 600));
+
+    final snapshot = await CortexVisionService.instance.captureFullWindow(
+      metadata: {'trigger': 'helix_tab', 'tab': tabIndex},
+    );
+
+    await _json(request, {
+      'success': true,
+      'tab': tabIndex,
+      'snapshotFile': snapshot?.filePath,
+    });
   }
 
   /// POST /eye/navigate — Flutter-level navigation (no OS accessibility needed)

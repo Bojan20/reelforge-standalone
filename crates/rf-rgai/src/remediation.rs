@@ -48,7 +48,7 @@ impl RemediationPlan {
 
         let actions: Vec<RemediationAction> = violations
             .iter()
-            .map(|v| Self::remediate_violation(v))
+            .map(Self::remediate_violation)
             .collect();
 
         Some(Self {

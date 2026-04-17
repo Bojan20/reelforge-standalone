@@ -110,11 +110,7 @@ impl ParSymbol {
     pub fn weight_on_reel(&self, reel: usize) -> u32 {
         if !self.reel_strip_weights.is_empty() {
             self.reel_strip_weights
-                .get(reel)
-                .and_then(|strips| {
-                    // sum of the strip to get total appearance count
-                    Some(strips.iter().sum())
-                })
+                .get(reel).map(|strips| strips.iter().sum())
                 .unwrap_or(0)
         } else {
             self.reel_weights.get(reel).copied().unwrap_or(0)
@@ -713,9 +709,9 @@ impl ParParser {
 
             match current_section.as_str() {
                 // ── HEADER section ────────────────────────────────────────────
-                "HEADER" | "GAME" | "" => {
+                "HEADER" | "GAME" | ""
                     // key=value pairs or key,value pairs
-                    if cols.len() >= 2 {
+                    if cols.len() >= 2 => {
                         let key = cols[0].trim().to_lowercase();
                         let val = cols[1].trim();
                         match key.as_str() {
@@ -763,7 +759,6 @@ impl ParParser {
                             _ => {} // Unknown header fields silently ignored
                         }
                     }
-                }
 
                 // ── SYMBOLS section ───────────────────────────────────────────
                 // Expected: symbol_id, name, is_wild, is_scatter, reel_1_weight, ...
