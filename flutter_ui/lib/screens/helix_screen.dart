@@ -2711,6 +2711,7 @@ class _AbTestPanelState extends State<_AbTestPanel> {
   @override
   Widget build(BuildContext context) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Left: Config
         Flexible(
@@ -2762,7 +2763,7 @@ class _AbTestPanelState extends State<_AbTestPanel> {
                 _SfxPresetSlider(label: 'Spins/Variant', value: _spinCount.toDouble(),
                   min: 10000, max: 1000000, suffix: '',
                   color: FluxForgeTheme.accentGreen, onChanged: (v) => setState(() => _spinCount = v.round())),
-                const Spacer(),
+                const SizedBox(height: 8),
                 GestureDetector(
                   onTap: _isRunning ? null : _runSimulation,
                   child: Container(
@@ -4144,7 +4145,10 @@ class _SpineOverlay extends StatelessWidget {
         Expanded(
           child: Padding(
             padding: const EdgeInsets.all(12),
-            child: _buildSpineContent(spineIndex),
+            child: Material(
+              type: MaterialType.transparency,
+              child: _buildSpineContent(spineIndex),
+            ),
           ),
         ),
       ],
@@ -4859,7 +4863,10 @@ class _DockCard extends StatelessWidget {
             ),
           Expanded(child: Padding(
             padding: const EdgeInsets.all(12),
-            child: child,
+            child: Material(
+              type: MaterialType.transparency,
+              child: child,
+            ),
           )),
         ],
       ),
@@ -5998,7 +6005,9 @@ class _AudioContextLensState extends State<_AudioContextLens> {
   Widget build(BuildContext context) {
     final e = widget.event;
     return Positioned.fill(
-      child: Stack(
+      child: Material(
+        type: MaterialType.transparency,
+        child: Stack(
         children: [
           // Dimmed background
           GestureDetector(
@@ -6154,6 +6163,7 @@ class _AudioContextLensState extends State<_AudioContextLens> {
             )),
           ),
         ],
+      ),
       ),
     );
   }
