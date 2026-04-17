@@ -75,6 +75,7 @@ import 'services/localization_service.dart';
 import 'services/asset_cloud_service.dart';
 import 'services/crdt_sync_service.dart';
 import 'services/cortex_vision_service.dart';
+import 'services/cortex_eye_server.dart';
 import 'services/cortex_intelligence_loop.dart';
 import 'providers/cortex_provider.dart';
 import 'providers/rgai_ffi_provider.dart';
@@ -164,6 +165,9 @@ void main() async {
 
   // Initialize CORTEX Vision Service (The Eyes of the Organism)
   await CortexVisionService.instance.init();
+
+  // Start CORTEX Eye HTTP Server (localhost:7735 — gives Claude Code eyes)
+  await CortexEyeServer.instance.start();
 
   // P13.9.8: Initialize Feature Block Registry with all 17 blocks
   FeatureBlockRegistry.instance.initialize([
