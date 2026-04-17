@@ -853,25 +853,13 @@ class _HelixScreenState extends State<HelixScreen>
   Widget _buildDock() {
     final dockH = _mode == 2 ? MediaQuery.of(context).size.height * 0.5 : _dockHeight;
 
-    final activeColor = _dockTabDefs[_dockTab].$3;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeInOut,
       height: dockH,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter, end: Alignment.bottomCenter,
-          colors: [
-            activeColor.withOpacity(0.10),
-            FluxForgeTheme.bgDeep,
-            FluxForgeTheme.bgDeepest,
-          ],
-          stops: const [0.0, 0.12, 0.5],
-        ),
-        border: Border(top: BorderSide(color: activeColor.withOpacity(0.7), width: 2)),
-        boxShadow: [
-          BoxShadow(color: activeColor.withOpacity(0.15), blurRadius: 30, offset: const Offset(0, -6)),
-        ],
+      decoration: const BoxDecoration(
+        color: FluxForgeTheme.bgDeepest, // #08080C — matches mockup --abyss
+        border: Border(top: BorderSide(color: FluxForgeTheme.borderSubtle, width: 1)),
       ),
       child: Column(
         children: [
@@ -888,18 +876,17 @@ class _HelixScreenState extends State<HelixScreen>
   }
 
   Widget _buildDockTabBar() {
-    final activeColor = _dockTabDefs[_dockTab].$3;
     return Container(
-      height: 44,
-      decoration: BoxDecoration(
-        color: FluxForgeTheme.bgDeep,
+      height: 38,
+      decoration: const BoxDecoration(
+        color: Color(0xB3060608), // rgba(6,6,10,0.7) — matches mockup .dock-tabbar
         border: Border(
-          bottom: BorderSide(color: activeColor.withOpacity(0.45), width: 1),
+          bottom: BorderSide(color: FluxForgeTheme.borderSubtle, width: 1),
         ),
       ),
       child: Row(
         children: [
-          const SizedBox(width: 8),
+          const SizedBox(width: 16), // 16px start padding — matches mockup
           // Scrollable tab area
           Expanded(
             child: SingleChildScrollView(
@@ -4815,7 +4802,7 @@ class _SpineRow extends StatelessWidget {
   );
 }
 
-class _DockTab extends StatelessWidget {
+class _DockTab extends StatefulWidget {
   final IconData icon;
   final String label;
   final Color color;
@@ -4825,38 +4812,108 @@ class _DockTab extends StatelessWidget {
     required this.active, required this.onTap});
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      height: 32,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(
-        gradient: active ? LinearGradient(
-          begin: Alignment.topCenter, end: Alignment.bottomCenter,
-          colors: [color.withOpacity(0.18), color.withOpacity(0.06)],
-        ) : null,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: active ? color.withOpacity(0.5) : Colors.transparent,
-          width: active ? 1 : 0),
-        boxShadow: active ? [
-          BoxShadow(color: color.withOpacity(0.15), blurRadius: 12),
-        ] : null,
+  State<_DockTab> createState() => _DockTabState();
+}
+
+class _DockTabState extends State<_DockTab> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isActive = widget.active;
+    final color = widget.color;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Stack(
+          alignment: Alignment.bottomCenter,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              height: 30,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                // Active: surface bg + subtle border (mockup .dock-tab.active)
+                // Hover: surface at 60% opacity
+                // Inactive: transparent
+                color: isActive
+                  ? FluxForgeTheme.bgSurface
+                  : _hovered
+                    ? FluxForgeTheme.bgSurface.withOpacity(0.5)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: isActive
+                    ? const Color(0x0EFFFFFF) // rgba(255,255,255,0.055) — mockup --border
+                    : Colors.transparent,
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Colored icon box — 14×14 px, border-radius 3 (mockup .dock-tab-icon)
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 160),
+                    width: 14, height: 14,
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(isActive ? 1.0 : 0.65),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: Center(
+                      child: Icon(widget.icon, size: 9, color: Colors.white),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  AnimatedDefaultTextStyle(
+                    duration: const Duration(milliseconds: 160),
+                    style: TextStyle(
+                      fontFamily: 'monospace', fontSize: 11,
+                      fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                      letterSpacing: 0.05,
+                      color: isActive
+                        ? FluxForgeTheme.textPrimary        // active: white
+                        : _hovered
+                          ? FluxForgeTheme.textSecondary    // hover: secondary
+                          : FluxForgeTheme.textTertiary,    // inactive: muted
+                    ),
+                    child: Text(widget.label),
+                  ),
+                ],
+              ),
+            ),
+            // ── Bottom line indicator — mockup .dock-tab.active::after ────────
+            // 1.5px glowing line, 60% of tab width, tab-color + box-shadow glow
+            if (isActive)
+              Positioned(
+                bottom: 0, left: 0, right: 0,
+                height: 1.5,
+                child: Center(
+                  child: FractionallySizedBox(
+                    widthFactor: 0.6,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: color,
+                        borderRadius: BorderRadius.circular(1),
+                        boxShadow: [
+                          BoxShadow(
+                            color: color.withOpacity(0.7),
+                            blurRadius: 8,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: color.withOpacity(active ? 1.0 : 0.5)),
-          const SizedBox(width: 6),
-          Text(label, style: TextStyle(
-            fontFamily: 'monospace', fontSize: 11,
-            fontWeight: active ? FontWeight.w700 : FontWeight.w500, letterSpacing: 0.1,
-            color: active ? color : FluxForgeTheme.textSecondary)),
-        ],
-      ),
-    ),
-  );
+    );
+  }
 }
 
 class _DockCard extends StatelessWidget {
@@ -4870,9 +4927,9 @@ class _DockCard extends StatelessWidget {
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: FluxForgeTheme.bgSurface,
+        color: const Color(0x7F06060A), // rgba(6,6,10,0.5) — mockup .flow-stage-map bg
         border: Border.all(
-          color: a?.withOpacity(0.3) ?? FluxForgeTheme.borderSubtle,
+          color: a?.withOpacity(0.25) ?? FluxForgeTheme.borderSubtle,
           width: 1,
         ),
         borderRadius: BorderRadius.circular(8),
