@@ -46,6 +46,7 @@ import '../providers/ab_sim_provider.dart';
 import '../services/cloud_sync_service.dart';
 import '../services/ai_generation_service.dart';
 import '../services/cortex_vision_service.dart';
+import '../services/cortex_eye_server.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELIX SCREEN
@@ -165,6 +166,12 @@ class _HelixScreenState extends State<HelixScreen>
       await vision.init();
       await vision.captureFullWindow(metadata: {'trigger': 'helix_startup', 'tab': _dockTab});
     });
+
+    // CortexEye: register tab-switching callback so CORTEX can navigate tabs
+    CortexEyeNav.instance.onHelixTab = (tab) {
+      if (!mounted) return;
+      setState(() => _dockTab = tab.clamp(0, 11));
+    };
 
     // Playhead sync timer — polls engine position for timeline animation
     _playheadTimer = Timer.periodic(const Duration(milliseconds: 60), (_) {
@@ -946,7 +953,7 @@ class _HelixScreenState extends State<HelixScreen>
   }
 
   Widget _buildDockPanel() {
-    return switch (_dockTab) {
+    final panel = switch (_dockTab) {
       0 => const _FlowPanel(),
       1 => const _AudioPanel(),
       2 => const _MathPanel(),
@@ -962,6 +969,8 @@ class _HelixScreenState extends State<HelixScreen>
       11 => const _AbTestPanel(),
       _ => const SizedBox(),
     };
+    // Material wrapper — ensures all panels can use Slider, InkWell, etc.
+    return Material(type: MaterialType.transparency, child: panel);
   }
 }
 
@@ -1642,7 +1651,7 @@ class _SfxPresetSlider extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = color ?? FluxForgeTheme.accentCyan;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Row(children: [
         SizedBox(width: 120, child: Text(label,
           style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textSecondary))),
@@ -1650,6 +1659,7 @@ class _SfxPresetSlider extends StatelessWidget {
           data: SliderThemeData(
             trackHeight: 3,
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+            overlayShape: SliderComponentShape.noOverlay,
             activeTrackColor: c,
             inactiveTrackColor: FluxForgeTheme.bgSurface,
             thumbColor: c,
@@ -2130,7 +2140,7 @@ class _AudioDnaPanelState extends State<_AudioDnaPanel> {
                   color: FluxForgeTheme.accentPink, onChanged: (v) => setState(() => _winEscalation = v)),
                 _SfxPresetSlider(label: 'Ambient Layers', value: _ambientLayerCount, min: 1, max: 8, suffix: '',
                   color: FluxForgeTheme.accentPink, onChanged: (v) => setState(() => _ambientLayerCount = v)),
-                const Spacer(),
+                const SizedBox(height: 6),
                 // DNA fingerprint visual
                 Container(
                   padding: const EdgeInsets.all(8),
@@ -3538,11 +3548,11 @@ class _IntelPanel extends StatelessWidget {
                           Text('${allRemediations.length} suggestions', style: const TextStyle(
                             fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.accentYellow)),
                       ]),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
                       Text(copilotText,
-                        style: const TextStyle(fontSize: 10, height: 1.5,
+                        style: const TextStyle(fontSize: 10, height: 1.4,
                           color: FluxForgeTheme.textSecondary)),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 3),
                       // Apply top suggestion button
                       if (allRemediations.isNotEmpty)
                         GestureDetector(
@@ -3572,10 +3582,10 @@ class _IntelPanel extends StatelessWidget {
                             ]),
                           ),
                         ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 3),
                       // I2: CoPilot chat input
                       const _CoPilotChatWidget(),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 3),
                       // I3: Archetype selector
                       Row(children: [
                         _DockLabel('ARCHETYPE', color: FluxForgeTheme.accentPurple),
@@ -3750,20 +3760,18 @@ class _IntelPanel extends StatelessWidget {
                     fontSize: 9, color: FluxForgeTheme.textTertiary,
                     letterSpacing: 0.05)),
                 const Spacer(),
-                // 4 real mini metrics from NeuroAudioProvider
-                GridView.count(
-                  crossAxisCount: 2,
-                  shrinkWrap: true,
-                  childAspectRatio: 2.5,
-                  mainAxisSpacing: 4,
-                  crossAxisSpacing: 4,
-                  children: [
-                    _MiniMetric('$retention%', 'Retention',   FluxForgeTheme.accentBlue),
-                    _MiniMetric(dwell,         'Session',     FluxForgeTheme.accentPurple),
-                    _MiniMetric(losses,        'Loss streak', FluxForgeTheme.accentOrange),
-                    _MiniMetric(fatigueIdx,    'Fatigue idx', FluxForgeTheme.accentGreen),
-                  ],
-                ),
+                // 4 real mini metrics from NeuroAudioProvider — 2×2 Row layout
+                Row(children: [
+                  Expanded(child: _MiniMetric('$retention%', 'Retention', FluxForgeTheme.accentBlue)),
+                  const SizedBox(width: 4),
+                  Expanded(child: _MiniMetric(dwell, 'Session', FluxForgeTheme.accentPurple)),
+                ]),
+                const SizedBox(height: 4),
+                Row(children: [
+                  Expanded(child: _MiniMetric(losses, 'Loss streak', FluxForgeTheme.accentOrange)),
+                  const SizedBox(width: 4),
+                  Expanded(child: _MiniMetric(fatigueIdx, 'Fatigue idx', FluxForgeTheme.accentGreen)),
+                ]),
               ],
             ),
           ),
