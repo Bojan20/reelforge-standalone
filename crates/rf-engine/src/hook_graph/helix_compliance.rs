@@ -735,8 +735,8 @@ impl ComplianceEngine {
             };
         }
 
-        if let (Some(win), Some(bet)) = (ctx.win_amount, ctx.bet_amount) {
-            if bet > 0.0 && win / bet <= max_ratio {
+        if let (Some(win), Some(bet)) = (ctx.win_amount, ctx.bet_amount)
+            && bet > 0.0 && win / bet <= max_ratio {
                 self.session.ldw_count += 1;
 
                 let compliance_action = match action {
@@ -763,7 +763,6 @@ impl ComplianceEngine {
                     action: Some(compliance_action),
                 };
             }
-        }
 
         RuleCheckResult {
             rule_name: "LDW",

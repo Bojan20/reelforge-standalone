@@ -438,7 +438,7 @@ fn validate_audio_buffer(ptr: *const f64, frames: usize, context: &str) -> bool 
 
     // Check for potential overflow
     let byte_size = frames.checked_mul(std::mem::size_of::<f64>());
-    if !byte_size.map_or(false, |s| s <= MAX_FFI_BUFFER_SIZE) {
+    if !byte_size.is_some_and(|s| s <= MAX_FFI_BUFFER_SIZE) {
         log::warn!("FFI {} buffer size overflow", context);
         return false;
     }
@@ -3013,7 +3013,7 @@ pub extern "C" fn engine_set_bus_solo(bus_idx: i32, soloed: i32) {
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_set_bus_output(bus_idx: i32, target: i32) {
     if (0..6).contains(&bus_idx) {
-        let dest = if target >= 0 && target < 6 && target != bus_idx {
+        let dest = if (0..6).contains(&target) && target != bus_idx {
             crate::playback::BusOutputDest::Bus(target as usize)
         } else {
             crate::playback::BusOutputDest::Master
@@ -9510,7 +9510,7 @@ pub extern "C" fn elastic_apply_to_clip(clip_id: u32) -> i32 {
     // Signalsmith only compensates pitch), here Signalsmith does BOTH in one
     // pass — no cascading artifacts.
 
-    let mut stretcher = Stretch::preset_default(2, sample_rate as u32);
+    let mut stretcher = Stretch::preset_default(2, sample_rate);
     stretcher.set_transpose_factor_semitones(pitch_semitones as f32, None);
 
     // Apply formant preservation from config
@@ -19102,11 +19102,10 @@ pub extern "C" fn plugin_insert_get_mix(channel_id: u64, slot_index: u32) -> f32
 pub extern "C" fn plugin_insert_get_latency(channel_id: u64, slot_index: u32) -> i32 {
     // Query the insert chain for this track's specific slot latency
     let chains = PLAYBACK_ENGINE.get_track_insert_chain(crate::track_manager::TrackId(channel_id)).read();
-    if let Some(chain) = chains.get(&channel_id) {
-        if let Some(slot) = chain.slot(slot_index as usize) {
+    if let Some(chain) = chains.get(&channel_id)
+        && let Some(slot) = chain.slot(slot_index as usize) {
             return slot.latency() as i32;
         }
-    }
     0
 }
 

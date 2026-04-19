@@ -116,8 +116,8 @@ thread_local! {
     static SPATIAL_VOICE_MONO: RefCell<Vec<f32>> = RefCell::new(vec![0.0; 262144]);
     /// Thread-local bus-to-bus routing accum buffers (6 buses × L/R)
     /// Heap-allocated to support any block size without stack overflow or truncation
-    static BUS_ACCUM_L: RefCell<Vec<Vec<f64>>> = RefCell::new(Vec::new());
-    static BUS_ACCUM_R: RefCell<Vec<Vec<f64>>> = RefCell::new(Vec::new());
+    static BUS_ACCUM_L: RefCell<Vec<Vec<f64>>> = const { RefCell::new(Vec::new()) };
+    static BUS_ACCUM_R: RefCell<Vec<Vec<f64>>> = const { RefCell::new(Vec::new()) };
 }
 
 use crate::audio_import::{AudioImporter, ImportedAudio};
@@ -1718,19 +1718,16 @@ impl BusBuffers {
 
 /// Bus output destination for hierarchical routing (Cubase-style stem grouping)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum BusOutputDest {
     /// Route to master output (default)
+    #[default]
     Master,
     /// Route to another bus by index (0-5). Enables stem grouping:
     /// e.g., Sfx→Music for dialog/music stem, Voice→Aux for submix.
     Bus(usize),
 }
 
-impl Default for BusOutputDest {
-    fn default() -> Self {
-        BusOutputDest::Master
-    }
-}
 
 /// Bus volume/mute/solo state
 #[derive(Debug, Clone)]
@@ -5050,7 +5047,7 @@ impl PlaybackEngine {
                                         size: 0.0,
                                         gain: spatial.source_gain(*source_id),
                                         audio: audio_slice.to_vec(),
-                                        sample_rate: sample_rate,
+                                        sample_rate,
                                         automation: None,
                                     });
                                 }
@@ -5650,11 +5647,10 @@ impl PlaybackEngine {
         // === HOOK GRAPH ENGINE ===
         // Process graph commands and render graph voices into output.
         // Runs regardless of transport state (same as one-shot voices).
-        if let Some(ref hg_engine) = self.hook_graph_engine {
-            if let Some(mut engine) = hg_engine.try_write() {
+        if let Some(ref hg_engine) = self.hook_graph_engine
+            && let Some(mut engine) = hg_engine.try_write() {
                 engine.process(output_l, output_r, frames);
             }
-        }
 
         // === LOCK-FREE PARAM CONSUMPTION ===
         // Drain all pending insert param changes BEFORE processing tracks
@@ -6143,8 +6139,8 @@ impl PlaybackEngine {
 
                         // Merge live MIDI (from Dart UI / piano roll / controller).
                         // try_lock — if contended, events stay for next block (never stall audio thread).
-                        if let Some(live_queue) = LIVE_MIDI_INJECT.get(&track.id.0) {
-                            if let Some(mut live) = live_queue.try_lock() {
+                        if let Some(live_queue) = LIVE_MIDI_INJECT.get(&track.id.0)
+                            && let Some(mut live) = live_queue.try_lock() {
                                 for ev in live.drain(..) {
                                     // MidiChannel = u8, NoteNumber = u8, Velocity = u16
                                     let vel16 = (ev.velocity as u16) * 128; // scale 0-127 → 0-16256
@@ -6156,7 +6152,6 @@ impl PlaybackEngine {
                                     midi_buf.push(event);
                                 }
                             }
-                        }
 
                         // Process instrument plugin: empty audio in → audio out + MIDI
                         // Use pre-allocated buffers (zero audio-thread allocations)
@@ -6285,15 +6280,14 @@ impl PlaybackEngine {
             // Uses insert_chains_guard acquired once at top of process() (BUG#14 fix)
             // Now with sidechain routing: each slot checks its sidechain_source and feeds
             // the corresponding track's tap audio (previous/current block) as key input.
-            if let Some(ref mut chains) = insert_chains_guard {
-                if let Some(chain) = chains.get_mut(&track.id.0) {
+            if let Some(ref mut chains) = insert_chains_guard
+                && let Some(chain) = chains.get_mut(&track.id.0) {
                     if let Some(ref taps) = sidechain_taps_guard {
                         chain.process_pre_fader_with_taps(track_l, track_r, taps, frames);
                     } else {
                         chain.process_pre_fader(track_l, track_r);
                     }
                 }
-            }
 
             // === PFL TAP POINT (Pre-Fade Listen) ===
             // Capture pre-fader signal for PFL monitoring
@@ -6465,8 +6459,8 @@ impl PlaybackEngine {
             // SSL canonical signal flow: Fader → Pan → **StereoImager** → Post-Inserts
             // Width, M/S processing, balance, rotation applied here
             // Uses stereo_imagers_guard acquired once at top of process() (BUG#14 fix)
-            if let Some(ref mut imagers) = stereo_imagers_guard {
-                if let Some(imager) = imagers.get_mut(&(track.id.0 as u32)) {
+            if let Some(ref mut imagers) = stereo_imagers_guard
+                && let Some(imager) = imagers.get_mut(&(track.id.0 as u32)) {
                     use rf_dsp::StereoProcessor;
                     for i in 0..frames {
                         let (l, r) = imager.process_sample(track_l[i], track_r[i]);
@@ -6474,20 +6468,18 @@ impl PlaybackEngine {
                         track_r[i] = r;
                     }
                 }
-            }
 
             // Process track insert chain (post-fader inserts applied after volume)
             // Uses insert_chains_guard acquired once at top of process() (BUG#14 fix)
             // With sidechain: post-fader slots also get sidechain from tap buffers.
-            if let Some(ref mut chains) = insert_chains_guard {
-                if let Some(chain) = chains.get_mut(&track.id.0) {
+            if let Some(ref mut chains) = insert_chains_guard
+                && let Some(chain) = chains.get_mut(&track.id.0) {
                     if let Some(ref taps) = sidechain_taps_guard {
                         chain.process_post_fader_with_taps(track_l, track_r, taps, frames);
                     } else {
                         chain.process_post_fader(track_l, track_r);
                     }
                 }
-            }
 
             // Apply delay compensation for tracks with lower latency than max
             // This aligns all tracks in time regardless of plugin latency
@@ -7326,7 +7318,7 @@ impl PlaybackEngine {
             TargetType::Clip => {
                 // Apply clip gain/pitch via lock-free DashMap update_clip.
                 // track_id is repurposed as clip_id for TargetType::Clip.
-                let clip_id = crate::track_manager::ClipId(track_id as u64);
+                let clip_id = crate::track_manager::ClipId(track_id);
                 match param_id.param_name.as_str() {
                     "gain" => {
                         // Automation 0-1 → clip gain 0-2.0 (0dB = 1.0)

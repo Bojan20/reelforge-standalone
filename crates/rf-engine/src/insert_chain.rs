@@ -764,15 +764,14 @@ impl InsertChain {
     ) {
         for slot in &mut self.pre_slots {
             let sc_source = slot.get_sidechain_source();
-            if sc_source >= 0 {
-                if let Some((sc_l, sc_r)) = taps.get(&sc_source) {
+            if sc_source >= 0
+                && let Some((sc_l, sc_r)) = taps.get(&sc_source) {
                     let len = sc_l.len().min(max_frames);
                     if len > 0 {
                         slot.process_with_sidechain(left, right, Some(&sc_l[..len]), Some(&sc_r[..len]));
                         continue;
                     }
                 }
-            }
             slot.process(left, right);
         }
     }
@@ -788,15 +787,14 @@ impl InsertChain {
     ) {
         for slot in &mut self.post_slots {
             let sc_source = slot.get_sidechain_source();
-            if sc_source >= 0 {
-                if let Some((sc_l, sc_r)) = taps.get(&sc_source) {
+            if sc_source >= 0
+                && let Some((sc_l, sc_r)) = taps.get(&sc_source) {
                     let len = sc_l.len().min(max_frames);
                     if len > 0 {
                         slot.process_with_sidechain(left, right, Some(&sc_l[..len]), Some(&sc_r[..len]));
                         continue;
                     }
                 }
-            }
             slot.process(left, right);
         }
     }

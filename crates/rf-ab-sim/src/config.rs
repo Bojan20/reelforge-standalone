@@ -219,7 +219,7 @@ impl BatchSimConfig {
 
 /// Build default audio event defs from game model win tiers
 fn default_audio_events_from_model(model: &GameModel) -> Vec<AudioEventDef> {
-    use rf_slot_lab::WinTierConfig;
+    
 
     let mut events = vec![
         AudioEventDef::new("SPIN_START").with_voices(1).with_duration(200),

@@ -466,13 +466,12 @@ impl HxVoice {
             }
 
             // Check TTL (inline to avoid borrow conflict with audio)
-            if let Some(ttl) = self.ttl_samples {
-                if self.age_samples >= ttl && self.state != HxVoiceState::FadingOut {
+            if let Some(ttl) = self.ttl_samples
+                && self.age_samples >= ttl && self.state != HxVoiceState::FadingOut {
                     self.state = HxVoiceState::FadingOut;
                     self.fade_samples_remaining = DEFAULT_FADE_OUT_SAMPLES;
                     self.fade_increment = -self.fade_gain / DEFAULT_FADE_OUT_SAMPLES.max(1) as f32;
                 }
-            }
 
             // Update fade
             if self.fade_samples_remaining > 0 {
@@ -498,9 +497,9 @@ impl HxVoice {
             }
 
             // Read source sample
-            let raw_sample = audio.samples[pos * channels] as f32;
+            let raw_sample = audio.samples[pos * channels];
             let raw_r = if channels > 1 {
-                audio.samples[pos * channels + 1] as f32
+                audio.samples[pos * channels + 1]
             } else {
                 raw_sample
             };
@@ -658,7 +657,7 @@ impl HxVoiceEngine {
                     CollisionBehavior::Duck { db } => {
                         // Duck all existing voices in group
                         for voice in &mut self.voices {
-                            if voice.state.is_active() && voice.masking_group == activation.masking_group as u8 {
+                            if voice.state.is_active() && voice.masking_group == activation.masking_group {
                                 voice.start_duck(db as f32, 0.005);
                             }
                         }

@@ -212,7 +212,7 @@ fn run_thread_batch(
         }
 
         // Timeline sample
-        if timeline_sample_rate > 0 && global_spin % timeline_sample_rate as u64 == 0 {
+        if timeline_sample_rate > 0 && global_spin.is_multiple_of(timeline_sample_rate as u64) {
             let cumulative_rtp = if acc.total_bet_amount > 0.0 {
                 acc.total_win_amount / acc.total_bet_amount
             } else {

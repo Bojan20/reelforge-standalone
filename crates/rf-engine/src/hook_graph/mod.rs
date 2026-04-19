@@ -191,14 +191,13 @@ impl HookGraphEngine {
                 } => {
                     if let Some(voice_id) = self.voice_manager.allocate(
                         audio, volume, bus, priority, instance_id,
-                    ) {
-                        if let Some(mut fb) = self.fb_tx.try_lock() {
+                    )
+                        && let Some(mut fb) = self.fb_tx.try_lock() {
                             let _ = fb.push(GraphFeedback::VoiceStarted {
                                 voice_id,
                                 instance_id,
                             });
                         }
-                    }
                 }
                 GraphCommand::StopVoice { voice_id, fade_ms } => {
                     let fade_samples = (self.sample_rate as u64 * fade_ms as u64) / 1000;

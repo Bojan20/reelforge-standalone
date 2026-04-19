@@ -51,8 +51,10 @@ impl Default for SphericalPosition {
 
 /// Distance-based attenuation curve
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum AttenuationCurve {
     /// Natural inverse-square law (6 dB per distance doubling)
+    #[default]
     InverseSquare,
     /// Linear attenuation (softer rolloff)
     Linear { slope: f32 },
@@ -62,9 +64,6 @@ pub enum AttenuationCurve {
     MaxDistance { max_m: f32 },
 }
 
-impl Default for AttenuationCurve {
-    fn default() -> Self { AttenuationCurve::InverseSquare }
-}
 
 impl AttenuationCurve {
     /// Compute gain multiplier (0.0–1.0) at the given distance.
