@@ -1233,10 +1233,13 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // REMOVED: setState(() { _displayGrid[reelIndex][row] = _targetGrid... });
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // V2: LANDING IMPACT EFFECT — DISABLED per user request
-    // To re-enable: uncomment _triggerLandingImpact(reelIndex);
+    // V2: LANDING IMPACT — scale pop per reel + screen shake on last reel
     // ═══════════════════════════════════════════════════════════════════════════
-    // _triggerLandingImpact(reelIndex);
+    _triggerLandingImpact(reelIndex);
+    // Screen shake only on last reel (IGT: haptic-style feedback on final land)
+    if (reelIndex == widget.reels - 1) {
+      _triggerScreenShake();
+    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // IGT-STYLE SEQUENTIAL BUFFER
@@ -4327,16 +4330,20 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
               // Win line layer — draws connecting lines between winning symbols
               // P1.2: Line "grows" from first to last symbol (250ms animation)
+              // AnimatedBuilder ensures pulseValue updates every animation frame
               if (_isShowingWinLines && _currentPresentingLine != null)
                 Positioned.fill(
-                  child: CustomPaint(
-                    painter: _WinLinePainter(
-                      positions: _currentPresentingLine!.positions,
-                      reelCount: widget.reels,
-                      rowCount: widget.rows,
-                      pulseValue: _winPulseAnimation.value.clamp(0.0, 1.0),
-                      lineColor: _getWinGlowColor(),
-                      drawProgress: _lineDrawProgress, // P1.2: 0→1 during animation
+                  child: AnimatedBuilder(
+                    animation: _winPulseAnimation,
+                    builder: (_, __) => CustomPaint(
+                      painter: _WinLinePainter(
+                        positions: _currentPresentingLine!.positions,
+                        reelCount: widget.reels,
+                        rowCount: widget.rows,
+                        pulseValue: _winPulseAnimation.value.clamp(0.0, 1.0),
+                        lineColor: _getWinGlowColor(),
+                        drawProgress: _lineDrawProgress, // P1.2: 0→1 during animation
+                      ),
                     ),
                   ),
                 ),
