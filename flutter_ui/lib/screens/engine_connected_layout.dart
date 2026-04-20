@@ -111,6 +111,7 @@ import '../widgets/editor/clip_editor.dart' as clip_editor;
 import '../widgets/editors/crossfade_editor.dart';
 import '../widgets/timeline/automation_lane.dart';
 import 'slot_lab_screen.dart';
+import 'helix_screen.dart';
 import '../widgets/dsp/time_stretch_panel.dart';
 import '../widgets/dsp/delay_panel.dart';
 import '../widgets/dsp/dynamics_panel.dart';
@@ -6818,12 +6819,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   /// PERFORMANCE: Center content without Consumer wrapper
   /// Uses the existing _buildDAWCenterContent which already has Selector inside
   Widget _buildCenterContentOptimized() {
-    // Slot Lab mode — fullscreen slot lab as center content (control bar stays visible)
+    // Slot Lab mode — prikazuje HELIX direktno, SlotLab UI je isključen (ne briše se)
     if (_editorMode == EditorMode.slot) {
-      return SlotLabScreen(
+      return HelixScreen(
         onClose: () {
-          // If launched directly as SlotLab, go back to launcher
-          // If switched from DAW, go back to DAW
           if (widget.initialEditorMode == EditorMode.slot) {
             widget.onBackToLauncher?.call();
           } else {
