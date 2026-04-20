@@ -1528,6 +1528,13 @@ class SlotLabProjectProvider extends ChangeNotifier {
 
   // Session stats getters (Dashboard Integration)
   SessionStats get sessionStats => _sessionStats;
+  /// Target RTP from GDD math config, defaults to 96.0% (industry standard)
+  /// GddMathModel.rtp is 0.0-1.0 scale, we return as percentage
+  double get targetRtp {
+    final gddRtp = _importedGdd?.math.rtp;
+    if (gddRtp == null) return 96.0;
+    return gddRtp <= 1.0 ? gddRtp * 100.0 : gddRtp;
+  }
   List<SessionWin> get recentWins => List.unmodifiable(_recentWins);
 
   /// Record a spin result (updates session stats)

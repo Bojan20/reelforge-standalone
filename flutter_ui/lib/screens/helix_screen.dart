@@ -368,9 +368,11 @@ class _HelixScreenState extends State<HelixScreen>
             ),
           ),
           // Spine overlay panel — rendered in main Stack so it floats ABOVE the canvas
+          // bottom offset avoids covering the dock tab bar (dock ~300px + stage strip ~36px)
           if (_spineOpen != null)
             Positioned(
-              left: 48, top: 48, bottom: 0, // top: 48 = below omnibar
+              left: 48, top: 48,
+              bottom: _mode == 1 ? 36 : 336, // FOCUS mode hides dock; normal = stage(36) + dock(~300)
               child: _SpineOverlay(
                 title: _spineIcons[_spineOpen!].$2,
                 spineIndex: _spineOpen!,
@@ -764,11 +766,26 @@ class _HelixScreenState extends State<HelixScreen>
   Widget _buildInfoChips() {
     final proj = GetIt.instance<SlotLabProjectProvider>();
     final rtp = proj.sessionStats.rtp;
-    final rtpStr = rtp.isNaN || rtp.isInfinite ? '—' : '${rtp.toStringAsFixed(1)}%';
+    final spins = proj.sessionStats.totalSpins;
+    // Show target RTP when session data is unreliable (< 100 spins)
+    // Session RTP is statistically meaningless with small sample sizes
+    final targetRtp = proj.targetRtp; // configured target (e.g. 96.0%)
+    final rtpStr = (spins < 100 || rtp.isNaN || rtp.isInfinite)
+        ? '${targetRtp.toStringAsFixed(1)}%'
+        : '${rtp.toStringAsFixed(1)}%';
+    final rtpLabel = spins < 100 ? 'TGT RTP' : 'RTP';
+    // Color: green if within ±2% of target, yellow if off, red if way off
+    final rtpColor = (spins < 100)
+        ? FluxForgeTheme.textSecondary
+        : (rtp - targetRtp).abs() < 2.0
+            ? FluxForgeTheme.accentGreen
+            : (rtp - targetRtp).abs() < 5.0
+                ? FluxForgeTheme.accentYellow
+                : FluxForgeTheme.accentRed;
     return Consumer<GameFlowProvider>(
       builder: (context, flow, _) => Row(
         children: [
-          _InfoChip(label: 'RTP', value: rtpStr),
+          _InfoChip(label: rtpLabel, value: rtpStr, color: rtpColor),
           const SizedBox(width: 6),
           const _InfoChip(label: 'GRID', value: '5×3'),
           const SizedBox(width: 6),
@@ -4341,21 +4358,25 @@ class _SpineItemState extends State<_SpineItem> {
         onTap: widget.onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
-          width: 36, height: 36,
+          width: 38, height: 38,
           decoration: BoxDecoration(
             color: widget.active
-              ? FluxForgeTheme.accentBlue.withOpacity(0.15)
-              : _hovered ? FluxForgeTheme.accentBlue.withOpacity(0.07) : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
+              ? FluxForgeTheme.accentBlue.withOpacity(0.18)
+              : _hovered ? FluxForgeTheme.accentBlue.withOpacity(0.10) : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: widget.active
-                ? FluxForgeTheme.accentBlue.withOpacity(0.4)
-                : _hovered ? FluxForgeTheme.accentBlue.withOpacity(0.2) : Colors.transparent),
+                ? FluxForgeTheme.accentBlue.withOpacity(0.5)
+                : _hovered ? FluxForgeTheme.accentBlue.withOpacity(0.25) : Colors.transparent,
+              width: widget.active ? 1.5 : 1.0),
+            boxShadow: widget.active ? [
+              BoxShadow(color: FluxForgeTheme.accentBlue.withOpacity(0.2), blurRadius: 8),
+            ] : null,
           ),
-          child: Icon(widget.icon, size: 15,
+          child: Icon(widget.icon, size: 17,
             color: widget.active
               ? FluxForgeTheme.accentBlue
-              : _hovered ? FluxForgeTheme.textSecondary : FluxForgeTheme.textTertiary),
+              : _hovered ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary),
         ),
       ),
     ),
