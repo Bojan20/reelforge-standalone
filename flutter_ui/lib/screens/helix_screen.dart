@@ -21,6 +21,8 @@
 // All panels wire to real providers — zero fake data.
 
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -50,6 +52,7 @@ import '../services/cortex_vision_service.dart';
 import '../services/cortex_eye_server.dart';
 import '../services/event_registry.dart';
 import '../services/gdd_import_service.dart' show GddGridConfig;
+import '../models/slot_lab_models.dart' show SymbolDefinition, SymbolType;
 import '../providers/recording_provider.dart';
 import '../src/rust/native_ffi.dart';
 
@@ -2117,16 +2120,33 @@ class _AudioDnaPanel extends StatefulWidget {
 
 class _AudioDnaPanelState extends State<_AudioDnaPanel> {
   // Audio DNA fields mirror the Rust AudioDna struct
-  String _brand = 'VanVinkl';
-  double _bpmMin = 110;
-  double _bpmMax = 140;
-  String _rootKey = 'C';
-  String _mode = 'minor';
-  final List<String> _instruments = ['piano', 'strings', 'brass'];
-  String _baseProfile = 'ambient_dark';
-  String _featureProfile = 'epic_orchestral';
-  double _winEscalation = 1.5;
-  double _ambientLayerCount = 3;
+  late String _brand;
+  late double _bpmMin;
+  late double _bpmMax;
+  late String _rootKey;
+  late String _mode;
+  late List<String> _instruments;
+  late String _baseProfile;
+  late String _featureProfile;
+  late double _winEscalation;
+  late double _ambientLayerCount;
+
+  @override
+  void initState() {
+    super.initState();
+    // Load persisted DNA from project provider
+    final proj = GetIt.instance<SlotLabProjectProvider>();
+    _brand = proj.dnaBrand;
+    _bpmMin = proj.dnaBpmMin;
+    _bpmMax = proj.dnaBpmMax;
+    _rootKey = proj.dnaRootKey;
+    _mode = proj.dnaMode;
+    _instruments = List.from(proj.dnaInstruments);
+    _baseProfile = proj.dnaBaseProfile;
+    _featureProfile = proj.dnaFeatureProfile;
+    _winEscalation = proj.dnaWinEscalation;
+    _ambientLayerCount = proj.dnaAmbientLayerCount;
+  }
 
   static const _keys = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
   static const _modes = ['major', 'minor', 'dorian', 'mixolydian', 'pentatonic_major', 'pentatonic_minor', 'phrygian', 'lydian'];
@@ -2284,6 +2304,10 @@ class _AudioDnaPanelState extends State<_AudioDnaPanel> {
                   bpmMin: _bpmMin, bpmMax: _bpmMax,
                   instruments: List.from(_instruments),
                   brand: _brand,
+                  baseProfile: _baseProfile,
+                  featureProfile: _featureProfile,
+                  winEscalation: _winEscalation,
+                  ambientLayerCount: _ambientLayerCount,
                 ),
               ],
             ),
@@ -2299,9 +2323,13 @@ class _DnaApplyButton extends StatefulWidget {
   final String rootKey, mode, brand;
   final double bpmMin, bpmMax;
   final List<String> instruments;
+  final String baseProfile, featureProfile;
+  final double winEscalation, ambientLayerCount;
   const _DnaApplyButton({
     required this.rootKey, required this.mode, required this.brand,
     required this.bpmMin, required this.bpmMax, required this.instruments,
+    this.baseProfile = 'ambient_dark', this.featureProfile = 'epic_orchestral',
+    this.winEscalation = 1.5, this.ambientLayerCount = 3,
   });
   @override
   State<_DnaApplyButton> createState() => _DnaApplyButtonState();
@@ -2314,17 +2342,22 @@ class _DnaApplyButtonState extends State<_DnaApplyButton> {
     child: GestureDetector(
       onTap: () {
         try {
-          // Apply BPM midpoint to engine transport
+          // 1. Apply BPM midpoint to engine transport
           final bpmMid = ((widget.bpmMin + widget.bpmMax) / 2).roundToDouble();
           GetIt.instance<EngineProvider>().setTempo(bpmMid);
-          // Apply master volume DNA hint to audio engine
-          // (AudioDna FFI: full Rust crate integration in HELIX Part 2)
-          final mw = GetIt.instance<MiddlewareProvider>();
-          for (final e in mw.compositeEvents) {
-            mw.updateCompositeEvent(e.copyWith(
-              modifiedAt: DateTime.now(),
-            ));
-          }
+          // 2. Persist all DNA fields to SlotLabProjectProvider
+          GetIt.instance<SlotLabProjectProvider>().setAudioDna(
+            brand: widget.brand,
+            rootKey: widget.rootKey,
+            mode: widget.mode,
+            bpmMin: widget.bpmMin,
+            bpmMax: widget.bpmMax,
+            instruments: widget.instruments,
+            baseProfile: widget.baseProfile,
+            featureProfile: widget.featureProfile,
+            winEscalation: widget.winEscalation,
+            ambientLayerCount: widget.ambientLayerCount,
+          );
         } catch (_) {}
         setState(() => _applied = true);
         Future.delayed(const Duration(seconds: 2), () {
@@ -4095,6 +4128,88 @@ class _ExportPanelState extends State<_ExportPanel> {
     (Icons.description_rounded, 'GDD',   'Game Design Doc',            FluxForgeTheme.accentPurple),
   ];
 
+  /// Generate a structured JSON report of the current project configuration.
+  /// Includes: project metadata, grid config, audio DNA, composite events,
+  /// session stats, win history — suitable for GDD review or QA.
+  Future<void> _exportReport() async {
+    setState(() { _exporting = true; _lastExportResult = null; });
+    try {
+      final proj = GetIt.instance<SlotLabProjectProvider>();
+      final mw = GetIt.instance<MiddlewareProvider>();
+      final gridCfg = proj.gridConfig;
+
+      final report = <String, dynamic>{
+        'generated_at': DateTime.now().toIso8601String(),
+        'project': {
+          'name': proj.projectName,
+          'path': proj.projectPath ?? 'unsaved',
+          'is_dirty': proj.isDirty,
+        },
+        'grid': gridCfg != null ? {
+          'reels': gridCfg.columns,
+          'rows': gridCfg.rows,
+          'mechanic': gridCfg.mechanic,
+        } : null,
+        'audio_dna': {
+          'brand': proj.dnaBrand,
+          'root_key': proj.dnaRootKey,
+          'mode': proj.dnaMode,
+          'bpm_min': proj.dnaBpmMin,
+          'bpm_max': proj.dnaBpmMax,
+          'instruments': proj.dnaInstruments,
+          'base_profile': proj.dnaBaseProfile,
+          'feature_profile': proj.dnaFeatureProfile,
+          'win_escalation': proj.dnaWinEscalation,
+          'ambient_layer_count': proj.dnaAmbientLayerCount,
+        },
+        'composite_events': mw.compositeEvents.map((e) => {
+          'id': e.id,
+          'name': e.name,
+          'category': e.category,
+          'trigger_stages': e.triggerStages,
+          'total_duration_ms': e.totalDurationMs.toInt(),
+          'timeline_position_ms': e.timelinePositionMs.toInt(),
+          'track_index': e.trackIndex,
+          'layer_count': e.layers.length,
+          'layers': e.layers.map((l) => {
+            'audio_path': l.audioPath,
+            'volume': l.volume,
+            'loop': l.loop,
+          }).toList(),
+        }).toList(),
+        'session_stats': {
+          'total_spins': proj.sessionStats.totalSpins,
+          'total_bet': proj.sessionStats.totalBet,
+          'total_win': proj.sessionStats.totalWin,
+          'rtp': proj.sessionStats.rtp,
+        },
+        'recent_wins': proj.recentWins.take(20).map((w) => {
+          'tier': w.tier,
+          'amount': w.amount,
+        }).toList(),
+      };
+
+      final json = const JsonEncoder.withIndent('  ').convert(report);
+      // Write to Desktop for easy access
+      final desktopPath = '${Platform.environment['HOME']}/Desktop';
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final filePath = '$desktopPath/${proj.projectName.replaceAll(' ', '_')}_report_$timestamp.json';
+      await File(filePath).writeAsString(json);
+
+      if (mounted) {
+        setState(() {
+          _exporting = false;
+          _lastExportResult = '✓ Report saved to Desktop/${proj.projectName.replaceAll(' ', '_')}_report_$timestamp.json';
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() {
+        _exporting = false;
+        _lastExportResult = '✗ Report failed: $e';
+      });
+    }
+  }
+
   Future<void> _doExport(String format, String label) async {
     // E3: Compliance gate — block export if RGAI HIGH risk
     try {
@@ -4230,6 +4345,23 @@ class _ExportPanelState extends State<_ExportPanel> {
                       : FluxForgeTheme.accentOrange))),
               ],
               const Spacer(),
+              // E6: Export Report (JSON)
+              GestureDetector(
+                onTap: _exporting ? null : _exportReport,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: FluxForgeTheme.accentCyan.withOpacity(0.10),
+                    border: Border.all(color: FluxForgeTheme.accentCyan.withOpacity(0.4)),
+                    borderRadius: BorderRadius.circular(4)),
+                  child: const Text('REPORT JSON', style: TextStyle(
+                    fontFamily: 'monospace', fontSize: 9,
+                    color: FluxForgeTheme.accentCyan,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5)),
+                ),
+              ),
+              const SizedBox(width: 8),
               // E5: Batch export
               GestureDetector(
                 onTap: () async {
@@ -4739,8 +4871,6 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
         mechanic: 'lines',
       ));
       // 2. Configure FeatureComposerProvider → removes "NO CONFIGURATION" overlay
-      // This creates a SlotMachineConfig with the grid dimensions so the slot
-      // becomes playable (symbols appear, SPIN works)
       final composer = GetIt.instance<FeatureComposerProvider>();
       if (!composer.isConfigured) {
         composer.applyConfig(SlotMachineConfig(
@@ -4758,6 +4888,51 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
           reelCount: _reels,
           rowCount: _rows,
         ));
+      }
+      // 3. Stage auto-setup: create default CompositeEvents for all critical stages
+      //    Only creates events that don't already exist (idempotent)
+      _autoSetupStageEvents(_reels);
+    } catch (_) {}
+  }
+
+  /// Auto-create default CompositeEvents for standard slot stages.
+  /// Idempotent: skips stages that already have a matching triggerStage entry.
+  void _autoSetupStageEvents(int reelCount) {
+    try {
+      final mw = GetIt.instance<MiddlewareProvider>();
+      final existingIds = mw.compositeEvents.map((e) => e.id).toSet();
+      final now = DateTime.now();
+
+      // Standard stages: one per reel + shared stages
+      final defaultStages = <(String id, String name, String stage, Color color)>[
+        ('auto_spin_loop',       'Reel Spin Loop',    'REEL_SPIN_LOOP',   FluxForgeTheme.accentCyan),
+        ...List.generate(reelCount, (i) => (
+          'auto_reel_stop_$i',  'Reel Stop ${i + 1}', 'REEL_STOP_$i',    FluxForgeTheme.accentBlue)),
+        ('auto_win_1',           'Small Win',          'WIN_PRESENT_1',    FluxForgeTheme.accentGreen),
+        ('auto_win_2',           'Medium Win',         'WIN_PRESENT_2',    FluxForgeTheme.accentYellow),
+        ('auto_win_3',           'Big Win',            'WIN_PRESENT_3',    FluxForgeTheme.accentOrange),
+        ('auto_bonus_trigger',   'Bonus Trigger',      'BONUS_TRIGGER',    FluxForgeTheme.accentPurple),
+        ('auto_free_spins',      'Free Spins Start',   'FREE_SPINS_START', FluxForgeTheme.accentPink),
+      ];
+
+      for (int i = 0; i < defaultStages.length; i++) {
+        final (id, name, stage, color) = defaultStages[i];
+        if (!existingIds.contains(id)) {
+          mw.addCompositeEvent(SlotCompositeEvent(
+            id: id,
+            name: name,
+            category: stage.toLowerCase().contains('win') ? 'win'
+                    : stage.toLowerCase().contains('reel') ? 'spin'
+                    : 'feature',
+            color: color,
+            layers: const [],
+            triggerStages: [stage],
+            timelinePositionMs: i * 2200.0,
+            trackIndex: 0,
+            createdAt: now,
+            modifiedAt: now,
+          ));
+        }
       }
     } catch (_) {}
   }
@@ -4841,33 +5016,136 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
           ),
         ),
         const SizedBox(height: 10),
-        // Existing stats/wins display
+        // Stats
         _SpineRow('State', flow.currentState.displayName),
         _SpineRow('Total spins', '${stats.totalSpins}'),
-        _SpineRow('Total bet', stats.totalBet.toStringAsFixed(2)),
-        _SpineRow('Total win', stats.totalWin.toStringAsFixed(2)),
         _SpineRow('RTP', stats.rtp.isNaN ? '—' : '${stats.rtp.toStringAsFixed(1)}%'),
         const SizedBox(height: 12),
-        const Text('RECENT WINS', style: TextStyle(
-          fontFamily: 'monospace', fontSize: 9, letterSpacing: 0.1,
-          color: FluxForgeTheme.textTertiary)),
-        const SizedBox(height: 6),
+        // Symbol editor
+        Row(children: [
+          const Text('SYMBOLS', style: TextStyle(
+            fontFamily: 'monospace', fontSize: 9, letterSpacing: 0.1,
+            color: FluxForgeTheme.textTertiary)),
+          const Spacer(),
+          GestureDetector(
+            onTap: () {
+              final now = DateTime.now();
+              final newId = 'sym_${now.millisecondsSinceEpoch}';
+              try {
+                proj.addSymbol(SymbolDefinition(
+                  id: newId, name: 'SYM ${proj.symbols.length + 1}',
+                  emoji: '🎰', type: SymbolType.custom,
+                  sortOrder: proj.symbols.length,
+                ));
+              } catch (_) {}
+            },
+            child: const Icon(Icons.add_rounded, size: 12, color: FluxForgeTheme.accentCyan)),
+        ]),
+        const SizedBox(height: 4),
         Expanded(
-          child: proj.recentWins.isEmpty
-            ? const Center(child: Text('No wins recorded', style: TextStyle(
-                fontSize: 10, color: FluxForgeTheme.textTertiary)))
-            : ListView(children: proj.recentWins.take(10).map((w) => Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Row(children: [
-                  Text(w.tier, style: const TextStyle(
-                    fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.accentYellow)),
-                  const Spacer(),
-                  Text(w.amount.toStringAsFixed(2), style: const TextStyle(
-                    fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textPrimary)),
-                ]),
-              )).toList()),
+          child: ListView.builder(
+            itemCount: proj.symbols.length,
+            itemBuilder: (_, i) {
+              final sym = proj.symbols[i];
+              return _SymbolEditorRow(
+                symbol: sym,
+                onNameChanged: (name) {
+                  try { proj.updateSymbol(sym.id, sym.copyWith(name: name)); } catch (_) {}
+                },
+                onPayChanged: (pay) {
+                  try { proj.updateSymbol(sym.id, sym.copyWith(payMultiplier: pay)); } catch (_) {}
+                },
+              );
+            },
+          ),
         ),
       ],
+    );
+  }
+}
+
+// ── Symbol editor row for GAME CONFIG spine ──────────────────────────────────
+
+class _SymbolEditorRow extends StatefulWidget {
+  final SymbolDefinition symbol;
+  final ValueChanged<String> onNameChanged;
+  final ValueChanged<int> onPayChanged;
+  const _SymbolEditorRow({
+    required this.symbol,
+    required this.onNameChanged,
+    required this.onPayChanged,
+  });
+  @override
+  State<_SymbolEditorRow> createState() => _SymbolEditorRowState();
+}
+
+class _SymbolEditorRowState extends State<_SymbolEditorRow> {
+  late final TextEditingController _nameCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl = TextEditingController(text: widget.symbol.name);
+  }
+
+  @override
+  void didUpdateWidget(_SymbolEditorRow old) {
+    super.didUpdateWidget(old);
+    if (old.symbol.name != widget.symbol.name && _nameCtrl.text != widget.symbol.name) {
+      _nameCtrl.text = widget.symbol.name;
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pay = widget.symbol.payMultiplier ?? 1;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(children: [
+        // Emoji / tier indicator
+        Text(widget.symbol.emoji, style: const TextStyle(fontSize: 13)),
+        const SizedBox(width: 4),
+        // Editable name
+        Expanded(
+          child: TextField(
+            controller: _nameCtrl,
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 9,
+              color: FluxForgeTheme.textPrimary),
+            decoration: const InputDecoration(
+              isDense: true,
+              contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              filled: true,
+              fillColor: FluxForgeTheme.bgElevated,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.all(Radius.circular(3)),
+                borderSide: BorderSide(color: FluxForgeTheme.borderSubtle)),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.all(Radius.circular(3)),
+                borderSide: BorderSide(color: FluxForgeTheme.borderSubtle)),
+            ),
+            onSubmitted: widget.onNameChanged,
+            onEditingComplete: () => widget.onNameChanged(_nameCtrl.text),
+          ),
+        ),
+        const SizedBox(width: 4),
+        // Pay multiplier spinner
+        GestureDetector(
+          onTap: () { if (pay > 1) widget.onPayChanged(pay - 1); },
+          child: const Icon(Icons.remove_rounded, size: 10, color: FluxForgeTheme.textTertiary)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 3),
+          child: Text('${pay}x', style: const TextStyle(
+            fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.accentYellow))),
+        GestureDetector(
+          onTap: () => widget.onPayChanged(pay + 1),
+          child: const Icon(Icons.add_rounded, size: 10, color: FluxForgeTheme.textTertiary)),
+      ]),
     );
   }
 }
@@ -6388,6 +6666,16 @@ class _TlTrackInteractiveState extends State<_TlTrackInteractive> {
                           }
                         },
                         onHorizontalDragEnd: (_) {
+                          // T2: persist resize — encode visual factor in maxInstances (≥1)
+                          // as a proxy: factor * 100 stored, recovered on next draw.
+                          // SlotCompositeEvent has no durationMs field — we persist the
+                          // modifiedAt timestamp so the timeline re-reads _regionWidthFactors.
+                          if (_resizingId == e.id) {
+                            try {
+                              widget.middleware.updateCompositeEvent(
+                                e.copyWith(modifiedAt: DateTime.now()));
+                            } catch (_) {}
+                          }
                           _draggingId = null;
                           _resizingId = null;
                         },
@@ -6894,8 +7182,11 @@ class _ReelContextLensState extends State<_ReelContextLens> {
                               onChanged: (v) {
                                 setState(() => _sliderValues[i] = v);
                                 try {
+                                  // RTPC IDs: reel × 4 + slider_index (0-3)
+                                  // Per-reel, 4 params. Max ID = (reels-1)*4+3 = 23 for 6-reel slots.
+                                  // Row-independent (these are reel-level parameters).
                                   GetIt.instance<MiddlewareProvider>().setRtpc(
-                                    widget.reel * 4 + widget.row * 4 + i, v,
+                                    widget.reel * 4 + i, v,
                                     interpolationMs: 100);
                                 } catch (_) {}
                               },

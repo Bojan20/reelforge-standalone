@@ -1535,6 +1535,58 @@ class SlotLabProjectProvider extends ChangeNotifier {
   /// Get GDD math model (if GDD is imported)
   GddMathModel? get gddMath => _importedGdd?.math;
 
+  // ==========================================================================
+  // AUDIO DNA PERSISTENCE (HELIX DNA panel)
+  // ==========================================================================
+
+  String _dnaBrand = 'VanVinkl';
+  String _dnaRootKey = 'C';
+  String _dnaMode = 'minor';
+  double _dnaBpmMin = 110;
+  double _dnaBpmMax = 140;
+  List<String> _dnaInstruments = ['piano', 'strings', 'brass'];
+  String _dnaBaseProfile = 'ambient_dark';
+  String _dnaFeatureProfile = 'epic_orchestral';
+  double _dnaWinEscalation = 1.5;
+  double _dnaAmbientLayerCount = 3;
+
+  String get dnaBrand => _dnaBrand;
+  String get dnaRootKey => _dnaRootKey;
+  String get dnaMode => _dnaMode;
+  double get dnaBpmMin => _dnaBpmMin;
+  double get dnaBpmMax => _dnaBpmMax;
+  List<String> get dnaInstruments => List.unmodifiable(_dnaInstruments);
+  String get dnaBaseProfile => _dnaBaseProfile;
+  String get dnaFeatureProfile => _dnaFeatureProfile;
+  double get dnaWinEscalation => _dnaWinEscalation;
+  double get dnaAmbientLayerCount => _dnaAmbientLayerCount;
+
+  void setAudioDna({
+    required String brand,
+    required String rootKey,
+    required String mode,
+    required double bpmMin,
+    required double bpmMax,
+    required List<String> instruments,
+    required String baseProfile,
+    required String featureProfile,
+    required double winEscalation,
+    required double ambientLayerCount,
+  }) {
+    _dnaBrand = brand;
+    _dnaRootKey = rootKey;
+    _dnaMode = mode;
+    _dnaBpmMin = bpmMin;
+    _dnaBpmMax = bpmMax;
+    _dnaInstruments = List.from(instruments);
+    _dnaBaseProfile = baseProfile;
+    _dnaFeatureProfile = featureProfile;
+    _dnaWinEscalation = winEscalation;
+    _dnaAmbientLayerCount = ambientLayerCount;
+    _markDirty();
+    notifyListeners();
+  }
+
   // Session stats getters (Dashboard Integration)
   SessionStats get sessionStats => _sessionStats;
   /// Target RTP from GDD math config, defaults to 96.0% (industry standard)
