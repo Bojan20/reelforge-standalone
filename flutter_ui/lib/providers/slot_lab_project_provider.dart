@@ -1504,9 +1504,18 @@ class SlotLabProjectProvider extends ChangeNotifier {
     _markDirty();
   }
 
-  /// Update grid configuration (can be called independently of full GDD import)
+  /// Update grid configuration and propagate to Rust engine + stage/audio providers.
+  /// Full chain: Dart config → SlotLabCoordinator.updateGridSize → FFI slotLabSetGridSize
+  /// → StageProvider.setTotalReels → AudioProvider.setTotalReels
   void setGridConfig(GddGridConfig config) {
     _gridConfig = config;
+    // Propagate to Rust engine + stage/audio providers via coordinator
+    try {
+      final coordinator = GetIt.instance<SlotLabCoordinator>();
+      coordinator.updateGridSize(config.columns, config.rows);
+    } catch (_) {
+      // Coordinator may not be available outside SlotLab context — config still saved
+    }
     _markDirty();
   }
 
