@@ -55,6 +55,8 @@ import '../services/gdd_import_service.dart' show GddGridConfig;
 import '../models/slot_lab_models.dart' show SymbolDefinition, SymbolType;
 import '../providers/recording_provider.dart';
 import '../src/rust/native_ffi.dart';
+import '../widgets/slot_lab/enhanced_autobind_dialog.dart';
+import 'slot_lab_screen.dart' show SlotLabScreen;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELIX SCREEN
@@ -344,7 +346,9 @@ class _HelixScreenState extends State<HelixScreen>
 
   @override
   Widget build(BuildContext context) {
-    return KeyboardListener(
+    return PopScope(
+      canPop: false, // HELIX only closes via explicit X button — never by accident
+      child: KeyboardListener(
       focusNode: _focusNode,
       autofocus: true,
       onKeyEvent: _onKey,
@@ -394,6 +398,7 @@ class _HelixScreenState extends State<HelixScreen>
               onClose: () => setState(() => _contextLensEvent = null),
             ),
         ],
+      ),
       ),
       ),
     );
@@ -3208,6 +3213,39 @@ class _AudioPanel extends StatefulWidget {
 class _AudioPanelState extends State<_AudioPanel> {
   double _masterFader = 0.8; // A6: master output fader
 
+  void _showAutoBindDialog(BuildContext context) async {
+    final result = await showDialog<EnhancedAutoBindResult>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const EnhancedAutoBindDialog(),
+    );
+    if (result == null || !mounted) return;
+
+    if (result.bindings.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No matching sound files found in folder'),
+          backgroundColor: Color(0xFF442222),
+        ),
+      );
+      return;
+    }
+
+    // Trigger reload (syncs assignments → composite events → EventRegistry)
+    SlotLabScreen.triggerAutoBindReload(result.folderPath);
+
+    if (mounted) {
+      final renamed = result.didRename ? ' (renamed to FFNC)' : '';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Auto-Bind: ${result.bindings.length} stages bound$renamed'),
+          backgroundColor: FluxForgeTheme.bgMid,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // Reactivity: rebuild when MiddlewareProvider or NeuroAudioProvider change
@@ -3322,6 +3360,29 @@ class _AudioPanelState extends State<_AudioPanel> {
               children: [
                 Row(children: [
                   _DockLabel('CHANNELS', color: FluxForgeTheme.accentCyan),
+                  const SizedBox(width: 8),
+                  // Auto-Bind button — opens folder picker + spectral DNA classifier
+                  GestureDetector(
+                    onTap: () => _showAutoBindDialog(context),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: FluxForgeTheme.accentGreen.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: FluxForgeTheme.accentGreen.withValues(alpha: 0.3)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.auto_fix_high, size: 11, color: FluxForgeTheme.accentGreen),
+                          SizedBox(width: 4),
+                          Text('Auto-Bind', style: TextStyle(
+                            fontSize: 9, fontWeight: FontWeight.w600,
+                            color: FluxForgeTheme.accentGreen)),
+                        ],
+                      ),
+                    ),
+                  ),
                   const Spacer(),
                   Text('${events.length} events  ·  tap to open lens', style: const TextStyle(
                     fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary)),
@@ -4697,18 +4758,31 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
     for (final path in paths) {
       final lower = path.toLowerCase();
       if (lower.endsWith('.wav') || lower.endsWith('.aiff') ||
-          lower.endsWith('.aif') || lower.endsWith('.mp3')) {
+          lower.endsWith('.aif') || lower.endsWith('.mp3') ||
+          lower.endsWith('.ogg') || lower.endsWith('.flac')) {
         final fileName = path.split('/').last;
         final name = fileName.contains('.')
           ? fileName.substring(0, fileName.lastIndexOf('.'))
           : fileName;
         final now = DateTime.now();
+        final layerId = 'layer_${now.millisecondsSinceEpoch}';
         try {
+          // Create event WITH the audio file as a layer — fully bound, ready to play
           mw.addCompositeEvent(SlotCompositeEvent(
             id: 'drop_${now.millisecondsSinceEpoch}',
             name: name,
             category: 'custom',
             color: FluxForgeTheme.accentCyan,
+            layers: [
+              SlotEventLayer(
+                id: layerId,
+                name: name,
+                audioPath: path,
+                volume: 1.0,
+                loop: false,
+                actionType: 'Play',
+              ),
+            ],
             createdAt: now,
             modifiedAt: now,
           ));
@@ -5206,24 +5280,24 @@ class _SpineAiIntelState extends State<_SpineAiIntel> {
                 fontSize: 9, color: FluxForgeTheme.textSecondary))),
               // S5: Interactive RTPC slider
               Expanded(
-                child: GestureDetector(
-                  onHorizontalDragUpdate: (det) {
-                    final box = context.findRenderObject() as RenderBox?;
-                    if (box == null) return;
-                    final frac = (det.localPosition.dx / (box.size.width - 100)).clamp(0.0, 1.0);
-                    setState(() => _rtpcOverrides[d.$4] = frac);
-                    try { mw.setRtpc(d.$4, frac, interpolationMs: 100); } catch (_) {}
-                  },
-                  child: Container(
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: FluxForgeTheme.bgElevated,
-                      borderRadius: BorderRadius.circular(2)),
-                    child: FractionallySizedBox(
-                      widthFactor: (_rtpcOverrides[d.$4] >= 0 ? _rtpcOverrides[d.$4] : d.$2).clamp(0.0, 1.0),
-                      alignment: Alignment.centerLeft,
-                      child: Container(decoration: BoxDecoration(
-                        color: d.$3, borderRadius: BorderRadius.circular(2))),
+                child: LayoutBuilder(
+                  builder: (_, constraints) => GestureDetector(
+                    onHorizontalDragUpdate: (det) {
+                      final frac = (det.localPosition.dx / constraints.maxWidth).clamp(0.0, 1.0);
+                      setState(() => _rtpcOverrides[d.$4] = frac);
+                      try { mw.setRtpc(d.$4, frac, interpolationMs: 100); } catch (_) {}
+                    },
+                    child: Container(
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: FluxForgeTheme.bgElevated,
+                        borderRadius: BorderRadius.circular(2)),
+                      child: FractionallySizedBox(
+                        widthFactor: (_rtpcOverrides[d.$4] >= 0 ? _rtpcOverrides[d.$4] : d.$2).clamp(0.0, 1.0),
+                        alignment: Alignment.centerLeft,
+                        child: Container(decoration: BoxDecoration(
+                          color: d.$3, borderRadius: BorderRadius.circular(2))),
+                      ),
                     ),
                   ),
                 ),
@@ -5388,7 +5462,14 @@ class _SpineToggle extends StatelessWidget {
 
 // ── Spine: ANALYTICS ────────────────────────────────────────────────────────
 
-class _SpineAnalytics extends StatelessWidget {
+class _SpineAnalytics extends StatefulWidget {
+  @override
+  State<_SpineAnalytics> createState() => _SpineAnalyticsState();
+}
+
+class _SpineAnalyticsState extends State<_SpineAnalytics> {
+  String? _exportStatus;
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -5427,6 +5508,15 @@ class _SpineAnalytics extends StatelessWidget {
         _SpineRow('Switch changes', '${mw.switchChangeCount}'),
         _SpineRow('Actions', '${mw.actionCount}'),
         const Spacer(),
+        // Status feedback
+        if (_exportStatus != null) Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Text(_exportStatus!, style: TextStyle(
+            fontFamily: 'monospace', fontSize: 8,
+            color: _exportStatus!.startsWith('✓')
+              ? FluxForgeTheme.accentGreen
+              : FluxForgeTheme.accentOrange)),
+        ),
         // S8: Export session report
         GestureDetector(
           onTap: () {
@@ -5437,10 +5527,16 @@ class _SpineAnalytics extends StatelessWidget {
                 'spins': stats.totalSpins,
                 'rtp': stats.rtp,
               }, 'session_report');
-            } catch (_) {}
+              setState(() => _exportStatus = '✓ Report exported');
+              Future.delayed(const Duration(seconds: 3),
+                () { if (mounted) setState(() => _exportStatus = null); });
+            } catch (e) {
+              setState(() => _exportStatus = '✗ Failed: $e');
+            }
           },
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             decoration: BoxDecoration(
               color: FluxForgeTheme.accentPurple.withOpacity(0.06),
               border: Border.all(color: FluxForgeTheme.accentPurple.withOpacity(0.2)),
@@ -5448,7 +5544,7 @@ class _SpineAnalytics extends StatelessWidget {
             child: const Row(mainAxisSize: MainAxisSize.min, children: [
               Icon(Icons.download_rounded, size: 10, color: FluxForgeTheme.accentPurple),
               SizedBox(width: 4),
-              Text('Export Report', style: TextStyle(
+              Text('Export Session Report', style: TextStyle(
                 fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.accentPurple)),
             ]),
           ),
