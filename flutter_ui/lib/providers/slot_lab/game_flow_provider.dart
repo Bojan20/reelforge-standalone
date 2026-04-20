@@ -842,6 +842,27 @@ class GameFlowProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Force FSM directly to [state], bypassing FeatureExecutor requirements.
+  /// Intended for HELIX demo/preview mode — no executor registration needed.
+  /// For idle/base, calls [resetToBaseGame] + optionally sets baseGame.
+  void forceTransition(GameFlowState state) {
+    if (state == GameFlowState.idle) {
+      resetToBaseGame();
+      return;
+    }
+    if (state == GameFlowState.baseGame) {
+      resetToBaseGame();
+      _currentState = GameFlowState.baseGame;
+      notifyListeners();
+      return;
+    }
+    // For feature states: clear conflicting features, then transition directly
+    _activeFeatures.clear();
+    _featureQueue.clear();
+    _stack.clear();
+    _transitionTo(state);
+  }
+
   /// Apply multiplier pipeline to a win amount
   ModifiedWinResult applyWinPipeline(double rawWin) {
     double current = rawWin;

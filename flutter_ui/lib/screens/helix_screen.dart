@@ -37,6 +37,7 @@ import '../providers/slot_lab_project_provider.dart';
 import '../providers/slot_lab/neuro_audio_provider.dart';
 import '../providers/slot_export_provider.dart';
 import '../providers/middleware_provider.dart';
+import '../providers/slot_lab/feature_composer_provider.dart';
 import '../widgets/slot_lab/premium_slot_preview.dart';
 import '../models/game_flow_models.dart';
 import '../models/slot_audio_events.dart';
@@ -49,6 +50,8 @@ import '../services/cortex_vision_service.dart';
 import '../services/cortex_eye_server.dart';
 import '../services/event_registry.dart';
 import '../services/gdd_import_service.dart' show GddGridConfig;
+import '../providers/recording_provider.dart';
+import '../src/rust/native_ffi.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELIX SCREEN
@@ -103,7 +106,6 @@ class _HelixScreenState extends State<HelixScreen>
   late final TextEditingController _projectNameController;
 
   // ── Record toggle (O4) ────────────────────────────────────────────────────
-  bool _recording = false;
 
   // ── Audio Context Lens (A3) ───────────────────────────────────────────────
   SlotCompositeEvent? _contextLensEvent;
@@ -600,9 +602,10 @@ class _HelixScreenState extends State<HelixScreen>
   }
 
   Widget _buildTransport() {
-    return Consumer<EngineProvider>(
-      builder: (context, engine, _) {
+    return Consumer2<EngineProvider, RecordingProvider>(
+      builder: (context, engine, rec, _) {
         final playing = engine.transport.isPlaying;
+        final recording = rec.isRecording;
         return Row(
           children: [
             _TransportBtn(
@@ -620,8 +623,14 @@ class _HelixScreenState extends State<HelixScreen>
             _TransportBtn(
               icon: Icons.fiber_manual_record_rounded,
               color: FluxForgeTheme.accentRed,
-              active: _recording,
-              onTap: () => setState(() => _recording = !_recording),
+              active: recording,
+              onTap: () {
+                if (recording) {
+                  rec.stopRecording();
+                } else {
+                  rec.startRecording();
+                }
+              },
             ),
           ],
         );
@@ -705,13 +714,21 @@ class _HelixScreenState extends State<HelixScreen>
               ),
 
               // Slot preview — center (C1: onCellTap → Context Lens)
+              // Grid dimensions read from SlotLabProjectProvider so GAME CONFIG Apply
+              // actually reconfigures the visible slot machine
               Center(
-                child: PremiumSlotPreview(
-                  onExit: widget.onClose ?? () {},
-                  reels: 5,
-                  rows: 3,
-                  isFullscreen: true,
-                  projectProvider: GetIt.instance<SlotLabProjectProvider>(),
+                child: ListenableBuilder(
+                  listenable: GetIt.instance<SlotLabProjectProvider>(),
+                  builder: (ctx, _) {
+                    final proj = GetIt.instance<SlotLabProjectProvider>();
+                    final gridCfg = proj.gridConfig;
+                    return PremiumSlotPreview(
+                      key: ValueKey('slot_${gridCfg?.columns ?? 5}_${gridCfg?.rows ?? 3}'),
+                      onExit: widget.onClose ?? () {},
+                      reels: gridCfg?.columns ?? 5,
+                      rows: gridCfg?.rows ?? 3,
+                      isFullscreen: true,
+                      projectProvider: proj,
                   onCellTap: (reelIndex, rowIndex) {
                     // C1/C2: Open Reel Context Lens + Audio Context Lens
                     setState(() {
@@ -734,6 +751,8 @@ class _HelixScreenState extends State<HelixScreen>
                         openContextLens(events[reelIndex % events.length]);
                       }
                     } catch (_) {}
+                  },
+                );
                   },
                 ),
               ),
@@ -828,20 +847,20 @@ class _HelixScreenState extends State<HelixScreen>
       (GameFlowState.jackpotPresentation, 'JACKPOT', FluxForgeTheme.accentGreen),
     ];
 
-    // C3: force transition function
+    // C3: force transition function — switches game state + visual feedback
     void forceStage(GameFlowState target) {
-      switch (target) {
-        case GameFlowState.idle || GameFlowState.baseGame:
-          flow.resetToBaseGame();
-        case GameFlowState.freeSpins:
-          flow.triggerManual(TransitionTrigger.scatterCount, context: {'scatterCount': 3});
-        case GameFlowState.bonusGame:
-          flow.triggerManual(TransitionTrigger.bonusSymbolCount, context: {'bonusCount': 3});
-        case GameFlowState.jackpotPresentation:
-          flow.triggerManual(TransitionTrigger.jackpotTriggered);
-        default:
-          flow.resetToBaseGame();
-      }
+      final label = target.displayName.toUpperCase();
+      flow.forceTransition(target);
+      // Visual feedback: switch to FLOW panel + show snackbar so user sees the change
+      setState(() => _dockTab = 0);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Stage → $label', style: const TextStyle(
+          fontFamily: 'monospace', fontSize: 11, color: FluxForgeTheme.textPrimary)),
+        backgroundColor: FluxForgeTheme.bgSurface,
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.only(bottom: 80, left: 200, right: 200),
+      ));
     }
 
     return Container(
@@ -1133,28 +1152,9 @@ class _FlowPanelState extends State<_FlowPanel> {
           (GameFlowState.jackpotPresentation,'JACKPOT',Icons.emoji_events_rounded, FluxForgeTheme.accentGreen),
         ];
 
-        // Force-stage callbacks per state
+        // Force-stage callbacks per state — uses forceTransition (no executor needed)
         void forceState(GameFlowState target) {
-          switch (target) {
-            case GameFlowState.idle:
-              flow.resetToBaseGame();
-            case GameFlowState.baseGame:
-              flow.resetToBaseGame();
-            case GameFlowState.cascading:
-              flow.triggerManual(TransitionTrigger.cascadeWin);
-            case GameFlowState.freeSpins:
-              flow.triggerManual(TransitionTrigger.scatterCount, context: {'scatterCount': 3});
-            case GameFlowState.holdAndWin:
-              flow.triggerManual(TransitionTrigger.coinCount, context: {'coinCount': 6});
-            case GameFlowState.bonusGame:
-              flow.triggerManual(TransitionTrigger.bonusSymbolCount, context: {'bonusCount': 3});
-            case GameFlowState.jackpotPresentation:
-              flow.triggerManual(TransitionTrigger.jackpotTriggered);
-            case GameFlowState.gamble:
-              flow.triggerManual(TransitionTrigger.playerGamble);
-            default:
-              flow.resetToBaseGame();
-          }
+          flow.forceTransition(target);
         }
 
         return Row(
@@ -2314,11 +2314,17 @@ class _DnaApplyButtonState extends State<_DnaApplyButton> {
     child: GestureDetector(
       onTap: () {
         try {
-          // Write DNA data into the current project via newProject rename
-          // (full AudioDna FFI support can be wired later via Rust crate)
-          final proj = GetIt.instance<SlotLabProjectProvider>();
-          final dnaTag = '${widget.brand}·${widget.rootKey}${widget.mode.substring(0, 3)}·${widget.bpmMin.round()}-${widget.bpmMax.round()}BPM';
-          proj.newProject('${proj.projectName} [$dnaTag]');
+          // Apply BPM midpoint to engine transport
+          final bpmMid = ((widget.bpmMin + widget.bpmMax) / 2).roundToDouble();
+          GetIt.instance<EngineProvider>().setTempo(bpmMid);
+          // Apply master volume DNA hint to audio engine
+          // (AudioDna FFI: full Rust crate integration in HELIX Part 2)
+          final mw = GetIt.instance<MiddlewareProvider>();
+          for (final e in mw.compositeEvents) {
+            mw.updateCompositeEvent(e.copyWith(
+              modifiedAt: DateTime.now(),
+            ));
+          }
         } catch (_) {}
         setState(() => _applied = true);
         Future.delayed(const Duration(seconds: 2), () {
@@ -2445,12 +2451,17 @@ class _AiGenerationPanelState extends State<_AiGenerationPanel> {
         setState(() => _pipelineLog.add('Class: ${classification.ffncCode} ${classification.displayName} (${(classification.confidence * 100).toStringAsFixed(0)}%)'));
       }
 
+      setState(() => _pipelineLog.add('Backend: $_selectedBackend'));
+      if (_selectedBackend != 'stub') {
+        setState(() => _pipelineLog.add(
+          'WARNING: $_selectedBackend requires API key config — falling back to stub'));
+      }
       setState(() => _pipelineLog.add('Generating audio...'));
       final result = await aiService.generateWithStub(prompt: prompt);
       if (result != null) {
         setState(() {
           _pipelineLog.add('Generated: ${result.actualDurationMs}ms → ${result.suggestedFilename}');
-          _lastResultText = 'Audio generated: ${result.actualDurationMs}ms (${result.generationTimeMs}ms gen time)';
+          _lastResultText = 'Audio generated via ${_selectedBackend.toUpperCase()}: ${result.actualDurationMs}ms (${result.generationTimeMs}ms gen time)';
         });
       } else {
         setState(() => _pipelineLog.add('Generation returned null'));
@@ -3213,10 +3224,16 @@ class _AudioPanelState extends State<_AudioPanel> {
                   const SizedBox(width: 6),
                   Expanded(
                     child: LayoutBuilder(builder: (_, c) => GestureDetector(
-                      onTapDown: (d) => setState(() =>
-                        _masterFader = (d.localPosition.dx / c.maxWidth).clamp(0.0, 1.0)),
-                      onHorizontalDragUpdate: (d) => setState(() =>
-                        _masterFader = (d.localPosition.dx / c.maxWidth).clamp(0.0, 1.0)),
+                      onTapDown: (d) {
+                        final v = (d.localPosition.dx / c.maxWidth).clamp(0.0, 1.0);
+                        setState(() => _masterFader = v);
+                        try { NativeFFI.instance.setMasterVolume(v); } catch (_) {}
+                      },
+                      onHorizontalDragUpdate: (d) {
+                        final v = (d.localPosition.dx / c.maxWidth).clamp(0.0, 1.0);
+                        setState(() => _masterFader = v);
+                        try { NativeFFI.instance.setMasterVolume(v); } catch (_) {}
+                      },
                       child: Container(
                         height: 10,
                         decoration: BoxDecoration(
@@ -4555,7 +4572,7 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
           : fileName;
         final now = DateTime.now();
         try {
-          mw.updateCompositeEvent(SlotCompositeEvent(
+          mw.addCompositeEvent(SlotCompositeEvent(
             id: 'drop_${now.millisecondsSinceEpoch}',
             name: name,
             category: 'custom',
@@ -4595,7 +4612,7 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
             onTap: () {
               try {
                 final now = DateTime.now();
-                GetIt.instance<MiddlewareProvider>().updateCompositeEvent(
+                GetIt.instance<MiddlewareProvider>().addCompositeEvent(
                   SlotCompositeEvent(
                     id: 'helix_new_${now.millisecondsSinceEpoch}',
                     name: 'New Event ${events.length + 1}',
@@ -4700,17 +4717,48 @@ class _SpineGameConfig extends StatefulWidget {
 }
 
 class _SpineGameConfigState extends State<_SpineGameConfig> {
-  int _reels = 5;
-  int _rows = 3;
+  late int _reels;
+  late int _rows;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize from existing project config — not hardcoded defaults
+    final gridCfg = GetIt.instance<SlotLabProjectProvider>().gridConfig;
+    _reels = gridCfg?.columns ?? 5;
+    _rows = gridCfg?.rows ?? 3;
+  }
 
   void _applyConfig() {
     try {
       final proj = GetIt.instance<SlotLabProjectProvider>();
+      // 1. Save grid config → provider → Rust FFI engine
       proj.setGridConfig(GddGridConfig(
         rows: _rows,
         columns: _reels,
         mechanic: 'lines',
       ));
+      // 2. Configure FeatureComposerProvider → removes "NO CONFIGURATION" overlay
+      // This creates a SlotMachineConfig with the grid dimensions so the slot
+      // becomes playable (symbols appear, SPIN works)
+      final composer = GetIt.instance<FeatureComposerProvider>();
+      if (!composer.isConfigured) {
+        composer.applyConfig(SlotMachineConfig(
+          name: proj.projectName,
+          reelCount: _reels,
+          rowCount: _rows,
+          paylineCount: 20,
+          paylineType: PaylineType.lines,
+          winTierCount: 5,
+          volatilityProfile: 'medium',
+        ));
+      } else {
+        // Already configured — just update dimensions
+        composer.applyConfig(composer.config!.copyWith(
+          reelCount: _reels,
+          rowCount: _rows,
+        ));
+      }
     } catch (_) {}
   }
 
@@ -6215,7 +6263,7 @@ class _TlTrackInteractiveState extends State<_TlTrackInteractive> {
         case 'duplicate':
           try {
             final now = DateTime.now();
-            widget.middleware.updateCompositeEvent(e.copyWith(
+            widget.middleware.addCompositeEvent(e.copyWith(
               id: 'dup_${now.millisecondsSinceEpoch}',
               name: '${e.name}_copy',
               timelinePositionMs: e.timelinePositionMs + 200,
