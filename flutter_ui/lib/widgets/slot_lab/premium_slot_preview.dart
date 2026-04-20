@@ -582,17 +582,7 @@ class _HeaderZone extends StatelessWidget {
       height: 48, // Reduced from 56
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            theme.bgDark,
-            theme.bgDark.withOpacity(0.95),
-          ],
-        ),
-        border: Border(
-          bottom: BorderSide(color: theme.border, width: 1),
-        ),
+        color: theme.bgDark,
       ),
       child: Row(
         children: [
@@ -1687,30 +1677,25 @@ class _MainGameZone extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: isWinning ? glowColor : theme.gold.withOpacity(0.4),
-                width: isWinning ? 5 : 3,
+                color: isWinning
+                    ? glowColor.withOpacity(0.7)
+                    : const Color(0xFF1E1E28),
+                width: isWinning ? 2 : 1,
               ),
               boxShadow: [
-                // Inner glow
-                BoxShadow(
-                  color: theme.gold.withOpacity(0.15),
-                  blurRadius: 30,
-                  spreadRadius: -5,
-                ),
-                // Main glow
-                BoxShadow(
-                  color: isWinning
-                      ? glowColor.withOpacity(0.6)
-                      : FluxForgeTheme.accentBlue.withOpacity(0.25),
-                  blurRadius: isWinning ? 50 : 30,
-                  spreadRadius: isWinning ? 15 : 5,
-                ),
-                // Deep shadow
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.9),
-                  blurRadius: 80,
-                  spreadRadius: 30,
-                ),
+                if (isWinning) ...[
+                  BoxShadow(
+                    color: glowColor.withOpacity(0.5),
+                    blurRadius: 40,
+                    spreadRadius: 8,
+                  ),
+                ] else ...[
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.6),
+                    blurRadius: 40,
+                    spreadRadius: 10,
+                  ),
+                ],
               ],
             ),
             child: ClipRRect(
@@ -3226,17 +3211,7 @@ class _ControlBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            theme.bgMid.withOpacity(0.95),
-            theme.bgDark,
-          ],
-        ),
-        border: Border(
-          top: BorderSide(color: theme.border, width: 1),
-        ),
+        color: theme.bgDark,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -3495,7 +3470,7 @@ class _ModernBetControl extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.bgSurface,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: theme.gold.withOpacity(0.5), width: 1.5),
+        border: Border.all(color: theme.border, width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
