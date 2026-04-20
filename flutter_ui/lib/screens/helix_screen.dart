@@ -342,7 +342,9 @@ class _HelixScreenState extends State<HelixScreen>
       focusNode: _focusNode,
       autofocus: true,
       onKeyEvent: _onKey,
-      child: Stack(
+      child: Material(
+        color: Colors.transparent,
+        child: Stack(
         children: [
           Container(
             color: FluxForgeTheme.bgVoid,
@@ -372,7 +374,7 @@ class _HelixScreenState extends State<HelixScreen>
           if (_spineOpen != null)
             Positioned(
               left: 48, top: 48,
-              bottom: _mode == 1 ? 36 : 336, // FOCUS mode hides dock; normal = stage(36) + dock(~300)
+              bottom: _mode == 1 ? 48 : (_dockHeight + 48).clamp(228.0, 648.0), // Dynamic: dock height + stage strip (48px)
               child: _SpineOverlay(
                 title: _spineIcons[_spineOpen!].$2,
                 spineIndex: _spineOpen!,
@@ -386,6 +388,7 @@ class _HelixScreenState extends State<HelixScreen>
               onClose: () => setState(() => _contextLensEvent = null),
             ),
         ],
+      ),
       ),
     );
   }
@@ -420,35 +423,37 @@ class _HelixScreenState extends State<HelixScreen>
   Widget _buildOmnibar() {
     return Container(
       height: 48,
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [FluxForgeTheme.bgDeep, FluxForgeTheme.bgDeepest],
-        ),
-        border: const Border(bottom: BorderSide(color: FluxForgeTheme.borderSubtle, width: 1)),
+      decoration: const BoxDecoration(
+        color: FluxForgeTheme.bgDeep,
+        border: Border(bottom: BorderSide(color: FluxForgeTheme.borderSubtle, width: 1)),
       ),
       child: Row(
         children: [
           const SizedBox(width: 12),
-          // Logo
+          // Logo — premium gradient + subtle glow
           Container(
-            width: 24, height: 24,
+            width: 26, height: 26,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 begin: Alignment.topLeft, end: Alignment.bottomRight,
                 colors: [FluxForgeTheme.accentBlue, FluxForgeTheme.accentPurple],
               ),
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: BorderRadius.circular(7),
+              boxShadow: [
+                BoxShadow(color: FluxForgeTheme.accentBlue.withOpacity(0.3), blurRadius: 10, spreadRadius: -2),
+                BoxShadow(color: FluxForgeTheme.accentPurple.withOpacity(0.2), blurRadius: 16, spreadRadius: -3),
+              ],
             ),
             child: const Center(
               child: Text('HX',
-                style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700,
-                  color: FluxForgeTheme.textPrimary, letterSpacing: 0.05)),
+                style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800,
+                  color: FluxForgeTheme.textPrimary, letterSpacing: 0.8)),
             ),
           ),
           const SizedBox(width: 8),
           const Text('HELIX', style: TextStyle(
-            fontFamily: 'monospace', fontSize: 11, fontWeight: FontWeight.w600,
-            color: FluxForgeTheme.textPrimary, letterSpacing: 0.15)),
+            fontFamily: 'monospace', fontSize: 11, fontWeight: FontWeight.w700,
+            color: FluxForgeTheme.textPrimary, letterSpacing: 1.5)),
           const SizedBox(width: 12),
           Container(width: 1, height: 24, color: FluxForgeTheme.borderSubtle),
           const SizedBox(width: 12),
@@ -499,20 +504,23 @@ class _HelixScreenState extends State<HelixScreen>
           ),
           const Spacer(),
           // Undo/Redo — wired to SlotLabProjectProvider
-          Builder(builder: (ctx) {
-            final proj = GetIt.instance<SlotLabProjectProvider>();
-            return Row(children: [
-              _OmniIconBtn(
-                icon: Icons.undo_rounded,
-                onTap: proj.canUndoAudioAssignment ? () { proj.undoAudioAssignment(); } : null,
-              ),
-              const SizedBox(width: 2),
-              _OmniIconBtn(
-                icon: Icons.redo_rounded,
-                onTap: proj.canRedoAudioAssignment ? () { proj.redoAudioAssignment(); } : null,
-              ),
-            ]);
-          }),
+          ListenableBuilder(
+            listenable: GetIt.instance<SlotLabProjectProvider>(),
+            builder: (ctx, _) {
+              final proj = GetIt.instance<SlotLabProjectProvider>();
+              return Row(children: [
+                _OmniIconBtn(
+                  icon: Icons.undo_rounded,
+                  onTap: proj.canUndoAudioAssignment ? () { proj.undoAudioAssignment(); } : null,
+                ),
+                const SizedBox(width: 2),
+                _OmniIconBtn(
+                  icon: Icons.redo_rounded,
+                  onTap: proj.canRedoAudioAssignment ? () { proj.redoAudioAssignment(); } : null,
+                ),
+              ]);
+            },
+          ),
           const SizedBox(width: 12),
           // BPM — tap to edit
           GestureDetector(
@@ -521,15 +529,15 @@ class _HelixScreenState extends State<HelixScreen>
               setState(() => _bpmEditing = true);
             },
             child: _OmniPill(
-              color: FluxForgeTheme.accentCyan.withOpacity(0.05),
+              color: FluxForgeTheme.accentCyan.withOpacity(0.08),
               border: _bpmEditing
-                ? FluxForgeTheme.accentCyan.withOpacity(0.6)
-                : FluxForgeTheme.accentCyan.withOpacity(0.2),
+                ? FluxForgeTheme.accentCyan.withOpacity(0.7)
+                : FluxForgeTheme.accentCyan.withOpacity(0.35),
               child: Row(children: [
                 const Text('BPM', style: TextStyle(
-                  fontFamily: 'monospace', fontSize: 9,
-                  color: FluxForgeTheme.textTertiary, letterSpacing: 0.1)),
-                const SizedBox(width: 6),
+                  fontFamily: 'monospace', fontSize: 11,
+                  color: FluxForgeTheme.accentCyan, letterSpacing: 0.5, fontWeight: FontWeight.w700)),
+                const SizedBox(width: 8),
                 if (_bpmEditing)
                   SizedBox(
                     width: 52,
@@ -538,8 +546,8 @@ class _HelixScreenState extends State<HelixScreen>
                       autofocus: true,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       style: const TextStyle(
-                        fontFamily: 'monospace', fontSize: 11,
-                        color: FluxForgeTheme.accentCyan, fontWeight: FontWeight.w600),
+                        fontFamily: 'monospace', fontSize: 13,
+                        color: FluxForgeTheme.accentCyan, fontWeight: FontWeight.w700),
                       decoration: const InputDecoration(
                         isDense: true, border: InputBorder.none,
                         contentPadding: EdgeInsets.zero),
@@ -557,8 +565,8 @@ class _HelixScreenState extends State<HelixScreen>
                   )
                 else
                   Text(_bpmDisplay.toStringAsFixed(1), style: const TextStyle(
-                    fontFamily: 'monospace', fontSize: 11,
-                    color: FluxForgeTheme.accentCyan, fontWeight: FontWeight.w600)),
+                    fontFamily: 'monospace', fontSize: 13,
+                    color: FluxForgeTheme.accentCyan, fontWeight: FontWeight.w700)),
               ]),
             ),
           ),
@@ -786,9 +794,9 @@ class _HelixScreenState extends State<HelixScreen>
       builder: (context, flow, _) => Row(
         children: [
           _InfoChip(label: rtpLabel, value: rtpStr, color: rtpColor),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           const _InfoChip(label: 'GRID', value: '5×3'),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           _InfoChip(
             label: 'STAGE',
             value: flow.currentState.displayName.toUpperCase(),
@@ -843,10 +851,18 @@ class _HelixScreenState extends State<HelixScreen>
             ),
           ];
           if (e.key < stages.length - 1) {
-            widgets.add(const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 2),
-              child: Text('›', style: TextStyle(
-                color: FluxForgeTheme.textTertiary, fontSize: 10)),
+            widgets.add(Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Container(
+                width: 12, height: 1,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: [
+                    FluxForgeTheme.textTertiary.withOpacity(0.0),
+                    FluxForgeTheme.textTertiary.withOpacity(0.4),
+                    FluxForgeTheme.textTertiary.withOpacity(0.0),
+                  ]),
+                ),
+              ),
             ));
           }
           return widgets;
@@ -1022,8 +1038,8 @@ class _HelixScreenState extends State<HelixScreen>
       11 => const _AbTestPanel(),
       _ => const SizedBox(),
     };
-    // Material wrapper — ensures all panels can use Slider, InkWell, etc.
-    return Material(type: MaterialType.transparency, child: panel);
+    // Material wrapper already provided by _DockCard — no double-wrap needed
+    return panel;
   }
 }
 
@@ -4112,95 +4128,7 @@ class _ExportPanelState extends State<_ExportPanel> {
 // REUSABLE COMPONENTS
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Unified HELIX button — primary / toggle / ghost variant.
-/// All HELIX buttons should use this instead of inline GestureDetector+Container.
-enum _HBtnVariant { primary, toggle, ghost }
-
-class _HBtn extends StatefulWidget {
-  final String label;
-  final VoidCallback? onTap;
-  final Color accent;
-  final _HBtnVariant variant;
-  final bool active;   // for toggle variant
-  final IconData? icon;
-
-  const _HBtn({
-    required this.label,
-    required this.accent,
-    this.onTap,
-    this.variant = _HBtnVariant.ghost,
-    this.active = false,
-    this.icon,
-  });
-
-  @override
-  State<_HBtn> createState() => _HBtnState();
-}
-
-class _HBtnState extends State<_HBtn> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final disabled = widget.onTap == null;
-    final a = widget.accent;
-
-    Color bg;
-    Color border;
-    Color fg;
-
-    switch (widget.variant) {
-      case _HBtnVariant.primary:
-        bg = disabled
-          ? FluxForgeTheme.bgSurface
-          : a.withOpacity(_hovered ? 0.22 : 0.15);
-        border = disabled
-          ? FluxForgeTheme.borderSubtle
-          : a.withOpacity(_hovered ? 0.65 : 0.45);
-        fg = disabled ? FluxForgeTheme.textTertiary : a;
-      case _HBtnVariant.toggle:
-        bg = widget.active
-          ? a.withOpacity(_hovered ? 0.22 : 0.15)
-          : _hovered ? FluxForgeTheme.bgSurface : Colors.transparent;
-        border = widget.active
-          ? a.withOpacity(_hovered ? 0.65 : 0.45)
-          : FluxForgeTheme.borderSubtle;
-        fg = widget.active ? a : (_hovered ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary);
-      case _HBtnVariant.ghost:
-        bg = _hovered ? FluxForgeTheme.bgSurface : Colors.transparent;
-        border = _hovered ? FluxForgeTheme.borderSubtle : Colors.transparent;
-        fg = _hovered ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary;
-    }
-
-    return MouseRegion(
-      cursor: disabled ? SystemMouseCursors.basic : SystemMouseCursors.click,
-      onEnter: (_) { if (!disabled) setState(() => _hovered = true); },
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: border),
-          ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            if (widget.icon != null) ...[
-              Icon(widget.icon, size: 11, color: fg),
-              const SizedBox(width: 5),
-            ],
-            Text(widget.label, style: TextStyle(
-              fontFamily: 'monospace', fontSize: 9,
-              color: fg, fontWeight: FontWeight.w600,
-              letterSpacing: 0.3)),
-          ]),
-        ),
-      ),
-    );
-  }
-}
+// _HBtn removed — unused widget (panels use inline buttons with specific styling)
 
 class _OmniPill extends StatelessWidget {
   final Widget child;
@@ -4231,25 +4159,40 @@ class _OmniIconBtn extends StatefulWidget {
 class _OmniIconBtnState extends State<_OmniIconBtn> {
   bool _hovered = false;
   @override
-  Widget build(BuildContext context) => MouseRegion(
-    cursor: widget.onTap != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
-    onEnter: (_) { if (widget.onTap != null) setState(() => _hovered = true); },
-    onExit: (_) => setState(() => _hovered = false),
-    child: GestureDetector(
-      onTap: widget.onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 110),
-        width: 28, height: 28,
-        decoration: BoxDecoration(
-          color: _hovered ? FluxForgeTheme.bgSurface : Colors.transparent,
-          borderRadius: BorderRadius.circular(5),
-          border: Border.all(color: _hovered ? FluxForgeTheme.borderSubtle.withOpacity(0.8) : FluxForgeTheme.borderSubtle),
+  Widget build(BuildContext context) {
+    final disabled = widget.onTap == null;
+    return MouseRegion(
+      cursor: disabled ? SystemMouseCursors.basic : SystemMouseCursors.click,
+      onEnter: (_) { if (!disabled) setState(() => _hovered = true); },
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          width: 34, height: 34,
+          decoration: BoxDecoration(
+            color: _hovered
+              ? FluxForgeTheme.bgSurface
+              : FluxForgeTheme.bgSurface.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(7),
+            border: Border.all(
+              color: _hovered
+                ? FluxForgeTheme.textSecondary.withOpacity(0.5)
+                : FluxForgeTheme.borderSubtle.withOpacity(0.7),
+              width: 1.2,
+            ),
+            boxShadow: _hovered ? [
+              BoxShadow(color: FluxForgeTheme.accentBlue.withOpacity(0.15), blurRadius: 12),
+            ] : null,
+          ),
+          child: Icon(widget.icon, size: 17,
+            color: disabled
+              ? FluxForgeTheme.textTertiary.withOpacity(0.4)
+              : _hovered ? FluxForgeTheme.textPrimary : (widget.color ?? FluxForgeTheme.textPrimary.withOpacity(0.75))),
         ),
-        child: Icon(widget.icon, size: 14,
-          color: _hovered ? FluxForgeTheme.textPrimary : (widget.color ?? FluxForgeTheme.textSecondary)),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _ModeBadge extends StatefulWidget {
@@ -4263,34 +4206,46 @@ class _ModeBadge extends StatefulWidget {
 class _ModeBadgeState extends State<_ModeBadge> {
   bool _hovered = false;
   @override
-  Widget build(BuildContext context) => MouseRegion(
-    cursor: SystemMouseCursors.click,
-    onEnter: (_) => setState(() => _hovered = true),
-    onExit: (_) => setState(() => _hovered = false),
-    child: GestureDetector(
-      onTap: widget.onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 110),
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-        decoration: BoxDecoration(
-          color: widget.active
-            ? FluxForgeTheme.accentBlue.withOpacity(0.16)
-            : _hovered ? FluxForgeTheme.bgSurface : Colors.transparent,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(
-            color: widget.active
-              ? FluxForgeTheme.accentBlue.withOpacity(0.5)
-              : _hovered ? FluxForgeTheme.borderSubtle : FluxForgeTheme.borderSubtle.withOpacity(0.5)),
+  Widget build(BuildContext context) {
+    final isActive = widget.active;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          decoration: BoxDecoration(
+            color: isActive
+              ? FluxForgeTheme.accentBlue.withOpacity(0.2)
+              : _hovered ? FluxForgeTheme.bgSurface : FluxForgeTheme.bgSurface.withOpacity(0.45),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: isActive
+                ? FluxForgeTheme.accentBlue.withOpacity(0.6)
+                : _hovered
+                  ? FluxForgeTheme.textSecondary.withOpacity(0.5)
+                  : FluxForgeTheme.borderSubtle.withOpacity(0.8),
+              width: isActive ? 1.4 : 1.0,
+            ),
+            boxShadow: isActive ? [
+              BoxShadow(color: FluxForgeTheme.accentBlue.withOpacity(0.2), blurRadius: 14),
+            ] : _hovered ? [
+              BoxShadow(color: FluxForgeTheme.accentBlue.withOpacity(0.08), blurRadius: 10),
+            ] : null,
+          ),
+          child: Text(widget.label, style: TextStyle(
+            fontFamily: 'monospace', fontSize: 11, fontWeight: FontWeight.w800,
+            letterSpacing: 1.0,
+            color: isActive
+              ? FluxForgeTheme.accentBlue
+              : _hovered ? FluxForgeTheme.textPrimary : FluxForgeTheme.textPrimary.withOpacity(0.6))),
         ),
-        child: Text(widget.label, style: TextStyle(
-          fontFamily: 'monospace', fontSize: 9, fontWeight: FontWeight.w600,
-          letterSpacing: 0.5,
-          color: widget.active
-            ? FluxForgeTheme.accentBlue
-            : _hovered ? FluxForgeTheme.textSecondary : FluxForgeTheme.textTertiary)),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _TransportBtn extends StatefulWidget {
@@ -5205,24 +5160,29 @@ class _DockCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0x7F06060A), // rgba(6,6,10,0.5) — mockup .flow-stage-map bg
         border: Border.all(
-          color: a?.withOpacity(0.25) ?? FluxForgeTheme.borderSubtle,
+          color: a?.withOpacity(0.2) ?? FluxForgeTheme.borderSubtle,
           width: 1,
         ),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          if (a != null)
+            BoxShadow(color: a.withOpacity(0.06), blurRadius: 16, spreadRadius: -4),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 2px accent strip at top
+          // 2px accent strip at top — wider gradient for premium feel
           if (a != null)
             Container(
               height: 2,
               decoration: BoxDecoration(
                 gradient: LinearGradient(colors: [
-                  a.withOpacity(0.85),
-                  a.withOpacity(0.2),
+                  a.withOpacity(0.9),
+                  a.withOpacity(0.4),
+                  a.withOpacity(0.1),
                   Colors.transparent,
-                ]),
+                ], stops: const [0.0, 0.3, 0.6, 1.0]),
               ),
             ),
           Expanded(child: Padding(
@@ -5276,20 +5236,26 @@ class _StageNode extends StatelessWidget {
   @override
   Widget build(BuildContext context) => AnimatedContainer(
     duration: const Duration(milliseconds: 300),
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
     decoration: BoxDecoration(
       color: active ? color.withOpacity(0.12) : Colors.transparent,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(12),
+      border: active ? Border.all(color: color.withOpacity(0.3), width: 0.5) : null,
+      boxShadow: active ? [
+        BoxShadow(color: color.withOpacity(0.25), blurRadius: 8, spreadRadius: -2),
+      ] : null,
     ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(width: 5, height: 5, decoration: BoxDecoration(
           color: active ? color : FluxForgeTheme.textTertiary,
-          shape: BoxShape.circle)),
+          shape: BoxShape.circle,
+          boxShadow: active ? [BoxShadow(color: color.withOpacity(0.6), blurRadius: 4)] : null)),
         const SizedBox(width: 5),
         Text(label, style: TextStyle(
           fontFamily: 'monospace', fontSize: 10,
+          fontWeight: active ? FontWeight.w600 : FontWeight.normal,
           color: active ? color : FluxForgeTheme.textTertiary)),
       ],
     ),
@@ -5807,47 +5773,7 @@ class _MathCard extends StatelessWidget {
   );
 }
 
-class _TlTrack extends StatelessWidget {
-  final String name;
-  final Color color;
-  final List<(double, double)> regions; // (start, width) as 0-1 fractions
-  const _TlTrack({required this.name, required this.color, required this.regions});
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 4),
-    child: Row(
-      children: [
-        SizedBox(width: 80, child: Text(name, style: const TextStyle(
-          fontFamily: 'monospace', fontSize: 9,
-          color: FluxForgeTheme.textTertiary))),
-        Expanded(
-          child: LayoutBuilder(
-            builder: (_, c) => Stack(
-              children: [
-                Container(height: 18, decoration: BoxDecoration(
-                  color: FluxForgeTheme.bgDeep,
-                  border: Border.all(color: FluxForgeTheme.borderSubtle),
-                  borderRadius: BorderRadius.circular(3))),
-                ...regions.map((r) => Positioned(
-                  left: r.$1 * c.maxWidth,
-                  width: r.$2 * c.maxWidth,
-                  top: 2, bottom: 2,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: color.withOpacity(0.25),
-                      border: Border.all(color: color.withOpacity(0.4)),
-                      borderRadius: BorderRadius.circular(2)),
-                  ),
-                )),
-              ],
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
-}
+// _TlTrack removed — replaced by _TlTrackInteractive (T1/T2)
 
 class _IntelRow extends StatelessWidget {
   final String label, value;
@@ -5987,28 +5913,25 @@ class _InfoChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = color ?? FluxForgeTheme.textPrimary;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft, end: Alignment.bottomRight,
-          colors: [c.withOpacity(0.12), FluxForgeTheme.bgDeepest.withOpacity(0.9)],
-        ),
-        border: Border.all(color: c.withOpacity(0.4)),
-        borderRadius: BorderRadius.circular(8),
+        color: FluxForgeTheme.bgDeepest.withOpacity(0.85),
+        border: Border.all(color: c.withOpacity(0.35), width: 1),
+        borderRadius: BorderRadius.circular(10),
         boxShadow: [
-          BoxShadow(color: c.withOpacity(0.1), blurRadius: 10),
-          BoxShadow(color: FluxForgeTheme.bgVoid.withOpacity(0.4), blurRadius: 8),
+          BoxShadow(color: c.withOpacity(0.08), blurRadius: 12, spreadRadius: -3),
+          BoxShadow(color: FluxForgeTheme.bgVoid.withOpacity(0.4), blurRadius: 6),
         ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(label, style: TextStyle(
-            fontFamily: 'monospace', fontSize: 9, fontWeight: FontWeight.w700,
-            color: c.withOpacity(0.7), letterSpacing: 0.2)),
-          const SizedBox(width: 7),
+            fontFamily: 'monospace', fontSize: 9, fontWeight: FontWeight.w600,
+            color: c.withOpacity(0.55), letterSpacing: 0.5)),
+          const SizedBox(width: 8),
           Text(value, style: TextStyle(
-            fontFamily: 'monospace', fontSize: 12, fontWeight: FontWeight.w600,
+            fontFamily: 'monospace', fontSize: 13, fontWeight: FontWeight.w800,
             color: c)),
         ],
       ),
@@ -6702,51 +6625,7 @@ class _CoPilotChatWidgetState extends State<_CoPilotChatWidget> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// C1/C2: REEL CELL OVERLAY
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _ReelCellOverlay extends StatelessWidget {
-  final void Function(int reel, int row) onCellTap;
-  const _ReelCellOverlay({required this.onCellTap});
-
-  @override
-  Widget build(BuildContext context) {
-    // Covers roughly the slot reel area: 60% width centered, top ~25%
-    return LayoutBuilder(
-      builder: (_, constraints) {
-        final totalW = constraints.maxWidth;
-        final totalH = constraints.maxHeight;
-        final reelAreaW = totalW * 0.6;
-        final reelAreaH = totalH * 0.5;
-        final reelLeft = (totalW - reelAreaW) / 2;
-        final reelTop = totalH * 0.25;
-        const cols = 5;
-        const rows = 3;
-        final cellW = reelAreaW / cols;
-        final cellH = reelAreaH / rows;
-
-        return Stack(
-          children: [
-            for (int col = 0; col < cols; col++)
-              for (int row = 0; row < rows; row++)
-                Positioned(
-                  left: reelLeft + col * cellW,
-                  top: reelTop + row * cellH,
-                  width: cellW,
-                  height: cellH,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onTap: () => onCellTap(col, row),
-                    child: Container(color: Colors.transparent),
-                  ),
-                ),
-          ],
-        );
-      },
-    );
-  }
-}
+// _ReelCellOverlay removed — cell taps handled by PremiumSlotPreview.onCellTap callback
 
 // ─────────────────────────────────────────────────────────────────────────────
 // C2: REEL CONTEXT LENS
