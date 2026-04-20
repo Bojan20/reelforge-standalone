@@ -1591,6 +1591,7 @@ class _MainGameZone extends StatelessWidget {
   final bool showScatterWin;
   final bool showCascade;
   final void Function(int reelIndex, int rowIndex)? onCellTap;
+  final GlobalKey<SlotPreviewWidgetState>? previewKey;
 
   const _MainGameZone({
     required this.provider,
@@ -1604,6 +1605,7 @@ class _MainGameZone extends StatelessWidget {
     this.showScatterWin = false,
     this.showCascade = false,
     this.onCellTap,
+    this.previewKey,
   });
 
   @override
@@ -1706,7 +1708,7 @@ class _MainGameZone extends StatelessWidget {
                   // Consumer ensures reels are hidden during scene transitions
                   Consumer<GameFlowProvider>(
                     builder: (context, flow, _) => SlotPreviewWidget(
-                      key: ValueKey('slot_preview_${reels}x$rows'),
+                      key: previewKey,
                       provider: provider,
                       projectProvider: projectProvider ?? context.read<SlotLabProjectProvider>(),
                       reels: reels,
@@ -3890,10 +3892,10 @@ class _SpinButtonState extends State<_SpinButton>
         return const Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.stop, color: Colors.white, size: 32),
+            Icon(Icons.flash_on_rounded, color: Colors.white, size: 32),
             SizedBox(height: 4),
             Text(
-              'STOP',
+              'SLAM',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 14,
@@ -4772,6 +4774,9 @@ class PremiumSlotPreview extends StatefulWidget {
 class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     with TickerProviderStateMixin {
   final FocusNode _focusNode = FocusNode();
+
+  /// GlobalKey to access SlotPreviewWidgetState for slam stop.
+  final _previewKey = GlobalKey<SlotPreviewWidgetState>();
 
   // Animation controllers
   late AnimationController _jackpotTickController;
@@ -6389,16 +6394,18 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   }
 
   void _handleStop() {
-    // Stop all reels immediately by stopping stage playback
-    // This triggers SlotPreviewWidget._onProviderUpdate() which calls _finalizeSpin()
-    // which in turn calls _reelAnimController.stopImmediately()
+    // IGT Slam Stop: staggered L→R reel stop with 30ms stagger, no bounce.
+    // SlotPreviewWidget.slamStop() handles animation + audio + finalization chain.
+    _previewKey.currentState?.slamStop();
+
+    // Kill anticipation audio immediately — don't wait for widget listener cycle
+    _stopAnticipationAudio();
+
+    // Fallback: if previewKey not yet mounted, fall back to provider-driven stop
     final provider = context.read<SlotLabProvider>();
-    if (provider.isPlayingStages) {
+    if (_previewKey.currentState == null && provider.isPlayingStages) {
       provider.stopStagePlayback();
     }
-
-    // Kill anticipation audio immediately (don't wait for widget listener cycle)
-    _stopAnticipationAudio();
   }
 
   /// Stop all anticipation audio events immediately.
@@ -6685,6 +6692,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                       rows: widget.rows,
                       winTier: _currentWinTier,
                       onCellTap: widget.onCellTap,
+                      previewKey: _previewKey,
                     ),
                   ),
                 ),

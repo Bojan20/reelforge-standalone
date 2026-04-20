@@ -4430,6 +4430,48 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     }
   }
 
+  /// IGT Slam Stop — sequential reel stop L→R with 30ms stagger.
+  /// PUBLIC: PremiumSlotPreview calls this from its _handleStop().
+  /// Fires slam audio events and chains into normal spin finalization.
+  void slamStop() {
+    if (!_isSpinning) return;
+
+    const staggerMs = 30;
+    final er = EventRegistry.instance;
+    final reels = widget.reels;
+
+    // Fire per-reel slam audio events with same stagger timing
+    for (int i = 0; i < reels; i++) {
+      final delay = Duration(milliseconds: staggerMs * i);
+      Future.delayed(delay, () {
+        if (!mounted) return;
+        er.triggerStage('REEL_SLAM_STOP_$i');
+        // Fallback: trigger generic reel stop if slam stage not assigned
+        er.triggerStage('REEL_STOP_$i');
+      });
+    }
+
+    // Trigger staggered visual stop in animation controller
+    _reelAnimController.slamStop(staggerMs: staggerMs);
+
+    // After all reels stopped (last reel delay + 100ms buffer), finalize spin
+    final totalDelayMs = staggerMs * (reels - 1) + 100;
+    Future.delayed(Duration(milliseconds: totalDelayMs), () {
+      if (!mounted || !_isSpinning) return;
+      // Update display grid to targets
+      setState(() {
+        for (int r = 0; r < reels && r < _targetGrid.length; r++) {
+          for (int row = 0; row < widget.rows && row < _targetGrid[r].length; row++) {
+            _displayGrid[r][row] = _targetGrid[r][row];
+          }
+        }
+      });
+      final result = widget.provider.lastResult;
+      if (result != null) _finalizeSpin(result);
+      widget.provider.stopStagePlayback();
+    });
+  }
+
   /// Get the tier to display (current tier during progression, or final tier)
   String get _displayTier => _currentDisplayTier.isNotEmpty ? _currentDisplayTier : _winTier;
 

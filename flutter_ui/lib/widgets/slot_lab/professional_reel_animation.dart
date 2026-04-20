@@ -8,6 +8,7 @@
 /// - Configurable timing profiles (normal, turbo, studio)
 library;
 
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
@@ -723,6 +724,55 @@ class ProfessionalReelAnimationController extends ChangeNotifier {
 
     // Fire all-stopped callback
     onAllReelsStopped?.call();
+  }
+
+  /// IGT-standard Slam Stop — sequential reel stop L→R with stagger.
+  /// No bounce, no deceleration curve — instant snap per reel.
+  /// [staggerMs] — delay between consecutive reel stops (IGT default: 30ms).
+  void slamStop({int staggerMs = 30}) {
+    if (!_isSpinning) return;
+
+    int reelsStopped = 0;
+    final total = _reelStates.length;
+
+    for (int i = 0; i < total; i++) {
+      final idx = i; // capture for closure
+      final state = _reelStates[idx];
+      final wasMoving = state.phase != ReelPhase.stopped
+                     && state.phase != ReelPhase.idle;
+      if (!wasMoving) {
+        reelsStopped++;
+        if (reelsStopped == total) {
+          _isSpinning = false;
+          notifyListeners();
+          onAllReelsStopped?.call();
+        }
+        continue;
+      }
+
+      void stopReel() {
+        if (state.phase == ReelPhase.stopped || state.phase == ReelPhase.idle) return;
+        state.phase = ReelPhase.stopped;
+        state.velocity = 0;
+        if (!state._audioCallbackFired) {
+          state._audioCallbackFired = true;
+          onReelStop?.call(idx);
+        }
+        notifyListeners();
+        reelsStopped++;
+        if (reelsStopped >= total) {
+          _isSpinning = false;
+          notifyListeners();
+          onAllReelsStopped?.call();
+        }
+      }
+
+      if (i == 0) {
+        stopReel();
+      } else {
+        Future.delayed(Duration(milliseconds: staggerMs * i), stopReel);
+      }
+    }
   }
 
   /// Reset to initial state
