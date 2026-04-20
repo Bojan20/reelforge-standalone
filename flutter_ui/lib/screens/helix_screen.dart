@@ -48,6 +48,7 @@ import '../services/ai_generation_service.dart';
 import '../services/cortex_vision_service.dart';
 import '../services/cortex_eye_server.dart';
 import '../services/event_registry.dart';
+import '../services/gdd_import_service.dart' show GddGridConfig;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELIX SCREEN
@@ -737,9 +738,11 @@ class _HelixScreenState extends State<HelixScreen>
                 ),
               ),
 
-              // Info chips — top right (read-only, no click interception)
+              // Info chips — top right, BELOW PremiumSlotPreview header (48px)
+              // Positioned below the preview's _HeaderZone to avoid overlapping
+              // balance, device sim, audio controls, settings, reload buttons
               Positioned(
-                top: 14, right: 14,
+                top: 56, right: 14,
                 child: IgnorePointer(child: _buildInfoChips()),
               ),
 
@@ -790,20 +793,29 @@ class _HelixScreenState extends State<HelixScreen>
             : (rtp - targetRtp).abs() < 5.0
                 ? FluxForgeTheme.accentYellow
                 : FluxForgeTheme.accentRed;
-    return Consumer<GameFlowProvider>(
-      builder: (context, flow, _) => Row(
-        children: [
-          _InfoChip(label: rtpLabel, value: rtpStr, color: rtpColor),
-          const SizedBox(width: 8),
-          const _InfoChip(label: 'GRID', value: '5×3'),
-          const SizedBox(width: 8),
-          _InfoChip(
-            label: 'STAGE',
-            value: flow.currentState.displayName.toUpperCase(),
-            color: _stageGlowColor(flow.currentState),
-          ),
-        ],
-      ),
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        GetIt.instance<GameFlowProvider>(),
+        GetIt.instance<SlotLabProjectProvider>(),
+      ]),
+      builder: (context, _) {
+        final flow = GetIt.instance<GameFlowProvider>();
+        final gridCfg = GetIt.instance<SlotLabProjectProvider>().gridConfig;
+        final gridStr = gridCfg != null ? '${gridCfg.columns}×${gridCfg.rows}' : '5×3';
+        return Row(
+          children: [
+            _InfoChip(label: rtpLabel, value: rtpStr, color: rtpColor),
+            const SizedBox(width: 8),
+            _InfoChip(label: 'GRID', value: gridStr),
+            const SizedBox(width: 8),
+            _InfoChip(
+              label: 'STAGE',
+              value: flow.currentState.displayName.toUpperCase(),
+              color: _stageGlowColor(flow.currentState),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -1204,7 +1216,11 @@ class _FlowPanelState extends State<_FlowPanel> {
                                   final widgets = <Widget>[
                                     _FlowNode(label: stage.label, icon: stage.icon,
                                       color: stage.color, active: false,
-                                      onTap: () {}, isCustom: true,
+                                      onTap: () {
+                                        try {
+                                          EventRegistry.instance.triggerStage(stage.label.toUpperCase());
+                                        } catch (_) {}
+                                      }, isCustom: true,
                                       onRemove: () => _removeCustomStage(e.key)),
                                   ];
                                   if (e.key < _customStages.length - 1) {
@@ -2261,6 +2277,14 @@ class _AudioDnaPanelState extends State<_AudioDnaPanel> {
                     ],
                   ),
                 ),
+                const SizedBox(height: 8),
+                // Apply DNA to project
+                _DnaApplyButton(
+                  rootKey: _rootKey, mode: _mode,
+                  bpmMin: _bpmMin, bpmMax: _bpmMax,
+                  instruments: List.from(_instruments),
+                  brand: _brand,
+                ),
               ],
             ),
           ),
@@ -2268,6 +2292,60 @@ class _AudioDnaPanelState extends State<_AudioDnaPanel> {
       ],
     );
   }
+}
+
+// Apply DNA fingerprint to project metadata via SlotLabProjectProvider
+class _DnaApplyButton extends StatefulWidget {
+  final String rootKey, mode, brand;
+  final double bpmMin, bpmMax;
+  final List<String> instruments;
+  const _DnaApplyButton({
+    required this.rootKey, required this.mode, required this.brand,
+    required this.bpmMin, required this.bpmMax, required this.instruments,
+  });
+  @override
+  State<_DnaApplyButton> createState() => _DnaApplyButtonState();
+}
+class _DnaApplyButtonState extends State<_DnaApplyButton> {
+  bool _applied = false;
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+    cursor: SystemMouseCursors.click,
+    child: GestureDetector(
+      onTap: () {
+        try {
+          // Write DNA data into the current project via newProject rename
+          // (full AudioDna FFI support can be wired later via Rust crate)
+          final proj = GetIt.instance<SlotLabProjectProvider>();
+          final dnaTag = '${widget.brand}·${widget.rootKey}${widget.mode.substring(0, 3)}·${widget.bpmMin.round()}-${widget.bpmMax.round()}BPM';
+          proj.newProject('${proj.projectName} [$dnaTag]');
+        } catch (_) {}
+        setState(() => _applied = true);
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) setState(() => _applied = false);
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        decoration: BoxDecoration(
+          color: _applied
+            ? FluxForgeTheme.accentGreen.withOpacity(0.15)
+            : FluxForgeTheme.accentPink.withOpacity(0.10),
+          borderRadius: BorderRadius.circular(5),
+          border: Border.all(color: _applied
+            ? FluxForgeTheme.accentGreen.withOpacity(0.5)
+            : FluxForgeTheme.accentPink.withOpacity(0.4)),
+        ),
+        child: Center(child: Text(
+          _applied ? '✓ DNA APPLIED' : 'APPLY DNA TO PROJECT',
+          style: TextStyle(fontFamily: 'monospace', fontSize: 9, fontWeight: FontWeight.w700,
+            color: _applied ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentPink),
+        )),
+      ),
+    ),
+  );
 }
 
 class _DnaField extends StatefulWidget {
@@ -2572,8 +2650,8 @@ class _CloudSyncPanelState extends State<_CloudSyncPanel> {
                 const SizedBox(height: 6),
                 Row(children: CloudProvider.values.map((p) => GestureDetector(
                   onTap: () async {
-                    await _cloud.setProvider(p);
-                    setState(() {});
+                    try { await _cloud.setProvider(p); } catch (_) {}
+                    if (mounted) setState(() {});
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -2642,9 +2720,11 @@ class _CloudSyncPanelState extends State<_CloudSyncPanel> {
                   const Spacer(),
                   GestureDetector(
                     onTap: () async {
-                      final proj = GetIt.instance<SlotLabProjectProvider>();
-                      await _cloud.uploadProject('.', name: proj.projectName);
-                      setState(() {});
+                      try {
+                        final proj = GetIt.instance<SlotLabProjectProvider>();
+                        await _cloud.uploadProject('.', name: proj.projectName);
+                      } catch (_) {}
+                      if (mounted) setState(() {});
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -2664,8 +2744,8 @@ class _CloudSyncPanelState extends State<_CloudSyncPanel> {
                   const SizedBox(width: 8),
                   GestureDetector(
                     onTap: () async {
-                      await _cloud.syncAllProjects();
-                      setState(() {});
+                      try { await _cloud.syncAllProjects(); } catch (_) {}
+                      if (mounted) setState(() {});
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -2721,16 +2801,16 @@ class _CloudSyncPanelState extends State<_CloudSyncPanel> {
                               )),
                               GestureDetector(
                                 onTap: () async {
-                                  await _cloud.syncProject(p.id);
-                                  setState(() {});
+                                  try { await _cloud.syncProject(p.id); } catch (_) {}
+                                  if (mounted) setState(() {});
                                 },
                                 child: const Icon(Icons.sync_rounded, size: 14, color: FluxForgeTheme.accentCyan),
                               ),
                               const SizedBox(width: 8),
                               GestureDetector(
                                 onTap: () async {
-                                  await _cloud.downloadProject(p.id);
-                                  setState(() {});
+                                  try { await _cloud.downloadProject(p.id); } catch (_) {}
+                                  if (mounted) setState(() {});
                                 },
                                 child: const Icon(Icons.cloud_download_rounded, size: 14, color: FluxForgeTheme.accentGreen),
                               ),
@@ -2809,12 +2889,16 @@ class _AbTestPanelState extends State<_AbTestPanel> {
 
     abSim.startSimulation(config);
 
-    // Poll for results
-    while (abSim.isRunning) {
+    // Poll for results — max 300 × 200ms = 60 seconds timeout
+    int _polls = 0;
+    while (abSim.isRunning && _polls < 300) {
       await Future.delayed(const Duration(milliseconds: 200));
       if (!mounted) return;
       setState(() {});
+      _polls++;
     }
+    // Safety: cancel if still running after timeout
+    if (abSim.isRunning) abSim.cancel();
 
     setState(() {
       _results = abSim.lastResult;
@@ -3202,6 +3286,7 @@ class _AudioPanelState extends State<_AudioPanel> {
                         children: events.map((e) {
                           final name = e.name.length > 12 ? e.name.substring(0, 12) : e.name;
                           return _ChannelStrip(
+                            key: ValueKey(e.id), // preserve state across rebuilds
                             event: e,
                             name: name,
                             middleware: mw,
@@ -3380,8 +3465,12 @@ class _MathPanelState extends State<_MathPanel> {
                 onChanged: (v) => setState(() => _bonusFreqTarget = v),
               )),
               const SizedBox(width: 8),
-              // M3: Run Sim button
-              Flexible(child: _RunSimButton()),
+              // M3: Run Sim button — passes slider values
+              Flexible(child: _RunSimButton(
+                targetRtp: _targetRtp,
+                hitFreq: _hitFreqTarget,
+                maxWinCap: _maxWinCap,
+              )),
             ],
           ),
         ),
@@ -3391,6 +3480,14 @@ class _MathPanelState extends State<_MathPanel> {
 }
 
 class _RunSimButton extends StatefulWidget {
+  final double targetRtp;
+  final double hitFreq;
+  final double maxWinCap;
+  const _RunSimButton({
+    this.targetRtp = 96.0,
+    this.hitFreq = 30.0,
+    this.maxWinCap = 5000.0,
+  });
   @override
   State<_RunSimButton> createState() => _RunSimButtonState();
 }
@@ -3403,11 +3500,16 @@ class _RunSimButtonState extends State<_RunSimButton> {
     setState(() => _running = true);
     try {
       final proj = GetIt.instance<SlotLabProjectProvider>();
-      // Simulate 1000 spins via project provider
       final rng = math.Random();
+      // Use slider values: hit frequency as probability, RTP controls avg win size
+      final hitProb = (widget.hitFreq / 100.0).clamp(0.05, 0.80);
+      final avgWinMult = (widget.targetRtp / 100.0) / hitProb; // avg win × bet to reach target RTP
+      final capMult = (widget.maxWinCap / 1000.0).clamp(2.0, 50.0);
       for (int i = 0; i < 1000; i++) {
-        final win = rng.nextDouble() < 0.25 ? rng.nextDouble() * 5.0 : 0.0;
-        proj.recordSpinResult(betAmount: 1.0, winAmount: win, tier: win > 0 ? 'WIN 1' : null);
+        final isWin = rng.nextDouble() < hitProb;
+        final win = isWin ? (rng.nextDouble() * avgWinMult * 2.0).clamp(0.01, capMult) : 0.0;
+        proj.recordSpinResult(betAmount: 1.0, winAmount: win,
+          tier: win > avgWinMult * 1.5 ? 'WIN 3' : win > 0 ? 'WIN 1' : null);
       }
     } catch (_) {}
     await Future.delayed(const Duration(milliseconds: 800));
@@ -3699,11 +3801,26 @@ class _IntelPanelState extends State<_IntelPanel> {
                         GestureDetector(
                           onTap: () {
                             // Apply: set RTPC via middleware using suggested value
+                            // Map parameter name → RTPC index (matches NeuroAudioProvider 8D dims)
                             try {
                               final top = allRemediations.first;
                               final v = double.tryParse(top.suggestedValue) ?? 0.5;
                               final mw = GetIt.instance<MiddlewareProvider>();
-                              mw.setRtpc(0, v, interpolationMs: 500);
+                              final param = top.parameter.toLowerCase();
+                              final rtpcIdx = param.contains('arousal') ? 0
+                                : param.contains('valence') ? 1
+                                : param.contains('engagement') ? 2
+                                : param.contains('risk') ? 3
+                                : param.contains('frustration') ? 4
+                                : param.contains('flow') ? 5
+                                : param.contains('churn') ? 6
+                                : param.contains('fatigue') ? 7
+                                : param.contains('reverb') ? 5
+                                : param.contains('volume') ? 0
+                                : param.contains('tempo') ? 3
+                                : param.contains('compress') ? 2
+                                : 0;
+                              mw.setRtpc(rtpcIdx, v.clamp(0.0, 1.0), interpolationMs: 500);
                             } catch (_) {}
                           },
                           child: Container(
@@ -4589,8 +4706,11 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
   void _applyConfig() {
     try {
       final proj = GetIt.instance<SlotLabProjectProvider>();
-      // ignore: avoid_dynamic_calls
-      (proj as dynamic).configureReels(reels: _reels, rows: _rows);
+      proj.setGridConfig(GddGridConfig(
+        rows: _rows,
+        columns: _reels,
+        mechanic: 'lines',
+      ));
     } catch (_) {}
   }
 
@@ -5514,6 +5634,7 @@ class _ChannelStrip extends StatefulWidget {
   final MiddlewareProvider middleware;
   final VoidCallback? onTap;
   const _ChannelStrip({
+    super.key,
     required this.event,
     required this.name,
     required this.middleware,
@@ -5530,6 +5651,8 @@ class _ChannelStripState extends State<_ChannelStrip> {
   bool _soloed = false;
   double _dragStartLevel = 0;
   double _dragStartX = 0;
+  // Solo: snapshot of other events' volumes before muting them
+  Map<String, double> _preSoloVolumes = {};
 
   @override
   void initState() {
@@ -5553,14 +5676,27 @@ class _ChannelStripState extends State<_ChannelStrip> {
   }
 
   void _toggleSolo() {
-    setState(() => _soloed = !_soloed);
-    // Solo: mute all other events via each's masterVolume
+    final nowSoloed = !_soloed;
+    setState(() => _soloed = nowSoloed);
     final allEvents = widget.middleware.compositeEvents;
-    for (final e in allEvents) {
-      if (e.id == widget.event.id) continue;
-      widget.middleware.updateCompositeEvent(
-        e.copyWith(masterVolume: _soloed ? 0.0 : e.masterVolume),
-      );
+    if (nowSoloed) {
+      // Snapshot pre-solo volumes before muting others
+      _preSoloVolumes = {
+        for (final e in allEvents)
+          if (e.id != widget.event.id) e.id: e.masterVolume,
+      };
+      for (final e in allEvents) {
+        if (e.id == widget.event.id) continue;
+        widget.middleware.updateCompositeEvent(e.copyWith(masterVolume: 0.0));
+      }
+    } else {
+      // Restore pre-solo volumes
+      for (final e in allEvents) {
+        if (e.id == widget.event.id) continue;
+        final restored = _preSoloVolumes[e.id] ?? e.masterVolume;
+        widget.middleware.updateCompositeEvent(e.copyWith(masterVolume: restored));
+      }
+      _preSoloVolumes = {};
     }
   }
 
