@@ -3195,8 +3195,6 @@ pub extern "C" fn slot_lab_par_to_game_model(par_json_ptr: *const c_char) -> *mu
             1024 => WinMechanism::ways_1024(),
             _ => WinMechanism::ways_243(),
         }
-    } else if doc.paylines > 0 {
-        WinMechanism::standard_20_paylines()
     } else {
         WinMechanism::standard_20_paylines()
     };

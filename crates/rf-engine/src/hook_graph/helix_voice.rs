@@ -441,7 +441,7 @@ impl HxVoice {
         };
 
         let channels = audio.channels as usize;
-        let total_frames = if channels > 0 { audio.samples.len() / channels } else { 0 };
+        let total_frames = audio.samples.len().checked_div(channels).unwrap_or(0);
 
         if total_frames == 0 {
             self.state = HxVoiceState::Stopped;

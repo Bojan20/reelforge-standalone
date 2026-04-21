@@ -1,3 +1,4 @@
+#![allow(clippy::field_reassign_with_default)]
 //! SpatialManager — Real-time 3D audio state + render orchestration.
 //!
 //! Bridges Flutter spatial commands (CortexBridge) to the actual rf-spatial

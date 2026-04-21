@@ -53,6 +53,7 @@ pub struct BrowserInfo {
 
 impl WsServer {
     /// Create a new WebSocket server (does NOT start listening yet).
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         let (cmd_tx, _cmd_rx) = mpsc::unbounded_channel();
         let (event_tx, event_rx) = crossbeam_channel::bounded(256);
@@ -140,6 +141,7 @@ impl WsServer {
 
     // ─── Internal: async server loop ──────────────────────────────────────
 
+    #[allow(clippy::too_many_arguments)]
     async fn run_server(
         addr: SocketAddr,
         cmd_rx: mpsc::UnboundedReceiver<BrowserCommand>,
@@ -214,6 +216,7 @@ impl WsServer {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn handle_connection(
         stream: TcpStream,
         peer: SocketAddr,

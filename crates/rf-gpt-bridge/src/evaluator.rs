@@ -246,7 +246,7 @@ impl ResponseEvaluator {
                         ),
                     });
                 }
-                ratio.min(1.0).max(0.3)
+                ratio.clamp(0.3, 1.0)
             }
 
             OutputFormat::CodeOnly => {

@@ -438,7 +438,7 @@ fn validate_audio_buffer(ptr: *const f64, frames: usize, context: &str) -> bool 
 
     // Check for potential overflow
     let byte_size = frames.checked_mul(std::mem::size_of::<f64>());
-    if !byte_size.is_some_and(|s| s <= MAX_FFI_BUFFER_SIZE) {
+    if byte_size.is_none_or(|s| s > MAX_FFI_BUFFER_SIZE) {
         log::warn!("FFI {} buffer size overflow", context);
         return false;
     }
@@ -9452,10 +9452,11 @@ pub extern "C" fn elastic_apply_to_clip(clip_id: u32) -> i32 {
             let tid = TrackId(clip_id as u64);
             let clips = TRACK_MANAGER.get_clips_for_track(tid);
             if let Some(c) = clips.first() {
-                let mut cfg = rf_dsp::elastic_pro::ElasticProConfig::default();
-                cfg.stretch_ratio = c.stretch_ratio;
-                cfg.pitch_shift = c.pitch_shift;
-                cfg
+                rf_dsp::elastic_pro::ElasticProConfig {
+                    stretch_ratio: c.stretch_ratio,
+                    pitch_shift: c.pitch_shift,
+                    ..Default::default()
+                }
             } else {
                 rf_dsp::elastic_pro::ElasticProConfig::default()
             }

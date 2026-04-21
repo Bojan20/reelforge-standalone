@@ -757,7 +757,7 @@ impl PluginInstance for AudioUnitInstance {
                 au_render_process(
                     handle,
                     in_ptrs.as_ptr(),
-                    out_ptrs.as_ptr() as *const *mut f32,
+                    out_ptrs.as_ptr(),
                     n_ch as u32,
                     n_frames as u32,
                 )

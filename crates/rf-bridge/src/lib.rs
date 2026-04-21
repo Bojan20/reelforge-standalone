@@ -241,12 +241,7 @@ fn gpt_bridge_init() {
 fn gpt_bridge_drain_loop(cortex_handle: CortexHandle) {
     let drain_interval = std::time::Duration::from_millis(100);
 
-    loop {
-        // Check if bridge still exists (shutdown check)
-        let Some(bridge) = GPT_BRIDGE.get() else {
-            break;
-        };
-
+    while let Some(bridge) = GPT_BRIDGE.get() {
         if !bridge.is_ready() {
             break;
         }

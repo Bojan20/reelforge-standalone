@@ -1291,7 +1291,7 @@ class _FlowPanelState extends State<_FlowPanel> {
                 accent: FluxForgeTheme.accentBlue,
                 child: ListenableBuilder(
                   listenable: GetIt.instance<MiddlewareProvider>(),
-                  builder: (_, __) {
+                  builder: (_, _) {
                     final mw = GetIt.instance<MiddlewareProvider>();
                     final stageMap = <String, List<String>>{};
                     for (final e in mw.compositeEvents) {
@@ -3064,7 +3064,7 @@ class _AbTestPanelState extends State<_AbTestPanel> {
                 if (_isRunning) ...[
                   ListenableBuilder(
                     listenable: GetIt.instance<AbSimProvider>(),
-                    builder: (_, __) {
+                    builder: (_, _) {
                     final abSim = GetIt.instance<AbSimProvider>();
                     return Column(children: [
                       LinearProgressIndicator(

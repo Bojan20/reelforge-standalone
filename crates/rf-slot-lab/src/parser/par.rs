@@ -42,6 +42,7 @@ pub enum ParVolatility {
 }
 
 impl ParVolatility {
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Self {
         match s.to_lowercase().trim() {
             "low" | "l" | "1" => Self::Low,
@@ -177,6 +178,7 @@ pub enum ParFeatureType {
 }
 
 impl ParFeatureType {
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Self {
         match s.to_lowercase().replace([' ', '-'], "_").as_str() {
             "free_spins" | "freespins" | "free_games" | "fg" => Self::FreeSpins,

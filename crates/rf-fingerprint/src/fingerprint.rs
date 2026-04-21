@@ -52,7 +52,7 @@ impl BundleFingerprint {
     /// Compute fingerprint from a list of event specs.
     pub fn compute(
         game_id: &str,
-        events: &mut Vec<FingerprintSpec>,
+        events: &mut [FingerprintSpec],
         tool_version: &str,
         generated_at: &str,
     ) -> Self {

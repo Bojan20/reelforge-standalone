@@ -229,7 +229,7 @@ class ComplianceGateResult {
 /// Auto-analyses the live session and generates RGAR compliance report.
 ///
 /// Usage:
-///   final service = GetIt.instance<RgarReportService>();
+///   final service = GetIt.instance\<RgarReportService\>();
 ///   final gate = await service.runComplianceGate();
 ///   if (!gate.allowed) { ... show error ... }
 class RgarReportService extends ChangeNotifier {

@@ -145,10 +145,10 @@ class PluginParamId {
 
   /// Unique key for lane map.
   /// Includes slot to differentiate same param index on different plugin slots.
-  /// Format: "trackId:plugin_S<slot>_P<paramIndex>"
+  /// Format: `trackId:plugin_S<slot>_P<paramIndex>`
   String get laneKey => '$trackId:plugin_S${slot}_P$paramIndex';
 
-  /// Param name for Rust FFI (matches Rust ParamId.param_name format: "param_<index>")
+  /// Param name for Rust FFI (matches Rust ParamId.param_name format: `param_<index>`)
   /// Slot is passed separately to FFI, NOT embedded in param_name.
   String get paramName => 'param_$paramIndex';
 

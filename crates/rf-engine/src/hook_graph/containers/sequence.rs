@@ -44,6 +44,7 @@ impl SequenceContainer {
         }
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> usize {
         if self.count == 0 { return 0; }
 

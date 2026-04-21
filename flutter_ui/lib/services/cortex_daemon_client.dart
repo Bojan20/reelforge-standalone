@@ -53,7 +53,7 @@ class DaemonStreamEvent {
   double get costUsd => (data['cost_usd'] as num?)?.toDouble() ?? 0.0;
 
   @override
-  String toString() => 'DaemonStreamEvent($type, ${text.isNotEmpty ? "${text.length} chars" : content.length > 0 ? "${content.length} chars" : errorMessage})';
+  String toString() => 'DaemonStreamEvent($type, ${text.isNotEmpty ? "${text.length} chars" : content.isNotEmpty ? "${content.length} chars" : errorMessage})';
 }
 
 /// Full query response (non-streaming).

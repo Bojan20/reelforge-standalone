@@ -4335,7 +4335,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                 Positioned.fill(
                   child: AnimatedBuilder(
                     animation: _winPulseAnimation,
-                    builder: (_, __) => CustomPaint(
+                    builder: (_, _) => CustomPaint(
                       painter: _WinLinePainter(
                         positions: _currentPresentingLine!.positions,
                         reelCount: widget.reels,
