@@ -24927,6 +24927,18 @@ pub extern "C" fn razor_duplicate() -> i32 {
     })
 }
 
+/// Glue (join) two adjacent clips into one.
+/// Returns the merged clip ID (>0) on success, 0 on failure.
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_glue_clips(clip_a_id: u64, clip_b_id: u64) -> u64 {
+    ffi_panic_guard!(0, {
+        match TRACK_MANAGER.glue_clips(ClipId(clip_a_id), ClipId(clip_b_id)) {
+            Some(id) => id.0,
+            None => 0,
+        }
+    })
+}
+
 /// Helper: convert razor clipboard to JSON c_char pointer
 fn razor_clipboard_to_json(
     clipboard: &[(f64, crate::track_manager::TrackId, crate::track_manager::Clip)],
@@ -24959,6 +24971,117 @@ fn razor_clipboard_to_json(
         Ok(c) => c.into_raw(),
         Err(_) => std::ptr::null_mut(),
     }
+}
+
+/// Mute clips within razor areas.
+/// muted: 1 = mute, 0 = unmute
+#[unsafe(no_mangle)]
+pub extern "C" fn razor_mute(muted: i32) -> i32 {
+    ffi_panic_guard!(0, {
+        TRACK_MANAGER.razor_mute(muted != 0);
+        1
+    })
+}
+
+/// Join (glue) all clips within razor areas on each track.
+/// Returns number of resulting clips.
+#[unsafe(no_mangle)]
+pub extern "C" fn razor_join() -> i32 {
+    ffi_panic_guard!(0, {
+        let result = TRACK_MANAGER.razor_join();
+        result.len() as i32
+    })
+}
+
+/// Apply fade in + fade out to clips within razor areas.
+/// fade_duration: fade duration in seconds.
+#[unsafe(no_mangle)]
+pub extern "C" fn razor_fade_both(fade_duration: f64) -> i32 {
+    ffi_panic_guard!(0, {
+        TRACK_MANAGER.razor_fade_both(fade_duration);
+        1
+    })
+}
+
+/// Heal separation: close gaps between clips within razor areas.
+#[unsafe(no_mangle)]
+pub extern "C" fn razor_heal_separation() -> i32 {
+    ffi_panic_guard!(0, {
+        TRACK_MANAGER.razor_heal_separation();
+        1
+    })
+}
+
+/// Insert silence: push clips forward from cursor position.
+/// position: time in seconds. duration: silence duration in seconds.
+#[unsafe(no_mangle)]
+pub extern "C" fn razor_insert_silence(position: f64, duration: f64) -> i32 {
+    ffi_panic_guard!(0, {
+        TRACK_MANAGER.razor_insert_silence(position, duration);
+        1
+    })
+}
+
+/// Strip silence: split and remove silent regions within razor areas.
+/// threshold_db: silence threshold (e.g., -60.0)
+/// min_silence_ms: minimum silence duration in ms (e.g., 200.0)
+#[unsafe(no_mangle)]
+pub extern "C" fn razor_strip_silence(threshold_db: f64, min_silence_ms: f64) -> i32 {
+    ffi_panic_guard!(0, {
+        TRACK_MANAGER.razor_strip_silence(threshold_db, min_silence_ms)
+    })
+}
+
+/// Paste clipboard content at given position.
+/// clipboard_json: JSON string from razor_cut/razor_copy.
+/// paste_time: time in seconds to paste at.
+/// Returns number of clips pasted.
+#[unsafe(no_mangle)]
+pub extern "C" fn razor_paste(clipboard_json: *const c_char, paste_time: f64) -> i32 {
+    ffi_panic_guard!(0, {
+        if clipboard_json.is_null() {
+            return 0;
+        }
+        let json_str = unsafe { CStr::from_ptr(clipboard_json) }.to_str().unwrap_or("");
+        if json_str.is_empty() {
+            return 0;
+        }
+        // Parse clipboard JSON back into clip data
+        let parsed: Result<Vec<serde_json::Value>, _> = serde_json::from_str(json_str);
+        match parsed {
+            Ok(items) => {
+                let mut clipboard = Vec::new();
+                for item in &items {
+                    let rel_time = item["rel_time"].as_f64().unwrap_or(0.0);
+                    let track_id = item["track_id"].as_u64().unwrap_or(0);
+                    let name = item["name"].as_str().unwrap_or("pasted").to_string();
+                    let source = item["source"].as_str().unwrap_or("").to_string();
+                    let start = item["start"].as_f64().unwrap_or(0.0);
+                    let duration = item["duration"].as_f64().unwrap_or(1.0);
+                    let source_offset = item["source_offset"].as_f64().unwrap_or(0.0);
+                    let gain = item["gain"].as_f64().unwrap_or(1.0);
+                    let reversed = item["reversed"].as_bool().unwrap_or(false);
+
+                    let mut clip = crate::track_manager::Clip::new(
+                        crate::track_manager::TrackId(track_id),
+                        &name,
+                        &source,
+                        start,
+                        duration,
+                    );
+                    clip.source_file = source;
+                    clip.source_offset = source_offset;
+                    clip.gain = gain;
+                    clip.reversed = reversed;
+
+                    clipboard.push((rel_time, crate::track_manager::TrackId(track_id), clip));
+                }
+                let new_ids = TRACK_MANAGER.razor_paste(&clipboard, paste_time, None);
+                new_ids.len() as i32
+            }
+            Err(_) => 0,
+        }
+    })
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

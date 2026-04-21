@@ -294,6 +294,110 @@ class _ProMeterPainter extends CustomPainter {
   }
 
   void _paintHorizontal(Canvas canvas, Size size) {
+    final labelHeight = showLabels ? 14.0 : 0.0;
+    final meterHeight = (size.height - labelHeight) / 2 - 2;
+    final meterWidth = size.width - 4;
+
+    // Background
+    final bgPaint = Paint()..color = FluxForgeTheme.bgDeepest;
+    canvas.drawRect(Rect.fromLTWH(2, 0, meterWidth, size.height - labelHeight), bgPaint);
+
+    // Left (top) meter
+    _drawHorizontalBar(
+      canvas,
+      Rect.fromLTWH(2, 1, meterWidth, meterHeight),
+      smoothedLeft,
+      peakHoldLeft,
+      readings.clippedLeft,
+    );
+
+    // Right (bottom) meter
+    _drawHorizontalBar(
+      canvas,
+      Rect.fromLTWH(2, meterHeight + 3, meterWidth, meterHeight),
+      smoothedRight,
+      peakHoldRight,
+      readings.clippedRight,
+    );
+
+    // Scale labels along bottom
+    if (showLabels) {
+      const dbMarks = [0, -6, -12, -24, -48];
+      for (final db in dbMarks) {
+        final norm = _dbToNormalized(db.toDouble());
+        final x = 2 + norm * meterWidth;
+        final tp = TextPainter(
+          text: TextSpan(
+            text: '$db',
+            style: const TextStyle(
+              fontFamily: 'monospace', fontSize: 7,
+              color: FluxForgeTheme.textTertiary,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        tp.paint(canvas, Offset(x - tp.width / 2, size.height - labelHeight + 1));
+      }
+    }
+  }
+
+  void _drawHorizontalBar(
+    Canvas canvas,
+    Rect rect,
+    double level,
+    double peakHold,
+    bool clipped,
+  ) {
+    final db = 20 * math.log(level.clamp(1e-10, 10)) / math.ln10;
+    final normalizedLevel = _dbToNormalized(db);
+    final levelWidth = normalizedLevel * rect.width;
+
+    // Green → Yellow → Red gradient (left to right)
+    final gradient = LinearGradient(
+      begin: Alignment.centerLeft,
+      end: Alignment.centerRight,
+      colors: const [
+        Color(0xFF00CC66), // green
+        Color(0xFF00CC66),
+        Color(0xFFCCCC00), // yellow
+        Color(0xFFCC3300), // red
+      ],
+      stops: const [0.0, 0.6, 0.85, 1.0],
+    );
+
+    final barPaint = Paint()
+      ..shader = gradient.createShader(rect);
+
+    // Filled bar
+    canvas.drawRect(
+      Rect.fromLTWH(rect.left, rect.top, levelWidth, rect.height),
+      barPaint,
+    );
+
+    // Peak hold line (vertical)
+    if (showPeakHold) {
+      final peakDb = 20 * math.log(peakHold.clamp(1e-10, 10)) / math.ln10;
+      final peakNorm = _dbToNormalized(peakDb);
+      final peakX = rect.left + peakNorm * rect.width;
+      final peakPaint = Paint()
+        ..color = clipped ? const Color(0xFFFF3333) : const Color(0xFFFFFFFF)
+        ..strokeWidth = 1.5;
+      canvas.drawLine(
+        Offset(peakX, rect.top),
+        Offset(peakX, rect.bottom),
+        peakPaint,
+      );
+    }
+
+    // Clip indicator (red dot on right edge)
+    if (clipped) {
+      final clipPaint = Paint()..color = const Color(0xFFFF3333);
+      canvas.drawCircle(
+        Offset(rect.right - 3, rect.top + rect.height / 2),
+        2.5,
+        clipPaint,
+      );
+    }
   }
 
   void _drawMeterBar(

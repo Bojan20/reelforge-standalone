@@ -442,14 +442,15 @@ class EngineApi {
     }
   }
 
-  /// Set tempo
+  /// Set tempo — syncs to Rust click track + edit context
   void setTempo(double bpm) {
+    final clampedBpm = bpm.clamp(20.0, 999.0);
     _transport = TransportState(
       isPlaying: _transport.isPlaying,
       isRecording: _transport.isRecording,
       positionSamples: _transport.positionSamples,
       positionSeconds: _transport.positionSeconds,
-      tempo: bpm.clamp(20.0, 999.0),
+      tempo: clampedBpm,
       timeSigNum: _transport.timeSigNum,
       timeSigDenom: _transport.timeSigDenom,
       loopEnabled: _transport.loopEnabled,
@@ -457,6 +458,10 @@ class EngineApi {
       loopEnd: _transport.loopEnd,
     );
     _transportController.add(_transport);
+    // Sync to Rust engine
+    if (!_useMock) {
+      _ffi.clickSetTempo(clampedBpm);
+    }
   }
 
   /// Set time signature
@@ -888,6 +893,114 @@ class EngineApi {
       }
     }
     return 'clip-${DateTime.now().millisecondsSinceEpoch}';
+  }
+
+  /// Glue (join) two adjacent clips into one
+  /// Returns merged clip ID or null on failure
+  String? glueClips(String clipAId, String clipBId) {
+    if (!_useMock) {
+      final a = _parseClipId(clipAId);
+      final b = _parseClipId(clipBId);
+      if (a != null && b != null) {
+        final merged = _ffi.glueClips(a, b);
+        if (merged != 0) return merged.toString();
+      }
+    }
+    return null;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // RAZOR EDIT
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Add a razor area on a track. content: 0=Media, 1=Envelope, 2=Both
+  int razorAddArea(int trackId, double start, double end, {int content = 0}) {
+    if (!_useMock) return _ffi.razorAddArea(trackId, start, end, content: content);
+    return 0;
+  }
+
+  /// Update razor area bounds during drag
+  bool razorUpdateArea(int areaId, double start, double end) {
+    if (!_useMock) return _ffi.razorUpdateArea(areaId, start, end);
+    return false;
+  }
+
+  /// Remove a specific razor area
+  bool razorRemoveArea(int areaId) {
+    if (!_useMock) return _ffi.razorRemoveArea(areaId);
+    return false;
+  }
+
+  /// Clear all razor areas
+  bool razorClearAll() {
+    if (!_useMock) return _ffi.razorClearAll();
+    return false;
+  }
+
+  /// Clear razor areas for a specific track
+  bool razorClearTrack(int trackId) {
+    if (!_useMock) return _ffi.razorClearTrack(trackId);
+    return false;
+  }
+
+  /// Check if any razor areas exist
+  bool razorHasAreas() {
+    if (!_useMock) return _ffi.razorHasAreas();
+    return false;
+  }
+
+  /// Get all razor areas as JSON string
+  String? razorGetAreasJson() {
+    if (!_useMock) return _ffi.razorGetAreasJson();
+    return null;
+  }
+
+  /// Delete content within all razor areas
+  bool razorDelete() {
+    if (!_useMock) return _ffi.razorDelete();
+    return false;
+  }
+
+  /// Split clips at razor area boundaries
+  bool razorSplit() {
+    if (!_useMock) return _ffi.razorSplit();
+    return false;
+  }
+
+  /// Cut content (copy + delete). Returns clipboard JSON
+  String? razorCut() {
+    if (!_useMock) return _ffi.razorCut();
+    return null;
+  }
+
+  /// Copy content within razor areas. Returns clipboard JSON
+  String? razorCopy() {
+    if (!_useMock) return _ffi.razorCopy();
+    return null;
+  }
+
+  /// Move razor content by time delta
+  bool razorMove(double deltaTime, {int targetTrackId = 0}) {
+    if (!_useMock) return _ffi.razorMove(deltaTime, targetTrackId: targetTrackId);
+    return false;
+  }
+
+  /// Reverse audio within all razor areas
+  bool razorReverse() {
+    if (!_useMock) return _ffi.razorReverse();
+    return false;
+  }
+
+  /// Stretch content within razor areas
+  bool razorStretch(double ratio) {
+    if (!_useMock) return _ffi.razorStretch(ratio);
+    return false;
+  }
+
+  /// Duplicate razor content. Returns count of new clips
+  int razorDuplicate() {
+    if (!_useMock) return _ffi.razorDuplicate();
+    return 0;
   }
 
   /// Delete a clip

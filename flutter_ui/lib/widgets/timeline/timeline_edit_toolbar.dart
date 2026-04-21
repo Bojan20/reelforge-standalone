@@ -23,6 +23,10 @@ class TimelineEditToolbar extends StatelessWidget {
   final ValueChanged<bool>? onSnapToggle;
   final ValueChanged<double>? onSnapValueChange;
 
+  /// Sample rate selector
+  final int sampleRate;
+  final ValueChanged<int>? onSampleRateChanged;
+
   const TimelineEditToolbar({
     super.key,
     required this.provider,
@@ -30,6 +34,8 @@ class TimelineEditToolbar extends StatelessWidget {
     this.snapValue = 0.25,
     this.onSnapToggle,
     this.onSnapValueChange,
+    this.sampleRate = 48000,
+    this.onSampleRateChanged,
   });
 
   static const double toolbarHeight = 30;
@@ -100,6 +106,16 @@ class TimelineEditToolbar extends StatelessWidget {
                 value: snapValue,
                 onChanged: onSnapValueChange,
               ),
+
+              if (onSampleRateChanged != null) ...[
+                const SizedBox(width: 6),
+                Container(width: 1, height: 18, color: FluxForgeTheme.bgSurface),
+                const SizedBox(width: 6),
+                _SampleRateSelector(
+                  value: sampleRate,
+                  onChanged: onSampleRateChanged!,
+                ),
+              ],
 
               const Spacer(),
 
@@ -435,6 +451,59 @@ class _SnapGridSelector extends StatelessWidget {
               size: 14,
               color: FluxForgeTheme.textTertiary,
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Sample Rate selector dropdown
+class _SampleRateSelector extends StatelessWidget {
+  final int value;
+  final ValueChanged<int> onChanged;
+
+  static const _rates = [44100, 48000, 88200, 96000, 176400, 192000];
+
+  const _SampleRateSelector({required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final label = '${(value / 1000).toStringAsFixed(value % 1000 == 0 ? 0 : 1)} kHz';
+    return PopupMenuButton<int>(
+      onSelected: onChanged,
+      tooltip: 'Project Sample Rate',
+      constraints: const BoxConstraints(minWidth: 80),
+      color: const Color(0xFF1A1A24),
+      itemBuilder: (_) => _rates.map((r) {
+        final rLabel = '${(r / 1000).toStringAsFixed(r % 1000 == 0 ? 0 : 1)} kHz';
+        return PopupMenuItem<int>(
+          value: r,
+          height: 28,
+          child: Row(
+            children: [
+              if (r == value)
+                const Icon(Icons.check, size: 14, color: Color(0xFF64FFDA))
+              else
+                const SizedBox(width: 14),
+              const SizedBox(width: 6),
+              Text(rLabel, style: const TextStyle(color: Colors.white, fontSize: 11)),
+            ],
+          ),
+        );
+      }).toList(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: FluxForgeTheme.bgSurface, width: 1),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(label, style: FluxForgeTheme.bodySmall.copyWith(fontSize: 10, color: FluxForgeTheme.textSecondary)),
+            const SizedBox(width: 2),
+            const Icon(Icons.arrow_drop_down, size: 14, color: FluxForgeTheme.textTertiary),
           ],
         ),
       ),

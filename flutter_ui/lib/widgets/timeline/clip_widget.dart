@@ -55,6 +55,7 @@ class ClipWidget extends StatefulWidget {
   final void Function(Offset globalPosition)? onDragEnd;
   final ValueChanged<double>? onGainChange;
   final void Function(double fadeIn, double fadeOut)? onFadeChange;
+  final void Function(FadeCurve fadeInCurve, FadeCurve fadeOutCurve)? onFadeCurveChange;
   final void Function(double newStartTime, double newDuration, double? newOffset)?
       onResize;
   /// Called when resize drag ends - for final FFI commit
@@ -84,6 +85,8 @@ class ClipWidget extends StatefulWidget {
   final void Function(double newDuration, double stretchRatio)? onTimeStretch;
   /// Called when time stretch drag ends — for FFI commit
   final VoidCallback? onTimeStretchEnd;
+  /// Called when zoom tool clicks on clip — (centerTime, zoomIn)
+  final void Function(double centerTime, bool zoomIn)? onZoomAtPosition;
   /// Called when split at specific position (Cubase Alt+click)
   final ValueChanged<double>? onSplitAtPosition;
   /// Called when clip is moved in Shuffle mode — clips should push neighbors
@@ -122,6 +125,7 @@ class ClipWidget extends StatefulWidget {
     this.onDragEnd,
     this.onGainChange,
     this.onFadeChange,
+    this.onFadeCurveChange,
     this.onResize,
     this.onResizeEnd,
     this.onRename,
@@ -139,6 +143,7 @@ class ClipWidget extends StatefulWidget {
     this.onLoopDurationChange,
     this.onTimeStretch,
     this.onTimeStretchEnd,
+    this.onZoomAtPosition,
     this.onSplitAtPosition,
     this.onShuffleMove,
     this.onPlayheadMove,
@@ -412,6 +417,19 @@ class _ClipWidgetState extends State<ClipWidget> {
             ),
           ),
         ],
+        if (widget.onFadeCurveChange != null && (clip.fadeIn > 0 || clip.fadeOut > 0)) ...[
+          const PopupMenuDivider(),
+          PopupMenuItem(
+            value: 'fade_curves',
+            child: Row(
+              children: [
+                const Icon(Icons.show_chart, size: 18),
+                const SizedBox(width: 8),
+                const Text('Fade Curves...'),
+              ],
+            ),
+          ),
+        ],
         const PopupMenuDivider(),
         PopupMenuItem(
           value: 'delete',
@@ -462,11 +480,74 @@ class _ClipWidgetState extends State<ClipWidget> {
         case 'warp_to_tempo':
           if (!clip.locked) widget.onWarpToTempo?.call();
           break;
+        case 'fade_curves':
+          if (!clip.locked) _showFadeCurveSelector(context, clip);
+          break;
         case 'delete':
           if (!clip.locked) widget.onDelete?.call();
           break;
       }
     });
+  }
+
+  void _showFadeCurveSelector(BuildContext context, dynamic clip) {
+    final curves = FadeCurve.values;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A24),
+        title: const Text('Fade Curves', style: TextStyle(color: Colors.white, fontSize: 14)),
+        content: SizedBox(
+          width: 280,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (clip.fadeIn > 0) ...[
+                const Text('Fade In', style: TextStyle(color: Color(0xFF64FFDA), fontSize: 12)),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 4,
+                  children: curves.map((c) {
+                    final isSelected = c == clip.fadeInCurve;
+                    return ChoiceChip(
+                      label: Text(c.name, style: TextStyle(fontSize: 10, color: isSelected ? Colors.black : Colors.white)),
+                      selected: isSelected,
+                      selectedColor: const Color(0xFF64FFDA),
+                      backgroundColor: const Color(0xFF2A2A38),
+                      onSelected: (_) {
+                        widget.onFadeCurveChange?.call(c, clip.fadeOutCurve);
+                        Navigator.pop(ctx);
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 12),
+              ],
+              if (clip.fadeOut > 0) ...[
+                const Text('Fade Out', style: TextStyle(color: Color(0xFFFF6464), fontSize: 12)),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 4,
+                  children: curves.map((c) {
+                    final isSelected = c == clip.fadeOutCurve;
+                    return ChoiceChip(
+                      label: Text(c.name, style: TextStyle(fontSize: 10, color: isSelected ? Colors.black : Colors.white)),
+                      selected: isSelected,
+                      selectedColor: const Color(0xFFFF6464),
+                      backgroundColor: const Color(0xFF2A2A38),
+                      onSelected: (_) {
+                        widget.onFadeCurveChange?.call(clip.fadeInCurve, c);
+                        Navigator.pop(ctx);
+                      },
+                    );
+                  }).toList(),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -616,8 +697,11 @@ class _ClipWidgetState extends State<ClipWidget> {
                   widget.onGlue?.call();
                   return;
                 case TimelineEditTool.zoom:
-                  // Zoom tool on clip: zoom in centered at click
-                  // Alt+click = zoom out (handled in Timeline)
+                  // Zoom tool on clip: zoom in centered at click position
+                  // Alt+click = zoom out
+                  final zoomTime = clip.startTime + clickX / widget.zoom;
+                  final zoomIn = !_pointerDownAlt;
+                  widget.onZoomAtPosition?.call(zoomTime, zoomIn);
                   return;
                 case TimelineEditTool.play:
                   // Play tool: move playhead to click position

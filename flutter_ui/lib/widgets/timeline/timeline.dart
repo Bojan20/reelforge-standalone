@@ -20,6 +20,7 @@ import 'package:desktop_drop/desktop_drop.dart';
 import 'package:cross_file/cross_file.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../../models/timeline_models.dart';
+import '../../models/middleware_models.dart' show FadeCurve;
 import '../../models/comping_models.dart';
 import '../../src/rust/engine_api.dart';
 import '../../services/cortex_vision_service.dart';
@@ -98,6 +99,8 @@ class Timeline extends StatefulWidget {
   final void Function(String clipId, double gain)? onClipGainChange;
   final void Function(String clipId, double fadeIn, double fadeOut)?
       onClipFadeChange;
+  final void Function(String clipId, FadeCurve fadeInCurve, FadeCurve fadeOutCurve)?
+      onClipFadeCurveChange;
   final void Function(String clipId, String newName)? onClipRename;
   final void Function(String trackId, Color color)? onTrackColorChange;
   final void Function(String trackId, OutputBus bus)? onTrackBusChange;
@@ -194,6 +197,7 @@ class Timeline extends StatefulWidget {
   /// Full crossfade update with startTime and duration (for left-edge resize)
   final void Function(String crossfadeId, double startTime, double duration)? onCrossfadeFullUpdate;
   final void Function(String crossfadeId)? onCrossfadeDelete;
+  final void Function(String crossfadeId, CrossfadeCurve curve)? onCrossfadeCurveChanged;
 
   /// Snap settings
   final bool snapEnabled;
@@ -322,6 +326,7 @@ class Timeline extends StatefulWidget {
     this.multiSelectedTrackIds = const {},
     this.onClipGainChange,
     this.onClipFadeChange,
+    this.onClipFadeCurveChange,
     this.onClipRename,
     this.onTrackColorChange,
     this.onTrackBusChange,
@@ -376,6 +381,7 @@ class Timeline extends StatefulWidget {
     this.onCrossfadeUpdate,
     this.onCrossfadeFullUpdate,
     this.onCrossfadeDelete,
+    this.onCrossfadeCurveChanged,
     this.snapEnabled = true,
     this.snapValue = 1,
     this.isPlaying = false,
@@ -2523,6 +2529,7 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                         _handleClipDragEnd(globalPos),
                     onClipGainChange: widget.onClipGainChange,
                     onClipFadeChange: widget.onClipFadeChange,
+                    onClipFadeCurveChange: widget.onClipFadeCurveChange,
                     onClipResize: widget.onClipResize,
                     onClipResizeEnd: widget.onClipResizeEnd,
                     onClipRename: widget.onClipRename,
@@ -2556,6 +2563,7 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                     onCrossfadeUpdate: widget.onCrossfadeUpdate,
                     onCrossfadeFullUpdate: widget.onCrossfadeFullUpdate,
                     onCrossfadeDelete: widget.onCrossfadeDelete,
+                    onCrossfadeCurveChanged: widget.onCrossfadeCurveChanged,
                     snapEnabled: widget.snapEnabled,
                     snapValue: widget.snapValue,
                     allClips: widget.clips,

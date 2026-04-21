@@ -8,6 +8,7 @@
 
 import 'package:flutter/material.dart';
 import '../../models/timeline_models.dart';
+import '../../models/middleware_models.dart' show FadeCurve;
 import '../../providers/midi_provider.dart';
 import '../../theme/fluxforge_theme.dart';
 import 'grid_lines.dart';
@@ -40,6 +41,8 @@ class TrackLane extends StatefulWidget {
   final void Function(String clipId, double gain)? onClipGainChange;
   final void Function(String clipId, double fadeIn, double fadeOut)?
       onClipFadeChange;
+  final void Function(String clipId, FadeCurve fadeInCurve, FadeCurve fadeOutCurve)?
+      onClipFadeCurveChange;
   final void Function(
     String clipId,
     double newStartTime,
@@ -93,6 +96,7 @@ class TrackLane extends StatefulWidget {
   /// Full crossfade update with startTime and duration
   final void Function(String crossfadeId, double startTime, double duration)? onCrossfadeFullUpdate;
   final void Function(String crossfadeId)? onCrossfadeDelete;
+  final void Function(String crossfadeId, CrossfadeCurve curve)? onCrossfadeCurveChanged;
   final ValueChanged<double>? onPlayheadMove;
   final bool snapEnabled;
   final double snapValue;
@@ -127,6 +131,7 @@ class TrackLane extends StatefulWidget {
     this.onClipDragEnd,
     this.onClipGainChange,
     this.onClipFadeChange,
+    this.onClipFadeCurveChange,
     this.onClipResize,
     this.onClipResizeEnd,
     this.onClipRename,
@@ -155,6 +160,7 @@ class TrackLane extends StatefulWidget {
     this.onCrossfadeUpdate,
     this.onCrossfadeFullUpdate,
     this.onCrossfadeDelete,
+    this.onCrossfadeCurveChanged,
     this.onPlayheadMove,
     this.snapEnabled = false,
     this.snapValue = 1,
@@ -241,6 +247,10 @@ class _TrackLaneState extends State<TrackLane> with AutomaticKeepAliveClientMixi
                           widget.onClipGainChange?.call(clip.id, gain),
                       onFadeChange: (fadeIn, fadeOut) =>
                           widget.onClipFadeChange?.call(clip.id, fadeIn, fadeOut),
+                      onFadeCurveChange: widget.onClipFadeCurveChange != null
+                          ? (fadeInCurve, fadeOutCurve) =>
+                              widget.onClipFadeCurveChange?.call(clip.id, fadeInCurve, fadeOutCurve)
+                          : null,
                       onResize: (newStart, newDur, newOffset) =>
                           widget.onClipResize
                               ?.call(clip.id, newStart, newDur, newOffset),
@@ -298,6 +308,7 @@ class _TrackLaneState extends State<TrackLane> with AutomaticKeepAliveClientMixi
                     onFullUpdate: (startTime, duration) =>
                         widget.onCrossfadeFullUpdate?.call(xfade.id, startTime, duration),
                     onDelete: () => widget.onCrossfadeDelete?.call(xfade.id),
+                    onCurveTypeChanged: (curve) => widget.onCrossfadeCurveChanged?.call(xfade.id, curve),
                   )),
 
               // MIDI clips (for MIDI/Instrument tracks)

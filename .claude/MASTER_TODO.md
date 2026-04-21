@@ -599,7 +599,7 @@ Poslednje fixovano (2026-04-21): #15 (otool detection), #22 (wgpu poll logging),
   - SFX: SFX pipeline kontrole
   - BT: visual behavior tree editor sa 22 node tipova, canvas, edges
   - DNA: Spectral DNA classifier (7 DSP feature extractors u Rust FFI)
-  - AI GEN: pipeline UI sa prompt + log (stub backend)
+  - AI GEN: pipeline UI sa prompt + log + ElevenLabs real backend + dynamic backends
   - CLOUD: CloudSyncService UI (stub backend)
   - A/B: A/B test comparison
 - HELIX Test Suite — 60 integration testova + 60 property testova + 25 golden pixel testova + state hot-swap
@@ -608,6 +608,19 @@ Poslednje fixovano (2026-04-21): #15 (otool detection), #22 (wgpu poll logging),
 - HELIX Bug Fixes — ESC/PopScope, broken dugmadi (forceTransition, addCompositeEvent, REC, masterFader, DNA)
 - QA Audit Sweep — 84/84 buga provereno, 5 aktivnih fixovano (#15 otool, #22 wgpu poll, #51 dead code, #73 automation badge, Spectral DNA FFI)
 - Cargo Clippy + Flutter Analyzer — 0 warnings (41 clippy + 9 analyzer fiksovano)
+- DAW Editing Tools — Razor Edit kompletno (15 akcija): delete, split, cut, copy, paste, mute, join, fadeBoth, healSeparation, insertSilence, stripSilence, reverse, stretch, duplicate, move. Rust FFI (track_manager.rs 6 metoda + ffi.rs 7 eksporta) → Dart bindings (native_ffi.dart 7 typedef + 7 metoda) → RazorEditProvider wiring. Crossfade curve + clip fade curve wiring kroz TrackLane→Timeline→engine_connected_layout
+- Smart Tool 9-zone Detection — SmartToolProvider sa 13 zona, cursor wiring, zone logika kompletna
+- Project SR Selector UI — _SampleRateSelector dropdown u toolbar-u, setSampleRate FFI wiring
+- Tempo State Engine Dart Wiring — setTempo() → clickSetTempo() FFI, Rust click track kompletno
+- HELIX Reactivity Fixes — BT shouldRepaint hash, A/B listener pattern, CLOUD/EXPORT/AUDIO DNA/AI GEN addListener/removeListener, masterFader iz FFI
+- HELIX AI GEN Real Backend — ElevenLabs API integration, dynamic backends, reaktivnost
+- Horizontal Pro Meter — _paintHorizontal() sa L/R bars, gradient, peak hold, clip indicator
+- Agent Team Architecture — 25 specijalizovanih agenata (0-24) sa CLAUDE.md + MEMORY.md. Pokriva: Orchestrator, AudioEngine, MixerArchitect, SlotLabUI, SlotLabEvents, SlotLabAudio, GameArchitect, UIEngineer, DSPSpecialist, ProjectIO, BuildOps, QAAgent, TimelineEngine, DAWTools, LiveServer, SecurityAgent, PerformanceAgent, PluginArchitect, SlotIntelligence, MediaTimeline, SpatialAudio, MeteringPro, ScriptingEngine, MIDIEditor, VideoSync. 50 fajlova u .claude/agents/
+- HELIX BehaviorTree Persistence — BehaviorTreeProvider + HelixBtCanvasProvider sa toJson/loadFromJson, dirty flag tracking
+- HELIX TIMELINE Zoom/Scroll — 0.5x-8x zoom (+/- buttons + Ctrl+scroll wheel), horizontal scroll, FIT reset
+- HELIX EXPORT Batch — parallel Future.wait multi-format (UCP/WWISE/FMOD/GDD), per-format status badges
+- HELIX Reel Vizualizacija — phase-based animation (accel/spin/decel/bounce), motion blur, win line overlay, anticipation system, per-reel stop timing
+- HELIX Feature Composer — FeatureComposerProvider sa 12+ mehanika (free spins, bonus, pick games), 3 preset-a (BASIC/STD/FULL), mechanics toggle, composed stages view
 
 ## Potvrdjeno Ispravno (QA Audit 2026-03-30)
 
@@ -656,59 +669,16 @@ Poslednje fixovano (2026-04-21): #15 (otool detection), #22 (wgpu poll logging),
 ### Feature Development
 - LV2 GUI hosting (Suil library — zahteva external C dependency)
 - VST3 native GUI on Windows/Linux (IPlugView COM — zahteva platform-specific kod)
-- DAW Editing Tools (Scissors, Glue, Slip/Trim, Crossfade — spec kompletna, UI binding treba)
-- Project SR selector UI (dropdown u toolbar-u — FFI setSampleRate spreman)
 - Warp Markers Phase 4-5 (Flutter vizualizacija, quantize)
-- Tempo State Engine Dart wiring (FFI bridge postoji, Dart bindinge dodati)
-- Smart Tool 9-zone detection logika (struktura postoji, logika fali)
 - MIDI Editor — piano roll i expression maps (widgets/mice/ ne postoji, treba kreirati)
 - HOA visi redovi (>4th order) — Wigner-D rotation matrices
 
 ### HELIX Improvements
-- BehaviorTree panel persistence (state se gubi na rebuild — treba BehaviorTreeProvider + save/load)
-- TIMELINE panel zoom/scroll (pinch-to-zoom, horizontal scroll, snap-to-grid)
-- EXPORT panel batch export (multi-slot parallel render, progress tracking)
-- Reel vizualizacija (3D reel spin preview, win line highlighting, animirani simboli)
-- Feature Composer UI u HELIX-u (free spins, bonus rounds, pick games — drag-drop builder)
-- AI GEN panel real backend (local inference sa ONNX ili cloud fallback — trenutno stub)
-- CLOUD panel real sync (CloudSyncService backend — trenutno stub)
+- CLOUD panel real sync (CloudSyncService backend — trenutno stub, treba Firebase/Supabase transport)
 
-### Agent Team (25 agenata — videti AGENT_TEAM_ARCHITECTURE.md)
-- Implementirati agent CLAUDE.md + MEMORY.md + rules za svakog od 25 agenata
-- Pokriva: 500+ source fajlova, 34 Rust crate-a, 57 widget direktorijuma
-
-**Rust Core agenti:**
-  - Agent 0: Orchestrator — routing, delegacija, big picture
-  - Agent 1: AudioEngine (~100f) — rf-engine, rf-bridge, rf-audio, rf-realtime, rf-core, rf-state, rf-event, rf-viz, rf-file
-  - Agent 8: DSPSpecialist (~120f) — rf-dsp, rf-restore, rf-master, rf-pitch, rf-r8brain, rf-ml, EQ/fabfilter/dsp paneli
-  - Agent 12: TimelineEngine (~15f) — playback.rs, tempo_state.rs, track_manager.rs, audio_stretcher.rs
-  - Agent 17: PluginArchitect (~20f) — rf-plugin, rf-plugin-host, VST3/AU/CLAP/LV2/ARA2
-  - Agent 18: SlotIntelligence (~200f) — rf-aurexis, rf-ale, rf-slot-lab, rf-fluxmacro, rf-stage, rf-ingest
-  - Agent 20: SpatialAudio (~25f) — rf-spatial, Atmos/HOA/MPEG-H/binaural
-  - Agent 22: ScriptingEngine (~5f) — rf-script, Lua automation
-  - Agent 24: VideoSync (~6f) — rf-video, timecode sync
-
-**Flutter DAW agenti:**
-  - Agent 2: MixerArchitect (~40f) — mixer, routing, channel, fader, mixer/routing widgeti
-  - Agent 7: UIEngineer (~90f) — common, layout, gestures, lifecycle, onboarding
-  - Agent 19: MediaTimeline (~30f) — timeline/waveform/transport widgeti
-  - Agent 13: DAWTools (~25f) — editing tools, panels, recording, daw widgeti
-  - Agent 21: MeteringPro (~15f) — meters, spectrum, profiler widgeti
-  - Agent 23: MIDIEditor (~5f) — piano roll, expression maps
-
-**SlotLab agenti:**
-  - Agent 3: SlotLabUI (~70f) — screen, koordinator, lower zone, UCP
-  - Agent 4: SlotLabEvents (~75f) — event registry, middleware, FFNC, middleware widgeti
-  - Agent 5: SlotLabAudio (~28f) — voice mixer, bus, ducking, RTPC
-  - Agent 6: GameArchitect (~60f) — Dart game flow, executors, behavior tree
-
-**Infrastruktura:**
-  - Agent 9: ProjectIO (~15f) — save/load, export, publish, asset browser
-  - Agent 10: BuildOps (~50f) — build, CI, rf-offline, rf-audio-diff, rf-bench, rf-coverage, rf-fuzz, rf-release, rf-wasm
-  - Agent 11: QAAgent (sve) — analyze, regression, debug/qa/validation widgeti
-  - Agent 14: LiveServer (~5f) — rf-connector, networking
-  - Agent 15: SecurityAgent (~10f) — FFI safety, sandbox
-  - Agent 16: PerformanceAgent (sve) — profiling, memory, CPU
+### Agent Team — ✅ KOMPLETNO (2026-04-21)
+- ~~Implementirati agent CLAUDE.md + MEMORY.md + rules za svakog od 25 agenata~~
+- 25 agenata (0-24), 50 fajlova (CLAUDE.md + MEMORY.md svaki), u `.claude/agents/`
 
 ---
 

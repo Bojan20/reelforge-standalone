@@ -7671,6 +7671,33 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         _mwTimelineSyncController.handleClipParameterChanged(clipId, 'fadeIn', fadeIn);
         _mwTimelineSyncController.handleClipParameterChanged(clipId, 'fadeOut', fadeOut);
       },
+      onClipFadeCurveChange: (clipId, fadeInCurve, fadeOutCurve) {
+        // Map FadeCurve enum to Rust curve_type u8
+        int curveToIndex(FadeCurve curve) => switch (curve) {
+          FadeCurve.linear => 0,
+          FadeCurve.log3 => 1,
+          FadeCurve.sine => 2,
+          FadeCurve.log1 => 3,
+          FadeCurve.invSCurve => 4,
+          FadeCurve.sCurve => 5,
+          FadeCurve.exp1 => 6,
+          FadeCurve.exp3 => 7,
+        };
+        // Re-apply fades with new curves
+        final clip = _clips.firstWhere((c) => c.id == clipId, orElse: () => _clips.first);
+        if (clip.id == clipId) {
+          if (clip.fadeIn > 0) {
+            EngineApi.instance.fadeInClip(clipId, clip.fadeIn, curveType: curveToIndex(fadeInCurve));
+          }
+          if (clip.fadeOut > 0) {
+            EngineApi.instance.fadeOutClip(clipId, clip.fadeOut, curveType: curveToIndex(fadeOutCurve));
+          }
+          setState(() {
+            _clips = _clips.map((c) => c.id == clipId
+              ? c.copyWith(fadeInCurve: fadeInCurve, fadeOutCurve: fadeOutCurve) : c).toList();
+          });
+        }
+      },
       onClipRename: (clipId, newName) {
         // Block rename on MW-synced clips — names are controlled by middleware
         if (_mwTimelineSyncController.isMwSyncedClip(clipId)) return;
@@ -8513,6 +8540,25 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       onCrossfadeDelete: (crossfadeId) {
         setState(() {
           _crossfades = _crossfades.where((x) => x.id != crossfadeId).toList();
+        });
+      },
+      onCrossfadeCurveChanged: (crossfadeId, curve) {
+        // Map CrossfadeCurve enum to Rust u32
+        final curveIndex = switch (curve) {
+          timeline.CrossfadeCurve.linear => 0,
+          timeline.CrossfadeCurve.equalPower => 1,
+          timeline.CrossfadeCurve.sCurve => 2,
+          timeline.CrossfadeCurve.logarithmic => 3,
+          timeline.CrossfadeCurve.exponential => 4,
+        };
+        final xfadeIdInt = int.tryParse(RegExp(r'\d+').firstMatch(crossfadeId)?.group(0) ?? '');
+        if (xfadeIdInt != null) {
+          final xfade = _crossfades.firstWhere((x) => x.id == crossfadeId, orElse: () => _crossfades.first);
+          NativeFFI.instance.updateCrossfade(xfadeIdInt, xfade.duration, curveIndex);
+        }
+        setState(() {
+          _crossfades = _crossfades.map((x) => x.id == crossfadeId
+            ? x.copyWith(curveType: curve) : x).toList();
         });
       },
       // File drop callback for drag & drop audio files from system

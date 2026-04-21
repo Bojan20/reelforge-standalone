@@ -30234,3 +30234,403 @@ extension HookGraphAPI on NativeFFI {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// RAZOR EDIT FFI BINDINGS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+typedef _RazorAddAreaN = Uint64 Function(Uint64 trackId, Double start, Double end, Uint32 content);
+typedef _RazorAddAreaD = int Function(int trackId, double start, double end, int content);
+
+typedef _RazorUpdateAreaN = Int32 Function(Uint64 areaId, Double start, Double end);
+typedef _RazorUpdateAreaD = int Function(int areaId, double start, double end);
+
+typedef _RazorRemoveAreaN = Int32 Function(Uint64 areaId);
+typedef _RazorRemoveAreaD = int Function(int areaId);
+
+typedef _RazorClearAllN = Int32 Function();
+typedef _RazorClearAllD = int Function();
+
+typedef _RazorClearTrackN = Int32 Function(Uint64 trackId);
+typedef _RazorClearTrackD = int Function(int trackId);
+
+typedef _RazorHasAreasN = Int32 Function();
+typedef _RazorHasAreasD = int Function();
+
+typedef _RazorGetAreasJsonN = Pointer<Utf8> Function();
+typedef _RazorGetAreasJsonD = Pointer<Utf8> Function();
+
+typedef _RazorDeleteN = Int32 Function();
+typedef _RazorDeleteD = int Function();
+
+typedef _RazorSplitN = Int32 Function();
+typedef _RazorSplitD = int Function();
+
+typedef _RazorCutN = Pointer<Utf8> Function();
+typedef _RazorCutD = Pointer<Utf8> Function();
+
+typedef _RazorCopyN = Pointer<Utf8> Function();
+typedef _RazorCopyD = Pointer<Utf8> Function();
+
+typedef _RazorMoveN = Int32 Function(Double deltaTime, Uint64 targetTrackId);
+typedef _RazorMoveD = int Function(double deltaTime, int targetTrackId);
+
+typedef _RazorReverseN = Int32 Function();
+typedef _RazorReverseD = int Function();
+
+typedef _RazorStretchN = Int32 Function(Double ratio);
+typedef _RazorStretchD = int Function(double ratio);
+
+typedef _RazorDuplicateN = Int32 Function();
+typedef _RazorDuplicateD = int Function();
+
+// Razor extended operations
+typedef _RazorMuteN = Int32 Function(Int32 muted);
+typedef _RazorMuteD = int Function(int muted);
+
+typedef _RazorJoinN = Int32 Function();
+typedef _RazorJoinD = int Function();
+
+typedef _RazorFadeBothN = Int32 Function(Double fadeDuration);
+typedef _RazorFadeBothD = int Function(double fadeDuration);
+
+typedef _RazorHealSeparationN = Int32 Function();
+typedef _RazorHealSeparationD = int Function();
+
+typedef _RazorInsertSilenceN = Int32 Function(Double position, Double duration);
+typedef _RazorInsertSilenceD = int Function(double position, double duration);
+
+typedef _RazorStripSilenceN = Int32 Function(Double thresholdDb, Double minSilenceMs);
+typedef _RazorStripSilenceD = int Function(double thresholdDb, double minSilenceMs);
+
+typedef _RazorPasteN = Int32 Function(Pointer<Utf8> clipboardJson, Double pasteTime);
+typedef _RazorPasteD = int Function(Pointer<Utf8> clipboardJson, double pasteTime);
+
+// Glue
+typedef _EngineGlueClipsN = Uint64 Function(Uint64 clipAId, Uint64 clipBId);
+typedef _EngineGlueClipsD = int Function(int clipAId, int clipBId);
+
+/// Razor Edit + Glue FFI extension
+extension RazorEditFFI on NativeFFI {
+  static _RazorAddAreaD? _addArea;
+  static _RazorUpdateAreaD? _updateArea;
+  static _RazorRemoveAreaD? _removeArea;
+  static _RazorClearAllD? _clearAll;
+  static _RazorClearTrackD? _clearTrack;
+  static _RazorHasAreasD? _hasAreas;
+  static _RazorGetAreasJsonD? _getAreasJson;
+  static _RazorDeleteD? _razorDelete;
+  static _RazorSplitD? _razorSplit;
+  static _RazorCutD? _razorCut;
+  static _RazorCopyD? _razorCopy;
+  static _RazorMoveD? _razorMove;
+  static _RazorReverseD? _razorReverse;
+  static _RazorStretchD? _razorStretch;
+  static _RazorDuplicateD? _razorDuplicate;
+  static _RazorMuteD? _razorMute;
+  static _RazorJoinD? _razorJoin;
+  static _RazorFadeBothD? _razorFadeBoth;
+  static _RazorHealSeparationD? _razorHealSeparation;
+  static _RazorInsertSilenceD? _razorInsertSilence;
+  static _RazorStripSilenceD? _razorStripSilence;
+  static _RazorPasteD? _razorPaste;
+  static _EngineGlueClipsD? _glueClips;
+
+  void _initRazorFFI() {
+    _addArea ??= lib.lookupFunction<_RazorAddAreaN, _RazorAddAreaD>('razor_add_area');
+    _updateArea ??= lib.lookupFunction<_RazorUpdateAreaN, _RazorUpdateAreaD>('razor_update_area');
+    _removeArea ??= lib.lookupFunction<_RazorRemoveAreaN, _RazorRemoveAreaD>('razor_remove_area');
+    _clearAll ??= lib.lookupFunction<_RazorClearAllN, _RazorClearAllD>('razor_clear_all');
+    _clearTrack ??= lib.lookupFunction<_RazorClearTrackN, _RazorClearTrackD>('razor_clear_track');
+    _hasAreas ??= lib.lookupFunction<_RazorHasAreasN, _RazorHasAreasD>('razor_has_areas');
+    _getAreasJson ??= lib.lookupFunction<_RazorGetAreasJsonN, _RazorGetAreasJsonD>('razor_get_areas_json');
+    _razorDelete ??= lib.lookupFunction<_RazorDeleteN, _RazorDeleteD>('razor_delete');
+    _razorSplit ??= lib.lookupFunction<_RazorSplitN, _RazorSplitD>('razor_split');
+    _razorCut ??= lib.lookupFunction<_RazorCutN, _RazorCutD>('razor_cut');
+    _razorCopy ??= lib.lookupFunction<_RazorCopyN, _RazorCopyD>('razor_copy');
+    _razorMove ??= lib.lookupFunction<_RazorMoveN, _RazorMoveD>('razor_move');
+    _razorReverse ??= lib.lookupFunction<_RazorReverseN, _RazorReverseD>('razor_reverse');
+    _razorStretch ??= lib.lookupFunction<_RazorStretchN, _RazorStretchD>('razor_stretch');
+    _razorDuplicate ??= lib.lookupFunction<_RazorDuplicateN, _RazorDuplicateD>('razor_duplicate');
+    _razorMute ??= lib.lookupFunction<_RazorMuteN, _RazorMuteD>('razor_mute');
+    _razorJoin ??= lib.lookupFunction<_RazorJoinN, _RazorJoinD>('razor_join');
+    _razorFadeBoth ??= lib.lookupFunction<_RazorFadeBothN, _RazorFadeBothD>('razor_fade_both');
+    _razorHealSeparation ??= lib.lookupFunction<_RazorHealSeparationN, _RazorHealSeparationD>('razor_heal_separation');
+    _razorInsertSilence ??= lib.lookupFunction<_RazorInsertSilenceN, _RazorInsertSilenceD>('razor_insert_silence');
+    _razorStripSilence ??= lib.lookupFunction<_RazorStripSilenceN, _RazorStripSilenceD>('razor_strip_silence');
+    _razorPaste ??= lib.lookupFunction<_RazorPasteN, _RazorPasteD>('razor_paste');
+    _glueClips ??= lib.lookupFunction<_EngineGlueClipsN, _EngineGlueClipsD>('engine_glue_clips');
+  }
+
+  /// Add a razor area on a track. content: 0=Media, 1=Envelope, 2=Both
+  int razorAddArea(int trackId, double start, double end, {int content = 0}) {
+    _initRazorFFI();
+    return _addArea!(trackId, start, end, content);
+  }
+
+  /// Update razor area bounds during drag
+  bool razorUpdateArea(int areaId, double start, double end) {
+    _initRazorFFI();
+    return _updateArea!(areaId, start, end) != 0;
+  }
+
+  /// Remove a specific razor area
+  bool razorRemoveArea(int areaId) {
+    _initRazorFFI();
+    return _removeArea!(areaId) != 0;
+  }
+
+  /// Clear all razor areas
+  bool razorClearAll() {
+    _initRazorFFI();
+    return _clearAll!() != 0;
+  }
+
+  /// Clear razor areas for a specific track
+  bool razorClearTrack(int trackId) {
+    _initRazorFFI();
+    return _clearTrack!(trackId) != 0;
+  }
+
+  /// Check if any razor areas exist
+  bool razorHasAreas() {
+    _initRazorFFI();
+    return _hasAreas!() != 0;
+  }
+
+  /// Get all razor areas as JSON string
+  String? razorGetAreasJson() {
+    _initRazorFFI();
+    final ptr = _getAreasJson!();
+    if (ptr == nullptr) return null;
+    final result = ptr.toDartString();
+    freeString(ptr);
+    return result;
+  }
+
+  /// Delete content within all razor areas
+  bool razorDelete() {
+    _initRazorFFI();
+    return _razorDelete!() != 0;
+  }
+
+  /// Split clips at razor area boundaries
+  bool razorSplit() {
+    _initRazorFFI();
+    return _razorSplit!() != 0;
+  }
+
+  /// Cut content (copy + delete). Returns clipboard JSON
+  String? razorCut() {
+    _initRazorFFI();
+    final ptr = _razorCut!();
+    if (ptr == nullptr) return null;
+    final result = ptr.toDartString();
+    freeString(ptr);
+    return result;
+  }
+
+  /// Copy content within razor areas. Returns clipboard JSON
+  String? razorCopy() {
+    _initRazorFFI();
+    final ptr = _razorCopy!();
+    if (ptr == nullptr) return null;
+    final result = ptr.toDartString();
+    freeString(ptr);
+    return result;
+  }
+
+  /// Move razor content by time delta, optionally to target track
+  bool razorMove(double deltaTime, {int targetTrackId = 0}) {
+    _initRazorFFI();
+    return _razorMove!(deltaTime, targetTrackId) != 0;
+  }
+
+  /// Reverse audio within all razor areas
+  bool razorReverse() {
+    _initRazorFFI();
+    return _razorReverse!() != 0;
+  }
+
+  /// Stretch content within razor areas by ratio
+  bool razorStretch(double ratio) {
+    _initRazorFFI();
+    return _razorStretch!(ratio) != 0;
+  }
+
+  /// Duplicate razor content
+  int razorDuplicate() {
+    _initRazorFFI();
+    return _razorDuplicate!();
+  }
+
+  /// Mute/unmute clips within razor areas
+  bool razorMute({bool muted = true}) {
+    _initRazorFFI();
+    return _razorMute!(muted ? 1 : 0) != 0;
+  }
+
+  /// Join/glue all clips within razor areas per track
+  int razorJoin() {
+    _initRazorFFI();
+    return _razorJoin!();
+  }
+
+  /// Apply fade-in and fade-out to clips within razor areas
+  bool razorFadeBoth({double fadeDuration = 0.05}) {
+    _initRazorFFI();
+    return _razorFadeBoth!(fadeDuration) != 0;
+  }
+
+  /// Close gaps between clips by moving them left
+  bool razorHealSeparation() {
+    _initRazorFFI();
+    return _razorHealSeparation!() != 0;
+  }
+
+  /// Insert silence at position, pushing all clips forward
+  bool razorInsertSilence(double position, double duration) {
+    _initRazorFFI();
+    return _razorInsertSilence!(position, duration) != 0;
+  }
+
+  /// Strip silence from clips using threshold detection
+  int razorStripSilence({double thresholdDb = -60.0, double minSilenceMs = 100.0}) {
+    _initRazorFFI();
+    return _razorStripSilence!(thresholdDb, minSilenceMs);
+  }
+
+  /// Paste clips from clipboard JSON at given time position
+  int razorPaste(String clipboardJson, double pasteTime) {
+    _initRazorFFI();
+    final jsonPtr = clipboardJson.toNativeUtf8();
+    try {
+      return _razorPaste!(jsonPtr, pasteTime);
+    } finally {
+      calloc.free(jsonPtr);
+    }
+  }
+
+  /// Glue (join) two adjacent clips. Returns merged clip ID or 0
+  int glueClips(int clipAId, int clipBId) {
+    _initRazorFFI();
+    return _glueClips!(clipAId, clipBId);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CLIP ENVELOPE FFI BINDINGS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+typedef _ClipEnvEnableN = Int32 Function(Uint64 clipId, Uint8 envType);
+typedef _ClipEnvEnableD = int Function(int clipId, int envType);
+
+typedef _ClipEnvAddPointN = Int32 Function(Uint64 clipId, Uint8 envType, Uint64 offsetSamples, Double value);
+typedef _ClipEnvAddPointD = int Function(int clipId, int envType, int offsetSamples, double value);
+
+typedef _ClipEnvRemovePointN = Int32 Function(Uint64 clipId, Uint8 envType, Uint64 index);
+typedef _ClipEnvRemovePointD = int Function(int clipId, int envType, int index);
+
+typedef _ClipEnvClearN = Int32 Function(Uint64 clipId, Uint8 envType);
+typedef _ClipEnvClearD = int Function(int clipId, int envType);
+
+typedef _ClipEnvCountN = Int32 Function(Uint64 clipId, Uint8 envType);
+typedef _ClipEnvCountD = int Function(int clipId, int envType);
+
+typedef _ClipEnvValueAtN = Double Function(Uint64 clipId, Uint8 envType, Uint64 offsetSamples);
+typedef _ClipEnvValueAtD = double Function(int clipId, int envType, int offsetSamples);
+
+typedef _ClipEnvGetJsonN = Pointer<Utf8> Function(Uint64 clipId, Uint8 envType);
+typedef _ClipEnvGetJsonD = Pointer<Utf8> Function(int clipId, int envType);
+
+typedef _ClipEnvSetJsonN = Int32 Function(Uint64 clipId, Uint8 envType, Pointer<Utf8> json);
+typedef _ClipEnvSetJsonD = int Function(int clipId, int envType, Pointer<Utf8> json);
+
+/// Clip Envelope FFI extension
+/// envType: 0=Volume, 1=Pan, 2=Pitch, 3=Filter
+extension ClipEnvelopeFFI on NativeFFI {
+  static _ClipEnvEnableD? _envEnable;
+  static _ClipEnvEnableD? _envDisable;
+  static _ClipEnvAddPointD? _envAddPoint;
+  static _ClipEnvRemovePointD? _envRemovePoint;
+  static _ClipEnvClearD? _envClear;
+  static _ClipEnvCountD? _envCount;
+  static _ClipEnvValueAtD? _envValueAt;
+  static _ClipEnvGetJsonD? _envGetJson;
+  static _ClipEnvSetJsonD? _envSetJson;
+
+  void _initClipEnvFFI() {
+    _envEnable ??= lib.lookupFunction<_ClipEnvEnableN, _ClipEnvEnableD>('clip_envelope_enable');
+    _envDisable ??= lib.lookupFunction<_ClipEnvEnableN, _ClipEnvEnableD>('clip_envelope_disable');
+    _envAddPoint ??= lib.lookupFunction<_ClipEnvAddPointN, _ClipEnvAddPointD>('clip_envelope_add_point');
+    _envRemovePoint ??= lib.lookupFunction<_ClipEnvRemovePointN, _ClipEnvRemovePointD>('clip_envelope_remove_point');
+    _envClear ??= lib.lookupFunction<_ClipEnvClearN, _ClipEnvClearD>('clip_envelope_clear');
+    _envCount ??= lib.lookupFunction<_ClipEnvCountN, _ClipEnvCountD>('clip_envelope_point_count');
+    _envValueAt ??= lib.lookupFunction<_ClipEnvValueAtN, _ClipEnvValueAtD>('clip_envelope_value_at');
+    _envGetJson ??= lib.lookupFunction<_ClipEnvGetJsonN, _ClipEnvGetJsonD>('clip_envelope_get_points_json');
+    _envSetJson ??= lib.lookupFunction<_ClipEnvSetJsonN, _ClipEnvSetJsonD>('clip_envelope_set_points_json');
+  }
+
+  /// Enable clip envelope. envType: 0=Volume, 1=Pan, 2=Pitch, 3=Filter
+  bool clipEnvelopeEnable(int clipId, int envType) {
+    _initClipEnvFFI();
+    return _envEnable!(clipId, envType) != 0;
+  }
+
+  /// Disable clip envelope
+  bool clipEnvelopeDisable(int clipId, int envType) {
+    _initClipEnvFFI();
+    return _envDisable!(clipId, envType) != 0;
+  }
+
+  /// Add point to clip envelope. Returns point count or 0
+  int clipEnvelopeAddPoint(int clipId, int envType, int offsetSamples, double value) {
+    _initClipEnvFFI();
+    return _envAddPoint!(clipId, envType, offsetSamples, value);
+  }
+
+  /// Remove point at index
+  bool clipEnvelopeRemovePoint(int clipId, int envType, int index) {
+    _initClipEnvFFI();
+    return _envRemovePoint!(clipId, envType, index) != 0;
+  }
+
+  /// Clear all points
+  bool clipEnvelopeClear(int clipId, int envType) {
+    _initClipEnvFFI();
+    return _envClear!(clipId, envType) != 0;
+  }
+
+  /// Get point count
+  int clipEnvelopePointCount(int clipId, int envType) {
+    _initClipEnvFFI();
+    return _envCount!(clipId, envType);
+  }
+
+  /// Get interpolated value at sample offset
+  double clipEnvelopeValueAt(int clipId, int envType, int offsetSamples) {
+    _initClipEnvFFI();
+    return _envValueAt!(clipId, envType, offsetSamples);
+  }
+
+  /// Get all points as JSON
+  String? clipEnvelopeGetPointsJson(int clipId, int envType) {
+    _initClipEnvFFI();
+    final ptr = _envGetJson!(clipId, envType);
+    if (ptr == nullptr) return null;
+    final result = ptr.toDartString();
+    freeString(ptr);
+    return result;
+  }
+
+  /// Set points from JSON
+  bool clipEnvelopeSetPointsJson(int clipId, int envType, String json) {
+    _initClipEnvFFI();
+    final jsonPtr = json.toNativeUtf8();
+    try {
+      return _envSetJson!(clipId, envType, jsonPtr) != 0;
+    } finally {
+      malloc.free(jsonPtr);
+    }
+  }
+}
+
