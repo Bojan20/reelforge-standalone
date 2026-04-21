@@ -1106,247 +1106,418 @@ class _FlowPanel extends StatefulWidget {
 }
 
 class _FlowPanelState extends State<_FlowPanel> {
-  // F3: Custom stage nodes
-  final List<({String label, IconData icon, Color color})> _customStages = [];
+  String? _hoveredNode;
+  String? _selectedNode;
 
-  void _addCustomStage() {
-    final controller = TextEditingController(text: 'CUSTOM_${_customStages.length + 1}');
-    showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: FluxForgeTheme.bgSurface,
-        title: const Text('Add Custom Stage', style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 14)),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          style: const TextStyle(color: FluxForgeTheme.textPrimary, fontFamily: 'monospace', fontSize: 13),
-          decoration: const InputDecoration(
-            hintText: 'Stage name',
-            hintStyle: TextStyle(color: FluxForgeTheme.textTertiary),
-            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: FluxForgeTheme.textTertiary)),
-            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: FluxForgeTheme.accentCyan)),
-          ),
-          onSubmitted: (val) => Navigator.of(ctx).pop(val),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancel')),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(controller.text),
-            child: const Text('Add', style: TextStyle(color: FluxForgeTheme.accentCyan)),
-          ),
-        ],
-      ),
-    ).then((name) {
-      if (name != null && name.trim().isNotEmpty) {
-        final colors = [FluxForgeTheme.accentPink, FluxForgeTheme.accentOrange, FluxForgeTheme.accentCyan, FluxForgeTheme.accentGreen];
-        setState(() {
-          _customStages.add((
-            label: name.trim().toUpperCase(),
-            icon: Icons.extension_rounded,
-            color: colors[_customStages.length % colors.length],
-          ));
-        });
-      }
-      controller.dispose();
-    });
+  // ── Static graph definition ────────────────────────────────────────────────
+  static const _nodes = <_FlowGraphNode>[
+    _FlowGraphNode(id: 'idle',    label: 'IDLE',      icon: Icons.pause_circle_outline,  color: Color(0xFF666688), state: GameFlowState.idle,              pos: Offset(0.04, 0.50)),
+    _FlowGraphNode(id: 'base',    label: 'BASE',      icon: Icons.play_arrow_rounded,     color: Color(0xFF4D9FFF), state: GameFlowState.baseGame,          pos: Offset(0.30, 0.50)),
+    _FlowGraphNode(id: 'win',     label: 'WIN',       icon: Icons.attach_money_rounded,   color: Color(0xFF5CFF9D), state: null,                            pos: Offset(0.54, 0.14)),
+    _FlowGraphNode(id: 'cascade', label: 'CASCADE',   icon: Icons.waterfall_chart,        color: Color(0xFF00E5FF), state: GameFlowState.cascading,         pos: Offset(0.54, 0.38)),
+    _FlowGraphNode(id: 'free',    label: 'FREE',      icon: Icons.star_rounded,           color: Color(0xFFFFE033), state: GameFlowState.freeSpins,         pos: Offset(0.54, 0.62)),
+    _FlowGraphNode(id: 'bonus',   label: 'BONUS',     icon: Icons.casino_rounded,         color: Color(0xFFAA66FF), state: GameFlowState.bonusGame,         pos: Offset(0.54, 0.86)),
+    _FlowGraphNode(id: 'jackpot', label: 'JACKPOT',   icon: Icons.emoji_events_rounded,   color: Color(0xFFFF9900), state: GameFlowState.jackpotPresentation,pos: Offset(0.80, 0.14)),
+    _FlowGraphNode(id: 'hold',    label: 'HOLD&WIN',  icon: Icons.lock_rounded,           color: Color(0xFFFF6644), state: GameFlowState.holdAndWin,        pos: Offset(0.80, 0.86)),
+  ];
+
+  static const _edges = <_FlowGraphEdge>[
+    // Forward: IDLE → BASE
+    _FlowGraphEdge(from: 'idle',    to: 'base',    curveDir:  0.0),
+    // BASE branches
+    _FlowGraphEdge(from: 'base',    to: 'win',     curveDir: -0.3),
+    _FlowGraphEdge(from: 'base',    to: 'cascade', curveDir:  0.0),
+    _FlowGraphEdge(from: 'base',    to: 'free',    curveDir:  0.0),
+    _FlowGraphEdge(from: 'base',    to: 'bonus',   curveDir:  0.3),
+    _FlowGraphEdge(from: 'base',    to: 'jackpot', curveDir: -0.5),
+    // WIN → IDLE (return arc above)
+    _FlowGraphEdge(from: 'win',     to: 'idle',    curveDir: -0.45, dashed: true),
+    // Feature returns to BASE (dashed)
+    _FlowGraphEdge(from: 'cascade', to: 'base',    curveDir:  0.35, dashed: true),
+    _FlowGraphEdge(from: 'free',    to: 'base',    curveDir:  0.45, dashed: true),
+    // BONUS → HOLD&WIN → BASE
+    _FlowGraphEdge(from: 'bonus',   to: 'hold',    curveDir:  0.0),
+    _FlowGraphEdge(from: 'hold',    to: 'base',    curveDir:  0.55, dashed: true),
+    // JACKPOT → IDLE (return arc)
+    _FlowGraphEdge(from: 'jackpot', to: 'idle',    curveDir: -0.6, dashed: true),
+  ];
+
+  String? _activeId(GameFlowState s) {
+    for (final n in _nodes) {
+      if (n.state == s) return n.id;
+    }
+    return null;
   }
 
-  void _removeCustomStage(int index) {
-    setState(() { _customStages.removeAt(index); });
+  void _tapNode(_FlowGraphNode node, GameFlowProvider flow) {
+    setState(() => _selectedNode = node.id);
+    if (node.state != null) {
+      try { flow.forceTransition(node.state!); } catch (_) {}
+    } else if (node.id == 'win') {
+      // WIN has no state — trigger WIN_PRESENT_1 stage directly
+      try { EventRegistry.instance.triggerStage('WIN_PRESENT_1'); } catch (_) {}
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Consumer<GameFlowProvider>(
-      builder: (_, flow, child) {
-        final current = flow.currentState;
-        final builtinNodes = [
-          (GameFlowState.idle,              'IDLE',    Icons.pause_circle_outline, FluxForgeTheme.textTertiary),
-          (GameFlowState.baseGame,          'BASE',    Icons.play_arrow_rounded,   FluxForgeTheme.accentBlue),
-          (GameFlowState.cascading,         'CASCADE', Icons.waterfall_chart,      FluxForgeTheme.accentCyan),
-          (GameFlowState.freeSpins,         'FREE',    Icons.star_rounded,         FluxForgeTheme.accentYellow),
-          (GameFlowState.holdAndWin,        'HOLD',    Icons.lock_rounded,         FluxForgeTheme.accentOrange),
-          (GameFlowState.bonusGame,         'BONUS',   Icons.casino_rounded,       FluxForgeTheme.accentPurple),
-          (GameFlowState.jackpotPresentation,'JACKPOT',Icons.emoji_events_rounded, FluxForgeTheme.accentGreen),
-        ];
+      builder: (_, flow, _) {
+        final activeId = _activeId(flow.currentState);
+        final mw = GetIt.instance<MiddlewareProvider>();
 
-        // Force-stage callbacks per state — uses forceTransition (no executor needed)
-        void forceState(GameFlowState target) {
-          flow.forceTransition(target);
+        // Build stage → audio map for detail panel
+        final stageAudio = <String, List<String>>{};
+        for (final e in mw.compositeEvents) {
+          for (final stage in e.triggerStages) {
+            stageAudio.putIfAbsent(stage.toUpperCase(), () => []).add(e.name);
+          }
         }
 
-        return Row(
-          children: [
-            // Flow map — nodes are clickable to force stage
-            Expanded(
-              flex: 3,
-              child: _DockCard(
-                accent: FluxForgeTheme.accentBlue,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(children: [
-                      _DockLabel('STAGE FLOW', color: FluxForgeTheme.accentBlue),
-                      const Spacer(),
-                      // F3: Add custom stage button
-                      GestureDetector(
-                        onTap: _addCustomStage,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: FluxForgeTheme.accentCyan.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: FluxForgeTheme.accentCyan.withOpacity(0.3)),
-                          ),
-                          child: const Text('+ STAGE', style: TextStyle(
-                            fontFamily: 'monospace', fontSize: 8,
-                            color: FluxForgeTheme.accentCyan, fontWeight: FontWeight.w600)),
-                        ),
-                      ),
-                    ]),
-                    const SizedBox(height: 8),
-                    Expanded(
-                      child: LayoutBuilder(
-                        builder: (ctx, constraints) => SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: SizedBox(
-                            height: constraints.maxHeight,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                // Built-in nodes
-                                ...builtinNodes.asMap().entries.expand((e) {
-                                  final (state, label, icon, color) = e.value;
-                                  final active = current == state;
-                                  final widgets = <Widget>[
-                                    _FlowNode(label: label, icon: icon,
-                                      color: color, active: active,
-                                      onTap: () => forceState(state)),
-                                  ];
-                                  widgets.add(Icon(Icons.arrow_forward_rounded,
-                                    size: 12, color: FluxForgeTheme.textTertiary.withOpacity(0.4)));
-                                  return widgets;
-                                }),
-                                // F3: Custom stage nodes
-                                ..._customStages.asMap().entries.expand((e) {
-                                  final stage = e.value;
-                                  final widgets = <Widget>[
-                                    _FlowNode(label: stage.label, icon: stage.icon,
-                                      color: stage.color, active: false,
-                                      onTap: () {
-                                        try {
-                                          EventRegistry.instance.triggerStage(stage.label.toUpperCase());
-                                        } catch (_) {}
-                                      }, isCustom: true,
-                                      onRemove: () => _removeCustomStage(e.key)),
-                                  ];
-                                  if (e.key < _customStages.length - 1) {
-                                    widgets.add(Icon(Icons.arrow_forward_rounded,
-                                      size: 12, color: FluxForgeTheme.textTertiary.withOpacity(0.4)));
-                                  }
-                                  return widgets;
-                                }),
-                              ],
+        // Selected node audio list
+        final selNode = _selectedNode != null
+            ? _nodes.where((n) => n.id == _selectedNode).firstOrNull
+            : null;
+        final selAudio = selNode != null ? (stageAudio[selNode.label] ?? []) : <String>[];
+
+        return Row(children: [
+          // ── Graph canvas ────────────────────────────────────────────────
+          Expanded(
+            flex: 3,
+            child: _DockCard(
+              accent: FluxForgeTheme.accentBlue,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  _DockLabel('STAGE FLOW', color: FluxForgeTheme.accentBlue),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1A2035),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: const Color(0xFF333355)),
+                    ),
+                    child: const Text('CLICK NODE TO FORCE STATE',
+                      style: TextStyle(fontFamily: 'monospace', fontSize: 7,
+                        color: FluxForgeTheme.textTertiary, letterSpacing: 0.5)),
+                  ),
+                ]),
+                const SizedBox(height: 6),
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (ctx, constraints) {
+                      final w = constraints.maxWidth;
+                      final h = constraints.maxHeight;
+                      return Stack(clipBehavior: Clip.none, children: [
+                        // Edges layer (CustomPaint)
+                        Positioned.fill(
+                          child: CustomPaint(
+                            painter: _FlowGraphPainter(
+                              nodes: _nodes,
+                              edges: _edges,
+                              size: Size(w, h),
+                              activeId: activeId,
+                              hoveredId: _hoveredNode,
+                              selectedId: _selectedNode,
                             ),
                           ),
                         ),
+                        // Node widgets
+                        ..._nodes.map((node) {
+                          final isActive = node.id == activeId;
+                          final isSelected = node.id == _selectedNode;
+                          final isHovered = node.id == _hoveredNode;
+                          final x = node.pos.dx * w;
+                          final y = node.pos.dy * h;
+                          return Positioned(
+                            left: x - 24,
+                            top: y - 18,
+                            child: MouseRegion(
+                              onEnter: (_) => setState(() => _hoveredNode = node.id),
+                              onExit: (_) => setState(() {
+                                if (_hoveredNode == node.id) _hoveredNode = null;
+                              }),
+                              child: GestureDetector(
+                                onTap: () => _tapNode(node, flow),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 150),
+                                  width: 48,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: isActive
+                                      ? node.color.withOpacity(0.22)
+                                      : isSelected
+                                        ? node.color.withOpacity(0.14)
+                                        : isHovered
+                                          ? node.color.withOpacity(0.10)
+                                          : const Color(0xFF0D0D18),
+                                    border: Border.all(
+                                      color: isActive
+                                        ? node.color
+                                        : isSelected
+                                          ? node.color.withOpacity(0.7)
+                                          : isHovered
+                                            ? node.color.withOpacity(0.5)
+                                            : node.color.withOpacity(0.25),
+                                      width: isActive ? 1.5 : 1.0,
+                                    ),
+                                    borderRadius: BorderRadius.circular(6),
+                                    boxShadow: isActive ? [
+                                      BoxShadow(color: node.color.withOpacity(0.4), blurRadius: 8, spreadRadius: 0),
+                                    ] : null,
+                                  ),
+                                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                                    Icon(node.icon, size: 11,
+                                      color: isActive ? node.color : node.color.withOpacity(0.7)),
+                                    const SizedBox(height: 2),
+                                    Text(node.label,
+                                      style: TextStyle(
+                                        fontFamily: 'monospace', fontSize: 6.5,
+                                        color: isActive ? node.color : node.color.withOpacity(0.7),
+                                        fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                                        letterSpacing: 0.2),
+                                      overflow: TextOverflow.ellipsis),
+                                  ]),
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                      ]);
+                    },
+                  ),
+                ),
+              ]),
+            ),
+          ),
+          const SizedBox(width: 10),
+          // ── Detail panel ─────────────────────────────────────────────────
+          SizedBox(
+            width: 180,
+            child: _DockCard(
+              accent: FluxForgeTheme.accentBlue,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                _DockLabel('NODE DETAIL', color: FluxForgeTheme.accentBlue),
+                const SizedBox(height: 8),
+                if (selNode == null) ...[
+                  Expanded(
+                    child: Center(
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.touch_app_rounded, size: 20,
+                          color: FluxForgeTheme.textTertiary.withOpacity(0.3)),
+                        const SizedBox(height: 6),
+                        const Text('Tap a node', style: TextStyle(
+                          fontSize: 9, color: FluxForgeTheme.textTertiary)),
+                      ]),
+                    ),
+                  ),
+                ] else ...[
+                  // Node name + color bar
+                  Row(children: [
+                    Container(width: 3, height: 24, decoration: BoxDecoration(
+                      color: selNode.color, borderRadius: BorderRadius.circular(2))),
+                    const SizedBox(width: 6),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(selNode.label, style: TextStyle(
+                        fontFamily: 'monospace', fontSize: 11,
+                        color: selNode.color, fontWeight: FontWeight.w700)),
+                      Text(selNode.state?.displayName ?? 'event trigger',
+                        style: const TextStyle(fontSize: 8, color: FluxForgeTheme.textTertiary)),
+                    ])),
+                  ]),
+                  const SizedBox(height: 8),
+                  // Current state badge
+                  if (selNode.id == _activeId(flow.currentState))
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: selNode.color.withOpacity(0.1),
+                        border: Border.all(color: selNode.color.withOpacity(0.4)),
+                        borderRadius: BorderRadius.circular(4)),
+                      child: Text('● ACTIVE NOW',
+                        style: TextStyle(fontFamily: 'monospace', fontSize: 8, color: selNode.color)),
+                    ),
+                  // Audio events
+                  const Text('AUDIO EVENTS', style: TextStyle(
+                    fontFamily: 'monospace', fontSize: 7.5,
+                    color: FluxForgeTheme.textTertiary, letterSpacing: 1.0)),
+                  const SizedBox(height: 4),
+                  if (selAudio.isEmpty)
+                    const Text('No audio assigned',
+                      style: TextStyle(fontSize: 8, color: FluxForgeTheme.textTertiary))
+                  else
+                    Expanded(
+                      child: ListView(children: selAudio.map((name) => Padding(
+                        padding: const EdgeInsets.only(bottom: 3),
+                        child: Row(children: [
+                          const Icon(Icons.music_note_rounded, size: 8, color: FluxForgeTheme.accentCyan),
+                          const SizedBox(width: 4),
+                          Expanded(child: Text(name, style: const TextStyle(
+                            fontFamily: 'monospace', fontSize: 8,
+                            color: FluxForgeTheme.textSecondary),
+                            overflow: TextOverflow.ellipsis)),
+                        ]),
+                      )).toList()),
+                    ),
+                  const SizedBox(height: 6),
+                  // Force state button
+                  if (selNode.state != null)
+                    GestureDetector(
+                      onTap: () => _tapNode(selNode, flow),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 5),
+                        decoration: BoxDecoration(
+                          color: selNode.color.withOpacity(0.1),
+                          border: Border.all(color: selNode.color.withOpacity(0.4)),
+                          borderRadius: BorderRadius.circular(4)),
+                        child: Text('⚡ FORCE STATE',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontFamily: 'monospace', fontSize: 8,
+                            color: selNode.color, fontWeight: FontWeight.w600)),
                       ),
                     ),
-                  ],
-                ),
-              ),
+                ],
+              ]),
             ),
-            const SizedBox(width: 12),
-            // Current state info
-            Flexible(
-              flex: 2,
-              child: _DockCard(
-                accent: FluxForgeTheme.accentBlue,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _DockLabel('CURRENT STATE', color: FluxForgeTheme.accentBlue),
-                    const SizedBox(height: 8),
-                    Text(current.displayName,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontFamily: 'monospace', fontSize: 13,
-                        color: FluxForgeTheme.accentBlue, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 6),
-                    if (flow.isBaseGame)
-                      const _StatusChip('● BASE RUNNING', FluxForgeTheme.accentGreen)
-                    else if (flow.isIdle)
-                      const _StatusChip('○ IDLE', FluxForgeTheme.textTertiary)
-                    else
-                      const _StatusChip('◆ FEATURE ACTIVE', FluxForgeTheme.accentYellow),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            // F4: Stage → Audio mapping card
-            Flexible(
-              flex: 2,
-              child: _DockCard(
-                accent: FluxForgeTheme.accentBlue,
-                child: ListenableBuilder(
-                  listenable: GetIt.instance<MiddlewareProvider>(),
-                  builder: (_, _) {
-                    final mw = GetIt.instance<MiddlewareProvider>();
-                    final stageMap = <String, List<String>>{};
-                    for (final e in mw.compositeEvents) {
-                      for (final stage in e.triggerStages) {
-                        stageMap.putIfAbsent(stage, () => []).add(e.name);
-                      }
-                    }
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _DockLabel('STAGE → AUDIO', color: FluxForgeTheme.accentBlue),
-                        const SizedBox(height: 8),
-                        if (stageMap.isEmpty)
-                          const Expanded(child: Center(child: Text('No stage mappings',
-                            style: TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary))))
-                        else
-                          Expanded(
-                            child: ListView(
-                              children: stageMap.entries.map((entry) => Padding(
-                                padding: const EdgeInsets.only(bottom: 6),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(entry.key.toUpperCase(),
-                                      style: const TextStyle(fontFamily: 'monospace',
-                                        fontSize: 8, color: FluxForgeTheme.accentCyan,
-                                        letterSpacing: 0.1)),
-                                    const SizedBox(height: 2),
-                                    ...entry.value.take(3).map((name) => Text(
-                                      '  · $name',
-                                      style: const TextStyle(fontFamily: 'monospace',
-                                        fontSize: 8, color: FluxForgeTheme.textSecondary),
-                                      overflow: TextOverflow.ellipsis,
-                                    )),
-                                    if (entry.value.length > 3)
-                                      Text('  +${entry.value.length - 3} more',
-                                        style: const TextStyle(fontFamily: 'monospace',
-                                          fontSize: 8, color: FluxForgeTheme.textTertiary)),
-                                  ],
-                                ),
-                              )).toList(),
-                            ),
-                          ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            ),
-          ],
-        );
+          ),
+        ]);
       },
     );
   }
+}
+
+// ── Flow graph data types ─────────────────────────────────────────────────────
+
+class _FlowGraphNode {
+  final String id;
+  final String label;
+  final IconData icon;
+  final Color color;
+  final GameFlowState? state;
+  final Offset pos; // 0.0-1.0 normalized
+
+  const _FlowGraphNode({
+    required this.id, required this.label, required this.icon,
+    required this.color, required this.state, required this.pos,
+  });
+}
+
+class _FlowGraphEdge {
+  final String from;
+  final String to;
+  final double curveDir; // positive = arc below, negative = arc above
+  final bool dashed;
+
+  const _FlowGraphEdge({required this.from, required this.to, this.curveDir = 0.0, this.dashed = false});
+}
+
+// ── Flow graph CustomPainter ──────────────────────────────────────────────────
+
+class _FlowGraphPainter extends CustomPainter {
+  final List<_FlowGraphNode> nodes;
+  final List<_FlowGraphEdge> edges;
+  final Size size;
+  final String? activeId;
+  final String? hoveredId;
+  final String? selectedId;
+
+  const _FlowGraphPainter({
+    required this.nodes, required this.edges, required this.size,
+    this.activeId, this.hoveredId, this.selectedId,
+  });
+
+  Offset _nodeCenter(String id) {
+    final n = nodes.firstWhere((n) => n.id == id, orElse: () => nodes.first);
+    return Offset(n.pos.dx * size.width, n.pos.dy * size.height);
+  }
+
+  Color _nodeColor(String id) {
+    final n = nodes.firstWhere((n) => n.id == id, orElse: () => nodes.first);
+    return n.color;
+  }
+
+  @override
+  void paint(Canvas canvas, Size sz) {
+    for (final edge in edges) {
+      final fromC = _nodeCenter(edge.from);
+      final toC = _nodeCenter(edge.to);
+      final color = _nodeColor(edge.from);
+      final isHighlighted = edge.from == activeId || edge.from == hoveredId || edge.from == selectedId
+                         || edge.to   == activeId || edge.to   == hoveredId || edge.to   == selectedId;
+
+      final paint = Paint()
+        ..color = isHighlighted ? color.withOpacity(0.7) : const Color(0xFF2A2A44)
+        ..strokeWidth = isHighlighted ? 1.5 : 0.8
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round;
+
+      // Control points for bezier — perpendicular offset scales with curveDir
+      final mid = (fromC + toC) / 2;
+      final dx = toC.dx - fromC.dx;
+      final dy = toC.dy - fromC.dy;
+      final len = math.sqrt(dx * dx + dy * dy);
+      final perp = len > 0
+          ? Offset(-dy / len * len * edge.curveDir, dx / len * len * edge.curveDir)
+          : Offset.zero;
+      final cp1 = mid + perp * 0.6;
+      final cp2 = mid + perp * 0.6;
+
+      final path = Path()
+        ..moveTo(fromC.dx, fromC.dy)
+        ..cubicTo(cp1.dx, cp1.dy, cp2.dx, cp2.dy, toC.dx, toC.dy);
+
+      if (edge.dashed) {
+        _drawDashedPath(canvas, path, paint);
+      } else {
+        canvas.drawPath(path, paint);
+      }
+
+      // Arrowhead at toC — direction from cp2 to toC
+      final dir = (toC - cp2);
+      final dirLen = dir.distance;
+      if (dirLen > 0) {
+        final unit = dir / dirLen;
+        _drawArrow(canvas, toC, unit, paint..color = paint.color);
+      }
+    }
+  }
+
+  void _drawArrow(Canvas canvas, Offset tip, Offset dir, Paint paint) {
+    const arrowLen = 6.0;
+    const arrowWid = 3.5;
+    final left = Offset(-dir.dy, dir.dx);
+    final p1 = tip - dir * arrowLen + left * arrowWid;
+    final p2 = tip - dir * arrowLen - left * arrowWid;
+    final arrowPath = Path()..moveTo(tip.dx, tip.dy)..lineTo(p1.dx, p1.dy)..lineTo(p2.dx, p2.dy)..close();
+    canvas.drawPath(arrowPath, Paint()
+      ..color = paint.color
+      ..style = PaintingStyle.fill);
+  }
+
+  void _drawDashedPath(Canvas canvas, Path path, Paint paint) {
+    const dashLen = 5.0;
+    const gapLen = 4.0;
+    final metrics = path.computeMetrics();
+    for (final metric in metrics) {
+      double dist = 0;
+      bool drawing = true;
+      while (dist < metric.length) {
+        final seg = drawing ? dashLen : gapLen;
+        if (drawing) {
+          final extracted = metric.extractPath(dist, math.min(dist + seg, metric.length));
+          canvas.drawPath(extracted, paint);
+        }
+        dist += seg;
+        drawing = !drawing;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_FlowGraphPainter old) =>
+    old.activeId != activeId || old.hoveredId != hoveredId || old.selectedId != selectedId;
 }
 
 // ══════════════════════════════════════════════════════════════════��════════════
