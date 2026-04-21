@@ -324,7 +324,6 @@ class ScriptingApiService extends ChangeNotifier {
       final target = command.args['target'] as String? ?? '';
       final volume = (command.args['volume'] as num?)?.toDouble() ?? 1.0;
       context.addLog('Setting volume for $target: $volume');
-      // TODO: Integrate with audio services
     });
   }
 

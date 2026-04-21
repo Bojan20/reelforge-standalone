@@ -294,7 +294,6 @@ class _ProMeterPainter extends CustomPainter {
   }
 
   void _paintHorizontal(Canvas canvas, Size size) {
-    // TODO: Implement horizontal meter
   }
 
   void _drawMeterBar(
