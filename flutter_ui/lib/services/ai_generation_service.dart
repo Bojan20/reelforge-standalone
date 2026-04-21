@@ -5,9 +5,19 @@
 // T8.2: GenerationSpec → BackendRequest (AudioCraft/ElevenLabs/etc)
 // T8.3: PostProcessingConfig (loudness, fade, format)
 // T8.4: FFNC auto-categorization of generated assets
+//
+// ElevenLabs integration:
+// - Sound Effects API (/v1/sound-generation) for ambient/SFX audio
+// - TTS API (/v1/text-to-speech/{voice_id}) for voiceover generation
+// - API key stored in SharedPreferences, NOT in code
 
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import 'package:path/path.dart' as p;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../src/rust/native_ffi.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -366,6 +376,7 @@ class BackendInfo {
 /// ```
 class AiGenerationService extends ChangeNotifier {
   final NativeFFI _ffi;
+  final ElevenLabsBackend _elevenlabs = ElevenLabsBackend();
 
   AudioDescriptor? _lastDescriptor;
   GenerationResult? _lastResult;
@@ -374,7 +385,16 @@ class AiGenerationService extends ChangeNotifier {
   List<BackendInfo> _availableBackends = [];
   bool _isWorking = false;
 
-  AiGenerationService(this._ffi);
+  // ElevenLabs state
+  ElevenLabsGenerationResult? _lastElResult;
+  List<ElevenLabsVoice> _elVoices = [];
+  String _elApiKey = '';
+  String _elVoiceId = '';
+
+  AiGenerationService(this._ffi) {
+    // Load persisted API key on init
+    _loadElConfig();
+  }
 
   AudioDescriptor? get lastDescriptor => _lastDescriptor;
   GenerationResult? get lastResult => _lastResult;
@@ -384,12 +404,128 @@ class AiGenerationService extends ChangeNotifier {
   bool get isWorking => _isWorking;
   bool get hasResult => _lastResult != null;
 
+  // ElevenLabs getters
+  ElevenLabsGenerationResult? get lastElResult => _lastElResult;
+  List<ElevenLabsVoice> get elVoices => List.unmodifiable(_elVoices);
+  String get elApiKey => _elApiKey;
+  String get elVoiceId => _elVoiceId;
+  bool get elIsConfigured => _elApiKey.isNotEmpty;
+
   /// Load available backends from the Rust engine.
   void loadAvailableBackends() {
     final json = _ffi.aiGenAvailableBackends();
     if (json != null) {
       final list = jsonDecode(json) as List;
       _availableBackends = list.map((e) => BackendInfo.fromJson(e as Map<String, dynamic>)).toList();
+      notifyListeners();
+    }
+  }
+
+  // ── ElevenLabs config ───────────────────────────────────────────────────
+
+  Future<void> _loadElConfig() async {
+    _elApiKey = await ElevenLabsBackend.getApiKey();
+    _elVoiceId = await ElevenLabsBackend.getVoiceId();
+    notifyListeners();
+  }
+
+  /// Save ElevenLabs API key and voice ID to SharedPreferences.
+  Future<void> saveElConfig({required String apiKey, String? voiceId}) async {
+    await ElevenLabsBackend.saveConfig(apiKey: apiKey, voiceId: voiceId);
+    _elApiKey = apiKey;
+    if (voiceId != null) _elVoiceId = voiceId;
+    notifyListeners();
+  }
+
+  /// Select a voice ID.
+  void selectElVoice(String voiceId) {
+    _elVoiceId = voiceId;
+    ElevenLabsBackend.saveConfig(apiKey: _elApiKey, voiceId: voiceId);
+    notifyListeners();
+  }
+
+  /// Fetch ElevenLabs voice list from the API.
+  Future<void> fetchElVoices() async {
+    if (_elApiKey.isEmpty) return;
+    _isWorking = true;
+    notifyListeners();
+    try {
+      _elVoices = await _elevenlabs.fetchVoices(_elApiKey);
+    } catch (_) {
+      _elVoices = [];
+    } finally {
+      _isWorking = false;
+      notifyListeners();
+    }
+  }
+
+  // ── ElevenLabs Sound Effects generation ─────────────────────────────────
+
+  /// Generate a sound effect via ElevenLabs Sound Effects API.
+  ///
+  /// Prompt: text description of sound ("epic win fanfare with brass, 2s")
+  /// Returns path to generated MP3 file in system temp dir.
+  Future<ElevenLabsGenerationResult?> generateElSfx({
+    required String prompt,
+    double? durationSeconds,
+    double promptInfluence = 0.3,
+  }) async {
+    if (_elApiKey.isEmpty) {
+      throw Exception('ElevenLabs API key not set. Open AI GEN settings (⚙️) to configure.');
+    }
+    _isWorking = true;
+    _lastElResult = null;
+    notifyListeners();
+    try {
+      final result = await _elevenlabs.generateSfx(
+        prompt: prompt,
+        apiKey: _elApiKey,
+        durationSeconds: durationSeconds,
+        promptInfluence: promptInfluence,
+      );
+      _lastElResult = result;
+      return result;
+    } finally {
+      _isWorking = false;
+      notifyListeners();
+    }
+  }
+
+  // ── ElevenLabs TTS generation ────────────────────────────────────────────
+
+  /// Generate voiceover via ElevenLabs TTS API.
+  ///
+  /// Use for slot announcer phrases: "BIG WIN!", "Jackpot!", "Free Spins activated!"
+  Future<ElevenLabsGenerationResult?> generateElTts({
+    required String text,
+    String? voiceId,
+    double stability = 0.4,
+    double similarityBoost = 0.75,
+    double speed = 1.05,
+  }) async {
+    final vid = voiceId ?? _elVoiceId;
+    if (_elApiKey.isEmpty) {
+      throw Exception('ElevenLabs API key not set.');
+    }
+    if (vid.isEmpty) {
+      throw Exception('No voice selected. Fetch voices and select one.');
+    }
+    _isWorking = true;
+    _lastElResult = null;
+    notifyListeners();
+    try {
+      final result = await _elevenlabs.generateTts(
+        text: text,
+        apiKey: _elApiKey,
+        voiceId: vid,
+        stability: stability,
+        similarityBoost: similarityBoost,
+        speed: speed,
+      );
+      _lastElResult = result;
+      return result;
+    } finally {
+      _isWorking = false;
       notifyListeners();
     }
   }
@@ -518,4 +654,252 @@ class AiGenerationPipelineResult {
     this.classification,
     this.postProcessingConfig,
   });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ElevenLabs Backend — Real HTTP client
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Result of ElevenLabs generation — contains audio bytes + metadata.
+class ElevenLabsGenerationResult {
+  final Uint8List audioBytes;
+  final String format;        // 'mp3'
+  final String outputPath;   // absolute path to saved file (temp)
+  final String filename;
+  final int durationMs;
+  final String mode;          // 'sfx' | 'tts'
+  final String prompt;
+
+  const ElevenLabsGenerationResult({
+    required this.audioBytes,
+    required this.format,
+    required this.outputPath,
+    required this.filename,
+    required this.durationMs,
+    required this.mode,
+    required this.prompt,
+  });
+}
+
+/// ElevenLabs backend — direct HTTP calls.
+///
+/// Sound Effects API:  POST /v1/sound-generation
+/// TTS API:            POST /v1/text-to-speech/{voice_id}
+///
+/// API key is stored in SharedPreferences under 'elevenlabs_api_key'.
+/// Voice ID stored under 'elevenlabs_voice_id'.
+class ElevenLabsBackend {
+  static const _apiBase = 'https://api.elevenlabs.io';
+  static const _prefKeyApiKey = 'elevenlabs_api_key';
+  static const _prefKeyVoiceId = 'elevenlabs_voice_id';
+
+  final http.Client _client;
+
+  ElevenLabsBackend({http.Client? client})
+      : _client = client ?? http.Client();
+
+  void dispose() => _client.close();
+
+  // ── Config persistence ────────────────────────────────────────────────────
+
+  static Future<String> getApiKey() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_prefKeyApiKey) ?? '';
+  }
+
+  static Future<String> getVoiceId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_prefKeyVoiceId) ?? '';
+  }
+
+  static Future<void> saveConfig({required String apiKey, String? voiceId}) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_prefKeyApiKey, apiKey);
+    if (voiceId != null && voiceId.isNotEmpty) {
+      await prefs.setString(_prefKeyVoiceId, voiceId);
+    }
+  }
+
+  static Future<bool> isConfigured() async {
+    final key = await getApiKey();
+    return key.isNotEmpty;
+  }
+
+  // ── Sound Effects API ────────────────────────────────────────────────────
+
+  /// Generate a sound effect from a text prompt.
+  ///
+  /// Uses ElevenLabs /v1/sound-generation endpoint.
+  /// Returns audio bytes (MP3) + saves to temp file.
+  Future<ElevenLabsGenerationResult> generateSfx({
+    required String prompt,
+    required String apiKey,
+    double? durationSeconds,
+    double promptInfluence = 0.3,
+  }) async {
+    final uri = Uri.parse('$_apiBase/v1/sound-generation');
+
+    final body = <String, dynamic>{
+      'text': prompt,
+      'prompt_influence': promptInfluence,
+    };
+    if (durationSeconds != null) {
+      // ElevenLabs caps at 22s, minimum 0.5s
+      body['duration_seconds'] = durationSeconds.clamp(0.5, 22.0);
+    }
+
+    final response = await _client.post(
+      uri,
+      headers: {
+        'xi-api-key': apiKey,
+        'Content-Type': 'application/json',
+        'Accept': 'audio/mpeg',
+      },
+      body: jsonEncode(body),
+    );
+
+    if (response.statusCode != 200) {
+      final errBody = response.body.length > 300
+          ? response.body.substring(0, 300)
+          : response.body;
+      throw Exception('ElevenLabs SFX error ${response.statusCode}: $errBody');
+    }
+
+    final audioBytes = response.bodyBytes;
+    final filename = _makeFilename(prompt, 'sfx');
+    final outPath = await _saveTempFile(audioBytes, filename);
+
+    return ElevenLabsGenerationResult(
+      audioBytes: audioBytes,
+      format: 'mp3',
+      outputPath: outPath,
+      filename: filename,
+      durationMs: durationSeconds != null ? (durationSeconds * 1000).toInt() : 0,
+      mode: 'sfx',
+      prompt: prompt,
+    );
+  }
+
+  // ── TTS API ──────────────────────────────────────────────────────────────
+
+  /// Generate speech from text using ElevenLabs TTS.
+  ///
+  /// Uses eleven_multilingual_v2 model with slot-game announcer settings.
+  Future<ElevenLabsGenerationResult> generateTts({
+    required String text,
+    required String apiKey,
+    required String voiceId,
+    double stability = 0.4,
+    double similarityBoost = 0.75,
+    double speed = 1.05,
+    String modelId = 'eleven_multilingual_v2',
+  }) async {
+    if (voiceId.isEmpty) {
+      throw Exception('ElevenLabs TTS requires a voice ID. Set it in AI GEN settings.');
+    }
+
+    final uri = Uri.parse(
+      '$_apiBase/v1/text-to-speech/$voiceId?output_format=mp3_44100_128',
+    );
+
+    final body = {
+      'text': text,
+      'model_id': modelId,
+      'voice_settings': {
+        'stability': stability,
+        'similarity_boost': similarityBoost,
+        'speed': speed,
+      },
+    };
+
+    final response = await _client.post(
+      uri,
+      headers: {
+        'xi-api-key': apiKey,
+        'Content-Type': 'application/json',
+        'Accept': 'audio/mpeg',
+      },
+      body: jsonEncode(body),
+    );
+
+    if (response.statusCode != 200) {
+      final errBody = response.body.length > 300
+          ? response.body.substring(0, 300)
+          : response.body;
+      throw Exception('ElevenLabs TTS error ${response.statusCode}: $errBody');
+    }
+
+    final audioBytes = response.bodyBytes;
+    final filename = _makeFilename(text, 'tts');
+    final outPath = await _saveTempFile(audioBytes, filename);
+
+    return ElevenLabsGenerationResult(
+      audioBytes: audioBytes,
+      format: 'mp3',
+      outputPath: outPath,
+      filename: filename,
+      durationMs: 0, // ElevenLabs doesn't return duration in header
+      mode: 'tts',
+      prompt: text,
+    );
+  }
+
+  // ── Voices list ──────────────────────────────────────────────────────────
+
+  /// Fetch available voices from ElevenLabs account.
+  Future<List<ElevenLabsVoice>> fetchVoices(String apiKey) async {
+    final uri = Uri.parse('$_apiBase/v1/voices');
+    final response = await _client.get(
+      uri,
+      headers: {'xi-api-key': apiKey},
+    );
+    if (response.statusCode != 200) return [];
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final voices = (data['voices'] as List? ?? []);
+    return voices
+        .map((v) => ElevenLabsVoice.fromJson(v as Map<String, dynamic>))
+        .toList();
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────────────────
+
+  String _makeFilename(String prompt, String mode) {
+    final slug = prompt
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_');
+    final short = slug.length > 40 ? slug.substring(0, 40) : slug;
+    final ts = DateTime.now().millisecondsSinceEpoch;
+    return 'el_${mode}_${short}_$ts.mp3';
+  }
+
+  Future<String> _saveTempFile(Uint8List bytes, String filename) async {
+    final dir = Directory.systemTemp;
+    final file = File(p.join(dir.path, filename));
+    await file.writeAsBytes(bytes);
+    return file.path;
+  }
+}
+
+/// ElevenLabs voice metadata
+class ElevenLabsVoice {
+  final String voiceId;
+  final String name;
+  final String? category;
+  final String? description;
+
+  const ElevenLabsVoice({
+    required this.voiceId,
+    required this.name,
+    this.category,
+    this.description,
+  });
+
+  factory ElevenLabsVoice.fromJson(Map<String, dynamic> json) => ElevenLabsVoice(
+    voiceId: json['voice_id'] as String,
+    name: json['name'] as String,
+    category: json['category'] as String?,
+    description: (json['labels'] as Map<String, dynamic>?)?['description'] as String?,
+  );
 }

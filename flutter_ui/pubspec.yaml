@@ -41,6 +41,9 @@ dependencies:
   web_socket_channel: ^3.0.3
   get_it: ^9.2.1
 
+  # HTTP client for ElevenLabs and other cloud APIs
+  http: ^1.2.0
+
   # Archive (ZIP) support for soundbank building
   archive: ^4.0.9
 
