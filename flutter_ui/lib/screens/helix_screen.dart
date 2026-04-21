@@ -62,6 +62,7 @@ import '../models/slot_lab_models.dart' show SymbolDefinition, SymbolType;
 import '../providers/recording_provider.dart';
 import '../src/rust/native_ffi.dart';
 import '../widgets/slot_lab/auto_bind_dialog_v2.dart';
+import '../widgets/slot_lab/neural_bind_orb.dart';
 import 'slot_lab_screen.dart' show SlotLabScreen;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -4440,27 +4441,11 @@ class _AudioPanelState extends State<_AudioPanel> {
                 Row(children: [
                   _DockLabel('CHANNELS', color: FluxForgeTheme.accentCyan),
                   const SizedBox(width: 8),
-                  // Auto-Bind button — opens folder picker + spectral DNA classifier
-                  GestureDetector(
-                    onTap: () => _showAutoBindDialog(context),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: FluxForgeTheme.accentGreen.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: FluxForgeTheme.accentGreen.withValues(alpha: 0.3)),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.auto_fix_high, size: 11, color: FluxForgeTheme.accentGreen),
-                          SizedBox(width: 4),
-                          Text('Auto-Bind', style: TextStyle(
-                            fontSize: 9, fontWeight: FontWeight.w600,
-                            color: FluxForgeTheme.accentGreen)),
-                        ],
-                      ),
-                    ),
+                  // Neural Bind Orb — instant drag & drop audio binding
+                  NeuralBindOrb.large(
+                    onBindComplete: (analysis, path) {
+                      SlotLabScreen.triggerAutoBindReload(path);
+                    },
                   ),
                   const Spacer(),
                   Text('${events.length} events  ·  tap to open lens', style: const TextStyle(

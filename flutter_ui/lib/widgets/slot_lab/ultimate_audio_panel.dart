@@ -60,7 +60,8 @@ import '../../services/audio_playback_service.dart';
 import '../../services/variant_manager.dart'; // SL-LP-P1.4
 import '../../services/waveform_thumbnail_cache.dart'; // SL-LP-P1.1
 import 'package:get_it/get_it.dart'; // V11: Feature Composer + Pacing
-import 'auto_bind_dialog_v2.dart'; // AutoBind v2 — ultimativni engine
+import 'auto_bind_dialog_v2.dart'; // AutoBind v2 — full dialog
+import 'neural_bind_orb.dart'; // Neural Bind Orb — instant binding
 import 'ffnc_rename_dialog.dart'; // FFNC Rename Tool
 import '../../services/ffnc/event_presets.dart'; // Event Presets
 import '../../services/ffnc/phase_presets.dart'; // Phase Presets
@@ -518,10 +519,13 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
           final isNarrow = constraints.maxWidth < 200;
           return Row(
             children: [
-              _compactActionBtn(
-                Icons.auto_fix_high, 'Auto-Bind',
-                FluxForgeTheme.accentGreen,
-                () => _showAutoBindDialog(context),
+              // Neural Bind Orb — instant drag & drop binding
+              NeuralBindOrb.large(
+                onBindComplete: (analysis, path) {
+                  SlotLabScreen.triggerAutoBindReload(path);
+                  widget.onBusVolumesChanged?.call(const {0: 1.0, 1: 1.0, 2: 1.0, 3: 1.0, 4: 1.0});
+                },
+                onBusVolumesChanged: widget.onBusVolumesChanged,
               ),
               const SizedBox(width: 2),
               _compactActionBtn(
