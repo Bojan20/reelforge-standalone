@@ -12,10 +12,12 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../models/timeline_models.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../timeline/stretch_overlay.dart';
+import '../../providers/warp_state_provider.dart';
 
 /// Professional clip inspector panel
 class ClipInspectorPanel extends StatefulWidget {
@@ -746,27 +748,155 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
           ),
         ),
 
+        // ─── Quantize Strength Slider ─────────────────────────────────────
+        if (clip.warpEnabled) ...[
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Text('Q Strength', style: TextStyle(fontSize: 11, color: FluxForgeTheme.textTertiary)),
+              const Spacer(),
+              Consumer<WarpStateProvider>(
+                builder: (ctx, warpProv, _) => Text(
+                  warpProv.strengthLabel,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontFamily: 'JetBrains Mono',
+                    color: FluxForgeTheme.accentOrange,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          Consumer<WarpStateProvider>(
+            builder: (ctx, warpProv, _) => Slider(
+              value: warpProv.quantizeStrength,
+              min: 0.0,
+              max: 1.0,
+              divisions: 20,
+              activeColor: FluxForgeTheme.accentOrange,
+              inactiveColor: FluxForgeTheme.borderSubtle,
+              onChanged: warpProv.setQuantizeStrength,
+            ),
+          ),
+
+          // Quantize preset buttons
+          Consumer<WarpStateProvider>(
+            builder: (ctx, warpProv, _) => Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: WarpQuantizePreset.values.map((p) {
+                final active = (p.value - warpProv.quantizeStrength).abs() < 0.06;
+                return GestureDetector(
+                  onTap: () => warpProv.applyPreset(p),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: active ? FluxForgeTheme.accentOrange.withValues(alpha: 0.2) : Colors.transparent,
+                      border: Border.all(
+                        color: active ? FluxForgeTheme.accentOrange : FluxForgeTheme.borderSubtle,
+                      ),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: Text(
+                      p.label,
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        color: active ? FluxForgeTheme.accentOrange : FluxForgeTheme.textTertiary,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          const SizedBox(height: 4),
+        ],
+
+        // ─── Source BPM display ────────────────────────────────────────────
+        Consumer<WarpStateProvider>(
+          builder: (ctx, warpProv, _) {
+            final detectedBpm = warpProv.snapshot?.sourceTempo;
+            if (detectedBpm == null && !clip.warpEnabled) return const SizedBox.shrink();
+            return Column(
+              children: [
+                if (detectedBpm != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: Row(
+                      children: [
+                        Text('Source BPM', style: TextStyle(fontSize: 11, color: FluxForgeTheme.textTertiary)),
+                        const Spacer(),
+                        GestureDetector(
+                          onTap: () {
+                            // Toggle user BPM override — tap detected to use it as override
+                            if (warpProv.hasBpmOverride) {
+                              warpProv.clearBpmOverride();
+                            } else {
+                              warpProv.setUserSourceBpm(detectedBpm);
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: warpProv.hasBpmOverride
+                                  ? FluxForgeTheme.accentCyan.withValues(alpha: 0.2)
+                                  : Colors.transparent,
+                              border: Border.all(
+                                color: warpProv.hasBpmOverride
+                                    ? FluxForgeTheme.accentCyan
+                                    : FluxForgeTheme.borderSubtle,
+                              ),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: Text(
+                              '${detectedBpm.toStringAsFixed(1)} BPM',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontFamily: 'JetBrains Mono',
+                                color: warpProv.hasBpmOverride
+                                    ? FluxForgeTheme.accentCyan
+                                    : FluxForgeTheme.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+
         // Quantize button
         if (clip.warpMarkers.length >= 3)
           SizedBox(
             width: double.infinity,
-            child: TextButton.icon(
-              onPressed: () {
-                final clipId = _parseClipId(clip.id);
-                if (clipId != null) {
-                  // Quantize to quarter-note grid at project tempo
-                  final projectTempo = NativeFFI.instance.clickGetTempo();
-                  final tempo = projectTempo > 0 ? projectTempo : 120.0;
-                  final beatDuration = 60.0 / tempo; // seconds per quarter note
-                  NativeFFI.instance.clipWarpQuantize(clipId, beatDuration, 0.8);
-                  _refreshAndNotifyWarp(clip);
-                }
-              },
-              icon: const Icon(Icons.grid_on, size: 14),
-              label: Text('Quantize to Grid (${clip.warpMarkers.length} markers)', style: const TextStyle(fontSize: 11)),
-              style: TextButton.styleFrom(
-                foregroundColor: FluxForgeTheme.accentOrange,
-                padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Consumer<WarpStateProvider>(
+              builder: (ctx, warpProv, _) => TextButton.icon(
+                onPressed: () {
+                  final clipId = _parseClipId(clip.id);
+                  if (clipId != null) {
+                    // Use effective BPM: user override → detected → project tempo
+                    final projectTempo = NativeFFI.instance.clickGetTempo();
+                    final tempo = warpProv.effectiveSourceBpm ??
+                        (projectTempo > 0 ? projectTempo : 120.0);
+                    final beatDuration = 60.0 / tempo;
+                    NativeFFI.instance.clipWarpQuantize(
+                      clipId, beatDuration, warpProv.quantizeStrength,
+                    );
+                    _refreshAndNotifyWarp(clip);
+                  }
+                },
+                icon: const Icon(Icons.grid_on, size: 14),
+                label: Text(
+                  'Quantize to Grid (${clip.warpMarkers.length} markers)',
+                  style: const TextStyle(fontSize: 11),
+                ),
+                style: TextButton.styleFrom(
+                  foregroundColor: FluxForgeTheme.accentOrange,
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                ),
               ),
             ),
           ),

@@ -104,6 +104,7 @@ import 'blocks/bonus_game_block.dart';
 import 'blocks/wild_features_block.dart';
 import 'blocks/transitions_block.dart';
 import 'blocks/gambling_block.dart';
+import 'providers/warp_state_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -333,6 +334,9 @@ class FluxForgeApp extends StatelessWidget {
         ChangeNotifierProvider<ScaleAssistantProvider>.value(
           value: sl<ScaleAssistantProvider>(),
         ),
+
+        // Warp Markers State (Phase 4-5)
+        ChangeNotifierProvider<WarpStateProvider>.value(value: sl<WarpStateProvider>()),
 
         // Error Handling
         ChangeNotifierProvider<ErrorProvider>.value(value: sl<ErrorProvider>()),

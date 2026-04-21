@@ -19,6 +19,7 @@ import '../../models/timeline_models.dart';
 import '../../models/middleware_models.dart' show FadeCurve;
 import '../../providers/editor_mode_provider.dart';
 import '../../providers/smart_tool_provider.dart';
+import '../../providers/warp_state_provider.dart';
 import '../editors/clip_fx_editor.dart';
 import '../../src/rust/native_ffi.dart';
 
@@ -474,7 +475,9 @@ class _ClipWidgetState extends State<ClipWidget> {
             // Quantize to beat grid: gridInterval = 60/tempo * snapValue
             final beatDuration = 60.0 / widget.tempo;
             final gridInterval = beatDuration * widget.snapValue;
-            widget.onWarpQuantize?.call(gridInterval, 1.0);
+            // Use WarpStateProvider strength (user-adjustable 0.0–1.0)
+            final strength = context.read<WarpStateProvider>().quantizeStrength;
+            widget.onWarpQuantize?.call(gridInterval, strength);
           }
           break;
         case 'warp_to_tempo':

@@ -152,6 +152,7 @@ import 'settings/midi_settings_screen.dart';
 import 'settings/plugin_manager_screen.dart';
 import 'settings/shortcuts_settings_screen.dart';
 import 'project/project_settings_screen.dart';
+import '../providers/warp_state_provider.dart';
 import 'main_layout.dart';
 import '../widgets/project/track_templates_panel.dart';
 import '../widgets/project/project_versions_panel.dart';
@@ -354,6 +355,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         return c;
       }).toList();
     });
+    // Keep WarpStateProvider in sync so warp panels react reactively
+    if (mounted) {
+      sl<WarpStateProvider>().refreshForClip(numericId);
+    }
   }
 
   /// Update a single track by ID without rebuilding the entire list.
@@ -8326,17 +8331,21 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         NativeFFI.instance.clipDetectTransients(numericClipId);
         // Step 2: Create warp markers from transients
         NativeFFI.instance.clipWarpCreateFromTransients(numericClipId);
-        // Step 3: Quantize to beat grid
+        // Step 3: Quantize to beat grid — use provider strength (user-adjustable)
+        final warpProvider = context.read<WarpStateProvider>();
+        final quantizeStrength = warpProvider.quantizeStrength;
+        // BPM: user override → detected source tempo → project tempo
         final currentTempo = context.read<EngineProvider>().transport.tempo;
-        final beatDuration = 60.0 / currentTempo;
-        NativeFFI.instance.clipWarpQuantize(numericClipId, beatDuration, 1.0);
+        final effectiveBpm = warpProvider.effectiveSourceBpm ?? currentTempo;
+        final beatDuration = 60.0 / effectiveBpm;
+        NativeFFI.instance.clipWarpQuantize(numericClipId, beatDuration, quantizeStrength);
         _refreshClipWarpState(clipId);
         UiUndoManager.instance.record(GenericUndoAction(
           description: 'Warp to Tempo',
           onExecute: () {
             NativeFFI.instance.clipDetectTransients(numericClipId);
             NativeFFI.instance.clipWarpCreateFromTransients(numericClipId);
-            NativeFFI.instance.clipWarpQuantize(numericClipId, beatDuration, 1.0);
+            NativeFFI.instance.clipWarpQuantize(numericClipId, beatDuration, quantizeStrength);
             _refreshClipWarpState(clipId);
           },
           onUndo: () {

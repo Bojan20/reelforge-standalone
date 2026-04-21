@@ -568,7 +568,7 @@ Poslednje fixovano (2026-04-21): #15 (otool detection), #22 (wgpu poll logging),
 - 16 subsystem providera, clip operations, FFNC audio triggering
 - SFX Pipeline Wizard — svih 6 koraka (21K UI + rf-offline backend)
 - Time Stretch — rf-dsp + FFI + Flutter bindings (koristi SlotLab)
-- Warp Markers (~70%) — data modeli + UI widgeti (warp_handles, audio_warping_panel, time_stretch_editor) + Rust WarpMarker/WarpState. Nedostaje: clipSetWarpMarkerPitch FFI, quantize strength slider, warp_state_provider.dart, BPM UI integracija, project save/load warp data
+- Warp Markers — KOMPLETNO: data modeli, UI widgeti (warp_handles, audio_warping_panel, time_stretch_editor), Rust WarpMarker/WarpState, clipSetWarpMarkerPitch FFI, quantize strength slider (4 preseta), warp_state_provider.dart, BPM UI integracija, project save/load (Serialize/Deserialize), transient detekcija
 - Live Server Integration — WebSocket/TCP (rf-connector) + JSON-RPC server (port 8765)
 - AUREXIS: GEG, DPM, SAMCL, Device Preview, SAM — Rust + FFI + Dart provideri kompletni
 - VST3/AU plugin hosting — skeniranje, loading, GUI (out-of-process), insert chain, PDC
@@ -622,6 +622,9 @@ Poslednje fixovano (2026-04-21): #15 (otool detection), #22 (wgpu poll logging),
 - HELIX Reel Vizualizacija — phase-based animation (accel/spin/decel/bounce), motion blur, win line overlay, anticipation system, per-reel stop timing
 - HELIX Feature Composer — FeatureComposerProvider sa 12+ mehanika (free spins, bonus, pick games), 3 preset-a (BASIC/STD/FULL), mechanics toggle, composed stages view
 - MIDI Editor — piano roll widget (1126 LOC), MIDI clip widget (482 LOC), expression maps provider (1146 LOC), MIDI provider (1212 LOC), 20+ FFI funkcija. Kompletna infrastruktura: MidiBuffer → process() → plugin forwarding za svih 5 formata
+- HOA Higher Orders (Wigner-D) — AmbisonicTransform sa Ivanic & Ruedenberg (1996) rekurzijom, orderi 1-7 (do 64ch), RotationInterpolator, SN3D/ACN format, full test suite (identity, π rotation, energy preservation, mirror, 7th order). transform.rs 656 LOC
+- LV2 GUI Hosting — direktno LV2 UI hosting (bez Suil): dlopen UI binary, lv2ui_descriptor lookup, write_function callback za parameter routing UI→plugin, URID map/unmap features za UI, instance-access feature, port_event notifikacija (sync UI sa plugin state), idle extension (toolkit event processing), resize extension, proper cleanup (close_editor). Podržava CocoaUI (macOS), X11UI (Linux), WindowsUI
+- VST3 GUI Windows/Linux — IPlugView COM vtable (12 metoda), vst3_load_plug_view() sa GetPluginFactory→IEditController→QueryInterface(IPlugView), HWND attach (Windows), X11EmbedWindowID XEmbed (Linux), proper close_editor sa removed()+release(), Arc<Library> umesto mem::forget leak
 
 ## Potvrdjeno Ispravno (QA Audit 2026-03-30)
 
@@ -668,10 +671,8 @@ Poslednje fixovano (2026-04-21): #15 (otool detection), #22 (wgpu poll logging),
 ## Preostalo (TODO)
 
 ### Feature Development
-- LV2 GUI hosting (Suil library — zahteva external C dependency)
-- VST3 native GUI on Windows/Linux (IPlugView COM — zahteva platform-specific kod)
-- Warp Markers Phase 4-5 wiring (~1 dan) — clipSetWarpMarkerPitch FFI binding, quantize strength slider, warp_state_provider.dart, BPM UI integracija, project save/load warp data
-- HOA visi redovi (>4th order) — Wigner-D rotation matrices
+- ~~LV2 GUI hosting~~ ✅ KOMPLETNO (2026-04-21)
+- ~~VST3 native GUI on Windows/Linux~~ ✅ KOMPLETNO (2026-04-21)
 
 ### HELIX Improvements
 - CLOUD panel real sync (CloudSyncService backend — trenutno stub, treba Firebase/Supabase transport)

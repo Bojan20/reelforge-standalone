@@ -165,6 +165,7 @@ import '../providers/control_room_provider.dart';
 import '../providers/stage_provider.dart';
 import '../providers/stage_ingest_provider.dart';
 import '../providers/soundbank_provider.dart';
+import '../providers/warp_state_provider.dart';
 import 'extension_sdk_service.dart';
 import 'hook_graph/hook_graph_service.dart';
 import '../models/slot_audio_events.dart' show SlotCompositeEvent;
@@ -967,6 +968,9 @@ class ServiceLocator {
     sl.registerLazySingleton<SoundbankProvider>(
       () => SoundbankProvider(sl<NativeFFI>()),
     );
+
+    // Warp Markers State (Phase 4-5)
+    sl.registerLazySingleton<WarpStateProvider>(() => WarpStateProvider());
 
     // Initialize plugin alternatives registry
     PluginAlternativesRegistry.instance.initBuiltInAlternatives();
