@@ -382,6 +382,106 @@ fn m_to_idx(m: i32, l: usize) -> usize {
     (m + l as i32) as usize
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// IVANIC & RUEDENBERG (1996) RECURRENCE HELPERS: P, Q, S
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// These implement Eqs. (4.1-4.3) of I&R 1996 for computing the real rotation
+// matrix R^l from R^1 (3×3 Cartesian rotation) and R^{l-1}.
+//
+// Notation:
+//   rl1[a][b]  — 3×3 order-1 block, a,b ∈ [0,1,2] ↔ m=-1,0,+1 in ACN
+//   r_prev[a][b] — (2(l-1)+1)×(2(l-1)+1) block for order l-1
+//   m_deg, n_deg — output/input degree in [-l, l]
+//   l — current order being computed
+//   prev_size — 2(l-1)+1
+
+/// Helper: safe access to r_prev. Returns 0 if indices out of bounds.
+#[inline]
+fn rprev(r_prev: &[Vec<f64>], row: i64, col: i64, prev_size: usize) -> f64 {
+    if row < 0 || col < 0 { return 0.0; }
+    let r = row as usize;
+    let c = col as usize;
+    if r >= prev_size || c >= prev_size { return 0.0; }
+    r_prev[r][c]
+}
+
+/// Ivanic & Ruedenberg P function (Eq. 4.1)
+///
+/// P^l_{m,n} combines R^1_{0,σ} with R^{l-1}_{m,n-σ} for σ = -1,0,+1
+/// where the R^1 row index = 1 (i.e., m=0 in 3×3 block) acts on the "Z" direction.
+fn ivr_p(m_deg: i64, n_deg: i64, l: usize, rl1: &[[f64; 3]; 3], r_prev: &[Vec<f64>], prev_size: usize) -> f64 {
+    // Index mapping: rl1[a][b] where a = degree+1, b = degree+1
+    // So rl1[1][0] = R^1_{0,-1}, rl1[1][1] = R^1_{0,0}, rl1[1][2] = R^1_{0,+1}
+    let l_prev = l - 1;
+
+    // m_deg in r_prev is clamped to [-l+1, l-1]
+    let m_idx = m_deg + l_prev as i64;  // row in r_prev
+
+    if n_deg.unsigned_abs() as usize <= l_prev {
+        // Standard case: n_deg is within range of previous order
+        let n_idx = n_deg + l_prev as i64;  // col in r_prev
+
+        // P = R^1_{0,0} * R^{l-1}_{m,n}
+        //   + R^1_{0,+1} * R^{l-1}_{m,n-1}  (if n-1 in range)
+        //   + R^1_{0,-1} * R^{l-1}_{m,n+1}  (if n+1 in range)
+        let mut val = rl1[1][1] * rprev(r_prev, m_idx, n_idx, prev_size);
+
+        if n_deg > 0 {
+            val += rl1[1][2] * rprev(r_prev, m_idx, n_idx - 1, prev_size);
+            val += rl1[1][0] * rprev(r_prev, m_idx, n_idx + 1, prev_size);
+        } else if n_deg < 0 {
+            val += rl1[1][0] * rprev(r_prev, m_idx, n_idx + 1, prev_size);
+            val += rl1[1][2] * rprev(r_prev, m_idx, n_idx - 1, prev_size);
+        } else {
+            // n_deg == 0
+            val += rl1[1][2] * rprev(r_prev, m_idx, n_idx - 1, prev_size);
+            val += rl1[1][0] * rprev(r_prev, m_idx, n_idx + 1, prev_size);
+        }
+        val
+    } else {
+        0.0
+    }
+}
+
+/// Ivanic & Ruedenberg Q function (Eq. 4.2)
+///
+/// Q combines the R^1 "positive" rows (m=+1, i.e., index 2) with R^{l-1}.
+fn ivr_q(m_deg: i64, n_deg: i64, l: usize, rl1: &[[f64; 3]; 3], r_prev: &[Vec<f64>], prev_size: usize) -> f64 {
+    let l_prev = l - 1;
+    let m_idx = m_deg + l_prev as i64;
+    let n_idx = n_deg + l_prev as i64;
+
+    if m_idx < 0 || m_idx >= prev_size as i64 { return 0.0; }
+
+    // Q = R^1_{+1,0} * R^{l-1}_{m,n}
+    //   + R^1_{+1,+1} * R^{l-1}_{m,n-1}
+    //   + R^1_{+1,-1} * R^{l-1}_{m,n+1}
+    let mut val = rl1[2][1] * rprev(r_prev, m_idx, n_idx, prev_size);
+    val += rl1[2][2] * rprev(r_prev, m_idx, n_idx - 1, prev_size);
+    val += rl1[2][0] * rprev(r_prev, m_idx, n_idx + 1, prev_size);
+    val
+}
+
+/// Ivanic & Ruedenberg S function (Eq. 4.3)
+///
+/// S combines the R^1 "negative" rows (m=-1, i.e., index 0) with R^{l-1}.
+fn ivr_s(m_deg: i64, n_deg: i64, l: usize, rl1: &[[f64; 3]; 3], r_prev: &[Vec<f64>], prev_size: usize) -> f64 {
+    let l_prev = l - 1;
+    let m_idx = m_deg + l_prev as i64;
+    let n_idx = n_deg + l_prev as i64;
+
+    if m_idx < 0 || m_idx >= prev_size as i64 { return 0.0; }
+
+    // S = R^1_{-1,0} * R^{l-1}_{m,n}
+    //   + R^1_{-1,+1} * R^{l-1}_{m,n-1}
+    //   + R^1_{-1,-1} * R^{l-1}_{m,n+1}
+    let mut val = rl1[0][1] * rprev(r_prev, m_idx, n_idx, prev_size);
+    val += rl1[0][2] * rprev(r_prev, m_idx, n_idx - 1, prev_size);
+    val += rl1[0][0] * rprev(r_prev, m_idx, n_idx + 1, prev_size);
+    val
+}
+
 /// Z-rotation factor in real SH basis for degree m and angle φ.
 ///
 /// In the ACN/SN3D real basis the ±m pairs transform as:
@@ -402,64 +502,86 @@ fn zrot_real(m: i32, phi: f32) -> f32 {
     }
 }
 
-/// Compute Wigner small-d matrix d^l_mn(β) for a given l using
-/// Jacobi polynomial / recurrence approach.
+/// Compute Wigner small-d matrix d^j_{m'm}(β) for a given j (=l) using
+/// the exact factorial formula from the Wigner D-matrix definition.
 ///
-/// Returns a (2l+1) × (2l+1) matrix indexed by [m+l][n+l].
+/// Returns a (2l+1) × (2l+1) matrix indexed by [m'+l][m+l].
 ///
-/// Algorithm: Euler half-angle method
-///   d^l_mn(β) = Σ_k  C(l,m,n,k) * cos^(a_k)(β/2) * sin^(b_k)(β/2) * (-1)^k
-/// where the sum runs over valid k that keep binomial arguments non-negative.
+/// Formula (Wikipedia "Wigner D-matrix" § explicit small-d):
 ///
-/// Reference: Wikipedia "Wigner D-matrix" § Explicit form of small d
+///   d^j_{m'm}(β) = √[(j+m')!(j-m')!(j+m)!(j-m)!]
+///     × Σ_s [(-1)^{m'-m+s} × cos^{2j+m-m'-2s}(β/2) × sin^{m'-m+2s}(β/2)]
+///       / [s! (j+m-s)! (m'-m+s)! (j-m'-s)!]
+///
+/// where s ranges over integers making all factorial arguments ≥ 0:
+///   s_min = max(0, m-m'),  s_max = min(j+m, j-m')
+///
+/// Reference: Ivanic & Ruedenberg (1996), Wikipedia, Rafaely (2015)
 fn wigner_d_real(l: usize, beta: f32) -> Vec<Vec<f32>> {
     let size = 2 * l + 1;
     let mut d = vec![vec![0.0f32; size]; size];
 
     let half_beta = beta / 2.0;
-    let cos_h = half_beta.cos();
-    let sin_h = half_beta.sin();
+    let cos_h = half_beta.cos() as f64;
+    let sin_h = half_beta.sin() as f64;
 
-    let l_i32 = l as i32;
+    let j = l as i64;
 
-    for m in -l_i32..=l_i32 {
-        for n in -l_i32..=l_i32 {
-            let row = m_to_idx(m, l);
-            let col = m_to_idx(n, l);
+    // Pre-compute factorials (up to 2*l which is max 14 for order 7)
+    let max_fact = (2 * l + 1) as usize;
+    let mut fact = vec![1.0_f64; max_fact + 1];
+    for i in 1..=max_fact {
+        fact[i] = fact[i - 1] * i as f64;
+    }
 
-            // k_min and k_max from non-negativity of binomial arguments
-            let k_min = 0_i32.max(n - m);
-            let k_max = (l_i32 - m).min(l_i32 + n);
+    for mp in -j..=j {
+        // mp = m' (output projection)
+        let row = (mp + j) as usize;
 
-            if k_min > k_max {
+        for m in -j..=j {
+            // m (input projection)
+            let col = (m + j) as usize;
+
+            // Prefactor: √[(j+m')!(j-m')!(j+m)!(j-m)!]
+            let prefactor = (
+                fact[(j + mp) as usize]
+                * fact[(j - mp) as usize]
+                * fact[(j + m) as usize]
+                * fact[(j - m) as usize]
+            ).sqrt();
+
+            // Sum limits
+            let s_min = 0_i64.max(m - mp);
+            let s_max = (j + m).min(j - mp);
+
+            if s_min > s_max {
                 d[row][col] = 0.0;
                 continue;
             }
 
             let mut sum = 0.0_f64;
-            for k in k_min..=k_max {
-                let sign = if (m - n + k) % 2 != 0 { -1.0_f64 } else { 1.0_f64 };
+            for s in s_min..=s_max {
+                // Sign: (-1)^{m'-m+s}
+                let exp = mp - m + s;
+                let sign = if exp % 2 != 0 { -1.0_f64 } else { 1.0_f64 };
 
-                // Binomial coefficients: C(l+n, l-m-k) * C(l-n, k)
-                let binom1 = binomial(l_i32 + n, l_i32 - m - k);
-                let binom2 = binomial(l_i32 - n, k);
+                // Denominator: s! (j+m-s)! (m'-m+s)! (j-m'-s)!
+                let denom = fact[s as usize]
+                    * fact[(j + m - s) as usize]
+                    * fact[(mp - m + s) as usize]
+                    * fact[(j - mp - s) as usize];
 
                 // Half-angle powers
-                let pow_cos = (2 * l_i32 - 2 * k + n - m) as u32;
-                let pow_sin = (2 * k + m - n) as u32;
+                let pow_cos = (2 * j + m - mp - 2 * s) as i32;
+                let pow_sin = (mp - m + 2 * s) as i32;
 
-                if pow_cos > 60 || pow_sin > 60 {
-                    // Avoid float underflow for very high powers — skip tiny terms
-                    continue;
-                }
+                let cos_pow = cos_h.powi(pow_cos);
+                let sin_pow = sin_h.powi(pow_sin);
 
-                let cos_pow = (cos_h as f64).powi(pow_cos as i32);
-                let sin_pow = (sin_h as f64).powi(pow_sin as i32);
-
-                sum += sign * binom1 * binom2 * cos_pow * sin_pow;
+                sum += sign * cos_pow * sin_pow / denom;
             }
 
-            d[row][col] = sum as f32;
+            d[row][col] = (prefactor * sum) as f32;
         }
     }
 
