@@ -600,7 +600,7 @@ Poslednje fixovano (2026-04-21): #15 (otool detection), #22 (wgpu poll logging),
   - BT: visual behavior tree editor sa 22 node tipova, canvas, edges
   - DNA: Spectral DNA classifier (7 DSP feature extractors u Rust FFI)
   - AI GEN: pipeline UI sa prompt + log + ElevenLabs real backend + dynamic backends
-  - CLOUD: CloudSyncService UI (stub backend)
+  - CLOUD: CloudSyncService + AssetCloudService — real HTTP transport (authenticate, upload, download, sync, search, rate, collections)
   - A/B: A/B test comparison
 - HELIX Test Suite — 60 integration testova + 60 property testova + 25 golden pixel testova + state hot-swap
 - HELIX Audio Drag-Drop — stage binding pipeline, auto-match, _pickStage dialog, EventRegistry registration
@@ -675,7 +675,7 @@ Poslednje fixovano (2026-04-21): #15 (otool detection), #22 (wgpu poll logging),
 - ~~VST3 native GUI on Windows/Linux~~ ✅ KOMPLETNO (2026-04-21)
 
 ### HELIX Improvements
-- CLOUD panel real sync (CloudSyncService backend — trenutno stub, treba Firebase/Supabase transport)
+- ~~CLOUD panel real sync~~ ✅ KOMPLETNO (2026-04-21) — CloudSyncService + AssetCloudService: svi stubovi zamenjeni realnim HTTP transportom (authenticate, upload multipart, download, manifest sync, search, rate, collections, share, delete). Backend-agnostic REST sa timeout/socket error handling.
 
 ### Agent Team — ✅ KOMPLETNO (2026-04-21)
 - ~~Implementirati agent CLAUDE.md + MEMORY.md + rules za svakog od 25 agenata~~
