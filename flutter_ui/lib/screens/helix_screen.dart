@@ -61,7 +61,7 @@ import '../services/gdd_import_service.dart' show GddGridConfig;
 import '../models/slot_lab_models.dart' show SymbolDefinition, SymbolType;
 import '../providers/recording_provider.dart';
 import '../src/rust/native_ffi.dart';
-import '../widgets/slot_lab/enhanced_autobind_dialog.dart';
+import '../widgets/slot_lab/auto_bind_dialog_v2.dart';
 import 'slot_lab_screen.dart' show SlotLabScreen;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -4293,14 +4293,14 @@ class _AudioPanelState extends State<_AudioPanel> {
   }
 
   void _showAutoBindDialog(BuildContext context) async {
-    final result = await showDialog<EnhancedAutoBindResult>(
+    final result = await showDialog<AutoBindV2Result>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const EnhancedAutoBindDialog(),
+      builder: (_) => const AutoBindDialogV2(),
     );
     if (result == null || !mounted) return;
 
-    if (result.bindings.isEmpty) {
+    if (result.analysis.matchedCount == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('No matching sound files found in folder'),
@@ -4317,7 +4317,7 @@ class _AudioPanelState extends State<_AudioPanel> {
       final renamed = result.didRename ? ' (renamed to FFNC)' : '';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Auto-Bind: ${result.bindings.length} stages bound$renamed'),
+          content: Text('Auto-Bind: ${result.analysis.uniqueStageCount} stages bound$renamed'),
           backgroundColor: FluxForgeTheme.bgMid,
           duration: const Duration(seconds: 3),
         ),

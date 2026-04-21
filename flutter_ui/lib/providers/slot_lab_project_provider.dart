@@ -595,6 +595,74 @@ class SlotLabProjectProvider extends ChangeNotifier {
     _markDirty();
   }
 
+  // ────────────────────────────────────────────────────────────────────────
+  // TRANSACTION API — used by AutoBindEngine for atomic apply + rollback
+  // ────────────────────────────────────────────────────────────────────────
+
+  /// Export a snapshot of current audio assignments for rollback purposes.
+  Map<String, String> exportAudioAssignmentsSnapshot() =>
+      Map<String, String>.unmodifiable(Map.from(_audioAssignments));
+
+  /// Restore a snapshot produced by [exportAudioAssignmentsSnapshot].
+  void restoreAudioAssignmentsSnapshot(Map<String, String> snapshot) {
+    _audioAssignments
+      ..clear()
+      ..addAll(snapshot);
+    _audioVariants.clear();
+    ffncLayerData = {};
+    _markDirty();
+    notifyListeners();
+  }
+
+  /// Atomically apply a complete auto-bind result from AutoBindEngine.
+  ///
+  /// Transaction order:
+  ///   1. Clear current state
+  ///   2. Apply all primary bindings
+  ///   3. Apply variant pools
+  ///   4. Apply layer data
+  ///   5. Create GAME_START composite if needed
+  ///   6. Create MusicLayerConfig if 2+ layers
+  ///   7. Mark dirty + notify
+  ///
+  /// Any exception propagates to caller; snapshot-based rollback is the
+  /// caller's responsibility (AutoBindEngine.apply handles this).
+  void applyAutoBindTransaction({
+    required Map<String, String> primaryBindings,
+    required Map<String, List<String>> variantPools,
+    required Map<String, List<({String path, int layer, String? variant})>> layerData,
+  }) {
+    // Step 1: Clear ALL existing state
+    _audioAssignments.clear();
+    _audioVariants.clear();
+    ffncLayerData = {};
+
+    // Step 2: Apply all primary bindings
+    for (final entry in primaryBindings.entries) {
+      _audioAssignments[entry.key] = entry.value;
+    }
+
+    // Step 3: Apply variant pools
+    for (final entry in variantPools.entries) {
+      _audioVariants[entry.key] = List<String>.from(entry.value);
+    }
+
+    // Step 4: Apply layer data
+    ffncLayerData = Map.from(layerData);
+
+    // Step 5: GAME_START composite
+    _createBaseGameMusicComposite(primaryBindings);
+
+    // Step 6: MusicLayerConfig
+    _autoCreateMusicLayerConfig(primaryBindings);
+
+    // Step 7: Finalize
+    if (primaryBindings.isNotEmpty) _markDirty();
+    notifyListeners();
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
+
   /// Auto-bind audio files from a folder to stages based on filename patterns.
   /// Returns record with bindings (stage→filePath) and unmapped file names.
   /// When [dryRun] is true, only analyzes without applying bindings (for preview).
