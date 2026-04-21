@@ -130,6 +130,30 @@ class _HelixScreenState extends State<HelixScreen>
   late Timer _playheadTimer;
   double _playheadSeconds = 0;
 
+  // ── Win line overlay + anticipation glow ─────────────────────────────────
+  // Win lines: list of payline indices (0-based) that hit on last spin
+  List<int> _lastWinLines = [];
+  // Anticipation: reel indices (0-based) showing scatter/bonus during spin
+  Set<int> _anticipationReels = {};
+
+  /// Called from spin result to show win lines
+  void showWinLines(List<int> lines) {
+    setState(() => _lastWinLines = lines);
+    // Auto-clear after 3 seconds
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _lastWinLines = []);
+    });
+  }
+
+  /// Called during spin to highlight reels with anticipation
+  void setAnticipationReels(Set<int> reels) {
+    setState(() => _anticipationReels = reels);
+  }
+
+  void clearAnticipation() {
+    setState(() => _anticipationReels = {});
+  }
+
   // ── Public API for child widgets ──────────────────────────────────────────
   void openContextLens(SlotCompositeEvent event) {
     setState(() => _contextLensEvent = event);
@@ -788,6 +812,48 @@ class _HelixScreenState extends State<HelixScreen>
                 child: IgnorePointer(child: _buildInfoChips()),
               ),
 
+              // Win line overlay — shows active paylines after spin
+              if (_lastWinLines.isNotEmpty)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: CustomPaint(
+                      painter: _WinLineOverlayPainter(
+                        winLines: _lastWinLines,
+                        reels: GetIt.instance<SlotLabProjectProvider>().gridConfig?.columns ?? 5,
+                        rows: GetIt.instance<SlotLabProjectProvider>().gridConfig?.rows ?? 3,
+                      ),
+                    ),
+                  ),
+                ),
+
+              // Anticipation reel glow — highlights reels with scatter/bonus during spin
+              if (_anticipationReels.isNotEmpty)
+                ..._anticipationReels.map((reelIdx) {
+                  final reels = GetIt.instance<SlotLabProjectProvider>().gridConfig?.columns ?? 5;
+                  return Positioned(
+                    left: (reelIdx / reels) * MediaQuery.of(context).size.width * 0.6 + 60,
+                    top: 60, bottom: 60,
+                    width: (MediaQuery.of(context).size.width * 0.6) / reels,
+                    child: IgnorePointer(
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 500),
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: FluxForgeTheme.accentYellow.withOpacity(0.6),
+                            width: 2),
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: [
+                            BoxShadow(
+                              color: FluxForgeTheme.accentYellow.withOpacity(0.15),
+                              blurRadius: 20,
+                              spreadRadius: 4),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+
               // C1/C2: Reel Context Lens (triggered via PremiumSlotPreview.onCellTap)
               // NOTE: _ReelCellOverlay removed — it blocked underlying touch events.
               // Cell taps are handled by onCellTap callback on PremiumSlotPreview above.
@@ -1110,6 +1176,7 @@ class _FlowPanel extends StatefulWidget {
 class _FlowPanelState extends State<_FlowPanel> {
   String? _hoveredNode;
   String? _selectedNode;
+  int _flowSubTab = 0; // 0=Stage Flow, 1=Feature Composer
 
   // ── Static graph definition ────────────────────────────────────────────────
   static const _nodes = <_FlowGraphNode>[
@@ -1163,6 +1230,299 @@ class _FlowPanelState extends State<_FlowPanel> {
 
   @override
   Widget build(BuildContext context) {
+    return Column(children: [
+      // Sub-tab switcher: STAGE FLOW | FEATURES
+      SizedBox(
+        height: 22,
+        child: Row(children: [
+          _flowSubTabButton('STAGE FLOW', 0, Icons.account_tree_rounded),
+          const SizedBox(width: 4),
+          _flowSubTabButton('FEATURES', 1, Icons.extension_rounded),
+          const Spacer(),
+        ]),
+      ),
+      const SizedBox(height: 4),
+      Expanded(child: _flowSubTab == 0 ? _buildStageFlow(context) : _buildFeatureComposer()),
+    ]);
+  }
+
+  Widget _flowSubTabButton(String label, int idx, IconData icon) {
+    final active = _flowSubTab == idx;
+    return GestureDetector(
+      onTap: () => setState(() => _flowSubTab = idx),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+        decoration: BoxDecoration(
+          color: active ? FluxForgeTheme.accentBlue.withOpacity(0.12) : Colors.transparent,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: active ? FluxForgeTheme.accentBlue.withOpacity(0.5) : FluxForgeTheme.borderSubtle)),
+        child: Row(children: [
+          Icon(icon, size: 10, color: active ? FluxForgeTheme.accentBlue : FluxForgeTheme.textTertiary),
+          const SizedBox(width: 4),
+          Text(label, style: TextStyle(fontFamily: 'monospace', fontSize: 8,
+            color: active ? FluxForgeTheme.accentBlue : FluxForgeTheme.textTertiary,
+            fontWeight: FontWeight.w600)),
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildFeatureComposer() {
+    final fc = GetIt.instance<FeatureComposerProvider>();
+    return ListenableBuilder(
+      listenable: fc,
+      builder: (_, __) {
+        final mechanics = fc.mechanicStates;
+        final stages = fc.composedStages;
+        final coreCount = fc.coreStageCount;
+        final featureCount = fc.featureStageCount;
+
+        return Row(children: [
+          // Left: Mechanic toggles
+          Flexible(
+            flex: 2,
+            child: _DockCard(
+              accent: FluxForgeTheme.accentPurple,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    _DockLabel('MECHANICS', color: FluxForgeTheme.accentPurple),
+                    const Spacer(),
+                    // Preset buttons
+                    _featurePresetBtn('BASIC', () => fc.presetBasic()),
+                    const SizedBox(width: 4),
+                    _featurePresetBtn('STD', () => fc.presetStandard()),
+                    const SizedBox(width: 4),
+                    _featurePresetBtn('FULL', () => fc.presetFull()),
+                  ]),
+                  const SizedBox(height: 6),
+                  Expanded(
+                    child: ListView(
+                      children: mechanics.entries.map((e) {
+                        final mechanic = e.key;
+                        final enabled = e.value;
+                        return GestureDetector(
+                          onTap: () => fc.toggleMechanic(mechanic),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                            margin: const EdgeInsets.only(bottom: 3),
+                            decoration: BoxDecoration(
+                              color: enabled
+                                  ? _mechanicColor(mechanic).withOpacity(0.08)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(5),
+                              border: Border.all(
+                                color: enabled
+                                    ? _mechanicColor(mechanic).withOpacity(0.4)
+                                    : FluxForgeTheme.borderSubtle)),
+                            child: Row(children: [
+                              Icon(
+                                enabled ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
+                                size: 13,
+                                color: enabled ? _mechanicColor(mechanic) : FluxForgeTheme.textTertiary),
+                              const SizedBox(width: 6),
+                              Icon(_mechanicIcon(mechanic), size: 12,
+                                color: enabled ? _mechanicColor(mechanic) : FluxForgeTheme.textTertiary),
+                              const SizedBox(width: 6),
+                              Expanded(child: Text(
+                                _mechanicLabel(mechanic),
+                                style: TextStyle(fontFamily: 'monospace', fontSize: 9,
+                                  color: enabled ? _mechanicColor(mechanic) : FluxForgeTheme.textTertiary,
+                                  fontWeight: enabled ? FontWeight.w600 : FontWeight.normal),
+                              )),
+                              if (enabled) ...[
+                                // Stage count badge
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: _mechanicColor(mechanic).withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(3)),
+                                  child: Text(
+                                    '${fc.stagesByMechanic[mechanic]?.length ?? 0}',
+                                    style: TextStyle(fontFamily: 'monospace', fontSize: 7,
+                                      color: _mechanicColor(mechanic))),
+                                ),
+                              ],
+                            ]),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  // Summary
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: FluxForgeTheme.bgDeep,
+                      borderRadius: BorderRadius.circular(4)),
+                    child: Row(children: [
+                      Text('$coreCount core', style: const TextStyle(
+                        fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.accentCyan)),
+                      const Text(' + ', style: TextStyle(
+                        fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textTertiary)),
+                      Text('$featureCount feature', style: const TextStyle(
+                        fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.accentPurple)),
+                      const Text(' = ', style: TextStyle(
+                        fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textTertiary)),
+                      Text('${stages.length} stages', style: const TextStyle(
+                        fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.accentYellow,
+                        fontWeight: FontWeight.w600)),
+                    ]),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Right: Composed stages list
+          Expanded(
+            flex: 3,
+            child: _DockCard(
+              accent: FluxForgeTheme.accentYellow,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    _DockLabel('COMPOSED STAGES', color: FluxForgeTheme.accentYellow),
+                    const Spacer(),
+                    Text('${stages.length} total',
+                      style: const TextStyle(fontFamily: 'monospace', fontSize: 8,
+                        color: FluxForgeTheme.textTertiary)),
+                  ]),
+                  const SizedBox(height: 6),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: stages.length,
+                      itemBuilder: (_, i) {
+                        final stage = stages[i];
+                        final isCore = stage.layer == StageLayer.engineCore;
+                        final isAlways = stage.layer == StageLayer.alwaysVisible;
+                        final color = isCore
+                            ? FluxForgeTheme.accentCyan
+                            : isAlways
+                                ? FluxForgeTheme.textTertiary
+                                : stage.mechanic != null
+                                    ? _mechanicColor(stage.mechanic!)
+                                    : FluxForgeTheme.accentPurple;
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          margin: const EdgeInsets.only(bottom: 2),
+                          decoration: BoxDecoration(
+                            color: color.withOpacity(0.04),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: color.withOpacity(0.15))),
+                          child: Row(children: [
+                            // Layer indicator
+                            Container(
+                              width: 6, height: 6,
+                              decoration: BoxDecoration(
+                                color: color.withOpacity(isCore ? 0.8 : 0.5),
+                                shape: BoxShape.circle)),
+                            const SizedBox(width: 6),
+                            // Stage name
+                            Expanded(child: Text(
+                              stage.displayName,
+                              style: TextStyle(fontFamily: 'monospace', fontSize: 9,
+                                color: color, fontWeight: isCore ? FontWeight.w600 : FontWeight.normal),
+                              overflow: TextOverflow.ellipsis)),
+                            // Bus badge
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: FluxForgeTheme.bgDeep,
+                                borderRadius: BorderRadius.circular(2)),
+                              child: Text(stage.suggestedBus.toUpperCase(),
+                                style: const TextStyle(fontFamily: 'monospace', fontSize: 6,
+                                  color: FluxForgeTheme.textTertiary)),
+                            ),
+                            const SizedBox(width: 4),
+                            // Priority badge
+                            Text(stage.priority,
+                              style: TextStyle(fontFamily: 'monospace', fontSize: 7,
+                                color: stage.priority == 'P0' ? FluxForgeTheme.accentRed
+                                    : stage.priority == 'P1' ? FluxForgeTheme.accentYellow
+                                    : FluxForgeTheme.textTertiary)),
+                            if (stage.locked) ...[
+                              const SizedBox(width: 3),
+                              Icon(Icons.lock_rounded, size: 8, color: color.withOpacity(0.4)),
+                            ],
+                          ]),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ]);
+      },
+    );
+  }
+
+  Widget _featurePresetBtn(String label, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+        decoration: BoxDecoration(
+          color: FluxForgeTheme.bgSurface,
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: FluxForgeTheme.borderSubtle)),
+        child: Text(label, style: const TextStyle(fontFamily: 'monospace', fontSize: 7,
+          color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600)),
+      ),
+    );
+  }
+
+  Color _mechanicColor(SlotMechanic m) => switch (m) {
+    SlotMechanic.cascading      => const Color(0xFF00E5FF),
+    SlotMechanic.freeSpins      => const Color(0xFFFFE033),
+    SlotMechanic.holdAndWin     => const Color(0xFFFF6644),
+    SlotMechanic.pickBonus      => const Color(0xFFAA66FF),
+    SlotMechanic.wheelBonus     => const Color(0xFFFF9900),
+    SlotMechanic.jackpot        => const Color(0xFFFFD700),
+    SlotMechanic.gamble         => const Color(0xFFFF4466),
+    SlotMechanic.megaways       => const Color(0xFF44FF88),
+    SlotMechanic.nudgeRespin    => const Color(0xFF6699FF),
+    SlotMechanic.expandingWilds => const Color(0xFF88FF44),
+    SlotMechanic.stickyWilds    => const Color(0xFFFF88CC),
+    SlotMechanic.multiplierTrail => const Color(0xFFFFAA33),
+  };
+
+  IconData _mechanicIcon(SlotMechanic m) => switch (m) {
+    SlotMechanic.cascading      => Icons.waterfall_chart,
+    SlotMechanic.freeSpins      => Icons.star_rounded,
+    SlotMechanic.holdAndWin     => Icons.lock_rounded,
+    SlotMechanic.pickBonus      => Icons.touch_app_rounded,
+    SlotMechanic.wheelBonus     => Icons.circle_outlined,
+    SlotMechanic.jackpot        => Icons.emoji_events_rounded,
+    SlotMechanic.gamble         => Icons.casino_rounded,
+    SlotMechanic.megaways       => Icons.grid_view_rounded,
+    SlotMechanic.nudgeRespin    => Icons.swap_vert_rounded,
+    SlotMechanic.expandingWilds => Icons.open_in_full_rounded,
+    SlotMechanic.stickyWilds    => Icons.push_pin_rounded,
+    SlotMechanic.multiplierTrail => Icons.trending_up_rounded,
+  };
+
+  String _mechanicLabel(SlotMechanic m) => switch (m) {
+    SlotMechanic.cascading      => 'Cascading',
+    SlotMechanic.freeSpins      => 'Free Spins',
+    SlotMechanic.holdAndWin     => 'Hold & Win',
+    SlotMechanic.pickBonus      => 'Pick Bonus',
+    SlotMechanic.wheelBonus     => 'Wheel Bonus',
+    SlotMechanic.jackpot        => 'Jackpot',
+    SlotMechanic.gamble         => 'Gamble',
+    SlotMechanic.megaways       => 'Megaways',
+    SlotMechanic.nudgeRespin    => 'Nudge/Respin',
+    SlotMechanic.expandingWilds => 'Expanding Wilds',
+    SlotMechanic.stickyWilds    => 'Sticky Wilds',
+    SlotMechanic.multiplierTrail => 'Multiplier Trail',
+  };
+
+  Widget _buildStageFlow(BuildContext context) {
     return Consumer<GameFlowProvider>(
       builder: (_, flow, _) {
         final activeId = _activeId(flow.currentState);
@@ -8475,6 +8835,106 @@ class _CoPilotChatWidgetState extends State<_CoPilotChatWidget> {
 // ─────────────────────────────────────────────────────────────────────────────
 // C2: REEL CONTEXT LENS
 // ─────────────────────────────────────────────────────────────────────────────
+
+/// Paints animated win lines across the reel grid overlay
+class _WinLineOverlayPainter extends CustomPainter {
+  final List<int> winLines;
+  final int reels;
+  final int rows;
+  _WinLineOverlayPainter({required this.winLines, required this.reels, required this.rows});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (winLines.isEmpty) return;
+
+    // Grid area estimation (PremiumSlotPreview uses ~60% of width, centered)
+    final gridLeft = size.width * 0.12;
+    final gridRight = size.width * 0.88;
+    final gridTop = size.height * 0.15;
+    final gridBottom = size.height * 0.85;
+    final gridWidth = gridRight - gridLeft;
+    final gridHeight = gridBottom - gridTop;
+    final cellWidth = gridWidth / reels;
+    final cellHeight = gridHeight / rows;
+
+    // Standard payline patterns (up to 20 lines for 5×3 grid)
+    // Each payline is a list of row indices per reel
+    final patterns = _generatePaylinePatterns(reels, rows);
+
+    for (final lineIdx in winLines) {
+      if (lineIdx >= patterns.length) continue;
+      final pattern = patterns[lineIdx];
+      final color = _lineColor(lineIdx);
+
+      final paint = Paint()
+        ..color = color.withOpacity(0.7)
+        ..strokeWidth = 2.5
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round;
+
+      final glowPaint = Paint()
+        ..color = color.withOpacity(0.15)
+        ..strokeWidth = 8
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+
+      final path = Path();
+      for (var r = 0; r < reels && r < pattern.length; r++) {
+        final x = gridLeft + (r + 0.5) * cellWidth;
+        final y = gridTop + (pattern[r] + 0.5) * cellHeight;
+        if (r == 0) {
+          path.moveTo(x, y);
+        } else {
+          path.lineTo(x, y);
+        }
+
+        // Draw circle at each symbol position
+        canvas.drawCircle(Offset(x, y), 4,
+          Paint()..color = color.withOpacity(0.5)..style = PaintingStyle.fill);
+      }
+
+      // Draw glow then line
+      canvas.drawPath(path, glowPaint);
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  List<List<int>> _generatePaylinePatterns(int reels, int rows) {
+    if (rows < 2) return [List.generate(reels, (_) => 0)];
+    final mid = rows ~/ 2;
+    return [
+      List.generate(reels, (_) => mid),             // 0: center
+      List.generate(reels, (_) => 0),                // 1: top
+      List.generate(reels, (_) => rows - 1),         // 2: bottom
+      List.generate(reels, (r) => r < reels ~/ 2 ? 0 : rows - 1), // 3: V-shape
+      List.generate(reels, (r) => r < reels ~/ 2 ? rows - 1 : 0), // 4: inverted V
+      List.generate(reels, (r) => (r % 2 == 0) ? 0 : mid),        // 5: zigzag up
+      List.generate(reels, (r) => (r % 2 == 0) ? rows - 1 : mid), // 6: zigzag down
+      List.generate(reels, (r) => r.clamp(0, rows - 1)),           // 7: ascending
+      List.generate(reels, (r) => (reels - 1 - r).clamp(0, rows - 1)), // 8: descending
+      // Additional patterns for 20-line games
+      ...List.generate(11, (i) {
+        final offset = (i + 1) % rows;
+        return List.generate(reels, (r) => (r + offset) % rows);
+      }),
+    ];
+  }
+
+  Color _lineColor(int idx) {
+    const colors = [
+      Color(0xFF5CFF9D), Color(0xFF4D9FFF), Color(0xFFFFE033),
+      Color(0xFFFF6644), Color(0xFFAA66FF), Color(0xFF00E5FF),
+      Color(0xFFFF9900), Color(0xFFFF88CC), Color(0xFF88FF44),
+      Color(0xFF6699FF),
+    ];
+    return colors[idx % colors.length];
+  }
+
+  @override
+  bool shouldRepaint(covariant _WinLineOverlayPainter old) =>
+    old.winLines != winLines || old.reels != reels || old.rows != rows;
+}
 
 class _ReelContextLens extends StatefulWidget {
   final int reel;
