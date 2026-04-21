@@ -894,31 +894,8 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
   // BUG#51: Replace Taylor-series log approximation with dart:math (full double precision)
   double _log10(double x) => x > 0 ? math.log(x) / math.ln10 : double.negativeInfinity;
 
-  // Legacy methods kept but unused — replaced by _log10 above using dart:math
-  @Deprecated('Use dart:math log() via _log10 instead')
-  double logE(double x) => x > 0 ? _ln(x) : double.negativeInfinity;
-  @Deprecated('Use dart:math log() instead')
-  double _ln(double x) {
-    // Old Taylor-series approximation — precision error >±0.1dB at extreme values
-    if (x <= 0) return double.negativeInfinity;
-    double result = 0;
-    while (x > 2) {
-      x /= 2.718281828;
-      result++;
-    }
-    while (x < 0.5) {
-      x *= 2.718281828;
-      result--;
-    }
-    x -= 1;
-    double term = x;
-    double sum = x;
-    for (int i = 2; i <= 10; i++) {
-      term *= -x;
-      sum += term / i;
-    }
-    return result + sum;
-  }
+  // BUG#51 FIX: Removed deprecated _ln() Taylor-series approximation.
+  // All logarithm calculations now use dart:math log() via _log10() above.
 
   void _showColorPicker(TimelineClip clip) {
     final colors = [

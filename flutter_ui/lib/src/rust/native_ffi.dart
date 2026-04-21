@@ -30143,6 +30143,68 @@ extension HookGraphAPI on NativeFFI {
     }
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SPECTRAL DNA — Audio Classifier (Level 2 Auto-bind)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Analyze a single audio file using Spectral DNA classifier.
+  /// Returns JSON with duration_ms, spectral features, and stage candidates.
+  String? spectralDnaAnalyze(String path) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('spectral_dna_analyze');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('free_string');
+
+      final pathPtr = path.toNativeUtf8();
+      try {
+        final resultPtr = fn(pathPtr);
+        if (resultPtr == nullptr) return null;
+        final result = resultPtr.toDartString();
+        freeFn(resultPtr);
+        return result;
+      } finally {
+        malloc.free(pathPtr);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Batch analyze multiple audio files.
+  /// [pathsJson] — JSON array of file paths.
+  /// Returns JSON array of analysis results.
+  String? spectralDnaAnalyzeBatch(List<String> paths) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('spectral_dna_analyze_batch');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('free_string');
+
+      final jsonStr = jsonEncode(paths);
+      final jsonPtr = jsonStr.toNativeUtf8();
+      try {
+        final resultPtr = fn(jsonPtr);
+        if (resultPtr == nullptr) return null;
+        final result = resultPtr.toDartString();
+        freeFn(resultPtr);
+        return result;
+      } finally {
+        malloc.free(jsonPtr);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Export to a single format.
   /// [requestJson] — JSON {"project": {...}, "format": "howler"|"wwise"|"fmod"|"generic"}.
   String? slotExportSingle(String requestJson) {

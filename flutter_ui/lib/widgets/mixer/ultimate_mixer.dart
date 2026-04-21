@@ -1196,9 +1196,20 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
   }
 
   /// Automation mode badge with popup selector — wired to AutomationProvider.
+  /// BUG#73 FIX: Read mode from AutomationProvider (live source of truth),
+  /// not from widget.channel.automationMode (stale model field).
   Widget _buildAutomationBadge() {
+    final providerMode = sl<ap.AutomationProvider>().mode;
+    // Map provider's 5-value enum back to badge's 7-value enum
+    final badgeMode = switch (providerMode) {
+      ap.AutomationMode.read  => AutomationMode.read,
+      ap.AutomationMode.touch => AutomationMode.touch,
+      ap.AutomationMode.write => AutomationMode.write,
+      ap.AutomationMode.latch => AutomationMode.latch,
+      ap.AutomationMode.trim  => AutomationMode.trim,
+    };
     return AutomationModeBadge(
-      mode: AutomationMode.fromString(widget.channel.automationMode),
+      mode: badgeMode,
       isNarrow: widget.compact,
       onModeChanged: (newMode) {
         sl<ap.AutomationProvider>().setMode(_badgeModeToProviderMode(newMode));

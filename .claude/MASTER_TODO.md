@@ -1,5 +1,16 @@
 # FluxForge Studio — MASTER TODO
 
+## Bug Fix Status (2026-04-21 Audit)
+
+**KRITIČNI (#1-#9):** SVE FIXOVANO ✅
+**VISOKI (#10-#17):** SVE FIXOVANO ✅ (#15 otool detection fixovano danas)
+**SREDNJI (#18-#29):** SVE FIXOVANO ✅ (#22 wgpu poll fixovano danas)
+**ROUND 2 (#24-#84):** SVE FIXOVANO ✅ (osim #66 feature req)
+- Danas fixovano: #15, #22, #51, #73, Spectral DNA FFI bindings
+
+---
+
+
 ## QA Bagovi — KRITIČNI (fix pre release-a)
 
 ### BUG #1: Wave Cache Alloc/Free Mismatch [AudioEngine]

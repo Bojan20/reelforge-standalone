@@ -270,7 +270,10 @@ impl GpuFft {
             tx.send(result).unwrap();
         });
 
-        let _ = self.context.device.poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
+        // BUG#22 FIX: handle poll result instead of silently discarding
+        if let Err(e) = self.context.device.poll(wgpu::PollType::Wait { submission_index: None, timeout: None }) {
+            log::error!("[GPU] device.poll failed: {:?}", e);
+        }
         rx.recv().unwrap().unwrap();
 
         let data = output_slice.get_mapped_range();
@@ -492,7 +495,10 @@ impl GpuConvolution {
             tx.send(result).unwrap();
         });
 
-        let _ = self.context.device.poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
+        // BUG#22 FIX: handle poll result instead of silently discarding
+        if let Err(e) = self.context.device.poll(wgpu::PollType::Wait { submission_index: None, timeout: None }) {
+            log::error!("[GPU] device.poll failed: {:?}", e);
+        }
         rx.recv().unwrap().unwrap();
 
         let data = output_slice.get_mapped_range();
@@ -687,7 +693,10 @@ impl GpuEq {
             tx.send(result).unwrap();
         });
 
-        let _ = self.context.device.poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
+        // BUG#22 FIX: handle poll result instead of silently discarding
+        if let Err(e) = self.context.device.poll(wgpu::PollType::Wait { submission_index: None, timeout: None }) {
+            log::error!("[GPU] device.poll failed: {:?}", e);
+        }
         rx.recv().unwrap().unwrap();
 
         let data = audio_slice.get_mapped_range();
