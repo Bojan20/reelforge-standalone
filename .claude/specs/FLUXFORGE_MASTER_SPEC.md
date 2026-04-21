@@ -29,6 +29,8 @@
 | 19 | MIDI Instrument Pipeline | DONE | MidiBuffer in process(), TrackType::Instrument, MIDI clip rendering in audio loop, plugin lifecycle, project save/load |
 | 20 | Multi-Output Routing | DONE | Per-channel bus destinations via PinConnector, 32 stereo pairs (64ch), race-condition safe single try_read() scope |
 | 21 | Project Save/Load | DONE | rf-bridge project_ffi.rs, automation CurveType (6 variants), ParamId reconstruction, clip properties (reversed/pitch/stretch), sample_rate guard |
+| 22 | HELIX Neural Slot Design | DONE | 12 dock panela (FLOW/AUDIO/MATH/TIMELINE/INTEL/EXPORT/SFX/BT/DNA/AI GEN/CLOUD/A/B), spine panels, audio drag-drop, Spectral DNA auto-bind, compliance validator (UKGC/MGA/SE), 60+60+25 test suite |
+| 23 | QA Bug Audit | DONE | 84/84 bagova reseno. Poslednji fix: #15 otool, #22 wgpu poll, #51 dead code, #73 automation badge, Spectral DNA FFI |
 
 ---
 

@@ -2,11 +2,19 @@
 
 ## Bug Fix Status (2026-04-21 Audit)
 
-**KRITIČNI (#1-#9):** SVE FIXOVANO ✅
-**VISOKI (#10-#17):** SVE FIXOVANO ✅ (#15 otool detection fixovano danas)
-**SREDNJI (#18-#29):** SVE FIXOVANO ✅ (#22 wgpu poll fixovano danas)
-**ROUND 2 (#24-#84):** SVE FIXOVANO ✅ (osim #66 feature req)
-- Danas fixovano: #15, #22, #51, #73, Spectral DNA FFI bindings
+**84/84 bagova reseno** ✅ (osim #66 — feature request, ne bug)
+
+| Kategorija | Bagovi | Status |
+|------------|--------|--------|
+| KRITIČNI (#1-#9) | heap corruption, double-free, SR desync, session template, clip ID, BPM hardcode, edition 2024, dead code | SVE FIXOVANO ✅ |
+| VISOKI (#10-#17) | post-fader index, bus volumes, waveform SR, eviction panic, audio skip, homebrew paths, TextEditingController, GestureDetector | SVE FIXOVANO ✅ |
+| SREDNJI (#18-#23) | tempo state, warp markers, dual insert, Swift print, wgpu poll, FabFilter slider | SVE FIXOVANO ✅ |
+| ROUND 2 KRITIČNI (#24-#29) | MIDI forwarding, ALE panic, drop frame, FFmpeg unsafe, LUFS maxTruePeak, Lua sandbox | SVE FIXOVANO ✅ |
+| ROUND 2 VISOKI (#30-#43) | plugin unload, chain TOCTOU, LV2 URID, LV2 SR, VBAP, HRTF, VCA trim, routing feedback, NPE, schema migration, Lua timeout, path traversal, AUREXIS FP, ingest unwrap | SVE FIXOVANO ✅ |
+| ROUND 2 SREDNJI (#44-#52) | floating timer, bezier X CP, waveform cache, grid FP drift, binaural buffer, FluxMacro cancel, GameModel validation, clip inspector ln(), script console | SVE FIXOVANO ✅ |
+| ROUND 2 DODATNI (#53-#84) | plugin safety, CLAP string, buffer pool, editor null, bypass mounted, instance TOCTOU, AUREXIS replay, ALE builtins, engine division, stage timing, scenario bounds, snapshot diff, atmos gain, room sim, video cache, timecode, frame count, LUFS indicator, IO selector, group manager, automation badge, stem routing, send pan, control room, clip pitch, clip gain, loop editor, logical editor, project versions (x2), offline encoder, bundle dylibs | SVE FIXOVANO ✅ |
+
+Poslednje fixovano (2026-04-21): #15 (otool detection), #22 (wgpu poll logging), #51 (dead code _ln()), #73 (automation badge → AutomationProvider), Spectral DNA FFI bindings
 
 ---
 
@@ -581,6 +589,25 @@
 - FFT Metering — VEC KOMPLETNO (metering_get_master_spectrum + getMasterSpectrum Dart)
 - Project Sample Rate Selection — engine_set_sample_rate FFI, validacija, update svih insert chains
 - Real FFT Spectrum Bridge — bus_hierarchy_panel sada cita pravi FFT iz engine-a (ne simulirani)
+- HELIX Neural Slot Design Environment — svih 12 dock panela funkcionalni:
+  - FLOW: interaktivni DAG graf sa CustomPainter bezier edges, 8 node tipova, force state
+  - AUDIO: master meters, fader, channel strips, events list, Auto-Bind (FFNC + Spectral DNA)
+  - MATH: win distribution histogram, RTP kalkulator, volatility meter (iz AUREXIS-a)
+  - TIMELINE: multi-track stage timing, drag events, playhead
+  - INTEL: analytics dashboard, spin statistika, win distribucija
+  - EXPORT: UCP/WWISE/FMOD/GDD export + UKGC/MGA/SE compliance validator (COMPLY)
+  - SFX: SFX pipeline kontrole
+  - BT: visual behavior tree editor sa 22 node tipova, canvas, edges
+  - DNA: Spectral DNA classifier (7 DSP feature extractors u Rust FFI)
+  - AI GEN: pipeline UI sa prompt + log (stub backend)
+  - CLOUD: CloudSyncService UI (stub backend)
+  - A/B: A/B test comparison
+- HELIX Test Suite — 60 integration testova + 60 property testova + 25 golden pixel testova + state hot-swap
+- HELIX Audio Drag-Drop — stage binding pipeline, auto-match, _pickStage dialog, EventRegistry registration
+- HELIX ESC Fix — onExit zatvara overlaye umesto da izlazi iz HELIX-a (root cause fix u PremiumSlotPreview)
+- HELIX Bug Fixes — ESC/PopScope, broken dugmadi (forceTransition, addCompositeEvent, REC, masterFader, DNA)
+- QA Audit Sweep — 84/84 buga provereno, 5 aktivnih fixovano (#15 otool, #22 wgpu poll, #51 dead code, #73 automation badge, Spectral DNA FFI)
+- Cargo Clippy + Flutter Analyzer — 0 warnings (41 clippy + 9 analyzer fiksovano)
 
 ## Potvrdjeno Ispravno (QA Audit 2026-03-30)
 
@@ -634,12 +661,17 @@
 - Warp Markers Phase 4-5 (Flutter vizualizacija, quantize)
 - Tempo State Engine Dart wiring (FFI bridge postoji, Dart bindinge dodati)
 - Smart Tool 9-zone detection logika (struktura postoji, logika fali)
-- MIDI forwarding za VST3/CLAP/AU/LV2 plugin instrumente (BUG #24)
-- VBAP triangulacija u HOA decoder-u (BUG #34)
-- Sferna HRTF interpolacija umesto bilinear fallback-a (BUG #35)
-- Routing matrix feedback loop detekcija (BUG #37)
 - MIDI Editor — piano roll i expression maps (widgets/mice/ ne postoji, treba kreirati)
 - HOA visi redovi (>4th order) — Wigner-D rotation matrices
+
+### HELIX Improvements
+- BehaviorTree panel persistence (state se gubi na rebuild — treba BehaviorTreeProvider + save/load)
+- TIMELINE panel zoom/scroll (pinch-to-zoom, horizontal scroll, snap-to-grid)
+- EXPORT panel batch export (multi-slot parallel render, progress tracking)
+- Reel vizualizacija (3D reel spin preview, win line highlighting, animirani simboli)
+- Feature Composer UI u HELIX-u (free spins, bonus rounds, pick games — drag-drop builder)
+- AI GEN panel real backend (local inference sa ONNX ili cloud fallback — trenutno stub)
+- CLOUD panel real sync (CloudSyncService backend — trenutno stub)
 
 ### Agent Team (25 agenata — videti AGENT_TEAM_ARCHITECTURE.md)
 - Implementirati agent CLAUDE.md + MEMORY.md + rules za svakog od 25 agenata
