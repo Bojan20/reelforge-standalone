@@ -78,6 +78,7 @@ import '../providers/spectral_allocation_provider.dart';
 import '../providers/aurexis_audit_provider.dart';
 import '../providers/aurexis_profile_provider.dart';
 import '../providers/slot_lab/behavior_tree_provider.dart';
+import '../providers/slot_lab/helix_bt_canvas_provider.dart';
 import '../providers/slot_lab/state_gate_provider.dart';
 import '../providers/slot_lab/emotional_state_provider.dart';
 import '../providers/slot_lab/transition_system_provider.dart';
@@ -451,6 +452,10 @@ class ServiceLocator {
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<BehaviorTreeProvider>(
       () => BehaviorTreeProvider(),
+    );
+
+    sl.registerLazySingleton<HelixBtCanvasProvider>(
+      () => HelixBtCanvasProvider(),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
