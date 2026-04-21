@@ -683,6 +683,78 @@ Poslednje fixovano (2026-04-21): #15 (otool detection), #22 (wgpu poll logging),
 
 ---
 
+## Sesija 2026-04-21 — Detaljan Changelog
+
+### HELIX Auto-Bind QA + Redesign ✅
+
+**5 kritičnih bugova fiksirano:**
+
+| # | Bug | Root Cause | Fix |
+|---|-----|-----------|-----|
+| 1 | **Transaction race** | `clearAll()` u loop → prazno state na grešci | Atomska transakcija: `snapshot → clearAll → applyAll → commit` |
+| 2 | **Bus volumes ignorisani** | helix_screen nije prosleđivao volume data | `triggerAutoBindReload` sada prima i primenjuje bus volumes |
+| 3 | **Virtual scroll OOM** | `ListView` bez `itemExtent` — 5000+ fajlova = memory blow | `itemExtent=36`, O(1) render, konstantna memorija |
+| 4 | **Manual override path gubitak** | `originalPath = ''` kad se `_renamePreview` rekreira | `BindingAnalysis.withManualOverride()` — immutable update |
+| 5 | **ffncLayerData stale** | Globalni field bez čišćenja između transakcija | `applyAutoBindTransaction()` resetuje atomski |
+
+**Nova arhitektura — `AutoBindEngine` scoring sistem:**
+```
+FFNC(100) > Exact(90) > Prefix(80) > Glued(75) > NofM(78) >
+Multiplier(77) > WinTier(76) > SymbolPay(74) > Fuzzy(65)
+```
+- Scoring-based resolution umesto order-dependent matching
+- Konfliktni fajlovi se rešavaju po confidence score
+- Levenshtein distance sugestije za unmatched fajlove
+
+**UI — `AutoBindDialogV2`:**
+- 3 tabova: Matched / Unmatched / Warnings
+- Confidence score + match method badge per fajl
+- Bus volumes u compact horizontal layout
+- Virtual scrolling — bezbedan za 5000+ fajlova
+
+### FluxForge Feature Development ✅ KOMPLETNO
+
+| Feature | Status | Detalji |
+|---------|--------|---------|
+| Warp Markers Phase 4-5 | ✅ | FFI binding, quantize slider, provider, BPM UI, save/load |
+| LV2 GUI Hosting | ✅ | write_function callback, URID features, port_event, idle/resize, proper lifecycle |
+| VST3 Win/Linux GUI | ✅ | IPlugView COM vtable, HWND/X11Embed, Arc<Library>, removed()+release() |
+| HOA Wigner-D | ✅ | Ivanic & Ruedenberg rekurzija, orderi 1-7, 49 testova pass |
+| CLOUD Real Sync | ✅ | CloudSyncService + AssetCloudService: svi stubovi → real HTTP |
+
+### CORTEX Refactoring ✅ KOMPLETNO
+
+**God-file dekompozicija (20,743 LOC → modularno):**
+
+| Fajl | Pre | Posle | Rezultat |
+|------|-----|-------|---------|
+| main.rs | 7,763 LOC | 2,625 LOC | +11 modula (organs, consolidation, consciousness, healing_pipeline, autonomous, evolution, dream, gossip, persistence, proactive, boot) |
+| commands.rs | 7,205 LOC | UKLONJEN | 22 fajla u commands/ (project, chat, consciousness, memory, cloud, evolution, emotion, physiology, metacognition, autonomy, healing, immune, multibrain, living_brain, voice, web, p2p, file_brain, platform, vision, scheduler) |
+| database.rs | 5,775 LOC | UKLONJEN | 13 fajlova u db/ (rows, agents, chat, consciousness, engine_state, health, logs, memory, multibrain, scheduler, session, user) |
+
+**Sigurnosne zakrpe:**
+- Gossip cluster_secret auto-generisan (bio None default)
+- AgentHello HMAC bypass uklonjen
+- Scheduled tasks dangerous command blocklist
+- BT high-risk pre-execution check (bio post-hoc fire-and-forget)
+- MoveFile/TrashFile dodati u destructive ops
+- requires_approval gate enforced na HotfixPlan
+
+**Unwrap bombe (5 kritičnih):**
+- self_update.rs: 5x lock().unwrap() → unwrap_or_else(|e| e.into_inner())
+- genesis.rs: bind/serve .unwrap() → error log + graceful exit
+- transport.rs: take().expect() → match + early return
+- memory.rs: and_hms_opt().unwrap() → unwrap_or_default()
+
+**Clippy:** 37 → 0 warnings | **Testovi:** 3,243 pass, 0 fail
+
+### Dokumentacija ažurirana
+- ARCHITECTURE.md: commands/ (22), db/ (13), 130 IPC, 147K LOC
+- CLAUDE.md: test baseline 3243, flow commands/chat.rs
+- MASTER_TODO.md: test count 3243, session changelog
+
+---
+
 ## DAW Industrija — Istraživanje za Flux Nadogradnju
 
 > Ovo je referenca za buduće odluke. Kad pravimo novu feature — pogledamo ovde šta industrija radi pogrešno i kako Flux može bolje.
