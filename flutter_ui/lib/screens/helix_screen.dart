@@ -54,6 +54,7 @@ import '../services/ai_generation_service.dart';
 import '../services/cortex_vision_service.dart';
 import '../services/cortex_eye_server.dart';
 import '../services/event_registry.dart';
+import '../services/stage_configuration_service.dart';
 import '../services/gdd_import_service.dart' show GddGridConfig;
 import '../models/slot_lab_models.dart' show SymbolDefinition, SymbolType;
 import '../providers/recording_provider.dart';
@@ -4766,9 +4767,195 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
     '.wav', '.aiff', '.aif', '.mp3', '.ogg', '.flac', '.m4a', '.aac', '.opus',
   };
 
-  void _handleDrop(List<String> paths) {
+  // ─── Stage auto-match from filename ────────────────────────────────────────
+  /// Try to match filename to a known stage name.
+  /// "REEL_STOP.wav" → "REEL_STOP", "spin_start_ambient.wav" → "SPIN_START"
+  String? _matchStageFromFilename(String filename) {
+    final upper = filename.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9_]'), '_');
+    // Remove extension suffix
+    final noExt = upper.contains('_') ? upper : upper;
+    final stages = StageConfigurationService.instance.allStages
+      ..sort((a, b) => b.name.length.compareTo(a.name.length)); // Longest first for specificity
+    for (final stage in stages) {
+      if (noExt.contains(stage.name)) return stage.name;
+    }
+    return null;
+  }
+
+  // ─── Register event to EventRegistry for actual audio playback ─────────────
+  void _registerToEventRegistry(SlotCompositeEvent event) {
+    if (event.layers.isEmpty) return;
+    final stages = event.triggerStages.isNotEmpty
+        ? event.triggerStages.map((s) => s.toUpperCase()).toList()
+        : <String>[];
+    if (stages.isEmpty) return; // Unassigned — skip
+
+    final registry = EventRegistry.instance;
+    for (int i = 0; i < stages.length; i++) {
+      final stage = stages[i];
+      final eventId = i == 0 ? event.id : '${event.id}_stage_$i';
+      final cfg = StageConfigurationService.instance.getStage(stage);
+      registry.registerEvent(AudioEvent(
+        id: eventId,
+        name: event.name,
+        stage: stage,
+        layers: event.layers.map((l) => AudioLayer(
+          id: l.id,
+          audioPath: l.audioPath,
+          name: l.name,
+          volume: l.volume,
+          pan: l.pan,
+          busId: l.busId ?? (cfg?.bus.index ?? 2),
+          actionType: l.actionType,
+          loop: l.loop,
+          fadeInMs: l.fadeInMs,
+          fadeOutMs: l.fadeOutMs,
+        )).toList(),
+        loop: event.looping,
+        overlap: event.overlap,
+        crossfadeMs: event.crossfadeMs,
+      ));
+    }
+  }
+
+  // ─── Stage picker dialog ────────────────────────────────────────────────────
+  Future<String?> _pickStage(BuildContext context) async {
+    final stages = StageConfigurationService.instance.allStages;
+    // Group by category
+    final byCategory = <String, List<StageDefinition>>{};
+    for (final s in stages) {
+      final cat = s.category.label;
+      byCategory.putIfAbsent(cat, () => []).add(s);
+    }
+
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: const Color(0xFF111118),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        child: SizedBox(
+          width: 380,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                child: Row(children: [
+                  const Icon(Icons.link_rounded, size: 14, color: FluxForgeTheme.accentCyan),
+                  const SizedBox(width: 6),
+                  const Text('Assign to Stage', style: TextStyle(
+                    fontFamily: 'monospace', fontSize: 12, color: FluxForgeTheme.textPrimary,
+                    fontWeight: FontWeight.w600)),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(ctx),
+                    child: const Icon(Icons.close_rounded, size: 14, color: FluxForgeTheme.textTertiary)),
+                ]),
+              ),
+              const Divider(height: 1, color: Color(0xFF222230)),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 340),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: byCategory.entries.map((entry) => Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 4, top: 4),
+                          child: Text(entry.key,
+                            style: const TextStyle(
+                              fontFamily: 'monospace', fontSize: 8,
+                              color: FluxForgeTheme.textTertiary, letterSpacing: 1.2)),
+                        ),
+                        Wrap(
+                          spacing: 4, runSpacing: 4,
+                          children: entry.value.map((stage) => GestureDetector(
+                            onTap: () => Navigator.pop(ctx, stage.name),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1A1A28),
+                                border: Border.all(color: const Color(0xFF333355)),
+                                borderRadius: BorderRadius.circular(4)),
+                              child: Text(stage.name,
+                                style: const TextStyle(
+                                  fontFamily: 'monospace', fontSize: 9,
+                                  color: FluxForgeTheme.textSecondary)),
+                            ),
+                          )).toList(),
+                        ),
+                        const SizedBox(height: 6),
+                      ],
+                    )).toList(),
+                  ),
+                ),
+              ),
+              const Divider(height: 1, color: Color(0xFF222230)),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+                child: Row(children: [
+                  const Text('Skip assignment', style: TextStyle(
+                    fontSize: 9, color: FluxForgeTheme.textTertiary)),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(ctx, '__SKIP__'),
+                    child: const Text('Add without stage', style: TextStyle(
+                      fontSize: 9, color: FluxForgeTheme.accentBlue))),
+                ]),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── Reassign stage on existing event ──────────────────────────────────────
+  Future<void> _reassignStage(SlotCompositeEvent event, {int? removeIndex}) async {
     final mw = GetIt.instance<MiddlewareProvider>();
-    int added = 0;
+
+    if (removeIndex != null) {
+      // Remove specific stage from triggerStages
+      final newStages = List<String>.from(event.triggerStages)..removeAt(removeIndex);
+      final updated = event.copyWith(
+        triggerStages: newStages,
+        modifiedAt: DateTime.now(),
+      );
+      mw.updateCompositeEvent(updated);
+      // Re-register with remaining stages
+      _registerToEventRegistry(updated);
+      if (mounted) setState(() {});
+      return;
+    }
+
+    // Show picker — adding or replacing first stage
+    if (!mounted) return;
+    final picked = await _pickStage(context);
+    if (picked == null || picked == '__SKIP__') return;
+
+    final newStages = List<String>.from(event.triggerStages);
+    if (!newStages.contains(picked)) newStages.add(picked);
+
+    final newId = newStages.length == 1 ? 'audio_${newStages.first}' : event.id;
+    final updated = event.copyWith(
+      id: newId,
+      triggerStages: newStages,
+      modifiedAt: DateTime.now(),
+    );
+    // Remove old event, add updated (id may have changed)
+    try { mw.deleteCompositeEvent(event.id); } catch (_) {}
+    mw.addCompositeEvent(updated);
+    _registerToEventRegistry(updated);
+    if (mounted) setState(() {});
+  }
+
+  // ─── Drop handler ───────────────────────────────────────────────────────────
+  Future<void> _handleDrop(List<String> paths) async {
+    final mw = GetIt.instance<MiddlewareProvider>();
+    final now = DateTime.now();
+
     for (int i = 0; i < paths.length; i++) {
       final path = paths[i];
       final lower = path.toLowerCase();
@@ -4779,32 +4966,64 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
 
       final fileName = path.split('/').last;
       final name = fileName.contains('.')
-        ? fileName.substring(0, fileName.lastIndexOf('.'))
-        : fileName;
-      final ts = DateTime.now().millisecondsSinceEpoch + i;
+          ? fileName.substring(0, fileName.lastIndexOf('.'))
+          : fileName;
+      final ts = now.millisecondsSinceEpoch + i;
+
+      // 1. Auto-match stage from filename
+      String? stage = _matchStageFromFilename(name);
+
+      // 2. If no auto-match, ask user (only for first file to avoid dialog spam)
+      if (stage == null && i == 0 && mounted) {
+        final picked = await _pickStage(context);
+        if (picked == null) continue; // Cancelled
+        if (picked != '__SKIP__') stage = picked;
+      }
+
+      // 3. Build event with trigger stage
+      final event = SlotCompositeEvent(
+        id: stage != null ? 'audio_${stage}' : 'drop_$ts',
+        name: stage != null ? stage : name,
+        category: stage != null
+            ? StageConfigurationService.instance.getCategoryLabel(stage)
+            : 'custom',
+        color: stage != null
+            ? StageConfigurationService.instance.getCategoryColor(stage)
+            : FluxForgeTheme.accentCyan,
+        layers: [
+          SlotEventLayer(
+            id: 'layer_$ts',
+            name: name,
+            audioPath: path,
+            volume: 1.0,
+            loop: false,
+            actionType: 'Play',
+            busId: stage != null
+                ? StageConfigurationService.instance.getStage(stage)?.bus.index
+                : null,
+          ),
+        ],
+        triggerStages: stage != null ? [stage] : [],
+        createdAt: now,
+        modifiedAt: now,
+      );
+
+      // 4. Add to MiddlewareProvider (UI list)
       try {
-        mw.addCompositeEvent(SlotCompositeEvent(
-          id: 'drop_$ts',
-          name: name,
-          category: 'custom',
-          color: FluxForgeTheme.accentCyan,
-          layers: [
-            SlotEventLayer(
-              id: 'layer_$ts',
-              name: name,
-              audioPath: path,
-              volume: 1.0,
-              loop: false,
-              actionType: 'Play',
-            ),
-          ],
-          createdAt: DateTime.now(),
-          modifiedAt: DateTime.now(),
-        ));
-        added++;
+        // Replace existing event with same stage id if present
+        final existing = mw.compositeEvents.where((e) => e.id == event.id).firstOrNull;
+        if (existing != null) {
+          mw.updateCompositeEvent(event);
+        } else {
+          mw.addCompositeEvent(event);
+        }
       } catch (_) {}
+
+      // 5. Register to EventRegistry — this makes audio actually play
+      _registerToEventRegistry(event);
     }
-    if (added > 0) setState(() {});
+
+    if (mounted) setState(() {});
   }
 
   @override
@@ -4922,31 +5141,120 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
                     ],
                   ))
                 : ListView(
-                    children: events.take(12).map((e) => GestureDetector(
-                      onTap: () => helixState?.openContextLens(e),
-                      child: Container(
-                        margin: const EdgeInsets.only(bottom: 4),
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: e.color.withOpacity(0.05),
-                          border: Border.all(color: e.color.withOpacity(0.15)),
-                          borderRadius: BorderRadius.circular(6),
+                    children: events.take(20).map((e) {
+                      final hasStages = e.triggerStages.isNotEmpty;
+                      return GestureDetector(
+                        onTap: () => helixState?.openContextLens(e),
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 4),
+                          padding: EdgeInsets.fromLTRB(8, 6, 6, hasStages ? 5 : 6),
+                          decoration: BoxDecoration(
+                            color: e.color.withOpacity(0.05),
+                            border: Border.all(
+                              color: hasStages
+                                ? e.color.withOpacity(0.22)
+                                : const Color(0xFF333340),
+                              width: hasStages ? 1.0 : 0.5,
+                            ),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // ── Row 1: dot + name + layer count ──
+                              Row(children: [
+                                Container(width: 4, height: 4, decoration: BoxDecoration(
+                                  color: e.color, shape: BoxShape.circle)),
+                                const SizedBox(width: 7),
+                                Expanded(child: Text(e.name, style: const TextStyle(
+                                  fontFamily: 'monospace', fontSize: 10,
+                                  color: FluxForgeTheme.textSecondary),
+                                  overflow: TextOverflow.ellipsis)),
+                                if (e.layers.isNotEmpty)
+                                  Text('${e.layers.length}L', style: const TextStyle(
+                                    fontFamily: 'monospace', fontSize: 8,
+                                    color: FluxForgeTheme.textTertiary)),
+                                const SizedBox(width: 3),
+                                const Icon(Icons.chevron_right_rounded, size: 11,
+                                  color: FluxForgeTheme.textTertiary),
+                              ]),
+                              // ── Row 2: stage chips ──────────────
+                              const SizedBox(height: 4),
+                              Wrap(
+                                spacing: 3,
+                                runSpacing: 3,
+                                children: [
+                                  // Existing stage chips (removable)
+                                  ...List.generate(e.triggerStages.length, (si) {
+                                    final stage = e.triggerStages[si];
+                                    final cfg = StageConfigurationService.instance.getStage(stage);
+                                    final chipColor = cfg != null
+                                      ? StageConfigurationService.instance.getCategoryColor(stage)
+                                      : FluxForgeTheme.accentCyan;
+                                    return GestureDetector(
+                                      onTap: () {
+                                        // Prevents parent GestureDetector from firing
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.fromLTRB(5, 2, 2, 2),
+                                        decoration: BoxDecoration(
+                                          color: chipColor.withOpacity(0.1),
+                                          border: Border.all(color: chipColor.withOpacity(0.4)),
+                                          borderRadius: BorderRadius.circular(3),
+                                        ),
+                                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                          Text(stage,
+                                            style: TextStyle(
+                                              fontFamily: 'monospace', fontSize: 7,
+                                              color: chipColor, letterSpacing: 0.3)),
+                                          const SizedBox(width: 3),
+                                          GestureDetector(
+                                            onTap: () => _reassignStage(e, removeIndex: si),
+                                            child: Icon(Icons.close_rounded, size: 8,
+                                              color: chipColor.withOpacity(0.6)),
+                                          ),
+                                        ]),
+                                      ),
+                                    );
+                                  }),
+                                  // Add stage button
+                                  GestureDetector(
+                                    onTap: () => _reassignStage(e),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.transparent,
+                                        border: Border.all(
+                                          color: hasStages
+                                            ? const Color(0xFF444455)
+                                            : FluxForgeTheme.accentCyan.withOpacity(0.4),
+                                          style: hasStages ? BorderStyle.solid : BorderStyle.solid,
+                                        ),
+                                        borderRadius: BorderRadius.circular(3),
+                                      ),
+                                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                        Icon(Icons.add_rounded, size: 8,
+                                          color: hasStages
+                                            ? FluxForgeTheme.textTertiary
+                                            : FluxForgeTheme.accentCyan),
+                                        const SizedBox(width: 2),
+                                        Text(hasStages ? 'stage' : 'assign stage',
+                                          style: TextStyle(
+                                            fontFamily: 'monospace', fontSize: 7,
+                                            color: hasStages
+                                              ? FluxForgeTheme.textTertiary
+                                              : FluxForgeTheme.accentCyan)),
+                                      ]),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
-                        child: Row(children: [
-                          Container(width: 4, height: 4, decoration: BoxDecoration(
-                            color: e.color, shape: BoxShape.circle)),
-                          const SizedBox(width: 8),
-                          Expanded(child: Text(e.name, style: const TextStyle(
-                            fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textSecondary),
-                            overflow: TextOverflow.ellipsis)),
-                          Text('${e.layers.length}L', style: const TextStyle(
-                            fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary)),
-                          const SizedBox(width: 4),
-                          const Icon(Icons.chevron_right_rounded, size: 12,
-                            color: FluxForgeTheme.textTertiary),
-                        ]),
-                      ),
-                    )).toList(),
+                      );
+                    }).toList(),
                   ),
             ),
           ),
