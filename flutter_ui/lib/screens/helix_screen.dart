@@ -735,7 +735,16 @@ class _HelixScreenState extends State<HelixScreen>
                     final gridCfg = proj.gridConfig;
                     return PremiumSlotPreview(
                       key: ValueKey('slot_${gridCfg?.columns ?? 5}_${gridCfg?.rows ?? 3}'),
-                      onExit: widget.onClose ?? () {},
+                      onExit: () {
+                        // ESC in slot preview embedded in HELIX — close any open
+                        // HELIX-level overlays instead of exiting HELIX entirely.
+                        setState(() {
+                          _spineOpen = null;
+                          _contextLensEvent = null;
+                          _mode = 0;
+                          _showReelLens = false;
+                        });
+                      },
                       reels: gridCfg?.columns ?? 5,
                       rows: gridCfg?.rows ?? 3,
                       isFullscreen: true,
@@ -1064,27 +1073,21 @@ class _HelixScreenState extends State<HelixScreen>
   }
 
   Widget _buildDockPanel() {
-    // ── STATE HOT-SWAP: IndexedStack preserves panel state across tab switches ──
-    // All 12 panels remain in the widget tree — zero recreation latency.
-    // Before: each tab switch rebuilt panel from scratch (~200-400ms lag).
-    // After:  instant switch — panel state (scroll pos, text, sliders) preserved.
-    return IndexedStack(
-      index: _dockTab.clamp(0, 11),
-      children: const [
-        _FlowPanel(),           // 0 FLOW
-        _AudioPanel(),          // 1 AUDIO
-        _MathPanel(),           // 2 MATH
-        _TimelinePanel(),       // 3 TIMELINE
-        _IntelPanel(),          // 4 INTEL
-        _ExportPanel(),         // 5 EXPORT
-        _SfxPipelinePanel(),    // 6 SFX
-        _BehaviorTreePanel(),   // 7 BT
-        _AudioDnaPanel(),       // 8 DNA
-        _AiGenerationPanel(),   // 9 AI GEN
-        _CloudSyncPanel(),      // 10 CLOUD
-        _AbTestPanel(),         // 11 A/B
-      ],
-    );
+    return switch (_dockTab) {
+      0 => const _FlowPanel(),
+      1 => const _AudioPanel(),
+      2 => const _MathPanel(),
+      3 => const _TimelinePanel(),
+      4 => const _IntelPanel(),
+      5 => const _ExportPanel(),
+      6 => const _SfxPipelinePanel(),
+      7 => const _BehaviorTreePanel(),
+      8 => const _AudioDnaPanel(),
+      9 => const _AiGenerationPanel(),
+      10 => const _CloudSyncPanel(),
+      11 => const _AbTestPanel(),
+      _ => const SizedBox(),
+    };
   }
 }
 
@@ -5668,6 +5671,7 @@ class _DockTabState extends State<_DockTab> {
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: GestureDetector(
+        key: Key('dock_tab_${widget.label}'),
         onTap: widget.onTap,
         child: Stack(
           alignment: Alignment.bottomCenter,

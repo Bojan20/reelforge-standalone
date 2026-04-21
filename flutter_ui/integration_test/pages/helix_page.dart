@@ -103,7 +103,8 @@ class HelixPage {
   /// Verify dock is visible and primary tabs present
   Future<void> verifyDockTabs() async {
     for (final tab in primaryDockTabs) {
-      expect(find.text(tab).evaluate().isNotEmpty, isTrue,
+      final keyFinder = find.byKey(Key('dock_tab_$tab'));
+      expect(keyFinder.evaluate().isNotEmpty, isTrue,
           reason: 'Dock tab "$tab" should be visible');
     }
   }
@@ -233,16 +234,27 @@ class HelixPage {
   // ═══════════════════════════════════════════════════════════════════════════
 
   Future<void> openDockTab(String tabName) async {
-    final finder = find.text(tabName);
-    if (finder.evaluate().isNotEmpty) {
-      await tapAndSettle(tester, finder.first);
+    // Use key-based finder to avoid ambiguity with other text widgets
+    // (e.g., _FlowPanel renders 'AUDIO' as a category name)
+    final keyFinder = find.byKey(Key('dock_tab_$tabName'));
+    if (keyFinder.evaluate().isNotEmpty) {
+      await tapAndSettle(tester, keyFinder);
+      await settle(tester, const Duration(milliseconds: 300));
+      return;
+    }
+    // Fallback: text-based (for robustness)
+    final textFinder = find.text(tabName);
+    if (textFinder.evaluate().isNotEmpty) {
+      await tapAndSettle(tester, textFinder.first);
       await settle(tester, const Duration(milliseconds: 300));
     }
   }
 
   Future<void> cycleAllDockTabs() async {
     for (final tab in allDockTabs) {
-      final finder = find.text(tab);
+      // Key-based to avoid ambiguity with category text widgets
+      final keyFinder = find.byKey(Key('dock_tab_$tab'));
+      final finder = keyFinder.evaluate().isNotEmpty ? keyFinder : find.text(tab);
       if (finder.evaluate().isNotEmpty) {
         await tapAndSettle(tester, finder.first);
         await safePump(tester, const Duration(milliseconds: 200));
