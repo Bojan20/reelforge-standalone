@@ -568,7 +568,7 @@ Poslednje fixovano (2026-04-21): #15 (otool detection), #22 (wgpu poll logging),
 - 16 subsystem providera, clip operations, FFNC audio triggering
 - SFX Pipeline Wizard — svih 6 koraka (21K UI + rf-offline backend)
 - Time Stretch — rf-dsp + FFI + Flutter bindings (koristi SlotLab)
-- Warp Markers — data modeli + UI widgeti (warp_handles, audio_warping_panel, time_stretch_editor)
+- Warp Markers (~70%) — data modeli + UI widgeti (warp_handles, audio_warping_panel, time_stretch_editor) + Rust WarpMarker/WarpState. Nedostaje: clipSetWarpMarkerPitch FFI, quantize strength slider, warp_state_provider.dart, BPM UI integracija, project save/load warp data
 - Live Server Integration — WebSocket/TCP (rf-connector) + JSON-RPC server (port 8765)
 - AUREXIS: GEG, DPM, SAMCL, Device Preview, SAM — Rust + FFI + Dart provideri kompletni
 - VST3/AU plugin hosting — skeniranje, loading, GUI (out-of-process), insert chain, PDC
@@ -621,6 +621,7 @@ Poslednje fixovano (2026-04-21): #15 (otool detection), #22 (wgpu poll logging),
 - HELIX EXPORT Batch — parallel Future.wait multi-format (UCP/WWISE/FMOD/GDD), per-format status badges
 - HELIX Reel Vizualizacija — phase-based animation (accel/spin/decel/bounce), motion blur, win line overlay, anticipation system, per-reel stop timing
 - HELIX Feature Composer — FeatureComposerProvider sa 12+ mehanika (free spins, bonus, pick games), 3 preset-a (BASIC/STD/FULL), mechanics toggle, composed stages view
+- MIDI Editor — piano roll widget (1126 LOC), MIDI clip widget (482 LOC), expression maps provider (1146 LOC), MIDI provider (1212 LOC), 20+ FFI funkcija. Kompletna infrastruktura: MidiBuffer → process() → plugin forwarding za svih 5 formata
 
 ## Potvrdjeno Ispravno (QA Audit 2026-03-30)
 
@@ -669,8 +670,7 @@ Poslednje fixovano (2026-04-21): #15 (otool detection), #22 (wgpu poll logging),
 ### Feature Development
 - LV2 GUI hosting (Suil library — zahteva external C dependency)
 - VST3 native GUI on Windows/Linux (IPlugView COM — zahteva platform-specific kod)
-- Warp Markers Phase 4-5 (Flutter vizualizacija, quantize)
-- MIDI Editor — piano roll i expression maps (widgets/mice/ ne postoji, treba kreirati)
+- Warp Markers Phase 4-5 wiring (~1 dan) — clipSetWarpMarkerPitch FFI binding, quantize strength slider, warp_state_provider.dart, BPM UI integracija, project save/load warp data
 - HOA visi redovi (>4th order) — Wigner-D rotation matrices
 
 ### HELIX Improvements
