@@ -591,7 +591,7 @@ Poslednje fixovano (2026-04-21): #15 (otool detection), #22 (wgpu poll logging),
 - Real FFT Spectrum Bridge — bus_hierarchy_panel sada cita pravi FFT iz engine-a (ne simulirani)
 - HELIX Neural Slot Design Environment — svih 12 dock panela funkcionalni:
   - FLOW: interaktivni DAG graf sa CustomPainter bezier edges, 8 node tipova, force state
-  - AUDIO: master meters, fader, channel strips, events list, Auto-Bind (FFNC + Spectral DNA)
+  - AUDIO: master meters, fader, channel strips, events list, NeuralBindOrb (instant drag-bind + scoring engine)
   - MATH: win distribution histogram, RTP kalkulator, volatility meter (iz AUREXIS-a)
   - TIMELINE: multi-track stage timing, drag events, playhead
   - INTEL: analytics dashboard, spin statistika, win distribucija
@@ -616,6 +616,7 @@ Poslednje fixovano (2026-04-21): #15 (otool detection), #22 (wgpu poll logging),
 - HELIX AI GEN Real Backend — ElevenLabs API integration, dynamic backends, reaktivnost
 - Horizontal Pro Meter — _paintHorizontal() sa L/R bars, gradient, peak hold, clip indicator
 - Agent Team Architecture — 25 specijalizovanih agenata (0-24) sa CLAUDE.md + MEMORY.md. Pokriva: Orchestrator, AudioEngine, MixerArchitect, SlotLabUI, SlotLabEvents, SlotLabAudio, GameArchitect, UIEngineer, DSPSpecialist, ProjectIO, BuildOps, QAAgent, TimelineEngine, DAWTools, LiveServer, SecurityAgent, PerformanceAgent, PluginArchitect, SlotIntelligence, MediaTimeline, SpatialAudio, MeteringPro, ScriptingEngine, MIDIEditor, VideoSync. 50 fajlova u .claude/agents/
+- NeuralBindOrb — instant drag-to-bind sa neural vizualizacijom: folder drag → <300ms full bind. Orb state machine (idle→dragHover→analyzing→done→error), CustomPainter circular node layout, wave ring animations, confidence scoring (FFNC 100 > Exact 90 > Prefix 80 > Fuzzy 65), staggered reveal, compact bottom sheet sa top matches. Zamenjuje stari multi-step AutoBindDialog
 - HELIX BehaviorTree Persistence — BehaviorTreeProvider + HelixBtCanvasProvider sa toJson/loadFromJson, dirty flag tracking
 - HELIX TIMELINE Zoom/Scroll — 0.5x-8x zoom (+/- buttons + Ctrl+scroll wheel), horizontal scroll, FIT reset
 - HELIX EXPORT Batch — parallel Future.wait multi-format (UCP/WWISE/FMOD/GDD), per-format status badges
@@ -711,6 +712,18 @@ Multiplier(77) > WinTier(76) > SymbolPay(74) > Fuzzy(65)
 - Confidence score + match method badge per fajl
 - Bus volumes u compact horizontal layout
 - Virtual scrolling — bezbedan za 5000+ fajlova
+
+### NeuralBindOrb — Instant Neural Binding ✅
+
+**Koncept:** Jedan drag → folder na orb → <300ms → kompletno bindovano. Zero klikova posle dropa.
+
+**Orb stanja:** idle (pulsing ring) → dragHover (cyan glow) → analyzing (sweep arc) → done (green flash) → error (red flash)
+
+**Neural vizualizacija:** CustomPainter circular layout, staggered reveal animacija, wave ring efekti, confidence score gradijent per node.
+
+**Fajl:** `flutter_ui/lib/widgets/slot_lab/neural_bind_orb.dart` (1,173 LOC)
+
+**Zamenjuje:** Stari AutoBindDialog multi-step workflow → sada instant, zero-config.
 
 ### FluxForge Feature Development ✅ KOMPLETNO
 
