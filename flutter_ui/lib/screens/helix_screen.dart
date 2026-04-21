@@ -3663,18 +3663,35 @@ class _MathPanelState extends State<_MathPanel> {
     // Fill bar: show deviation magnitude (0=perfect, 1=max deviation)
     final rtpFill = rtp > 0 ? (1.0 - (rtpDiff.abs() / 20.0)).clamp(0.0, 1.0) : 0.0;
 
+    // Win tier distribution from actual session wins
+    const tierColors = [
+      Color(0xFF4D9FFF), // WIN 1
+      Color(0xFF5CFF9D), // WIN 2
+      Color(0xFFFFE033), // WIN 3
+      Color(0xFFFF9900), // WIN 4
+      Color(0xFFFF3366), // WIN 5
+    ];
+    final tierCounts = <int, int>{};
+    for (final w in wins) {
+      final t = w.tier.toUpperCase();
+      final idx = t.contains('5') ? 5 : t.contains('4') ? 4 : t.contains('3') ? 3
+                : t.contains('2') ? 2 : t.contains('BONUS') || t.contains('FREE') ? 5 : 1;
+      tierCounts[idx] = (tierCounts[idx] ?? 0) + 1;
+    }
+    final maxTierCount = tierCounts.values.fold(0, math.max);
+
     final cards = [
-      ('RTP',         rtp > 0 ? '${rtp.toStringAsFixed(1)}%' : '—', 'Target: ${_targetRtp.toStringAsFixed(1)}% ($rtpDiffStr)', rtpFill, rtpColor),
-      ('VOLATILITY',  volLabel,  'Target: ${_volatilitySlider.toStringAsFixed(0)} / 10', volIdx / 10, FluxForgeTheme.accentOrange),
-      ('HIT FREQ',    hitFreqStr, 'Target: ${_hitFreqTarget.toStringAsFixed(0)}%', hitRate.clamp(0.0, 1.0), FluxForgeTheme.accentBlue),
-      ('MAX WIN',     maxWinMult > 0 ? '${maxWinMult.toStringAsFixed(0)}×' : '—', 'Cap: ${_maxWinCap.toStringAsFixed(0)}×', (maxWinMult / _maxWinCap).clamp(0.0, 1.0), FluxForgeTheme.accentYellow),
-      ('SIMULATIONS', '${stats.totalSpins}', 'Spins recorded', stats.totalSpins > 0 ? 1.0 : 0.0, FluxForgeTheme.accentPurple),
-      ('BONUS FREQ',  bonusFreq, 'Target: 1:${(100 / _bonusFreqTarget).toStringAsFixed(0)}', bonusFill, FluxForgeTheme.accentCyan),
+      ('RTP',       rtp > 0 ? '${rtp.toStringAsFixed(1)}%' : '—', 'Target: ${_targetRtp.toStringAsFixed(1)}% ($rtpDiffStr)', rtpFill, rtpColor),
+      ('VOLATILITY',volLabel,  'Target: ${_volatilitySlider.toStringAsFixed(0)} / 10', volIdx / 10, FluxForgeTheme.accentOrange),
+      ('HIT FREQ',  hitFreqStr,'Target: ${_hitFreqTarget.toStringAsFixed(0)}%', hitRate.clamp(0.0, 1.0), FluxForgeTheme.accentBlue),
+      ('MAX WIN',   maxWinMult > 0 ? '${maxWinMult.toStringAsFixed(0)}×' : '—', 'Cap: ${_maxWinCap.toStringAsFixed(0)}×', (maxWinMult / _maxWinCap).clamp(0.0, 1.0), FluxForgeTheme.accentYellow),
+      ('SPINS',     '${stats.totalSpins}', 'Total recorded', stats.totalSpins > 0 ? 1.0 : 0.0, FluxForgeTheme.accentPurple),
+      ('BONUS FREQ',bonusFreq, 'Target: 1:${(100 / _bonusFreqTarget).toStringAsFixed(0)}', bonusFill, FluxForgeTheme.accentCyan),
     ];
 
     return Column(
       children: [
-        // Stats grid — 2 rows of 3 using Row/Expanded so height is properly constrained
+        // ── Stats grid 2×3 ──────────────────────────────────────────────
         Expanded(
           flex: 3,
           child: Column(
@@ -3711,64 +3728,177 @@ class _MathPanelState extends State<_MathPanel> {
             ],
           ),
         ),
-        const SizedBox(height: 4),
-        // Config sliders row (M1, M2, M4, M5, M6)
+        const SizedBox(height: 6),
+        // ── Win Distribution Histogram ───────────────────────────────────
         Expanded(
           flex: 2,
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // M1: Target RTP
-              Expanded(child: _MathSlider(
-                label: 'TARGET RTP', value: _targetRtp,
-                min: 85, max: 99, suffix: '%',
-                color: FluxForgeTheme.accentGreen,
-                onChanged: (v) => setState(() => _targetRtp = v),
-              )),
+              // Histogram card
+              Expanded(
+                flex: 2,
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0A0A14),
+                    border: Border.all(color: const Color(0xFF1E2030)),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      const Text('WIN DISTRIBUTION', style: TextStyle(
+                        fontFamily: 'monospace', fontSize: 8,
+                        color: FluxForgeTheme.textTertiary, letterSpacing: 1.0)),
+                      const Spacer(),
+                      Text('${wins.length} wins', style: const TextStyle(
+                        fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textTertiary)),
+                    ]),
+                    const SizedBox(height: 6),
+                    Expanded(
+                      child: wins.isEmpty
+                        ? const Center(child: Text('Run sim to populate',
+                            style: TextStyle(fontSize: 8, color: FluxForgeTheme.textTertiary)))
+                        : CustomPaint(
+                            painter: _WinDistributionPainter(
+                              tierCounts: tierCounts,
+                              maxCount: maxTierCount,
+                              tierColors: tierColors,
+                            ),
+                            child: const SizedBox.expand(),
+                          ),
+                    ),
+                  ]),
+                ),
+              ),
               const SizedBox(width: 8),
-              // M2: Volatility
-              Expanded(child: _MathSlider(
-                label: 'VOLATILITY', value: _volatilitySlider,
-                min: 1, max: 10, suffix: '',
-                color: FluxForgeTheme.accentOrange,
-                onChanged: (v) => setState(() => _volatilitySlider = v),
-              )),
-              const SizedBox(width: 8),
-              // M4: Max Win Cap
-              Expanded(child: _MathSlider(
-                label: 'MAX WIN CAP', value: _maxWinCap,
-                min: 100, max: 25000, suffix: '×',
-                color: FluxForgeTheme.accentYellow,
-                onChanged: (v) => setState(() => _maxWinCap = v),
-              )),
-              const SizedBox(width: 8),
-              // M5: Hit Frequency
-              Expanded(child: _MathSlider(
-                label: 'HIT FREQ', value: _hitFreqTarget,
-                min: 10, max: 60, suffix: '%',
-                color: FluxForgeTheme.accentBlue,
-                onChanged: (v) => setState(() => _hitFreqTarget = v),
-              )),
-              const SizedBox(width: 8),
-              // M6: Bonus Frequency
-              Expanded(child: _MathSlider(
-                label: 'BONUS FREQ', value: _bonusFreqTarget,
-                min: 0.5, max: 10, suffix: '%',
-                color: FluxForgeTheme.accentCyan,
-                onChanged: (v) => setState(() => _bonusFreqTarget = v),
-              )),
-              const SizedBox(width: 8),
-              // M3: Run Sim button — passes slider values
-              Flexible(child: _RunSimButton(
-                targetRtp: _targetRtp,
-                hitFreq: _hitFreqTarget,
-                maxWinCap: _maxWinCap,
-              )),
+              // Sliders column
+              Expanded(
+                flex: 3,
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: Row(children: [
+                        Expanded(child: _MathSlider(
+                          label: 'TARGET RTP', value: _targetRtp,
+                          min: 85, max: 99, suffix: '%',
+                          color: FluxForgeTheme.accentGreen,
+                          onChanged: (v) => setState(() => _targetRtp = v),
+                        )),
+                        const SizedBox(width: 6),
+                        Expanded(child: _MathSlider(
+                          label: 'VOLATILITY', value: _volatilitySlider,
+                          min: 1, max: 10, suffix: '',
+                          color: FluxForgeTheme.accentOrange,
+                          onChanged: (v) => setState(() => _volatilitySlider = v),
+                        )),
+                        const SizedBox(width: 6),
+                        Expanded(child: _MathSlider(
+                          label: 'MAX WIN ×', value: _maxWinCap,
+                          min: 100, max: 25000, suffix: '×',
+                          color: FluxForgeTheme.accentYellow,
+                          onChanged: (v) => setState(() => _maxWinCap = v),
+                        )),
+                      ]),
+                    ),
+                    const SizedBox(height: 4),
+                    Expanded(
+                      child: Row(children: [
+                        Expanded(child: _MathSlider(
+                          label: 'HIT FREQ', value: _hitFreqTarget,
+                          min: 10, max: 60, suffix: '%',
+                          color: FluxForgeTheme.accentBlue,
+                          onChanged: (v) => setState(() => _hitFreqTarget = v),
+                        )),
+                        const SizedBox(width: 6),
+                        Expanded(child: _MathSlider(
+                          label: 'BONUS FREQ', value: _bonusFreqTarget,
+                          min: 0.5, max: 10, suffix: '%',
+                          color: FluxForgeTheme.accentCyan,
+                          onChanged: (v) => setState(() => _bonusFreqTarget = v),
+                        )),
+                        const SizedBox(width: 6),
+                        Expanded(child: _RunSimButton(
+                          targetRtp: _targetRtp,
+                          hitFreq: _hitFreqTarget,
+                          maxWinCap: _maxWinCap,
+                        )),
+                      ]),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
       ],
     );
   }
+}
+
+// ── Win Distribution CustomPainter ───────────────────────────────────────────
+
+class _WinDistributionPainter extends CustomPainter {
+  final Map<int, int> tierCounts;
+  final int maxCount;
+  final List<Color> tierColors;
+
+  const _WinDistributionPainter({
+    required this.tierCounts, required this.maxCount, required this.tierColors,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (maxCount == 0) return;
+    const tiers = [1, 2, 3, 4, 5];
+    final barW = (size.width - (tiers.length - 1) * 4) / tiers.length;
+    const labelH = 14.0;
+    final chartH = size.height - labelH;
+
+    for (int i = 0; i < tiers.length; i++) {
+      final tier = tiers[i];
+      final count = tierCounts[tier] ?? 0;
+      final fill = count > 0 ? count / maxCount : 0.0;
+      final color = tierColors[i];
+      final x = i * (barW + 4);
+      final barH = chartH * fill;
+      final y = chartH - barH;
+
+      if (barH > 0) {
+        // Gradient bar
+        final rect = RRect.fromRectAndRadius(
+          Rect.fromLTWH(x, y, barW, barH), const Radius.circular(3));
+        final paint = Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topCenter, end: Alignment.bottomCenter,
+            colors: [color, color.withOpacity(0.4)]).createShader(
+              Rect.fromLTWH(x, y, barW, barH));
+        canvas.drawRRect(rect, paint);
+
+        // Count text
+        if (barH > 14) {
+          final tp = TextPainter(
+            text: TextSpan(text: '$count',
+              style: TextStyle(fontFamily: 'monospace', fontSize: 7, color: color)),
+            textDirection: TextDirection.ltr)..layout();
+          tp.paint(canvas, Offset(x + (barW - tp.width) / 2, y + 3));
+        }
+      }
+
+      // Tier label below
+      final label = 'W$tier';
+      final tp = TextPainter(
+        text: TextSpan(text: label,
+          style: TextStyle(fontFamily: 'monospace', fontSize: 7,
+            color: color.withOpacity(count > 0 ? 0.9 : 0.3))),
+        textDirection: TextDirection.ltr)..layout();
+      tp.paint(canvas, Offset(x + (barW - tp.width) / 2, chartH + 3));
+    }
+  }
+
+  @override
+  bool shouldRepaint(_WinDistributionPainter old) =>
+    old.tierCounts != tierCounts || old.maxCount != maxCount;
 }
 
 class _RunSimButton extends StatefulWidget {
