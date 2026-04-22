@@ -45,6 +45,10 @@ class OrbMixer extends StatefulWidget {
   /// If true, expand on hover to show dB labels
   final bool expandOnHover;
 
+  /// If true, always paint dB labels regardless of hover state.
+  /// Use in compact overlay mode where hover is disabled.
+  final bool alwaysShowLabels;
+
   /// Optional callback when a bus is tapped (for Nivo 2 expand)
   final ValueChanged<OrbBusId>? onBusTap;
 
@@ -58,6 +62,7 @@ class OrbMixer extends StatefulWidget {
     required this.dsp,
     this.size = 120.0,
     this.expandOnHover = true,
+    this.alwaysShowLabels = false,
     this.onBusTap,
     this.onProviderReady,
   });
@@ -517,7 +522,7 @@ class _OrbMixerState extends State<OrbMixer>
               size: Size(currentSize, currentSize),
               painter: OrbMixerPainter(
                 provider: _provider,
-                showLabels: _isHovered,
+                showLabels: widget.alwaysShowLabels || _isHovered,
                 hoveredBus: _hoveredBus,
               ),
             ),

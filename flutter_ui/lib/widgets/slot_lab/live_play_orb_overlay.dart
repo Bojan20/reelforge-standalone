@@ -1,37 +1,38 @@
-/// PHASE 9 — Live Play Companion Mode (ULTIMATE REWRITE)
+/// PHASE 9 — Live Play Companion Mode (ULTIMATE v3)
 ///
-/// Floating OrbMixer overlay that sits on top of PremiumSlotPreview so the
-/// player/sound-designer can mix audio in real time while the slot is playing.
+/// Floating OrbMixer overlay — ALL parameters visible, ALL gestures working.
 ///
-/// Layout architecture (SYMMETRIC EAR — guaranteed zero hitbox conflicts):
+/// ┌──────────────────────────────────────┐
+/// │  [⠿] Drag  ear (32px)  [📊] dBPanel │  ← ear top
+/// ├──────────────────────────────────────┤
+/// │  ┌────────────────────────────────┐  │
+/// │  │  OrbMixer  (labels always on)  │  │  ← orb with dB labels
+/// │  │  doubletap=cycle, LP=dB panel  │  │
+/// │  └────────────────────────────────┘  │
+/// ├──────────────────────────────────────┤
+/// │  [⚐] Mark  ear (32px)  [📥] Inbox[⤢]│  ← ear bottom
+/// └──────────────────────────────────────┘
+/// │  dB panel (toggleable via Focus/LP): │
+/// │  MST -6.2dB  [S][M]  pan 0%         │
+/// │  MUS -12.4dB [S][M]  pan L12        │
+/// │  SFX -∞      [S][M]  pan 0%         │
+/// │  VO  -∞      [S][M]  pan 0%         │
+/// │  AMB -8.3dB  [S][M]  pan R5         │
+/// │  AUX -∞      [S][M]  pan 0%         │
+/// └──────────────────────────────────────┘
+/// │  [SFX] [Loud] [Recent] [NoMute]      │  ← filter chips
 ///
-///   ┌────────────────────────────────────┐
-///   │  [Drag⠿]     ear     [Focus⊕]     │  ← top ear (earPx)
-///   ├────────────────────────────────────┤
-///   │                                    │
-///   │          OrbMixer circle           │  ← orbPx × orbPx
-///   │         (audio bus mixer)          │
-///   │                                    │
-///   ├────────────────────────────────────┤
-///   │  [Mark⚐]     ear     [Inbox📥]     │  ← bottom ear (earPx)
-///   └────────────────────────────────────┘
-///   │     [SFX] [Loud] [Recent] [NoMute]  │  ← chips (outside bounds, Clip.none)
-///
-///   Resize handle: tiny dot at bottom-right corner of outer bounds.
-///   All 4 corner buttons sit fully OUTSIDE the OrbMixer circle →
-///   guaranteed hit-testable without gesture-arena conflicts.
-///
-/// Features:
-///   • Draggable + snaps to the nearest edge when released.
-///   • Smooth resize via bottom-right corner handle (60 → 320 px).
-///   • 3 LOD size modes: mini (60px) / standard (140px) / full (220px).
-///   • Transparency: 0.85 idle, 1.0 while interacting, fades to 0.55 dormant.
-///   • Keyboard dismiss: Escape toggles visibility.
-///   • Persisted across restarts (SharedPreferences).
-///   • Re-uses MixerDSPProvider singleton — every change persists automatically.
+/// Gestures:
+///   Drag handle (⠿, top-left): pan=move orb, tap=cycle size, doubletap=hide
+///   Focus/dB button (📊, top-right): tap=toggle dB panel
+///   Mark (⚐, bottom-left): tap=capture current mix as problem
+///   Inbox (📥, bottom-right): tap=open problems panel
+///   Resize dot (⤢, bottom-right corner): pan=resize orb
+///   Orb body: doubletap=cycle size, long-press=toggle dB panel
 library;
 
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -47,13 +48,26 @@ import 'problems_inbox_panel.dart';
 // ─── Size presets ─────────────────────────────────────────────────────────────
 
 enum LivePlayOrbSize {
-  mini(60.0, 'Mini'),
+  mini(70.0, 'Mini'),
   standard(140.0, 'Standard'),
   full(220.0, 'Full');
 
   final double px;
   final String label;
   const LivePlayOrbSize(this.px, this.label);
+}
+
+// ─── dB conversion helper ─────────────────────────────────────────────────────
+String _toDb(double linear) {
+  if (linear <= 0.0001) return '-∞';
+  final db = 20.0 * math.log(linear) / math.ln10;
+  return '${db.toStringAsFixed(1)} dB';
+}
+
+String _toPan(double pan) {
+  if (pan.abs() < 0.02) return 'C';
+  final pct = (pan * 100).round().abs();
+  return pan < 0 ? 'L$pct' : 'R$pct';
 }
 
 // ─── Widget ───────────────────────────────────────────────────────────────────
@@ -86,32 +100,30 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
   static const _prefKeySizePx  = 'psp_orb_overlay_size_px';
   static const _prefKeyVisible = 'psp_orb_overlay_visible';
 
-  // ─── Sizing constants ───────────────────────────────────────────────────────
-  /// Space AROUND the orb on all sides.  Buttons live here — fully outside
-  /// the orb circle — so no gesture-arena conflicts with OrbMixer.
-  static const double _earPx = 32.0;
-
-  /// Visible button size inside each ear cell.
-  static const double _btnPx = 26.0;
-
-  /// Padding between button edge and ear boundary.
-  static const double _btnPad = (_earPx - _btnPx) / 2; // 3 px
-
-  /// Resize handle corner size (tiny dot, bottom-right of total bounds).
+  // ─── Layout constants ───────────────────────────────────────────────────────
+  /// Ear thickness around the orb — buttons live here, guaranteed outside circle
+  static const double _earPx    = 32.0;
+  /// Button size
+  static const double _btnPx    = 26.0;
+  /// Padding inside ear
+  static const double _btnPad   = (_earPx - _btnPx) / 2; // 3 px
+  /// Resize dot size (extreme bottom-right corner)
   static const double _resizePx = 16.0;
+  /// Gap between inbox and resize dot
+  static const double _inboxGap = _resizePx + 4;
 
-  static const double _minOrbPx = 60.0;
+  static const double _minOrbPx = 70.0;
   static const double _maxOrbPx = 320.0;
-  static const double _maxViewportFraction = 0.42;
+  static const double _maxViewportFraction = 0.45;
 
   // ─── Autohide / opacity ─────────────────────────────────────────────────────
-  static const Duration _autoHideDelay  = Duration(seconds: 3);
+  static const Duration _autoHideDelay  = Duration(seconds: 4);
   static const Duration _opacityDur    = Duration(milliseconds: 220);
   static const Duration _snapDur       = Duration(milliseconds: 180);
 
-  static const double _opacityIdle    = 0.87;
+  static const double _opacityIdle    = 0.90;
   static const double _opacityActive  = 1.0;
-  static const double _opacityDormant = 0.55; // raised from 0.40 — buttons stay readable
+  static const double _opacityDormant = 0.60; // raised — buttons stay readable
 
   // ─── State ───────────────────────────────────────────────────────────────────
   Offset _position         = const Offset(16, 16);
@@ -124,6 +136,9 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
   bool   _dormant          = false;
   Timer? _autoHideTimer;
   bool   _settingsLoaded   = false;
+
+  /// dB panel open/closed
+  bool   _showDbPanel      = false;
 
   OrbMixerProvider? _orbProvider;
 
@@ -167,9 +182,7 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
         _sizeMode = LivePlayOrbSize.values[sm];
       }
       final ss = prefs.getDouble(_prefKeySizePx);
-      _orbPx = (ss != null)
-          ? ss.clamp(_minOrbPx, _maxOrbPx)
-          : _sizeMode.px;
+      _orbPx = (ss != null) ? ss.clamp(_minOrbPx, _maxOrbPx) : _sizeMode.px;
       _visible = prefs.getBool(_prefKeyVisible) ?? true;
       _settingsLoaded = true;
     });
@@ -244,16 +257,22 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
   LivePlayOrbSize get sizeMode => _sizeMode;
   double get sizePx   => _orbPx;
 
+  void _toggleDbPanel() {
+    setState(() => _showDbPanel = !_showDbPanel);
+    _restartAutoHide();
+  }
+
   // ─── Drag helpers ────────────────────────────────────────────────────────────
   void _onDragStart(DragStartDetails _) {
     setState(() { _interacting = true; _dormant = false; });
   }
 
+  double _totalW() => _orbPx + 2 * _earPx;
+  double _totalH() => _orbPx + 2 * _earPx;
+
   void _onDragUpdate(DragUpdateDetails d, Size vp) {
-    final totalW = _orbPx + 2 * _earPx;
-    final totalH = _orbPx + 2 * _earPx;
-    final maxX = (vp.width  - totalW - 8).clamp(0.0, double.infinity);
-    final maxY = (vp.height - totalH - 8).clamp(0.0, double.infinity);
+    final maxX = (vp.width  - _totalW() - 8).clamp(0.0, double.infinity);
+    final maxY = (vp.height - _totalH() - 8).clamp(0.0, double.infinity);
     setState(() {
       _position = Offset(
         (_position.dx + d.delta.dx).clamp(0.0, maxX),
@@ -263,10 +282,10 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
   }
 
   void _onDragEnd(DragEndDetails _, Size vp) {
-    final totalW = _orbPx + 2 * _earPx;
-    final totalH = _orbPx + 2 * _earPx;
-    final cx = _position.dx + totalW / 2;
-    final cy = _position.dy + totalH / 2;
+    final tw = _totalW();
+    final th = _totalH();
+    final cx = _position.dx + tw / 2;
+    final cy = _position.dy + th / 2;
 
     final ld = cx;
     final rd = vp.width  - cx;
@@ -278,9 +297,9 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
     const m = 12.0;
     if (minE < 96.0) {
       if (minE == ld) sx = m;
-      if (minE == rd) sx = vp.width  - totalW - m;
+      if (minE == rd) sx = vp.width  - tw - m;
       if (minE == td) sy = m;
-      if (minE == bd) sy = vp.height - totalH - m;
+      if (minE == bd) sy = vp.height - th - m;
     }
     setState(() { _position = Offset(sx, sy); _interacting = false; });
     _restartAutoHide();
@@ -333,7 +352,7 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
         _hasInitialPos = true;
       }
 
-      // Clamp position so entire orb stays on-screen
+      // Clamp position
       final maxX = (vp.width  - totalW - 8).clamp(0.0, double.infinity);
       final maxY = (vp.height - totalH - 8).clamp(0.0, double.infinity);
       if (_position.dx > maxX) _position = Offset(maxX, _position.dy);
@@ -343,6 +362,9 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
       final double opacity = (_interacting || _isResizing)
           ? _opacityActive
           : (_dormant ? _opacityDormant : _opacityIdle);
+
+      // dB panel height estimate
+      final bool panelVisible = _showDbPanel && _orbProvider != null && showChrome;
 
       return Stack(children: [
         AnimatedPositioned(
@@ -362,70 +384,79 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  // ── Layer 0: orb body — centred in total bounds ────────────
+                  // ── Orb body (centered in total bounds) ───────────────────
                   Positioned(
                     left:   _earPx,
                     top:    _earPx,
                     width:  orbPx,
                     height: orbPx,
-                    child: _buildOrbBody(orbPx),
+                    child:  _buildOrbBody(orbPx, vp),
                   ),
 
-                  // ── Layer 1: Drag handle — top-LEFT ear ───────────────────
+                  // ── Drag handle (top-LEFT ear) ─────────────────────────────
                   Positioned(
                     left:   _btnPad,
                     top:    _btnPad,
                     width:  _btnPx,
                     height: _btnPx,
-                    child: _buildDragHandle(vp),
+                    child:  _buildDragHandle(vp),
                   ),
 
-                  // ── Layer 2: Focus button — top-RIGHT ear ─────────────────
+                  // ── dB/Focus button (top-RIGHT ear) ────────────────────────
                   if (showChrome)
                     Positioned(
                       right:  _btnPad,
                       top:    _btnPad,
                       width:  _btnPx,
                       height: _btnPx,
-                      child: _buildFocusButton(),
+                      child:  _buildDbToggleButton(),
                     ),
 
-                  // ── Layer 3: Mark button — bottom-LEFT ear ────────────────
+                  // ── Mark button (bottom-LEFT ear) ──────────────────────────
                   if (showChrome)
                     Positioned(
                       left:   _btnPad,
                       bottom: _btnPad,
                       width:  _btnPx,
                       height: _btnPx,
-                      child: _buildMarkButton(),
+                      child:  _buildMarkButton(),
                     ),
 
-                  // ── Layer 4: Inbox button — bottom-RIGHT ear ──────────────
+                  // ── Inbox button (bottom-RIGHT ear, left of resize) ────────
                   if (showChrome)
                     Positioned(
-                      right:  _btnPad + _resizePx + 2, // leave room for resize dot
+                      right:  _btnPad + _inboxGap,
                       bottom: _btnPad,
                       width:  _btnPx,
                       height: _btnPx,
-                      child: _buildInboxButton(),
+                      child:  _buildInboxButton(),
                     ),
 
-                  // ── Layer 5: Resize dot — extreme bottom-RIGHT corner ─────
+                  // ── Resize dot (extreme bottom-RIGHT corner) ───────────────
                   Positioned(
                     right:  0,
                     bottom: 0,
                     width:  _resizePx,
                     height: _resizePx,
-                    child: _buildResizeHandle(vp),
+                    child:  _buildResizeHandle(vp),
                   ),
 
-                  // ── Layer 6: Filter chips — below orb, outside bounds ─────
+                  // ── dB panel (below orb, outside bounds via Clip.none) ─────
+                  if (panelVisible)
+                    Positioned(
+                      left:  0,
+                      right: 0,
+                      top:   totalH + 4,
+                      child: _buildDbPanel(),
+                    ),
+
+                  // ── Filter chips (below dB panel or below orb) ─────────────
                   if (showChrome && _orbProvider != null)
                     Positioned(
-                      left:   -32,
-                      right:  -32,
-                      top:    totalH + 6,
-                      child:  _buildFilterChips(),
+                      left:  -28,
+                      right: -28,
+                      top:   totalH + (panelVisible ? 4 + _dbPanelHeight() : 4),
+                      child: _buildFilterChips(),
                     ),
                 ],
               ),
@@ -436,34 +467,187 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
     });
   }
 
+  // ─── dB panel height ─────────────────────────────────────────────────────────
+  double _dbPanelHeight() {
+    // 6 buses × 22px row + 8px padding
+    return 6 * 22.0 + 8;
+  }
+
   // ─── Orb body ─────────────────────────────────────────────────────────────────
-  Widget _buildOrbBody(double orbPx) {
-    return Container(
-      width:  orbPx,
-      height: orbPx,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: Colors.black.withValues(alpha: 0.50),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.60),
-            blurRadius: 18,
-            spreadRadius: 3,
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(2.0),
-        child: OrbMixer(
-          dsp: widget.dsp,
-          size: orbPx - 4,
-          expandOnHover: false,
-          onProviderReady: (p) {
-            if (!mounted) return;
-            setState(() => _orbProvider = p);
-            p.addListener(_onOrbProviderChanged);
-          },
+  Widget _buildOrbBody(double orbPx, Size vp) {
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onDoubleTap: cycleSizeMode,
+      onLongPress: _toggleDbPanel,
+      child: Container(
+        width:  orbPx,
+        height: orbPx,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.black.withValues(alpha: 0.50),
+          boxShadow: [BoxShadow(
+            color: Colors.black.withValues(alpha: 0.65),
+            blurRadius: 20, spreadRadius: 3,
+          )],
         ),
+        child: Padding(
+          padding: const EdgeInsets.all(2.0),
+          child: OrbMixer(
+            dsp:               widget.dsp,
+            size:              orbPx - 4,
+            expandOnHover:     false,
+            alwaysShowLabels:  true,   // ← dB labels always visible
+            onProviderReady:   (p) {
+              if (!mounted) return;
+              setState(() => _orbProvider = p);
+              p.addListener(_onOrbProviderChanged);
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── dB panel ────────────────────────────────────────────────────────────────
+  Widget _buildDbPanel() {
+    final provider = _orbProvider;
+    if (provider == null) return const SizedBox.shrink();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xF0070710),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.15), width: 1),
+        boxShadow: [BoxShadow(
+          color: Colors.black.withValues(alpha: 0.55), blurRadius: 12)],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: OrbBusId.values.map((busId) {
+          final bus = provider.getBus(busId);
+          if (bus == null) return const SizedBox.shrink();
+          final db  = _toDb(bus.volume);
+          final pan = _toPan(bus.pan);
+          final isMuted  = bus.muted;
+          final isSolo   = bus.solo;
+          final peakDb   = bus.peak > 0.0001
+              ? '${(20.0 * math.log(bus.peak) / math.ln10).toStringAsFixed(1)}'
+              : '-∞';
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 1.0),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Bus color dot
+                Container(
+                  width: 6, height: 6,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: busId.color,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                // Bus label
+                SizedBox(
+                  width: 28,
+                  child: Text(busId.label,
+                    style: TextStyle(
+                      color: busId.color,
+                      fontSize: 9, fontWeight: FontWeight.w700,
+                      fontFamily: 'SpaceGrotesk',
+                    )),
+                ),
+                // Volume dB
+                SizedBox(
+                  width: 52,
+                  child: Text(db,
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      color: isMuted
+                          ? Colors.white.withValues(alpha: 0.30)
+                          : Colors.white.withValues(alpha: 0.90),
+                      fontSize: 9, fontFamily: 'SpaceGrotesk',
+                    )),
+                ),
+                const SizedBox(width: 4),
+                // Peak
+                SizedBox(
+                  width: 30,
+                  child: Text('pk $peakDb',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.40),
+                      fontSize: 8, fontFamily: 'SpaceGrotesk',
+                    )),
+                ),
+                const SizedBox(width: 4),
+                // Pan
+                SizedBox(
+                  width: 24,
+                  child: Text(pan,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.cyanAccent.withValues(alpha: 0.70),
+                      fontSize: 8, fontFamily: 'SpaceGrotesk',
+                    )),
+                ),
+                const SizedBox(width: 4),
+                // Solo button
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () { provider.toggleSolo(busId); _restartAutoHide(); },
+                  child: Container(
+                    width: 16, height: 16,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(3),
+                      color: isSolo
+                          ? Colors.yellowAccent.withValues(alpha: 0.80)
+                          : Colors.white.withValues(alpha: 0.08),
+                      border: Border.all(
+                        color: isSolo
+                            ? Colors.yellowAccent
+                            : Colors.white.withValues(alpha: 0.25),
+                        width: 1,
+                      ),
+                    ),
+                    child: Center(child: Text('S',
+                      style: TextStyle(
+                        color: isSolo ? Colors.black : Colors.white.withValues(alpha: 0.60),
+                        fontSize: 8, fontWeight: FontWeight.w800,
+                      ))),
+                  ),
+                ),
+                const SizedBox(width: 3),
+                // Mute button
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () { provider.toggleMute(busId); _restartAutoHide(); },
+                  child: Container(
+                    width: 16, height: 16,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(3),
+                      color: isMuted
+                          ? Colors.redAccent.withValues(alpha: 0.80)
+                          : Colors.white.withValues(alpha: 0.08),
+                      border: Border.all(
+                        color: isMuted
+                            ? Colors.redAccent
+                            : Colors.white.withValues(alpha: 0.25),
+                        width: 1,
+                      ),
+                    ),
+                    child: Center(child: Text('M',
+                      style: TextStyle(
+                        color: isMuted ? Colors.white : Colors.white.withValues(alpha: 0.60),
+                        fontSize: 8, fontWeight: FontWeight.w800,
+                      ))),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
       ),
     );
   }
@@ -482,102 +666,90 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
       onPanUpdate: (d) => _onDragUpdate(d, vp),
       onPanEnd:    (d) => _onDragEnd(d, vp),
       child: _earButton(
-        icon: Icons.drag_indicator,
-        color: Colors.white,
-        bg: Colors.white.withValues(alpha: 0.15),
-        border: Colors.white.withValues(alpha: 0.35),
-        iconSize: 14,
+        icon:    Icons.drag_indicator,
+        color:   Colors.white,
+        bg:      Colors.white.withValues(alpha: 0.15),
+        border:  Colors.white.withValues(alpha: 0.35),
+        tooltip: 'Tap: cycle size\nDouble-tap: hide\nDrag: move',
       ),
     );
   }
 
-  // ─── Auto-focus button (top-right) ────────────────────────────────────────────
-  Widget _buildFocusButton() {
-    final hasAny = (_orbProvider?.loudestVoice() != null);
+  // ─── dB panel toggle button (top-right) ───────────────────────────────────────
+  Widget _buildDbToggleButton() {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () {
-        _orbProvider?.autoFocusLoudest();
-        _restartAutoHide();
-      },
+      onTap: _toggleDbPanel,
       child: _earButton(
-        icon: Icons.center_focus_strong,
-        color: Colors.white,
-        bg: hasAny
-            ? Colors.redAccent.withValues(alpha: 0.40)
+        icon:   _showDbPanel ? Icons.bar_chart : Icons.equalizer,
+        color:  _showDbPanel ? Colors.cyanAccent : Colors.white,
+        bg:     _showDbPanel
+            ? Colors.cyanAccent.withValues(alpha: 0.25)
             : Colors.white.withValues(alpha: 0.10),
-        border: hasAny
-            ? Colors.redAccent.withValues(alpha: 0.85)
+        border: _showDbPanel
+            ? Colors.cyanAccent.withValues(alpha: 0.80)
             : Colors.white.withValues(alpha: 0.28),
-        iconSize: 13,
+        tooltip: 'dB panel\n(also: long-press orb)',
       ),
     );
   }
 
-  // ─── Mark problem button (bottom-left) ────────────────────────────────────────
+  // ─── Mark problem (bottom-left) ───────────────────────────────────────────────
   Widget _buildMarkButton() {
     final hasAlerts = (_orbProvider?.activeAlerts.isNotEmpty ?? false);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: _markProblem,
       child: _earButton(
-        icon: Icons.flag,
-        color: Colors.white,
-        bg: hasAlerts
+        icon:   Icons.flag,
+        color:  Colors.white,
+        bg:     hasAlerts
             ? Colors.redAccent.withValues(alpha: 0.40)
             : Colors.white.withValues(alpha: 0.10),
         border: hasAlerts
             ? Colors.redAccent.withValues(alpha: 0.85)
             : Colors.white.withValues(alpha: 0.28),
-        iconSize: 13,
+        tooltip: 'Capture mix problem',
       ),
     );
   }
 
-  // ─── Inbox button (bottom-right, left of resize dot) ─────────────────────────
+  // ─── Inbox button (bottom-right, left of resize) ─────────────────────────────
   Widget _buildInboxButton() {
     final count = ProblemsInboxService.instance.count;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => showProblemsInbox(context),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          _earButton(
-            icon: Icons.inbox,
-            color: Colors.white,
-            bg: Colors.white.withValues(alpha: 0.10),
-            border: Colors.white.withValues(alpha: 0.28),
-            iconSize: 13,
-          ),
-          if (count > 0)
-            Positioned(
-              right: -4,
-              top:   -4,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-                decoration: BoxDecoration(
-                  color: Colors.redAccent,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                constraints: const BoxConstraints(minWidth: 14),
-                child: Text(
-                  '$count',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 8,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+      child: Stack(clipBehavior: Clip.none, children: [
+        _earButton(
+          icon:   Icons.inbox,
+          color:  Colors.white,
+          bg:     Colors.white.withValues(alpha: 0.10),
+          border: Colors.white.withValues(alpha: 0.28),
+          tooltip: 'Problems inbox',
+        ),
+        if (count > 0)
+          Positioned(
+            right: -4, top: -4,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+              decoration: BoxDecoration(
+                color: Colors.redAccent,
+                borderRadius: BorderRadius.circular(8),
               ),
+              constraints: const BoxConstraints(minWidth: 14),
+              child: Text('$count',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white, fontSize: 8, fontWeight: FontWeight.w700,
+                )),
             ),
-        ],
-      ),
+          ),
+      ]),
     );
   }
 
-  // ─── Resize dot (bottom-right corner) ────────────────────────────────────────
+  // ─── Resize dot (bottom-right extreme corner) ─────────────────────────────────
   Widget _buildResizeHandle(Size vp) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -590,8 +762,7 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
           vp.width  - _position.dx - 2 * _earPx - 12,
           vp.height - _position.dy - 2 * _earPx - 12,
         ].reduce((a, b) => a < b ? a : b).clamp(_minOrbPx, effMax);
-        final next = (_orbPx + delta * 2).clamp(_minOrbPx, maxByVP);
-        setState(() => _orbPx = next);
+        setState(() => _orbPx = (_orbPx + delta * 2).clamp(_minOrbPx, maxByVP));
       },
       onPanEnd: (_) {
         setState(() => _isResizing = false);
@@ -605,13 +776,10 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
             borderRadius: BorderRadius.circular(4),
             color: Colors.cyanAccent.withValues(alpha: 0.25),
             border: Border.all(
-              color: Colors.cyanAccent.withValues(alpha: 0.60),
-              width: 1,
-            ),
+              color: Colors.cyanAccent.withValues(alpha: 0.65), width: 1),
           ),
           child: const Center(
-            child: Icon(Icons.open_in_full, size: 9, color: Colors.cyanAccent),
-          ),
+            child: Icon(Icons.open_in_full, size: 9, color: Colors.cyanAccent)),
         ),
       ),
     );
@@ -621,8 +789,7 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
   Widget _buildRevealButton() {
     return Stack(children: [
       Positioned(
-        right:  16,
-        bottom: 16,
+        right: 16, bottom: 16,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: () {
@@ -635,11 +802,10 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
             width: 38, height: 38,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.black.withValues(alpha: 0.60),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.30), width: 1),
+              color: Colors.black.withValues(alpha: 0.65),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.30), width: 1),
               boxShadow: [BoxShadow(
-                color: Colors.black.withValues(alpha: 0.50), blurRadius: 12)],
+                color: Colors.black.withValues(alpha: 0.50), blurRadius: 14)],
             ),
             child: const Center(
               child: Icon(Icons.graphic_eq, size: 18, color: Colors.white)),
@@ -657,8 +823,7 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
     return Center(
       child: Wrap(
         alignment: WrapAlignment.center,
-        spacing: 4,
-        runSpacing: 3,
+        spacing: 4, runSpacing: 3,
         children: OrbQuickFilter.values.map((f) {
           final on = active.contains(f);
           return GestureDetector(
@@ -669,7 +834,7 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
               decoration: BoxDecoration(
                 color: on
                     ? Colors.cyanAccent.withValues(alpha: 0.22)
-                    : Colors.black.withValues(alpha: 0.60),
+                    : Colors.black.withValues(alpha: 0.65),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: on
@@ -696,9 +861,10 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
     required Color color,
     required Color bg,
     required Color border,
+    String? tooltip,
     double iconSize = 13,
   }) {
-    return Container(
+    final btn = Container(
       width:  _btnPx,
       height: _btnPx,
       decoration: BoxDecoration(
@@ -706,9 +872,18 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
         color: bg,
         border: Border.all(color: border, width: 1),
         boxShadow: [BoxShadow(
-          color: Colors.black.withValues(alpha: 0.35), blurRadius: 4)],
+          color: Colors.black.withValues(alpha: 0.40), blurRadius: 5)],
       ),
       child: Center(child: Icon(icon, size: iconSize, color: color)),
     );
+    if (tooltip != null) {
+      return Tooltip(
+        message: tooltip,
+        preferBelow: true,
+        waitDuration: const Duration(milliseconds: 600),
+        child: btn,
+      );
+    }
+    return btn;
   }
 }
