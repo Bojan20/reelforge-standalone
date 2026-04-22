@@ -117,9 +117,38 @@ class _OrbMixerState extends State<OrbMixer>
   Offset? _dragStartPos;
   OrbVoiceState? _draggingVoice;
 
+  // Nivo 3: Long-press timer + arc drag state
+  DateTime? _pointerDownTime;
+  OrbVoiceState? _longPressCandidate;
+  bool _isArcDragging = false;
+  static const _longPressDuration = Duration(milliseconds: 400);
+
   void _onPointerDown(PointerDownEvent event) {
     final localPos = event.localPosition;
     _dragStartPos = localPos;
+    _pointerDownTime = DateTime.now();
+    _longPressCandidate = null;
+
+    // Nivo 3: If detail is open, check arc hit first
+    if (_provider.isDetailOpen) {
+      final arcHit = _hitTestArc(localPos);
+      if (arcHit >= 0) {
+        _provider.startArcDrag(arcHit);
+        _isArcDragging = true;
+        HapticFeedback.selectionClick();
+        setState(() {});
+        return;
+      }
+
+      // Tap outside param ring → close detail
+      final detailPos = _provider.detailPosition;
+      final ringRadius = _provider.size * 0.18;
+      if ((localPos - detailPos).distance > ringRadius + 10) {
+        _provider.closeDetail();
+        setState(() {});
+        return;
+      }
+    }
 
     // In Nivo 2: check voice dots first
     if (_provider.isExpanded) {
@@ -133,6 +162,8 @@ class _OrbMixerState extends State<OrbMixer>
           setState(() {});
           return;
         }
+        // Track as potential long-press candidate for Nivo 3
+        _longPressCandidate = voiceHit;
         _draggingVoice = voiceHit;
         return;
       }
@@ -161,6 +192,40 @@ class _OrbMixerState extends State<OrbMixer>
   }
 
   void _onPointerMove(PointerMoveEvent event) {
+    // Nivo 3: Arc drag
+    if (_isArcDragging && _provider.isDetailOpen) {
+      final detailPos = _provider.detailPosition;
+      final delta = event.localPosition - detailPos;
+      final angle = math.atan2(delta.dy, delta.dx);
+      final normalizedValue = _angleToArcNormalized(angle);
+      _provider.updateArcDrag(normalizedValue);
+      setState(() {});
+      return;
+    }
+
+    // Check for long-press transition (voice held > 400ms without much movement)
+    if (_longPressCandidate != null && _draggingVoice != null) {
+      final elapsed = DateTime.now().difference(_pointerDownTime!);
+      final moved = _dragStartPos != null
+          ? (event.localPosition - _dragStartPos!).distance
+          : 0.0;
+
+      if (elapsed >= _longPressDuration && moved < 8) {
+        // Long-press detected → open Nivo 3 detail ring
+        _provider.openDetail(_longPressCandidate!);
+        _draggingVoice = null;
+        _longPressCandidate = null;
+        HapticFeedback.heavyImpact();
+        setState(() {});
+        return;
+      }
+
+      // If moved too much, cancel long-press candidate — treat as normal drag
+      if (moved >= 8) {
+        _longPressCandidate = null;
+      }
+    }
+
     // Voice drag (Nivo 2)
     if (_draggingVoice != null) {
       final center = Offset(_provider.size / 2, _provider.size / 2);
@@ -201,6 +266,17 @@ class _OrbMixerState extends State<OrbMixer>
   }
 
   void _onPointerUp(PointerUpEvent event) {
+    _longPressCandidate = null;
+    _pointerDownTime = null;
+
+    // Nivo 3: Arc drag end
+    if (_isArcDragging) {
+      _provider.endArcDrag();
+      _isArcDragging = false;
+      setState(() {});
+      return;
+    }
+
     // Voice drag end
     if (_draggingVoice != null) {
       // Check if this was a tap (minimal movement)
@@ -336,6 +412,70 @@ class _OrbMixerState extends State<OrbMixer>
     _tooltipOverlay?.remove();
     _tooltipOverlay = null;
     _tooltipBus = null;
+  }
+
+  // ── Nivo 3: Arc helpers ──
+
+  /// Hit-test which arc slider the pointer is on (-1 if none).
+  /// Tests if pointer is within the arc ring radius band and within an arc's
+  /// angular span.
+  int _hitTestArc(Offset localPos) {
+    if (!_provider.isDetailOpen) return -1;
+    final detailPos = _provider.detailPosition;
+    final delta = localPos - detailPos;
+    final distance = delta.distance;
+
+    // Arc ring: inner radius 65%, outer radius 85% of param ring radius
+    final ringRadius = _provider.size * 0.18;
+    final innerR = ringRadius * 0.65;
+    final outerR = ringRadius * 1.1;
+
+    if (distance < innerR || distance > outerR) return -1;
+
+    // Compute angle from detail center
+    final angle = math.atan2(delta.dy, delta.dx);
+
+    // Check each arc's angular span
+    for (final arc in OrbParamArc.values) {
+      final start = arc.startAngle;
+      final sweep = arc.sweepAngle;
+      final end = start + sweep;
+
+      // Normalize angle to match arc range
+      var a = angle;
+      // Handle wrap-around
+      while (a < start - math.pi) {
+        a += 2 * math.pi;
+      }
+      while (a > start + math.pi) {
+        a -= 2 * math.pi;
+      }
+
+      if (a >= start && a <= end) {
+        return arc.index;
+      }
+    }
+    return -1;
+  }
+
+  /// Convert a drag angle (relative to detail center) to normalized 0..1 value
+  /// within the active arc's angular span.
+  double _angleToArcNormalized(double angle) {
+    if (_provider.activeArcIndex < 0) return 0.0;
+    final arc = OrbParamArc.values[_provider.activeArcIndex];
+    final start = arc.startAngle;
+    final sweep = arc.sweepAngle;
+
+    // Normalize angle to be relative to arc start
+    var a = angle;
+    while (a < start - math.pi) {
+      a += 2 * math.pi;
+    }
+    while (a > start + math.pi) {
+      a -= 2 * math.pi;
+    }
+
+    return ((a - start) / sweep).clamp(0.0, 1.0);
   }
 
   // ── Build ──

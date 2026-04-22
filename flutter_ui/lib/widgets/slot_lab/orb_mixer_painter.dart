@@ -45,6 +45,11 @@ class OrbMixerPainter extends CustomPainter {
       _paintVoiceDots(canvas);
     }
 
+    // Nivo 3: Param ring when voice detail is open
+    if (provider.isDetailOpen) {
+      _paintParamRing(canvas);
+    }
+
     if (showLabels || hoveredBus != null) {
       _paintLabels(canvas, size);
     }
@@ -356,7 +361,127 @@ class OrbMixerPainter extends CustomPainter {
     }
   }
 
-  // ── Layer 7: Labels (hover/expanded mode) ──
+  // ── Layer 7b: Param Ring (Nivo 3 — sound detail) ──
+
+  void _paintParamRing(Canvas canvas) {
+    final voice = provider.detailVoice;
+    if (voice == null) return;
+
+    final center = voice.position;
+    const ringRadius = 28.0; // radius of arc ring around voice dot
+    const trackWidth = 4.0;
+    const activeTrackWidth = 6.0;
+
+    final params = provider.detailParams;
+
+    // Dim background behind ring
+    final dimPaint = Paint()
+      ..color = const Color(0xAA06060A)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 16.0);
+    canvas.drawCircle(center, ringRadius + 12, dimPaint);
+
+    // Draw each arc slider
+    for (final arc in OrbParamArc.values) {
+      final isActive = provider.activeArcIndex == arc.index;
+      final normalized = arc.toNormalized(params[arc.index]);
+
+      // Track background (dark arc)
+      final trackPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = isActive ? activeTrackWidth : trackWidth
+        ..strokeCap = StrokeCap.round
+        ..color = arc.color.withValues(alpha: 0.15);
+
+      final rect = Rect.fromCircle(center: center, radius: ringRadius);
+      canvas.drawArc(rect, arc.startAngle, arc.sweepAngle, false, trackPaint);
+
+      // Value fill (colored arc proportional to value)
+      if (normalized > 0.01) {
+        final fillPaint = Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = isActive ? activeTrackWidth : trackWidth
+          ..strokeCap = StrokeCap.round
+          ..color = arc.color.withValues(alpha: isActive ? 0.9 : 0.6);
+
+        final fillSweep = arc.sweepAngle * normalized;
+        canvas.drawArc(rect, arc.startAngle, fillSweep, false, fillPaint);
+      }
+
+      // Thumb dot at current value position
+      final thumbAngle = arc.startAngle + arc.sweepAngle * normalized;
+      final thumbPos = Offset(
+        center.dx + ringRadius * math.cos(thumbAngle),
+        center.dy + ringRadius * math.sin(thumbAngle),
+      );
+
+      final thumbPaint = Paint()
+        ..style = PaintingStyle.fill
+        ..color = isActive ? Colors.white : arc.color;
+      canvas.drawCircle(thumbPos, isActive ? 3.5 : 2.5, thumbPaint);
+
+      // Label at midpoint of arc
+      final midAngle = arc.startAngle + arc.sweepAngle * 0.5;
+      final labelRadius = ringRadius + 10;
+      final labelPos = Offset(
+        center.dx + labelRadius * math.cos(midAngle),
+        center.dy + labelRadius * math.sin(midAngle),
+      );
+
+      // Format value text
+      final valueText = _formatArcValue(arc, params[arc.index]);
+      final labelSpan = TextSpan(
+        text: '${arc.label}\n$valueText',
+        style: TextStyle(
+          color: arc.color.withValues(alpha: isActive ? 0.9 : 0.5),
+          fontSize: 6.0,
+          fontFamily: 'SpaceGrotesk',
+          fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+          height: 1.2,
+        ),
+      );
+      final tp = TextPainter(
+        text: labelSpan,
+        textDirection: TextDirection.ltr,
+        textAlign: TextAlign.center,
+      )..layout();
+      tp.paint(canvas, labelPos - Offset(tp.width / 2, tp.height / 2));
+    }
+
+    // Center voice dot (highlighted)
+    final dotPaint = Paint()
+      ..style = PaintingStyle.fill
+      ..color = voice.statusColor;
+    canvas.drawCircle(center, voice.dotRadius + 1, dotPaint);
+
+    final borderPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5
+      ..color = Colors.white.withValues(alpha: 0.6);
+    canvas.drawCircle(center, voice.dotRadius + 1, borderPaint);
+  }
+
+  String _formatArcValue(OrbParamArc arc, double value) {
+    return switch (arc) {
+      OrbParamArc.volume => value <= 0.001
+          ? '-∞'
+          : '${(20.0 * math.log(value) / math.ln10).toStringAsFixed(1)}',
+      OrbParamArc.pan => value == 0
+          ? 'C'
+          : (value < 0
+              ? 'L${(-value * 100).toInt()}'
+              : 'R${(value * 100).toInt()}'),
+      OrbParamArc.pitch => '${value >= 0 ? '+' : ''}${value.toStringAsFixed(1)}st',
+      OrbParamArc.hpf => value < 1000
+          ? '${value.toInt()}Hz'
+          : '${(value / 1000).toStringAsFixed(1)}k',
+      OrbParamArc.lpf => value < 1000
+          ? '${value.toInt()}Hz'
+          : '${(value / 1000).toStringAsFixed(1)}k',
+      OrbParamArc.send => '${(value * 100).toInt()}%',
+    };
+  }
+
+  // ── Layer 8: Labels (hover/expanded mode) ──
 
   void _paintLabels(Canvas canvas, Size size) {
     if (!showLabels) return;

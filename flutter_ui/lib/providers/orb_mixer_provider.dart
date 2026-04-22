@@ -187,6 +187,77 @@ class OrbVoiceState {
   }
 }
 
+// ============ Param Arc (Nivo 3) ============
+
+/// Arc slider parameters for per-voice detail ring
+enum OrbParamArc {
+  volume(label: 'Vol', min: 0.0, max: 2.0, defaultVal: 1.0),
+  pan(label: 'Pan', min: -1.0, max: 1.0, defaultVal: 0.0),
+  pitch(label: 'Pitch', min: -24.0, max: 24.0, defaultVal: 0.0),
+  hpf(label: 'HPF', min: 20.0, max: 20000.0, defaultVal: 20.0),
+  lpf(label: 'LPF', min: 20.0, max: 20000.0, defaultVal: 20000.0),
+  send(label: 'Send', min: 0.0, max: 1.0, defaultVal: 0.0);
+
+  const OrbParamArc({
+    required this.label,
+    required this.min,
+    required this.max,
+    required this.defaultVal,
+  });
+
+  final String label;
+  final double min;
+  final double max;
+  final double defaultVal;
+
+  /// Normalize value to 0..1
+  double toNormalized(double value) {
+    if (this == hpf || this == lpf) {
+      // Log scale for frequency
+      final logMin = math.log(min);
+      final logMax = math.log(max);
+      return ((math.log(value.clamp(min, max)) - logMin) / (logMax - logMin))
+          .clamp(0.0, 1.0);
+    }
+    return ((value - min) / (max - min)).clamp(0.0, 1.0);
+  }
+
+  /// Denormalize from 0..1 to value
+  double fromNormalized(double n) {
+    final clamped = n.clamp(0.0, 1.0);
+    if (this == hpf || this == lpf) {
+      final logMin = math.log(min);
+      final logMax = math.log(max);
+      return math.exp(logMin + clamped * (logMax - logMin));
+    }
+    return min + clamped * (max - min);
+  }
+
+  /// Start angle for this arc (distributed evenly around circle)
+  double get startAngle {
+    const arcSpan = 2 * math.pi / 6; // 6 arcs, 60° each
+    const gap = math.pi / 36; // 5° gap between arcs
+    return -math.pi / 2 + index * arcSpan + gap / 2;
+  }
+
+  /// Sweep angle
+  double get sweepAngle {
+    const arcSpan = 2 * math.pi / 6;
+    const gap = math.pi / 36;
+    return arcSpan - gap;
+  }
+
+  /// Color for this param
+  Color get color => switch (this) {
+        volume => FluxForgeTheme.accentGreen,
+        pan => FluxForgeTheme.accentBlue,
+        pitch => FluxForgeTheme.accentPurple,
+        hpf => FluxForgeTheme.accentOrange,
+        lpf => FluxForgeTheme.accentCyan,
+        send => FluxForgeTheme.accentYellow,
+      };
+}
+
 // ============ Provider ============
 
 class OrbMixerProvider extends ChangeNotifier {
@@ -573,6 +644,95 @@ class OrbMixerProvider extends ChangeNotifier {
   /// Mute/unmute voice
   void setVoiceMute(int voiceId, bool muted) {
     _ffi.orbSetVoiceParam(voiceId, 3, muted ? 1.0 : 0.0);
+  }
+
+  /// Set voice pitch (semitones, -24 to +24)
+  void setVoicePitch(int voiceId, double semitones) {
+    _ffi.orbSetVoiceParam(voiceId, 2, semitones.clamp(-24.0, 24.0));
+  }
+
+  // ── Nivo 3: Sound Detail (per-voice param ring) ──
+
+  /// Currently detailed voice (null = no detail popup)
+  int? detailVoiceId;
+
+  /// Which arc slider is being dragged (-1 = none)
+  int activeArcIndex = -1;
+
+  /// Param values for the detailed voice (local cache for smooth interaction)
+  final List<double> _detailParams = List.filled(OrbParamArc.values.length, 0.0);
+
+  /// Open param ring for a voice
+  void openDetail(OrbVoiceState voice) {
+    detailVoiceId = voice.voiceId;
+    // Initialize params from voice state
+    _detailParams[OrbParamArc.volume.index] = voice.volume;
+    _detailParams[OrbParamArc.pan.index] = voice.pan;
+    _detailParams[OrbParamArc.pitch.index] = 0.0; // default neutral
+    _detailParams[OrbParamArc.hpf.index] = 20.0; // 20Hz = off
+    _detailParams[OrbParamArc.lpf.index] = 20000.0; // 20kHz = off
+    _detailParams[OrbParamArc.send.index] = 0.0;
+    notifyListeners();
+  }
+
+  /// Close param ring
+  void closeDetail() {
+    detailVoiceId = null;
+    activeArcIndex = -1;
+    notifyListeners();
+  }
+
+  /// Is detail view active?
+  bool get isDetailOpen => detailVoiceId != null;
+
+  /// Get detail voice state
+  OrbVoiceState? get detailVoice {
+    if (detailVoiceId == null) return null;
+    return _allVoices.where((v) => v.voiceId == detailVoiceId).firstOrNull;
+  }
+
+  /// Get current detail param values
+  List<double> get detailParams => _detailParams;
+
+  /// Get the position where detail ring should be drawn
+  Offset get detailPosition {
+    final voice = detailVoice;
+    return voice?.position ?? Offset(size / 2, size / 2);
+  }
+
+  /// Start dragging an arc slider
+  void startArcDrag(int arcIndex) {
+    activeArcIndex = arcIndex;
+  }
+
+  /// Update arc value from drag angle
+  void updateArcDrag(double normalizedValue) {
+    if (activeArcIndex < 0 || detailVoiceId == null) return;
+    final arc = OrbParamArc.values[activeArcIndex];
+
+    // Map normalized 0..1 to param range
+    final value = arc.fromNormalized(normalizedValue);
+    _detailParams[activeArcIndex] = value;
+
+    // Send to engine
+    switch (arc) {
+      case OrbParamArc.volume:
+        setVoiceVolume(detailVoiceId!, value);
+      case OrbParamArc.pan:
+        setVoicePan(detailVoiceId!, value);
+      case OrbParamArc.pitch:
+        setVoicePitch(detailVoiceId!, value);
+      case OrbParamArc.hpf:
+      case OrbParamArc.lpf:
+      case OrbParamArc.send:
+        // HPF/LPF/Send not yet wired to engine (Phase 5+)
+        break;
+    }
+  }
+
+  /// End arc drag
+  void endArcDrag() {
+    activeArcIndex = -1;
   }
 
   // ── Helpers ──
