@@ -348,6 +348,25 @@ class OrbMixerProvider extends ChangeNotifier {
     }).toList();
   }
 
+  /// PHASE 10 — Auto-Focus: find the loudest voice right now, expand its
+  /// bus, open Nivo 3 detail on it. One-shot "problem-first" zoom so the
+  /// user doesn't have to guess which voice is too loud.
+  /// Returns the voice that was focused, or null if none were active.
+  OrbVoiceState? autoFocusLoudest() {
+    final voice = loudestVoice();
+    if (voice == null) return null;
+    // Make sure the parent bus is expanded so voice dots are laid out and
+    // the detail arc has a position to render at.
+    if (expandedBus != voice.bus) {
+      expandBus(voice.bus);
+      // Re-layout voice dots for the newly-expanded bus so the voice has
+      // a resolved position before we open the detail ring.
+      _layoutVoiceDots(voice.bus);
+    }
+    openDetail(voice);
+    return voice;
+  }
+
   /// PHASE 10 — Culprit analyzer: return the voice that was loudest over
   /// the last observation window (single-tick proxy — weighted by peak ×
   /// volume × (1 + 0.2*isLooping_boost)). Returns null when no voices.

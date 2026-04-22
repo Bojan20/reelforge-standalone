@@ -22,6 +22,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../providers/mixer_dsp_provider.dart';
+import '../../providers/orb_mixer_provider.dart';
 import 'orb_mixer.dart';
 
 /// Overlay sizing modes
@@ -97,6 +98,11 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
   Timer? _autoHideTimer;
   bool _settingsLoaded = false;
 
+  /// PHASE 10: OrbMixer provider reference (received via onProviderReady).
+  /// Null until the nested OrbMixer mounts. Used for Quick Filter toggling
+  /// and Auto-Focus zoom from the overlay's UI chrome.
+  OrbMixerProvider? _orbProvider;
+
   @override
   void initState() {
     super.initState();
@@ -108,6 +114,8 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
   @override
   void dispose() {
     _autoHideTimer?.cancel();
+    _orbProvider?.removeListener(_onOrbProviderChanged);
+    _orbProvider = null;
     if (_current == this) _current = null;
     super.dispose();
   }
@@ -343,6 +351,27 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
                         height: _handleSize,
                         child: _buildDragHandle(viewport),
                       ),
+                      // Layer 3 (Phase 10): Auto-Focus button (top-right).
+                      // Zooms into the loudest voice right now. Only shown
+                      // in standard/full; mini hides it to save space.
+                      if (_sizeMode != LivePlayOrbSize.mini)
+                        Positioned(
+                          right: 0,
+                          top: 0,
+                          width: _handleSize,
+                          height: _handleSize,
+                          child: _buildFocusButton(),
+                        ),
+                      // Layer 4 (Phase 10): Quick Filter chip strip below
+                      // the orb. Only when provider is ready + not mini.
+                      if (_sizeMode != LivePlayOrbSize.mini &&
+                          _orbProvider != null)
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: -24,
+                          child: _buildFilterChips(),
+                        ),
                     ],
                   ),
                 ),
@@ -379,9 +408,19 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
           dsp: widget.dsp,
           size: sizePx - 4, // inset for backdrop
           expandOnHover: false, // compact mode — no label expansion
+          onProviderReady: (p) {
+            if (!mounted) return;
+            setState(() => _orbProvider = p);
+            // Repaint chip strip when filters change.
+            p.addListener(_onOrbProviderChanged);
+          },
         ),
       ),
     );
+  }
+
+  void _onOrbProviderChanged() {
+    if (mounted) setState(() {});
   }
 
   /// Small reveal button shown when the orb is hidden. Lives in the bottom-
@@ -466,6 +505,95 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
             color: Colors.white,
           ),
         ),
+      ),
+    );
+  }
+
+  /// PHASE 10: Auto-Focus button. Tap → provider.autoFocusLoudest() which
+  /// opens Nivo 3 on the loudest active voice. One-shot "which sound is too
+  /// loud" shortcut.
+  Widget _buildFocusButton() {
+    final hasAny = (_orbProvider?.loudestVoice() != null);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        final p = _orbProvider;
+        if (p == null) return;
+        p.autoFocusLoudest();
+        _restartAutoHide();
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: hasAny
+              ? Colors.redAccent.withValues(alpha: 0.35)
+              : Colors.white.withValues(alpha: 0.08),
+          border: Border.all(
+            color: hasAny
+                ? Colors.redAccent.withValues(alpha: 0.8)
+                : Colors.white.withValues(alpha: 0.22),
+            width: 1,
+          ),
+        ),
+        child: const Center(
+          child: Icon(
+            Icons.center_focus_strong,
+            size: 13,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// PHASE 10: Quick Filter chip strip under the orb. 4 chips (SFX, Loud,
+  /// Recent, NoMute) AND-combine. Active chip cyan-bordered, inactive is
+  /// subtle so it doesn't distract during play.
+  Widget _buildFilterChips() {
+    final p = _orbProvider;
+    if (p == null) return const SizedBox.shrink();
+    final active = p.activeFilters;
+    return Center(
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        spacing: 4,
+        runSpacing: 3,
+        children: OrbQuickFilter.values.map((f) {
+          final isOn = active.contains(f);
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              p.toggleFilter(f);
+              _restartAutoHide();
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: isOn
+                    ? Colors.cyanAccent.withValues(alpha: 0.22)
+                    : Colors.black.withValues(alpha: 0.55),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: isOn
+                      ? Colors.cyanAccent.withValues(alpha: 0.8)
+                      : Colors.white.withValues(alpha: 0.2),
+                  width: 1,
+                ),
+              ),
+              child: Text(
+                f.label,
+                style: TextStyle(
+                  color: isOn
+                      ? Colors.cyanAccent
+                      : Colors.white.withValues(alpha: 0.75),
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.4,
+                ),
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }

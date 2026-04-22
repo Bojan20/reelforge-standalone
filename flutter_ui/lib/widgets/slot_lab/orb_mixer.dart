@@ -48,12 +48,18 @@ class OrbMixer extends StatefulWidget {
   /// Optional callback when a bus is tapped (for Nivo 2 expand)
   final ValueChanged<OrbBusId>? onBusTap;
 
+  /// PHASE 10: Called once after provider is constructed so parent widgets
+  /// (e.g., LivePlayOrbOverlay) can reach in and toggle quick filters or
+  /// trigger auto-focus. Invoked on the next frame via addPostFrameCallback.
+  final ValueChanged<OrbMixerProvider>? onProviderReady;
+
   const OrbMixer({
     super.key,
     required this.dsp,
     this.size = 120.0,
     this.expandOnHover = true,
     this.onBusTap,
+    this.onProviderReady,
   });
 
   @override
@@ -81,6 +87,15 @@ class _OrbMixerState extends State<OrbMixer>
       meters: SharedMeterReader.instance,
     );
     _provider.setSize(widget.size);
+
+    // PHASE 10: Hand the provider reference to any parent that wants it
+    // (e.g. Live Play overlay for Quick Filter chips + Auto-Focus).
+    final cb = widget.onProviderReady;
+    if (cb != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) cb(_provider);
+      });
+    }
 
     // 60fps animation ticker for real-time meter updates
     _ticker = createTicker(_onTick);
