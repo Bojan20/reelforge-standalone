@@ -31,6 +31,8 @@ import '../../services/auto_bind/auto_bind_engine.dart';
 import '../../services/auto_bind/binding_result.dart';
 import '../../services/native_file_picker.dart';
 import '../../services/stage_configuration_service.dart';
+import '../../src/rust/native_ffi.dart';
+import '../../src/rust/slot_lab_v2_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
 import 'auto_bind_dialog_v2.dart';
 
@@ -94,6 +96,7 @@ class _NeuralBindOrbState extends State<NeuralBindOrb>
   // ── STATE ──────────────────────────────────────────────────────────────────
   _OrbState _state = _OrbState.idle;
   BindingAnalysis? _lastAnalysis;
+  SonicDnaResult? _lastDnaResult;
   String? _lastFolder;
   int _totalStages = 0;
   Timer? _autoDismiss;
@@ -194,6 +197,13 @@ class _NeuralBindOrbState extends State<NeuralBindOrb>
         _lastAnalysis = analysis;
         _lastFolder = folderPath;
 
+        // Run Sonic DNA classification (acoustic fingerprinting)
+        try {
+          _lastDnaResult = NativeFFI.instance.classifyFolder(folderPath);
+        } catch (_) {
+          _lastDnaResult = null;
+        }
+
         if (mounted) {
           setState(() => _state = _OrbState.done);
           _flashCtl.forward(from: 0);
@@ -236,6 +246,7 @@ class _NeuralBindOrbState extends State<NeuralBindOrb>
       isScrollControlled: true,
       builder: (_) => NeuralBindSheet(
         analysis: _lastAnalysis!,
+        dnaResult: _lastDnaResult,
         folderPath: _lastFolder ?? '',
         onBusVolumesChanged: widget.onBusVolumesChanged,
         onOpenFull: () {
@@ -585,6 +596,7 @@ class _OrbPainter extends CustomPainter {
 /// Kompaktan, futuristički, auto-dismiss.
 class NeuralBindSheet extends StatefulWidget {
   final BindingAnalysis analysis;
+  final SonicDnaResult? dnaResult;
   final String folderPath;
   final void Function(Map<int, double>)? onBusVolumesChanged;
   final VoidCallback? onOpenFull;
@@ -592,6 +604,7 @@ class NeuralBindSheet extends StatefulWidget {
   const NeuralBindSheet({
     super.key,
     required this.analysis,
+    this.dnaResult,
     required this.folderPath,
     this.onBusVolumesChanged,
     this.onOpenFull,
@@ -633,7 +646,19 @@ class _NeuralBindSheetState extends State<NeuralBindSheet>
     final boundStages = widget.analysis.stageGroups.keys.toSet();
     final allStages = StageConfigurationService.instance.getAllStages();
 
-    // Sample ~40 representative stages for visual (not all 182)
+    // Build soundType lookup from DNA result
+    final dnaLookup = <String, String>{};
+    if (widget.dnaResult != null) {
+      for (final c in widget.dnaResult!.classifications) {
+        // Map FFNC name to sound type
+        dnaLookup[c.ffncName.toLowerCase()] = c.soundType;
+        // Also try stage name derivation
+        final stageName = c.ffncName.replaceAll('.', '_').toUpperCase();
+        dnaLookup[stageName] = c.soundType;
+      }
+    }
+
+    // Sample ~48 representative stages for visual (not all 182)
     final sample = allStages.length > 48
         ? (List.of(allStages)..shuffle(math.Random(7))).take(48).toList()
         : allStages;
@@ -641,7 +666,14 @@ class _NeuralBindSheetState extends State<NeuralBindSheet>
     for (int i = 0; i < sample.length; i++) {
       final stage = sample[i];
       final isBound = boundStages.contains(stage.name);
-      // Distributed circular layout
+
+      // Try to find sound type from DNA classification
+      String? soundType = dnaLookup[stage.name];
+      soundType ??= dnaLookup[stage.name.toLowerCase()];
+      // Fallback: infer from stage name prefix
+      soundType ??= _inferSoundType(stage.name);
+
+      // Distributed circular layout — group by category for visual clustering
       final angle = (i / sample.length) * 2 * math.pi;
       final radiusNorm = 0.3 + _rand.nextDouble() * 0.35;
       nodes.add(_StageNode(
@@ -650,9 +682,25 @@ class _NeuralBindSheetState extends State<NeuralBindSheet>
         angle: angle,
         radiusNorm: radiusNorm,
         delay: i * 18,
+        soundType: isBound ? soundType : null,
       ));
     }
     return nodes;
+  }
+
+  /// Infer sound type from stage name prefix
+  String? _inferSoundType(String stage) {
+    final s = stage.toUpperCase();
+    if (s.startsWith('REEL_') || s.startsWith('SPIN_') || s.startsWith('SCATTER_') ||
+        s.startsWith('BONUS_') || s.startsWith('BUTTON_') || s.startsWith('CLICK_'))
+      return 'sfx';
+    if (s.startsWith('MUSIC_') || s.startsWith('BGM_')) return 'mus';
+    if (s.startsWith('AMBIENT_') || s.startsWith('AMB_')) return 'amb';
+    if (s.startsWith('WIN_') || s.startsWith('BIG_WIN') || s.startsWith('ROLLUP_'))
+      return 'big_win';
+    if (s.startsWith('FS_') || s.startsWith('FREE_SPIN')) return 'trn';
+    if (s.startsWith('UI_') || s.startsWith('MENU_')) return 'ui';
+    return null;
   }
 
   @override
@@ -764,7 +812,7 @@ class _NeuralBindSheetState extends State<NeuralBindSheet>
                   // Neural viz (60% width)
                   Expanded(
                     flex: 6,
-                    child: _NeuralViz(nodes: _nodes, analysis: a),
+                    child: _NeuralViz(nodes: _nodes, analysis: a, dnaResult: widget.dnaResult),
                   ),
                   // Top matches list (40% width)
                   Expanded(
@@ -798,6 +846,7 @@ class _StageNode {
   final double angle;
   final double radiusNorm;
   final int delay; // animation stagger ms
+  final String? soundType; // Sonic DNA classification (sfx, mus, amb, trn, ui)
 
   const _StageNode({
     required this.stage,
@@ -805,14 +854,28 @@ class _StageNode {
     required this.angle,
     required this.radiusNorm,
     required this.delay,
+    this.soundType,
   });
+
+  /// Category color based on sound type
+  Color get categoryColor => switch (soundType) {
+    'sfx' || 'reel_spin' || 'reel_stop' || 'scatter_hit' ||
+    'button_click' || 'bonus_trigger' || 'multiplier' => FluxForgeTheme.accentOrange,
+    'mus' || 'music_base' || 'music_feature' => FluxForgeTheme.accentBlue,
+    'amb' || 'ambient_loop' => FluxForgeTheme.accentCyan,
+    'trn' || 'free_spin_start' => FluxForgeTheme.accentPurple,
+    'ui' => FluxForgeTheme.accentYellow,
+    'big_win' || 'small_win' => const Color(0xFFFFD700), // gold
+    _ => FluxForgeTheme.accentGreen,
+  };
 }
 
 class _NeuralViz extends StatefulWidget {
   final List<_StageNode> nodes;
   final BindingAnalysis analysis;
+  final SonicDnaResult? dnaResult;
 
-  const _NeuralViz({required this.nodes, required this.analysis});
+  const _NeuralViz({required this.nodes, required this.analysis, this.dnaResult});
 
   @override
   State<_NeuralViz> createState() => _NeuralVizState();
@@ -858,6 +921,7 @@ class _NeuralVizState extends State<_NeuralViz> with TickerProviderStateMixin {
           nodes: widget.nodes,
           waveValue: _waveCtl.value,
           nodeScales: _nodeAnims.map((a) => a.value).toList(),
+          missingTypes: widget.dnaResult?.missingTypes ?? [],
         ),
         size: Size.infinite,
       ),
@@ -869,11 +933,13 @@ class _NeuralVizPainter extends CustomPainter {
   final List<_StageNode> nodes;
   final double waveValue;
   final List<double> nodeScales;
+  final List<String> missingTypes;
 
   const _NeuralVizPainter({
     required this.nodes,
     required this.waveValue,
     required this.nodeScales,
+    required this.missingTypes,
   });
 
   @override
@@ -884,6 +950,12 @@ class _NeuralVizPainter extends CustomPainter {
 
     // Background grid (subtle)
     _drawGrid(canvas, size);
+
+    // Category rings — concentric arcs showing which types are covered
+    _drawCategoryRings(canvas, cx, cy, maxR);
+
+    // Missing type ghost arcs
+    _drawMissingTypeArcs(canvas, cx, cy, maxR);
 
     // Center orb (core)
     _drawCore(canvas, cx, cy, maxR * 0.08);
@@ -896,7 +968,7 @@ class _NeuralVizPainter extends CustomPainter {
       final ny = cy + math.sin(node.angle) * maxR * node.radiusNorm;
       final scale = boundIdx < nodeScales.length ? nodeScales[boundIdx] : 1.0;
       if (scale > 0) {
-        _drawConnection(canvas, cx, cy, nx, ny, scale);
+        _drawConnection(canvas, cx, cy, nx, ny, scale, node.categoryColor);
       }
       boundIdx++;
     }
@@ -909,12 +981,94 @@ class _NeuralVizPainter extends CustomPainter {
 
       if (node.isBound) {
         final scale = boundIdx < nodeScales.length ? nodeScales[boundIdx] : 1.0;
-        _drawBoundNode(canvas, nx, ny, maxR * 0.055, scale, waveValue, boundIdx);
+        _drawBoundNode(canvas, nx, ny, maxR * 0.055, scale, waveValue, boundIdx, node.categoryColor);
         boundIdx++;
       } else {
         _drawUnboundNode(canvas, nx, ny, maxR * 0.04);
       }
     }
+  }
+
+  /// Category rings — concentric arcs for each sound type present
+  void _drawCategoryRings(Canvas canvas, double cx, double cy, double maxR) {
+    // Count bound nodes per category
+    final categoryCounts = <String, int>{};
+    for (final node in nodes) {
+      if (node.isBound && node.soundType != null) {
+        categoryCounts[node.soundType!] = (categoryCounts[node.soundType!] ?? 0) + 1;
+      }
+    }
+    if (categoryCounts.isEmpty) return;
+
+    // Draw a thin ring arc per category at different radii
+    final categories = categoryCounts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    for (int i = 0; i < categories.length && i < 5; i++) {
+      final cat = categories[i];
+      final ringR = maxR * (0.18 + i * 0.06);
+      final color = _categoryToColor(cat.key);
+      // Arc length proportional to count
+      final sweep = (cat.value / nodes.length * 2 * math.pi).clamp(0.2, 2 * math.pi);
+
+      final arcPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0
+        ..strokeCap = StrokeCap.round
+        ..color = color.withValues(alpha: 0.15 + 0.1 * (1 - i / 5));
+
+      canvas.drawArc(
+        Rect.fromCircle(center: Offset(cx, cy), radius: ringR),
+        -math.pi / 2 + i * 0.4, // staggered start
+        sweep,
+        false,
+        arcPaint,
+      );
+    }
+  }
+
+  /// Missing types as ghost dashed arcs in red
+  void _drawMissingTypeArcs(Canvas canvas, double cx, double cy, double maxR) {
+    if (missingTypes.isEmpty) return;
+
+    final arcAngle = 2 * math.pi / math.max(missingTypes.length, 6);
+    final ringR = maxR * 0.92;
+
+    for (int i = 0; i < missingTypes.length && i < 8; i++) {
+      final startAngle = -math.pi / 2 + i * arcAngle;
+
+      // Dashed arc segments
+      final segmentPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5
+        ..strokeCap = StrokeCap.round
+        ..color = FluxForgeTheme.accentRed.withValues(alpha: 0.15);
+
+      // Draw as 3 small dash segments
+      for (int d = 0; d < 3; d++) {
+        final dashStart = startAngle + d * arcAngle * 0.3;
+        canvas.drawArc(
+          Rect.fromCircle(center: Offset(cx, cy), radius: ringR),
+          dashStart,
+          arcAngle * 0.15,
+          false,
+          segmentPaint,
+        );
+      }
+    }
+  }
+
+  Color _categoryToColor(String type) {
+    return switch (type) {
+      'sfx' || 'reel_spin' || 'reel_stop' || 'scatter_hit' ||
+      'button_click' || 'bonus_trigger' || 'multiplier' => FluxForgeTheme.accentOrange,
+      'mus' || 'music_base' || 'music_feature' => FluxForgeTheme.accentBlue,
+      'amb' || 'ambient_loop' => FluxForgeTheme.accentCyan,
+      'trn' || 'free_spin_start' => FluxForgeTheme.accentPurple,
+      'ui' => FluxForgeTheme.accentYellow,
+      'big_win' || 'small_win' => const Color(0xFFFFD700),
+      _ => FluxForgeTheme.accentGreen,
+    };
   }
 
   void _drawGrid(Canvas canvas, Size size) {
@@ -952,10 +1106,10 @@ class _NeuralVizPainter extends CustomPainter {
     );
   }
 
-  void _drawConnection(Canvas canvas, double x1, double y1, double x2, double y2, double scale) {
+  void _drawConnection(Canvas canvas, double x1, double y1, double x2, double y2, double scale, Color color) {
     if (scale <= 0) return;
     final paint = Paint()
-      ..color = const Color(0xFF50FF98).withValues(alpha: 0.12 * scale)
+      ..color = color.withValues(alpha: 0.12 * scale)
       ..strokeWidth = 0.6
       ..style = PaintingStyle.stroke;
     // Lerp from center outward based on scale
@@ -964,7 +1118,7 @@ class _NeuralVizPainter extends CustomPainter {
     canvas.drawLine(Offset(x1, y1), Offset(ex, ey), paint);
   }
 
-  void _drawBoundNode(Canvas canvas, double nx, double ny, double r, double scale, double wave, int idx) {
+  void _drawBoundNode(Canvas canvas, double nx, double ny, double r, double scale, double wave, int idx, Color color) {
     if (scale <= 0) return;
     final sr = r * scale;
     // Wave pulse (staggered per node)
@@ -973,12 +1127,12 @@ class _NeuralVizPainter extends CustomPainter {
 
     canvas.drawCircle(
       Offset(nx, ny), waveR * 1.8,
-      Paint()..color = const Color(0xFF50FF98).withValues(alpha: 0.05 * scale)..style = PaintingStyle.fill,
+      Paint()..color = color.withValues(alpha: 0.05 * scale)..style = PaintingStyle.fill,
     );
     canvas.drawCircle(
       Offset(nx, ny), sr,
       Paint()
-        ..color = const Color(0xFF50FF98).withValues(alpha: 0.85 * scale)
+        ..color = color.withValues(alpha: 0.85 * scale)
         ..style = PaintingStyle.fill
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.5),
     );

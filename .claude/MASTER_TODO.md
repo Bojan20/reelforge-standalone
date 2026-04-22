@@ -1394,7 +1394,7 @@ trn_jackpot_to_base             Jackpot → BG
 
 ---
 
-## Sonic DNA Classifier — Zero-Click Sound Placement (TODO)
+## Sonic DNA Classifier — Zero-Click Sound Placement (90% KOMPLETNO)
 
 ### Cilj
 Korisnik prevuče folder sa BILO KAKVIM imenima zvukova → algoritam **autonomno klasifikuje** svaki zvuk po akustičkom sadržaju → **preimenuje** u FFNC format → **rasporedi** u tačne stage-ove. ZERO klikova, ZERO inputa.
@@ -1463,11 +1463,11 @@ Hardcoded akustički profili za svaki stage type:
 | NeuralBindOrb (drag-to-bind UI) | ✅ POSTOJI | `flutter_ui/lib/widgets/slot_lab/neural_bind_orb.dart` |
 | AutoBindEngine scoring | ✅ POSTOJI | `flutter_ui/lib/services/auto_bind/auto_bind_engine.dart` |
 | Slot stage definicije | ✅ POSTOJI | `flutter_ui/lib/models/slot_audio_events.dart` |
-| SonicClassifier (taxonomy profili + distance) | ❌ TREBA | `crates/rf-dsp/src/sonic_classifier.rs` (~300 LOC) |
-| PlacementSolver (Hungarian + variants + gaps) | ❌ TREBA | `crates/rf-dsp/src/placement_solver.rs` (~200 LOC) |
-| SonicClassifier FFI | ❌ TREBA | `crates/rf-bridge/src/sonic_ffi.rs` |
-| Dart SonicClassifierProvider | ❌ TREBA | `flutter_ui/lib/providers/sonic_classifier_provider.dart` |
-| NeuralBindOrb ring vizualizacija za classified zvukove | ❌ TREBA | upgrade `neural_bind_orb.dart` |
+| SonicClassifier (taxonomy profili + distance) | ✅ KOMPLETNO | `crates/rf-stage/src/sonic_dna.rs` (1168 LOC) |
+| PlacementSolver (Hungarian + variants + gaps) | ✅ KOMPLETNO | `crates/rf-stage/src/sonic_dna.rs` (Munkres O(n³)) |
+| SonicClassifier FFI | ✅ KOMPLETNO | `crates/rf-engine/src/ffi.rs` (sonic_dna_classify_folder) |
+| Dart SonicClassifierProvider | ✅ KOMPLETNO | `flutter_ui/lib/src/rust/slot_lab_v2_ffi.dart` (SonicDnaResult) |
+| NeuralBindOrb ring vizualizacija za classified zvukove | ❌ TREBA | upgrade `neural_bind_orb.dart` — jedini preostali |
 
 ### User Flow (finalni)
 
