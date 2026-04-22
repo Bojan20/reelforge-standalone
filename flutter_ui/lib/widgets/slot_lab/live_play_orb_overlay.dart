@@ -86,9 +86,13 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
   static const _prefKeyVisible = 'psp_orb_overlay_visible';
 
   /// Smooth-resize bounds. Min = still usable (bus dots readable),
-  /// max = fills most of a laptop viewport without pegging edges.
+  /// max = hard cap; the effective max is also clamped against the
+  /// viewport so the orb never eats more than ~40% of the screen width.
   static const double _minSizePx = 60.0;
-  static const double _maxSizePx = 480.0;
+  static const double _maxSizePx = 320.0;
+
+  /// Maximum fraction of viewport width/height the orb is allowed to occupy.
+  static const double _maxViewportFraction = 0.42;
 
   // ─── Autohide / opacity timings ──────────────────────────────────────────
   static const Duration _autoHideDelay = Duration(seconds: 3);
@@ -369,15 +373,38 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
       builder: (context, constraints) {
         final viewport = Size(constraints.maxWidth, constraints.maxHeight);
 
-        // Default position: bottom-right corner with 16px margin (first run)
+        // Clamp current size to viewport: orb never exceeds 42% of the
+        // narrower viewport dimension. This protects users who resize
+        // the slot window smaller or load a saved size that used to fit.
+        final double viewportMin = viewport.width < viewport.height
+            ? viewport.width
+            : viewport.height;
+        final double effectiveMax =
+            (viewportMin * _maxViewportFraction).clamp(_minSizePx, _maxSizePx);
+        if (_currentSizePx > effectiveMax) {
+          _currentSizePx = effectiveMax;
+        }
+
+        // Default position: TOP-RIGHT ispod HELIX header-a (80px down +
+        // 16px right) — ne preklapa SPIN button area u donjem desnom uglu.
         if (!_hasInitialPosition) {
           final sizePx = _currentSizePx;
           _position = Offset(
             viewport.width - sizePx - 16.0,
-            viewport.height - sizePx - 16.0,
+            80.0,
           );
           _hasInitialPosition = true;
         }
+
+        // If saved position would push the orb outside the viewport
+        // (e.g. user resized the window, or saved at a different size),
+        // clamp it into the safe area so it's always reachable + on-screen.
+        final double maxX = (viewport.width - _currentSizePx - 4).clamp(0.0,
+            double.infinity);
+        final double maxY = (viewport.height - _currentSizePx - 4).clamp(0.0,
+            double.infinity);
+        if (_position.dx > maxX) _position = Offset(maxX, _position.dy);
+        if (_position.dy > maxY) _position = Offset(_position.dx, maxY);
 
         final double sizePx = _currentSizePx;
         // Show full UI chrome only when the orb is big enough to absorb it.
@@ -444,12 +471,15 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
                           child: _buildFocusButton(),
                         ),
                       // Layer 4 (Phase 10): Quick Filter chip strip below
-                      // the orb. Only when provider is ready + chrome fits.
+                      // the orb — pushed further down so the inner Mark
+                      // and Inbox corner buttons never overlap the chips.
                       if (showChrome && _orbProvider != null)
                         Positioned(
-                          left: 0,
-                          right: 0,
-                          bottom: -24,
+                          // Chip strip horizontally centered wider than
+                          // the orb so even long chip labels breathe.
+                          left: -40,
+                          right: -40,
+                          bottom: -44,
                           child: _buildFilterChips(),
                         ),
                       // Layer 5 (Phase 10e): Mark Problem button (bottom-left).
@@ -657,15 +687,21 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
         setState(() => _isResizing = true);
       },
       onPanUpdate: (d) {
-        // Average of dx + dy gives symmetric growth; clamp into viewport.
+        // Average of dx + dy gives symmetric growth.
         final double delta = (d.delta.dx + d.delta.dy) / 2;
+        // Respect the 42%-of-viewport cap so orb never dominates the slot UI.
+        final double viewportMin = viewport.width < viewport.height
+            ? viewport.width
+            : viewport.height;
+        final double effectiveMax =
+            (viewportMin * _maxViewportFraction).clamp(_minSizePx, _maxSizePx);
         final double nextSize = (_currentSizePx + delta * 2)
-            .clamp(_minSizePx, _maxSizePx);
+            .clamp(_minSizePx, effectiveMax);
         // Don't let the orb grow past the viewport — leave 12px margin.
         final double maxByViewport =
-            (viewport.width - _position.dx - 12).clamp(_minSizePx, _maxSizePx);
+            (viewport.width - _position.dx - 12).clamp(_minSizePx, effectiveMax);
         final double maxByViewportY =
-            (viewport.height - _position.dy - 12).clamp(_minSizePx, _maxSizePx);
+            (viewport.height - _position.dy - 12).clamp(_minSizePx, effectiveMax);
         final double safe = [nextSize, maxByViewport, maxByViewportY]
             .reduce((a, b) => a < b ? a : b);
         setState(() => _currentSizePx = safe);
