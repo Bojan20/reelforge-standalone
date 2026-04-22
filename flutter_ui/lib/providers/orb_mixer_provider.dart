@@ -657,6 +657,23 @@ class OrbMixerProvider extends ChangeNotifier {
     _ffi.orbSetVoiceParam(voiceId, 2, semitones.clamp(-24.0, 24.0));
   }
 
+  /// Phase 6: Set voice HPF cutoff in Hz (20..20000).
+  /// <= 20Hz effectively bypasses. Biquad TDF-II, Q=0.707 (Butterworth).
+  void setVoiceHpfHz(int voiceId, double cutoffHz) {
+    _ffi.orbSetVoiceParam(voiceId, 4, cutoffHz.clamp(20.0, 20000.0));
+  }
+
+  /// Phase 6: Set voice LPF cutoff in Hz (20..20000).
+  /// >= 20000Hz effectively bypasses. Biquad TDF-II, Q=0.707.
+  void setVoiceLpfHz(int voiceId, double cutoffHz) {
+    _ffi.orbSetVoiceParam(voiceId, 5, cutoffHz.clamp(20.0, 20000.0));
+  }
+
+  /// Phase 6: Set voice pre-fader send level (0.0..1.0).
+  void setVoiceSend(int voiceId, double level) {
+    _ffi.orbSetVoiceParam(voiceId, 6, level.clamp(0.0, 1.0));
+  }
+
   // ── Nivo 3: Sound Detail (per-voice param ring) ──
 
   /// Currently detailed voice (null = no detail popup)
@@ -729,10 +746,12 @@ class OrbMixerProvider extends ChangeNotifier {
       case OrbParamArc.pitch:
         setVoicePitch(detailVoiceId!, value);
       case OrbParamArc.hpf:
+        // Phase 6: arc value is already mapped to Hz via OrbParamArc.fromNormalized
+        setVoiceHpfHz(detailVoiceId!, value);
       case OrbParamArc.lpf:
+        setVoiceLpfHz(detailVoiceId!, value);
       case OrbParamArc.send:
-        // HPF/LPF/Send not yet wired to engine (Phase 5+)
-        break;
+        setVoiceSend(detailVoiceId!, value);
     }
   }
 

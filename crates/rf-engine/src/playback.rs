@@ -138,6 +138,7 @@ use crate::track_manager::{
 use rf_dsp::analysis::FftAnalyzer;
 use rf_dsp::delay_compensation::DelayCompensationManager;
 use rf_dsp::metering::{LufsMeter, TruePeakMeter};
+use rf_dsp::MonoProcessor; // Phase 6: BiquadTDF2::process_sample()
 
 // ═══════════════════════════════════════════════════════════════════════════
 // AUDIO CACHE WITH LRU EVICTION
@@ -1001,6 +1002,27 @@ pub struct OneShotVoice {
     /// Spatial source ID — when Some, voice bypasses pan law and routes through
     /// SpatialManager HRTF pipeline instead of normal bus routing.
     spatial_source_id: Option<u32>,
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TALAS 3 / PHASE 6 — Per-voice OrbMixer Nivo 3 DSP (HPF, LPF, Send)
+    // ═══════════════════════════════════════════════════════════════════════════
+    /// HPF cutoff in Hz (20..20000). Bypass when <= 20 Hz.
+    pub hpf_cutoff_hz: f32,
+    /// LPF cutoff in Hz (20..20000). Bypass when >= 20000 Hz.
+    pub lpf_cutoff_hz: f32,
+    /// Pre-fader send level (0.0..1.0). Routed to send bus via accumulate.
+    pub send_gain: f32,
+    /// HPF biquad state — left channel
+    hpf_l: rf_dsp::biquad::BiquadTDF2,
+    /// HPF biquad state — right channel
+    hpf_r: rf_dsp::biquad::BiquadTDF2,
+    /// LPF biquad state — left channel
+    lpf_l: rf_dsp::biquad::BiquadTDF2,
+    /// LPF biquad state — right channel
+    lpf_r: rf_dsp::biquad::BiquadTDF2,
+    /// Whether HPF is engaged (cutoff > 20 Hz)
+    hpf_active: bool,
+    /// Whether LPF is engaged (cutoff < 20000 Hz)
+    lpf_active: bool,
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1130,6 +1152,16 @@ impl OneShotVoice {
             engine_sample_rate: 48000,
             voice_resample_mode: ResampleMode::PLAYBACK,
             spatial_source_id: None,
+            // Phase 6: per-voice HPF/LPF/Send — bypass by default
+            hpf_cutoff_hz: 20.0,
+            lpf_cutoff_hz: 20000.0,
+            send_gain: 0.0,
+            hpf_l: rf_dsp::biquad::BiquadTDF2::new(48000.0),
+            hpf_r: rf_dsp::biquad::BiquadTDF2::new(48000.0),
+            lpf_l: rf_dsp::biquad::BiquadTDF2::new(48000.0),
+            lpf_r: rf_dsp::biquad::BiquadTDF2::new(48000.0),
+            hpf_active: false,
+            lpf_active: false,
         }
     }
 
@@ -1172,6 +1204,16 @@ impl OneShotVoice {
         self.meter_peak_l = 0.0;
         self.meter_peak_r = 0.0;
         self.spatial_source_id = None;
+        // Phase 6: reset HPF/LPF/Send to bypass on every new voice start
+        self.hpf_cutoff_hz = 20.0;
+        self.lpf_cutoff_hz = 20000.0;
+        self.send_gain = 0.0;
+        self.hpf_active = false;
+        self.lpf_active = false;
+        self.hpf_l.reset();
+        self.hpf_r.reset();
+        self.lpf_l.reset();
+        self.lpf_r.reset();
         // Reset to current global quality (not stale mode from previous voice)
         let mode = playback_resample_mode();
         self.voice_resample_mode = if mode.is_r8brain() {
@@ -1487,6 +1529,18 @@ impl OneShotVoice {
                 }
             }
 
+            // ═══════════════════════════════════════════════════════════════
+            // Phase 6: Per-voice HPF → LPF (biquad TDF-II, post-pan/width)
+            // ═══════════════════════════════════════════════════════════════
+            if self.hpf_active {
+                sample_l = self.hpf_l.process_sample(sample_l);
+                sample_r = self.hpf_r.process_sample(sample_r);
+            }
+            if self.lpf_active {
+                sample_l = self.lpf_l.process_sample(sample_l);
+                sample_r = self.lpf_r.process_sample(sample_r);
+            }
+
             // Per-voice peak metering (before bus mix — track THIS voice only)
             let abs_l = sample_l.abs();
             let abs_r = sample_r.abs();
@@ -1592,6 +1646,12 @@ pub enum OneShotCommand {
     SetPhaseInvert { id: u64, invert: bool },
     /// Real-time mute toggle for active voice
     SetMute { id: u64, muted: bool },
+    /// Phase 6: per-voice HPF cutoff in Hz (20 = bypass, 20..20000 active)
+    SetHpf { id: u64, cutoff_hz: f32 },
+    /// Phase 6: per-voice LPF cutoff in Hz (20000 = bypass, 20..20000 active)
+    SetLpf { id: u64, cutoff_hz: f32 },
+    /// Phase 6: per-voice pre-fader send level (0.0..1.0)
+    SetSend { id: u64, level: f32 },
     /// Play a voice with 3D spatial positioning (HRTF binaural rendering)
     PlaySpatial {
         id: u64,
@@ -4909,6 +4969,53 @@ impl PlaybackEngine {
                         voice.muted = muted;
                     }
                 }
+                // Phase 6: Per-voice HPF cutoff. <= 20Hz disables the filter.
+                OneShotCommand::SetHpf { id, cutoff_hz } => {
+                    if let Some(voice) = voices.iter_mut().find(|v| v.id == id && v.active) {
+                        let hz = cutoff_hz.clamp(20.0, 20000.0);
+                        voice.hpf_cutoff_hz = hz;
+                        voice.hpf_active = hz > 21.0;
+                        if voice.hpf_active {
+                            let sr = voice.engine_sample_rate as f64;
+                            // Recreate biquads to honor current sample rate then tune
+                            voice.hpf_l = rf_dsp::biquad::BiquadTDF2::new(sr);
+                            voice.hpf_r = rf_dsp::biquad::BiquadTDF2::new(sr);
+                            voice.hpf_l.set_highpass(hz as f64, 0.707);
+                            voice.hpf_r.set_highpass(hz as f64, 0.707);
+                        } else {
+                            voice.hpf_l.set_bypass();
+                            voice.hpf_r.set_bypass();
+                            voice.hpf_l.reset();
+                            voice.hpf_r.reset();
+                        }
+                    }
+                }
+                // Phase 6: Per-voice LPF cutoff. >= 20000Hz disables the filter.
+                OneShotCommand::SetLpf { id, cutoff_hz } => {
+                    if let Some(voice) = voices.iter_mut().find(|v| v.id == id && v.active) {
+                        let hz = cutoff_hz.clamp(20.0, 20000.0);
+                        voice.lpf_cutoff_hz = hz;
+                        voice.lpf_active = hz < 19999.0;
+                        if voice.lpf_active {
+                            let sr = voice.engine_sample_rate as f64;
+                            voice.lpf_l = rf_dsp::biquad::BiquadTDF2::new(sr);
+                            voice.lpf_r = rf_dsp::biquad::BiquadTDF2::new(sr);
+                            voice.lpf_l.set_lowpass(hz as f64, 0.707);
+                            voice.lpf_r.set_lowpass(hz as f64, 0.707);
+                        } else {
+                            voice.lpf_l.set_bypass();
+                            voice.lpf_r.set_bypass();
+                            voice.lpf_l.reset();
+                            voice.lpf_r.reset();
+                        }
+                    }
+                }
+                // Phase 6: Per-voice pre-fader send level (0.0..1.0)
+                OneShotCommand::SetSend { id, level } => {
+                    if let Some(voice) = voices.iter_mut().find(|v| v.id == id && v.active) {
+                        voice.send_gain = level.clamp(0.0, 1.0);
+                    }
+                }
                 OneShotCommand::PlaySpatial {
                     id,
                     audio,
@@ -5234,7 +5341,7 @@ impl PlaybackEngine {
     /// Set per-voice parameter from OrbMixer.
     /// Called from UI thread — sends command to audio thread via ring buffer.
     ///
-    /// param: 0=volume, 1=pan, 2=pitch, 3=mute
+    /// param: 0=volume, 1=pan, 2=pitch, 3=mute, 4=HPF cutoff Hz, 5=LPF cutoff Hz, 6=Send level
     pub fn set_voice_param(&self, voice_id: u64, param: u8, value: f32) {
         if let Some(mut tx) = self.one_shot_cmd_tx.try_lock() {
             let cmd = match param {
@@ -5242,6 +5349,10 @@ impl PlaybackEngine {
                 1 => OneShotCommand::SetPan { id: voice_id, pan: value },
                 2 => OneShotCommand::SetPitch { id: voice_id, semitones: value },
                 3 => OneShotCommand::SetMute { id: voice_id, muted: value > 0.5 },
+                // Phase 6: Orb Nivo 3 per-voice DSP
+                4 => OneShotCommand::SetHpf { id: voice_id, cutoff_hz: value },
+                5 => OneShotCommand::SetLpf { id: voice_id, cutoff_hz: value },
+                6 => OneShotCommand::SetSend { id: voice_id, level: value },
                 _ => return,
             };
             let _ = tx.push(cmd);
