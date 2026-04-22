@@ -7420,6 +7420,11 @@ impl PlaybackEngine {
         if let Some(automation) = &self.automation {
             automation.set_position(self.position.samples());
         }
+
+        // === MASTER-OUTPUT RING TAP (Phase 10e-2) ===
+        // After all processing is done, write final stereo master into the
+        // lock-free ring so Problems Inbox can export a WAV of what just played.
+        crate::ffi::MASTER_RING.write_frames(output_l, output_r);
     }
 
     /// Apply a single automation change (with smoothing for continuous params)

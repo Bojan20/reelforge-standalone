@@ -4546,6 +4546,88 @@ pub extern "C" fn orb_set_voice_param(
     1
 }
 
+// ─── Phase 10e-2: Master-output ring-buffer capture ─────────────────────────
+
+/// Initialise or re-configure the master-output ring buffer.
+/// Safe to call before audio starts (init-time). Returns 1 on success.
+///
+/// `seconds` is clamped to the `MAX_SECONDS` constant (currently 10 s).
+/// If the ring was already initialised, this updates only the sample rate.
+#[unsafe(no_mangle)]
+pub extern "C" fn orb_ring_init(seconds: f32, sample_rate: u32) -> i32 {
+    MASTER_RING.ensure_capacity(seconds, sample_rate);
+    1
+}
+
+/// Return the number of frames written to the master ring since engine start.
+/// Used by the UI to detect whether any audio has played at all before asking
+/// for a capture (otherwise snapshot is empty and WAV would be a 0-sample file).
+#[unsafe(no_mangle)]
+pub extern "C" fn orb_ring_frames_written() -> u64 {
+    MASTER_RING.frames_written()
+}
+
+/// Capture the last `seconds` of master output to a 32-bit float stereo WAV
+/// at the UTF-8 path provided (null-terminated C string).
+///
+/// Returns the number of frames written on success, 0 on any failure
+/// (null path, invalid UTF-8, zero-length snapshot, I/O error, WAV write error).
+///
+/// The ring buffer will auto-initialise to `master_ring::DEFAULT_SECONDS` at
+/// `master_ring::DEFAULT_SAMPLE_RATE` if it has not been configured yet — but
+/// will only contain as much audio as has been played since engine start.
+#[unsafe(no_mangle)]
+pub extern "C" fn orb_capture_last_n_seconds(
+    path_ptr: *const std::os::raw::c_char,
+    seconds: f32,
+) -> u64 {
+    if path_ptr.is_null() || !seconds.is_finite() || seconds <= 0.0 {
+        return 0;
+    }
+    // Lazy init if caller forgot.
+    if MASTER_RING.capacity() == 0 {
+        MASTER_RING.ensure_capacity(
+            crate::master_ring::DEFAULT_SECONDS,
+            crate::master_ring::DEFAULT_SAMPLE_RATE,
+        );
+    }
+
+    // SAFETY: caller guarantees path_ptr is a valid null-terminated C string.
+    let cstr = unsafe { std::ffi::CStr::from_ptr(path_ptr) };
+    let path = match cstr.to_str() {
+        Ok(s) => s,
+        Err(_) => return 0,
+    };
+    if path.is_empty() { return 0; }
+
+    let (left, right, sr) = MASTER_RING.snapshot(seconds);
+    if left.is_empty() || left.len() != right.len() || sr == 0 {
+        return 0;
+    }
+
+    // Write interleaved stereo 32-bit float WAV.
+    let spec = hound::WavSpec {
+        channels: 2,
+        sample_rate: sr,
+        bits_per_sample: 32,
+        sample_format: hound::SampleFormat::Float,
+    };
+
+    let mut writer = match hound::WavWriter::create(path, spec) {
+        Ok(w) => w,
+        Err(_) => return 0,
+    };
+
+    let n = left.len();
+    for i in 0..n {
+        if writer.write_sample(left[i]).is_err() { return 0; }
+        if writer.write_sample(right[i]).is_err() { return 0; }
+    }
+    if writer.finalize().is_err() { return 0; }
+
+    n as u64
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // SIDECHAIN ROUTING FFI
 // ═══════════════════════════════════════════════════════════════════════════
@@ -24055,6 +24137,12 @@ impl SharedMeterBuffer {
 
 /// Global shared meter buffer instance
 pub static SHARED_METERS: SharedMeterBuffer = SharedMeterBuffer::new();
+
+/// Global master-output ring buffer — 5s of the last master stereo @ engine SR.
+/// Audio thread writes on every block; UI thread exports via
+/// `orb_capture_last_n_seconds`. Lazily sized on first `ensure_capacity` call.
+pub static MASTER_RING: crate::master_ring::MasterRingBuffer =
+    crate::master_ring::MasterRingBuffer::empty();
 
 /// Get pointer to shared meter buffer
 /// Dart can use this pointer to read meters directly without FFI calls

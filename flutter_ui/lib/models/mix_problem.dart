@@ -4,9 +4,11 @@
 /// time to fix it on the spot, they tap "Mark Problem". This captures a
 /// snapshot of the current mix state so they can review + fix it later.
 ///
-/// MVP (this commit): records FSM / bus / voice / alert state only.
-/// Audio-clip capture (3-5s retrospective ring buffer) is a follow-up
-/// requiring Rust-side FFI for ring buffer export.
+/// Phase 10e-2 (audio clip capture): alongside the metadata snapshot, the
+/// capture path now also exports the last 5 s of master output to a WAV
+/// file in `<app support>/FluxForge Studio/problem_clips/<id>.wav` via the
+/// Rust `orb_capture_last_n_seconds` FFI. If capture succeeds,
+/// `audioClipPath` holds the absolute file path.
 
 library;
 
@@ -41,6 +43,16 @@ class MixProblem {
   /// Active alerts at capture — each entry: {type, severity, busName}.
   final List<MixAlertSnapshot> alerts;
 
+  /// Absolute path to the captured 5-second master-audio WAV (Phase 10e-2).
+  /// Null if capture failed or was skipped (engine not running).
+  final String? audioClipPath;
+
+  /// Number of frames in the captured WAV clip (0 if none).
+  final int audioClipFrames;
+
+  /// Sample rate the clip was captured at (0 if no clip).
+  final int audioClipSampleRate;
+
   const MixProblem({
     required this.id,
     required this.markedAt,
@@ -51,6 +63,9 @@ class MixProblem {
     required this.voices,
     required this.spectrumBands,
     required this.alerts,
+    this.audioClipPath,
+    this.audioClipFrames = 0,
+    this.audioClipSampleRate = 0,
   });
 
   int get voiceCount => voices.length ~/ 6;
@@ -74,6 +89,9 @@ class MixProblem {
         'voices': voices,
         'spectrumBands': spectrumBands,
         'alerts': alerts.map((a) => a.toJson()).toList(),
+        if (audioClipPath != null) 'audioClipPath': audioClipPath,
+        if (audioClipFrames > 0) 'audioClipFrames': audioClipFrames,
+        if (audioClipSampleRate > 0) 'audioClipSampleRate': audioClipSampleRate,
       };
 
   factory MixProblem.fromJson(Map<String, dynamic> json) => MixProblem(
@@ -95,6 +113,9 @@ class MixProblem {
             .map((e) => MixAlertSnapshot.fromJson(
                 (e as Map).cast<String, dynamic>()))
             .toList(),
+        audioClipPath: json['audioClipPath'] as String?,
+        audioClipFrames: (json['audioClipFrames'] as num?)?.toInt() ?? 0,
+        audioClipSampleRate: (json['audioClipSampleRate'] as num?)?.toInt() ?? 0,
       );
 }
 

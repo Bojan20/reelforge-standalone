@@ -123,6 +123,9 @@ pub mod preview;
 // HELIX Bus: Unified lock-free reactive message bus for SlotLab intelligence
 pub mod helix_bus;
 
+// Phase 10e-2: Master-output ring buffer for Problems Inbox WAV export.
+pub mod master_ring;
+
 // Re-exports: Core
 pub use bus::*;
 pub use graph::*;

@@ -8046,6 +8046,50 @@ class NativeFFI {
   }
 
   // ============================================================
+  // ORB — Master-output ring capture (Phase 10e-2)
+  // ============================================================
+
+  late final _orbRingInit = _lib.lookupFunction<
+      Int32 Function(Float, Uint32),
+      int Function(double, int)>('orb_ring_init');
+
+  late final _orbRingFramesWritten = _lib.lookupFunction<
+      Uint64 Function(),
+      int Function()>('orb_ring_frames_written');
+
+  late final _orbCaptureLastNSeconds = _lib.lookupFunction<
+      Uint64 Function(Pointer<Utf8>, Float),
+      int Function(Pointer<Utf8>, double)>('orb_capture_last_n_seconds');
+
+  /// Initialise or reconfigure the master-output ring buffer.
+  /// Call once at engine start with the engine's sample rate.
+  /// `seconds` is clamped to 10s on the Rust side.
+  void orbRingInit({double seconds = 5.0, required int sampleRate}) {
+    if (!_loaded) return;
+    _orbRingInit(seconds, sampleRate);
+  }
+
+  /// Total frames the audio thread has written to the ring since engine start.
+  /// UI uses this to check whether any audio played at all before exporting.
+  int orbRingFramesWritten() {
+    if (!_loaded) return 0;
+    return _orbRingFramesWritten();
+  }
+
+  /// Capture the last N seconds of master output into a 32-bit float stereo
+  /// WAV at the given file path. Returns the number of frames written.
+  /// Returns 0 on any failure (invalid path, zero audio, I/O error).
+  int orbCaptureLastNSeconds(String path, {double seconds = 5.0}) {
+    if (!_loaded) return 0;
+    final cPath = path.toNativeUtf8();
+    try {
+      return _orbCaptureLastNSeconds(cPath, seconds);
+    } finally {
+      calloc.free(cPath);
+    }
+  }
+
+  // ============================================================
   // ELASTIC PRO (TIME STRETCHING) API
   // ============================================================
 
