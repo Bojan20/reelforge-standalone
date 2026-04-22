@@ -22,9 +22,12 @@ import 'dart:io';
 import 'package:flutter/foundation.dart' show ChangeNotifier;
 
 import 'package:flutter/foundation.dart';
+import 'package:get_it/get_it.dart';
 
 import 'cortex_vision_service.dart';
 import 'vision_diff_engine.dart';
+import '../providers/slot_lab/game_flow_provider.dart';
+import '../providers/slot_lab/slot_lab_coordinator.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CORTEX EYE SERVER
@@ -160,6 +163,8 @@ class CortexEyeServer {
         await _handleHelixMode(request);
       } else if (method == 'POST' && path == '/eye/helix_action') {
         await _handleHelixAction(request);
+      } else if (method == 'GET' && path == '/eye/fsm_state') {
+        await _handleFsmState(request);
       } else if (method == 'GET' && path == '/eye/ping') {
         await _json(request, {'status': 'alive', 'port': port});
       } else {
@@ -332,6 +337,36 @@ class CortexEyeServer {
       'size': latest.sizeKB,
       'capturedAt': latest.capturedAt.toIso8601String(),
     });
+  }
+
+  /// GET /eye/fsm_state — read GameFlowProvider state as JSON (for QA automation)
+  Future<void> _handleFsmState(HttpRequest request) async {
+    try {
+      // Dynamic lookup to avoid compile-time dependency cycle
+      final gf = GetIt.I<GameFlowProvider>();
+      final fs = gf.freeSpinsState;
+      final coord = GetIt.I<SlotLabCoordinator>();
+      await _json(request, {
+        'currentState': gf.currentState.name,
+        'isInTransition': gf.isInTransition,
+        'isFsAutoLoopActive': gf.isFsAutoLoopActive,
+        'transitionsEnabled': gf.transitionsEnabled,
+        'totalWin': gf.totalWin,
+        'freeSpins': fs == null ? null : {
+          'spinsRemaining': fs.spinsRemaining,
+          'spinsCompleted': fs.spinsCompleted,
+          'totalSpins': fs.totalSpins,
+          'accumulatedWin': fs.accumulatedWin,
+          'currentMultiplier': fs.currentMultiplier,
+        },
+        'isSpinning': coord.isSpinning,
+        'isPlayingStages': coord.isPlayingStages,
+        'isWinPresentationActive': coord.isWinPresentationActive,
+      });
+    } catch (e) {
+      request.response.statusCode = 500;
+      await _json(request, {'error': e.toString()});
+    }
   }
 
   /// POST /eye/click — simulate mouse click at screen coordinates (macOS only)

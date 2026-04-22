@@ -45,6 +45,8 @@ import '../providers/slot_lab/slot_lab_coordinator.dart';
 import '../providers/ale_provider.dart';
 import '../providers/slot_lab/helix_bt_canvas_provider.dart';
 import '../services/native_file_picker.dart';
+import '../services/gdd_import_service.dart';
+import '../src/rust/native_ffi.dart' show ForcedOutcome;
 import '../widgets/slot_lab/premium_slot_preview.dart';
 import '../models/game_flow_models.dart';
 import '../models/slot_audio_events.dart';
@@ -242,6 +244,40 @@ class _HelixScreenState extends State<HelixScreen>
           try {
             final e = GetIt.instance<EngineProvider>();
             e.transport.isPlaying ? e.stop() : e.play();
+          } catch (_) {}
+        // ─── TALAS 1 — Eye automation for slot flow QA ────────────────────
+        case 'slot_load_sample':
+          try {
+            final gddJson = GddImportService.instance.createSampleGddJson();
+            GetIt.instance<SlotLabCoordinator>().initEngineFromGdd(gddJson);
+            // Clear "NO CONFIGURATION" overlay so SPIN button is enabled
+            final composer = GetIt.instance<FeatureComposerProvider>();
+            if (!composer.isConfigured) {
+              composer.applyConfig(SlotMachineConfig(
+                name: 'Auto QA Sample',
+                reelCount: 5,
+                rowCount: 3,
+                paylineCount: 20,
+                paylineType: PaylineType.lines,
+                winTierCount: 5,
+                volatilityProfile: 'medium',
+              ));
+            }
+          } catch (_) {}
+        case 'slot_spin':
+          try { GetIt.instance<SlotLabCoordinator>().spin(); } catch (_) {}
+        case 'slot_spin_forced':
+          try {
+            final name = (params['outcome'] as String? ?? 'bigWin').toLowerCase();
+            final outcome = ForcedOutcome.values.firstWhere(
+              (o) => o.name.toLowerCase() == name,
+              orElse: () => ForcedOutcome.bigWin,
+            );
+            GetIt.instance<SlotLabCoordinator>().spinForced(outcome);
+          } catch (_) {}
+        case 'slot_stop':
+          try {
+            GetIt.instance<SlotLabCoordinator>().stopStagePlayback();
           } catch (_) {}
       }
     };
