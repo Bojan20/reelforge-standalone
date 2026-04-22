@@ -279,6 +279,92 @@ class _HelixScreenState extends State<HelixScreen>
           try {
             GetIt.instance<SlotLabCoordinator>().stopStagePlayback();
           } catch (_) {}
+        // ─── TALAS 1 β — Synthetic FSM drivers ────────────────────────────
+        // These bypass the engine and drive GameFlowProvider directly so all
+        // Talas 1 wires (onSpinStart/Complete, FS auto-loop, deferred BW,
+        // SLAM watchdog) can be end-to-end verified via Eye even when the
+        // engine lacks a full blueprint.
+        case 'fsm_reset':
+          try {
+            GetIt.instance<GameFlowProvider>().resetToBaseGame();
+          } catch (_) {}
+        case 'fsm_dismiss_transition':
+          try {
+            GetIt.instance<GameFlowProvider>().dismissTransition();
+          } catch (_) {}
+        case 'fsm_force_transition':
+          try {
+            final name = (params['to'] as String? ?? 'baseGame');
+            final target = GameFlowState.values.firstWhere(
+              (s) => s.name == name,
+              orElse: () => GameFlowState.baseGame,
+            );
+            GetIt.instance<GameFlowProvider>().forceTransition(target);
+          } catch (_) {}
+        case 'fsm_synthetic_spin':
+          try {
+            final outcome = (params['outcome'] as String? ?? 'noWin').toLowerCase();
+            final bet = (params['bet'] as num?)?.toDouble() ?? 2.0;
+            final gf = GetIt.instance<GameFlowProvider>();
+
+            // Start the spin — wires onSpinStart in coordinator, but for
+            // synthetic we call the FSM directly.
+            gf.onSpinStart();
+
+            // Build synthetic result shaped per outcome
+            double totalWin = 0;
+            double winRatio = 0;
+            SlotLabWinTier? tier;
+            bool featureTriggered = false;
+            bool isFreeSpins = gf.currentState == GameFlowState.freeSpins;
+            // Default grid = no scatters. Scatter symbol ID is 12 per SpinContext defaults.
+            // For FS trigger, place 3 scatters across reels 1/3/5.
+            List<List<int>> grid = const [[1,2,3],[4,5,6],[7,8,9],[1,2,3],[4,5,6]];
+            switch (outcome) {
+              case 'nowin':
+                break;
+              case 'smallwin':
+                totalWin = bet * 2; winRatio = 2;
+                break;
+              case 'bigwin':
+                totalWin = bet * 12; winRatio = 12; tier = SlotLabWinTier.bigWin;
+                break;
+              case 'megawin':
+                totalWin = bet * 30; winRatio = 30; tier = SlotLabWinTier.megaWin;
+                break;
+              case 'epicwin':
+                totalWin = bet * 60; winRatio = 60; tier = SlotLabWinTier.epicWin;
+                break;
+              case 'freespinstrigger':
+                // 3 scatters (id=12) on reels 0, 2, 4 (min across reels)
+                grid = const [[12,2,3],[4,5,6],[7,12,9],[1,2,3],[4,5,12]];
+                totalWin = bet * 1; winRatio = 1; featureTriggered = true;
+                break;
+              case 'deferredbigwinexit':
+                // In FS, this spin closes the feature with a cumulative
+                // totalWin that triggers onDeferredBigWin (≥ 10× bet)
+                totalWin = bet * 12; winRatio = 12;
+                isFreeSpins = true;
+                break;
+            }
+
+            final result = SlotLabSpinResult(
+              spinId: 'synth_${DateTime.now().millisecondsSinceEpoch}',
+              grid: grid,
+              bet: bet,
+              totalWin: totalWin,
+              winRatio: winRatio,
+              lineWins: const [],
+              bigWinTier: tier,
+              featureTriggered: featureTriggered,
+              nearMiss: false,
+              isFreeSpins: isFreeSpins,
+              freeSpinIndex: null,
+              multiplier: 1.0,
+              cascadeCount: 0,
+            );
+            gf.onSpinComplete(result);
+          } catch (_) {}
       }
     };
 
