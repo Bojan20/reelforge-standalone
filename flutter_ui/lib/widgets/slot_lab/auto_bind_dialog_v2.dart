@@ -857,7 +857,7 @@ class _MatchedRow extends StatelessWidget {
           ),
           // FFNC rename arrow
           if (doRename && primary.ffncName != null) ...[
-            const Text(' → ', style: TextStyle(color: Colors.white16, fontSize: 8)),
+            const Text(' → ', style: TextStyle(color: Colors.white12, fontSize: 8)),
             SizedBox(
               width: 130,
               child: Text(

@@ -188,11 +188,8 @@ class _NeuralBindOrbState extends State<NeuralBindOrb>
         final provider = GetIt.instance<SlotLabProjectProvider>();
         AutoBindEngine.apply(analysis, provider);
 
-        // Trigger EventRegistry sync
-        try {
-          final coord = GetIt.instance<SlotLabCoordinator>();
-          coord.syncAllEventsToRegistry();
-        } catch (_) {}
+        // EventRegistry sync happens via SlotLabProjectProvider listener chain
+        // (SlotLabScreen._onMiddlewareChanged → _syncEventToRegistry)
 
         _lastAnalysis = analysis;
         _lastFolder = folderPath;
@@ -1115,7 +1112,7 @@ class _BottomBar extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text(
                   '${analysis.totalFiles} files',
-                  style: const TextStyle(color: Colors.white16, fontSize: 8),
+                  style: const TextStyle(color: Colors.white12, fontSize: 8),
                 ),
               ],
             ),
