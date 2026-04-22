@@ -166,6 +166,7 @@ import '../models/slot_lab_models.dart';
 import '../widgets/template/template_gallery_panel.dart';
 import '../widgets/slot_lab/project_dashboard_dialog.dart';
 import '../widgets/slot_lab/feature_builder_panel.dart';
+import '../widgets/slot_lab/audio_coverage_widget.dart';
 import '../widgets/slot_lab/gad_panel.dart';
 import '../widgets/slot_lab/sss_panel.dart';
 import '../models/template_models.dart' show BuiltTemplate, FeatureModuleType;
@@ -4760,6 +4761,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     );
                   },
                 ),
+                const SizedBox(width: 8),
+                // ── AUDIO COVERAGE BADGE ──
+                const AudioCoverageWidget(),
                 const Spacer(),
                 // ── TOAST — outside Consumer so provider changes don't reset it ──
                 buildToastWidget(),

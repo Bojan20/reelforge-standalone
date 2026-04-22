@@ -980,6 +980,35 @@ pub extern "C" fn slot_lab_audio_coverage(provided_json: *const c_char) -> f64 {
     rf_stage::audio_naming::coverage_percent(&refs) as f64
 }
 
+/// Get missing audio assets for provided asset list.
+/// Input: JSON array of asset ID strings
+/// Returns: JSON array of missing asset ID strings (caller must free with slot_lab_free_string)
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_missing_assets(provided_json: *const c_char) -> *mut c_char {
+    if provided_json.is_null() {
+        return ptr::null_mut();
+    }
+
+    let json_str = unsafe { CStr::from_ptr(provided_json) };
+    let json_str = match json_str.to_str() {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let provided: Vec<String> = match serde_json::from_str(json_str) {
+        Ok(v) => v,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let refs: Vec<&str> = provided.iter().map(|s| s.as_str()).collect();
+    let missing = rf_stage::audio_naming::missing_assets(&refs);
+    let json = serde_json::to_string(&missing).unwrap_or_else(|_| "[]".to_string());
+    match CString::new(json) {
+        Ok(cstr) => cstr.into_raw(),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // STATS AND STATE QUERIES
 // ═══════════════════════════════════════════════════════════════════════════════

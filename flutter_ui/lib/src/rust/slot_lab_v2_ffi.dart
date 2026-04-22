@@ -750,6 +750,44 @@ extension SlotLabV2FFI on NativeFFI {
       return 0.0;
     }
   }
+
+  /// Get missing audio assets for provided asset list.
+  ///
+  /// Returns list of canonical asset IDs that are NOT in [providedAssetIds].
+  /// Useful for showing which sounds a game still needs.
+  List<String> getMissingAssets(List<String> providedAssetIds) {
+    try {
+      final fn = lib.lookupFunction<
+        Pointer<Utf8> Function(Pointer<Utf8>),
+        Pointer<Utf8> Function(Pointer<Utf8>)
+      >('slot_lab_missing_assets');
+
+      final freeFn = lib.lookupFunction<
+        Void Function(Pointer<Utf8>),
+        void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final json = jsonEncode(providedAssetIds);
+      final jsonPtr = json.toNativeUtf8();
+      try {
+        final ptr = fn(jsonPtr);
+        if (ptr == nullptr) return [];
+
+        try {
+          final resultJson = ptr.toDartString();
+          final list = jsonDecode(resultJson) as List;
+          return list.cast<String>();
+        } finally {
+          freeFn(ptr);
+        }
+      } finally {
+        calloc.free(jsonPtr);
+      }
+    } catch (e) {
+      dev.log('[SlotLabFFI] getMissingAssets error: $e');
+      return [];
+    }
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
