@@ -1996,6 +1996,10 @@ pub struct PlaybackEngine {
     spectrum_analyzer: RwLock<FftAnalyzer>,
     /// Spectrum data cache (256 bins, log-scaled 20Hz-20kHz)
     spectrum_data: RwLock<Vec<f32>>,
+    /// Phase 10e-3: per-bus 4-band energy analyzer (bass/lowmid/highmid/treble).
+    /// Feeds `SHARED_METERS.bus_band_rms` so the Orb masking detector can see
+    /// which specific buses are fighting in which band, not just master aggregates.
+    per_bus_band_analyzer: RwLock<crate::per_bus_band_energy::PerBusBandAnalyzer>,
     // NOTE: track_buffer_l and track_buffer_r moved to thread_local! SCRATCH_BUFFER_L/R
     // This eliminates lock contention in audio thread - scratch buffers are audio-thread-only
     /// Pre-allocated mono buffer for spectrum analyzer
@@ -2239,6 +2243,8 @@ impl PlaybackEngine {
             // This gives ~3-4 bins in 20-40Hz range instead of ~1 bin
             spectrum_analyzer: RwLock::new(FftAnalyzer::new(8192)),
             spectrum_data: RwLock::new(vec![0.0_f32; 512]), // More bins for better resolution
+            per_bus_band_analyzer: RwLock::new(
+                crate::per_bus_band_energy::PerBusBandAnalyzer::new(sample_rate as f64)),
             // NOTE: track_buffer_l/r now use thread_local! SCRATCH_BUFFER_L/R
             spectrum_mono_buffer: RwLock::new(vec![0.0_f64; 8192]),
             current_block_size: AtomicUsize::new(8192),
@@ -5839,11 +5845,21 @@ impl PlaybackEngine {
             // try_read: non-blocking — skip bus processing if UI holds write lock
             if let Some(bus_states) = self.bus_states.try_read() {
                 let any_solo = self.any_solo.load(Ordering::Relaxed);
+                // Phase 10e-3: grab per-bus band analyzer once per block.
+                let mut pbb = self.per_bus_band_analyzer.try_write();
                 for (bus_idx, (bus_l, bus_r)) in bus_buffers.buffers.iter().enumerate() {
                     let state = &bus_states[bus_idx];
                     // Skip muted buses, or non-soloed buses when solo is active
                     if state.muted || (any_solo && !state.soloed) {
                         crate::ffi::SHARED_METERS.update_channel_peak(bus_idx, 0.0, 0.0);
+                        // Feed silence into analyzer so its envelope decays naturally.
+                        if let Some(a) = pbb.as_deref_mut() {
+                            let silence_l = &bus_l[..frames];
+                            let silence_r = &bus_r[..frames];
+                            // Pass through; the bus buffer for muted buses is already
+                            // zero at this stage since voices didn't render.
+                            a.process_bus_block(bus_idx, silence_l, silence_r);
+                        }
                         continue;
                     }
 
@@ -5859,6 +5875,16 @@ impl PlaybackEngine {
                         bp_r = bp_r.max(r.abs());
                     }
                     crate::ffi::SHARED_METERS.update_channel_peak(bus_idx, bp_l, bp_r);
+                    // Phase 10e-3: feed the post-gain bus signal into the band analyzer.
+                    if let Some(a) = pbb.as_deref_mut() {
+                        // We pass the raw bus buffer (pre-volume is fine; amplitude scaling
+                        // here just affects band magnitude equally across all bands).
+                        a.process_bus_block(bus_idx, &bus_l[..frames], &bus_r[..frames]);
+                    }
+                }
+                // Publish envelopes once per block for the UI to read.
+                if let Some(a) = pbb.as_deref() {
+                    a.publish(&crate::ffi::SHARED_METERS.bus_band_rms);
                 }
             }
         }

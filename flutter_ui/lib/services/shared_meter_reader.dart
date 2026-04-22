@@ -63,6 +63,14 @@ class SharedMeterSnapshot {
   // Spectrum (32 bands)
   final Float64List spectrumBands;
 
+  /// Phase 10e-3: per-bus 4-band RMS (linear).
+  /// Layout: [bus0_bass, bus0_lowmid, bus0_highmid, bus0_treble,
+  ///          bus1_bass, bus1_lowmid, bus1_highmid, bus1_treble, ... 6 buses].
+  /// Bus order matches OrbBusId.engineIndex (0=Master, 1=Music, ..., 5=Aux).
+  /// Bands: 0=bass (<200Hz), 1=lowmid (220-950Hz),
+  ///        2=highmid (900-3500Hz), 3=treble (>3500Hz).
+  final Float32List busBandRms;
+
   const SharedMeterSnapshot({
     required this.sequence,
     required this.masterPeakL,
@@ -88,6 +96,7 @@ class SharedMeterSnapshot {
     required this.sampleRate,
     required this.channelPeaks,
     required this.spectrumBands,
+    required this.busBandRms,
   });
 
   /// Empty/default snapshot
@@ -116,6 +125,7 @@ class SharedMeterSnapshot {
     sampleRate: 48000,
     channelPeaks: Float64List(12),
     spectrumBands: Float64List(32),
+    busBandRms: Float32List(24),
   );
 
   /// Convert dB to normalized (0-1) for meter display
@@ -196,6 +206,13 @@ class SharedMeterReader {
     return _bitsToDouble(ptr.value);
   }
 
+  /// Read f32 from buffer at offset (Phase 10e-3 per-bus band RMS is f32).
+  double _readF32(int offset) {
+    if (_bufferPtr == null || offset < 0) return 0;
+    final ptr = Pointer<Float>.fromAddress(_bufferPtr!.address + offset);
+    return ptr.value;
+  }
+
   /// Read u32 from buffer at offset
   int _readU32(int offset) {
     if (_bufferPtr == null || offset < 0) return 0;
@@ -270,6 +287,15 @@ class SharedMeterReader {
         spectrum[i] = _readF64(spectrumBase + i * 8);
       }
 
+      // Phase 10e-3: read per-bus 4-band RMS (24 f32 values at offset 24).
+      final busBandRms = Float32List(24);
+      final busBandOffset = offsets[24];
+      if (busBandOffset != null) {
+        for (int i = 0; i < 24; i++) {
+          busBandRms[i] = _readF32(busBandOffset + i * 4);
+        }
+      }
+
       // Read sequence AFTER data (via FFI Acquire fence)
       final seqAfter = _ffi.meteringGetSequence();
 
@@ -301,6 +327,7 @@ class SharedMeterReader {
           sampleRate: sampleRate,
           channelPeaks: channelPeaks,
           spectrumBands: spectrum,
+          busBandRms: busBandRms,
         );
       }
       // Sequence changed during read — data may be torn, retry

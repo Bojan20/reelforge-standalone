@@ -116,8 +116,13 @@ class OrbAlertsEngine {
   /// Stereo correlation threshold below which a phase problem is flagged.
   static const double _phaseCorrelationThreshold = 0.3;
 
-  /// Minimum magnitude for a spectrum band to "count" for masking.
+  /// Minimum magnitude for a spectrum band to "count" for masking (legacy).
   static const double _maskingBandThreshold = 0.35;
+
+  /// Phase 10e-3: minimum RMS (linear) for a bus to be considered "present"
+  /// in a band when looking for masking overlap. Tuned so SFX/Music typical
+  /// levels register as occupying a band while idle buses do not.
+  static const double _maskingBusBandThreshold = 0.04;
 
   /// Evaluate and update alerts for this frame. `busStates` provides the
   /// per-bus peaks (which the snapshot already has in channelPeaks[6×2]).
@@ -175,44 +180,96 @@ class OrbAlertsEngine {
           bus: OrbBusId.master);
     }
 
-    // ─── 4. Masking (two buses dominant in the same broad band) ──────────
-    // Heuristic without per-bus FFT: any two non-master buses whose peak is
-    // above threshold at the same tick — master spectrum shows energy in
-    // overlapping bands — flag masking between them.
-    final bands = snapshot.spectrumBands;
-    if (bands.length >= 32) {
-      // Find which broad region (bass 0-8, low-mid 8-16, high-mid 16-24,
-      // treble 24-32) has the most energy right now.
-      double bass = 0, lowMid = 0, highMid = 0, treble = 0;
-      for (int i = 0; i < 8 && i < bands.length; i++) {
-        bass += bands[i];
+    // ─── 4. Masking (Phase 10e-3: precise per-bus band analysis) ─────────
+    //
+    // Uses per-bus 4-band RMS from SHARED_METERS (fed by PerBusBandAnalyzer
+    // on the audio thread). Two buses are flagged as masking in a given band
+    // when BOTH exceed `_maskingBusBandThreshold` in THAT band simultaneously
+    // AND neither is muted/soloed-out. Severity escalates with the product of
+    // their energies in that band (louder overlap → more severe).
+    //
+    // Fallback: if the shared buffer hasn't been populated (older dylib,
+    // engine not running), we retain the old master-spectrum heuristic so
+    // the feature degrades gracefully.
+    final perBusRms = snapshot.busBandRms;
+    final hasPerBusData = perBusRms.length >= 24 &&
+        perBusRms.any((v) => v > 1e-6);
+
+    if (hasPerBusData) {
+      // 4 bands, 6 buses. Find bus pairs fighting in each band.
+      const bandNames = ['bass', 'lowmid', 'highmid', 'treble'];
+      const skipMaster = true;
+      final busList = OrbBusId.values;
+      for (int band = 0; band < 4; band++) {
+        // Collect (bus, rms) for this band.
+        final contenders = <MapEntry<OrbBusId, double>>[];
+        for (final bus in busList) {
+          if (skipMaster && bus == OrbBusId.master) continue;
+          final busIdx = bus.engineIndex;
+          if (busIdx < 0 || busIdx >= 6) continue;
+          final slot = busIdx * 4 + band;
+          if (slot >= perBusRms.length) continue;
+          final state = busStates[bus];
+          if (state == null || state.muted) continue;
+          final rms = perBusRms[slot];
+          if (rms > _maskingBusBandThreshold) {
+            contenders.add(MapEntry(bus, rms));
+          }
+        }
+        if (contenders.length < 2) continue;
+        // Sort by descending RMS.
+        contenders.sort((a, b) => b.value.compareTo(a.value));
+        // Pair the two loudest contributors.
+        final a = contenders[0];
+        final b = contenders[1];
+        final product = a.value * b.value;
+        // Severity: warning when product > threshold², critical when > 2× that.
+        final sev = product > _maskingBusBandThreshold * _maskingBusBandThreshold * 2
+            ? OrbAlertSeverity.critical
+            : OrbAlertSeverity.warning;
+        final pair = [a.key.name, b.key.name]..sort();
+        _touch(
+          'mask_${bandNames[band]}_${pair[0]}_${pair[1]}',
+          OrbAlertType.masking,
+          sev,
+          now,
+          bus: a.key,
+          otherBus: b.key,
+        );
       }
-      for (int i = 8; i < 16 && i < bands.length; i++) {
-        lowMid += bands[i];
-      }
-      for (int i = 16; i < 24 && i < bands.length; i++) {
-        highMid += bands[i];
-      }
-      for (int i = 24; i < 32 && i < bands.length; i++) {
-        treble += bands[i];
-      }
-      final loudestBandEnergy = [bass, lowMid, highMid, treble]
-          .reduce((a, b) => a > b ? a : b);
-      // If the loudest broad band is hot, find the two hottest buses —
-      // those are the likely maskers in that region.
-      if (loudestBandEnergy > _maskingBandThreshold * 8) {
-        final contenders = busStates.entries
-            .where((e) => e.key != OrbBusId.master && !e.value.muted)
-            .toList()
-          ..sort((a, b) => b.value.peak.compareTo(a.value.peak));
-        if (contenders.length >= 2 &&
-            contenders[0].value.peak > 0.25 &&
-            contenders[1].value.peak > 0.25) {
-          final pair = [contenders[0].key.name, contenders[1].key.name]
-            ..sort();
-          _touch('mask_${pair[0]}_${pair[1]}', OrbAlertType.masking,
-              OrbAlertSeverity.warning, now,
-              bus: contenders[0].key, otherBus: contenders[1].key);
+    } else {
+      // Fallback (legacy): master-spectrum broad-band heuristic.
+      final bands = snapshot.spectrumBands;
+      if (bands.length >= 32) {
+        double bass = 0, lowMid = 0, highMid = 0, treble = 0;
+        for (int i = 0; i < 8 && i < bands.length; i++) {
+          bass += bands[i];
+        }
+        for (int i = 8; i < 16 && i < bands.length; i++) {
+          lowMid += bands[i];
+        }
+        for (int i = 16; i < 24 && i < bands.length; i++) {
+          highMid += bands[i];
+        }
+        for (int i = 24; i < 32 && i < bands.length; i++) {
+          treble += bands[i];
+        }
+        final loudestBandEnergy = [bass, lowMid, highMid, treble]
+            .reduce((a, b) => a > b ? a : b);
+        if (loudestBandEnergy > _maskingBandThreshold * 8) {
+          final contenders = busStates.entries
+              .where((e) => e.key != OrbBusId.master && !e.value.muted)
+              .toList()
+            ..sort((a, b) => b.value.peak.compareTo(a.value.peak));
+          if (contenders.length >= 2 &&
+              contenders[0].value.peak > 0.25 &&
+              contenders[1].value.peak > 0.25) {
+            final pair = [contenders[0].key.name, contenders[1].key.name]
+              ..sort();
+            _touch('mask_${pair[0]}_${pair[1]}', OrbAlertType.masking,
+                OrbAlertSeverity.warning, now,
+                bus: contenders[0].key, otherBus: contenders[1].key);
+          }
         }
       }
     }

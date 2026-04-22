@@ -126,6 +126,9 @@ pub mod helix_bus;
 // Phase 10e-2: Master-output ring buffer for Problems Inbox WAV export.
 pub mod master_ring;
 
+// Phase 10e-3: Per-bus 4-band energy analyzer for precise masking detection.
+pub mod per_bus_band_energy;
+
 // Re-exports: Core
 pub use bus::*;
 pub use graph::*;

@@ -23987,6 +23987,16 @@ pub struct SharedMeterBuffer {
 
     // Spectrum data (32-band simplified spectrum for overview)
     pub spectrum_bands: [AtomicU64; 32],
+
+    // Phase 10e-3: per-bus 4-band RMS (linear, normalized 0..1-ish).
+    // Layout: [bus0_bass, bus0_lowmid, bus0_highmid, bus0_treble,
+    //          bus1_bass, bus1_lowmid, bus1_highmid, bus1_treble,
+    //          ... 6 buses ...]
+    // Bus indices match SlotLab bus order:
+    // 0=Master, 1=Music, 2=SFX, 3=VO, 4=Ambience, 5=Aux.
+    // Stored as f32 bits in AtomicU32 — per-band RMS is in [0, ~1.5] so f32
+    // precision is ample and this halves memory vs f64.
+    pub bus_band_rms: [AtomicU32; 24],
 }
 
 impl Default for SharedMeterBuffer {
@@ -24071,6 +24081,14 @@ impl SharedMeterBuffer {
                 AtomicU64::new(NEG_INF),
                 AtomicU64::new(NEG_INF),
                 AtomicU64::new(NEG_INF),
+            ],
+            bus_band_rms: [
+                AtomicU32::new(0), AtomicU32::new(0), AtomicU32::new(0), AtomicU32::new(0),
+                AtomicU32::new(0), AtomicU32::new(0), AtomicU32::new(0), AtomicU32::new(0),
+                AtomicU32::new(0), AtomicU32::new(0), AtomicU32::new(0), AtomicU32::new(0),
+                AtomicU32::new(0), AtomicU32::new(0), AtomicU32::new(0), AtomicU32::new(0),
+                AtomicU32::new(0), AtomicU32::new(0), AtomicU32::new(0), AtomicU32::new(0),
+                AtomicU32::new(0), AtomicU32::new(0), AtomicU32::new(0), AtomicU32::new(0),
             ],
         }
     }
@@ -24326,6 +24344,7 @@ pub extern "C" fn metering_update_spectrum_band(band: u32, value: f64) {
 ///   17 = psr, 18 = gain_reduction
 ///   19 = playback_position_samples, 20 = is_playing, 21 = sample_rate
 ///   22 = channel_peaks (base), 23 = spectrum_bands (base)
+///   24 = bus_band_rms (base, 24 × f32 = 6 buses × 4 bands)  [Phase 10e-3]
 #[unsafe(no_mangle)]
 pub extern "C" fn metering_get_field_offset(field_id: u32) -> u64 {
     use std::mem::offset_of;
@@ -24355,6 +24374,7 @@ pub extern "C" fn metering_get_field_offset(field_id: u32) -> u64 {
         21 => offset_of!(SharedMeterBuffer, sample_rate) as u64,
         22 => offset_of!(SharedMeterBuffer, channel_peaks) as u64,
         23 => offset_of!(SharedMeterBuffer, spectrum_bands) as u64,
+        24 => offset_of!(SharedMeterBuffer, bus_band_rms) as u64,
         _ => u64::MAX, // Invalid field
     }
 }
