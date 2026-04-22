@@ -82,7 +82,13 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
   static const _prefKeyX = 'psp_orb_overlay_x';
   static const _prefKeyY = 'psp_orb_overlay_y';
   static const _prefKeyMode = 'psp_orb_overlay_mode';
+  static const _prefKeySizePx = 'psp_orb_overlay_size_px';
   static const _prefKeyVisible = 'psp_orb_overlay_visible';
+
+  /// Smooth-resize bounds. Min = still usable (bus dots readable),
+  /// max = fills most of a laptop viewport without pegging edges.
+  static const double _minSizePx = 60.0;
+  static const double _maxSizePx = 480.0;
 
   // ─── Autohide / opacity timings ──────────────────────────────────────────
   static const Duration _autoHideDelay = Duration(seconds: 3);
@@ -96,7 +102,14 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
   // ─── State ───────────────────────────────────────────────────────────────
   Offset _position = const Offset(16, 16); // will be replaced on first layout
   bool _hasInitialPosition = false;
+  /// Legacy discrete mode kept for Shift+O "cycle" keyboard shortcut and
+  /// the helix_action `orb_cycle_size`. Smooth resize via the corner drag
+  /// handle updates `_currentSizePx` directly and bypasses this.
   LivePlayOrbSize _sizeMode = LivePlayOrbSize.standard;
+  /// Actual rendered size in px. Smooth-resizable via corner handle.
+  double _currentSizePx = 120.0;
+  /// Whether the user is actively resizing right now (opacity stays full).
+  bool _isResizing = false;
   bool _visible = true;
   bool _interacting = false;
   bool _dormant = false;
@@ -189,6 +202,13 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
           savedMode < LivePlayOrbSize.values.length) {
         _sizeMode = LivePlayOrbSize.values[savedMode];
       }
+      // Smooth-resize override: if user has saved a custom size, prefer it.
+      final savedSize = prefs.getDouble(_prefKeySizePx);
+      if (savedSize != null) {
+        _currentSizePx = savedSize.clamp(_minSizePx, _maxSizePx);
+      } else {
+        _currentSizePx = _sizeMode.px;
+      }
       _visible = prefs.getBool(_prefKeyVisible) ?? true;
       _settingsLoaded = true;
     });
@@ -201,6 +221,7 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
     await prefs.setDouble(_prefKeyX, _position.dx);
     await prefs.setDouble(_prefKeyY, _position.dy);
     await prefs.setInt(_prefKeyMode, _sizeMode.index);
+    await prefs.setDouble(_prefKeySizePx, _currentSizePx);
     await prefs.setBool(_prefKeyVisible, _visible);
   }
 
@@ -234,19 +255,31 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
     return _visible;
   }
 
-  /// Cycle through size modes: mini → standard → full → mini.
+  /// Cycle through preset sizes: mini → standard → full → mini.
+  /// Snaps _currentSizePx to the new preset for the keyboard/menu shortcut.
   LivePlayOrbSize cycleSizeMode() {
     setState(() {
       final nextIdx = (_sizeMode.index + 1) % LivePlayOrbSize.values.length;
       _sizeMode = LivePlayOrbSize.values[nextIdx];
+      _currentSizePx = _sizeMode.px;
     });
     _restartAutoHide();
     _saveSettings();
     return _sizeMode;
   }
 
+  /// Set exact size in px (60..480). Used by the resize handle drag +
+  /// eye-automation for headless UI tests.
+  void setSizePx(double px) {
+    final clamped = px.clamp(_minSizePx, _maxSizePx);
+    setState(() => _currentSizePx = clamped);
+    _restartAutoHide();
+    _saveSettings();
+  }
+
   bool get isVisible => _visible;
   LivePlayOrbSize get sizeMode => _sizeMode;
+  double get sizePx => _currentSizePx;
 
   // ─── Drag + snap (handle-only, inner orb gestures pass through) ─────────
 
@@ -338,7 +371,7 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
 
         // Default position: bottom-right corner with 16px margin (first run)
         if (!_hasInitialPosition) {
-          final sizePx = _sizeMode.px;
+          final sizePx = _currentSizePx;
           _position = Offset(
             viewport.width - sizePx - 16.0,
             viewport.height - sizePx - 16.0,
@@ -346,15 +379,19 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
           _hasInitialPosition = true;
         }
 
-        final double sizePx = _sizeMode.px;
-        final double opacity = _interacting
+        final double sizePx = _currentSizePx;
+        // Show full UI chrome only when the orb is big enough to absorb it.
+        // Below ~80px the orb degrades into a compact indicator.
+        final bool showChrome = sizePx >= 80.0;
+        final double opacity = (_interacting || _isResizing)
             ? _opacityActive
             : (_dormant ? _opacityDormant : _opacityIdle);
 
         return Stack(
           children: [
             AnimatedPositioned(
-              duration: _interacting ? Duration.zero : _snapDuration,
+              duration:
+                  (_interacting || _isResizing) ? Duration.zero : _snapDuration,
               curve: Curves.easeOutCubic,
               left: _position.dx,
               top: _position.dy,
@@ -385,10 +422,20 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
                         height: _handleSize,
                         child: _buildDragHandle(viewport),
                       ),
+                      // Layer 2b: resize handle (outside bottom-right corner).
+                      // Drag diagonally to smooth-resize the orb. Always
+                      // available so user can grow / shrink freely.
+                      Positioned(
+                        right: -6,
+                        bottom: -6,
+                        width: _handleSize,
+                        height: _handleSize,
+                        child: _buildResizeHandle(viewport),
+                      ),
                       // Layer 3 (Phase 10): Auto-Focus button (top-right).
                       // Zooms into the loudest voice right now. Only shown
-                      // in standard/full; mini hides it to save space.
-                      if (_sizeMode != LivePlayOrbSize.mini)
+                      // when chrome fits; mini hides it to save space.
+                      if (showChrome)
                         Positioned(
                           right: 0,
                           top: 0,
@@ -397,9 +444,8 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
                           child: _buildFocusButton(),
                         ),
                       // Layer 4 (Phase 10): Quick Filter chip strip below
-                      // the orb. Only when provider is ready + not mini.
-                      if (_sizeMode != LivePlayOrbSize.mini &&
-                          _orbProvider != null)
+                      // the orb. Only when provider is ready + chrome fits.
+                      if (showChrome && _orbProvider != null)
                         Positioned(
                           left: 0,
                           right: 0,
@@ -407,7 +453,7 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
                           child: _buildFilterChips(),
                         ),
                       // Layer 5 (Phase 10e): Mark Problem button (bottom-left).
-                      if (_sizeMode != LivePlayOrbSize.mini)
+                      if (showChrome)
                         Positioned(
                           left: 0,
                           bottom: 0,
@@ -416,8 +462,8 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
                           child: _buildMarkButton(),
                         ),
                       // Layer 6 (Phase 10e): Inbox button w/ count badge
-                      // (bottom-right).
-                      if (_sizeMode != LivePlayOrbSize.mini)
+                      // (bottom-right — INSIDE corner).
+                      if (showChrome)
                         Positioned(
                           right: 0,
                           bottom: 0,
@@ -593,6 +639,59 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
             Icons.center_focus_strong,
             size: 13,
             color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Smooth resize handle — drag diagonally to grow / shrink the orb
+  /// between 60 and 480 px. Sits just outside the bottom-right perimeter
+  /// so it doesn't collide with the inbox button inside the corner.
+  /// Drag delta is averaged between dx & dy so diagonal motion feels
+  /// natural regardless of direction.
+  Widget _buildResizeHandle(Size viewport) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onPanStart: (_) {
+        setState(() => _isResizing = true);
+      },
+      onPanUpdate: (d) {
+        // Average of dx + dy gives symmetric growth; clamp into viewport.
+        final double delta = (d.delta.dx + d.delta.dy) / 2;
+        final double nextSize = (_currentSizePx + delta * 2)
+            .clamp(_minSizePx, _maxSizePx);
+        // Don't let the orb grow past the viewport — leave 12px margin.
+        final double maxByViewport =
+            (viewport.width - _position.dx - 12).clamp(_minSizePx, _maxSizePx);
+        final double maxByViewportY =
+            (viewport.height - _position.dy - 12).clamp(_minSizePx, _maxSizePx);
+        final double safe = [nextSize, maxByViewport, maxByViewportY]
+            .reduce((a, b) => a < b ? a : b);
+        setState(() => _currentSizePx = safe);
+      },
+      onPanEnd: (_) {
+        setState(() => _isResizing = false);
+        _restartAutoHide();
+        _saveSettings();
+      },
+      child: MouseRegion(
+        cursor: SystemMouseCursors.resizeDownRight,
+        child: Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.cyanAccent.withValues(alpha: 0.18),
+            border: Border.all(
+              color: Colors.cyanAccent.withValues(alpha: 0.45),
+              width: 1,
+            ),
+          ),
+          child: const Center(
+            child: Icon(
+              Icons.open_in_full,
+              size: 11,
+              color: Colors.cyanAccent,
+            ),
           ),
         ),
       ),

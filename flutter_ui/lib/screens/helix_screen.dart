@@ -311,6 +311,14 @@ class _HelixScreenState extends State<HelixScreen>
           try { LivePlayOrbOverlayState.current?.toggleVisible(); } catch (_) {}
         case 'orb_cycle_size':
           try { LivePlayOrbOverlayState.current?.cycleSizeMode(); } catch (_) {}
+        case 'orb_set_size':
+          // Smooth-resize: params.px = target size in pixels (60..480).
+          try {
+            final px = (params['px'] as num?)?.toDouble();
+            if (px != null) {
+              LivePlayOrbOverlayState.current?.setSizePx(px);
+            }
+          } catch (_) {}
         case 'fsm_synthetic_spin':
           try {
             final outcome = (params['outcome'] as String? ?? 'noWin').toLowerCase();
