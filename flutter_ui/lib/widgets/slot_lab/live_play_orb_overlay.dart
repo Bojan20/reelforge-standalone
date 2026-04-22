@@ -55,6 +55,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -115,7 +116,8 @@ class LivePlayOrbOverlay extends StatefulWidget {
   State<LivePlayOrbOverlay> createState() => LivePlayOrbOverlayState();
 }
 
-class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
+class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
+    with SingleTickerProviderStateMixin {
   // ─── Global accessor ────────────────────────────────────────────────────────
   static LivePlayOrbOverlayState? _current;
   static LivePlayOrbOverlayState? get current => _current;
@@ -174,6 +176,10 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
 
   OrbMixerProvider? _orbProvider;
 
+  /// Frame counter — driven by Ticker → forces bus rows to refresh at 60fps
+  final ValueNotifier<int> _frame = ValueNotifier<int>(0);
+  late final Ticker _meterTicker;
+
   // ─── Lifecycle ───────────────────────────────────────────────────────────────
   @override
   void initState() {
@@ -184,12 +190,20 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
     _loadSettings();
     ProblemsInboxService.instance.init();
     ProblemsInboxService.instance.addListener(_onInboxChanged);
+    // Drive bus-row meter refresh at display rate.
+    // Only increments while visible — dormant state stays frozen to save GPU.
+    _meterTicker = createTicker((_) {
+      if (_visible && !_dormant && mounted) _frame.value++;
+    });
+    _meterTicker.start();
   }
 
   void _onInboxChanged() { if (mounted) setState(() {}); }
 
   @override
   void dispose() {
+    _meterTicker.dispose();
+    _frame.dispose();
     _autoHideTimer?.cancel();
     _orbProvider?.removeListener(_onOrbProviderChanged);
     _orbProvider = null;
@@ -398,6 +412,12 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
           ? _opacityActive
           : (_dormant ? _opacityDormant : _opacityIdle);
 
+      // Resize handle center sits at (cardW, cardH) relative to card origin.
+      // It MUST be on the outer Stack so Flutter's hit-test covers it —
+      // Clip.none on inner Stack renders outside bounds but hit-test is blocked.
+      final double resizeLeft = _position.dx + cardW - _resizePx / 2;
+      final double resizeTop  = _position.dy + cardH - _resizePx / 2;
+
       return Stack(
         children: [
           AnimatedPositioned(
@@ -414,24 +434,22 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
                 behavior: HitTestBehavior.translucent,
                 onPointerDown: _onPointerDown,
                 onPointerUp:   _onPointerUp,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    // ─── Card ────────────────────────────────────────────
-                    Positioned.fill(
-                      child: _buildCard(orbPx, cardW, cardH, vp),
-                    ),
-                    // ─── Resize dot (outside card, bottom-right corner) ──
-                    Positioned(
-                      right: -_resizePx / 2,
-                      bottom: -_resizePx / 2,
-                      width:  _resizePx,
-                      height: _resizePx,
-                      child:  _buildResizeHandle(vp),
-                    ),
-                  ],
-                ),
+                child: _buildCard(orbPx, cardW, cardH, vp),
               ),
+            ),
+          ),
+          // ─── Resize dot — outer Stack, always hit-testable ──────────────
+          AnimatedPositioned(
+            duration: (_interacting || _isResizing) ? Duration.zero : _snapDur,
+            curve: Curves.easeOutCubic,
+            left:   resizeLeft,
+            top:    resizeTop,
+            width:  _resizePx,
+            height: _resizePx,
+            child: AnimatedOpacity(
+              duration: _opacityDur,
+              opacity: opacity,
+              child: _buildResizeHandle(vp),
             ),
           ),
         ],
@@ -440,6 +458,7 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
   }
 
   // ─── Card (glass panel with title + orb + busses + footer) ─────────────────
+  // Resize handle has been moved to the outer Stack — do NOT add it here.
   Widget _buildCard(double orbPx, double cardW, double cardH, Size vp) {
     return Container(
       decoration: BoxDecoration(
@@ -649,32 +668,37 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
 
   // ─── Busses section (all 6 always visible, with dB/peak/pan/S/M) ───────────
   Widget _buildBussesSection() {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: _cardPadH),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            height: _busHdrH,
-            child: Row(
-              children: [
-                Text('BUSES',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.55),
-                    fontSize: 9, fontWeight: FontWeight.w800,
-                    letterSpacing: 1.4, fontFamily: 'SpaceGrotesk',
+    // ValueListenableBuilder ensures bus rows repaint at ticker rate (60fps)
+    // so dB values and peak bars stay live even without DSP state changes.
+    return ValueListenableBuilder<int>(
+      valueListenable: _frame,
+      builder: (_, __, ___) => Padding(
+        padding: EdgeInsets.symmetric(horizontal: _cardPadH),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              height: _busHdrH,
+              child: Row(
+                children: [
+                  Text('BUSES',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.55),
+                      fontSize: 9, fontWeight: FontWeight.w800,
+                      letterSpacing: 1.4, fontFamily: 'SpaceGrotesk',
+                    )),
+                  const SizedBox(width: 8),
+                  Expanded(child: Container(
+                    height: 1,
+                    color: Colors.white.withValues(alpha: 0.08),
                   )),
-                const SizedBox(width: 8),
-                Expanded(child: Container(
-                  height: 1,
-                  color: Colors.white.withValues(alpha: 0.08),
-                )),
-              ],
+                ],
+              ),
             ),
-          ),
-          ...OrbBusId.values.map(_buildBusRow),
-        ],
+            ...OrbBusId.values.map(_buildBusRow),
+          ],
+        ),
       ),
     );
   }
