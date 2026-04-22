@@ -387,9 +387,10 @@ class OrbMixerProvider extends ChangeNotifier {
       _updateDotRadii();
     }
 
-    // Phase 5: Visual layers (every tick, regardless of peak change)
+    // Phase 5 + Phase 8: Visual layers (every tick, regardless of peak change)
     _recordGhostPositions();
-    _updateHeatmap();
+    // Phase 8: real FFT-driven heatmap via master 32-band spectrum
+    _updateHeatmapFromFft(snapshot.spectrumBands);
     _updateTransport(snapshot);
 
     // Update active voices (Nivo 2) — query FFI every tick
@@ -827,27 +828,46 @@ class OrbMixerProvider extends ChangeNotifier {
   /// Get heatmap data (32 sectors, 0.0–1.0)
   Float64List get heatmapData => _heatmapData;
 
-  void _updateHeatmap() {
-    // Decay all sectors
+  /// PHASE 8: Live FFT heatmap — real spectral data from master FFT (32 bands,
+  /// log-spaced 20Hz-20kHz) drives 32 angular sectors. Plus a smaller
+  /// bus-position contribution so different buses pulse different areas.
+  ///
+  /// Called from updateMeters() which has `snapshot.spectrumBands` available.
+  void _updateHeatmapFromFft(Float64List spectrumBands) {
+    // Decay all sectors so stale energy fades smoothly.
     for (int i = 0; i < _heatmapSectors; i++) {
       _heatmapData[i] *= _heatmapDecay;
     }
 
-    // Accumulate energy from bus positions
+    // Primary source: real FFT spectrum (master bus, 32 log-spaced bands).
+    // Each sector i takes directly from band i — sector 0 = bass (20-60Hz),
+    // sector 31 = air (15-20kHz). Gives a living spectrogram ring.
+    final int maxBands =
+        spectrumBands.length < _heatmapSectors ? spectrumBands.length : _heatmapSectors;
+    for (int i = 0; i < maxBands; i++) {
+      final double fftEnergy = spectrumBands[i].clamp(0.0, 1.0);
+      // Blend FFT with existing decayed value — max keeps peaks fresh.
+      if (fftEnergy > _heatmapData[i]) {
+        _heatmapData[i] = fftEnergy;
+      }
+    }
+
+    // Secondary: bus-position contribution (smaller weight) so each bus
+    // also "colors" its angular region. Keeps the bus-identity readable.
     final center = Offset(size / 2, size / 2);
     for (final state in _busStates.values) {
       if (state.isMaster || state.muted) continue;
       if (state.peak < 0.01) continue;
 
-      // Bus position → angular sector
       final delta = state.position - center;
       final angle = math.atan2(delta.dy, delta.dx); // -π..π
       final normalizedAngle = (angle + math.pi) / (2 * math.pi); // 0..1
       final sectorIdx =
           (normalizedAngle * _heatmapSectors).floor() % _heatmapSectors;
 
-      // Spread energy across 3 adjacent sectors (gaussian-ish)
-      final energy = state.peak * state.volume;
+      // Spread energy across 3 adjacent sectors (gaussian-ish), smaller
+      // weight than FFT so it complements, not overrides.
+      final energy = state.peak * state.volume * 0.35;
       _heatmapData[sectorIdx] =
           (_heatmapData[sectorIdx] + energy * 0.6).clamp(0.0, 1.0);
       _heatmapData[(sectorIdx + 1) % _heatmapSectors] =
@@ -859,6 +879,12 @@ class OrbMixerProvider extends ChangeNotifier {
                   energy * 0.25)
               .clamp(0.0, 1.0);
     }
+  }
+
+  /// Legacy entry point — kept so existing callers compile. Uses a zeroed
+  /// spectrum (falls back to bus-position-only) when no FFT data passed.
+  void _updateHeatmap() {
+    _updateHeatmapFromFft(Float64List(_heatmapSectors));
   }
 
   // ─── Timeline Scrub Ring ───
