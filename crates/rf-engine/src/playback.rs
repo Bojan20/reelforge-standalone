@@ -5166,6 +5166,89 @@ impl PlaybackEngine {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    // ORB MIXER: Active Voice Query
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Per-voice info for OrbMixer Nivo 2 display.
+    /// Called from UI thread (~60Hz) — uses try_read() to avoid blocking audio thread.
+    ///
+    /// Returns up to `max` voices as packed data:
+    /// Each voice = 8 f64 values: [id, bus_idx, volume, pan, peak_l, peak_r, state, looping]
+    ///
+    /// Returns number of voices written.
+    pub fn get_active_voices_for_orb(
+        &self,
+        out: &mut [f64],
+        max: usize,
+    ) -> usize {
+        const FIELDS_PER_VOICE: usize = 8;
+
+        let voices = match self.one_shot_voices.try_read() {
+            Some(v) => v,
+            None => return 0,
+        };
+
+        let mut written = 0;
+        for voice in voices.iter() {
+            if !voice.active || written >= max {
+                continue;
+            }
+
+            let offset = written * FIELDS_PER_VOICE;
+            if offset + FIELDS_PER_VOICE > out.len() {
+                break;
+            }
+
+            let bus_idx = match voice.bus {
+                OutputBus::Master => 0.0,
+                OutputBus::Music => 1.0,
+                OutputBus::Sfx => 2.0,
+                OutputBus::Voice => 3.0,
+                OutputBus::Ambience => 4.0,
+                OutputBus::Aux => 5.0,
+            };
+
+            let state_val = if voice.fade_samples_remaining > 0 && voice.fade_increment < 0.0 {
+                2.0 // fading out
+            } else if voice.looping {
+                1.0 // looping
+            } else {
+                0.0 // playing
+            };
+
+            out[offset]     = voice.id as f64;
+            out[offset + 1] = bus_idx;
+            out[offset + 2] = voice.volume as f64;
+            out[offset + 3] = voice.pan as f64;
+            out[offset + 4] = voice.meter_peak_l as f64;
+            out[offset + 5] = voice.meter_peak_r as f64;
+            out[offset + 6] = state_val;
+            out[offset + 7] = if voice.looping { 1.0 } else { 0.0 };
+
+            written += 1;
+        }
+
+        written
+    }
+
+    /// Set per-voice parameter from OrbMixer.
+    /// Called from UI thread — sends command to audio thread via ring buffer.
+    ///
+    /// param: 0=volume, 1=pan, 2=pitch, 3=mute
+    pub fn set_voice_param(&self, voice_id: u64, param: u8, value: f32) {
+        if let Some(mut tx) = self.one_shot_cmd_tx.try_lock() {
+            let cmd = match param {
+                0 => OneShotCommand::SetVolume { id: voice_id, volume: value },
+                1 => OneShotCommand::SetPan { id: voice_id, pan: value },
+                2 => OneShotCommand::SetPitch { id: voice_id, semitones: value },
+                3 => OneShotCommand::SetMute { id: voice_id, muted: value > 0.5 },
+                _ => return,
+            };
+            let _ = tx.push(cmd);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
 
     /// Initialize the advanced loop system.
     pub fn loop_system_init(&self) {

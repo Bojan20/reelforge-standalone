@@ -8,11 +8,13 @@
 //   VO: 270° (bottom), Aux: 45° (top-right), Master: center
 
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'dart:ui' show Color, Offset;
 
 import 'package:flutter/foundation.dart';
 
 import '../services/shared_meter_reader.dart';
+import '../src/rust/native_ffi.dart';
 import '../theme/fluxforge_theme.dart';
 import 'mixer_dsp_provider.dart';
 
@@ -123,14 +125,83 @@ class OrbBusState {
   bool get isMaster => id == OrbBusId.master;
 }
 
+// ============ Voice State (Nivo 2) ============
+
+/// State of a single active voice, for bus-expand drill-down
+enum OrbVoiceStatus { playing, looping, fading }
+
+class OrbVoiceState {
+  final int voiceId;
+  final OrbBusId bus;
+  double volume;
+  double pan;
+  double peakL;
+  double peakR;
+  OrbVoiceStatus status;
+  bool isLooping;
+
+  /// Computed position in widget-local coordinates
+  Offset position;
+  double dotRadius;
+
+  OrbVoiceState({
+    required this.voiceId,
+    required this.bus,
+    this.volume = 1.0,
+    this.pan = 0.0,
+    this.peakL = 0.0,
+    this.peakR = 0.0,
+    this.status = OrbVoiceStatus.playing,
+    this.isLooping = false,
+    this.position = Offset.zero,
+    this.dotRadius = 4.0,
+  });
+
+  double get peak => math.max(peakL, peakR);
+
+  /// Status color
+  Color get statusColor => switch (status) {
+        OrbVoiceStatus.playing => FluxForgeTheme.accentGreen,
+        OrbVoiceStatus.looping => FluxForgeTheme.accentCyan,
+        OrbVoiceStatus.fading => FluxForgeTheme.accentYellow,
+      };
+
+  /// Parse from packed FFI data (8 doubles)
+  factory OrbVoiceState.fromPacked(Float64List data) {
+    final busIdx = data[1].toInt();
+    final stateVal = data[6].toInt();
+    return OrbVoiceState(
+      voiceId: data[0].toInt(),
+      bus: OrbBusId.values.elementAtOrNull(busIdx) ?? OrbBusId.sfx,
+      volume: data[2],
+      pan: data[3],
+      peakL: data[4],
+      peakR: data[5],
+      status: switch (stateVal) {
+        1 => OrbVoiceStatus.looping,
+        2 => OrbVoiceStatus.fading,
+        _ => OrbVoiceStatus.playing,
+      },
+      isLooping: data[7] > 0.5,
+    );
+  }
+}
+
 // ============ Provider ============
 
 class OrbMixerProvider extends ChangeNotifier {
   final MixerDSPProvider _dsp;
   final SharedMeterReader _meters;
+  final NativeFFI _ffi = NativeFFI.instance;
 
   /// Bus states (all 6 buses including master)
   final Map<OrbBusId, OrbBusState> _busStates = {};
+
+  /// Active voices grouped by bus (Nivo 2)
+  final Map<OrbBusId, List<OrbVoiceState>> _activeVoices = {};
+
+  /// All active voices (flat list)
+  List<OrbVoiceState> _allVoices = [];
 
   /// Currently expanded bus (null = Nivo 1 orbit view)
   OrbBusId? expandedBus;
@@ -176,6 +247,16 @@ class OrbMixerProvider extends ChangeNotifier {
   /// All non-master buses (orbit dots)
   Iterable<OrbBusState> get orbitBuses =>
       _busStates.values.where((b) => !b.isMaster);
+
+  /// Active voices for the expanded bus (Nivo 2)
+  List<OrbVoiceState> get expandedVoices =>
+      expandedBus != null ? (_activeVoices[expandedBus] ?? []) : [];
+
+  /// All active voices across all buses
+  List<OrbVoiceState> get allVoices => _allVoices;
+
+  /// Whether Nivo 2 (bus expand) is active
+  bool get isExpanded => expandedBus != null;
 
   // ── Sync from DSP provider ──
 
@@ -234,7 +315,64 @@ class OrbMixerProvider extends ChangeNotifier {
     if (changed) {
       _updateDotRadii();
     }
+
+    // Update active voices (Nivo 2) — query FFI every tick
+    if (expandedBus != null) {
+      _updateActiveVoices();
+      changed = true; // voices always need repaint when expanded
+    }
+
     return changed;
+  }
+
+  /// Query active voices from engine via FFI
+  void _updateActiveVoices() {
+    final voiceData = _ffi.orbGetActiveVoices(maxVoices: 64);
+    if (voiceData == null) return;
+
+    // Clear old grouping
+    for (final busId in OrbBusId.values) {
+      _activeVoices[busId] = [];
+    }
+
+    _allVoices = [];
+    for (final packed in voiceData) {
+      final voice = OrbVoiceState.fromPacked(packed);
+      _allVoices.add(voice);
+      _activeVoices.putIfAbsent(voice.bus, () => []);
+      _activeVoices[voice.bus]!.add(voice);
+    }
+
+    // Layout voice dots for expanded bus
+    if (expandedBus != null) {
+      _layoutVoiceDots(expandedBus!);
+    }
+  }
+
+  /// Layout voice dots in a mini-orbit around the parent bus dot
+  void _layoutVoiceDots(OrbBusId busId) {
+    final voices = _activeVoices[busId];
+    if (voices == null || voices.isEmpty) return;
+
+    final parentState = _busStates[busId];
+    if (parentState == null) return;
+
+    final parentPos = parentState.position;
+    final voiceOrbitRadius = size * 0.12; // smaller orbit for voices
+
+    for (int i = 0; i < voices.length; i++) {
+      final voice = voices[i];
+      // Distribute evenly around parent position
+      final angle = (2 * math.pi * i / voices.length) - math.pi / 2;
+      // Offset by voice volume (quieter = closer to parent)
+      final dist = voiceOrbitRadius * voice.volume.clamp(0.3, 1.0);
+
+      voice.position = Offset(
+        parentPos.dx + dist * math.cos(angle),
+        parentPos.dy + dist * math.sin(angle),
+      );
+      voice.dotRadius = 3.0 + voice.peak * 5.0;
+    }
   }
 
   // ── Layout computation ──
@@ -395,7 +533,46 @@ class OrbMixerProvider extends ChangeNotifier {
 
   void collapseBus() {
     expandedBus = null;
+    _activeVoices.clear();
+    _allVoices = [];
     notifyListeners();
+  }
+
+  // ── Voice hit testing (Nivo 2) ──
+
+  /// Find which voice dot is at the given position (null if none)
+  OrbVoiceState? hitTestVoice(Offset localPos) {
+    if (expandedBus == null) return null;
+    final voices = _activeVoices[expandedBus];
+    if (voices == null) return null;
+
+    OrbVoiceState? closest;
+    double closestDist = double.infinity;
+    for (final voice in voices) {
+      final dist = (localPos - voice.position).distance;
+      if (dist <= voice.dotRadius + 6 && dist < closestDist) {
+        closest = voice;
+        closestDist = dist;
+      }
+    }
+    return closest;
+  }
+
+  // ── Per-voice control (Nivo 2) ──
+
+  /// Set voice volume (0.0–1.5)
+  void setVoiceVolume(int voiceId, double volume) {
+    _ffi.orbSetVoiceParam(voiceId, 0, volume.clamp(0.0, 1.5));
+  }
+
+  /// Set voice pan (-1.0 to 1.0)
+  void setVoicePan(int voiceId, double pan) {
+    _ffi.orbSetVoiceParam(voiceId, 1, pan.clamp(-1.0, 1.0));
+  }
+
+  /// Mute/unmute voice
+  void setVoiceMute(int voiceId, bool muted) {
+    _ffi.orbSetVoiceParam(voiceId, 3, muted ? 1.0 : 0.0);
   }
 
   // ── Helpers ──

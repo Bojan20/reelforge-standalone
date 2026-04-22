@@ -4511,6 +4511,42 @@ pub extern "C" fn return_set_solo(return_index: u32, solo: i32) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// ORB MIXER FFI — Active voice query + per-voice control
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Get all active one-shot voices for OrbMixer display.
+/// Writes packed data to `out_buf`: 8 f64 per voice.
+/// Layout: [voice_id, bus_idx, volume, pan, peak_l, peak_r, state, looping]
+///   state: 0=playing, 1=looping, 2=fading
+/// `max_voices`: maximum voices to return.
+/// Returns: number of voices written.
+#[unsafe(no_mangle)]
+pub extern "C" fn orb_get_active_voices(
+    out_buf: *mut f64,
+    buf_len: usize,
+    max_voices: usize,
+) -> usize {
+    if out_buf.is_null() || buf_len == 0 {
+        return 0;
+    }
+    let out_slice = unsafe { std::slice::from_raw_parts_mut(out_buf, buf_len) };
+    PLAYBACK_ENGINE.get_active_voices_for_orb(out_slice, max_voices)
+}
+
+/// Set per-voice parameter from OrbMixer.
+/// param: 0=volume, 1=pan, 2=pitch (semitones), 3=mute (>0.5=true)
+/// Returns 1 on success, 0 on failure.
+#[unsafe(no_mangle)]
+pub extern "C" fn orb_set_voice_param(
+    voice_id: u64,
+    param: u8,
+    value: f32,
+) -> i32 {
+    PLAYBACK_ENGINE.set_voice_param(voice_id, param, value);
+    1
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // SIDECHAIN ROUTING FFI
 // ═══════════════════════════════════════════════════════════════════════════
 

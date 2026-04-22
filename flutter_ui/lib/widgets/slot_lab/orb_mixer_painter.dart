@@ -40,6 +40,11 @@ class OrbMixerPainter extends CustomPainter {
     _paintBusDots(canvas, size);
     _paintMasterDot(canvas, center);
 
+    // Nivo 2: Voice dots when bus is expanded
+    if (provider.isExpanded) {
+      _paintVoiceDots(canvas);
+    }
+
     if (showLabels || hoveredBus != null) {
       _paintLabels(canvas, size);
     }
@@ -285,6 +290,70 @@ class OrbMixerPainter extends CustomPainter {
       textDirection: TextDirection.ltr,
     )..layout();
     tp.paint(canvas, center - Offset(tp.width / 2, tp.height / 2));
+  }
+
+  // ── Layer 6b: Voice dots (Nivo 2 — bus expand) ──
+
+  void _paintVoiceDots(Canvas canvas) {
+    final voices = provider.expandedVoices;
+    if (voices.isEmpty) return;
+
+    // Connecting lines from voice dots to parent bus dot
+    final parentBus = provider.getBus(provider.expandedBus!);
+    if (parentBus != null) {
+      for (final voice in voices) {
+        final linePaint = Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 0.4
+          ..color = voice.statusColor.withValues(alpha: 0.2);
+        canvas.drawLine(parentBus.position, voice.position, linePaint);
+      }
+    }
+
+    // Draw each voice dot
+    for (final voice in voices) {
+      final pos = voice.position;
+      final radius = voice.dotRadius;
+      final color = voice.statusColor;
+
+      // Peak glow
+      if (voice.peak > 0.1) {
+        final glowPaint = Paint()
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.0)
+          ..color = color.withValues(alpha: (voice.peak * 0.3).clamp(0.0, 0.3));
+        canvas.drawCircle(pos, radius + 2, glowPaint);
+      }
+
+      // Main dot
+      final dotPaint = Paint()
+        ..style = PaintingStyle.fill
+        ..shader = ui.Gradient.radial(
+          pos,
+          radius,
+          [
+            Color.lerp(color, Colors.white, 0.25)!,
+            color.withValues(alpha: 0.7),
+          ],
+          [0.0, 1.0],
+        );
+      canvas.drawCircle(pos, radius, dotPaint);
+
+      // Border
+      final borderPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.6
+        ..color = color.withValues(alpha: 0.5);
+      canvas.drawCircle(pos, radius, borderPaint);
+
+      // Looping indicator (tiny ring)
+      if (voice.isLooping) {
+        final loopPaint = Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 0.8
+          ..color = FluxForgeTheme.accentCyan.withValues(alpha: 0.5);
+        canvas.drawCircle(pos, radius + 2, loopPaint);
+      }
+    }
   }
 
   // ── Layer 7: Labels (hover/expanded mode) ──

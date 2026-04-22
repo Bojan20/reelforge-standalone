@@ -113,10 +113,41 @@ class _OrbMixerState extends State<OrbMixer>
 
   // ── Gesture handling ──
 
+  // Track drag start position for tap-vs-drag detection
+  Offset? _dragStartPos;
+  OrbVoiceState? _draggingVoice;
+
   void _onPointerDown(PointerDownEvent event) {
     final localPos = event.localPosition;
+    _dragStartPos = localPos;
+
+    // In Nivo 2: check voice dots first
+    if (_provider.isExpanded) {
+      final voiceHit = _provider.hitTestVoice(localPos);
+      if (voiceHit != null) {
+        if (event.buttons == kSecondaryMouseButton) {
+          // Right-click voice → mute
+          _provider.setVoiceMute(voiceHit.voiceId,
+              voiceHit.status != OrbVoiceStatus.fading);
+          HapticFeedback.lightImpact();
+          setState(() {});
+          return;
+        }
+        _draggingVoice = voiceHit;
+        return;
+      }
+    }
+
+    // Bus dot hit test
     final hit = _provider.hitTest(localPos);
-    if (hit == null) return;
+    if (hit == null) {
+      // Tap on empty space in Nivo 2 → collapse
+      if (_provider.isExpanded) {
+        _provider.collapseBus();
+        setState(() {});
+      }
+      return;
+    }
 
     if (event.buttons == kSecondaryMouseButton) {
       // Right-click → mute toggle
@@ -130,6 +161,26 @@ class _OrbMixerState extends State<OrbMixer>
   }
 
   void _onPointerMove(PointerMoveEvent event) {
+    // Voice drag (Nivo 2)
+    if (_draggingVoice != null) {
+      final center = Offset(_provider.size / 2, _provider.size / 2);
+      final delta = event.localPosition - center;
+      final distance = delta.distance;
+      final maxRadius = _provider.size * 0.45;
+
+      // Radial distance → volume
+      final newVol = (distance / maxRadius * 1.5).clamp(0.0, 1.5);
+      _provider.setVoiceVolume(_draggingVoice!.voiceId, newVol);
+
+      // Angle → pan
+      final angle = math.atan2(-delta.dy, delta.dx);
+      final pan = (angle / (math.pi / 2)).clamp(-1.0, 1.0);
+      _provider.setVoicePan(_draggingVoice!.voiceId, pan);
+
+      setState(() {});
+      return;
+    }
+
     if (_provider.isDragging) {
       _provider.updateDrag(event.localPosition);
       setState(() {});
@@ -150,20 +201,44 @@ class _OrbMixerState extends State<OrbMixer>
   }
 
   void _onPointerUp(PointerUpEvent event) {
+    // Voice drag end
+    if (_draggingVoice != null) {
+      // Check if this was a tap (minimal movement)
+      final wasTap = _dragStartPos != null &&
+          (event.localPosition - _dragStartPos!).distance < 4;
+      _draggingVoice = null;
+      _dragStartPos = null;
+      setState(() {});
+      return;
+    }
+
+    _dragStartPos = null;
+
     if (_provider.isDragging) {
       final wasDragging = _provider.draggingBus;
-      // Check if this was a tap (very small movement) vs drag
       final hit = _provider.hitTest(event.localPosition);
+      final wasTap = _dragStartPos == null ||
+          (event.localPosition - (_dragStartPos ?? event.localPosition))
+                  .distance <
+              4;
 
       _provider.endDrag();
 
-      // If released on the same dot without significant drag → solo toggle
-      if (hit == wasDragging) {
-        _provider.toggleSolo(hit!);
-        HapticFeedback.selectionClick();
-
-        // Notify parent (for Nivo 2 expand)
-        widget.onBusTap?.call(hit);
+      // If released on the same dot with minimal movement → tap action
+      if (hit == wasDragging && wasDragging != null) {
+        if (_provider.isExpanded && hit == _provider.expandedBus) {
+          // Tap on already-expanded bus → collapse
+          _provider.collapseBus();
+        } else if (hit != OrbBusId.master) {
+          // Tap on bus → expand (Nivo 2) or solo toggle
+          _provider.expandBus(hit!);
+          HapticFeedback.selectionClick();
+        } else {
+          // Master tap → solo toggle
+          _provider.toggleSolo(hit!);
+          HapticFeedback.selectionClick();
+        }
+        widget.onBusTap?.call(hit!);
       }
       setState(() {});
     }

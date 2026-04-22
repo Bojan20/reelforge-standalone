@@ -7997,6 +7997,55 @@ class NativeFFI {
   }
 
   // ============================================================
+  // ORB MIXER — Active Voice Query + Per-Voice Control
+  // ============================================================
+
+  late final _orbGetActiveVoices = _lib.lookupFunction<
+      UintPtr Function(Pointer<Double>, UintPtr, UintPtr),
+      int Function(Pointer<Double>, int, int)>('orb_get_active_voices');
+
+  late final _orbSetVoiceParam = _lib.lookupFunction<
+      Int32 Function(Uint64, Uint8, Float),
+      int Function(int, int, double)>('orb_set_voice_param');
+
+  /// Get active voices for OrbMixer (packed f64 buffer).
+  /// Returns list of voice data: each voice = 8 doubles
+  /// [voice_id, bus_idx, volume, pan, peak_l, peak_r, state, looping]
+  /// state: 0=playing, 1=looping, 2=fading
+  List<Float64List>? orbGetActiveVoices({int maxVoices = 64}) {
+    if (!_loaded) return null;
+
+    const fieldsPerVoice = 8;
+    final bufLen = maxVoices * fieldsPerVoice;
+    final buf = calloc<Double>(bufLen);
+
+    try {
+      final count = _orbGetActiveVoices(buf, bufLen, maxVoices);
+      if (count == 0) return [];
+
+      final result = <Float64List>[];
+      for (int i = 0; i < count; i++) {
+        final offset = i * fieldsPerVoice;
+        final voice = Float64List(fieldsPerVoice);
+        for (int j = 0; j < fieldsPerVoice; j++) {
+          voice[j] = buf[offset + j];
+        }
+        result.add(voice);
+      }
+      return result;
+    } finally {
+      calloc.free(buf);
+    }
+  }
+
+  /// Set per-voice parameter.
+  /// param: 0=volume, 1=pan, 2=pitch (semitones), 3=mute (>0.5=true)
+  void orbSetVoiceParam(int voiceId, int param, double value) {
+    if (!_loaded) return;
+    _orbSetVoiceParam(voiceId, param, value);
+  }
+
+  // ============================================================
   // ELASTIC PRO (TIME STRETCHING) API
   // ============================================================
 
