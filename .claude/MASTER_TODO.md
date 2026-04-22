@@ -782,7 +782,7 @@ ostaje kao potencijalno proširenje za >6 return tačaka (P3+).
 - [x] AudioCoverage canonical fix ✅ DONE (2026-04-22) — audioAssignments.values umesto stage keys
 - [x] QA (flutter analyze + cargo tests) ✅ DONE (2026-04-22) — 0 errors, 313+27 testova pass
 - [ ] Full Build + Test — cargo build --release + xcodebuild
-- [ ] **Sonic DNA Classifier** — Layer 2 (Taxonomy) + Layer 3 (Placement Engine) — SLEDEĆE
+- [x] **Sonic DNA Classifier** ✅ DONE (2026-04-22) — Layer 2 (15 profila) + Layer 3 (Hungarian + variant + gap) + FFI + Dart models
 
 ---
 
