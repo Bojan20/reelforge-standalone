@@ -768,6 +768,628 @@ Multiplier(77) > WinTier(76) > SymbolPay(74) > Fuzzy(65)
 
 ---
 
+## FFNC Naming Convention — Ultimativna Referenca (v2)
+
+> **ZAKON** — svi zvukovi koji se ubacuju u FluxForge/HELIX MORAJU pratiti ovu konvenciju.
+> AutoBind engine čita ovu konvenciju i mapira zvukove u stage-ove sa 100% tačnošću.
+> Sonic DNA Classifier (Layer 2, TODO) preimenuje strane fajlove u FFNC format automatski.
+
+---
+
+### Format
+
+```
+<domain>_<stage>_<qualifier>_<variant>_v<version>.<ext>
+```
+
+| Komponenta | Obavezna | Opis | Primeri |
+|------------|----------|------|---------|
+| `domain` | DA | Tip zvuka — bus routing | `sfx` `mus` `amb` `trn` `ui` `vo` |
+| `stage` | DA | Tačan event ID (snake_case) | `reel_stop` `big_win_start` `scatter_land` |
+| `qualifier` | NE | Kontekstualni qualifier | `r0`..`r5` (per-reel), `l1`..`l5` (layer), `calm`/`intense`/`epic` (ALE) |
+| `variant` | NE | Round-robin pool | `a` `b` `c` `d` |
+| `v<version>` | NE | Verzija asset-a | `v1` `v2` `v3` |
+| `ext` | DA | Audio format | `wav` `ogg` `mp3` `flac` |
+
+**Pravila:**
+- Sve lowercase, samo `_` separator, nikad space ili `-`
+- Domain dolazi UVEK prvi — AutoBind engine čita prefiks za 100-score match
+- Qualifier i variant se mogu kombinovati: `sfx_reel_stop_r2_b_v1.wav`
+- Version je opcionalan ali preporučen za asset management
+
+---
+
+### Domeni
+
+| Domain | Bus | Semantika | Primeri stage-ova |
+|--------|-----|-----------|-------------------|
+| `sfx_` | SFX bus | Kratki diskretni efekti | reel_stop, scatter_land, button_click |
+| `mus_` | Music bus | Muzičke petlje, fanfare | music_base, big_win_start, free_spin_mus |
+| `amb_` | Ambience bus | Pozadinska atmosfera | ambient_loop, ambient_feature |
+| `trn_` | SFX/Music | Transition sfx (sweep, build) | transition_in, transition_out |
+| `ui_`  | UI bus | Interface click-ovi | button_click, menu_open, coin_collect |
+| `vo_`  | Voice bus | Narator, callout | vo_big_win, vo_free_spins, vo_jackpot |
+
+---
+
+### Kompletna Stage Lista + Domeni
+
+```
+# -- SPIN LIFECYCLE ---------------------------------------------------------
+sfx_spin_start              Korisnik klikne SPIN dugme
+sfx_reel_spin               Loop dok se reel vrti (globalni fallback)
+sfx_reel_stop               Reel se zaustavio (globalni fallback)
+sfx_spin_end                Kraj kompletnog spin ciklusa
+
+# -- PER-REEL EVENTI (r0..r5) -----------------------------------------------
+# Svaki reel ima ZASEBAN stage. Broj rilova = GameModel.reelCount (dinamicki).
+# AutoBind automatski generise stage-ove po reelCount.
+sfx_reel_spin_r0            Reel 0 se vrti (loop)
+sfx_reel_spin_r1            Reel 1 se vrti (loop)
+sfx_reel_spin_r2            Reel 2 se vrti (loop)
+sfx_reel_spin_r3            Reel 3 se vrti (loop)
+sfx_reel_spin_r4            Reel 4 se vrti (loop)
+sfx_reel_spin_r5            Reel 5 se vrti (loop) [6-reel layout]
+
+sfx_reel_stop_r0            Reel 0 se zaustavio (stinger)
+sfx_reel_stop_r1            Reel 1 se zaustavio (stinger)
+sfx_reel_stop_r2            Reel 2 se zaustavio (stinger)
+sfx_reel_stop_r3            Reel 3 se zaustavio (stinger)
+sfx_reel_stop_r4            Reel 4 se zaustavio (stinger)
+sfx_reel_stop_r5            Reel 5 se zaustavio (stinger)
+
+# -- ANTICIPATION (per-reel) ------------------------------------------------
+sfx_anticipation_r0         Anticipation na reelu 0 (hold pre stop-a)
+sfx_anticipation_r1         Anticipation na reelu 1
+sfx_anticipation_r2         Anticipation na reelu 2
+sfx_anticipation_r3         Anticipation na reelu 3
+sfx_anticipation_r4         Anticipation na reelu 4
+sfx_anticipation_r5         Anticipation na reelu 5
+sfx_anticipation_on         Globalni anticipation signal (bez per-reel)
+sfx_anticipation_off        Kraj anticipation faze
+sfx_near_miss               Near miss resolucija
+
+# -- WIN LIFECYCLE ----------------------------------------------------------
+sfx_win_present             Mali win -- kratki stinger
+sfx_win_line_show           Win linija se prikazuje (po liniji)
+sfx_rollup_start            Pocinje rollup brojac
+sfx_rollup_tick             Tick sound tokom rollup-a (loop ili one-shot po cifri)
+sfx_rollup_end              Rollup zavrsen
+mus_big_win_start           Big win intro jingle (music bus)
+mus_big_win_end             Big win outro (music bus)
+
+# -- BIG WIN TIERS (1-5) ---------------------------------------------------
+mus_big_win_tier1           Win tier 1 (najmanji prag)
+mus_big_win_tier2           Win tier 2
+mus_big_win_tier3           Win tier 3
+mus_big_win_tier4           Win tier 4
+mus_big_win_tier5           Win tier 5 (jackpot nivo)
+
+# -- FEATURES --------------------------------------------------------------
+sfx_feature_enter           Ulaz u bonus/feature (stinger)
+sfx_feature_exit            Izlaz iz bonus/feature
+mus_free_spin_start         Free spins muzika pocinje
+mus_free_spin_end           Free spins muzika zavrsava
+sfx_free_spin_trigger       Trigger event (pre muzike)
+sfx_pick_bonus_start        Pick bonus pocetak
+sfx_pick_bonus_pick         Korisnik pickuje nesto
+sfx_pick_bonus_reveal       Reveal pick rezultata
+sfx_pick_bonus_end          Pick bonus kraj
+
+# -- SYMBOLS ---------------------------------------------------------------
+sfx_scatter_land_r0         Scatter landing na reelu 0 (per-reel stinger)
+sfx_scatter_land_r1         Scatter landing na reelu 1
+sfx_scatter_land_r2         Scatter landing na reelu 2
+sfx_scatter_land_r3         Scatter landing na reelu 3
+sfx_scatter_land_r4         Scatter landing na reelu 4
+sfx_scatter_land_r5         Scatter landing na reelu 5
+sfx_scatter_land            Globalni scatter land (fallback)
+sfx_wild_land               Wild symbol landing
+sfx_symbol_land             Generic symbol landing (HP1-HP8)
+sfx_hp_win_1                High pay symbol win (HP1)
+sfx_hp_win_2                High pay symbol win (HP2)
+sfx_hp_win_3                High pay symbol win (HP3)
+sfx_lp_win_1                Low pay symbol win (LP1)
+sfx_lp_win_2                Low pay symbol win (LP2)
+sfx_multiplier_reveal       Multiplier otkrivanje
+sfx_tumble_drop             Tumble mechanic -- simboli padaju (globalni)
+sfx_tumble_land             Tumble mechanic -- simboli slete (globalni)
+
+# -- TUMBLE / CASCADE (per-reel) -------------------------------------------
+sfx_tumble_drop_r0          Tumble drop na reelu 0
+sfx_tumble_drop_r1          Tumble drop na reelu 1
+sfx_tumble_drop_r2          Tumble drop na reelu 2
+sfx_tumble_drop_r3          Tumble drop na reelu 3
+sfx_tumble_drop_r4          Tumble drop na reelu 4
+sfx_tumble_drop_r5          Tumble drop na reelu 5
+sfx_tumble_land_r0          Tumble land na reelu 0
+sfx_tumble_land_r1          Tumble land na reelu 1
+sfx_tumble_land_r2          Tumble land na reelu 2
+sfx_tumble_land_r3          Tumble land na reelu 3
+sfx_tumble_land_r4          Tumble land na reelu 4
+sfx_tumble_land_r5          Tumble land na reelu 5
+
+# -- UI -------------------------------------------------------------------
+ui_button_click             Generic UI click
+ui_menu_open                Meni se otvara
+ui_menu_close               Meni se zatvara
+ui_coin_collect             Coin pickup sound
+ui_bet_change               Bet level promena
+ui_info_open                Info/paytable otvara
+
+# -- AMBIENT / MUSIC ------------------------------------------------------
+mus_music_base              Base game muzika (loop)
+mus_music_feature           Feature muzika (loop)
+amb_ambient_loop            Ambient atmosfera (loop)
+amb_ambient_feature         Ambient tokom feature-a
+
+# -- TRANSITIONS ----------------------------------------------------------
+trn_transition_in           Intro sweep (feature ulaz)
+trn_transition_out          Outro sweep (feature izlaz)
+```
+
+---
+
+### Varijante -- 3 Nivoa
+
+#### Nivo 1: Round-Robin Pool (a/b/c)
+Vise zvukova za isti event -- engine ih rotira nasumicno.
+```
+sfx_reel_stop_a.wav     ]
+sfx_reel_stop_b.wav     ] rotiraju se (round-robin)
+sfx_reel_stop_c.wav     ]
+
+sfx_scatter_land_a.wav  ]
+sfx_scatter_land_b.wav  ] rotiraju se
+```
+
+#### Nivo 2: Per-Reel Qualifier (r0..r5)
+Svaki reel ima sopstveni zvuk -- daje progressivni feel.
+Reel 0 = levi (dulji, dublje), Reel 4 = desni (kraci, vislje).
+```
+sfx_reel_stop_r0.wav    reel 0 (levi, prvi stop)
+sfx_reel_stop_r1.wav    reel 1
+sfx_reel_stop_r2.wav    reel 2 (sredina)
+sfx_reel_stop_r3.wav    reel 3
+sfx_reel_stop_r4.wav    reel 4 (desni, zadnji stop)
+```
+
+#### Nivo 3: ALE Adaptive Layer (calm/normal/intense/epic/ultra)
+Isti zvuk u 5 energetskih nivoa -- ALE sistem menja sloj prema gameplay intenzitetu.
+```
+mus_music_base_calm.wav    nema nedavnih win-ova
+mus_music_base_normal.wav  standardna igra
+mus_music_base_intense.wav streak, near miss
+mus_music_base_epic.wav    big win sequence
+mus_music_base_ultra.wav   jackpot/bonus nivo
+```
+
+#### Kombinovani format (per-reel + round-robin)
+```
+sfx_reel_stop_r2_b.wav      reel 2, varijanta b
+sfx_scatter_land_r0_a.wav   scatter na reelu 0, varijanta a
+sfx_reel_stop_r3_c_v2.wav   reel 3, varijanta c, verzija 2
+```
+
+---
+
+### Muzicki Slojevi (l1..l5)
+
+Muzicki loop se gradi od slojeva. ALE sistem fade-uje slojeve in/out.
+```
+mus_music_base_l1.wav   sloj 1 (piano/pad -- uvek aktivan)
+mus_music_base_l2.wav   sloj 2 (ritam)
+mus_music_base_l3.wav   sloj 3 (melodija)
+mus_music_base_l4.wav   sloj 4 (harmonija/leads)
+mus_music_base_l5.wav   sloj 5 (full orchestra/drama)
+```
+
+ALE aktivira slojeve prema tabeli:
+| ALE Level | Aktivni slojevi | Okidac |
+|-----------|-----------------|--------|
+| calm | l1 | 0 win-ova u posled. 10 spinova |
+| normal | l1 + l2 | standardna igra |
+| intense | l1 + l2 + l3 | streak 3+, near miss |
+| epic | l1 + l2 + l3 + l4 | big win in progress |
+| ultra | svi (l1..l5) | jackpot / bonus feature |
+
+---
+
+### Per-Reel Eventing -- Engine Implementacija
+
+Broj rilova je **dinamicki** -- cita se iz `GameModel.reelCount`.
+
+```dart
+// AutoBindEngine generisanje per-reel stage-ova (dinamicki)
+for (int r = 0; r < gameModel.reelCount; r++) {
+  stages.addAll([
+    'REEL_SPIN_R$r',
+    'REEL_STOP_R$r',
+    'ANTICIPATION_R$r',
+    'SCATTER_LAND_R$r',
+    'FS_SCATTER_LAND_R$r',    // scatter tokom free spins
+    'TUMBLE_DROP_R$r',
+    'TUMBLE_LAND_R$r',
+  ]);
+}
+```
+
+FFNC -> Stage mapping primeri:
+| FFNC Fajl | Stage ID | Napomena |
+|-----------|----------|----------|
+| `sfx_reel_stop_r0.wav` | `REEL_STOP_R0` | per-reel, reel 0 |
+| `sfx_reel_stop_r1.wav` | `REEL_STOP_R1` | per-reel, reel 1 |
+| `sfx_anticipation_r2.wav` | `ANTICIPATION_R2` | per-reel, reel 2 |
+| `sfx_scatter_land_r3_a.wav` | `SCATTER_LAND_R3` pool[a] | per-reel + round-robin |
+| `mus_music_base_l2.wav` | `MUSIC_BASE` layer=2 | ALE muzicki sloj |
+| `mus_music_base_intense.wav` | `MUSIC_BASE` ale=intense | ALE nivo |
+| `sfx_reel_stop_a.wav` | `REEL_STOP` pool[a] | globalni, round-robin |
+| `sfx_reel_stop.wav` | `REEL_STOP` | globalni, jedina varijanta |
+
+---
+
+### AutoBind Scoring (po prioritetu)
+
+| # | Metoda | Score | Match uslov | Primer |
+|---|--------|-------|-------------|--------|
+| 1 | **FFNC Prefix** | 100 | `<domain>_<stage>` tacni match | `sfx_reel_stop.wav` |
+| 2 | **Exact Alias** | 90 | snake_case normalizacija match | `reelstop.wav` |
+| 3 | **Prefix Alias** | 80 | longest-prefix alias | `reel_stop_v2_final.wav` |
+| 4 | **Glued Alias** | 75 | alias match bez `_` | `reelstoptick.wav` |
+| 5 | **NofM** | 78 | `3of5` pattern -> indeks | `stop3of5.wav` |
+| 6 | **Multiplier** | 77 | `2x` pattern | `2x_reveal.wav` |
+| 7 | **WinTier** | 76 | `win3`, `tier3` | `tier_3_win.wav` |
+| 8 | **SymbolPay** | 74 | `hp1`, `lp2` | `hp1_win.wav` |
+| 9 | **Fuzzy Token** | 65 | Levenshtein < 3 | `reel_stopp.wav` |
+| 10 | **Manual** | 100 | Korisnik rucno dodelio | (dialog) |
+
+---
+
+### Primeri Kompletnih Setova
+
+**Minimalni set (5-reel slot, bez varijanti):**
+```
+sfx_spin_start.wav
+sfx_reel_stop_r0.wav  sfx_reel_stop_r1.wav  sfx_reel_stop_r2.wav
+sfx_reel_stop_r3.wav  sfx_reel_stop_r4.wav
+sfx_win_present.wav
+sfx_rollup_tick.wav
+sfx_rollup_end.wav
+mus_big_win_start.wav
+mus_big_win_tier1.wav  mus_big_win_tier2.wav  mus_big_win_tier3.wav
+mus_music_base.wav
+amb_ambient_loop.wav
+sfx_scatter_land.wav
+mus_free_spin_start.wav
+ui_button_click.wav
+```
+
+**Produkcijski set (5-reel, round-robin + ALE slojevi):**
+```
+sfx_reel_stop_r0_a.wav  sfx_reel_stop_r0_b.wav  sfx_reel_stop_r0_c.wav
+sfx_reel_stop_r1_a.wav  sfx_reel_stop_r1_b.wav
+sfx_reel_stop_r2_a.wav  sfx_reel_stop_r2_b.wav
+sfx_reel_stop_r3_a.wav  sfx_reel_stop_r3_b.wav
+sfx_reel_stop_r4_a.wav  sfx_reel_stop_r4_b.wav  sfx_reel_stop_r4_c.wav
+sfx_scatter_land_r0_a.wav  sfx_scatter_land_r0_b.wav
+sfx_anticipation_r0.wav ... sfx_anticipation_r4.wav
+mus_music_base_l1.wav   mus_music_base_l2.wav   mus_music_base_l3.wav
+mus_music_base_l4.wav   mus_music_base_l5.wav
+mus_music_base_calm.wav mus_music_base_normal.wav
+mus_music_base_intense.wav  mus_music_base_epic.wav  mus_music_base_ultra.wav
+```
+---
+
+## FFNC v3 — Stage Registry (Kanonska Lista)
+
+> Ovo je **jedina** tačna lista stage-ova. AutoBind engine, ultimate_audio_panel, i slot_audio_events.dart moraju biti u sinhronizaciji sa ovom listom.
+>
+> Format fajla: `<stage>.wav` (ili `<stage>_rN.wav` per-reel, `<stage>_tN.wav` tier)
+> Varijante idu u **folder** istog naziva: `reel_stop/01.wav`, `reel_stop/02.wav`
+
+---
+
+### 🎰 SPIN CORE
+
+```
+spin_start              Korisnik pritisne Spin dugme (UI event, kratki click stinger)
+reel_spin               Reeli se vrte — globalni loop (fallback ako nema per-reel)
+reel_spin_r0..r5        Per-reel spin loop — poseban zvuk po reelu (levi sporiji, desni brži)
+reel_stop               Reel se zaustavio — globalni fallback stinger
+reel_stop_r0..r5        Per-reel stop stinger — poseban po reelu (progresivna tenzija)
+spin_end                Svi reeli stali, evaluacija počinje (tihi transition beat)
+turbo_spin              Turbo/fast spin loop (brža verzija reel_spin)
+```
+
+*Napomena: `reel_spin_r0..r5` i `reel_stop_r0..r5` se generišu dinamički na osnovu `GameModel.reelCount`.*
+
+### ⚡ ANTICIPATION
+
+```
+anticipation_start          Tenzija počinje (scatter/bonus simbol se pojavio na ranom reelu)
+anticipation_start_r0..r5   Per-reel — koji reel je okidač tenzije
+anticipation_miss           Razrešeno neuspešno (scatter/bonus nije kompletiran)
+```
+
+*Napomena: `anticipation_end` NE POSTOJI — kad anticipation uspe, sledeći event u lancu (`fs_start`, `bonus_trigger`) automatski signalizira kraj. Flow: `anticipation_start → scatter_land_r3 → fs_start` ili `anticipation_start → anticipation_miss`.*
+
+### 🏆 WIN PRESENTATION
+
+```
+win_present_low         Sub-bet win (tier -1, < 1x bet)
+win_present_equal       Push win (tier 0, = 1x bet)
+win_present_1..N        Dinamički tierovi — koliko igra ima, toliko stage-ova (ALE fine-tune unutar tiera)
+win_payline             Zvuk za svaku dobitnu liniju (payline highlight)
+win_collect             Collect / Skip
+big_win_trigger         Najava big win-a — stinger PRE big win sekvence
+big_win_tier_1..N       Big win tierovi — dinamički, potpuno različite sekvence po tieru
+```
+
+*Napomena: NEMA `win_small`, `win_big`, `win_epic` ��� to su hardkodirani nazivi. Tierovi se generišu iz `WinTierConfig` — svaka igra može imati drugačiji broj. ALE moduliše intenzitet UNUTAR tiera (npr. win_present_3 sa 5x vs 7x bet-om zvuči malo drugačije), ali NE zamenjuje tierove. `win_eval` je backend-only (nema zvuka). `win_end` ne postoji — sledeći spin preuzima.*
+
+### 🔄 ROLLUP
+
+```
+rollup_start            Počinje rollup brojač
+rollup_tick             Tick zvuk dok broji (loop)
+rollup_end              Rollup završen — slam stinger
+rollup_skip             Korisnik skipuje rollup
+```
+
+*Napomena: `WinTierConfig` generiše `rollup_start_1..N`, `rollup_tick_1..N`, `rollup_end_1..N` po tieru — sound dizajner može imati različit rollup zvuk po win tier-u. Fallback: globalni `rollup_start/tick/end`.*
+
+### 🎡 FREE SPINS (fs_)
+
+```
+fs_trigger              Scatter completed, FS počinju
+fs_start                Tranzicija u FS mode (muzika + vizual)
+fs_spin_start           FS spin start
+fs_reel_spin            FS reel loop (drugačiji od BG)
+fs_reel_spin_r0..r5     FS per-reel spin
+fs_reel_stop            FS reel stop
+fs_reel_stop_r0..r5     FS per-reel stop
+fs_anticipation_start   FS anticipation (retrigger tenzija)
+fs_anticipation_miss    FS anticipation miss
+fs_win_present_1..N     FS win tierovi (ako su drugačiji od BG)
+fs_win_payline          FS payline highlight
+fs_retrigger            Retrigger — novi FS dodati
+fs_end                  FS završeni + total win summary
+```
+
+*Napomena: Ako nema fs_ override, engine koristi BG fallback automatski.*
+
+### 🔒 HOLD & WIN (hw_)
+
+```
+hw_trigger              H&W aktiviran
+hw_start                Tranzicija u H&W
+hw_reel_spin            H&W respin loop
+hw_reel_stop            H&W respin stop
+hw_symbol_land          Simbol se lepi na grid
+hw_grid_full            Svi positioni popunjeni
+hw_end                  H&W završen
+```
+
+### 🎯 PICK FEATURE (pick_)
+
+```
+pick_trigger            Pick aktiviran
+pick_start              Pick ekran
+pick_hover              Hover
+pick_select             Izbor
+pick_reveal             Reveal
+pick_end                Pick završen
+```
+
+### 🎡 WHEEL FEATURE (wheel_)
+
+```
+wheel_trigger           Wheel aktiviran
+wheel_start             Wheel ekran
+wheel_spin              Točak loop
+wheel_tick              Tick po segmentu
+wheel_slow              Usporava
+wheel_land              Stao
+wheel_end               Wheel završen
+```
+
+### 🌊 CASCADE (cascade_)
+
+```
+cascade_start           Cascade počinje
+cascade_pop             Simboli pucaju
+cascade_drop            Novi padaju
+cascade_land            Sleteli
+cascade_end             Cascade završen
+```
+
+### 🎲 GAMBLE (gamble_)
+
+```
+gamble_trigger          Gamble dostupan
+gamble_start            Ulazak
+gamble_pick             Bira
+gamble_win              Dobio
+gamble_lose             Izgubio
+gamble_collect          Izlazi
+```
+
+### 💎 JACKPOT (jackpot_)
+
+```
+jackpot_trigger         Jackpot aktiviran
+jackpot_tier_1..N       Tier reveal (dinamički)
+jackpot_award           Iznos prikazan
+jackpot_end             Završeno
+```
+
+*Napomena: Svaki feature ima kompletne zvukove. Ako za feature nema custom zvuk, BG fallback se koristi automatski. Feature prefiks (`fs_`, `hw_`, `pick_`, itd.) je namespace — folder struktura prati isti pattern.*
+
+### 🔘 UI
+
+```
+ui_button_click         Generički button click
+ui_select               Selekcija (generički)
+ui_bet_up               Bet gore
+ui_bet_down             Bet dole
+ui_bet_max              Max bet
+ui_autoplay_select      Autoplay izbor broja spinova
+ui_autoplay_start       Autoplay uključen
+ui_autoplay_stop        Autoplay isključen
+ui_menu_open            Meni otvoren
+ui_menu_close           Meni zatvoren
+ui_info_open            Paytable/info otvoren
+ui_toggle               Toggle on/off
+```
+
+### 🎵 MUSIC
+
+```
+mus_base_game_loop              Base game muzika (loop)
+mus_free_spins_loop             Free spins muzika (loop)
+mus_free_spins_loop_end         Free spins muzika outro
+mus_hold_and_win_loop           Hold & Win muzika (loop)
+mus_hold_and_win_loop_end       Hold & Win muzika outro
+mus_pick_feature_loop           Pick feature muzika (loop)
+mus_pick_feature_loop_end       Pick feature muzika outro
+mus_wheel_feature_loop          Wheel feature muzika (loop)
+mus_wheel_feature_loop_end      Wheel feature muzika outro
+mus_big_win_loop                Big win muzika (loop)
+mus_big_win_loop_end            Big win muzika outro
+mus_jackpot_loop                Jackpot muzika (loop)
+mus_jackpot_loop_end            Jackpot muzika outro
+mus_gamble_loop                 Gamble muzika (loop)
+mus_gamble_loop_end             Gamble muzika outro
+```
+
+*Napomena: Base game ima samo `_loop`, nema `_loop_end` — BG muzika se nikad ne završava outrom, samo fade ili tranzicija. Svaki feature kontekst ima par: `_loop` (beskonačan loop tokom feature-a) + `_loop_end` (outro kad feature završi).*
+
+### 🌫️ AMBIENT
+
+```
+amb_base_game_loop      Base game ambient bed (loop)
+amb_free_spins_loop     Free spins ambient (loop)
+amb_feature_loop        Feature ambient (loop, generički fallback)
+```
+
+### 🔀 TRANSITIONS
+
+```
+trn_base_to_free_spins          BG → Free Spins
+trn_free_spins_to_base          Free Spins → BG
+trn_base_to_hold_and_win        BG → Hold & Win
+trn_hold_and_win_to_base        Hold & Win → BG
+trn_base_to_pick_feature        BG → Pick Feature
+trn_base_to_wheel_feature       BG → Wheel Feature
+trn_wheel_feature_to_base       Wheel Feature → BG
+trn_base_to_gamble              BG → Gamble
+trn_gamble_to_base              Gamble → BG
+trn_base_to_jackpot             BG → Jackpot
+trn_jackpot_to_base             Jackpot → BG
+```
+
+*Napomena: Svaki feature ima svoj tranzicioni par (in + out). Ako za feature nema custom tranzicija, engine koristi generički crossfade.*
+
+---
+
+## Sonic DNA Classifier — Zero-Click Sound Placement (TODO)
+
+### Cilj
+Korisnik prevuče folder sa BILO KAKVIM imenima zvukova → algoritam **autonomno klasifikuje** svaki zvuk po akustičkom sadržaju → **preimenuje** u FFNC format → **rasporedi** u tačne stage-ove. ZERO klikova, ZERO inputa.
+
+### Layer 1: Spectral Fingerprint (rf-dsp — VEĆ POSTOJI)
+
+7 feature vektora za svaki zvuk:
+
+| Feature | Šta meri | Diskriminativnost |
+|---------|----------|-------------------|
+| Duration | kratko/srednje/dugo | Razdvaja click (<200ms) od fanfare (>2s) |
+| RMS Energy | tiho/srednje/glasno | Razdvaja ambient od win |
+| Spectral Centroid | bass/mid/treble | Razdvaja scatter (high) od reel (mid) |
+| Transient Density | klik/sustain/pad | Razdvaja hit od loop |
+| Zero Crossing Rate | noise/tonal | Razdvaja metalic ping od muzike |
+| Spectral Flux | static/dynamic | Razdvaja ambient od evolving win |
+| Envelope Shape | attack/decay profil | Razdvaja impulse od buildup |
+
+### Layer 2: Slot Sound Taxonomy (NOVO — treba implementirati)
+
+Hardcoded akustički profili za svaki stage type:
+
+| Stage Type | Duration | Energy | Centroid | Transient | Envelope | Dodatno |
+|------------|----------|--------|----------|-----------|----------|---------|
+| REEL_SPIN | 50-300ms | LOW-MED | MID | HIGH | sharp_attack, fast_decay | repetitivni pattern boost |
+| REEL_STOP | 100-500ms | MED | LOW-MID | SINGLE_SPIKE | sharp_attack, medium_decay | — |
+| SCATTER_HIT | 200-800ms | MED-HIGH | HIGH (>4kHz) | HIGH | sharp_attack, long_tail | ZCR HIGH (metallic) |
+| BIG_WIN | 2-8s | HIGH | WIDE_BAND | LOW | building/sustained | spectral flux HIGH |
+| SMALL_WIN | 500ms-2s | MED | MID-HIGH | LOW-MED | quick_burst | — |
+| BUTTON_CLICK | 20-150ms | LOW | MID-HIGH | SINGLE | impulse | — |
+| AMBIENT_LOOP | >3s | LOW | LOW-MID | VERY_LOW | flat/no_attack | spectral flux VERY_LOW |
+| BONUS_TRIGGER | 500ms-1.5s | HIGH | MID-HIGH | MED | dramatic_attack | ZCR MED-HIGH |
+| MULTIPLIER | 300ms-1.2s | MED-HIGH | MID-HIGH | MED | building_crescendo | rising sweep |
+| FREE_SPIN_START | 1-3s | MED-HIGH | WIDE | MED | fanfare_shape | spectral flux HIGH |
+| MUSIC_BASE | >5s | LOW-MED | LOW-MID | VERY_LOW | flat | harmonic ratio test |
+| MUSIC_FEATURE | >3s | MED | MID | LOW | sustained | harmonic ratio test |
+
+**Matching:** Weighted Euclidean distance između zvukovog feature vektora i svakog profila. Najbliži profil = klasifikacija.
+
+### Layer 3: Intelligent Placement Engine (NOVO — treba implementirati)
+
+**Korak 1 — Score Matrix:** Svaki zvuk × svaki stage type → distance score matrica.
+
+**Korak 2 — Hungarian Algorithm:** Optimalno dodeljivanje (maksimizuj ukupni score). Rešava konflikte kad 2 zvuka žele isti slot.
+
+**Korak 3 — Variant Detection:** Ako 5 zvukova svi matchuju REEL_STOP → automatski `reel_stop_1` ... `reel_stop_5`.
+
+**Korak 4 — Gap Analysis:** Posle placement-a, lista stage-ova koji nemaju zvuk → ghost slots u NeuralBindOrb.
+
+**Korak 5 — Auto-Rename + Place:** `boom.wav` → `big_win_tier1.wav`, `click.wav` → `reel_spin.wav` — FFNC-compliant, na disk, gotovo.
+
+### Napredne tehnike (Layer 2 proširenja)
+
+| Tehnika | Šta radi | Implementacija |
+|---------|----------|----------------|
+| **Contextual Set Inference** | Gleda ceo folder kao set, ne individualne zvukove | Cluster analysis po duration/timbre sličnosti |
+| **Harmonic vs Transient Topology** | FFT peak ratio test — muzika ima pravilne harmonike (1:2:3:4), SFX nema | Deterministička matematika, ~97% accuracy |
+| **Temporal Periodicity Score** | Detektuje loop-able zvukove po periodičnom transient patternu | Jedan FFT prolaz → auto `_LOOP` tag |
+| **Energy Trajectory Classifier** | Envelope integracija: raste=buildup, spada=stinger, ravan=ambient, spike+decay=hit | 4 kategorije pokrivaju 90%+ slot zvukova |
+
+### Šta postoji vs šta treba
+
+| Komponenta | Status | Lokacija |
+|------------|--------|----------|
+| SpectralDNA (7 ekstrahtora) | ✅ POSTOJI | `crates/rf-dsp/` |
+| NeuralBindOrb (drag-to-bind UI) | ✅ POSTOJI | `flutter_ui/lib/widgets/slot_lab/neural_bind_orb.dart` |
+| AutoBindEngine scoring | ✅ POSTOJI | `flutter_ui/lib/services/auto_bind/auto_bind_engine.dart` |
+| Slot stage definicije | ✅ POSTOJI | `flutter_ui/lib/models/slot_audio_events.dart` |
+| SonicClassifier (taxonomy profili + distance) | ❌ TREBA | `crates/rf-dsp/src/sonic_classifier.rs` (~300 LOC) |
+| PlacementSolver (Hungarian + variants + gaps) | ❌ TREBA | `crates/rf-dsp/src/placement_solver.rs` (~200 LOC) |
+| SonicClassifier FFI | ❌ TREBA | `crates/rf-bridge/src/sonic_ffi.rs` |
+| Dart SonicClassifierProvider | ❌ TREBA | `flutter_ui/lib/providers/sonic_classifier_provider.dart` |
+| NeuralBindOrb ring vizualizacija za classified zvukove | ❌ TREBA | upgrade `neural_bind_orb.dart` |
+
+### User Flow (finalni)
+
+```
+1. Korisnik selektuje folder sa 30 zvukova (BILO KAKVA imena)
+2. Prevuče na NeuralBindOrb
+3. Orb → ANALYZING (cyan sweep, 200-400ms)
+4. Zvukovi "lete" u ringove po boji (spin=plava, win=zlatna, scatter=cyan)
+5. Orb → DONE (zeleni flash)
+6. Rezultat:
+   ✓ Svaki zvuk klasifikovan po akustičkom sadržaju
+   ✓ Preimenovan u FFNC format
+   ✓ Raspoređen u tačan stage
+   ✓ Varijante automatski numerisane
+   ✓ Gap analysis prikazuje šta fali
+   ZERO CLICKS. ZERO INPUT.
+```
+
+**Procenjena tačnost:** 85-92% za pravilno snimljene slot zvukove (deterministička fizika, ne ML).
+
+**Ovo ne postoji NIGDE** — nijedan DAW, nijedan slot tool, ništa na svetu nema akustičku klasifikaciju sa automatskim placement-om.
+
+---
+
 ## DAW Industrija — Istraživanje za Flux Nadogradnju
 
 > Ovo je referenca za buduće odluke. Kad pravimo novu feature — pogledamo ovde šta industrija radi pogrešno i kako Flux može bolje.

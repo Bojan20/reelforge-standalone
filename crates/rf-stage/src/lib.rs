@@ -10,6 +10,7 @@
 //!
 //! This crate defines these universal stages and provides timing resolution.
 
+pub mod audio_naming;
 pub mod event;
 pub mod stage;
 pub mod stage_library;
@@ -17,6 +18,7 @@ pub mod taxonomy;
 pub mod timing;
 pub mod trace;
 
+pub use audio_naming::*;
 pub use event::*;
 pub use stage::*;
 pub use stage_library::*;
