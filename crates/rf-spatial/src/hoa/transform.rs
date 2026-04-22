@@ -528,7 +528,7 @@ fn wigner_d_real(l: usize, beta: f32) -> Vec<Vec<f32>> {
     let j = l as i64;
 
     // Pre-compute factorials (up to 2*l which is max 14 for order 7)
-    let max_fact = (2 * l + 1) as usize;
+    let max_fact = 2 * l + 1;
     let mut fact = vec![1.0_f64; max_fact + 1];
     for i in 1..=max_fact {
         fact[i] = fact[i - 1] * i as f64;

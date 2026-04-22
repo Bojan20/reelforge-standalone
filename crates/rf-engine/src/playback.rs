@@ -1854,9 +1854,9 @@ impl<T> AudioThreadCell<T> {
 
     /// Get exclusive mutable access. SAFETY: caller must ensure single-thread access.
     #[inline(always)]
-    unsafe fn get_mut(&self) -> &mut T {
+    unsafe fn get_mut(&self) -> &mut T { unsafe {
         &mut *self.0.get()
-    }
+    }}
 }
 
 /// Main playback engine for timeline audio
@@ -5670,11 +5670,12 @@ impl PlaybackEngine {
         }
 
         // === HOOK GRAPH ENGINE ===
-        // Process graph commands and render graph voices into output.
+        // Process graph commands and render graph voices into bus buffers.
+        // Each voice routes to its assigned bus (SFX, Music, VO, etc.).
         // Runs regardless of transport state (same as one-shot voices).
         if let Some(ref hg_engine) = self.hook_graph_engine
             && let Some(mut engine) = hg_engine.try_write() {
-                engine.process(output_l, output_r, frames);
+                engine.process_into_buses(bus_buffers, frames);
             }
 
         // === LOCK-FREE PARAM CONSUMPTION ===

@@ -21,6 +21,15 @@ impl AudioBuffer {
         }
     }
 
+    /// Create buffer filled with a constant value (both channels)
+    pub fn with_constant(frames: usize, value: f32) -> Self {
+        Self {
+            left: vec![value; frames],
+            right: vec![value; frames],
+            frames,
+        }
+    }
+
     pub fn clear(&mut self) {
         self.left.fill(0.0);
         self.right.fill(0.0);
@@ -39,6 +48,19 @@ pub struct NodeContext<'a> {
     pub frames: usize,
     pub tempo: f64,
     pub params: &'a HashMap<String, f64>,
+}
+
+impl<'a> Default for NodeContext<'a> {
+    fn default() -> Self {
+        static EMPTY_PARAMS: std::sync::LazyLock<HashMap<String, f64>> =
+            std::sync::LazyLock::new(HashMap::new);
+        Self {
+            sample_rate: 48000,
+            frames: 256,
+            tempo: 120.0,
+            params: &EMPTY_PARAMS,
+        }
+    }
 }
 
 /// Trait for audio-rate graph nodes (Rust side)

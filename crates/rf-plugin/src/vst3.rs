@@ -1645,7 +1645,7 @@ struct IEditControllerVtable {
 /// Load GetPluginFactory from a VST3 binary and return (IPlugView ptr, library).
 /// Caller owns both the plug_view COM reference and the library handle.
 /// Library MUST be kept alive while plug_view is in use.
-unsafe fn vst3_load_plug_view(plugin_path: &Path, plugin_name: &str) -> Option<(*mut c_void, Arc<libloading::Library>)> {
+unsafe fn vst3_load_plug_view(plugin_path: &Path, plugin_name: &str) -> Option<(*mut c_void, Arc<libloading::Library>)> { unsafe {
     // Determine actual binary path inside .vst3 bundle
     let binary_path = {
         #[cfg(target_os = "windows")]
@@ -1704,7 +1704,7 @@ unsafe fn vst3_load_plug_view(plugin_path: &Path, plugin_name: &str) -> Option<(
 
     let lib = Arc::new(lib);
     Some((plug_view, lib))
-}
+}}
 
 #[cfg(target_os = "windows")]
 impl Vst3Host {

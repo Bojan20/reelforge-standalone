@@ -1024,7 +1024,7 @@ impl Lv2PluginInstance {
         // ── UI extension: check if plugin has a GUI ───────────────────────
         let has_ui = desc.ui_binary_name.is_some();
         // Verify UI binary actually exists before advertising has_editor=true
-        let has_ui = has_ui && desc.ui_bundle_path.as_ref().map_or(false, |bp| {
+        let has_ui = has_ui && desc.ui_bundle_path.as_ref().is_some_and(|bp| {
             let binary = desc.ui_binary_name.as_ref().unwrap();
             bp.join(binary).exists()
         });
@@ -1676,8 +1676,8 @@ impl PluginInstance for Lv2PluginInstance {
         }
         // Query the resize extension from the UI
         unsafe {
-            if !self.ui_descriptor.is_null() {
-                if let Some(ext_data) = (*self.ui_descriptor).extension_data {
+            if !self.ui_descriptor.is_null()
+                && let Some(ext_data) = (*self.ui_descriptor).extension_data {
                     let uri = std::ffi::CString::new(LV2_UI_RESIZE_URI).unwrap_or_default();
                     let ptr = ext_data(uri.as_ptr());
                     if !ptr.is_null() {
@@ -1690,7 +1690,6 @@ impl PluginInstance for Lv2PluginInstance {
                         return Ok(());
                     }
                 }
-            }
         }
         // Fallback: just update cached size
         self.ui_width = width;

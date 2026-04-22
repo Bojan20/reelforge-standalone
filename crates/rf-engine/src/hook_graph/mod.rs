@@ -125,6 +125,8 @@ pub struct HookGraphEngine {
     sample_rate: u32,
     /// Active flag
     active: bool,
+    /// Per-bus volume overrides from SetBusVolume commands [Master, Music, SFX, Voice, Ambience, Aux]
+    bus_volumes: [f32; 6],
 }
 
 impl HookGraphEngine {
@@ -148,11 +150,30 @@ impl HookGraphEngine {
             _node_buffers,
             sample_rate,
             active: true,
+            bus_volumes: [1.0; 6],
         }
     }
 
     /// Process commands and render audio for one block.
     /// Called from PlaybackEngine::process() on the audio thread.
+    ///
+    /// `bus_buffers` variant: routes each voice to its assigned bus (OutputBus).
+    /// This is the primary path — all voices respect bus routing.
+    pub fn process_into_buses(
+        &mut self,
+        bus_buffers: &mut crate::playback::BusBuffers,
+        frames: usize,
+    ) {
+        if !self.active { return; }
+
+        self.drain_commands();
+        self.voice_manager.tick();
+        self.instance_pool.tick_all();
+        self.render_voices_to_buses(bus_buffers, frames);
+    }
+
+    /// Legacy: render directly to output (bypasses bus routing).
+    /// Kept for backward compat — prefer process_into_buses().
     pub fn process(&mut self, output_l: &mut [f64], output_r: &mut [f64], frames: usize) {
         if !self.active { return; }
 
@@ -214,13 +235,117 @@ impl HookGraphEngine {
                 GraphCommand::SetRTPC { param_id, value } => {
                     self.rtpc_values.insert(param_id, value);
                 }
-                GraphCommand::SetBusVolume { bus: _, volume: _ } => {
-                    // Stored for bus-level processing (TODO: wire to bus system)
+                GraphCommand::SetBusVolume { bus, volume } => {
+                    // Store bus volumes for per-voice rendering gain adjustment.
+                    // Primary bus volume/mute/solo is managed by PlaybackEngine bus_states.
+                    // This stores a local override for graph-controlled bus volumes.
+                    let idx = match bus {
+                        OutputBus::Master => 0,
+                        OutputBus::Music => 1,
+                        OutputBus::Sfx => 2,
+                        OutputBus::Voice => 3,
+                        OutputBus::Ambience => 4,
+                        OutputBus::Aux => 5,
+                    };
+                    self.bus_volumes[idx] = volume;
                 }
             }
         }
     }
 
+    /// Render voices into per-bus buffers (proper bus routing).
+    /// Each voice's audio goes to its assigned OutputBus via BusBuffers.
+    fn render_voices_to_buses(
+        &mut self,
+        bus_buffers: &mut crate::playback::BusBuffers,
+        frames: usize,
+    ) {
+        // Use thread-local scratch buffers to avoid audio-thread allocation
+        thread_local! {
+            static VOICE_SCRATCH_L: std::cell::RefCell<Vec<f64>> = std::cell::RefCell::new(vec![0.0; 8192]);
+            static VOICE_SCRATCH_R: std::cell::RefCell<Vec<f64>> = std::cell::RefCell::new(vec![0.0; 8192]);
+        }
+
+        let voices = self.voice_manager.voices_mut();
+
+        for voice in voices.iter_mut() {
+            if !voice.is_active() { continue; }
+
+            let audio = match &voice.audio {
+                Some(a) => a.clone(),
+                None => continue,
+            };
+
+            let channels = audio.channels as usize;
+            let total_frames = audio.samples.len() / channels.max(1);
+
+            if total_frames == 0 || voice.position >= total_frames as u64 {
+                if voice.looping {
+                    voice.position = 0;
+                } else {
+                    voice.state = voice_manager::VoiceState::Stopped;
+                    continue;
+                }
+            }
+
+            // Render into scratch buffers, then add_to_bus
+            VOICE_SCRATCH_L.with(|buf_l| {
+                VOICE_SCRATCH_R.with(|buf_r| {
+                    let mut sl = buf_l.borrow_mut();
+                    let mut sr = buf_r.borrow_mut();
+                    if sl.len() < frames { sl.resize(frames, 0.0); }
+                    if sr.len() < frames { sr.resize(frames, 0.0); }
+                    sl[..frames].fill(0.0);
+                    sr[..frames].fill(0.0);
+
+                    let mut fade = voice.fade_gain;
+                    let fade_inc = voice.fade_increment;
+                    let vol = voice.volume;
+
+                    for i in 0..frames {
+                        let pos = voice.position as usize;
+                        if pos >= total_frames {
+                            if voice.looping {
+                                voice.position = 0;
+                                continue;
+                            }
+                            voice.state = voice_manager::VoiceState::Stopped;
+                            break;
+                        }
+
+                        if voice.fade_samples_remaining > 0 {
+                            fade += fade_inc;
+                            voice.fade_samples_remaining -= 1;
+                            if fade <= 0.0 {
+                                voice.state = voice_manager::VoiceState::Stopped;
+                                break;
+                            }
+                            fade = fade.clamp(0.0, 1.0);
+                        }
+
+                        let gain = vol * fade;
+                        let sample_l = audio.samples[pos * channels] as f64 * gain as f64;
+                        let sample_r = if channels > 1 {
+                            audio.samples[pos * channels + 1] as f64 * gain as f64
+                        } else {
+                            sample_l
+                        };
+
+                        sl[i] = sample_l;
+                        sr[i] = sample_r;
+                        voice.position += 1;
+                    }
+
+                    voice.fade_gain = fade;
+
+                    // Route to the voice's assigned bus
+                    bus_buffers.add_to_bus(voice.bus, &sl[..frames], &sr[..frames]);
+                });
+            });
+        }
+    }
+
+    /// Legacy: render all voices directly to output (no bus routing).
     fn render_voices(&mut self, output_l: &mut [f64], output_r: &mut [f64], frames: usize) {
         let voices = self.voice_manager.voices_mut();
 

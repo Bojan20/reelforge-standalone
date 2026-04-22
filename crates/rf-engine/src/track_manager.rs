@@ -3899,12 +3899,11 @@ impl TrackManager {
             // If clip is shorter than min silence duration, check if it's all silence
             if clip_dur <= min_silence_sec {
                 // Short clip — check peak via gain. If gain is near-zero, mute it.
-                if let Some(clip) = self.clips.get(clip_id) {
-                    if clip.gain < threshold_linear {
+                if let Some(clip) = self.clips.get(clip_id)
+                    && clip.gain < threshold_linear {
                         self.delete_clip(*clip_id);
                         removed_count += 1;
                     }
-                }
                 continue;
             }
 

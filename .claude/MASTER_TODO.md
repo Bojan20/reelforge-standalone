@@ -682,6 +682,104 @@ Poslednje fixovano (2026-04-21): #15 (otool detection), #22 (wgpu poll logging),
 - ~~Implementirati agent CLAUDE.md + MEMORY.md + rules za svakog od 25 agenata~~
 - 25 agenata (0-24), 50 fajlova (CLAUDE.md + MEMORY.md svaki), u `.claude/agents/`
 
+### Audio Pipeline — ✅ KOMPLETNO (2026-04-22)
+- ~~Stage→Asset naming~~ ✅ — `rf-stage/src/audio_naming.rs` (450+ LOC, 13 testova)
+- ~~FFI bridge (4 funkcije)~~ ✅ — `rf-bridge/src/slot_lab_ffi.rs` (resolve_audio_assets, resolve_stage_audio, get_canonical_asset_ids, audio_coverage)
+- ~~Dart FFI bindings~~ ✅ — `flutter_ui/lib/src/rust/slot_lab_v2_ffi.dart` (4 metode)
+- ~~StageAudioMapper 3-tier wiring~~ ✅ — `flutter_ui/lib/services/stage_audio_mapper.dart` (user→Rust→legacy fallback)
+- ~~BUG #14 AudioThreadCell~~ ✅ — `rf-engine/src/playback.rs` (RwLock→AudioThreadCell, zero silent frames)
+
+### OrbMixer — Radijalni Audio Mixer (TODO)
+
+> Kompaktan futuristički mixer u jednom krugu (120×120px). Zamenjuje DAW channel strips.
+> **Ovo ne postoji NIGDE** — ni Wwise, ni FMOD, ni Pro Tools.
+> Kompletna arhitektura: `docs/architecture/ORBMIXER_ARCHITECTURE.md`
+
+**3 nivoa interakcije:**
+
+| Nivo | Šta se vidi | Aktivacija |
+|------|-------------|------------|
+| 1: Orbit View | 6 bus tačaka + Master centar (120×120px) | Default |
+| 2: Bus Expand | Individualni zvukovi unutar busa (voice dots) | Tap na bus dot |
+| 3: Sound Detail | Per-voice parametri (vol/pan/pitch/HPF/LPF/send) arc slideri | Long-press na voice dot |
+
+**Vizualni parametri (Nivo 1):** udaljenost=volume, ugao=pan, veličina=peak, boja=kategorija, glow=solo, dim=muted
+
+**Gestovi:** drag radijalno=volume, drag kružno=pan, click=solo, right-click=mute, scroll=fine vol, hover=tooltip
+
+**4 vizuelna sloja:**
+- Ghost Trails — bledi trag prethodne pozicije (2s), dupli tap=undo
+- Magnetic Snap Groups — linkovanje zvukova u klaster, pinch za razdvajanje
+- Frequency Heatmap — živa spektralna pozadina (bass=crveno centar, treble=plavo ivica)
+- Timeline Scrub Ring — spoljašnji prsten, replay mixa poslednjih 30s
+
+**Slot-specific:** win escalation glow, anticipation tension, idle dimming, feature transition
+
+**Integrisanje:** floating (120px overlay), docked (80px toolbar), embedded (HELIX AUDIO), expanded (180px hover)
+
+**Faze implementacije:**
+- [x] Phase 1: Bus Routing Fix (P0 preduslov) ✅ DONE (2026-04-22)
+- [ ] Phase 2: OrbMixer Nivo 1 (bus dots + gestures + MixerProvider)
+- [ ] Phase 3: OrbMixer Nivo 2 (FFI active voices + bus expand)
+- [ ] Phase 4: OrbMixer Nivo 3 (per-voice params + arc sliders)
+- [ ] Phase 5: Vizuelni slojevi (ghost trails, magnetic snap, heatmap, scrub ring)
+
+**Planirani fajlovi (~1950 LOC):**
+- `flutter_ui/lib/widgets/slot_lab/orb_mixer.dart` (~800)
+- `flutter_ui/lib/widgets/slot_lab/orb_mixer_painter.dart` (~500)
+- `flutter_ui/lib/providers/orb_mixer_provider.dart` (~300)
+- `crates/rf-bridge/src/orb_mixer_ffi.rs` (~150)
+- `crates/rf-engine/src/voice_control.rs` (~200)
+
+### Audio Bus Routing Wireup — ✅ KOMPLETNO (2026-04-22)
+
+> Bus routing potpuno funkcionalan. Voice→Bus, Send→Bus, Bus InsertChain, Dart↔Rust sync.
+
+**Trenutni status:**
+- ✅ BusManager (7 buseva) — `rf-engine/src/bus.rs`
+- ✅ Mixer (6ch+master, HPF/Gate/Comp/EQ, TruePeak, rtrb) — `rf-engine/src/mixer.rs`
+- ✅ InputBus (Cubase-style, zero-copy) — `rf-engine/src/input_bus.rs`
+- ✅ Send/Return (8 sendova, 4 returna) — `rf-engine/src/send_return.rs` — definisan (redundantan sa bus sistemom)
+- ✅ BusSendNode — `hook_graph/dsp_nodes/bus_send.rs` — smoothed level, click-free
+- ✅ BusReturnNode — `hook_graph/dsp_nodes/bus_return.rs` — NEW (120 LOC, 3 testa)
+- ✅ BusHierarchyProvider (Dart, 11-bus) — komplet
+- ✅ Mixer (6ch+master, HPF/Gate/Comp/EQ, TruePeak, rtrb) — `rf-engine/src/mixer.rs`
+- ✅ Dart→Rust bus sync — MixerDSPProvider → NativeFFI → PlaybackEngine.set_bus_*() → bus_states
+
+**Šta je urađeno (2026-04-22):**
+1. HookGraphEngine.process_into_buses() — voices route to assigned bus via BusBuffers
+2. render_voices_to_buses() — thread-local scratch buffers, zero audio-thread alloc
+3. BusSendNode — rewritten with one-pole smoother (click-free level changes)
+4. BusReturnNode — NEW node (mute, smoothed level, 3 unit testa)
+5. SetBusVolume command wired in HookGraphEngine.drain_commands()
+6. playback.rs calls process_into_buses() instead of legacy process()
+7. Track sends → bus buffers (pre/post fader, pan, level) — playback.rs:6536-6578
+8. Bus InsertChains (pre+post fader, sidechain-aware) — playback.rs:6770-6829
+9. Dart→Rust: MixerDSPProvider → FFI → bus_states RwLock (volume/pan/mute/solo)
+
+**NAPOMENA:** send_return.rs (SendBank/ReturnBusManager) je arhitektonski redundantan
+sa bus sistemom — svaki bus već ima InsertChain, volume, pan, mute/solo. ReturnBusManager
+ostaje kao potencijalno proširenje za >6 return tačaka (P3+).
+
+### Audio Pipeline — Completeness Status (2026-04-22)
+
+| Komponenta | Status | Lokacija |
+|------------|--------|----------|
+| Stage→Asset naming (Rust) | ✅ | `rf-stage/src/audio_naming.rs` (450+ LOC, 13 testova) |
+| FFI bridge (4 funkcije) | ✅ | `rf-bridge/src/slot_lab_ffi.rs` |
+| Dart FFI bindings | ✅ | `flutter_ui/lib/src/rust/slot_lab_v2_ffi.dart` |
+| StageAudioMapper 3-tier wiring | ✅ | `flutter_ui/lib/services/stage_audio_mapper.dart` |
+| BUG #14 AudioThreadCell | ✅ | `rf-engine/src/playback.rs` (zero silent frames) |
+| SlotLab Audio Coverage Widget | ❌ TODO | UI za coverage % i missing assets |
+| Bus routing wireup | ✅ DONE | HookGraphEngine + BusSend/Return + Dart sync |
+| OrbMixer (5 faza) | ❌ TODO | Radijalni mixer 120×120px |
+| Per-voice FFI | ❌ TODO | slot_lab_set_voice_param + get_active_voices |
+
+### Ostalo TODO
+- [ ] SlotLab Audio Coverage Widget — UI indikator za coverage % i missing assets
+- [ ] Neural Bind Orb fix — 2 analyzer greške (Colors.white16, invalid_constant)
+- [ ] Full Build + Test — cargo build --release + flutter analyze
+
 ---
 
 ## Sesija 2026-04-21 — Detaljan Changelog
@@ -1544,6 +1642,8 @@ Na osnovu svega gore, ovo su oblasti gde Flux može biti **prvi na svetu**:
 ## Reference
 
 - `AGENT_TEAM_ARCHITECTURE.md` — Agent tim arhitektura + kompletna tabela bagova
+- `docs/architecture/ORBMIXER_ARCHITECTURE.md` — OrbMixer kompletna arhitektura (3 nivoa, 4 viz sloja, FFI, Flutter widget tree)
+- `docs/architecture/FLUXFORGE_DAW_MIXER_2026.md` — DAW Mixer spec (tradicionalni channel-strip)
 - `.claude/architecture/WRATH_OF_OLYMPUS_GAME_FLOW.md` — WoO flow spec
 - `.claude/architecture/SLOTLAB_COMPLETE_INVENTORY.md` — 23 blokova inventar
 - `.claude/architecture/SLOT_LAB_SYSTEM.md` — Stage pipeline, providers, FFI

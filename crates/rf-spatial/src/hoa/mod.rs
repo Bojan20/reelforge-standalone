@@ -273,7 +273,7 @@ fn associated_legendre(l: usize, m: usize, x: f64, cos_el: f64) -> f64 {
         }
         // cos^m (elevation) — but we're using x = sin(el), so cos_el = sqrt(1-x^2)
         let cos_m = cos_el.powi(m as i32);
-        pmm = if m % 2 == 0 { 1.0 } else { -1.0 } * factor * cos_m;
+        pmm = if m.is_multiple_of(2) { 1.0 } else { -1.0 } * factor * cos_m;
     }
 
     if l == m {
@@ -305,7 +305,7 @@ fn associated_legendre(l: usize, m: usize, x: f64, cos_el: f64) -> f64 {
 /// N_l^m = sqrt((2l+1) / (4π) * (l-|m|)! / (l+|m|)!)
 /// Includes the sqrt(4π/(2l+1)) Schmidt semi-norm used in SN3D.
 fn sn3d_norm(l: usize, m: usize) -> f64 {
-    use std::f64::consts::PI;
+    
     let factorial = |n: usize| -> f64 {
         let mut f = 1.0_f64;
         for i in 2..=n {
