@@ -851,6 +851,136 @@ pub extern "C" fn slot_lab_free_string(s: *mut c_char) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// AUDIO ASSET RESOLUTION (Stage → canonical asset IDs)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Resolve audio assets for all stages from the last spin.
+///
+/// Returns JSON array of objects:
+/// ```json
+/// [
+///   {
+///     "stage_index": 0,
+///     "stage_type": "reel_stop",
+///     "assets": [
+///       { "asset_id": "sfx_reel_stop_0", "category": "sfx", "looping": false, "exclusive": false }
+///     ]
+///   },
+///   ...
+/// ]
+/// ```
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_resolve_audio_assets() -> *mut c_char {
+    let stages = LAST_STAGES.read();
+    let mut results = Vec::with_capacity(stages.len());
+
+    for (idx, stage_event) in stages.iter().enumerate() {
+        let bindings = rf_stage::audio_naming::resolve_audio_assets(&stage_event.stage);
+        let assets: Vec<serde_json::Value> = bindings
+            .iter()
+            .map(|b| {
+                serde_json::json!({
+                    "asset_id": b.asset_id,
+                    "category": b.category.prefix(),
+                    "looping": b.looping,
+                    "exclusive": b.exclusive,
+                })
+            })
+            .collect();
+
+        results.push(serde_json::json!({
+            "stage_index": idx,
+            "stage_type": stage_event.stage.type_name(),
+            "timestamp_ms": stage_event.timestamp_ms,
+            "assets": assets,
+        }));
+    }
+
+    let json = serde_json::to_string(&results).unwrap_or_else(|_| "[]".to_string());
+    match CString::new(json) {
+        Ok(cstr) => cstr.into_raw(),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Resolve audio assets for a single stage by JSON.
+///
+/// Input: JSON string of a Stage object (e.g., `{"type":"reel_stop","reel_index":2}`)
+/// Output: JSON array of AudioAssetBinding objects
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_resolve_stage_audio(stage_json: *const c_char) -> *mut c_char {
+    if stage_json.is_null() {
+        return ptr::null_mut();
+    }
+
+    let json_str = unsafe { CStr::from_ptr(stage_json) };
+    let json_str = match json_str.to_str() {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let stage: rf_stage::Stage = match serde_json::from_str(json_str) {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let bindings = rf_stage::audio_naming::resolve_audio_assets(&stage);
+    let assets: Vec<serde_json::Value> = bindings
+        .iter()
+        .map(|b| {
+            serde_json::json!({
+                "asset_id": b.asset_id,
+                "category": b.category.prefix(),
+                "looping": b.looping,
+                "exclusive": b.exclusive,
+            })
+        })
+        .collect();
+
+    let json = serde_json::to_string(&assets).unwrap_or_else(|_| "[]".to_string());
+    match CString::new(json) {
+        Ok(cstr) => cstr.into_raw(),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Get all canonical audio asset IDs as JSON array of strings.
+/// Used for asset pipeline validation and completeness checking.
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_get_canonical_asset_ids() -> *mut c_char {
+    let ids = rf_stage::audio_naming::all_canonical_asset_ids();
+    let json = serde_json::to_string(&ids).unwrap_or_else(|_| "[]".to_string());
+    match CString::new(json) {
+        Ok(cstr) => cstr.into_raw(),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Get audio asset coverage percentage for provided asset list.
+/// Input: JSON array of asset ID strings
+/// Returns: coverage percentage (0.0 - 100.0)
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_audio_coverage(provided_json: *const c_char) -> f64 {
+    if provided_json.is_null() {
+        return 0.0;
+    }
+
+    let json_str = unsafe { CStr::from_ptr(provided_json) };
+    let json_str = match json_str.to_str() {
+        Ok(s) => s,
+        Err(_) => return 0.0,
+    };
+
+    let provided: Vec<String> = match serde_json::from_str(json_str) {
+        Ok(v) => v,
+        Err(_) => return 0.0,
+    };
+
+    let refs: Vec<&str> = provided.iter().map(|s| s.as_str()).collect();
+    rf_stage::audio_naming::coverage_percent(&refs) as f64
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // STATS AND STATE QUERIES
 // ═══════════════════════════════════════════════════════════════════════════════
 
