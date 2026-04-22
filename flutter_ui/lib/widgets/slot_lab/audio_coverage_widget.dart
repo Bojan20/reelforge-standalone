@@ -199,19 +199,14 @@ class _AudioCoverageDialogState extends State<_AudioCoverageDialog> {
     try {
       final ffi = NativeFFI.instance;
 
-      // Gather all assigned asset IDs from provider
-      final assignedIds = <String>[];
-      final assignments = widget.provider.getAudioAssignmentCounts();
-      // The provider tracks by stage, we need the actual assigned asset filenames
-      // For canonical check, we use the stage IDs as rough proxy
-      for (final entry in assignments.entries) {
-        if (!entry.key.endsWith('_total')) {
-          assignedIds.add(entry.key);
-        }
-      }
+      // audioAssignments = Map<stage, filePath> — values are actual asset paths
+      // We pass the file paths (not stage keys) to Rust for canonical coverage check
+      final assignedPaths = widget.provider.audioAssignments.values
+          .where((p) => p.isNotEmpty)
+          .toList();
 
-      _canonicalCoverage = ffi.getAudioCoverage(assignedIds);
-      _missingAssets = ffi.getMissingAssets(assignedIds);
+      _canonicalCoverage = ffi.getAudioCoverage(assignedPaths);
+      _missingAssets = ffi.getMissingAssets(assignedPaths);
       _loadedCanonical = true;
     } catch (_) {
       _loadedCanonical = false;

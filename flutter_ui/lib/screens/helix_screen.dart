@@ -63,6 +63,8 @@ import '../providers/recording_provider.dart';
 import '../src/rust/native_ffi.dart';
 import '../widgets/slot_lab/auto_bind_dialog_v2.dart';
 import '../widgets/slot_lab/neural_bind_orb.dart';
+import '../widgets/slot_lab/orb_mixer.dart';
+import '../providers/mixer_dsp_provider.dart';
 import 'slot_lab_screen.dart' show SlotLabScreen;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -4428,6 +4430,15 @@ class _AudioPanelState extends State<_AudioPanel> {
                 ]),
               ],
             ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        // OrbMixer — radijalni bus mixer (tap bus → voice drill-down)
+        _DockCard(
+          accent: FluxForgeTheme.accentPurple,
+          child: OrbMixer(
+            dsp: GetIt.instance<MixerDSPProvider>(),
+            size: 120,
           ),
         ),
         const SizedBox(width: 12),
