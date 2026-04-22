@@ -10,7 +10,7 @@
 //!
 //! P0.5/P0.6 FIX: Background eviction thread to avoid RT allocations
 
-use std::cell::RefCell;
+use std::cell::{RefCell, UnsafeCell};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
@@ -1827,6 +1827,38 @@ impl TrackMeter {
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// AUDIO THREAD CELL — Zero-cost exclusive access for audio thread data
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Zero-cost wrapper for data exclusively owned by the audio thread.
+///
+/// BUG #14 FIX: `bus_buffers` was behind `RwLock` with `try_write()` that returned
+/// early (silent frame) on contention. Since `process_offline()` uses its own local
+/// `BusBuffers`, the RwLock had ZERO readers/writers besides `process()`. The lock was
+/// pure overhead with a dangerous fallback path.
+///
+/// `AudioThreadCell` replaces the lock with `UnsafeCell` — zero overhead, zero contention,
+/// zero silent frames. Safety: only `process()` on the audio callback thread accesses this.
+struct AudioThreadCell<T>(UnsafeCell<T>);
+
+// SAFETY: AudioThreadCell is only accessed from the audio callback thread (process()).
+// No other thread reads or writes bus_buffers. process_offline() uses local BusBuffers.
+unsafe impl<T> Sync for AudioThreadCell<T> {}
+unsafe impl<T> Send for AudioThreadCell<T> {}
+
+impl<T> AudioThreadCell<T> {
+    fn new(value: T) -> Self {
+        Self(UnsafeCell::new(value))
+    }
+
+    /// Get exclusive mutable access. SAFETY: caller must ensure single-thread access.
+    #[inline(always)]
+    unsafe fn get_mut(&self) -> &mut T {
+        &mut *self.0.get()
+    }
+}
+
 /// Main playback engine for timeline audio
 pub struct PlaybackEngine {
     /// Track manager reference
@@ -1837,8 +1869,8 @@ pub struct PlaybackEngine {
     pub position: Arc<PlaybackPosition>,
     /// Master volume (0.0 to 1.5)
     master_volume: AtomicU64,
-    /// Bus buffers for audio routing
-    bus_buffers: RwLock<BusBuffers>,
+    /// Bus buffers for audio routing (audio thread only — zero-cost access)
+    bus_buffers: AudioThreadCell<BusBuffers>,
     /// Bus states (volume, pan, mute, solo)
     bus_states: RwLock<[BusState; 6]>,
     /// Any bus soloed flag
@@ -2105,7 +2137,7 @@ impl PlaybackEngine {
             cache: Arc::new(AudioCache::new()),
             position: Arc::new(PlaybackPosition::new(sample_rate)),
             master_volume: AtomicU64::new(1.0_f64.to_bits()),
-            bus_buffers: RwLock::new(BusBuffers::new(256)),
+            bus_buffers: AudioThreadCell::new(BusBuffers::new(256)),
             bus_states: RwLock::new(std::array::from_fn(|_| BusState::default())),
             any_solo: AtomicBool::new(false),
             peak_l: AtomicU64::new(0.0_f64.to_bits()),
@@ -5576,19 +5608,12 @@ impl PlaybackEngine {
         output_l.fill(0.0);
         output_r.fill(0.0);
 
-        // Acquire bus_buffers ONCE for the entire process() call.
-        // Holding this through the whole frame eliminates the re-acquisition window that
-        // previously allowed process_offline() (running on an export thread) to steal the lock
-        // between the two former try_write() calls → causing silent audio dropouts.
-        // ROOT CAUSE FIX: process_offline() now uses its own local BusBuffers (no shared lock),
-        // so this try_write() should always succeed during normal realtime playback.
-        let mut bus_buffers = match self.bus_buffers.try_write() {
-            Some(b) => b,
-            None => {
-                self.diag_bus_contention.fetch_add(1, Ordering::Relaxed);
-                return;
-            }
-        };
+        // BUG #14 FIX: Direct access — no lock, no try_write, no silent frames.
+        // bus_buffers is exclusively owned by the audio thread (process()).
+        // process_offline() uses its own local BusBuffers — zero contention possible.
+        // SAFETY: only called from audio callback thread; no concurrent access.
+        // SAFETY: only called from audio callback thread; no concurrent access.
+        let bus_buffers = unsafe { self.bus_buffers.get_mut() };
 
         // === ONE-SHOT VOICES (Middleware/SlotLab) ===
         // CRITICAL: Process one-shot voices BEFORE is_playing() check!
@@ -5606,11 +5631,11 @@ impl PlaybackEngine {
             // Process one-shot commands (may activate/deactivate voices)
             self.process_one_shot_commands();
             // Mix one-shot voices into bus buffers
-            self.process_one_shot_voices(&mut bus_buffers, frames);
+            self.process_one_shot_voices(bus_buffers, frames);
 
             // Process advanced loop system commands and voices
             self.process_loop_commands();
-            self.process_loop_voices(&mut bus_buffers, frames);
+            self.process_loop_voices(bus_buffers, frames);
 
             // Mix bus outputs to main output (for one-shot when transport stopped)
             // One-shot voices can route to any bus (0=Master, 1=Music, 2=Sfx, etc.)
