@@ -14,11 +14,32 @@ import 'dart:ui' show Color, Offset;
 import 'package:flutter/foundation.dart';
 
 import '../services/shared_meter_reader.dart';
+import '../services/voice_category_resolver.dart';
+import '../services/voice_history_buffer.dart';
 import '../src/rust/native_ffi.dart';
 import '../theme/fluxforge_theme.dart';
 import 'mixer_dsp_provider.dart';
 
 // ============ Bus Identity ============
+
+/// PHASE 10 — Quick Filter chip identity. AND-combinable.
+enum OrbQuickFilter {
+  /// Hide everything except SFX bus.
+  sfxOnly,
+  /// Only show voices whose peak > -12 dBFS right now.
+  loudNow,
+  /// Only show voices (and ghosts) from the last 5 seconds.
+  recent,
+  /// Hide buses that are muted in the DSP provider.
+  mutedHidden;
+
+  String get label => switch (this) {
+        sfxOnly => 'SFX',
+        loudNow => 'Loud',
+        recent => 'Recent',
+        mutedHidden => 'NoMute',
+      };
+}
 
 enum OrbBusId {
   master,
@@ -274,6 +295,80 @@ class OrbMixerProvider extends ChangeNotifier {
   /// All active voices (flat list)
   List<OrbVoiceState> _allVoices = [];
 
+  /// PHASE 10: Voice history buffer — tracks recently-ended voices so the
+  /// painter can render fading "ghost slots" for up to 10 seconds.
+  final VoiceHistoryBuffer _voiceHistory = VoiceHistoryBuffer();
+
+  /// PHASE 10: Voice-category buckets (Nivo 1.5 — shown between Nivo 1 bus
+  /// ring and Nivo 2 voice orbit). Recomputed each poll tick.
+  List<VoiceCategoryBucket> _voiceBuckets = [];
+
+  /// PHASE 10: Active Quick Filters — UI chips around the orb. Multiple
+  /// filters combine with AND logic.
+  final Set<OrbQuickFilter> _activeFilters = {};
+
+  /// PHASE 10: "Loud now" threshold in linear peak (≈ -12 dBFS).
+  static const double _loudNowThreshold = 0.25;
+
+  /// PHASE 10: "Recent" threshold in seconds for ghost inclusion.
+  static const double _recentSeconds = 5.0;
+
+  /// Public accessors for painter / UI consumption.
+  VoiceHistoryBuffer get voiceHistory => _voiceHistory;
+  List<VoiceCategoryBucket> get voiceBuckets => _voiceBuckets;
+  Set<OrbQuickFilter> get activeFilters => _activeFilters;
+
+  /// Toggle a Quick Filter chip. Multiple filters AND together.
+  void toggleFilter(OrbQuickFilter filter) {
+    if (_activeFilters.contains(filter)) {
+      _activeFilters.remove(filter);
+    } else {
+      _activeFilters.add(filter);
+    }
+    notifyListeners();
+  }
+
+  /// Return voices filtered by the currently-active Quick Filters.
+  List<OrbVoiceState> filteredVoices(List<OrbVoiceState> voices) {
+    if (_activeFilters.isEmpty) return voices;
+    return voices.where((v) {
+      if (_activeFilters.contains(OrbQuickFilter.sfxOnly) &&
+          v.bus != OrbBusId.sfx) {
+        return false;
+      }
+      if (_activeFilters.contains(OrbQuickFilter.loudNow)) {
+        final p = v.peakL > v.peakR ? v.peakL : v.peakR;
+        if (p < _loudNowThreshold) return false;
+      }
+      if (_activeFilters.contains(OrbQuickFilter.mutedHidden)) {
+        final bus = _busStates[v.bus];
+        if (bus != null && bus.muted) return false;
+      }
+      return true;
+    }).toList();
+  }
+
+  /// PHASE 10 — Culprit analyzer: return the voice that was loudest over
+  /// the last observation window (single-tick proxy — weighted by peak ×
+  /// volume × (1 + 0.2*isLooping_boost)). Returns null when no voices.
+  OrbVoiceState? loudestVoice() {
+    if (_allVoices.isEmpty) return null;
+    OrbVoiceState? best;
+    double bestScore = -1.0;
+    for (final v in _allVoices) {
+      final peak = v.peakL > v.peakR ? v.peakL : v.peakR;
+      // Weight: peak is dominant signal, volume adds fader sensitivity,
+      // looping voices get a small boost because they contribute sustained
+      // energy even if per-frame peak is modest.
+      final score = peak * (0.5 + 0.5 * v.volume) * (v.isLooping ? 1.2 : 1.0);
+      if (score > bestScore) {
+        bestScore = score;
+        best = v;
+      }
+    }
+    return best;
+  }
+
   /// Currently expanded bus (null = Nivo 1 orbit view)
   OrbBusId? expandedBus;
 
@@ -420,6 +515,13 @@ class OrbMixerProvider extends ChangeNotifier {
       _activeVoices.putIfAbsent(voice.bus, () => []);
       _activeVoices[voice.bus]!.add(voice);
     }
+
+    // PHASE 10: update history buffer — records ghosts for voices that
+    // disappeared since the previous tick. Cheap: set diff + timestamp.
+    _voiceHistory.observe(_allVoices);
+
+    // PHASE 10: recompute category buckets (Nivo 1.5 aggregate grouping).
+    _voiceBuckets = VoiceCategoryResolver.bucketize(_allVoices);
 
     // Layout voice dots for expanded bus
     if (expandedBus != null) {
