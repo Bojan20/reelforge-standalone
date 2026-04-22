@@ -43,6 +43,7 @@ class OrbMixerPainter extends CustomPainter {
     _paintOrbitRing(canvas, center, orbitRadius);
     _paintTimelineScrubRing(canvas, size, center); // Phase 5: outer ring
     _paintGhostTrails(canvas); // Phase 5: behind live dots
+    _paintVoiceGhosts(canvas, size); // Phase 10b: fading voice-end ghosts
     _paintRoutingLines(canvas, center);
     _paintMagneticSnapLines(canvas); // Phase 5: between close dots
     _paintBusDots(canvas, size);
@@ -51,6 +52,7 @@ class OrbMixerPainter extends CustomPainter {
     // Nivo 2: Voice dots when bus is expanded
     if (provider.isExpanded) {
       _paintVoiceDots(canvas);
+      _paintCategoryBuckets(canvas, size); // Phase 10a: Nivo 1.5 category ring
     }
 
     // Nivo 3: Param ring when voice detail is open
@@ -735,6 +737,147 @@ class OrbMixerPainter extends CustomPainter {
   double _linearToDb(double linear) {
     if (linear <= 0.0001) return -60.0;
     return 20.0 * math.log(linear) / math.ln10;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Phase 10b: Voice Ghost Slots
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Render recently-ended voices as fading ghost dots around their bus.
+  /// Each ghost lives 10s; alpha tracks age linearly. Helps the user catch
+  /// 300ms SFX "after the fact".
+  void _paintVoiceGhosts(Canvas canvas, Size size) {
+    final ghosts = provider.voiceHistory.liveGhosts;
+    if (ghosts.isEmpty) return;
+
+    final centerPoint = Offset(size.width / 2, size.height / 2);
+    // Radius ring just outside the bus orbit so ghosts don't overlap dots.
+    final ghostRing = size.width * 0.42;
+
+    for (final ghost in ghosts) {
+      if (ghost.alpha <= 0.02) continue;
+
+      final bus = provider.getBus(ghost.bus);
+      if (bus == null) continue;
+
+      // Anchor angle = bus angle; spread ghosts along the ring by voice_id
+      // hash so multiple ghosts on the same bus don't overlap perfectly.
+      final anchorAngle = math.atan2(
+        bus.position.dy - centerPoint.dy,
+        bus.position.dx - centerPoint.dx,
+      );
+      final spread = ((ghost.voiceId % 7) - 3) * 0.06; // ±0.18 rad
+      final angle = anchorAngle + spread;
+      final pos = Offset(
+        centerPoint.dx + math.cos(angle) * ghostRing,
+        centerPoint.dy + math.sin(angle) * ghostRing,
+      );
+
+      final color = bus.id.color;
+      // Small base radius + slight scaling with last-seen peak.
+      final radius = 2.0 + (ghost.peak.clamp(0.0, 1.0) * 3.0);
+      final alphaFill = (ghost.alpha * 0.45).clamp(0.0, 0.45);
+      final alphaBorder = (ghost.alpha * 0.9).clamp(0.0, 0.9);
+
+      // Soft outer glow
+      final glow = Paint()
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.0)
+        ..color = color.withValues(alpha: alphaFill * 0.6);
+      canvas.drawCircle(pos, radius + 2, glow);
+
+      // Hollow circle (ghost rendering — not a full dot)
+      final ring = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0
+        ..color = color.withValues(alpha: alphaBorder);
+      canvas.drawCircle(pos, radius, ring);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Phase 10a: Category Bucket Ring (Nivo 1.5)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Render voice category buckets as small dots just outside the bus ring
+  /// — grouped under the expanded bus. Keeps "130 voices" readable by
+  /// showing ~3-6 category aggregates per bus rather than one dot per voice.
+  void _paintCategoryBuckets(Canvas canvas, Size size) {
+    final bus = provider.expandedBus;
+    if (bus == null) return;
+    final buckets = provider.voiceBuckets
+        .where((b) => b.category.bus == bus)
+        .toList();
+    if (buckets.isEmpty) return;
+
+    final centerPoint = Offset(size.width / 2, size.height / 2);
+    final parent = provider.getBus(bus);
+    if (parent == null) return;
+
+    // Arc spread around the parent bus position, at ring radius +10%
+    final anchorAngle = math.atan2(
+      parent.position.dy - centerPoint.dy,
+      parent.position.dx - centerPoint.dx,
+    );
+    final ringRadius = size.width * 0.38;
+    final arcSpan = 0.9; // radians — fan-out angle
+    final step = buckets.length > 1
+        ? arcSpan / (buckets.length - 1)
+        : 0.0;
+    final startAngle = anchorAngle - arcSpan / 2;
+
+    for (int i = 0; i < buckets.length; i++) {
+      final bucket = buckets[i];
+      final angle = buckets.length > 1
+          ? startAngle + step * i
+          : anchorAngle;
+      final pos = Offset(
+        centerPoint.dx + math.cos(angle) * ringRadius,
+        centerPoint.dy + math.sin(angle) * ringRadius,
+      );
+
+      final color = parent.id.color;
+      final radius = 4.0 + (bucket.peak.clamp(0.0, 1.0) * 3.5);
+
+      // Soft glow when active
+      if (bucket.peak > 0.1) {
+        final glow = Paint()
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.0)
+          ..color = color.withValues(alpha: (bucket.peak * 0.3).clamp(0.0, 0.3));
+        canvas.drawCircle(pos, radius + 2, glow);
+      }
+
+      // Fill
+      final fill = Paint()
+        ..style = PaintingStyle.fill
+        ..color = color.withValues(alpha: 0.55);
+      canvas.drawCircle(pos, radius, fill);
+
+      // Crisp border
+      final border = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.8
+        ..color = color;
+      canvas.drawCircle(pos, radius, border);
+
+      // Voice count badge (small number on the right)
+      if (bucket.voiceCount > 1) {
+        final tp = TextPainter(
+          text: TextSpan(
+            text: '${bucket.voiceCount}',
+            style: TextStyle(
+              color: color,
+              fontSize: 7,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        tp.paint(
+          canvas,
+          Offset(pos.dx + radius + 2, pos.dy - tp.height / 2),
+        );
+      }
+    }
   }
 
   @override
