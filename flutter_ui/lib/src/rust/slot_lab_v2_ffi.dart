@@ -610,6 +610,146 @@ extension SlotLabV2FFI on NativeFFI {
       return GameModelResult.error('Exception: $e');
     }
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AUDIO ASSET RESOLUTION — Stage→canonical asset IDs
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Resolve audio assets for all stages from the last spin.
+  ///
+  /// Returns list of stage audio bindings:
+  /// ```dart
+  /// [
+  ///   {
+  ///     "stage_index": 0,
+  ///     "stage_type": "reel_stop",
+  ///     "timestamp_ms": 150,
+  ///     "assets": [
+  ///       { "asset_id": "sfx_reel_stop_0", "category": "sfx", "looping": false, "exclusive": false }
+  ///     ]
+  ///   }
+  /// ]
+  /// ```
+  List<Map<String, dynamic>> resolveAudioAssets() {
+    try {
+      final fn = lib.lookupFunction<
+        Pointer<Utf8> Function(),
+        Pointer<Utf8> Function()
+      >('slot_lab_resolve_audio_assets');
+
+      final freeFn = lib.lookupFunction<
+        Void Function(Pointer<Utf8>),
+        void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr = fn();
+      if (ptr == nullptr) return [];
+
+      try {
+        final json = ptr.toDartString();
+        final list = jsonDecode(json) as List;
+        return list.cast<Map<String, dynamic>>();
+      } finally {
+        freeFn(ptr);
+      }
+    } catch (e) {
+      dev.log('[SlotLabFFI] resolveAudioAssets error: $e');
+      return [];
+    }
+  }
+
+  /// Resolve audio assets for a single stage (by JSON).
+  ///
+  /// Input: stage JSON, e.g. `{"type":"reel_stop","reel_index":2,"symbols":[]}`
+  /// Returns list of audio asset bindings.
+  List<Map<String, dynamic>> resolveStageAudio(String stageJson) {
+    try {
+      final fn = lib.lookupFunction<
+        Pointer<Utf8> Function(Pointer<Utf8>),
+        Pointer<Utf8> Function(Pointer<Utf8>)
+      >('slot_lab_resolve_stage_audio');
+
+      final freeFn = lib.lookupFunction<
+        Void Function(Pointer<Utf8>),
+        void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final jsonPtr = stageJson.toNativeUtf8();
+      try {
+        final ptr = fn(jsonPtr);
+        if (ptr == nullptr) return [];
+
+        try {
+          final json = ptr.toDartString();
+          final list = jsonDecode(json) as List;
+          return list.cast<Map<String, dynamic>>();
+        } finally {
+          freeFn(ptr);
+        }
+      } finally {
+        calloc.free(jsonPtr);
+      }
+    } catch (e) {
+      dev.log('[SlotLabFFI] resolveStageAudio error: $e');
+      return [];
+    }
+  }
+
+  /// Get all canonical audio asset IDs.
+  ///
+  /// Returns complete list of asset IDs that a game should provide.
+  /// Used for completeness checking in SlotLab UI.
+  List<String> getCanonicalAssetIds() {
+    try {
+      final fn = lib.lookupFunction<
+        Pointer<Utf8> Function(),
+        Pointer<Utf8> Function()
+      >('slot_lab_get_canonical_asset_ids');
+
+      final freeFn = lib.lookupFunction<
+        Void Function(Pointer<Utf8>),
+        void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr = fn();
+      if (ptr == nullptr) return [];
+
+      try {
+        final json = ptr.toDartString();
+        final list = jsonDecode(json) as List;
+        return list.cast<String>();
+      } finally {
+        freeFn(ptr);
+      }
+    } catch (e) {
+      dev.log('[SlotLabFFI] getCanonicalAssetIds error: $e');
+      return [];
+    }
+  }
+
+  /// Get audio asset coverage percentage.
+  ///
+  /// Pass a list of asset IDs that the game provides,
+  /// returns percentage of canonical assets covered (0.0 - 100.0).
+  double getAudioCoverage(List<String> providedAssetIds) {
+    try {
+      final fn = lib.lookupFunction<
+        Double Function(Pointer<Utf8>),
+        double Function(Pointer<Utf8>)
+      >('slot_lab_audio_coverage');
+
+      final json = jsonEncode(providedAssetIds);
+      final jsonPtr = json.toNativeUtf8();
+      try {
+        return fn(jsonPtr);
+      } finally {
+        calloc.free(jsonPtr);
+      }
+    } catch (e) {
+      dev.log('[SlotLabFFI] getAudioCoverage error: $e');
+      return 0.0;
+    }
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
