@@ -1,20 +1,34 @@
-/// PHASE 9 — Live Play Companion Mode
+/// PHASE 9 — Live Play Companion Mode (ULTIMATE REWRITE)
 ///
 /// Floating OrbMixer overlay that sits on top of PremiumSlotPreview so the
 /// player/sound-designer can mix audio in real time while the slot is playing.
 ///
+/// Layout architecture (SYMMETRIC EAR — guaranteed zero hitbox conflicts):
+///
+///   ┌────────────────────────────────────┐
+///   │  [Drag⠿]     ear     [Focus⊕]     │  ← top ear (earPx)
+///   ├────────────────────────────────────┤
+///   │                                    │
+///   │          OrbMixer circle           │  ← orbPx × orbPx
+///   │         (audio bus mixer)          │
+///   │                                    │
+///   ├────────────────────────────────────┤
+///   │  [Mark⚐]     ear     [Inbox📥]     │  ← bottom ear (earPx)
+///   └────────────────────────────────────┘
+///   │     [SFX] [Loud] [Recent] [NoMute]  │  ← chips (outside bounds, Clip.none)
+///
+///   Resize handle: tiny dot at bottom-right corner of outer bounds.
+///   All 4 corner buttons sit fully OUTSIDE the OrbMixer circle →
+///   guaranteed hit-testable without gesture-arena conflicts.
+///
 /// Features:
 ///   • Draggable + snaps to the nearest edge when released.
-///   • 3 LOD size modes: mini (60px) / standard (120px) / full (200px).
-///   • Transparency: 0.85 idle, 1.0 while interacting, fades to 0.40 after
-///     3 seconds of no interaction (auto-hide).
-///   • Keyboard dismiss hints: Escape toggles visibility.
-///   • Persisted across restarts (SharedPreferences):
-///       - psp_orb_overlay_x / psp_orb_overlay_y (Offset)
-///       - psp_orb_overlay_mode (0=mini, 1=std, 2=full)
-///       - psp_orb_overlay_visible (bool)
-///   • Re-uses the same MixerDSPProvider singleton → every change made here
-///     persists to the project mix automatically (no "save mix" button).
+///   • Smooth resize via bottom-right corner handle (60 → 320 px).
+///   • 3 LOD size modes: mini (60px) / standard (140px) / full (220px).
+///   • Transparency: 0.85 idle, 1.0 while interacting, fades to 0.55 dormant.
+///   • Keyboard dismiss: Escape toggles visibility.
+///   • Persisted across restarts (SharedPreferences).
+///   • Re-uses MixerDSPProvider singleton — every change persists automatically.
 library;
 
 import 'dart:async';
@@ -30,32 +44,23 @@ import '../../services/shared_meter_reader.dart';
 import 'orb_mixer.dart';
 import 'problems_inbox_panel.dart';
 
-/// Overlay sizing modes
+// ─── Size presets ─────────────────────────────────────────────────────────────
+
 enum LivePlayOrbSize {
   mini(60.0, 'Mini'),
-  standard(120.0, 'Standard'),
-  full(200.0, 'Full');
+  standard(140.0, 'Standard'),
+  full(220.0, 'Full');
 
   final double px;
   final String label;
   const LivePlayOrbSize(this.px, this.label);
 }
 
-/// LivePlayOrbOverlay — floating OrbMixer over slot preview.
-///
-/// Place as a [Positioned.fill] child of PremiumSlotPreview's outer Stack
-/// (or wrap it in Positioned yourself). The widget positions itself
-/// internally from saved prefs, so prefer `Positioned.fill`.
+// ─── Widget ───────────────────────────────────────────────────────────────────
+
 class LivePlayOrbOverlay extends StatefulWidget {
-  /// MixerDSPProvider — should be the app-wide singleton so mix changes
-  /// made via the overlay persist to the project.
   final MixerDSPProvider dsp;
-
-  /// Initial size mode (overridden by saved prefs).
   final LivePlayOrbSize initialSize;
-
-  /// Called when the overlay visibility toggles (e.g. keyboard Escape or
-  /// programmatic hide). Lets the parent mirror the state in its own menu.
   final ValueChanged<bool>? onVisibilityChanged;
 
   const LivePlayOrbOverlay({
@@ -69,77 +74,72 @@ class LivePlayOrbOverlay extends StatefulWidget {
   State<LivePlayOrbOverlay> createState() => LivePlayOrbOverlayState();
 }
 
-class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
-    with SingleTickerProviderStateMixin {
-  // ─── Global accessor (for helix_action eye automation) ──────────────────
-  /// Current mounted overlay state, if any. Used by HELIX eye-automation
-  /// handlers to toggle / show / cycle the orb without touching the widget
-  /// tree. Null when no PremiumSlotPreview is on screen.
+class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
+  // ─── Global accessor ────────────────────────────────────────────────────────
   static LivePlayOrbOverlayState? _current;
   static LivePlayOrbOverlayState? get current => _current;
 
-  // ─── Persistence keys ────────────────────────────────────────────────────
-  static const _prefKeyX = 'psp_orb_overlay_x';
-  static const _prefKeyY = 'psp_orb_overlay_y';
-  static const _prefKeyMode = 'psp_orb_overlay_mode';
-  static const _prefKeySizePx = 'psp_orb_overlay_size_px';
+  // ─── Persistence keys ────────────────────────────────────────────────────────
+  static const _prefKeyX       = 'psp_orb_overlay_x';
+  static const _prefKeyY       = 'psp_orb_overlay_y';
+  static const _prefKeyMode    = 'psp_orb_overlay_mode';
+  static const _prefKeySizePx  = 'psp_orb_overlay_size_px';
   static const _prefKeyVisible = 'psp_orb_overlay_visible';
 
-  /// Smooth-resize bounds. Min = still usable (bus dots readable),
-  /// max = hard cap; the effective max is also clamped against the
-  /// viewport so the orb never eats more than ~40% of the screen width.
-  static const double _minSizePx = 60.0;
-  static const double _maxSizePx = 320.0;
+  // ─── Sizing constants ───────────────────────────────────────────────────────
+  /// Space AROUND the orb on all sides.  Buttons live here — fully outside
+  /// the orb circle — so no gesture-arena conflicts with OrbMixer.
+  static const double _earPx = 32.0;
 
-  /// Maximum fraction of viewport width/height the orb is allowed to occupy.
+  /// Visible button size inside each ear cell.
+  static const double _btnPx = 26.0;
+
+  /// Padding between button edge and ear boundary.
+  static const double _btnPad = (_earPx - _btnPx) / 2; // 3 px
+
+  /// Resize handle corner size (tiny dot, bottom-right of total bounds).
+  static const double _resizePx = 16.0;
+
+  static const double _minOrbPx = 60.0;
+  static const double _maxOrbPx = 320.0;
   static const double _maxViewportFraction = 0.42;
 
-  // ─── Autohide / opacity timings ──────────────────────────────────────────
-  static const Duration _autoHideDelay = Duration(seconds: 3);
-  static const Duration _opacityDuration = Duration(milliseconds: 220);
-  static const Duration _snapDuration = Duration(milliseconds: 180);
+  // ─── Autohide / opacity ─────────────────────────────────────────────────────
+  static const Duration _autoHideDelay  = Duration(seconds: 3);
+  static const Duration _opacityDur    = Duration(milliseconds: 220);
+  static const Duration _snapDur       = Duration(milliseconds: 180);
 
-  static const double _opacityIdle = 0.85;
-  static const double _opacityActive = 1.0;
-  static const double _opacityDormant = 0.40;
+  static const double _opacityIdle    = 0.87;
+  static const double _opacityActive  = 1.0;
+  static const double _opacityDormant = 0.55; // raised from 0.40 — buttons stay readable
 
-  // ─── State ───────────────────────────────────────────────────────────────
-  Offset _position = const Offset(16, 16); // will be replaced on first layout
-  bool _hasInitialPosition = false;
-  /// Legacy discrete mode kept for Shift+O "cycle" keyboard shortcut and
-  /// the helix_action `orb_cycle_size`. Smooth resize via the corner drag
-  /// handle updates `_currentSizePx` directly and bypasses this.
-  LivePlayOrbSize _sizeMode = LivePlayOrbSize.standard;
-  /// Actual rendered size in px. Smooth-resizable via corner handle.
-  double _currentSizePx = 120.0;
-  /// Whether the user is actively resizing right now (opacity stays full).
-  bool _isResizing = false;
-  bool _visible = true;
-  bool _interacting = false;
-  bool _dormant = false;
+  // ─── State ───────────────────────────────────────────────────────────────────
+  Offset _position         = const Offset(16, 16);
+  bool   _hasInitialPos    = false;
+  LivePlayOrbSize _sizeMode  = LivePlayOrbSize.standard;
+  double _orbPx            = 140.0;
+  bool   _isResizing       = false;
+  bool   _visible          = true;
+  bool   _interacting      = false;
+  bool   _dormant          = false;
   Timer? _autoHideTimer;
-  bool _settingsLoaded = false;
+  bool   _settingsLoaded   = false;
 
-  /// PHASE 10: OrbMixer provider reference (received via onProviderReady).
-  /// Null until the nested OrbMixer mounts. Used for Quick Filter toggling
-  /// and Auto-Focus zoom from the overlay's UI chrome.
   OrbMixerProvider? _orbProvider;
 
+  // ─── Lifecycle ───────────────────────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
     _sizeMode = widget.initialSize;
-    _current = this;
+    _orbPx    = _sizeMode.px;
+    _current  = this;
     _loadSettings();
-    // Phase 10e: ensure inbox is hydrated so the badge count is correct
-    // on first render.
     ProblemsInboxService.instance.init();
     ProblemsInboxService.instance.addListener(_onInboxChanged);
   }
 
-  void _onInboxChanged() {
-    if (mounted) setState(() {});
-  }
+  void _onInboxChanged() { if (mounted) setState(() {}); }
 
   @override
   void dispose() {
@@ -151,68 +151,25 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
     super.dispose();
   }
 
-  /// Phase 10e: Capture current mix state as a new Problem entry.
-  Future<void> _markProblem() async {
-    final orb = _orbProvider;
-    if (orb == null) return;
-    final snapshot = SharedMeterReader.instance.readMeters();
-    String? fsmState;
-    double bet = 0;
-    try {
-      final gf = GetIt.instance<GameFlowProvider>();
-      fsmState = gf.currentState.name;
-    } catch (_) {}
-    await ProblemsInboxService.instance.capture(
-      orb: orb,
-      snapshot: snapshot,
-      fsmState: fsmState,
-      bet: bet,
-    );
-    _restartAutoHide();
-  }
-
-  /// Explicit show (public API — used by eye automation + menu).
-  void show() {
-    if (_visible) return;
-    setState(() => _visible = true);
-    widget.onVisibilityChanged?.call(true);
-    _restartAutoHide();
-    _saveSettings();
-  }
-
-  /// Explicit hide (public API).
-  void hide() {
-    if (!_visible) return;
-    setState(() => _visible = false);
-    widget.onVisibilityChanged?.call(false);
-    _saveSettings();
-  }
-
-  // ─── Persistence ─────────────────────────────────────────────────────────
-
+  // ─── Persistence ─────────────────────────────────────────────────────────────
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
     setState(() {
-      final savedX = prefs.getDouble(_prefKeyX);
-      final savedY = prefs.getDouble(_prefKeyY);
-      if (savedX != null && savedY != null) {
-        _position = Offset(savedX, savedY);
-        _hasInitialPosition = true;
+      final sx = prefs.getDouble(_prefKeyX);
+      final sy = prefs.getDouble(_prefKeyY);
+      if (sx != null && sy != null) {
+        _position = Offset(sx, sy);
+        _hasInitialPos = true;
       }
-      final savedMode = prefs.getInt(_prefKeyMode);
-      if (savedMode != null &&
-          savedMode >= 0 &&
-          savedMode < LivePlayOrbSize.values.length) {
-        _sizeMode = LivePlayOrbSize.values[savedMode];
+      final sm = prefs.getInt(_prefKeyMode);
+      if (sm != null && sm >= 0 && sm < LivePlayOrbSize.values.length) {
+        _sizeMode = LivePlayOrbSize.values[sm];
       }
-      // Smooth-resize override: if user has saved a custom size, prefer it.
-      final savedSize = prefs.getDouble(_prefKeySizePx);
-      if (savedSize != null) {
-        _currentSizePx = savedSize.clamp(_minSizePx, _maxSizePx);
-      } else {
-        _currentSizePx = _sizeMode.px;
-      }
+      final ss = prefs.getDouble(_prefKeySizePx);
+      _orbPx = (ss != null)
+          ? ss.clamp(_minOrbPx, _maxOrbPx)
+          : _sizeMode.px;
       _visible = prefs.getBool(_prefKeyVisible) ?? true;
       _settingsLoaded = true;
     });
@@ -225,33 +182,41 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
     await prefs.setDouble(_prefKeyX, _position.dx);
     await prefs.setDouble(_prefKeyY, _position.dy);
     await prefs.setInt(_prefKeyMode, _sizeMode.index);
-    await prefs.setDouble(_prefKeySizePx, _currentSizePx);
+    await prefs.setDouble(_prefKeySizePx, _orbPx);
     await prefs.setBool(_prefKeyVisible, _visible);
   }
 
-  // ─── Auto-hide timer ─────────────────────────────────────────────────────
-
+  // ─── Autohide ────────────────────────────────────────────────────────────────
   void _restartAutoHide() {
     _autoHideTimer?.cancel();
     if (!_visible) return;
-    if (_dormant) {
-      setState(() => _dormant = false);
-    }
+    if (_dormant) setState(() => _dormant = false);
     _autoHideTimer = Timer(_autoHideDelay, () {
       if (!mounted) return;
       setState(() => _dormant = true);
     });
   }
 
-  // ─── Public API (used via GlobalKey from PremiumSlotPreview) ─────────────
+  // ─── Public API ──────────────────────────────────────────────────────────────
+  void show() {
+    if (_visible) return;
+    setState(() => _visible = true);
+    widget.onVisibilityChanged?.call(true);
+    _restartAutoHide();
+    _saveSettings();
+  }
 
-  /// Toggle visibility. Returns the new visibility state.
+  void hide() {
+    if (!_visible) return;
+    setState(() => _visible = false);
+    widget.onVisibilityChanged?.call(false);
+    _saveSettings();
+  }
+
   bool toggleVisible() {
     setState(() {
       _visible = !_visible;
-      if (_visible) {
-        _dormant = false;
-      }
+      if (_visible) _dormant = false;
     });
     widget.onVisibilityChanged?.call(_visible);
     _restartAutoHide();
@@ -259,275 +224,231 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
     return _visible;
   }
 
-  /// Cycle through preset sizes: mini → standard → full → mini.
-  /// Snaps _currentSizePx to the new preset for the keyboard/menu shortcut.
   LivePlayOrbSize cycleSizeMode() {
     setState(() {
-      final nextIdx = (_sizeMode.index + 1) % LivePlayOrbSize.values.length;
-      _sizeMode = LivePlayOrbSize.values[nextIdx];
-      _currentSizePx = _sizeMode.px;
+      _sizeMode = LivePlayOrbSize.values[(_sizeMode.index + 1) % LivePlayOrbSize.values.length];
+      _orbPx = _sizeMode.px;
     });
     _restartAutoHide();
     _saveSettings();
     return _sizeMode;
   }
 
-  /// Set exact size in px (60..480). Used by the resize handle drag +
-  /// eye-automation for headless UI tests.
   void setSizePx(double px) {
-    final clamped = px.clamp(_minSizePx, _maxSizePx);
-    setState(() => _currentSizePx = clamped);
+    setState(() => _orbPx = px.clamp(_minOrbPx, _maxOrbPx));
     _restartAutoHide();
     _saveSettings();
   }
 
-  bool get isVisible => _visible;
+  bool get isVisible  => _visible;
   LivePlayOrbSize get sizeMode => _sizeMode;
-  double get sizePx => _currentSizePx;
+  double get sizePx   => _orbPx;
 
-  // ─── Drag + snap (handle-only, inner orb gestures pass through) ─────────
-
-  /// Reposition handle size (px). Handle sits in the top-left of the backdrop
-  /// so the entire inner orb stays available for bus taps / drags / long-press.
-  static const double _handleSize = 22.0;
-
-  void _onDragStart(DragStartDetails details) {
-    setState(() {
-      _interacting = true;
-      _dormant = false;
-    });
+  // ─── Drag helpers ────────────────────────────────────────────────────────────
+  void _onDragStart(DragStartDetails _) {
+    setState(() { _interacting = true; _dormant = false; });
   }
 
-  void _onDragUpdate(DragUpdateDetails details, Size viewport) {
-    final double sizePx = _sizeMode.px;
-    final maxX = viewport.width - sizePx;
-    final maxY = viewport.height - sizePx;
+  void _onDragUpdate(DragUpdateDetails d, Size vp) {
+    final totalW = _orbPx + 2 * _earPx;
+    final totalH = _orbPx + 2 * _earPx;
+    final maxX = (vp.width  - totalW - 8).clamp(0.0, double.infinity);
+    final maxY = (vp.height - totalH - 8).clamp(0.0, double.infinity);
     setState(() {
       _position = Offset(
-        (_position.dx + details.delta.dx).clamp(0.0, maxX < 0 ? 0.0 : maxX),
-        (_position.dy + details.delta.dy).clamp(0.0, maxY < 0 ? 0.0 : maxY),
+        (_position.dx + d.delta.dx).clamp(0.0, maxX),
+        (_position.dy + d.delta.dy).clamp(0.0, maxY),
       );
     });
   }
 
-  void _onDragEnd(DragEndDetails details, Size viewport) {
-    // Snap to nearest edge (top/bottom/left/right) when within 96px.
-    final double sizePx = _sizeMode.px;
-    final centerX = _position.dx + sizePx / 2;
-    final centerY = _position.dy + sizePx / 2;
+  void _onDragEnd(DragEndDetails _, Size vp) {
+    final totalW = _orbPx + 2 * _earPx;
+    final totalH = _orbPx + 2 * _earPx;
+    final cx = _position.dx + totalW / 2;
+    final cy = _position.dy + totalH / 2;
 
-    final leftDist = centerX;
-    final rightDist = viewport.width - centerX;
-    final topDist = centerY;
-    final bottomDist = viewport.height - centerY;
+    final ld = cx;
+    final rd = vp.width  - cx;
+    final td = cy;
+    final bd = vp.height - cy;
+    final minE = [ld, rd, td, bd].reduce((a, b) => a < b ? a : b);
 
-    final minEdge = [leftDist, rightDist, topDist, bottomDist]
-        .reduce((a, b) => a < b ? a : b);
-
-    double snapX = _position.dx;
-    double snapY = _position.dy;
-    const double margin = 12.0;
-    if (minEdge < 96.0) {
-      if (minEdge == leftDist) snapX = margin;
-      if (minEdge == rightDist) snapX = viewport.width - sizePx - margin;
-      if (minEdge == topDist) snapY = margin;
-      if (minEdge == bottomDist) snapY = viewport.height - sizePx - margin;
+    double sx = _position.dx, sy = _position.dy;
+    const m = 12.0;
+    if (minE < 96.0) {
+      if (minE == ld) sx = m;
+      if (minE == rd) sx = vp.width  - totalW - m;
+      if (minE == td) sy = m;
+      if (minE == bd) sy = vp.height - totalH - m;
     }
-
-    setState(() {
-      _position = Offset(snapX, snapY);
-      _interacting = false;
-    });
+    setState(() { _position = Offset(sx, sy); _interacting = false; });
     _restartAutoHide();
     _saveSettings();
   }
 
-  /// Any pointer touching the orb at all — wakes it from dormant + resets
-  /// the autohide timer. Does NOT capture the event (Listener is transparent
-  /// to gesture arena), so the inner OrbMixer still receives its taps/drags.
-  void _onAnyPointerDown(PointerDownEvent _) {
-    if (_dormant || !_interacting) {
-      setState(() => _dormant = false);
-    }
+  void _onPointerDown(PointerDownEvent _) {
+    if (_dormant) setState(() => _dormant = false);
     _restartAutoHide();
   }
 
-  /// Pointer up inside the orb — restart autohide so the 3s count runs
-  /// cleanly from the last touch rather than from drag start.
-  void _onAnyPointerUp(PointerUpEvent _) {
+  void _onPointerUp(PointerUpEvent _) { _restartAutoHide(); }
+
+  // ─── Mark problem ────────────────────────────────────────────────────────────
+  Future<void> _markProblem() async {
+    final orb = _orbProvider;
+    if (orb == null) return;
+    final snapshot = SharedMeterReader.instance.readMeters();
+    String? fsmState;
+    try { fsmState = GetIt.instance<GameFlowProvider>().currentState.name; } catch (_) {}
+    await ProblemsInboxService.instance.capture(
+      orb: orb, snapshot: snapshot, fsmState: fsmState, bet: 0,
+    );
     _restartAutoHide();
   }
 
-  // ─── Build ───────────────────────────────────────────────────────────────
+  void _onOrbProviderChanged() { if (mounted) setState(() {}); }
 
+  // ─── Build ───────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     if (!_settingsLoaded) return const SizedBox.shrink();
-
-    // When hidden, render a tiny "show orb" reveal button in the bottom-
-    // right corner so the user can always bring the orb back without
-    // remembering the keyboard shortcut.
     if (!_visible) return _buildRevealButton();
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final viewport = Size(constraints.maxWidth, constraints.maxHeight);
+    return LayoutBuilder(builder: (ctx, constraints) {
+      final vp = Size(constraints.maxWidth, constraints.maxHeight);
 
-        // Clamp current size to viewport: orb never exceeds 42% of the
-        // narrower viewport dimension. This protects users who resize
-        // the slot window smaller or load a saved size that used to fit.
-        final double viewportMin = viewport.width < viewport.height
-            ? viewport.width
-            : viewport.height;
-        final double effectiveMax =
-            (viewportMin * _maxViewportFraction).clamp(_minSizePx, _maxSizePx);
-        if (_currentSizePx > effectiveMax) {
-          _currentSizePx = effectiveMax;
-        }
+      // Clamp orb size to viewport fraction
+      final vpMin = vp.width < vp.height ? vp.width : vp.height;
+      final effMax = (vpMin * _maxViewportFraction).clamp(_minOrbPx, _maxOrbPx);
+      if (_orbPx > effMax) _orbPx = effMax;
 
-        // Default position: TOP-RIGHT ispod HELIX header-a (80px down +
-        // 16px right) — ne preklapa SPIN button area u donjem desnom uglu.
-        if (!_hasInitialPosition) {
-          final sizePx = _currentSizePx;
-          _position = Offset(
-            viewport.width - sizePx - 16.0,
-            80.0,
-          );
-          _hasInitialPosition = true;
-        }
+      final double orbPx  = _orbPx;
+      final double totalW = orbPx + 2 * _earPx;
+      final double totalH = orbPx + 2 * _earPx;
 
-        // If saved position would push the orb outside the viewport
-        // (e.g. user resized the window, or saved at a different size),
-        // clamp it into the safe area so it's always reachable + on-screen.
-        final double maxX = (viewport.width - _currentSizePx - 4).clamp(0.0,
-            double.infinity);
-        final double maxY = (viewport.height - _currentSizePx - 4).clamp(0.0,
-            double.infinity);
-        if (_position.dx > maxX) _position = Offset(maxX, _position.dy);
-        if (_position.dy > maxY) _position = Offset(_position.dx, maxY);
+      // Default position: top-right, below header
+      if (!_hasInitialPos) {
+        _position = Offset(vp.width - totalW - 12, 80.0);
+        _hasInitialPos = true;
+      }
 
-        final double sizePx = _currentSizePx;
-        // Show full UI chrome only when the orb is big enough to absorb it.
-        // Below ~80px the orb degrades into a compact indicator.
-        final bool showChrome = sizePx >= 80.0;
-        final double opacity = (_interacting || _isResizing)
-            ? _opacityActive
-            : (_dormant ? _opacityDormant : _opacityIdle);
+      // Clamp position so entire orb stays on-screen
+      final maxX = (vp.width  - totalW - 8).clamp(0.0, double.infinity);
+      final maxY = (vp.height - totalH - 8).clamp(0.0, double.infinity);
+      if (_position.dx > maxX) _position = Offset(maxX, _position.dy);
+      if (_position.dy > maxY) _position = Offset(_position.dx, maxY);
 
-        return Stack(
-          children: [
-            AnimatedPositioned(
-              duration:
-                  (_interacting || _isResizing) ? Duration.zero : _snapDuration,
-              curve: Curves.easeOutCubic,
-              left: _position.dx,
-              top: _position.dy,
-              width: sizePx,
-              height: sizePx,
-              child: AnimatedOpacity(
-                duration: _opacityDuration,
-                opacity: opacity,
-                child: Listener(
-                  // Transparent pointer listener: wakes orb + resets autohide
-                  // but does NOT win the gesture arena, so inner OrbMixer
-                  // bus-tap / drag-volume / long-press-expand all keep working.
-                  behavior: HitTestBehavior.translucent,
-                  onPointerDown: _onAnyPointerDown,
-                  onPointerUp: _onAnyPointerUp,
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      // Layer 1: inner orb (full gesture pass-through)
-                      Positioned.fill(child: _buildCompanion(sizePx)),
-                      // Layer 2: dedicated drag handle (top-left corner).
-                      // Only this zone captures pan gestures for reposition,
-                      // so bus drags inside the orb stay untouched.
-                      Positioned(
-                        left: 0,
-                        top: 0,
-                        width: _handleSize,
-                        height: _handleSize,
-                        child: _buildDragHandle(viewport),
-                      ),
-                      // Layer 2b: resize handle (outside bottom-right corner).
-                      // Drag diagonally to smooth-resize the orb. Always
-                      // available so user can grow / shrink freely.
-                      Positioned(
-                        right: -6,
-                        bottom: -6,
-                        width: _handleSize,
-                        height: _handleSize,
-                        child: _buildResizeHandle(viewport),
-                      ),
-                      // Layer 3 (Phase 10): Auto-Focus button (top-right).
-                      // Zooms into the loudest voice right now. Only shown
-                      // when chrome fits; mini hides it to save space.
-                      if (showChrome)
-                        Positioned(
-                          right: 0,
-                          top: 0,
-                          width: _handleSize,
-                          height: _handleSize,
-                          child: _buildFocusButton(),
-                        ),
-                      // Layer 4 (Phase 10): Quick Filter chip strip below
-                      // the orb — pushed further down so the inner Mark
-                      // and Inbox corner buttons never overlap the chips.
-                      if (showChrome && _orbProvider != null)
-                        Positioned(
-                          // Chip strip horizontally centered wider than
-                          // the orb so even long chip labels breathe.
-                          left: -40,
-                          right: -40,
-                          bottom: -44,
-                          child: _buildFilterChips(),
-                        ),
-                      // Layer 5 (Phase 10e): Mark Problem button (bottom-left).
-                      if (showChrome)
-                        Positioned(
-                          left: 0,
-                          bottom: 0,
-                          width: _handleSize,
-                          height: _handleSize,
-                          child: _buildMarkButton(),
-                        ),
-                      // Layer 6 (Phase 10e): Inbox button w/ count badge
-                      // (bottom-right — INSIDE corner).
-                      if (showChrome)
-                        Positioned(
-                          right: 0,
-                          bottom: 0,
-                          width: _handleSize,
-                          height: _handleSize,
-                          child: _buildInboxButton(),
-                        ),
-                    ],
+      final bool showChrome = orbPx >= 80.0;
+      final double opacity = (_interacting || _isResizing)
+          ? _opacityActive
+          : (_dormant ? _opacityDormant : _opacityIdle);
+
+      return Stack(children: [
+        AnimatedPositioned(
+          duration: (_interacting || _isResizing) ? Duration.zero : _snapDur,
+          curve: Curves.easeOutCubic,
+          left: _position.dx,
+          top:  _position.dy,
+          width:  totalW,
+          height: totalH,
+          child: AnimatedOpacity(
+            duration: _opacityDur,
+            opacity: opacity,
+            child: Listener(
+              behavior: HitTestBehavior.translucent,
+              onPointerDown: _onPointerDown,
+              onPointerUp:   _onPointerUp,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  // ── Layer 0: orb body — centred in total bounds ────────────
+                  Positioned(
+                    left:   _earPx,
+                    top:    _earPx,
+                    width:  orbPx,
+                    height: orbPx,
+                    child: _buildOrbBody(orbPx),
                   ),
-                ),
+
+                  // ── Layer 1: Drag handle — top-LEFT ear ───────────────────
+                  Positioned(
+                    left:   _btnPad,
+                    top:    _btnPad,
+                    width:  _btnPx,
+                    height: _btnPx,
+                    child: _buildDragHandle(vp),
+                  ),
+
+                  // ── Layer 2: Focus button — top-RIGHT ear ─────────────────
+                  if (showChrome)
+                    Positioned(
+                      right:  _btnPad,
+                      top:    _btnPad,
+                      width:  _btnPx,
+                      height: _btnPx,
+                      child: _buildFocusButton(),
+                    ),
+
+                  // ── Layer 3: Mark button — bottom-LEFT ear ────────────────
+                  if (showChrome)
+                    Positioned(
+                      left:   _btnPad,
+                      bottom: _btnPad,
+                      width:  _btnPx,
+                      height: _btnPx,
+                      child: _buildMarkButton(),
+                    ),
+
+                  // ── Layer 4: Inbox button — bottom-RIGHT ear ──────────────
+                  if (showChrome)
+                    Positioned(
+                      right:  _btnPad + _resizePx + 2, // leave room for resize dot
+                      bottom: _btnPad,
+                      width:  _btnPx,
+                      height: _btnPx,
+                      child: _buildInboxButton(),
+                    ),
+
+                  // ── Layer 5: Resize dot — extreme bottom-RIGHT corner ─────
+                  Positioned(
+                    right:  0,
+                    bottom: 0,
+                    width:  _resizePx,
+                    height: _resizePx,
+                    child: _buildResizeHandle(vp),
+                  ),
+
+                  // ── Layer 6: Filter chips — below orb, outside bounds ─────
+                  if (showChrome && _orbProvider != null)
+                    Positioned(
+                      left:   -32,
+                      right:  -32,
+                      top:    totalH + 6,
+                      child:  _buildFilterChips(),
+                    ),
+                ],
               ),
             ),
-          ],
-        );
-      },
-    );
+          ),
+        ),
+      ]);
+    });
   }
 
-  Widget _buildCompanion(double sizePx) {
-    // A faint drop shadow + circular backdrop helps the orb read over the
-    // slot game art without obscuring it.
-    return AnimatedContainer(
-      duration: _snapDuration,
-      curve: Curves.easeOutCubic,
-      width: sizePx,
-      height: sizePx,
+  // ─── Orb body ─────────────────────────────────────────────────────────────────
+  Widget _buildOrbBody(double orbPx) {
+    return Container(
+      width:  orbPx,
+      height: orbPx,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: Colors.black.withValues(alpha: 0.45),
+        color: Colors.black.withValues(alpha: 0.50),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.55),
-            blurRadius: 14,
-            spreadRadius: 2,
+            color: Colors.black.withValues(alpha: 0.60),
+            blurRadius: 18,
+            spreadRadius: 3,
           ),
         ],
       ),
@@ -535,12 +456,11 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
         padding: const EdgeInsets.all(2.0),
         child: OrbMixer(
           dsp: widget.dsp,
-          size: sizePx - 4, // inset for backdrop
-          expandOnHover: false, // compact mode — no label expansion
+          size: orbPx - 4,
+          expandOnHover: false,
           onProviderReady: (p) {
             if (!mounted) return;
             setState(() => _orbProvider = p);
-            // Repaint chip strip when filters change.
             p.addListener(_onOrbProviderChanged);
           },
         ),
@@ -548,222 +468,73 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
     );
   }
 
-  void _onOrbProviderChanged() {
-    if (mounted) setState(() {});
-  }
-
-  /// Small reveal button shown when the orb is hidden. Lives in the bottom-
-  /// right corner so the user can always reopen the companion by clicking a
-  /// clearly visible icon, even if they don't remember the keyboard shortcut.
-  Widget _buildRevealButton() {
-    return Stack(
-      children: [
-        Positioned(
-          right: 16,
-          bottom: 16,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () {
-              setState(() => _visible = true);
-              widget.onVisibilityChanged?.call(true);
-              _restartAutoHide();
-              _saveSettings();
-            },
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.black.withValues(alpha: 0.55),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.28),
-                  width: 1,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.45),
-                    blurRadius: 10,
-                  ),
-                ],
-              ),
-              child: const Center(
-                child: Icon(
-                  Icons.graphic_eq,
-                  size: 18,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Dedicated drag handle (small grip dots). Only this zone captures pan
-  /// gestures for reposition, so inner OrbMixer gestures (bus drag, long-press,
-  /// tap) remain untouched. Tap on handle cycles size; double-tap hides.
-  Widget _buildDragHandle(Size viewport) {
+  // ─── Drag handle (top-left) ───────────────────────────────────────────────────
+  Widget _buildDragHandle(Size vp) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () {
-        cycleSizeMode();
-      },
+      onTap: cycleSizeMode,
       onDoubleTap: () {
-        // Explicit UI hide — user can bring it back via keyboard O.
         setState(() => _visible = false);
         widget.onVisibilityChanged?.call(false);
         _saveSettings();
       },
-      onPanStart: _onDragStart,
-      onPanUpdate: (d) => _onDragUpdate(d, viewport),
-      onPanEnd: (d) => _onDragEnd(d, viewport),
-      child: Container(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: Colors.white.withValues(alpha: 0.12),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.28),
-            width: 1,
-          ),
-        ),
-        child: const Center(
-          child: Icon(
-            Icons.drag_indicator,
-            size: 14,
-            color: Colors.white,
-          ),
-        ),
+      onPanStart:  _onDragStart,
+      onPanUpdate: (d) => _onDragUpdate(d, vp),
+      onPanEnd:    (d) => _onDragEnd(d, vp),
+      child: _earButton(
+        icon: Icons.drag_indicator,
+        color: Colors.white,
+        bg: Colors.white.withValues(alpha: 0.15),
+        border: Colors.white.withValues(alpha: 0.35),
+        iconSize: 14,
       ),
     );
   }
 
-  /// PHASE 10: Auto-Focus button. Tap → provider.autoFocusLoudest() which
-  /// opens Nivo 3 on the loudest active voice. One-shot "which sound is too
-  /// loud" shortcut.
+  // ─── Auto-focus button (top-right) ────────────────────────────────────────────
   Widget _buildFocusButton() {
     final hasAny = (_orbProvider?.loudestVoice() != null);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
-        final p = _orbProvider;
-        if (p == null) return;
-        p.autoFocusLoudest();
+        _orbProvider?.autoFocusLoudest();
         _restartAutoHide();
       },
-      child: Container(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: hasAny
-              ? Colors.redAccent.withValues(alpha: 0.35)
-              : Colors.white.withValues(alpha: 0.08),
-          border: Border.all(
-            color: hasAny
-                ? Colors.redAccent.withValues(alpha: 0.8)
-                : Colors.white.withValues(alpha: 0.22),
-            width: 1,
-          ),
-        ),
-        child: const Center(
-          child: Icon(
-            Icons.center_focus_strong,
-            size: 13,
-            color: Colors.white,
-          ),
-        ),
+      child: _earButton(
+        icon: Icons.center_focus_strong,
+        color: Colors.white,
+        bg: hasAny
+            ? Colors.redAccent.withValues(alpha: 0.40)
+            : Colors.white.withValues(alpha: 0.10),
+        border: hasAny
+            ? Colors.redAccent.withValues(alpha: 0.85)
+            : Colors.white.withValues(alpha: 0.28),
+        iconSize: 13,
       ),
     );
   }
 
-  /// Smooth resize handle — drag diagonally to grow / shrink the orb
-  /// between 60 and 480 px. Sits just outside the bottom-right perimeter
-  /// so it doesn't collide with the inbox button inside the corner.
-  /// Drag delta is averaged between dx & dy so diagonal motion feels
-  /// natural regardless of direction.
-  Widget _buildResizeHandle(Size viewport) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onPanStart: (_) {
-        setState(() => _isResizing = true);
-      },
-      onPanUpdate: (d) {
-        // Average of dx + dy gives symmetric growth.
-        final double delta = (d.delta.dx + d.delta.dy) / 2;
-        // Respect the 42%-of-viewport cap so orb never dominates the slot UI.
-        final double viewportMin = viewport.width < viewport.height
-            ? viewport.width
-            : viewport.height;
-        final double effectiveMax =
-            (viewportMin * _maxViewportFraction).clamp(_minSizePx, _maxSizePx);
-        final double nextSize = (_currentSizePx + delta * 2)
-            .clamp(_minSizePx, effectiveMax);
-        // Don't let the orb grow past the viewport — leave 12px margin.
-        final double maxByViewport =
-            (viewport.width - _position.dx - 12).clamp(_minSizePx, effectiveMax);
-        final double maxByViewportY =
-            (viewport.height - _position.dy - 12).clamp(_minSizePx, effectiveMax);
-        final double safe = [nextSize, maxByViewport, maxByViewportY]
-            .reduce((a, b) => a < b ? a : b);
-        setState(() => _currentSizePx = safe);
-      },
-      onPanEnd: (_) {
-        setState(() => _isResizing = false);
-        _restartAutoHide();
-        _saveSettings();
-      },
-      child: MouseRegion(
-        cursor: SystemMouseCursors.resizeDownRight,
-        child: Container(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.cyanAccent.withValues(alpha: 0.18),
-            border: Border.all(
-              color: Colors.cyanAccent.withValues(alpha: 0.45),
-              width: 1,
-            ),
-          ),
-          child: const Center(
-            child: Icon(
-              Icons.open_in_full,
-              size: 11,
-              color: Colors.cyanAccent,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Phase 10e: Mark Problem button — flags the current mix state for
-  /// later review. Uses a subtle red flag so user notices when fresh alerts
-  /// are active, but stays unobtrusive when the mix is healthy.
+  // ─── Mark problem button (bottom-left) ────────────────────────────────────────
   Widget _buildMarkButton() {
     final hasAlerts = (_orbProvider?.activeAlerts.isNotEmpty ?? false);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: _markProblem,
-      child: Container(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: hasAlerts
-              ? Colors.redAccent.withValues(alpha: 0.35)
-              : Colors.white.withValues(alpha: 0.08),
-          border: Border.all(
-            color: hasAlerts
-                ? Colors.redAccent.withValues(alpha: 0.85)
-                : Colors.white.withValues(alpha: 0.22),
-            width: 1,
-          ),
-        ),
-        child: const Center(
-          child: Icon(Icons.flag, size: 13, color: Colors.white),
-        ),
+      child: _earButton(
+        icon: Icons.flag,
+        color: Colors.white,
+        bg: hasAlerts
+            ? Colors.redAccent.withValues(alpha: 0.40)
+            : Colors.white.withValues(alpha: 0.10),
+        border: hasAlerts
+            ? Colors.redAccent.withValues(alpha: 0.85)
+            : Colors.white.withValues(alpha: 0.28),
+        iconSize: 13,
       ),
     );
   }
 
-  /// Phase 10e: Inbox button — opens the Problems panel. Small numeric
-  /// badge in the corner shows how many captures are queued.
+  // ─── Inbox button (bottom-right, left of resize dot) ─────────────────────────
   Widget _buildInboxButton() {
     final count = ProblemsInboxService.instance.count;
     return GestureDetector(
@@ -772,26 +543,19 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white.withValues(alpha: 0.08),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.22),
-                width: 1,
-              ),
-            ),
-            child: const Center(
-              child: Icon(Icons.inbox, size: 13, color: Colors.white),
-            ),
+          _earButton(
+            icon: Icons.inbox,
+            color: Colors.white,
+            bg: Colors.white.withValues(alpha: 0.10),
+            border: Colors.white.withValues(alpha: 0.28),
+            iconSize: 13,
           ),
           if (count > 0)
             Positioned(
               right: -4,
-              top: -4,
+              top:   -4,
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
                 decoration: BoxDecoration(
                   color: Colors.redAccent,
                   borderRadius: BorderRadius.circular(8),
@@ -813,9 +577,79 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
     );
   }
 
-  /// PHASE 10: Quick Filter chip strip under the orb. 4 chips (SFX, Loud,
-  /// Recent, NoMute) AND-combine. Active chip cyan-bordered, inactive is
-  /// subtle so it doesn't distract during play.
+  // ─── Resize dot (bottom-right corner) ────────────────────────────────────────
+  Widget _buildResizeHandle(Size vp) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onPanStart: (_) => setState(() => _isResizing = true),
+      onPanUpdate: (d) {
+        final delta = (d.delta.dx + d.delta.dy) / 2;
+        final vpMin = vp.width < vp.height ? vp.width : vp.height;
+        final effMax = (vpMin * _maxViewportFraction).clamp(_minOrbPx, _maxOrbPx);
+        final maxByVP = [
+          vp.width  - _position.dx - 2 * _earPx - 12,
+          vp.height - _position.dy - 2 * _earPx - 12,
+        ].reduce((a, b) => a < b ? a : b).clamp(_minOrbPx, effMax);
+        final next = (_orbPx + delta * 2).clamp(_minOrbPx, maxByVP);
+        setState(() => _orbPx = next);
+      },
+      onPanEnd: (_) {
+        setState(() => _isResizing = false);
+        _restartAutoHide();
+        _saveSettings();
+      },
+      child: MouseRegion(
+        cursor: SystemMouseCursors.resizeDownRight,
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            color: Colors.cyanAccent.withValues(alpha: 0.25),
+            border: Border.all(
+              color: Colors.cyanAccent.withValues(alpha: 0.60),
+              width: 1,
+            ),
+          ),
+          child: const Center(
+            child: Icon(Icons.open_in_full, size: 9, color: Colors.cyanAccent),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── Reveal button (when orb is hidden) ──────────────────────────────────────
+  Widget _buildRevealButton() {
+    return Stack(children: [
+      Positioned(
+        right:  16,
+        bottom: 16,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            setState(() => _visible = true);
+            widget.onVisibilityChanged?.call(true);
+            _restartAutoHide();
+            _saveSettings();
+          },
+          child: Container(
+            width: 38, height: 38,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.black.withValues(alpha: 0.60),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.30), width: 1),
+              boxShadow: [BoxShadow(
+                color: Colors.black.withValues(alpha: 0.50), blurRadius: 12)],
+            ),
+            child: const Center(
+              child: Icon(Icons.graphic_eq, size: 18, color: Colors.white)),
+          ),
+        ),
+      ),
+    ]);
+  }
+
+  // ─── Filter chips ─────────────────────────────────────────────────────────────
   Widget _buildFilterChips() {
     final p = _orbProvider;
     if (p == null) return const SizedBox.shrink();
@@ -826,42 +660,55 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
         spacing: 4,
         runSpacing: 3,
         children: OrbQuickFilter.values.map((f) {
-          final isOn = active.contains(f);
+          final on = active.contains(f);
           return GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: () {
-              p.toggleFilter(f);
-              _restartAutoHide();
-            },
+            onTap: () { p.toggleFilter(f); _restartAutoHide(); },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: isOn
+                color: on
                     ? Colors.cyanAccent.withValues(alpha: 0.22)
-                    : Colors.black.withValues(alpha: 0.55),
+                    : Colors.black.withValues(alpha: 0.60),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: isOn
-                      ? Colors.cyanAccent.withValues(alpha: 0.8)
-                      : Colors.white.withValues(alpha: 0.2),
+                  color: on
+                      ? Colors.cyanAccent.withValues(alpha: 0.80)
+                      : Colors.white.withValues(alpha: 0.20),
                   width: 1,
                 ),
               ),
-              child: Text(
-                f.label,
+              child: Text(f.label,
                 style: TextStyle(
-                  color: isOn
-                      ? Colors.cyanAccent
-                      : Colors.white.withValues(alpha: 0.75),
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.4,
-                ),
-              ),
+                  color: on ? Colors.cyanAccent : Colors.white.withValues(alpha: 0.75),
+                  fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 0.4,
+                )),
             ),
           );
         }).toList(),
       ),
+    );
+  }
+
+  // ─── Shared ear-button factory ────────────────────────────────────────────────
+  Widget _earButton({
+    required IconData icon,
+    required Color color,
+    required Color bg,
+    required Color border,
+    double iconSize = 13,
+  }) {
+    return Container(
+      width:  _btnPx,
+      height: _btnPx,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: bg,
+        border: Border.all(color: border, width: 1),
+        boxShadow: [BoxShadow(
+          color: Colors.black.withValues(alpha: 0.35), blurRadius: 4)],
+      ),
+      child: Center(child: Icon(icon, size: iconSize, color: color)),
     );
   }
 }
