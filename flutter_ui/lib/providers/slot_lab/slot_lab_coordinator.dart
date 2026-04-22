@@ -411,24 +411,41 @@ class SlotLabCoordinator extends ChangeNotifier {
       engineProvider.getTriggerStageForWin(winAmount);
 
   // --- Spin Execution ---
-  Future<SlotLabSpinResult?> spin() {
-    // Gate: block spin while scene transition is active (industry standard —
-    // reels must not spin during feature enter/exit plaques)
+  /// Gate + notify FSM before starting any spin.
+  /// Returns `false` if a scene transition is active (spin should be blocked).
+  bool _preSpinGate() {
     try {
       final gameFlow = sl<GameFlowProvider>();
-      if (gameFlow.isInTransition) return Future.value(null);
+      if (gameFlow.isInTransition) return false;
       gameFlow.onSpinStart();
     } catch (_) {
       // Silently ignore — GameFlowProvider may not be registered
     }
+    return true;
+  }
+
+  Future<SlotLabSpinResult?> spin() {
+    // Gate: block spin while scene transition is active (industry standard —
+    // reels must not spin during feature enter/exit plaques)
+    if (!_preSpinGate()) return Future.value(null);
     return engineProvider.spin();
   }
-  Future<SlotLabSpinResult?> spinForced(ForcedOutcome outcome) =>
-      engineProvider.spinForced(outcome);
+
+  /// TALAS 1 — Forced spin must also notify FSM so FS counter / features
+  /// advance when forced outcomes drive the engine (QA panel, test automation,
+  /// ForcedOutcomePanel Big Win / Free Spins scenarios).
+  Future<SlotLabSpinResult?> spinForced(ForcedOutcome outcome) {
+    if (!_preSpinGate()) return Future.value(null);
+    return engineProvider.spinForced(outcome);
+  }
+
   Future<SlotLabSpinResult?> spinForcedWithMultiplier(
     ForcedOutcome outcome,
     double targetMultiplier,
-  ) => engineProvider.spinForcedWithMultiplier(outcome, targetMultiplier);
+  ) {
+    if (!_preSpinGate()) return Future.value(null);
+    return engineProvider.spinForcedWithMultiplier(outcome, targetMultiplier);
+  }
 
   // --- Stage Playback ---
   void stopStagePlayback() => stageProvider.stopStagePlayback();

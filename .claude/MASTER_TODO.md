@@ -723,6 +723,11 @@ Poslednje fixovano (2026-04-21): #15 (otool detection), #22 (wgpu poll logging),
 - [x] Phase 3: OrbMixer Nivo 2 (FFI active voices + bus expand) ✅ DONE (2026-04-22) — full vertical stack
 - [x] Phase 4: OrbMixer Nivo 3 (per-voice params + arc sliders) ✅ DONE (2026-04-22) — OrbParamArc, long-press ring
 - [x] Phase 5: Vizuelni slojevi (ghost trails, magnetic snap, heatmap, scrub ring) ✅ DONE (2026-04-22) — 12 paint layers
+- [ ] **Phase 6: HPF/LPF/Send Engine Wire-up** — Rust OneShotCommand proširenje (param 4/5/6) + Dart FFI pozivi u orb_mixer_provider.dart:731-735
+- [ ] **Phase 7: Real-time RMS metering po voicu** — orb dots pulsiraju po stvarnoj glasnoći (engine → FFI → Dart stream)
+- [ ] **Phase 8: Frequency Heatmap iz živog FFT-a** — zamena fake/statičnog heatmapa pravim spektralnim podacima iz engine-a
+- [ ] **Phase 9: Live Play Companion Mode** — floating orb preko full-screen Premium Slot Preview-a, mikš dok igraš (3 veličine, transparency, auto-hide, gesture, persist, undo)
+- [ ] **Phase 10: 130-Voice Live Mix Orchestra** — 3-slojna hijerarhija (Bus→Kategorija→Voice), Time-Rewind ghost slots (10s), Auto-Focus na najglasniji voice, Live Alerts (clip/masking/phase), Mark Problem markeri, Quick Filter chip-ovi
 
 **Planirani fajlovi (~1950 LOC):**
 - `flutter_ui/lib/widgets/slot_lab/orb_mixer.dart` (~800)
@@ -783,6 +788,731 @@ ostaje kao potencijalno proširenje za >6 return tačaka (P3+).
 - [x] QA (flutter analyze + cargo tests) ✅ DONE (2026-04-22) — 0 errors, 313+27 testova pass
 - [ ] Full Build + Test — cargo build --release + xcodebuild
 - [x] **Sonic DNA Classifier** ✅ DONE (2026-04-22) — Layer 2 (15 profila) + Layer 3 (Hungarian + variant + gap) + FFI + Dart models
+- [ ] **OrbMixer Phase 6: HPF/LPF/Send wire-up** — `playback.rs:set_voice_param` extend (param 4/5/6) + `ffi.rs` comment update + `orb_mixer_provider.dart:731-735` stub zamena
+- [ ] **OrbMixer Phase 7: RMS metering po voicu** — FFI `orb_get_voice_rms(voice_id) -> f32` + Dart poll/stream + painter dot glow proporcionalan RMS-u
+- [ ] **OrbMixer Phase 8: Live FFT heatmap** — engine FFI za spektar po busu + painter zamena fake heatmapa
+- [ ] **OrbMixer Phase 9: Live Play Companion Mode** — floating orb preko `PremiumSlotPreview`, 3 veličine, gesture-i, auto-hide, persist mix, undo (detalji: "Phase 9" sekcija dole)
+- [ ] **OrbMixer Phase 10: 130-Voice Live Mix Orchestra** — 3-slojna hijerarhija + Time-Rewind ghost slots + Auto-Focus + Live Alerts + Mark Problem + Quick Filters (detalji: "Phase 10" sekcija dole)
+- [ ] **NeuralBindOrb Phase 2: Ghost slot indikatori** — stage-ovi bez audio bindinga prikazani kao ghost u orbu (gap analysis integration)
+
+---
+
+## OrbMixer — Phase 9: Live Play Companion Mode (DETAILED SPEC)
+
+> **Vizija:** Dok igram slot, orb mi je pri ruci. Ako je neki zvuk glasan, smiksujem ga na licu mesta, on se updateuje u realnom vremenu. Nema "stop → podesi → play" ciklusa. **Closed feedback loop < 1 sekunda.**
+
+### Kontekst — šta već imamo
+| Komponent | Status | Fajl |
+|-----------|--------|------|
+| OrbMixer widget (3 nivoa) | ✅ | `flutter_ui/lib/widgets/slot_lab/orb_mixer.dart` (514 LOC) |
+| OrbMixer painter (4 viz sloja) | ✅ | `flutter_ui/lib/widgets/slot_lab/orb_mixer_painter.dart` (745 LOC) |
+| OrbMixer provider | ✅ | `flutter_ui/lib/providers/orb_mixer_provider.dart` (894 LOC) |
+| Active voices FFI | ✅ | `crates/rf-bridge/src/orb_mixer_ffi.rs` → `orb_get_active_voices()` |
+| Per-voice params FFI | ✅ | `orb_set_voice_param(voice_id, param, value)` |
+| Premium Slot Preview (fullscreen) | ✅ | `flutter_ui/lib/widgets/slot_lab/premium_slot_preview.dart` |
+
+**Rupa:** Orb je zakucan u Lower Zone / HELIX `_AudioPanel`. U full-screen slot preview-u nije dostupan.
+
+### Cilj
+Floating overlay widget koji lebdi preko `PremiumSlotPreview`, uvek dostupan, nikad u putu.
+
+### 1. Floating Overlay Arhitektura
+- **Widget:** novi `LivePlayOrbOverlay` — `Stack` child iznad slot preview-a
+- **Positioning:** `Positioned` sa `Offset(x, y)` u provider state-u; default donji-desni ugao (16px margin)
+- **Lifting z-order:** preko svega osim WinPresenter-a (kad WinPresenter peak fullscreen → orb dim na 30%)
+- **Draggable:** `GestureDetector.onPanUpdate` → update `Offset`; `onPanEnd` → snap na najbližu ivicu (top/bottom/left/right)
+- **Snap logika:** ako je `center.distance(edge) < 48px` → magnetno prilepi uz ivicu sa 8px margin-om
+- **Persist pozicije:** `SharedPreferences` → `orb_position_x`, `orb_position_y`, `orb_dock_edge`
+
+### 2. Tri veličine (LOD — Level of Detail)
+| Mod | Veličina | Što prikazuje | Aktivacija |
+|-----|----------|---------------|------------|
+| **Mini** | 60×60px | Samo Master fader kao prsten + peak LED | tap na "mini" toggle |
+| **Standard** | 120×120px | 6 buseva + Master centar (Nivo 1) | default |
+| **Full** | 240×240px | 6 buseva + ekspanzija voice-ova (Nivo 2) | pinch-out ili double-tap |
+
+**Tranzicija:** `AnimatedContainer` sa `Duration(ms: 180)` + `Curves.easeOutCubic`. Painter receivuje `scale` parametar i re-kalkuliše rastojanja proporcionalno.
+
+### 3. Transparency & Auto-Hide
+- **Default opacity:** 0.85 kad nije "in use"
+- **In use:** 1.0 (finger down, drag, hover u desktop-u)
+- **Auto-hide trigger:** 3s bez interakcije → `AnimatedOpacity` → 0.40
+- **Revive:** bilo koji touch u 32px radijusu → instant 1.0
+- **Never fully hidden** — uvek minimum 0.40 da ostane jasno gde je
+
+### 4. Gesture mapa
+| Gesture | Akcija |
+|---------|--------|
+| Single tap bus | Solo toggle |
+| Double tap bus | Mute toggle |
+| Drag radial on bus | Volume (near→low, far→high) |
+| Drag angular on bus | Pan (L↔R) |
+| Long-press bus centar | Ekspanzija (Nivo 2 voices) |
+| Long-press orb centar | **Undo last change** (poslednja volume/pan promena) |
+| Swipe levo preko orba | Sakrij (fade na 0.15, samo "halo" ostane) |
+| Double-tap ivice ekrana | Vrati sakriveni orb |
+| Pinch-out | Mini → Standard → Full |
+| Pinch-in | Full → Standard → Mini |
+
+### 5. Live Pulse (zavisi od Phase 7 RMS stream-a)
+- Svaki bus prsten pulsira po **trenutnom RMS-u** tog busa
+- **Algoritam:** `glow_intensity = clamp(rms_db + 40, 0, 40) / 40` (mapiranje -40dB..0dB → 0..1)
+- Bus koji "gori" (peaking) vidis trenutno — to ti kaže KOJI da pipneš
+
+### 6. Persist mix (autosave)
+- Svaka promena volume/pan ide u `projectProvider.setBusMix(busId, vol, pan)` odmah
+- Debounce 500ms → zapis u projekat JSON
+- **Nema "Save Mix" dugmeta** — kao što audio editori (Logic/Ableton) uvek pamte
+
+### 7. Undo history
+- In-memory `CircularBuffer<MixChange>` (kapacitet 32)
+- `MixChange { voice_or_bus_id, param, old_value, new_value, timestamp }`
+- Long-press centar orba → pop sa vrha → reverse change → apply
+- Vizuelno: kratko "↶ vol -2dB Bus SFX" toast ispod orba (2s fade)
+
+### 8. "Problem-first" zoom (bonus feature)
+- **Long-press + hold 500ms** → orb analizira poslednjih 500ms RMS-a svih buseva
+- Bus sa najvećim `rms_peak × time_above_threshold` score-om → **automatski highlight-uje sa crvenim prstenom**
+- Vibracija (ako mobile) → znaš koji je
+- Još 300ms držiš → orb zumira na taj bus (Nivo 2) — direktno vidiš voice-ove
+- Otpustiš → reset
+
+### Konkretni fajlovi za implementaciju
+| Fajl | LOC est. | Šta |
+|------|----------|-----|
+| `flutter_ui/lib/widgets/slot_lab/live_play_orb_overlay.dart` | ~280 | Floating widget, positioning, drag, snap, opacity states |
+| `flutter_ui/lib/providers/live_play_orb_provider.dart` | ~180 | State (position, size mode, visible, autohide timer, undo buffer) |
+| `flutter_ui/lib/widgets/slot_lab/premium_slot_preview.dart` | +20 | Integracija: `Stack` child sa LivePlayOrbOverlay |
+| `flutter_ui/lib/widgets/slot_lab/orb_mixer_painter.dart` | +40 | `scale` param + LOD rendering (mini/std/full) |
+| `flutter_ui/lib/providers/orb_mixer_provider.dart` | +60 | Undo buffer + `popUndo()` metoda + problem-first zoom helper |
+| `flutter_ui/lib/theme/fluxforge_theme.dart` | +8 | `liveOrbGlow`, `liveOrbDim` boje |
+
+**Ukupno:** ~588 LOC novo + ~128 LOC izmene
+
+### Testovi
+- Widget test: drag → position update → snap na ivicu
+- Widget test: pinch-out → mode prelazak (mini→std→full)
+- Widget test: auto-hide tajmer → opacity 0.40 posle 3s
+- Widget test: long-press orb centar → undo applied
+- Integration test: WinPresenter peak → orb opacity 0.30 dok traje
+
+---
+
+## OrbMixer — Phase 10: 130-Voice Live Mix Orchestra (DETAILED SPEC)
+
+> **Problem:** Slot ima 130 zvukova. 30+ SFX, 20+ MUS varijanti, 40+ VO, 15 AMB. Ne mogu svi u jedan krug.
+> **Rešenje:** Hijerarhija + vremenska memorija + inteligentno filtriranje. Nikad više od ~10 tačaka na ekranu.
+
+### Brutalna realnost
+| Faza igre | Istovremeno aktivnih voice-ova |
+|-----------|-------------------------------|
+| Idle | 1-2 (ambient beds) |
+| Spin | 3-5 (spin loop, reel stops, music bed) |
+| Win rollup | 8-12 (rollup, particles, fanfara, VO, ducking) |
+| Feature trigger | 10-15 (cluster) |
+| **Max peak** | **~15 istovremeno** |
+
+Ali **130 postoji u biblioteci** — i oni se vrte. Zvuk svira 300ms i nestane. Nemoguće ga je uhvatiti prstom.
+
+### 1. Tri-slojna hijerarhija
+#### Sloj 1 — BUSEVI (6 fiksno)
+Uvek isti, uvek vidljivi:
+- Music / SFX / Voice / Ambience / Aux / Master
+
+#### Sloj 2 — KATEGORIJE (~15-20 dinamički)
+Smart grupe po event taksonomiji (postojeća `SlotEventIds` u `flutter_ui/lib/models/slot_audio_events.dart`):
+
+```
+SFX bus     → [Spin loop] [Reel stops] [UI clicks] [Win rollup] [Collect] [Near miss]
+MUS bus     → [Base] [Anticipation] [Feature] [BigWin Tier 1] [Tier 2] [Tier 3] [Tier 4] [Tier 5]
+VO bus      → [Char A] [Char B] [Narrator] [Announcer]
+AMB bus     → [Lobby] [Game idle] [Feature amb]
+Aux bus     → [Send FX 1] [Send FX 2]
+```
+
+**Mapiranje:** pravimo `VoiceCategoryResolver` servis — za `voice_id` → resolve to category via event_id ranges (već definisane u `SlotEventIds`).
+
+**Aktivacija:** tap na bus → expand u 3-6 kategorija; svaka tačka pulsira ako u toj kategoriji nešto trenutno svira.
+
+#### Sloj 3 — INDIVIDUALNI VOICE (aktivni + nedavni)
+Tap na kategoriju → vidiš **samo voice-ove koji su svirali u poslednjih 10 sekundi** (recent + active). Tipično 3-8, ne 30.
+
+### 2. Time-Rewind Orb (ghost slots)
+**Problem:** SFX svira 300ms. Ne stigneš.
+
+**Rešenje:**
+- Orb pamti **poslednjih 10 sekundi** aktivnosti svih voice-ova u `VoiceHistoryBuffer`
+- Svaki voice koji je svirao → ghost tačka u orbitalnom prstenu oko svog bus-a
+- **Fade algoritam:** `alpha = 1.0 - (age_ms / 10000.0)` (10s do potpunog nestanka)
+- **Tap ghost tačke** → solo replay taj voice (jedna instanca, bez bus overlapa) + orb se zadrži na njoj 5s za edit
+- **Timeline skala:** 0-2s = 100% alpha, 2-5s = 80%, 5-10s = 60%→0%
+
+**Data model:**
+```dart
+class GhostSlot {
+  final int voiceId;
+  final String canonicalAssetId;
+  final int busId;
+  final DateTime startedAt;
+  final DateTime endedAt;
+  final double peakRms;
+  double get ageSeconds => DateTime.now().difference(endedAt).inMilliseconds / 1000;
+  double get alpha => (1.0 - (ageSeconds / 10)).clamp(0.0, 1.0);
+}
+```
+
+**Buffer:** `CircularBuffer<GhostSlot>` kapacitet 128, eviction po `endedAt > 10s`.
+
+### 3. Auto-Focus na problem
+**Kad čuješ "ovaj zvuk je preglasan", ne moraš da znaš koji je.**
+
+1. **Long-press centra orba** (500ms+) → game pause, freeze snapshot
+2. Orb kalkuliše **"culprit score"** za svaki voice u poslednjih 500ms:
+   ```
+   culprit_score = rms_peak_db_abs × time_active_ms × frequency_dominance
+   ```
+   gde je `frequency_dominance` = % spektra koji voice zauzima (iz FFT-a)
+3. Voice sa najvećim score-om → orb **automatski zumira na njega** (Nivo 3)
+4. Arc slider za volume se otvori odmah
+5. Spustis → unpause → nastavi igru
+
+**Engine support:** `orb_get_culprit_voice(last_ms: u32) -> i64` → voice_id ili -1.
+
+### 4. Live Alerts ("crveni prsten")
+Daemon pomaže u realnom vremenu:
+
+| Alert | Boja | Trigger |
+|-------|------|---------|
+| **Clipping** | Crveno puls | `true_peak > -0.3 dBTP` na busu |
+| **Frequency masking** | Žuti arc između 2 voice-a | 2+ voice-a u istom 1/3 oktavnom opsegu sa RMS > -18dB |
+| **Phase cancellation** | Ljubičasti outline | correlation < 0.3 na stereo polju |
+| **Headroom warning** | Narandžasto | bus master > -6dB LUFS-M u 500ms prozoru |
+
+**Engine support:**
+- `orb_get_alerts() -> Vec<Alert>` preko JSON FFI
+- Tipovi: `Clipping(bus_id)`, `Masking(voice_a, voice_b, band_hz)`, `PhaseIssue(bus_id, corr)`, `Headroom(bus_id, lufs)`
+- Poll rate: 100ms (10Hz)
+
+**Haptic:** na mobile → `HapticFeedback.mediumImpact()` kad alert pojavi (max jedan per 2s da ne dosadi)
+
+### 5. Mark Problem dugme (retrospective)
+Kad čuješ nešto čudno ali nemaš vremena:
+
+1. Tap **crveni marker dugme** (malo dugme u donjem desnom uglu orba) — samo beleži, ne prekida game
+2. Sačuvaj: `timestamp + active_voices_snapshot + spectrum_snapshot + 3s_audio_clip (ring buffer)`
+3. Nastavljaš igru
+4. Posle `stop` → otvori se **"Problems Inbox"** panel
+5. Lista svih markera, svaki sa 3-sekundnim audio clip-om i thumbnail spektra
+6. Tap marker → replay sa orbom u stanju iz tog momenta + možeš odmah da fix-uješ
+
+**Data model:**
+```dart
+class MixProblem {
+  final int id;
+  final DateTime markedAt;
+  final List<ActiveVoiceSnapshot> voices;
+  final Float32List audioClip;  // 3s x 48kHz = 144k samples
+  final Float32List spectrum;    // 2048-bin FFT
+  final List<Alert> activeAlerts;
+}
+```
+
+**Storage:** `List<MixProblem>` u `projectProvider._problems` → serialize u `.fluxforge/problems.json` (audio clipovi kao WAV u `.fluxforge/problems/`)
+
+**Engine support:**
+- Ring buffer poslednjih 5 sekundi audio-a po master bus-u (već postoji za scrub)
+- `orb_capture_problem_snapshot() -> ProblemSnapshot` FFI
+
+### 6. Quick Filter chip-ovi
+4 male ikonice oko orba (radijalno raspoređene u 4 ugla prstena):
+
+| Chip | Akcija |
+|------|--------|
+| 🎵 **SFX only** | Sakrij sve osim SFX bus-a + njegovih kategorija |
+| 🔊 **Loud now** | Prikaži samo voice-ove sa RMS > -12dB trenutno |
+| ⏱ **Recent** | Samo voice-ovi iz poslednjih 5 sekundi (ghosts uključeni) |
+| 🎚 **Muted hidden** | Sakrij mute-ovane buseve |
+
+**Kombinovanje:** chip-ovi su toggle, mogu biti kombinovani (AND logika). Aktivni chip = cyan outline.
+
+**Persist:** poslednji aktivni set chip-ova u `SharedPreferences` → `orb_filters_active`.
+
+### 7. Performance zahtevi
+- **Paint frame budget:** ≤ 4ms (@ 60fps = 16.67ms total)
+- **FFI poll rate:** active voices 60Hz, RMS 60Hz, alerts 10Hz, culprit on-demand
+- **Ghost buffer eviction:** background isolate, ne blokira UI
+- **Max concurrent ghosts:** 64 (performance cap — dodatni se evict-uju)
+
+### 8. Konkretni fajlovi za implementaciju
+
+#### Rust (engine)
+| Fajl | LOC est. | Šta |
+|------|----------|-----|
+| `crates/rf-engine/src/voice_history.rs` | ~180 | `VoiceHistoryBuffer` — cirkularni buffer ghost slotova, timestamp tracking |
+| `crates/rf-engine/src/culprit_analyzer.rs` | ~220 | `CulpritScorer` — RMS × time × freq dominance, 500ms lookback |
+| `crates/rf-engine/src/mix_alerts.rs` | ~260 | Alert detekcija: clip, masking (FFT 1/3 oct), phase correlation, headroom LUFS |
+| `crates/rf-engine/src/problem_capture.rs` | ~150 | `ProblemSnapshot` + 5s audio ring buffer clone + FFT snapshot |
+| `crates/rf-bridge/src/orb_mixer_ffi.rs` | +140 | `orb_get_ghost_slots()`, `orb_get_culprit_voice()`, `orb_get_alerts()`, `orb_capture_problem_snapshot()` |
+
+#### Dart (UI)
+| Fajl | LOC est. | Šta |
+|------|----------|-----|
+| `flutter_ui/lib/providers/voice_category_resolver.dart` | ~200 | Voice_id → (bus, category) mapiranje via SlotEventIds ranges |
+| `flutter_ui/lib/widgets/slot_lab/orb_category_ring.dart` | ~240 | Nivo 1.5 widget — ekspandovane kategorije oko bus tačke |
+| `flutter_ui/lib/widgets/slot_lab/orb_ghost_painter.dart` | ~180 | Ghost slot rendering sa alpha fade |
+| `flutter_ui/lib/widgets/slot_lab/orb_alert_overlay.dart` | ~220 | Crveni/žuti/ljubičasti/narandžasti overlay slojevi |
+| `flutter_ui/lib/widgets/slot_lab/problems_inbox_panel.dart` | ~380 | Retrospective review panel — lista, audio player, replay button |
+| `flutter_ui/lib/widgets/slot_lab/orb_quick_filters.dart` | ~160 | 4 chip dugmeta oko orba, toggle state |
+| `flutter_ui/lib/providers/orb_mixer_provider.dart` | +240 | Ghost buffer state, alerts stream, filters state, auto-focus logika |
+| `flutter_ui/lib/models/mix_problem.dart` | ~120 | MixProblem data model + serialization |
+
+**Ukupno:** ~810 LOC Rust + ~1740 LOC Dart + ~380 LOC izmene = ~2930 LOC novo
+
+### 9. Faze unutar Phase 10 (subfaze)
+- **10a:** VoiceCategoryResolver + Nivo 1.5 kategorijski ring
+- **10b:** VoiceHistoryBuffer + Ghost slots rendering
+- **10c:** Culprit analyzer + Auto-Focus long-press logika
+- **10d:** Mix alerts (clip → masking → phase → headroom, redom po važnosti)
+- **10e:** Problem capture + Problems Inbox panel
+- **10f:** Quick Filter chip-ovi
+- **10g:** Performance tuning (isolate za ghost buffer, FFI poll optimization)
+
+### 10. Testovi
+- Unit Rust: VoiceHistoryBuffer eviction pod opterećenjem (1000 voice startova/s)
+- Unit Rust: CulpritScorer bira tačan voice sa predefined RMS/freq scenario
+- Unit Rust: MixAlerts detektuje clipping unutar 100ms
+- Widget test: kategorijski ring se ekspandira na tap bus-a
+- Widget test: ghost slot fade iz 1.0 na 0.0 u 10s
+- Widget test: long-press 500ms centra orba → auto-focus na najglasniji
+- Widget test: quick filter "Loud now" sakriva voice-ove sa RMS < -12dB
+- Integration: igra spin → win sa 12 voice-ovima → Problems Inbox prikazuje marker sa ispravnim snapshot-om
+
+### 11. Edge case-ovi koji moraju biti pokriveni
+- **Voice startuje i završi unutar 1 audio bloka (<11ms):** i dalje mora biti ghost (zapisan u buffer sa `duration_ms = 0`)
+- **Glitch u FFT-u (NaN):** alert detector mora safe-default (no alert umesto panic)
+- **Problem capture tokom clip-a:** audio clip mora biti iz ring buffer-a PRE alert-a (ne tokom limiter-ovog reakcionog vremena)
+- **Pozicija orba preko Problems Inbox dugmeta:** auto-offset za 40px
+- **Kategorija bez aktivnih voice-ova:** tačka je prisutna ali 30% alpha (grey state)
+- **130+ voice-ova u biblioteci, 0 aktivnih trenutno:** orb prikazuje samo buseve, nema praznog prostora
+
+### 12. Otvorena pitanja za diskusiju
+1. **Problems Inbox** — koliko problema da čuvamo per sesija? 50? 100?
+2. **Auto-focus trigger** — long-press je 500ms. Isto na mobile i desktop, ili kraće na mobile?
+3. **Haptic na alerts** — samo na mobile, ili i na desktop preko system-beep toggle-a?
+4. **Category resolver** — da li koristiti postojeće `SlotEventIds` range-ove ili napraviti nov `VoiceCategory` enum?
+5. **Ghost replay** — solo reprodukcija ghost slotova: da li zaustavlja trenutnu igru ili dozvoljava preklapanje?
+
+---
+
+---
+
+## Slot Flow — IGT Parity (🔴 KRITIČNO — DETAILED SPEC)
+
+> **Boki zahtev (2026-04-22):** "Flow slot mašine ne radi potpuno kao IGT. Skip, slam, koliko traju, kad se pojavljuje spin, prelazak base→FS i nazad — sve mora biti do tančina kao IGT."
+> **Cilj:** 1:1 parity sa IGT Playa game flow-om, bez ijednog rupa. Closed FSM loop, clean state transitions, ispravan UX svakog dugmeta u svakoj fazi.
+
+### 🧭 Referentni dokumenti (read FIRST)
+- `SLOTLAB_VS_PLAYA_ANALYSIS.md` (root) — konkurentska analiza, Playa patterns
+- `.claude/architecture/WRATH_OF_OLYMPUS_GAME_FLOW.md` — kompletan flow reference sa svim timing-ima
+- `FLUXFORGE_SLOTLAB_ULTIMATE_ARCHITECTURE.md` — compliance + vizija
+- Kod fajlovi:
+  - `flutter_ui/lib/providers/slot_lab/game_flow_provider.dart` (1217 LOC — FSM)
+  - `flutter_ui/lib/models/game_flow_models.dart` (state enum)
+  - `flutter_ui/lib/widgets/slot_lab/premium_slot_preview.dart` (fullscreen preview — spin/stop/skip handlers)
+  - `flutter_ui/lib/widgets/slot_lab/game_flow_overlay.dart` (plaque transitions)
+  - `flutter_ui/lib/widgets/slot_lab/professional_reel_animation.dart` (reel animation)
+
+---
+
+### ✅ ŠTO VEĆ RADI KAKO TREBA (ne dirati)
+
+| Komponenta | Status | Dokaz |
+|------------|--------|-------|
+| FSM — 9-state game flow | ✅ | `game_flow_provider.dart:86–1217`, enum `GameFlowState` sa `.isFeature` klasifikacijom |
+| Feature queue + stack (nested do 5 nivoa) | ✅ | `GameFlowStack` sa `canNest()` pravilima |
+| Spin/Stop/Skip phase detection | ✅ | `SpinButtonPhase` enum (`spin\|stop\|skip\|skipProtected`), `premium_slot_preview.dart:238–320` |
+| Big Win skip protection 2.5s | ✅ | `_bigWinProtectionRemaining` countdown, `premium_slot_preview.dart:279, 3801` |
+| Two-phase Big Win skip (BIG_WIN_END → collect) | ✅ | `_handleSkipWinPresentation` dvosmerno skip logika |
+| Reel timing (Normal 250ms/Turbo 100ms/Slam 30ms) | ✅ | Arhitektura match sa WoO doc |
+| Scene transitions (enter/exit plaque) | ✅ | `_startEnterTransition` / `_startExitTransition` sa `dismissMode` (timed/click/both) |
+| Anticipation logic | ✅ | Per-reel detection, audio stops on SLAM |
+| Win tier dynamics (P5 WinTierConfig) | ✅ | Superior to Playa's fixed tiers |
+| Cascading/tumble (rf-slot-lab CascadesChapter) | ✅ | More sophisticated than Playa's GSAP approach |
+
+---
+
+### ❌ 5 KRITIČNIH RUPA KOJE LOME FLOW
+
+#### 🔴 GAP #1: FSM nije wire-ovan na Spin handlers
+**Problem:** `GameFlowProvider.onSpinStart()` i `onSpinComplete()` **postoje ali se NIKAD ne pozivaju** iz UI sloja.
+
+**Lokacije:**
+- `game_flow_provider.dart:502–547` — metode definisane (`onSpinStart`, `onSpinComplete`)
+- `premium_slot_preview.dart:5888` — `_executeSpinAfterSkip()` zove `provider.spin()` ali **NE** zove `gameFlowProvider.onSpinStart()`
+- `premium_slot_preview.dart:5930 (otprilike)` — `_processResult()` **NE** zove `gameFlowProvider.onSpinComplete(result)`
+
+**Posledica lanca:**
+1. FS spin counter ne opada — FS loop beskonačan
+2. `_evaluateTriggers(context)` (line 550) nikad ne radi — novi feature triggers se ne detektuju
+3. Retrigger detekcija potpuno mrtva
+4. Feature queue ne aktivira sledeći feature
+5. Cascade depth ne trackuje
+
+#### 🔴 GAP #2: FS auto-loop nikad ne startuje
+**Problem:** `GameFlowProvider.startFsAutoLoop()` (line 900–908) postoji, Timer-driven, ali UI ne zove ovu metodu posle FS entry plaque dismiss-a.
+
+**Lokacije:**
+- `game_flow_provider.dart:900–951` — `startFsAutoLoop()` + `onRequestAutoSpin` callback (line 143)
+- `game_flow_overlay.dart` — FS counter UI postoji ali **nema callback-a** na plaque dismiss
+- `premium_slot_preview.dart` — **zero referenci** na `gameFlowProvider.startFsAutoLoop()` ili `onRequestAutoSpin`
+
+**Posledica:** U Free Spins modu korisnik mora **ručno** da klikne spin posle svakog FS-a. To nije IGT/arcade standard — FS je auto-play od ulaska do izlaska.
+
+#### 🔴 GAP #3: SLAM STOP ne čisti feature state
+**Problem:** `_handleStop()` (line 6396–6409) zove `slamStop()` na reel widget-u, ali **ne poziva** `gameFlowProvider.onSpinComplete()` niti `exitCurrentFeature()`.
+
+**Lokacije:**
+- `premium_slot_preview.dart:6396–6409` — samo `_previewKey.currentState?.slamStop()` + `_stopAnticipationAudio()`
+- Nema poziva `gameFlowProvider.onSpinComplete(abortResult)` niti state reset-a
+
+**Posledica:**
+- SLAM tokom FS-a → FS counter ostaje stale
+- Auto-loop timer i dalje otkucava (orphan timer)
+- Cascade depth se ne resetuje
+- Feature state inconsistent sa stvarnim stanjem igre
+
+#### 🔴 GAP #4: Deferred Big Win posle FS nikad se ne prikazuje
+**Problem:** `GameFlowProvider.onDeferredBigWin` callback (line 147) se invoke-uje (line 735–739) kad je FS totalWin ≥ 10× bet, ali **UI nije subscribovan** na taj callback.
+
+**Lokacije:**
+- `game_flow_provider.dart:147, 735–739` — callback signature: `(double totalWin, double winRatio)`
+- `premium_slot_preview.dart` — **zero referenci** na `onDeferredBigWin`
+
+**Posledica:** Završiš FS sa totalWin = 50× bet → trebao bi "EPIC WIN" overlay sa 12s celebration → umesto toga samo tihi exit plaque "FREE SPINS COMPLETE" i back to base. **Potpuno gubitak emocionalne punote.**
+
+#### 🔴 GAP #5: Future.delayed bez mounted guard-a (race conditions)
+**Problem:** Minimum 5 mesta u `premium_slot_preview.dart` sa chained `Future.delayed` bez `if (!mounted) return;` provera.
+
+**Lokacije (konkretne linije):**
+- `premium_slot_preview.dart:5040, 5046, 5053` — tri chained delay-a (300ms, 3000ms, 4200ms) u win presentation kodu
+- `premium_slot_preview.dart:6214` — delay u keyboard handler-u
+- `premium_slot_preview.dart:7101` — delay u animation callback-u
+- `premium_slot_preview.dart:6037` — visual-sync timer, brisan samo na sledećem spin-u (leak ako se widget dispose-uje mid-spin)
+
+**Posledica:**
+- `setState() called after dispose` warnings
+- Memory leak orphan timera
+- Crash kad korisnik izađe iz preview-a tokom Big Win celebration-a
+
+---
+
+### ⚠️ SEKUNDARNE RUPE (manjeg prioriteta)
+
+#### GAP #6: Scene transition nema manual skip
+**Problem:** Enter/exit plaque imaju timed auto-dismiss (`game_flow_provider.dart:1086–1095, 1128–1137`), ali nema click/key handler-a za ranije dismiss-ovanje kad je mode `clickToContinue` ili `timedOrClick`.
+
+**Posledica:** Ako FS intro plaque traje 3 sekunde i korisnik hoće da preskoči — ne može, mora da čeka timer.
+
+#### GAP #7: Per-reel audio event granularnost
+**Problem:** REEL_STOP događaj ima per-reel data u `AnticipationInfo`, ali Flutter `GameFlowProvider` ne granulira u per-reel audio event trigger-e.
+
+**Lokacija:** SLOTLAB_VS_PLAYA_ANALYSIS.md označio kao "Tier 2 task, 4h effort" — Playa per-reel tracking vs FluxForge 20-state coarse FSM.
+
+#### GAP #8: Duplirana logika (_handleSpin vs _handleForcedSpin)
+**Problem:** `_handleForcedSpin()` mirror-uje `_handleSpin()` — DRY violation. Bug fix na jednoj metodi zahteva fix i na drugoj.
+
+**Severity:** Low (radi, ali debt).
+
+---
+
+### 📐 IGT REFERENTNI TIMING TABELA (iz PLAYA + WoO arhitekture)
+
+#### Reel Animation (Base Spin)
+| Parametar | Normal | Turbo | Slam |
+|-----------|--------|-------|------|
+| Base wait | 1200ms | 1200ms | — |
+| Reel stagger | 180–250ms | 45–100ms | 30ms |
+| Acceleration | 130ms | 70ms | 0ms |
+| Steady spin | 1350ms | 450ms | 0ms |
+| Deceleration | 300ms | 120ms | 100ms |
+| Windup | ~115ms (7 frames) | ~65ms (4 frames) | 0ms |
+| Bounce | 2× (decay 0.3) | 1× (decay 0.2) | none |
+
+#### Anticipation Timing
+| Parametar | Normal | Turbo |
+|-----------|--------|-------|
+| Base duration | 2000ms | 800ms |
+| Progressive step | +500ms/reel | +200ms/reel |
+| Post-stop delay | 100ms | 100ms |
+| Only reels 2-4 anticipate | ✅ | ✅ |
+
+#### Win Presentation
+| Tier | Preshow | Rollup | Line highlight | Lightning zap |
+|------|---------|--------|----------------|---------------|
+| Small | 400ms | 300–400ms | 500ms/line | — |
+| Medium | 600ms | 300–400ms | 600ms/line | 400ms |
+| Big | 800ms | 300–400ms | 600ms/line | 400–800ms |
+
+#### Big Win Celebration (Tier-based)
+| Tier | Min win ratio | Rollup | Shakes | Total |
+|------|---------------|--------|--------|-------|
+| Tier 1 (BIG WIN) | ≥10× | 4000ms | 6 × 300–600ms | ~4s |
+| Tier 2 (MEGA) | ≥25× | 4s + 4s | 12 × 300–600ms | ~8s |
+| Tier 3 (EPIC) | ≥50× | 4s × 3 | 20 × 300–600ms | ~12s |
+| End celebration | — | 6000ms + 1000ms hold | — | 7s tail |
+| Overlay fade-out | — | 750ms (skip: 300ms) | — | — |
+
+#### Free Spins Flow
+| Event | Timing |
+|-------|--------|
+| Scatter highlight pause | 2000ms |
+| FS intro cinematic | multi-phase (storm, lightning, plaque, shake, zoom) |
+| UI fadeout into FS | 300ms |
+| UI fadein (no BW) | 300ms |
+| UI fadein (with BW) | 600ms |
+| Auto-start wait | 2000ms |
+| Between FS spins (Normal) | 500ms |
+| Between FS spins (Turbo) | 250ms |
+| After last FS spin | 800ms (Normal) / 400ms (Turbo) |
+| Multiplier popup | 1500ms + 400ms fade |
+| Retrigger overlay | 2000ms + 400ms fade |
+| FS exit plaque | dismissMode=timedOrClick |
+
+#### Status Bar & Balance
+| Parametar | Normal | Turbo |
+|-----------|--------|-------|
+| Status bar rollup | 300–400ms | 300–400ms |
+| Balance rollup | 900ms | 500ms |
+
+#### Other
+- Between normal spins: 500ms (implicit dwell)
+- Big Win screen hold: 7000ms total (6s celebration + 1s buffer)
+
+---
+
+### 🎯 END-TO-END FLOW TRACES (trenutno stanje)
+
+#### Flow A: SPIN Button Press (base game)
+1. User pritisne SPACE ili tapne SPIN
+2. `_handleKeyEvent()` ili onTap → `_handleSpin(provider)`
+3. `_handleSpin()`:
+   - Proverava balance, FeatureComposer config, balance ≥ bet
+   - Ako win presentation aktivna: `provider.requestSkipPresentation()` sa callback-om
+   - Ako stages sviraju: `provider.stopStagePlayback()`
+   - Poziv `_executeSpinAfterSkip()`
+4. `_executeSpinAfterSkip()`:
+   - `_deductBalance()` (ako nije FS)
+   - `_scheduleVisualSyncCallbacks()` — timeri za REEL_STOP_i
+   - **❌ MISSING:** `gameFlowProvider.onSpinStart()`
+   - `provider.spin()` → `SlotLabSpinResult`
+5. Callback:
+   - `_processResult(result)`
+   - **❌ MISSING:** `gameFlowProvider.onSpinComplete(result)`
+
+**Posledica:** FSM ne zna da se spin dogodio → FS counter stuck, triggers ne rade.
+
+#### Flow B: SKIP Mid-Win Presentation
+1. Win presentation tece (rollup aktivan)
+2. User pritisne SKIP
+3. `_handleSkipWinPresentation()`:
+   - Ako `_bigWinProtectionRemaining > 0`: no-op (return)
+   - Ako `_isPlayingBigWinEnd`: stop BIG_WIN_END, trigger WIN_COLLECT, credit win, hide
+   - Inače (Phase 1): stop all stages, kill anticipation, stop win SFX, ako je big win tier → play BIG_WIN_END + set `_isPlayingBigWinEnd = true` (čeka Phase 2)
+
+**Status:** ✅ Radi kako treba za audio. **❌ Ne resetuje FSM state** ako si u FS.
+
+#### Flow C: SLAM Mid-Spin
+1. Reels spin
+2. User pritisne STOP
+3. `_handleStop()`:
+   - `_previewKey.currentState?.slamStop()`
+   - `_stopAnticipationAudio()`
+   - Fallback: `provider.stopStagePlayback()` ako preview nije mounted
+
+**Status:** ✅ Vizuelni slam radi. **❌ FSM state nije očišćen** — FS counter stuck, orphan auto-loop timer.
+
+#### Flow D: FS Trigger (3+ scatters)
+1. Base spin → `SlotLabSpinResult { featureTriggered: true }`
+2. `_processResult(result)` prima
+3. **❌ MISSING:** `gameFlowProvider.onSpinComplete(result)` → trigger evaluation + feature queue
+4. Trebalo bi: `_enterFeature()` → `_startEnterTransition()` → plaque "FREE SPINS!"
+5. Transition dismiss → `_transitionTo(GameFlowState.freeSpins)` → UI callback
+6. **❌ MISSING:** UI ne zove `startFsAutoLoop()`
+7. **Rezultat:** FS ušao, plaque prikazan, ali auto-loop ne radi.
+
+#### Flow E: FS Exit (spins iscrpljeni)
+1. `spinsRemaining == 0` → `_stepCurrentFeature` returns `shouldContinue: false`
+2. `_exitCurrentFeature()`:
+   - Executor `exit(state)` → `FeatureExitResult { totalWin }`
+   - Ako `totalWin >= 10 × bet` → invoke `onDeferredBigWin(totalWin, ratio)`
+   - **❌ MISSING:** UI handler ne postoji → Big Win overlay ne kreće
+   - `_startExitTransition(totalWin)` → plaque "FREE SPINS COMPLETE"
+3. Exit transition dismiss:
+   - Queue prazan → `GameFlowState.idle`
+4. **Rezultat:** Plaque sa totalWin, pa idle. Nema Big Win celebration-a.
+
+---
+
+### 🌊 PLAN POPRAVKE — 3 TALASA
+
+#### 🔴 TALAS 1: FSM Wiring (rešava 80% problema)
+**Cilj:** Povezati UI sa FSM-om tako da spin lifecycle zaista trigger-uje state machine.
+
+**Konkretni fix-ovi (6 tačaka):**
+
+**1.1** `premium_slot_preview.dart:_executeSpinAfterSkip()`:
+- Dodati na vrh: `gameFlowProvider.onSpinStart()` (context { bet, inFreeSpin })
+
+**1.2** `premium_slot_preview.dart:_processResult()`:
+- Dodati posle balance update: `gameFlowProvider.onSpinComplete(result)` sa punim `SlotLabSpinResult`
+
+**1.3** `premium_slot_preview.dart:_handleStop()`:
+- Nakon `slamStop()`: proveriti `gameFlowProvider.currentState.isFeature`
+  - Ako jeste: `gameFlowProvider.exitCurrentFeature(abortReason: "slam")`
+  - Inače: `gameFlowProvider.onSpinComplete(abortResult)` sa praznim winovima
+- Očistiti sve pending timere: `_visualSyncTimer?.cancel()`
+
+**1.4** `game_flow_overlay.dart` (FS entry plaque):
+- Dodati callback `onDismissed: () => gameFlowProvider.startFsAutoLoop()`
+- Ili direktno u `GameFlowProvider._startEnterTransition()` after dismiss: auto-call ako je next state `freeSpins`
+
+**1.5** `premium_slot_preview.dart:initState()`:
+- `gameFlowProvider.onRequestAutoSpin = () { if (!mounted) return; _handleSpin(provider); };`
+
+**1.6** `premium_slot_preview.dart:initState()`:
+- `gameFlowProvider.onDeferredBigWin = (totalWin, ratio) { if (!mounted) return; _showDeferredBigWin(totalWin, ratio); };`
+- `_showDeferredBigWin()` nova metoda — trigger standard Big Win overlay sa `totalWin` kao fake spin result
+
+**Fajlovi koji se diraju:**
+- `premium_slot_preview.dart` (~+80 LOC)
+- `game_flow_overlay.dart` (~+15 LOC)
+- `game_flow_provider.dart` (~+20 LOC ako treba pomoćne helpere)
+
+**Procenjeno vreme:** 60–90 min + testovi
+
+---
+
+#### 🟡 TALAS 2: Robustnost (cleanup + edge cases)
+
+**2.1** Mounted guard na sve `Future.delayed` chains:
+- `premium_slot_preview.dart:5040` — wrap u `if (!mounted) return;`
+- `premium_slot_preview.dart:5046` — isto
+- `premium_slot_preview.dart:5053` — isto
+- `premium_slot_preview.dart:6214` — isto
+- `premium_slot_preview.dart:7101` — isto
+
+**2.2** Timer cleanup u `dispose()`:
+- Dodati `List<Timer> _activeTimers = [];` polje
+- Svaki `Timer.periodic` i `Timer(...)` push-nuti u listu
+- U `dispose()`: `for (final t in _activeTimers) t.cancel(); _activeTimers.clear();`
+
+**2.3** Scene transition manual skip:
+- `GameFlowProvider._startEnterTransition` / `_startExitTransition`:
+  - Dodati `bool _canDismissEarly = dismissMode == TransitionDismissMode.clickToContinue || dismissMode == TransitionDismissMode.timedOrClick;`
+- `game_flow_overlay.dart`:
+  - Wrap plaque u `GestureDetector(onTap: () => gameFlowProvider.dismissTransitionEarly())`
+  - `KeyboardListener` za Space/Enter
+- `GameFlowProvider.dismissTransitionEarly()` nova metoda (cancel timer, invoke dismiss callback)
+
+**2.4** Duplirana `_handleForcedSpin` → ekstraktovati zajedničku metodu `_executeCore(SpinIntent intent)`:
+- `_handleSpin` i `_handleForcedSpin` oba zovu `_executeCore` sa različitim `intent.forcedOutcome`
+
+**Procenjeno vreme:** 90–120 min
+
+---
+
+#### 🟢 TALAS 3: IGT Parity Polish
+
+**3.1** Per-reel audio event granularnost:
+- U `ProfessionalReelAnimation` per-reel stop callback → emit `REEL_STOP_i` event sa `i` kao index
+- Pre toga: dodati `REEL_STOP_0..REEL_STOP_4` u SlotEventIds range (ako nisu)
+- Audio pipeline već ima event→stage mapping
+
+**3.2** SLAM per-reel stagger sync:
+- Kad se SLAM pritisne, svaki reel stane sa 30ms offset-om (L→R)
+- Pokrenuti audio stop za svaki reel u istom tempu
+
+**3.3** Big Win tier celebration full WoO validation:
+- Tier 1: 4s rollup + 6 shakes @ 300–600ms + 1s hold
+- Tier 2: 8s rollup (2×4s) + 12 shakes + 1s hold
+- Tier 3: 12s rollup (3×4s) + 20 shakes + 1s hold
+- Overlay fade out 750ms (skip: 300ms)
+- Validacija sa WRATH_OF_OLYMPUS_GAME_FLOW.md tabelom
+
+**3.4** FS inter-spin timing:
+- Normal mode: 500ms dwell između FS spinova
+- Turbo mode: 250ms dwell
+- Poslednji FS spin: 800ms (Normal) / 400ms (Turbo) pre exit plaque-a
+
+**3.5** Scene transition timings:
+- Scatter highlight pauza: 2000ms
+- UI fadeout: 300ms
+- UI fadein (no BW): 300ms
+- UI fadein (with BW): 600ms
+- Auto-start wait posle FS intro: 2000ms
+- Multiplier popup: 1500ms + 400ms fade
+- Retrigger overlay: 2000ms + 400ms fade
+
+**Procenjeno vreme:** 2–3h
+
+---
+
+### 🧪 TEST SCENARIJI (za validaciju posle svakog talasa)
+
+| # | Scenario | Očekivano |
+|---|----------|-----------|
+| T1 | Base spin, no win | Spin dugme → Stop → nema winа → Spin dugme ponovo (posle 500ms dwell) |
+| T2 | Base spin, small win | Spin → Stop → Skip ili auto-kreditovanje → Spin dugme (300ms balance rollup) |
+| T3 | Base spin, Big Win Tier 1 | Spin → Stop → 800ms preshow → 4s rollup + 6 shakes + 1s hold → Skip phase (2.5s protected) → Skip → BIG_WIN_END → drugi Skip → collect → Spin |
+| T4 | Base spin → 3+ scatters → FS | Spin → Stop → 2s scatter pauza → plaque "FREE SPINS!" → 300ms fadeout → FS loop počinje automatski |
+| T5 | FS spin sa winom | Auto-spin → Stop → rollup → 500ms dwell → sledeći auto-spin |
+| T6 | FS retrigger | Auto-spin → 3+ scatters u FS-u → 2000ms retrigger overlay → spins counter +N |
+| T7 | FS poslednji spin sa totalWin = 50× | Auto-spin → Stop → 400–800ms dwell → exit plaque → onDeferredBigWin → Tier 3 Big Win celebration (12s) → idle |
+| T8 | SLAM mid-base-spin | Reels spin → pritisni STOP → 30ms slam stagger → nema anticipation audio → FSM state idle → Spin dugme ponovo |
+| T9 | SLAM mid-FS-spin | Auto-spin → pritisni STOP → slam → FSM exit FS → idle → **NE** auto-spin više |
+| T10 | SKIP mid-Big-Win-celebration | Tier 2 rollup aktivan → sačekaj 2.5s → Skip → BIG_WIN_END → Skip → collect |
+| T11 | Widget dispose mid-spin | Pokreni spin → navigiraj away iz preview-a → no setState warnings, no crash |
+| T12 | Click-to-skip FS intro plaque | FS triggered → plaque prikazan → Space → plaque dismiss → FS loop počinje odmah |
+
+---
+
+### 📊 SUCCESS KRITERIJUMI
+
+- [ ] Svih 12 test scenarija prolazi
+- [ ] `flutter analyze` → 0 errors, 0 warnings
+- [ ] `cargo test -p rf-slot-lab` → 100% pass
+- [ ] Manual QA: pokreni WoO slot, odigrаj 20 spinova sa mixom base/FS/BigWin/SLAM → nema crash-a, nema stale state-a
+- [ ] FS auto-loop radi bez ručnog klika posle entry plaque-a
+- [ ] Deferred Big Win posle FS sa win ≥ 10× pokreće Tier 1+ celebration
+- [ ] SLAM tokom FS-a pravilno izlazi iz FS-a i vraća u idle
+- [ ] Nema "setState called after dispose" warnings u konzoli
+
+---
+
+### 📁 SUMMARY — Fajlovi koji se menjaju
+
+| Fajl | Talas | LOC delta |
+|------|-------|-----------|
+| `flutter_ui/lib/widgets/slot_lab/premium_slot_preview.dart` | 1 + 2 | ~+180 |
+| `flutter_ui/lib/widgets/slot_lab/game_flow_overlay.dart` | 1 + 2 | ~+60 |
+| `flutter_ui/lib/providers/slot_lab/game_flow_provider.dart` | 1 + 2 | ~+40 |
+| `flutter_ui/lib/widgets/slot_lab/professional_reel_animation.dart` | 3 | ~+50 |
+| `flutter_ui/lib/models/slot_audio_events.dart` | 3 (ako treba REEL_STOP range dodatak) | ~+10 |
+
+**Ukupno:** ~340 LOC izmene, ~60 LOC novog test koda
+
+---
+
+### 🚦 REDOSLED RADA
+
+1. **Prvo:** pročitaj `WRATH_OF_OLYMPUS_GAME_FLOW.md` kompletno — taj dokument je ground truth za timings
+2. Krenuti Talas 1 (FSM wiring) — bez toga ništa drugo nema smisla
+3. Validirati T1, T4, T5, T7, T8, T9 posle Talasa 1
+4. Talas 2 (robustnost) — validirati T11, T12
+5. Talas 3 (IGT parity polish) — validirati T2, T3, T6, T10
+6. Finalna manual QA sesija 20+ spinova
+7. Commit sa detaljnim changelogom
+8. Update ovaj MASTER_TODO sa ✅ DONE i datumom
 
 ---
 

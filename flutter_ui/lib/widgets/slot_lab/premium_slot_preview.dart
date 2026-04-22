@@ -6406,6 +6406,36 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     if (_previewKey.currentState == null && provider.isPlayingStages) {
       provider.stopStagePlayback();
     }
+
+    // Cancel pending visual-sync reel-stop timers — slamStop() already snapped
+    // reels to target grid; leftover timers would re-fire _onAllReelsStopped().
+    for (final timer in _reelStopTimers) {
+      timer.cancel();
+    }
+    _reelStopTimers.clear();
+
+    // ─── TALAS 1 — Wire 1.3: SLAM zombie watchdog ────────────────────────
+    // Normal flow: slamStop() → _finalizeSpin() → flushGameFlowResult() →
+    // GameFlow.onSpinComplete() → _scheduleNextFsSpin() → next FS auto-spin.
+    //
+    // Edge case: if engine result hasn't returned when SLAM fires, _finalizeSpin
+    // never runs, FSM never advances, FS auto-loop scheduler stalls. After 800ms
+    // (longer than SLAM stagger + worst-case engine RTT), if engine is idle and
+    // FS is still flagged active, recover by rescheduling the auto-spin.
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (!mounted) return;
+      try {
+        final gameFlow = GetIt.instance<GameFlowProvider>();
+        if (gameFlow.currentState == GameFlowState.freeSpins &&
+            gameFlow.isFsAutoLoopActive &&
+            !provider.isSpinning &&
+            !provider.isPlayingStages) {
+          gameFlow.recoverFsAutoLoop();
+        }
+      } catch (_) {
+        // GameFlowProvider not registered — silent no-op
+      }
+    });
   }
 
   /// Stop all anticipation audio events immediately.

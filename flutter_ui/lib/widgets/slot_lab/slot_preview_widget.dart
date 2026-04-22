@@ -4463,7 +4463,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
     // After all reels stopped (last reel delay + 100ms buffer), finalize spin
     final totalDelayMs = staggerMs * (reels - 1) + 100;
-    Future.delayed(Duration(milliseconds: totalDelayMs), () {
+    Future.delayed(Duration(milliseconds: totalDelayMs), () async {
       if (!mounted || !_isSpinning) return;
       // Update display grid to targets
       setState(() {
@@ -4473,8 +4473,38 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
           }
         }
       });
-      final result = widget.provider.lastResult;
-      if (result != null) _finalizeSpin(result);
+
+      // Engine result usually arrives in <50ms; under load it may not be ready
+      // when the user slams. Without a result we cannot call _finalizeSpin,
+      // which leaves _isSpinning=true (zombie) and skips flushGameFlowResult,
+      // so any active FS auto-loop never schedules its next spin. Poll briefly.
+      var result = widget.provider.lastResult;
+      var waitedMs = 0;
+      while (result == null && waitedMs < 1500 && mounted && _isSpinning) {
+        await Future.delayed(const Duration(milliseconds: 25));
+        waitedMs += 25;
+        result = widget.provider.lastResult;
+      }
+      if (!mounted || !_isSpinning) return;
+
+      if (result != null) {
+        _finalizeSpin(result);
+      } else {
+        // Engine never delivered. Clear local spin state so the widget is not
+        // a zombie, then flush whatever the coordinator queued (no-op if empty)
+        // so the FSM advances and any active auto-loop terminates cleanly.
+        eventRegistry.stopEvent('REEL_SPIN_LOOP');
+        _stopWinLinePresentation();
+        if (_reelAnimController.isSpinning) {
+          _reelAnimController.stopImmediately();
+        }
+        setState(() {
+          _isSpinning = false;
+          _spinFinalized = true;
+        });
+        widget.provider.setWinPresentationActive(false);
+        widget.provider.flushGameFlowResult();
+      }
       widget.provider.stopStagePlayback();
     });
   }

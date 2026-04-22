@@ -4331,13 +4331,25 @@ class _AudioPanelState extends State<_AudioPanel> {
   @override
   Widget build(BuildContext context) {
     // Reactivity: rebuild when MiddlewareProvider or NeuroAudioProvider change
-    return ListenableBuilder(
-      listenable: Listenable.merge([
-        GetIt.instance<MiddlewareProvider>(),
-        GetIt.instance<NeuroAudioProvider>(),
-      ]),
-      builder: (context, _) => _buildContent(context),
-    );
+    try {
+      return ListenableBuilder(
+        listenable: Listenable.merge([
+          GetIt.instance<MiddlewareProvider>(),
+          GetIt.instance<NeuroAudioProvider>(),
+        ]),
+        builder: (context, _) {
+          try {
+            return _buildContent(context);
+          } catch (e) {
+            return Center(child: Text('AUDIO BUILD ERR: $e',
+              style: const TextStyle(color: Color(0xFFFF4444), fontSize: 10)));
+          }
+        },
+      );
+    } catch (e) {
+      return Center(child: Text('AUDIO INIT ERR: $e',
+        style: const TextStyle(color: Color(0xFFFF4444), fontSize: 10)));
+    }
   }
 
   Widget _buildContent(BuildContext context) {
@@ -4434,11 +4446,23 @@ class _AudioPanelState extends State<_AudioPanel> {
         ),
         const SizedBox(width: 12),
         // OrbMixer — radijalni bus mixer (tap bus → voice drill-down)
-        _DockCard(
-          accent: FluxForgeTheme.accentPurple,
-          child: OrbMixer(
-            dsp: GetIt.instance<MixerDSPProvider>(),
-            size: 120,
+        // Wrapped in SizedBox to provide explicit width constraint
+        // (_DockCard's Column needs bounded width for CrossAxisAlignment.stretch)
+        SizedBox(
+          width: 148,
+          child: _DockCard(
+            accent: FluxForgeTheme.accentPurple,
+            child: Builder(builder: (ctx) {
+              try {
+                return OrbMixer(
+                  dsp: GetIt.instance<MixerDSPProvider>(),
+                  size: 120,
+                );
+              } catch (e) {
+                return Center(child: Text('ORB ERR: $e',
+                  style: const TextStyle(color: Color(0xFFFF4444), fontSize: 8)));
+              }
+            }),
           ),
         ),
         const SizedBox(width: 12),
@@ -4453,11 +4477,18 @@ class _AudioPanelState extends State<_AudioPanel> {
                   _DockLabel('CHANNELS', color: FluxForgeTheme.accentCyan),
                   const SizedBox(width: 8),
                   // Neural Bind Orb — instant drag & drop audio binding
-                  NeuralBindOrb.large(
-                    onBindComplete: (analysis, path) {
-                      SlotLabScreen.triggerAutoBindReload(path);
-                    },
-                  ),
+                  Builder(builder: (ctx) {
+                    try {
+                      return NeuralBindOrb.large(
+                        onBindComplete: (analysis, path) {
+                          SlotLabScreen.triggerAutoBindReload(path);
+                        },
+                      );
+                    } catch (e) {
+                      return Text('BIND ERR: $e',
+                        style: const TextStyle(color: Color(0xFFFF4444), fontSize: 8));
+                    }
+                  }),
                   const Spacer(),
                   Text('${events.length} events  ·  tap to open lens', style: const TextStyle(
                     fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary)),
