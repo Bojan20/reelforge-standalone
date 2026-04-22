@@ -97,9 +97,73 @@ class GameFlowProvider extends ChangeNotifier {
   bool _fsAutoLoopActive = false;
   Timer? _fsAutoSpinTimer;
   int _fsAutoSpinDelayMs = 500;
+  /// TALAS 3: turbo mode awareness — 250ms inter-spin vs 500ms normal
+  bool _fsTurboMode = false;
+  /// TALAS 3: last-spin dwell — 800ms normal / 400ms turbo per IGT spec
+  static const int _fsLastSpinDelayMsNormal = 800;
+  static const int _fsLastSpinDelayMsTurbo = 400;
+  static const int _fsSpinDelayMsNormal = 500;
+  static const int _fsSpinDelayMsTurbo = 250;
   /// Wire #1: retry counter when onRequestAutoSpin is null (UI not yet wired)
   int _fsAutoSpinNullRetries = 0;
   static const int _fsAutoSpinMaxNullRetries = 10;
+
+  /// Set turbo mode — affects FS inter-spin dwell timing.
+  /// Call from UI when player toggles turbo.
+  void setFsTurboMode(bool turbo) {
+    _fsTurboMode = turbo;
+    _fsAutoSpinDelayMs = turbo ? _fsSpinDelayMsTurbo : _fsSpinDelayMsNormal;
+  }
+
+  /// Is FS auto-loop currently in turbo mode?
+  bool get isFsTurboMode => _fsTurboMode;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TALAS 3 — IGT TIMING CONSTANTS (authoritative source for UI widgets)
+  // Per WRATH_OF_OLYMPUS_GAME_FLOW.md + SLOTLAB_VS_PLAYA_ANALYSIS.md
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Scatter highlight pause before FS intro plaque fires (IGT: 2000ms).
+  /// UI should hold reels post-stop this long when 3+ scatters detected
+  /// before triggering the enter transition.
+  static const int igtScatterHighlightPauseMs = 2000;
+
+  /// UI fadeout when entering FS (IGT: 300ms).
+  static const int igtUiFadeoutFsMs = 300;
+
+  /// UI fadein when entering FS without preceding Big Win (IGT: 300ms).
+  static const int igtUiFadeinFsMs = 300;
+
+  /// UI fadein when entering FS after a Big Win celebration (IGT: 600ms).
+  static const int igtUiFadeinFsAfterBwMs = 600;
+
+  /// Multiplier popup visible duration (IGT: 1500ms).
+  static const int igtMultiplierPopupMs = 1500;
+
+  /// Multiplier popup fade-out duration (IGT: 400ms).
+  static const int igtMultiplierPopupFadeMs = 400;
+
+  /// Retrigger overlay visible duration (IGT: 2000ms).
+  static const int igtRetriggerOverlayMs = 2000;
+
+  /// Retrigger overlay fade-out duration (IGT: 400ms).
+  static const int igtRetriggerOverlayFadeMs = 400;
+
+  /// Big Win overlay fade-out — normal dismiss (IGT: 750ms).
+  static const int igtBigWinFadeOutMs = 750;
+
+  /// Big Win overlay fade-out — skip-button dismiss (IGT: 300ms).
+  static const int igtBigWinFadeOutSkipMs = 300;
+
+  /// Post-last-FS-spin dwell before exit plaque (IGT: 800ms normal, 400 turbo).
+  int get igtFsLastSpinDwellMs =>
+      _fsTurboMode ? _fsLastSpinDelayMsTurbo : _fsLastSpinDelayMsNormal;
+
+  /// Balance rollup duration (IGT: 900ms normal, 500ms turbo).
+  int get igtBalanceRollupMs => _fsTurboMode ? 500 : 900;
+
+  /// Status-bar rollup duration (IGT: 300-400ms either mode).
+  static const int igtStatusBarRollupMs = 400;
 
   // ─── Deferred Big Win guard ────────────────────────────────────────────
   /// Wire #3: per-spin guard to prevent the deferred Big Win callback
@@ -952,11 +1016,16 @@ class GameFlowProvider extends ChangeNotifier {
   // ═══════════════════════════════════════════════════════════════════════════
 
   /// Start the FS auto-spin loop. Called when FS entry plaque is dismissed.
-  void startFsAutoLoop({int delayMs = 500}) {
+  ///
+  /// TALAS 3: `delayMs` default uses turbo-aware value (250ms turbo / 500ms
+  /// normal per IGT). Caller may override explicitly (e.g. integration layer
+  /// uses 500ms before first spin regardless of turbo to let intro breathe).
+  void startFsAutoLoop({int? delayMs}) {
     if (_currentState != GameFlowState.freeSpins) return;
     if (_fsAutoLoopActive) return;
 
-    _fsAutoSpinDelayMs = delayMs;
+    _fsAutoSpinDelayMs = delayMs ??
+        (_fsTurboMode ? _fsSpinDelayMsTurbo : _fsSpinDelayMsNormal);
     _fsAutoSpinNullRetries = 0;
     _fsAutoLoopActive = true;
     notifyListeners();
@@ -1012,7 +1081,15 @@ class GameFlowProvider extends ChangeNotifier {
       return;
     }
 
-    _fsAutoSpinTimer = Timer(Duration(milliseconds: _fsAutoSpinDelayMs), () {
+    // TALAS 3: last-spin dwell override per IGT spec (800ms normal / 400ms
+    // turbo). Before last FS spin, let the player breathe longer so they
+    // realize it's the final one and the rollup doesn't feel rushed.
+    final bool isLastSpin = fs.spinsRemaining == 1;
+    final int delay = isLastSpin
+        ? (_fsTurboMode ? _fsLastSpinDelayMsTurbo : _fsLastSpinDelayMsNormal)
+        : _fsAutoSpinDelayMs;
+
+    _fsAutoSpinTimer = Timer(Duration(milliseconds: delay), () {
       if (!_fsAutoLoopActive || _currentState != GameFlowState.freeSpins) {
         stopFsAutoLoop();
         return;

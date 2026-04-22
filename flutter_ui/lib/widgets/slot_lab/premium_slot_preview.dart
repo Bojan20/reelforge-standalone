@@ -5105,6 +5105,11 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       final themeIndex = prefs.getInt(_prefKeyTheme) ?? 0;
       _themeA = SlotThemePreset.values[themeIndex.clamp(0, SlotThemePreset.values.length - 1)];
     });
+    // TALAS 3: sync loaded turbo state to FSM so FS dwell uses correct timing
+    // from the very first FS auto-loop after app restart.
+    try {
+      GetIt.instance<GameFlowProvider>().setFsTurboMode(_isTurbo);
+    } catch (_) {}
 
     // Apply loaded settings to FFI — bus 1=music, bus 2=sfx
     NativeFFI.instance.setBusMute(1, !_isMusicOn);
@@ -5561,6 +5566,12 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   /// Toggle turbo mode
   void _toggleTurbo() {
     setState(() => _isTurbo = !_isTurbo);
+    // TALAS 3: propagate turbo to FSM so FS inter-spin dwell scales
+    // (500ms normal / 250ms turbo per IGT). If currently in FS auto-loop,
+    // the next scheduled spin picks up the new delay.
+    try {
+      GetIt.instance<GameFlowProvider>().setFsTurboMode(_isTurbo);
+    } catch (_) {}
     _saveSettings();
   }
 

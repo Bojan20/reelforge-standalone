@@ -422,6 +422,14 @@ class BigWinTierDefinition {
   /// Audio intensity (1.0 - 2.0) — volume/pitch scaling
   final double audioIntensity;
 
+  /// TALAS 3: IGT screen shake count during celebration. Per WoO spec:
+  /// Tier 1 ≥ 10× bet: 6 shakes; Tier 2 ≥ 25×: 12 shakes; Tier 3 ≥ 50×: 20.
+  /// Each shake 300-600ms. Default 6 for Tier 1.
+  final int shakeCount;
+
+  /// TALAS 3: shake interval ms (300-600 per WoO spec). Default 450.
+  final int shakeIntervalMs;
+
   const BigWinTierDefinition({
     required this.tierId,
     required this.fromMultiplier,
@@ -432,6 +440,8 @@ class BigWinTierDefinition {
     this.visualIntensity = 1.0,
     this.particleMultiplier = 1.0,
     this.audioIntensity = 1.0,
+    this.shakeCount = 6,
+    this.shakeIntervalMs = 450,
   });
 
   /// Check if win amount falls into this tier
@@ -452,6 +462,8 @@ class BigWinTierDefinition {
     double? visualIntensity,
     double? particleMultiplier,
     double? audioIntensity,
+    int? shakeCount,
+    int? shakeIntervalMs,
   }) {
     return BigWinTierDefinition(
       tierId: tierId ?? this.tierId,
@@ -463,6 +475,8 @@ class BigWinTierDefinition {
       visualIntensity: visualIntensity ?? this.visualIntensity,
       particleMultiplier: particleMultiplier ?? this.particleMultiplier,
       audioIntensity: audioIntensity ?? this.audioIntensity,
+      shakeCount: shakeCount ?? this.shakeCount,
+      shakeIntervalMs: shakeIntervalMs ?? this.shakeIntervalMs,
     );
   }
 
@@ -477,6 +491,8 @@ class BigWinTierDefinition {
     'visualIntensity': visualIntensity,
     'particleMultiplier': particleMultiplier,
     'audioIntensity': audioIntensity,
+    'shakeCount': shakeCount,
+    'shakeIntervalMs': shakeIntervalMs,
   };
 
   /// Deserialize from JSON
@@ -494,6 +510,8 @@ class BigWinTierDefinition {
       visualIntensity: (json['visualIntensity'] as num?)?.toDouble() ?? 1.0,
       particleMultiplier: (json['particleMultiplier'] as num?)?.toDouble() ?? 1.0,
       audioIntensity: (json['audioIntensity'] as num?)?.toDouble() ?? 1.0,
+      shakeCount: json['shakeCount'] as int? ?? 6,
+      shakeIntervalMs: json['shakeIntervalMs'] as int? ?? 450,
     );
   }
 }
@@ -651,9 +669,13 @@ class BigWinConfig {
       threshold: 20.0,
       introDurationMs: 500,
       endDurationMs: 4000,
-      fadeOutDurationMs: 1000,
+      fadeOutDurationMs: 750, // TALAS 3: IGT/WoO spec — 750ms (was 1000)
       tiers: const [
-        // Tier 1: 20x - 50x
+        // TALAS 3: Tier-scaled durations + shake counts per WoO/IGT spec.
+        // Tier 1 ≥10×: 4s rollup, 6 shakes. Tier 2 ≥25×: 8s, 12 shakes.
+        // Tier 3 ≥50×: 12s, 20 shakes. Higher tiers extrapolated.
+        //
+        // Tier 1: 20x - 50x (BIG_WIN)
         BigWinTierDefinition(
           tierId: 1,
           fromMultiplier: 20,
@@ -664,30 +686,36 @@ class BigWinConfig {
           visualIntensity: 1.0,
           particleMultiplier: 1.0,
           audioIntensity: 1.0,
+          shakeCount: 6,
+          shakeIntervalMs: 450,
         ),
-        // Tier 2: 50x - 100x
+        // Tier 2: 50x - 100x (MEGA)
         BigWinTierDefinition(
           tierId: 2,
           fromMultiplier: 50,
           toMultiplier: 100,
           displayLabel: 'BIG WIN TIER 2',
-          durationMs: 4000,
+          durationMs: 8000, // TALAS 3: 2×4s rollup per WoO
           rollupTickRate: 10,
           visualIntensity: 1.2,
           particleMultiplier: 1.5,
           audioIntensity: 1.1,
+          shakeCount: 12,
+          shakeIntervalMs: 450,
         ),
-        // Tier 3: 100x - 250x
+        // Tier 3: 100x - 250x (EPIC)
         BigWinTierDefinition(
           tierId: 3,
           fromMultiplier: 100,
           toMultiplier: 250,
           displayLabel: 'BIG WIN TIER 3',
-          durationMs: 4000,
+          durationMs: 12000, // TALAS 3: 3×4s rollup per WoO
           rollupTickRate: 8,
           visualIntensity: 1.4,
           particleMultiplier: 2.0,
           audioIntensity: 1.2,
+          shakeCount: 20,
+          shakeIntervalMs: 500,
         ),
         // Tier 4: 250x - 500x
         BigWinTierDefinition(
