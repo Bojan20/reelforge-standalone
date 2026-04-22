@@ -387,13 +387,19 @@ class OrbMixerProvider extends ChangeNotifier {
       _updateDotRadii();
     }
 
+    // Phase 5: Visual layers (every tick, regardless of peak change)
+    _recordGhostPositions();
+    _updateHeatmap();
+    _updateTransport(snapshot);
+
     // Update active voices (Nivo 2) — query FFI every tick
     if (expandedBus != null) {
       _updateActiveVoices();
       changed = true; // voices always need repaint when expanded
     }
 
-    return changed;
+    // Visual layers always need repaint (ghost trails decay, heatmap decay)
+    return true;
   }
 
   /// Query active voices from engine via FFI
@@ -733,6 +739,144 @@ class OrbMixerProvider extends ChangeNotifier {
   /// End arc drag
   void endArcDrag() {
     activeArcIndex = -1;
+  }
+
+  // ── Phase 5: Visual Layers ──
+
+  // ─── Ghost Trails ───
+  // Ring buffer of recent bus positions (last N frames, ~2 seconds at 60fps)
+  static const int _trailLength = 120; // 2s at 60fps
+  final Map<OrbBusId, List<Offset>> _ghostTrails = {};
+  int _trailWriteIndex = 0;
+
+  /// Get ghost trail positions for a bus (newest first, fading)
+  List<Offset> getGhostTrail(OrbBusId busId) =>
+      _ghostTrails[busId] ?? const [];
+
+  void _recordGhostPositions() {
+    for (final state in _busStates.values) {
+      if (state.isMaster) continue;
+      final trail = _ghostTrails.putIfAbsent(
+        state.id,
+        () => List<Offset>.filled(_trailLength, Offset.zero),
+      );
+      trail[_trailWriteIndex % _trailLength] = state.position;
+    }
+    _trailWriteIndex++;
+  }
+
+  /// Number of valid trail samples
+  int get trailSamples => _trailWriteIndex.clamp(0, _trailLength);
+
+  /// Get trail position at age (0=newest, trailSamples-1=oldest)
+  Offset? getTrailAt(OrbBusId busId, int age) {
+    final trail = _ghostTrails[busId];
+    if (trail == null || age >= trailSamples) return null;
+    final idx =
+        ((_trailWriteIndex - 1 - age) % _trailLength + _trailLength) %
+            _trailLength;
+    return trail[idx];
+  }
+
+  // ─── Magnetic Snap Groups ───
+  // Pairs of buses that are close together (within snap threshold)
+  static const double _snapThreshold = 24.0; // px distance to form group
+
+  /// Compute magnetic snap pairs (bus pairs within threshold)
+  List<(OrbBusId, OrbBusId)> get magneticSnapPairs {
+    final pairs = <(OrbBusId, OrbBusId)>[];
+    final orbitList = orbitBuses.toList();
+    for (int i = 0; i < orbitList.length; i++) {
+      for (int j = i + 1; j < orbitList.length; j++) {
+        final dist =
+            (orbitList[i].position - orbitList[j].position).distance;
+        if (dist < _snapThreshold) {
+          pairs.add((orbitList[i].id, orbitList[j].id));
+        }
+      }
+    }
+    return pairs;
+  }
+
+  // ─── Frequency Heatmap ───
+  // 32 angular sectors, each accumulates energy from nearby buses
+  static const int _heatmapSectors = 32;
+  final Float64List _heatmapData =
+      Float64List(_heatmapSectors); // 0.0–1.0 per sector
+  static const double _heatmapDecay = 0.92; // smooth decay per frame
+
+  /// Get heatmap data (32 sectors, 0.0–1.0)
+  Float64List get heatmapData => _heatmapData;
+
+  void _updateHeatmap() {
+    // Decay all sectors
+    for (int i = 0; i < _heatmapSectors; i++) {
+      _heatmapData[i] *= _heatmapDecay;
+    }
+
+    // Accumulate energy from bus positions
+    final center = Offset(size / 2, size / 2);
+    for (final state in _busStates.values) {
+      if (state.isMaster || state.muted) continue;
+      if (state.peak < 0.01) continue;
+
+      // Bus position → angular sector
+      final delta = state.position - center;
+      final angle = math.atan2(delta.dy, delta.dx); // -π..π
+      final normalizedAngle = (angle + math.pi) / (2 * math.pi); // 0..1
+      final sectorIdx =
+          (normalizedAngle * _heatmapSectors).floor() % _heatmapSectors;
+
+      // Spread energy across 3 adjacent sectors (gaussian-ish)
+      final energy = state.peak * state.volume;
+      _heatmapData[sectorIdx] =
+          (_heatmapData[sectorIdx] + energy * 0.6).clamp(0.0, 1.0);
+      _heatmapData[(sectorIdx + 1) % _heatmapSectors] =
+          (_heatmapData[(sectorIdx + 1) % _heatmapSectors] + energy * 0.25)
+              .clamp(0.0, 1.0);
+      _heatmapData[(sectorIdx - 1 + _heatmapSectors) % _heatmapSectors] =
+          (_heatmapData[
+                      (sectorIdx - 1 + _heatmapSectors) % _heatmapSectors] +
+                  energy * 0.25)
+              .clamp(0.0, 1.0);
+    }
+  }
+
+  // ─── Timeline Scrub Ring ───
+  // Playback position as 0.0–1.0 within current clip/session duration
+
+  /// Last known playback position (seconds)
+  double _playbackPositionSec = 0.0;
+
+  /// Whether playback is active
+  bool _isPlaying = false;
+
+  /// Assumed clip/session duration for position normalization (seconds)
+  /// Falls back to 60s if unknown.
+  double _sessionDuration = 60.0;
+
+  /// Normalized playback position (0.0–1.0) for the scrub ring
+  double get playbackProgress =>
+      _sessionDuration > 0
+          ? (_playbackPositionSec / _sessionDuration).clamp(0.0, 1.0)
+          : 0.0;
+
+  /// Whether audio is currently playing
+  bool get isPlaying => _isPlaying;
+
+  /// Playback position in seconds
+  double get playbackPositionSec => _playbackPositionSec;
+
+  void _updateTransport(SharedMeterSnapshot snapshot) {
+    _isPlaying = snapshot.isPlaying;
+    if (snapshot.sampleRate > 0) {
+      _playbackPositionSec =
+          snapshot.playbackPositionSamples / snapshot.sampleRate;
+    }
+    // Auto-extend session duration if position exceeds it
+    if (_playbackPositionSec > _sessionDuration * 0.95) {
+      _sessionDuration = _playbackPositionSec * 1.2;
+    }
   }
 
   // ── Helpers ──

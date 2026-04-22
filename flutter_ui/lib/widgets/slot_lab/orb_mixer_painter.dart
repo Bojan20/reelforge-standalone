@@ -1,14 +1,18 @@
 // OrbMixer Painter — CustomPainter for the radial audio mixer
 //
-// Renders 8 visual layers at 60fps:
+// Renders 12 visual layers at 60fps:
 //  0: Background gradient (dark radial)
-//  1: Orbit ring (0dB reference circle)
-//  2: Routing lines (dot → center, opacity = volume)
-//  3: Bus dots (position=volume/pan, size=peak, color=category)
-//  4: Solo glow (bloom shader on soloed dots)
-//  5: Mute dim (50% opacity on muted dots)
-//  6: Master dot (center, color=overall peak)
-//  7: Labels (bus name, dB on hover)
+//  1: Frequency heatmap (radial energy sectors)
+//  2: Orbit ring (0dB reference circle)
+//  3: Timeline scrub ring (playback position)
+//  4: Ghost trails (fading position history)
+//  5: Routing lines (dot → center, opacity = volume)
+//  6: Magnetic snap lines (proximity groups)
+//  7: Bus dots (position=volume/pan, size=peak, color=category)
+//  8: Solo glow + peak pulse + mute dim
+//  9: Master dot (center, color=overall peak)
+// 10: Voice dots (Nivo 2) + Param ring (Nivo 3)
+// 11: Labels (bus name, dB on hover)
 
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -35,8 +39,12 @@ class OrbMixerPainter extends CustomPainter {
     final orbitRadius = size.width * 0.35;
 
     _paintBackground(canvas, size, center);
+    _paintFrequencyHeatmap(canvas, size, center); // Phase 5: under everything
     _paintOrbitRing(canvas, center, orbitRadius);
+    _paintTimelineScrubRing(canvas, size, center); // Phase 5: outer ring
+    _paintGhostTrails(canvas); // Phase 5: behind live dots
     _paintRoutingLines(canvas, center);
+    _paintMagneticSnapLines(canvas); // Phase 5: between close dots
     _paintBusDots(canvas, size);
     _paintMasterDot(canvas, center);
 
@@ -479,6 +487,188 @@ class OrbMixerPainter extends CustomPainter {
           : '${(value / 1000).toStringAsFixed(1)}k',
       OrbParamArc.send => '${(value * 100).toInt()}%',
     };
+  }
+
+  // ── Phase 5: Ghost Trails ──
+
+  void _paintGhostTrails(Canvas canvas) {
+    final trailCount = provider.trailSamples;
+    if (trailCount < 3) return;
+
+    for (final bus in provider.orbitBuses) {
+      if (bus.muted) continue;
+
+      final color = bus.id.color;
+      // Draw trail dots, fading from newest to oldest
+      // Sample every 4th position to avoid overdraw
+      final maxDots = (trailCount / 4).floor().clamp(1, 30);
+      for (int i = 0; i < maxDots; i++) {
+        final age = i * 4;
+        final pos = provider.getTrailAt(bus.id, age);
+        if (pos == null || pos == Offset.zero) continue;
+
+        // Skip if too close to current position (no visible trail)
+        if ((pos - bus.position).distance < 1.5) continue;
+
+        // Opacity: newest=0.25, oldest=0.0
+        final t = i / maxDots;
+        final alpha = (0.25 * (1.0 - t)).clamp(0.0, 0.25);
+        if (alpha < 0.01) continue;
+
+        // Radius: shrinks with age
+        final radius = bus.dotRadius * (1.0 - t * 0.6);
+
+        final trailPaint = Paint()
+          ..style = PaintingStyle.fill
+          ..color = color.withValues(alpha: alpha);
+        canvas.drawCircle(pos, radius.clamp(1.0, 12.0), trailPaint);
+      }
+    }
+  }
+
+  // ── Phase 5: Magnetic Snap Lines ──
+
+  void _paintMagneticSnapLines(Canvas canvas) {
+    final pairs = provider.magneticSnapPairs;
+    if (pairs.isEmpty) return;
+
+    for (final (busA, busB) in pairs) {
+      final stateA = provider.getBus(busA);
+      final stateB = provider.getBus(busB);
+      if (stateA == null || stateB == null) continue;
+
+      final distance = (stateA.position - stateB.position).distance;
+      // Stronger line when closer (inverse distance)
+      final strength = (1.0 - distance / 24.0).clamp(0.0, 1.0);
+
+      // Blended color between the two buses
+      final blendedColor = Color.lerp(busA.color, busB.color, 0.5)!;
+
+      // Magnetic field line — dashed with glow
+      final linePaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0 + strength
+        ..color = blendedColor.withValues(alpha: 0.15 + strength * 0.25)
+        ..maskFilter =
+            MaskFilter.blur(BlurStyle.normal, 2.0 + strength * 2.0);
+      canvas.drawLine(stateA.position, stateB.position, linePaint);
+
+      // Crisp inner line
+      final innerPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.5
+        ..color = blendedColor.withValues(alpha: 0.1 + strength * 0.2);
+      canvas.drawLine(stateA.position, stateB.position, innerPaint);
+
+      // Snap indicator dots at midpoint
+      final mid = (stateA.position + stateB.position) / 2;
+      final dotPaint = Paint()
+        ..style = PaintingStyle.fill
+        ..color = blendedColor.withValues(alpha: 0.3 + strength * 0.3);
+      canvas.drawCircle(mid, 1.5 + strength, dotPaint);
+    }
+  }
+
+  // ── Phase 5: Frequency Heatmap ──
+
+  void _paintFrequencyHeatmap(Canvas canvas, Size size, Offset center) {
+    final heatmap = provider.heatmapData;
+    final sectors = heatmap.length; // 32
+    final maxRadius = size.width * 0.48; // just inside the widget edge
+    final minRadius = size.width * 0.08; // around the master dot
+
+    const sectorAngle = 2 * math.pi / 32;
+
+    for (int i = 0; i < sectors; i++) {
+      final energy = heatmap[i];
+      if (energy < 0.01) continue;
+
+      final startAngle = -math.pi + i * sectorAngle;
+
+      // Radial extent proportional to energy
+      final outerRadius = minRadius + (maxRadius - minRadius) * energy;
+
+      // Color: cool blue at low energy → warm orange at high
+      final heatColor = Color.lerp(
+        FluxForgeTheme.accentBlue.withValues(alpha: 0.04),
+        FluxForgeTheme.accentOrange.withValues(alpha: 0.12),
+        energy,
+      )!;
+
+      final sectorPaint = Paint()
+        ..style = PaintingStyle.fill
+        ..color = heatColor;
+
+      // Draw as arc wedge
+      final path = ui.Path()
+        ..moveTo(center.dx, center.dy)
+        ..arcTo(
+          Rect.fromCircle(center: center, radius: outerRadius),
+          startAngle,
+          sectorAngle,
+          false,
+        )
+        ..close();
+
+      canvas.drawPath(path, sectorPaint);
+    }
+  }
+
+  // ── Phase 5: Timeline Scrub Ring ──
+
+  void _paintTimelineScrubRing(Canvas canvas, Size size, Offset center) {
+    final progress = provider.playbackProgress;
+    final isPlaying = provider.isPlaying;
+    final radius = size.width / 2 - 3; // just inside the outer edge
+
+    // Track background (always visible, very subtle)
+    final trackPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..color = Colors.white.withValues(alpha: 0.04);
+    canvas.drawCircle(center, radius, trackPaint);
+
+    if (progress < 0.001 && !isPlaying) return;
+
+    // Progress arc (from top, clockwise)
+    final sweepAngle = progress * 2 * math.pi;
+    final progressPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..strokeCap = StrokeCap.round
+      ..color = isPlaying
+          ? FluxForgeTheme.accentGreen.withValues(alpha: 0.35)
+          : Colors.white.withValues(alpha: 0.15);
+
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      -math.pi / 2, // start at top
+      sweepAngle,
+      false,
+      progressPaint,
+    );
+
+    // Playhead dot
+    final headAngle = -math.pi / 2 + sweepAngle;
+    final headPos = Offset(
+      center.dx + radius * math.cos(headAngle),
+      center.dy + radius * math.sin(headAngle),
+    );
+
+    final headPaint = Paint()
+      ..style = PaintingStyle.fill
+      ..color = isPlaying
+          ? FluxForgeTheme.accentGreen
+          : Colors.white.withValues(alpha: 0.4);
+    canvas.drawCircle(headPos, isPlaying ? 3.0 : 2.0, headPaint);
+
+    // Glow behind playhead when playing
+    if (isPlaying) {
+      final glowPaint = Paint()
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4.0)
+        ..color = FluxForgeTheme.accentGreen.withValues(alpha: 0.3);
+      canvas.drawCircle(headPos, 5.0, glowPaint);
+    }
   }
 
   // ── Layer 8: Labels (hover/expanded mode) ──
