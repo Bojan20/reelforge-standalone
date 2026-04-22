@@ -19,11 +19,16 @@ library;
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../providers/mixer_dsp_provider.dart';
 import '../../providers/orb_mixer_provider.dart';
+import '../../providers/slot_lab/game_flow_provider.dart';
+import '../../services/problems_inbox_service.dart';
+import '../../services/shared_meter_reader.dart';
 import 'orb_mixer.dart';
+import 'problems_inbox_panel.dart';
 
 /// Overlay sizing modes
 enum LivePlayOrbSize {
@@ -109,6 +114,14 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
     _sizeMode = widget.initialSize;
     _current = this;
     _loadSettings();
+    // Phase 10e: ensure inbox is hydrated so the badge count is correct
+    // on first render.
+    ProblemsInboxService.instance.init();
+    ProblemsInboxService.instance.addListener(_onInboxChanged);
+  }
+
+  void _onInboxChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -116,8 +129,29 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
     _autoHideTimer?.cancel();
     _orbProvider?.removeListener(_onOrbProviderChanged);
     _orbProvider = null;
+    ProblemsInboxService.instance.removeListener(_onInboxChanged);
     if (_current == this) _current = null;
     super.dispose();
+  }
+
+  /// Phase 10e: Capture current mix state as a new Problem entry.
+  Future<void> _markProblem() async {
+    final orb = _orbProvider;
+    if (orb == null) return;
+    final snapshot = SharedMeterReader.instance.readMeters();
+    String? fsmState;
+    double bet = 0;
+    try {
+      final gf = GetIt.instance<GameFlowProvider>();
+      fsmState = gf.currentState.name;
+    } catch (_) {}
+    await ProblemsInboxService.instance.capture(
+      orb: orb,
+      snapshot: snapshot,
+      fsmState: fsmState,
+      bet: bet,
+    );
+    _restartAutoHide();
   }
 
   /// Explicit show (public API — used by eye automation + menu).
@@ -372,6 +406,25 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
                           bottom: -24,
                           child: _buildFilterChips(),
                         ),
+                      // Layer 5 (Phase 10e): Mark Problem button (bottom-left).
+                      if (_sizeMode != LivePlayOrbSize.mini)
+                        Positioned(
+                          left: 0,
+                          bottom: 0,
+                          width: _handleSize,
+                          height: _handleSize,
+                          child: _buildMarkButton(),
+                        ),
+                      // Layer 6 (Phase 10e): Inbox button w/ count badge
+                      // (bottom-right).
+                      if (_sizeMode != LivePlayOrbSize.mini)
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          width: _handleSize,
+                          height: _handleSize,
+                          child: _buildInboxButton(),
+                        ),
                     ],
                   ),
                 ),
@@ -542,6 +595,85 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
             color: Colors.white,
           ),
         ),
+      ),
+    );
+  }
+
+  /// Phase 10e: Mark Problem button — flags the current mix state for
+  /// later review. Uses a subtle red flag so user notices when fresh alerts
+  /// are active, but stays unobtrusive when the mix is healthy.
+  Widget _buildMarkButton() {
+    final hasAlerts = (_orbProvider?.activeAlerts.isNotEmpty ?? false);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _markProblem,
+      child: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: hasAlerts
+              ? Colors.redAccent.withValues(alpha: 0.35)
+              : Colors.white.withValues(alpha: 0.08),
+          border: Border.all(
+            color: hasAlerts
+                ? Colors.redAccent.withValues(alpha: 0.85)
+                : Colors.white.withValues(alpha: 0.22),
+            width: 1,
+          ),
+        ),
+        child: const Center(
+          child: Icon(Icons.flag, size: 13, color: Colors.white),
+        ),
+      ),
+    );
+  }
+
+  /// Phase 10e: Inbox button — opens the Problems panel. Small numeric
+  /// badge in the corner shows how many captures are queued.
+  Widget _buildInboxButton() {
+    final count = ProblemsInboxService.instance.count;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => showProblemsInbox(context),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withValues(alpha: 0.08),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.22),
+                width: 1,
+              ),
+            ),
+            child: const Center(
+              child: Icon(Icons.inbox, size: 13, color: Colors.white),
+            ),
+          ),
+          if (count > 0)
+            Positioned(
+              right: -4,
+              top: -4,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(
+                  color: Colors.redAccent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                constraints: const BoxConstraints(minWidth: 14),
+                child: Text(
+                  '$count',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 8,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
