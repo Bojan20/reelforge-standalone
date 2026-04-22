@@ -719,10 +719,10 @@ Poslednje fixovano (2026-04-21): #15 (otool detection), #22 (wgpu poll logging),
 
 **Faze implementacije:**
 - [x] Phase 1: Bus Routing Fix (P0 preduslov) ✅ DONE (2026-04-22)
-- [ ] Phase 2: OrbMixer Nivo 1 (bus dots + gestures + MixerProvider)
-- [ ] Phase 3: OrbMixer Nivo 2 (FFI active voices + bus expand)
-- [ ] Phase 4: OrbMixer Nivo 3 (per-voice params + arc sliders)
-- [ ] Phase 5: Vizuelni slojevi (ghost trails, magnetic snap, heatmap, scrub ring)
+- [x] Phase 2: OrbMixer Nivo 1 (bus dots + gestures + MixerProvider) ✅ DONE (2026-04-22) — 514+745+894 LOC
+- [x] Phase 3: OrbMixer Nivo 2 (FFI active voices + bus expand) ✅ DONE (2026-04-22) — full vertical stack
+- [x] Phase 4: OrbMixer Nivo 3 (per-voice params + arc sliders) ✅ DONE (2026-04-22) — OrbParamArc, long-press ring
+- [x] Phase 5: Vizuelni slojevi (ghost trails, magnetic snap, heatmap, scrub ring) ✅ DONE (2026-04-22) — 12 paint layers
 
 **Planirani fajlovi (~1950 LOC):**
 - `flutter_ui/lib/widgets/slot_lab/orb_mixer.dart` (~800)
@@ -770,15 +770,19 @@ ostaje kao potencijalno proširenje za >6 return tačaka (P3+).
 | Dart FFI bindings | ✅ | `flutter_ui/lib/src/rust/slot_lab_v2_ffi.dart` |
 | StageAudioMapper 3-tier wiring | ✅ | `flutter_ui/lib/services/stage_audio_mapper.dart` |
 | BUG #14 AudioThreadCell | ✅ | `rf-engine/src/playback.rs` (zero silent frames) |
-| SlotLab Audio Coverage Widget | ❌ TODO | UI za coverage % i missing assets |
+| SlotLab Audio Coverage Widget | ✅ DONE | badge + dialog, dual coverage, missing assets |
 | Bus routing wireup | ✅ DONE | HookGraphEngine + BusSend/Return + Dart sync |
-| OrbMixer (5 faza) | ❌ TODO | Radijalni mixer 120×120px |
-| Per-voice FFI | ❌ TODO | slot_lab_set_voice_param + get_active_voices |
+| OrbMixer (5 faza) | ✅ DONE | 2153 LOC, 3 nivoa, 4 viz sloja, UI integrisano |
+| Per-voice FFI | ✅ DONE | orb_get_active_voices + orb_set_voice_param |
 
 ### Ostalo TODO
-- [ ] SlotLab Audio Coverage Widget — UI indikator za coverage % i missing assets
-- [ ] Neural Bind Orb fix — 2 analyzer greške (Colors.white16, invalid_constant)
-- [ ] Full Build + Test — cargo build --release + flutter analyze
+- [x] SlotLab Audio Coverage Widget ✅ DONE (2026-04-22) — badge+dialog, asset path fix
+- [x] Neural Bind Orb fix ✅ DONE (2026-04-22) — 0 errors, 0 warnings
+- [x] OrbMixer UI placement ✅ DONE (2026-04-22) — živ u _AudioPanel (helix_screen)
+- [x] AudioCoverage canonical fix ✅ DONE (2026-04-22) — audioAssignments.values umesto stage keys
+- [x] QA (flutter analyze + cargo tests) ✅ DONE (2026-04-22) — 0 errors, 313+27 testova pass
+- [ ] Full Build + Test — cargo build --release + xcodebuild
+- [ ] **Sonic DNA Classifier** — Layer 2 (Taxonomy) + Layer 3 (Placement Engine) — SLEDEĆE
 
 ---
 
