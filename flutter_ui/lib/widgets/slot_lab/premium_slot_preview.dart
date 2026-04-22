@@ -29,6 +29,8 @@ import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
 import 'forced_outcome_panel.dart';
 import 'game_flow_overlay.dart';
+import 'live_play_orb_overlay.dart';
+import '../../providers/mixer_dsp_provider.dart';
 import '../../models/game_flow_models.dart';
 import '../../providers/slot_lab/game_flow_provider.dart';
 import 'project_dashboard_dialog.dart';
@@ -4777,6 +4779,8 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
 
   /// GlobalKey to access SlotPreviewWidgetState for slam stop.
   final _previewKey = GlobalKey<SlotPreviewWidgetState>();
+  /// Phase 9: Live Play Orb Overlay key — used for keyboard toggle / cycle.
+  final _liveOrbKey = GlobalKey<LivePlayOrbOverlayState>();
 
   // Animation controllers
   late AnimationController _jackpotTickController;
@@ -6488,6 +6492,18 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     }
   }
 
+  /// Phase 9: Build the floating Live Play orb. Tries to grab MixerDSPProvider
+  /// from GetIt; silently hides if not registered (defensive — preview should
+  /// still render even if mixer isn't up yet).
+  Widget _buildLivePlayOrb() {
+    try {
+      final dsp = GetIt.instance<MixerDSPProvider>();
+      return LivePlayOrbOverlay(key: _liveOrbKey, dsp: dsp);
+    } catch (_) {
+      return const SizedBox.shrink();
+    }
+  }
+
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
     final primaryFocus = FocusManager.instance.primaryFocus;
@@ -6497,6 +6513,22 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     }
 
     final provider = context.read<SlotLabProvider>();
+
+    // Phase 9: Live Play orb keyboard shortcuts
+    //   O       → toggle overlay visibility
+    //   Shift+O → cycle size (mini → standard → full → mini)
+    if (event.logicalKey == LogicalKeyboardKey.keyO) {
+      final shift = HardwareKeyboard.instance.isShiftPressed;
+      final state = _liveOrbKey.currentState;
+      if (state != null) {
+        if (shift) {
+          state.cycleSizeMode();
+        } else {
+          state.toggleVisible();
+        }
+        return KeyEventResult.handled;
+      }
+    }
 
     switch (event.logicalKey) {
       case LogicalKeyboardKey.escape:
@@ -6782,6 +6814,18 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
             // D. Win Presenter — REMOVED
             // SlotPreviewWidget (child) already has complete win presentation system
             // that WORKS correctly with tier labels. No need for duplicate overlay.
+
+            // Phase 9: Live Play Orb Overlay — floating mix companion.
+            // Sits above slot content so player can adjust mix while playing.
+            // Hit-test only registers where the orb actually is (Positioned
+            // inside LayoutBuilder). Rest of the viewport passes through to
+            // the slot controls below.
+            Positioned.fill(
+              child: IgnorePointer(
+                ignoring: false,
+                child: _buildLivePlayOrb(),
+              ),
+            ),
 
             // Gamble Screen (overlay) — disabled for basic mockup
             // To re-enable: uncomment the block below
