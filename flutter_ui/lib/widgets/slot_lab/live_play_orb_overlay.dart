@@ -65,6 +65,13 @@ class LivePlayOrbOverlay extends StatefulWidget {
 
 class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
     with SingleTickerProviderStateMixin {
+  // ─── Global accessor (for helix_action eye automation) ──────────────────
+  /// Current mounted overlay state, if any. Used by HELIX eye-automation
+  /// handlers to toggle / show / cycle the orb without touching the widget
+  /// tree. Null when no PremiumSlotPreview is on screen.
+  static LivePlayOrbOverlayState? _current;
+  static LivePlayOrbOverlayState? get current => _current;
+
   // ─── Persistence keys ────────────────────────────────────────────────────
   static const _prefKeyX = 'psp_orb_overlay_x';
   static const _prefKeyY = 'psp_orb_overlay_y';
@@ -94,13 +101,32 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
   void initState() {
     super.initState();
     _sizeMode = widget.initialSize;
+    _current = this;
     _loadSettings();
   }
 
   @override
   void dispose() {
     _autoHideTimer?.cancel();
+    if (_current == this) _current = null;
     super.dispose();
+  }
+
+  /// Explicit show (public API — used by eye automation + menu).
+  void show() {
+    if (_visible) return;
+    setState(() => _visible = true);
+    widget.onVisibilityChanged?.call(true);
+    _restartAutoHide();
+    _saveSettings();
+  }
+
+  /// Explicit hide (public API).
+  void hide() {
+    if (!_visible) return;
+    setState(() => _visible = false);
+    widget.onVisibilityChanged?.call(false);
+    _saveSettings();
   }
 
   // ─── Persistence ─────────────────────────────────────────────────────────
@@ -180,7 +206,11 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
   bool get isVisible => _visible;
   LivePlayOrbSize get sizeMode => _sizeMode;
 
-  // ─── Drag + snap ─────────────────────────────────────────────────────────
+  // ─── Drag + snap (handle-only, inner orb gestures pass through) ─────────
+
+  /// Reposition handle size (px). Handle sits in the top-left of the backdrop
+  /// so the entire inner orb stays available for bus taps / drags / long-press.
+  static const double _handleSize = 22.0;
 
   void _onDragStart(DragStartDetails details) {
     setState(() {
@@ -202,7 +232,7 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
   }
 
   void _onDragEnd(DragEndDetails details, Size viewport) {
-    // Snap to nearest edge (top/bottom/left/right) if within 48px
+    // Snap to nearest edge (top/bottom/left/right) when within 96px.
     final double sizePx = _sizeMode.px;
     final centerX = _position.dx + sizePx / 2;
     final centerY = _position.dy + sizePx / 2;
@@ -215,9 +245,8 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
     final minEdge = [leftDist, rightDist, topDist, bottomDist]
         .reduce((a, b) => a < b ? a : b);
 
-    final snapped = Offset(_position.dx, _position.dy);
-    double snapX = snapped.dx;
-    double snapY = snapped.dy;
+    double snapX = _position.dx;
+    double snapY = _position.dy;
     const double margin = 12.0;
     if (minEdge < 96.0) {
       if (minEdge == leftDist) snapX = margin;
@@ -234,12 +263,32 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
     _saveSettings();
   }
 
+  /// Any pointer touching the orb at all — wakes it from dormant + resets
+  /// the autohide timer. Does NOT capture the event (Listener is transparent
+  /// to gesture arena), so the inner OrbMixer still receives its taps/drags.
+  void _onAnyPointerDown(PointerDownEvent _) {
+    if (_dormant || !_interacting) {
+      setState(() => _dormant = false);
+    }
+    _restartAutoHide();
+  }
+
+  /// Pointer up inside the orb — restart autohide so the 3s count runs
+  /// cleanly from the last touch rather than from drag start.
+  void _onAnyPointerUp(PointerUpEvent _) {
+    _restartAutoHide();
+  }
+
   // ─── Build ───────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     if (!_settingsLoaded) return const SizedBox.shrink();
-    if (!_visible) return const SizedBox.shrink();
+
+    // When hidden, render a tiny "show orb" reveal button in the bottom-
+    // right corner so the user can always bring the orb back without
+    // remembering the keyboard shortcut.
+    if (!_visible) return _buildRevealButton();
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -272,21 +321,30 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
               child: AnimatedOpacity(
                 duration: _opacityDuration,
                 opacity: opacity,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onDoubleTap: () {
-                    cycleSizeMode();
-                  },
-                  onLongPress: () {
-                    // Long-press = hide (will come back via keyboard shortcut)
-                    setState(() => _visible = false);
-                    widget.onVisibilityChanged?.call(false);
-                    _saveSettings();
-                  },
-                  onPanStart: _onDragStart,
-                  onPanUpdate: (d) => _onDragUpdate(d, viewport),
-                  onPanEnd: (d) => _onDragEnd(d, viewport),
-                  child: _buildCompanion(sizePx),
+                child: Listener(
+                  // Transparent pointer listener: wakes orb + resets autohide
+                  // but does NOT win the gesture arena, so inner OrbMixer
+                  // bus-tap / drag-volume / long-press-expand all keep working.
+                  behavior: HitTestBehavior.translucent,
+                  onPointerDown: _onAnyPointerDown,
+                  onPointerUp: _onAnyPointerUp,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      // Layer 1: inner orb (full gesture pass-through)
+                      Positioned.fill(child: _buildCompanion(sizePx)),
+                      // Layer 2: dedicated drag handle (top-left corner).
+                      // Only this zone captures pan gestures for reposition,
+                      // so bus drags inside the orb stay untouched.
+                      Positioned(
+                        left: 0,
+                        top: 0,
+                        width: _handleSize,
+                        height: _handleSize,
+                        child: _buildDragHandle(viewport),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -321,6 +379,92 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
           dsp: widget.dsp,
           size: sizePx - 4, // inset for backdrop
           expandOnHover: false, // compact mode — no label expansion
+        ),
+      ),
+    );
+  }
+
+  /// Small reveal button shown when the orb is hidden. Lives in the bottom-
+  /// right corner so the user can always reopen the companion by clicking a
+  /// clearly visible icon, even if they don't remember the keyboard shortcut.
+  Widget _buildRevealButton() {
+    return Stack(
+      children: [
+        Positioned(
+          right: 16,
+          bottom: 16,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              setState(() => _visible = true);
+              widget.onVisibilityChanged?.call(true);
+              _restartAutoHide();
+              _saveSettings();
+            },
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.black.withValues(alpha: 0.55),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.28),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    blurRadius: 10,
+                  ),
+                ],
+              ),
+              child: const Center(
+                child: Icon(
+                  Icons.graphic_eq,
+                  size: 18,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Dedicated drag handle (small grip dots). Only this zone captures pan
+  /// gestures for reposition, so inner OrbMixer gestures (bus drag, long-press,
+  /// tap) remain untouched. Tap on handle cycles size; double-tap hides.
+  Widget _buildDragHandle(Size viewport) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        cycleSizeMode();
+      },
+      onDoubleTap: () {
+        // Explicit UI hide — user can bring it back via keyboard O.
+        setState(() => _visible = false);
+        widget.onVisibilityChanged?.call(false);
+        _saveSettings();
+      },
+      onPanStart: _onDragStart,
+      onPanUpdate: (d) => _onDragUpdate(d, viewport),
+      onPanEnd: (d) => _onDragEnd(d, viewport),
+      child: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white.withValues(alpha: 0.12),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.28),
+            width: 1,
+          ),
+        ),
+        child: const Center(
+          child: Icon(
+            Icons.drag_indicator,
+            size: 14,
+            color: Colors.white,
+          ),
         ),
       ),
     );
