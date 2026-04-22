@@ -20,6 +20,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../../providers/orb_mixer_provider.dart';
+import '../../services/orb_mixer_alerts.dart';
 import '../../theme/fluxforge_theme.dart';
 
 class OrbMixerPainter extends CustomPainter {
@@ -54,6 +55,10 @@ class OrbMixerPainter extends CustomPainter {
       _paintVoiceDots(canvas);
       _paintCategoryBuckets(canvas, size); // Phase 10a: Nivo 1.5 category ring
     }
+
+    // Phase 10d: Live alert rings (clipping / headroom / phase / masking)
+    // drawn on top of dots so they're unmissable.
+    _paintAlerts(canvas, size);
 
     // Nivo 3: Param ring when voice detail is open
     if (provider.isDetailOpen) {
@@ -877,6 +882,87 @@ class OrbMixerPainter extends CustomPainter {
           Offset(pos.dx + radius + 2, pos.dy - tp.height / 2),
         );
       }
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Phase 10d: Live Alerts
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Color per alert type.
+  Color _alertColor(OrbAlertType t) => switch (t) {
+        OrbAlertType.clipping => const Color(0xFFFF3B30),      // red
+        OrbAlertType.headroom => const Color(0xFFFF9500),      // orange
+        OrbAlertType.phase => const Color(0xFFC97AFF),         // purple
+        OrbAlertType.masking => const Color(0xFFFFD60A),       // yellow
+      };
+
+  /// Render alert rings. Bus-scoped alerts ring the specific bus dot;
+  /// master / aggregate alerts paint an outer ring around the whole orb.
+  /// Masking alerts draw an arc between the two contender buses.
+  void _paintAlerts(Canvas canvas, Size size) {
+    final alerts = provider.activeAlerts;
+    if (alerts.isEmpty) return;
+
+    final center = Offset(size.width / 2, size.height / 2);
+    final outerR = size.width / 2 - 1;
+
+    for (final a in alerts) {
+      if (a.alpha <= 0.02) continue;
+      final color = _alertColor(a.type);
+      // Pulse modulates stroke width + alpha so critical alerts literally
+      // breathe; warnings pulse slower. pulsePhase is 0..1.
+      final pulse = a.pulsePhase();
+      final pulseAmp =
+          a.severity == OrbAlertSeverity.critical ? 0.45 : 0.25;
+      final pulseWave = 0.5 + 0.5 * math.sin(pulse * 2 * math.pi);
+      final strokeW = 1.5 + pulseAmp * pulseWave * 2.5;
+      final alpha = (a.alpha * (0.55 + 0.45 * pulseWave)).clamp(0.0, 1.0);
+
+      if (a.type == OrbAlertType.masking &&
+          a.bus != null &&
+          a.otherBus != null) {
+        // Draw connecting line between two buses tinted yellow to signal
+        // the frequency collision.
+        final a1 = provider.getBus(a.bus!);
+        final a2 = provider.getBus(a.otherBus!);
+        if (a1 != null && a2 != null) {
+          final paint = Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = strokeW
+            ..color = color.withValues(alpha: alpha * 0.8);
+          canvas.drawLine(a1.position, a2.position, paint);
+        }
+        continue;
+      }
+
+      // Scope: null bus OR master → outer orb ring.
+      if (a.bus == null || a.bus == OrbBusId.master) {
+        final paint = Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = strokeW
+          ..color = color.withValues(alpha: alpha);
+        canvas.drawCircle(center, outerR, paint);
+        continue;
+      }
+
+      // Per-bus: ring around that bus dot.
+      final bus = provider.getBus(a.bus!);
+      if (bus == null) continue;
+      final busRadius = (6.0 + bus.peak * 4.0) + 3.0; // dot + gap
+      // Glow
+      final glow = Paint()
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4.0)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeW + 1.5
+        ..color = color.withValues(alpha: alpha * 0.6);
+      canvas.drawCircle(bus.position, busRadius + 2, glow);
+      // Crisp ring
+      final paint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeW
+        ..color = color.withValues(alpha: alpha);
+      canvas.drawCircle(bus.position, busRadius, paint);
     }
   }
 

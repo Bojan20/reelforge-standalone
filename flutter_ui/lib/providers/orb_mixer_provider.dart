@@ -13,6 +13,7 @@ import 'dart:ui' show Color, Offset;
 
 import 'package:flutter/foundation.dart';
 
+import '../services/orb_mixer_alerts.dart';
 import '../services/shared_meter_reader.dart';
 import '../services/voice_category_resolver.dart';
 import '../services/voice_history_buffer.dart';
@@ -295,6 +296,16 @@ class OrbMixerProvider extends ChangeNotifier {
   /// All active voices (flat list)
   List<OrbVoiceState> _allVoices = [];
 
+  /// PHASE 10d: Live Alerts engine — watches SharedMeterSnapshot each
+  /// tick for clipping / headroom / phase / masking.
+  final OrbAlertsEngine _alertsEngine = OrbAlertsEngine();
+
+  /// Active alerts from the last evaluation (empty when mix is healthy).
+  List<OrbAlert> _activeAlerts = const [];
+
+  /// Public accessor for painter + UI overlay.
+  List<OrbAlert> get activeAlerts => _activeAlerts;
+
   /// PHASE 10: Voice history buffer — tracks recently-ended voices so the
   /// painter can render fading "ghost slots" for up to 10 seconds.
   final VoiceHistoryBuffer _voiceHistory = VoiceHistoryBuffer();
@@ -506,6 +517,14 @@ class OrbMixerProvider extends ChangeNotifier {
     // Phase 8: real FFT-driven heatmap via master 32-band spectrum
     _updateHeatmapFromFft(snapshot.spectrumBands);
     _updateTransport(snapshot);
+
+    // PHASE 10d: Live alerts — evaluate health monitors from the same
+    // snapshot the bus meters came from. Cheap (≤ 10 comparisons + a
+    // 32-band sum). Runs every frame so alerts track the mix live.
+    _activeAlerts = _alertsEngine.evaluate(
+      snapshot: snapshot,
+      busStates: _busStates,
+    );
 
     // Update active voices (Nivo 2) — query FFI every tick
     if (expandedBus != null) {
