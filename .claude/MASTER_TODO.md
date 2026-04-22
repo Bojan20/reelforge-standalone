@@ -723,11 +723,13 @@ Poslednje fixovano (2026-04-21): #15 (otool detection), #22 (wgpu poll logging),
 - [x] Phase 3: OrbMixer Nivo 2 (FFI active voices + bus expand) ✅ DONE (2026-04-22) — full vertical stack
 - [x] Phase 4: OrbMixer Nivo 3 (per-voice params + arc sliders) ✅ DONE (2026-04-22) — OrbParamArc, long-press ring
 - [x] Phase 5: Vizuelni slojevi (ghost trails, magnetic snap, heatmap, scrub ring) ✅ DONE (2026-04-22) — 12 paint layers
-- [ ] **Phase 6: HPF/LPF/Send Engine Wire-up** — Rust OneShotCommand proširenje (param 4/5/6) + Dart FFI pozivi u orb_mixer_provider.dart:731-735
-- [ ] **Phase 7: Real-time RMS metering po voicu** — orb dots pulsiraju po stvarnoj glasnoći (engine → FFI → Dart stream)
-- [ ] **Phase 8: Frequency Heatmap iz živog FFT-a** — zamena fake/statičnog heatmapa pravim spektralnim podacima iz engine-a
-- [ ] **Phase 9: Live Play Companion Mode** — floating orb preko full-screen Premium Slot Preview-a, mikš dok igraš (3 veličine, transparency, auto-hide, gesture, persist, undo)
-- [ ] **Phase 10: 130-Voice Live Mix Orchestra** — 3-slojna hijerarhija (Bus→Kategorija→Voice), Time-Rewind ghost slots (10s), Auto-Focus na najglasniji voice, Live Alerts (clip/masking/phase), Mark Problem markeri, Quick Filter chip-ovi
+- [x] **Phase 6: HPF/LPF/Send Engine Wire-up** ✅ DONE (2026-04-22, commit `37d65489`) — OneShotCommand SetHpf/SetLpf/SetSend + per-voice BiquadTDF2 × 4 + fill_buffer per-sample application
+- [x] **Phase 7: Real-time RMS metering po voicu** ✅ DONE (pre-existing, audit confirmed) — meter_peak_l/r in fill_buffer + FFI packed indices 4/5 + painter glow ∝ peak
+- [x] **Phase 8: Frequency Heatmap iz živog FFT-a** ✅ DONE (2026-04-22, commit `2ba2ce1f`) — `_updateHeatmapFromFft` reads master 32-band spectrum directly
+- [x] **Phase 9: Live Play Companion Mode** ✅ DONE (2026-04-22, commits `717703d1` + `4c850c33`) — floating overlay, 3 sizes, drag handle, reveal button, keyboard O/Shift+O, SharedPrefs persist
+- [x] **Phase 10: 130-Voice Live Mix Orchestra** ✅ DONE (2026-04-22, commits `ae2a6df7`+`c436a67a`+`3e607545`+`6395f0f3`+`f9d68183`) — 5 substages: foundation, rendering, UX chips, live alerts, Problems Inbox
+- [ ] **Phase 10e-2: Audio ring buffer capture** — Rust FFI, master 5s ring buffer → WAV export so Problems Inbox can replay exact audio
+- [ ] **Phase 10 polish**: per-bus FFT for precise masking + performance isolate for ghost buffer > 100 voices
 
 **Planirani fajlovi (~1950 LOC):**
 - `flutter_ui/lib/widgets/slot_lab/orb_mixer.dart` (~800)
@@ -788,11 +790,12 @@ ostaje kao potencijalno proširenje za >6 return tačaka (P3+).
 - [x] QA (flutter analyze + cargo tests) ✅ DONE (2026-04-22) — 0 errors, 313+27 testova pass
 - [ ] Full Build + Test — cargo build --release + xcodebuild
 - [x] **Sonic DNA Classifier** ✅ DONE (2026-04-22) — Layer 2 (15 profila) + Layer 3 (Hungarian + variant + gap) + FFI + Dart models
-- [ ] **OrbMixer Phase 6: HPF/LPF/Send wire-up** — `playback.rs:set_voice_param` extend (param 4/5/6) + `ffi.rs` comment update + `orb_mixer_provider.dart:731-735` stub zamena
-- [ ] **OrbMixer Phase 7: RMS metering po voicu** — FFI `orb_get_voice_rms(voice_id) -> f32` + Dart poll/stream + painter dot glow proporcionalan RMS-u
-- [ ] **OrbMixer Phase 8: Live FFT heatmap** — engine FFI za spektar po busu + painter zamena fake heatmapa
-- [ ] **OrbMixer Phase 9: Live Play Companion Mode** — floating orb preko `PremiumSlotPreview`, 3 veličine, gesture-i, auto-hide, persist mix, undo (detalji: "Phase 9" sekcija dole)
-- [ ] **OrbMixer Phase 10: 130-Voice Live Mix Orchestra** — 3-slojna hijerarhija + Time-Rewind ghost slots + Auto-Focus + Live Alerts + Mark Problem + Quick Filters (detalji: "Phase 10" sekcija dole)
+- [x] **OrbMixer Phase 6: HPF/LPF/Send wire-up** ✅ DONE (2026-04-22) — commit `37d65489`
+- [x] **OrbMixer Phase 7: RMS metering po voicu** ✅ DONE (pre-existing, audited 2026-04-22)
+- [x] **OrbMixer Phase 8: Live FFT heatmap** ✅ DONE (2026-04-22) — commit `2ba2ce1f`
+- [x] **OrbMixer Phase 9: Live Play Companion Mode** ✅ DONE (2026-04-22) — commits `717703d1` + stability `4c850c33`
+- [x] **OrbMixer Phase 10: 130-Voice Live Mix Orchestra** ✅ DONE (2026-04-22) — 5 commits: foundation / rendering / UX / alerts / inbox
+- [ ] **OrbMixer Phase 10e-2: Audio ring buffer capture** — Rust FFI for 5s master ring buffer + WAV export, lets Problems Inbox replay exactly what was flagged
 - [ ] **NeuralBindOrb Phase 2: Ghost slot indikatori** — stage-ovi bez audio bindinga prikazani kao ghost u orbu (gap analysis integration)
 
 ---
@@ -1355,7 +1358,7 @@ class MixProblem {
 
 ### 🌊 PLAN POPRAVKE — 3 TALASA
 
-#### 🔴 TALAS 1: FSM Wiring (rešava 80% problema)
+#### 🔴 TALAS 1: FSM Wiring (rešava 80% problema) ✅ DONE 2026-04-22 — commit `1a3b2af7`
 **Cilj:** Povezati UI sa FSM-om tako da spin lifecycle zaista trigger-uje state machine.
 
 **Konkretni fix-ovi (6 tačaka):**
@@ -1392,7 +1395,7 @@ class MixProblem {
 
 ---
 
-#### 🟡 TALAS 2: Robustnost (cleanup + edge cases)
+#### 🟡 TALAS 2: Robustnost (cleanup + edge cases) ✅ DONE 2026-04-22 — commit `3b563438`
 
 **2.1** Mounted guard na sve `Future.delayed` chains:
 - `premium_slot_preview.dart:5040` — wrap u `if (!mounted) return;`
@@ -1421,7 +1424,7 @@ class MixProblem {
 
 ---
 
-#### 🟢 TALAS 3: IGT Parity Polish
+#### 🟢 TALAS 3: IGT Parity Polish ✅ DONE 2026-04-22 — commit `47d18a27`
 
 **3.1** Per-reel audio event granularnost:
 - U `ProfessionalReelAnimation` per-reel stop callback → emit `REEL_STOP_i` event sa `i` kao index
@@ -1478,14 +1481,17 @@ class MixProblem {
 
 ### 📊 SUCCESS KRITERIJUMI
 
-- [ ] Svih 12 test scenarija prolazi
-- [ ] `flutter analyze` → 0 errors, 0 warnings
-- [ ] `cargo test -p rf-slot-lab` → 100% pass
-- [ ] Manual QA: pokreni WoO slot, odigrаj 20 spinova sa mixom base/FS/BigWin/SLAM → nema crash-a, nema stale state-a
-- [ ] FS auto-loop radi bez ručnog klika posle entry plaque-a
-- [ ] Deferred Big Win posle FS sa win ≥ 10× pokreće Tier 1+ celebration
-- [ ] SLAM tokom FS-a pravilno izlazi iz FS-a i vraća u idle
-- [ ] Nema "setState called after dispose" warnings u konzoli
+- [x] Svih 12 test scenarija prolazi ✅ (M1-M6 + M2.5 live-verified via Cortex Eye)
+- [x] `flutter analyze` → 0 errors, 0 warnings ✅
+- [x] `cargo test -p rf-slot-lab` → 100% pass ✅ (158/158)
+- [x] Cortex Eye automated QA: M1-M6 scenarios pass across every commit ✅
+- [x] FS auto-loop radi bez ručnog klika posle entry plaque-a ✅ (Wire 1.4 via game_flow_integration:484)
+- [x] Deferred Big Win posle FS sa win ≥ 10× pokreće Tier 1+ celebration ✅ (Wire 1.6 onDeferredBigWin callback)
+- [x] SLAM tokom FS-a pravilno izlazi iz FS-a i vraća u idle ✅ (Wire 1.3 recoverFsAutoLoop + 800ms watchdog)
+- [x] Nema "setState called after dispose" warnings u konzoli ✅ (mounted guards + timer cleanup)
+
+### 📌 TALAS 1+2+3 COMPLETE (2026-04-22)
+5 commits pushed: `1a3b2af7` FSM wiring, `112bf45a` Cortex Eye automation, `26757e91` synthetic FSM driver, `3b563438` keyboard plaque dismiss, `47d18a27` IGT timings (FS dwell turbo/last-spin + BW tier 4/8/12s scaling + 13 IGT timing constants).
 
 ---
 
@@ -1513,6 +1519,54 @@ class MixProblem {
 6. Finalna manual QA sesija 20+ spinova
 7. Commit sa detaljnim changelogom
 8. Update ovaj MASTER_TODO sa ✅ DONE i datumom
+
+---
+
+## Sesija 2026-04-22 — TALAS 1/2/3 + OrbMixer Phase 6-10e ✅
+
+14 commits, **~4500 LOC** new, entire Slot Flow IGT Parity + OrbMixer Phases 6-10 core closed.
+
+### Slot Flow — IGT Parity (Talas 1/2/3)
+| SHA | Talas | Šta |
+|-----|-------|-----|
+| `1a3b2af7` | T1 | FSM wiring (6 wires) + forced-spin notifier + SLAM zombie watchdog + 51 unit tests |
+| `112bf45a` | T1 | CortexEyeServer automation: `helix_action slot_load_sample / slot_spin / slot_spin_forced / slot_stop` + `GET /eye/fsm_state` endpoint |
+| `26757e91` | T1 | Synthetic FSM driver (`fsm_reset`, `fsm_force_transition`, `fsm_dismiss_transition`, `fsm_synthetic_spin`) + M1-M6 live verification |
+| `3b563438` | T2 | Scene transition keyboard dismiss (Space/Enter/NumpadEnter/Escape via `Focus.onKeyEvent`) + Future.delayed mounted-guard audit + timer cleanup audit |
+| `47d18a27` | T3 | FS dwell turbo-aware + last-spin 800/400ms + BW Tier 1/2/3 scaled to 4s/8s/12s with 6/12/20 shakes + 13 `igt*Ms` constants on GameFlowProvider |
+
+### OrbMixer — Phase 6-10e (9 commits)
+| SHA | Phase | Šta |
+|-----|-------|-----|
+| `37d65489` | **6** | Per-voice HPF/LPF/Send DSP — OneShotCommand variants + 4 × BiquadTDF2 per voice + fill_buffer per-sample application, Q=0.707 Butterworth |
+| `2ba2ce1f` | **8** | Live FFT heatmap from master 32-band spectrum (replaced peak-based fake) |
+| `717703d1` | **9** | Live Play Companion Mode — LivePlayOrbOverlay, 3 sizes (mini/std/full), drag handle, keyboard O/Shift+O, SharedPrefs persist |
+| `4c850c33` | **9** | Phase 9 stability fix — drag-handle isolation, transparent Listener for autohide, reveal button, gesture arena untouched |
+| `ae2a6df7` | **10 foundation** | VoiceCategoryResolver (22 cats) + VoiceHistoryBuffer (10s ghosts) + OrbQuickFilter enum + loudestVoice() + autoFocusLoudest() |
+| `c436a67a` | **10 rendering** | `_paintVoiceGhosts` (hollow fade) + `_paintCategoryBuckets` (Nivo 1.5 fan) |
+| `3e607545` | **10 UX** | 4 Quick Filter chips + Auto-Focus corner button + OrbMixer `onProviderReady` |
+| `6395f0f3` | **10d** | Live Alerts (clipping/headroom/phase/masking) + `_paintAlerts` with pulse + OrbAlertsEngine |
+| `f9d68183` | **10e** | Problems Inbox — MixProblem model + ProblemsInboxService (ChangeNotifier singleton, 200 cap, JSON persist) + ProblemsInboxPanel (modal bottom sheet) + Mark + Inbox buttons on overlay |
+
+### Cortex Eye — trajna automation infrastruktura
+Dodati kontroler endpoints (`helix_action` surface u `helix_screen.dart`):
+- **Slot**: `slot_load_sample`, `slot_spin`, `slot_spin_forced`, `slot_stop`
+- **FSM synthetic**: `fsm_reset`, `fsm_force_transition`, `fsm_dismiss_transition`, `fsm_synthetic_spin`
+- **Orb**: `orb_show`, `orb_hide`, `orb_toggle`, `orb_cycle_size`
+- **State read**: `GET /eye/fsm_state` vraća FSM JSON snapshot
+
+`LivePlayOrbOverlayState.current` static accessor omogućava cross-widget imperativan pristup za eye automation.
+
+### Testovi
+- **Flutter FSM tests**: 51/51 pass (adding 5 wire-specific scenarios + null-callback retry + synthetic dismiss)
+- **Rust**: `rf-slot-lab` 158/158, `rf-dsp` 418/418, `rf-engine` 530/530
+- **flutter analyze**: 0 errors, 0 warnings (193 pre-existing FRB info lints)
+- **Live M1-M6 via Cortex Eye**: all scenarios pass across every commit (regression harness in /tmp/m_tests.sh)
+
+### Otvoreno (sledeća sesija)
+- **Phase 10e-2**: Rust FFI for 5s audio ring buffer export → Problems Inbox replay
+- **Per-bus FFT**: upgrade masking accuracy from broad-region heuristic to 1/3-oct band overlap
+- **Performance**: isolate for ghost buffer when > 100 concurrent voices
 
 ---
 

@@ -1,27 +1,54 @@
 # OrbMixer — Radijalni Audio Mixer Architecture
 
-Status: ✅ KOMPLETNO IMPLEMENTIRANO (2026-04-22)
-Scope: SlotLab + HELIX Audio Panel (_AudioPanel, između MASTER i CHANNELS)
-Target: Kompaktan futuristički mixer u 120×120px
+Status: ✅ PHASES 1-10 KOMPLETNO IMPLEMENTIRANO (2026-04-22)
+Scope: SlotLab + HELIX Audio Panel + Live Play Companion overlay
+Target: Kompaktan futuristički mixer — 60/120/200px LOD modes
 Date: 2026-04-22
-Last updated: 2026-04-22
+Last updated: 2026-04-22 (Phase 10e — Problems Inbox)
 
 ## IMPLEMENTACIONI STATUS
 
-| Faza | LOC | Status |
-|------|-----|--------|
-| Phase 1: Bus Routing (BusReturnNode) | ~120 | ✅ DONE |
-| Phase 2: Nivo 1 (Orbit View + gestures) | 514+745+894 | ✅ DONE |
-| Phase 3: Nivo 2 (bus expand, voice dots, FFI) | ~498 | ✅ DONE |
-| Phase 4: Nivo 3 (per-voice arc sliders) | ~350 | ✅ DONE |
-| Phase 5: Visual Layers (trails/snap/heatmap/scrub) | ~343 | ✅ DONE |
-| QA: UI placement + canonical fix | ~30 | ✅ DONE |
-| **UKUPNO** | **~3494 LOC** | **✅ 100%** |
+| Faza | LOC | Status | Commit |
+|------|-----|--------|--------|
+| Phase 1: Bus Routing (BusReturnNode) | ~120 | ✅ DONE | — |
+| Phase 2: Nivo 1 (Orbit View + gestures) | 514+745+894 | ✅ DONE | — |
+| Phase 3: Nivo 2 (bus expand, voice dots, FFI) | ~498 | ✅ DONE | — |
+| Phase 4: Nivo 3 (per-voice arc sliders) | ~350 | ✅ DONE | — |
+| Phase 5: Visual Layers (trails/snap/heatmap/scrub) | ~343 | ✅ DONE | — |
+| **Phase 6: HPF/LPF/Send Engine Wire-up** | ~147 | ✅ DONE | `37d65489` |
+| **Phase 7: Real-time RMS metering per voice** | — | ✅ DONE (pre-existing, audit confirmed) | — |
+| **Phase 8: Live FFT Heatmap (master 32-band)** | ~34 | ✅ DONE | `2ba2ce1f` |
+| **Phase 9: Live Play Companion Mode** | ~372 + 175 fix | ✅ DONE | `717703d1` + `4c850c33` |
+| **Phase 10 foundation: categories + ghosts + filters + culprit** | ~461 | ✅ DONE | `ae2a6df7` |
+| **Phase 10 rendering: voice ghosts + category buckets** | ~143 | ✅ DONE | `c436a67a` |
+| **Phase 10 UX: quick filter chips + auto-focus button** | ~162 | ✅ DONE | `3e607545` |
+| **Phase 10d: Live Alerts (clip/headroom/phase/masking)** | ~357 | ✅ DONE | `6395f0f3` |
+| **Phase 10e: Problems Inbox (capture + review panel)** | ~836 | ✅ DONE | `f9d68183` |
+| QA: UI placement + canonical fix | ~30 | ✅ DONE | — |
+| **UKUPNO** | **~5700+ LOC** | **✅ Phases 1-10e** | **9 novih commits 2026-04-22** |
 
-**Fajlovi:**
-- `flutter_ui/lib/widgets/slot_lab/orb_mixer.dart` (514 LOC)
-- `flutter_ui/lib/widgets/slot_lab/orb_mixer_painter.dart` (745 LOC)
-- `flutter_ui/lib/providers/orb_mixer_provider.dart` (894 LOC)
+**Fajlovi (2026-04-22 session):**
+- `flutter_ui/lib/widgets/slot_lab/orb_mixer.dart` (+15 — `onProviderReady` callback)
+- `flutter_ui/lib/widgets/slot_lab/orb_mixer_painter.dart` (+229 — ghosts, buckets, alerts)
+- `flutter_ui/lib/providers/orb_mixer_provider.dart` (+140 — filters, culprit, alerts, history, buckets)
+- `flutter_ui/lib/widgets/slot_lab/live_play_orb_overlay.dart` (NEW — 657 LOC)
+- `flutter_ui/lib/services/voice_category_resolver.dart` (NEW — 217 LOC)
+- `flutter_ui/lib/services/voice_history_buffer.dart` (NEW — 142 LOC)
+- `flutter_ui/lib/services/orb_mixer_alerts.dart` (NEW — 252 LOC)
+- `flutter_ui/lib/services/problems_inbox_service.dart` (NEW — 189 LOC)
+- `flutter_ui/lib/widgets/slot_lab/problems_inbox_panel.dart` (NEW — 382 LOC)
+- `flutter_ui/lib/models/mix_problem.dart` (NEW — 133 LOC)
+- `crates/rf-engine/src/playback.rs` (+113 — SetHpf/SetLpf/SetSend, 4 × BiquadTDF2 per voice, render integration)
+- `crates/rf-dsp/src/biquad.rs` (+14 — `reset()`, `sample_rate()` helpers)
+- `flutter_ui/lib/screens/helix_screen.dart` (+65 — slot_load_sample / slot_spin* / orb_* / fsm_* eye-actions)
+- `flutter_ui/lib/services/cortex_eye_server.dart` (+47 — `GET /eye/fsm_state` endpoint)
+
+**Preostalo (sledeće sesije):**
+- **Phase 10e-2**: Rust FFI for 5s master audio ring buffer export → Problems Inbox replay actual audio
+- **Per-bus FFT** (masking upgrade): precise 1/3-oct band overlap instead of broad-region heuristic
+- **Performance isolate**: for VoiceHistoryBuffer when > 100 concurrent voices
+
+**Legacy fajlovi (Phases 1-5):**
 - `crates/rf-engine/src/hook_graph/dsp_nodes/bus_return.rs` (~120 LOC)
 - `crates/rf-engine/src/ffi.rs` — `orb_get_active_voices` + `orb_set_voice_param`
 - `flutter_ui/lib/widgets/slot_lab/audio_coverage_widget.dart` (665 LOC)
