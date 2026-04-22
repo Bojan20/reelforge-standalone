@@ -26060,3 +26060,71 @@ pub extern "C" fn hook_graph_poll_feedback(max_events: u32) -> *mut c_char {
     let json = format!("[{}]", events.join(","));
     string_to_cstr(&json)
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SONIC DNA CLASSIFIER FFI
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Klasifikuje sve audio fajlove u folderu.
+///
+/// Vraća JSON string sa PlacementResult:
+/// ```json
+/// {
+///   "classifications": [
+///     { "original_path": "/path/to/boom.wav", "sound_type": "BigWin",
+///       "ffnc_name": "sfx_big_win.wav", "confidence": 0.87,
+///       "variant_index": 0 }
+///   ],
+///   "missing_types": ["Rollup", "Transition"],
+///   "type_counts": { "sfx_big_win": 1 },
+///   "avg_confidence": 0.87
+/// }
+/// ```
+///
+/// Vraća null pointer na grešci.
+#[unsafe(no_mangle)]
+pub extern "C" fn sonic_dna_classify_folder(folder_path: *const c_char) -> *mut c_char {
+    let path_str = unsafe {
+        if folder_path.is_null() {
+            return std::ptr::null_mut();
+        }
+        match CStr::from_ptr(folder_path).to_str() {
+            Ok(s) => s,
+            Err(_) => return std::ptr::null_mut(),
+        }
+    };
+
+    let folder = std::path::Path::new(path_str);
+    if !folder.is_dir() {
+        let err = r#"{"error":"not a directory"}"#;
+        return CString::new(err).map(|s| s.into_raw()).unwrap_or(std::ptr::null_mut());
+    }
+
+    // Feature extraction (može potrajati za veće foldere)
+    let extracted = crate::sonic_dna_extractor::extract_features_from_folder(folder);
+    if extracted.is_empty() {
+        let empty = r#"{"classifications":[],"missing_types":[],"type_counts":{},"avg_confidence":0.0}"#;
+        return CString::new(empty).map(|s| s.into_raw()).unwrap_or(std::ptr::null_mut());
+    }
+
+    let (paths, features): (Vec<String>, Vec<rf_stage::FeatureVector>) = extracted.into_iter().unzip();
+
+    // Classification + placement
+    let result = rf_stage::classify_and_place(&paths, features);
+
+    // Serialize to JSON
+    match serde_json::to_string(&result) {
+        Ok(json) => CString::new(json).map(|s| s.into_raw()).unwrap_or(std::ptr::null_mut()),
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
+/// Oslobodi CString alociran od sonic_dna_classify_folder
+#[unsafe(no_mangle)]
+pub extern "C" fn sonic_dna_free_result(ptr: *mut c_char) {
+    if !ptr.is_null() {
+        unsafe {
+            let _ = CString::from_raw(ptr);
+        }
+    }
+}

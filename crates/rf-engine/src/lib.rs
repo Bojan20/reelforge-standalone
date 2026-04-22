@@ -54,6 +54,7 @@ pub mod ffi;
 pub mod ffi_control_room;
 pub mod ffi_routing;
 pub mod playback;
+pub mod sonic_dna_extractor;
 pub mod audio_stretcher;
 pub mod signalsmith_elastic;
 pub mod transient_detector;

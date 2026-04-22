@@ -788,6 +788,45 @@ extension SlotLabV2FFI on NativeFFI {
       return [];
     }
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SONIC DNA CLASSIFIER — Zero-Click Sound Placement
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Klasifikuje sve audio fajlove u folderu.
+  ///
+  /// Vraća [SonicDnaResult] sa klasifikacijom svakog fajla, FFNC imenima,
+  /// confidence score-om, i gap analizom (koji tipovi fale).
+  ///
+  /// Može potrajati (audio I/O + FFT). Pozovi u isolate ili sa compute().
+  SonicDnaResult? classifyFolder(String folderPath) {
+    try {
+      final classifyFn = lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)>('sonic_dna_classify_folder');
+      final freeFn = lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('sonic_dna_free_result');
+
+      final pathPtr = folderPath.toNativeUtf8();
+      Pointer<Utf8> resultPtr = nullptr;
+      try {
+        resultPtr = classifyFn(pathPtr);
+        if (resultPtr == nullptr) return null;
+        final jsonStr = resultPtr.toDartString();
+        final decoded = jsonDecode(jsonStr) as Map<String, dynamic>;
+        return SonicDnaResult.fromJson(decoded);
+      } finally {
+        malloc.free(pathPtr);
+        if (resultPtr != nullptr) {
+          freeFn(resultPtr);
+        }
+      }
+    } catch (e) {
+      dev.log('[SonicDNA] classifyFolder error: $e');
+      return null;
+    }
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -956,4 +995,90 @@ enum ForcedOutcomeV2 {
 
   final int value;
   const ForcedOutcomeV2(this.value);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SONIC DNA DATA MODELS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Rezultat Sonic DNA klasifikacije celog foldera
+class SonicDnaResult {
+  final List<SoundClassification> classifications;
+  final List<String> missingTypes;
+  final Map<String, int> typeCounts;
+  final double avgConfidence;
+
+  const SonicDnaResult({
+    required this.classifications,
+    required this.missingTypes,
+    required this.typeCounts,
+    required this.avgConfidence,
+  });
+
+  factory SonicDnaResult.fromJson(Map<String, dynamic> json) => SonicDnaResult(
+        classifications: (json['classifications'] as List<dynamic>? ?? [])
+            .map((e) => SoundClassification.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        missingTypes: (json['missing_types'] as List<dynamic>? ?? [])
+            .map((e) => e.toString())
+            .toList(),
+        typeCounts: (json['type_counts'] as Map<String, dynamic>? ?? {})
+            .map((k, v) => MapEntry(k, (v as num).toInt())),
+        avgConfidence: (json['avg_confidence'] as num? ?? 0.0).toDouble(),
+      );
+
+  /// Broj klasifikovanih zvukova
+  int get totalSounds => classifications.length;
+
+  /// Procenat stage-ova koji imaju zvuk
+  double get coveragePercent {
+    const total = 15; // SlotSoundType.all().len()
+    final assigned = totalSounds.clamp(0, total);
+    return assigned / total;
+  }
+
+  @override
+  String toString() =>
+      'SonicDnaResult(${classifications.length} sounds, ${missingTypes.length} missing, '
+      'confidence=${(avgConfidence * 100).toStringAsFixed(0)}%)';
+}
+
+/// Klasifikacija jednog zvuka
+class SoundClassification {
+  final String originalPath;
+  final String soundType;
+  final String ffncName;
+  final double confidence;
+  final int variantIndex;
+
+  const SoundClassification({
+    required this.originalPath,
+    required this.soundType,
+    required this.ffncName,
+    required this.confidence,
+    required this.variantIndex,
+  });
+
+  factory SoundClassification.fromJson(Map<String, dynamic> json) =>
+      SoundClassification(
+        originalPath: json['original_path'] as String? ?? '',
+        soundType: json['sound_type'] as String? ?? '',
+        ffncName: json['ffnc_name'] as String? ?? '',
+        confidence: (json['confidence'] as num? ?? 0.0).toDouble(),
+        variantIndex: (json['variant_index'] as num? ?? 0).toInt(),
+      );
+
+  /// Originalni filename bez puta
+  String get originalFilename {
+    final parts = originalPath.replaceAll('\\', '/').split('/');
+    return parts.last;
+  }
+
+  /// Confidence kao procenat string
+  String get confidencePercent =>
+      '${(confidence * 100).toStringAsFixed(0)}%';
+
+  @override
+  String toString() =>
+      'SoundClassification($originalFilename → $ffncName, $confidencePercent)';
 }
