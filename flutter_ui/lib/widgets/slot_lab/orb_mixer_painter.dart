@@ -217,10 +217,10 @@ class OrbMixerPainter extends CustomPainter {
     final textSpan = TextSpan(
       text: bus.id.label,
       style: TextStyle(
-        color: Colors.white.withValues(alpha: bus.muted ? 0.3 : 0.6),
-        fontSize: 8.0,
+        color: Colors.white.withValues(alpha: bus.muted ? 0.3 : 0.85),
+        fontSize: 9.0,
         fontFamily: 'SpaceGrotesk',
-        fontWeight: FontWeight.w500,
+        fontWeight: FontWeight.w600,
         letterSpacing: 0.5,
       ),
     );
@@ -238,6 +238,21 @@ class OrbMixerPainter extends CustomPainter {
     // Clamp to widget bounds
     final clampedX = labelPos.dx.clamp(2.0, size.width - tp.width - 2);
     final clampedY = labelPos.dy.clamp(2.0, size.height - tp.height - 2);
+
+    // Dark semi-transparent background rect for readability
+    const bgPad = 2.0;
+    final bgRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(
+        clampedX - bgPad,
+        clampedY - bgPad,
+        tp.width + bgPad * 2,
+        tp.height + bgPad * 2,
+      ),
+      const Radius.circular(3),
+    );
+    final bgPaint = Paint()
+      ..color = const Color(0xBB060610);
+    canvas.drawRRect(bgRect, bgPaint);
 
     tp.paint(canvas, Offset(clampedX, clampedY));
   }
@@ -693,10 +708,10 @@ class OrbMixerPainter extends CustomPainter {
       final textSpan = TextSpan(
         text: dbText,
         style: TextStyle(
-          color: bus.id.color.withValues(alpha: 0.7),
-          fontSize: 7.0,
+          color: bus.id.color.withValues(alpha: 0.90),
+          fontSize: 10.0,
           fontFamily: 'SpaceGrotesk',
-          fontWeight: FontWeight.w400,
+          fontWeight: FontWeight.w700,
         ),
       );
       final tp = TextPainter(
@@ -711,6 +726,22 @@ class OrbMixerPainter extends CustomPainter {
       );
       final clampedX = labelPos.dx.clamp(2.0, size.width - tp.width - 2);
       final clampedY = labelPos.dy.clamp(2.0, size.height - tp.height - 2);
+
+      // Dark semi-transparent background rect for readability
+      const bgPad = 2.0;
+      final bgRect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(
+          clampedX - bgPad,
+          clampedY - bgPad,
+          tp.width + bgPad * 2,
+          tp.height + bgPad * 2,
+        ),
+        const Radius.circular(3),
+      );
+      final bgPaint = Paint()
+        ..color = const Color(0xCC060610);
+      canvas.drawRRect(bgRect, bgPaint);
+
       tp.paint(canvas, Offset(clampedX, clampedY));
     }
   }

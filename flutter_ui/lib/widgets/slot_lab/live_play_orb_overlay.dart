@@ -1,4 +1,4 @@
-/// PHASE 9 — Live Play Companion Mode (ULTIMATE v3)
+/// PHASE 9 — Live Play Companion Mode (ULTIMATE v4)
 ///
 /// Floating OrbMixer overlay — ALL parameters visible, ALL gestures working.
 ///
@@ -13,6 +13,7 @@
 /// │  [⚐] Mark  ear (32px)  [📥] Inbox[⤢]│  ← ear bottom
 /// └──────────────────────────────────────┘
 /// │  dB panel (toggleable via Focus/LP): │
+/// │  BUSES                          [×] │
 /// │  MST -6.2dB  [S][M]  pan 0%         │
 /// │  MUS -12.4dB [S][M]  pan L12        │
 /// │  SFX -∞      [S][M]  pan 0%         │
@@ -29,6 +30,13 @@
 ///   Inbox (📥, bottom-right): tap=open problems panel
 ///   Resize dot (⤢, bottom-right corner): pan=resize orb
 ///   Orb body: doubletap=cycle size, long-press=toggle dB panel
+///
+/// Bug fixes (v4):
+///   - dB panel and filter chips moved to OUTER Stack → fully hit-testable
+///   - Ear buttons use HitTestBehavior.opaque, no overlap with OrbMixer
+///   - Orb body uses manual Listener-based gesture detection (no GestureDetector)
+///     to avoid platform gesture-arena issues on macOS
+///   - _longPressTimer and _lastOrbTapTime are class-level state variables
 library;
 
 import 'dart:async';
@@ -103,10 +111,10 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
   // ─── Layout constants ───────────────────────────────────────────────────────
   /// Ear thickness around the orb — buttons live here, guaranteed outside circle
   static const double _earPx    = 32.0;
-  /// Button size
-  static const double _btnPx    = 26.0;
+  /// Button size (increased from 26 to 28)
+  static const double _btnPx    = 28.0;
   /// Padding inside ear
-  static const double _btnPad   = (_earPx - _btnPx) / 2; // 3 px
+  static const double _btnPad   = (_earPx - _btnPx) / 2; // 2 px
   /// Resize dot size (extreme bottom-right corner)
   static const double _resizePx = 16.0;
   /// Gap between inbox and resize dot
@@ -123,7 +131,7 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
 
   static const double _opacityIdle    = 0.90;
   static const double _opacityActive  = 1.0;
-  static const double _opacityDormant = 0.60; // raised — buttons stay readable
+  static const double _opacityDormant = 0.60;
 
   // ─── State ───────────────────────────────────────────────────────────────────
   Offset _position         = const Offset(16, 16);
@@ -142,6 +150,11 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
 
   OrbMixerProvider? _orbProvider;
 
+  // ─── Manual gesture detection state for orb body ─────────────────────────────
+  Timer?    _longPressTimer;
+  DateTime? _lastOrbTapTime;
+  Offset    _orbPointerDownPos = Offset.zero;
+
   // ─── Lifecycle ───────────────────────────────────────────────────────────────
   @override
   void initState() {
@@ -159,6 +172,7 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
   @override
   void dispose() {
     _autoHideTimer?.cancel();
+    _longPressTimer?.cancel();
     _orbProvider?.removeListener(_onOrbProviderChanged);
     _orbProvider = null;
     ProblemsInboxService.instance.removeListener(_onInboxChanged);
@@ -313,6 +327,35 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
 
   void _onPointerUp(PointerUpEvent _) { _restartAutoHide(); }
 
+  // ─── Manual orb gesture handlers ─────────────────────────────────────────────
+  void _onOrbPointerDown(PointerDownEvent e) {
+    _orbPointerDownPos = e.localPosition;
+    _longPressTimer?.cancel();
+    _longPressTimer = Timer(const Duration(milliseconds: 450), () {
+      if (mounted) _toggleDbPanel();
+    });
+  }
+
+  void _onOrbPointerMove(PointerMoveEvent e) {
+    // Cancel long press on movement > 4px from down position
+    if ((e.localPosition - _orbPointerDownPos).distance > 4.0) {
+      _longPressTimer?.cancel();
+    }
+  }
+
+  void _onOrbPointerUp(PointerUpEvent e) {
+    _longPressTimer?.cancel();
+    final now = DateTime.now();
+    final last = _lastOrbTapTime;
+    if (last != null && now.difference(last) < const Duration(milliseconds: 300)) {
+      // Double-tap
+      cycleSizeMode();
+      _lastOrbTapTime = null;
+    } else {
+      _lastOrbTapTime = now;
+    }
+  }
+
   // ─── Mark problem ────────────────────────────────────────────────────────────
   Future<void> _markProblem() async {
     final orb = _orbProvider;
@@ -327,6 +370,12 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
   }
 
   void _onOrbProviderChanged() { if (mounted) setState(() {}); }
+
+  // ─── dB panel height ─────────────────────────────────────────────────────────
+  double _dbPanelHeight() {
+    // header 24px + 6 buses × 22px row + 8px padding
+    return 24 + 6 * 22.0 + 8;
+  }
 
   // ─── Build ───────────────────────────────────────────────────────────────────
   @override
@@ -363,122 +412,120 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
           ? _opacityActive
           : (_dormant ? _opacityDormant : _opacityIdle);
 
-      // dB panel height estimate
       final bool panelVisible = _showDbPanel && _orbProvider != null && showChrome;
 
-      return Stack(children: [
-        AnimatedPositioned(
-          duration: (_interacting || _isResizing) ? Duration.zero : _snapDur,
-          curve: Curves.easeOutCubic,
-          left: _position.dx,
-          top:  _position.dy,
-          width:  totalW,
-          height: totalH,
-          child: AnimatedOpacity(
-            duration: _opacityDur,
-            opacity: opacity,
-            child: Listener(
-              behavior: HitTestBehavior.translucent,
-              onPointerDown: _onPointerDown,
-              onPointerUp:   _onPointerUp,
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  // ── Orb body (centered in total bounds) ───────────────────
-                  Positioned(
-                    left:   _earPx,
-                    top:    _earPx,
-                    width:  orbPx,
-                    height: orbPx,
-                    child:  _buildOrbBody(orbPx, vp),
-                  ),
-
-                  // ── Drag handle (top-LEFT ear) ─────────────────────────────
-                  Positioned(
-                    left:   _btnPad,
-                    top:    _btnPad,
-                    width:  _btnPx,
-                    height: _btnPx,
-                    child:  _buildDragHandle(vp),
-                  ),
-
-                  // ── dB/Focus button (top-RIGHT ear) ────────────────────────
-                  if (showChrome)
+      return Stack(
+        children: [
+          // ── 1. Orb + ear buttons ─────────────────────────────────────────────
+          AnimatedPositioned(
+            duration: (_interacting || _isResizing) ? Duration.zero : _snapDur,
+            curve: Curves.easeOutCubic,
+            left: _position.dx,
+            top:  _position.dy,
+            width:  totalW,
+            height: totalH,
+            child: AnimatedOpacity(
+              duration: _opacityDur,
+              opacity: opacity,
+              child: Listener(
+                behavior: HitTestBehavior.translucent,
+                onPointerDown: _onPointerDown,
+                onPointerUp:   _onPointerUp,
+                child: Stack(
+                  // Clip.none only for visual effects — interactive elements
+                  // are positioned within bounds on the outer Stack
+                  clipBehavior: Clip.none,
+                  children: [
+                    // ── Orb body (centered in total bounds) ─────────────────
                     Positioned(
-                      right:  _btnPad,
+                      left:   _earPx,
+                      top:    _earPx,
+                      width:  orbPx,
+                      height: orbPx,
+                      child:  _buildOrbBody(orbPx, vp),
+                    ),
+
+                    // ── Drag handle (top-LEFT ear) ───────────────────────────
+                    Positioned(
+                      left:   _btnPad,
                       top:    _btnPad,
                       width:  _btnPx,
                       height: _btnPx,
-                      child:  _buildDbToggleButton(),
+                      child:  _buildDragHandle(vp),
                     ),
 
-                  // ── Mark button (bottom-LEFT ear) ──────────────────────────
-                  if (showChrome)
+                    // ── dB/Focus button (top-RIGHT ear) ─────────────────────
+                    if (showChrome)
+                      Positioned(
+                        right:  _btnPad,
+                        top:    _btnPad,
+                        width:  _btnPx,
+                        height: _btnPx,
+                        child:  _buildDbToggleButton(),
+                      ),
+
+                    // ── Mark button (bottom-LEFT ear) ────────────────────────
+                    if (showChrome)
+                      Positioned(
+                        left:   _btnPad,
+                        bottom: _btnPad,
+                        width:  _btnPx,
+                        height: _btnPx,
+                        child:  _buildMarkButton(),
+                      ),
+
+                    // ── Inbox button (bottom-RIGHT ear, left of resize) ───────
+                    if (showChrome)
+                      Positioned(
+                        right:  _btnPad + _inboxGap,
+                        bottom: _btnPad,
+                        width:  _btnPx,
+                        height: _btnPx,
+                        child:  _buildInboxButton(),
+                      ),
+
+                    // ── Resize dot (extreme bottom-RIGHT corner) ─────────────
                     Positioned(
-                      left:   _btnPad,
-                      bottom: _btnPad,
-                      width:  _btnPx,
-                      height: _btnPx,
-                      child:  _buildMarkButton(),
+                      right:  0,
+                      bottom: 0,
+                      width:  _resizePx,
+                      height: _resizePx,
+                      child:  _buildResizeHandle(vp),
                     ),
-
-                  // ── Inbox button (bottom-RIGHT ear, left of resize) ────────
-                  if (showChrome)
-                    Positioned(
-                      right:  _btnPad + _inboxGap,
-                      bottom: _btnPad,
-                      width:  _btnPx,
-                      height: _btnPx,
-                      child:  _buildInboxButton(),
-                    ),
-
-                  // ── Resize dot (extreme bottom-RIGHT corner) ───────────────
-                  Positioned(
-                    right:  0,
-                    bottom: 0,
-                    width:  _resizePx,
-                    height: _resizePx,
-                    child:  _buildResizeHandle(vp),
-                  ),
-
-                  // ── dB panel (below orb, outside bounds via Clip.none) ─────
-                  if (panelVisible)
-                    Positioned(
-                      left:  0,
-                      right: 0,
-                      top:   totalH + 4,
-                      child: _buildDbPanel(),
-                    ),
-
-                  // ── Filter chips (below dB panel or below orb) ─────────────
-                  if (showChrome && _orbProvider != null)
-                    Positioned(
-                      left:  -28,
-                      right: -28,
-                      top:   totalH + (panelVisible ? 4 + _dbPanelHeight() : 4),
-                      child: _buildFilterChips(),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      ]);
+
+          // ── 2. dB panel — outer Stack level → fully hit-testable ────────────
+          if (panelVisible)
+            Positioned(
+              left: _position.dx,
+              top:  _position.dy + totalH + 4,
+              child: _buildDbPanel(),
+            ),
+
+          // ── 3. Filter chips — outer Stack level → fully hit-testable ────────
+          if (showChrome && _orbProvider != null)
+            Positioned(
+              left:  _position.dx - 28,
+              top:   _position.dy + totalH + (panelVisible ? 4 + _dbPanelHeight() : 4),
+              width: totalW + 56,
+              child: _buildFilterChips(),
+            ),
+        ],
+      );
     });
   }
 
-  // ─── dB panel height ─────────────────────────────────────────────────────────
-  double _dbPanelHeight() {
-    // 6 buses × 22px row + 8px padding
-    return 6 * 22.0 + 8;
-  }
-
-  // ─── Orb body ─────────────────────────────────────────────────────────────────
+  // ─── Orb body — manual Listener-based gesture detection ───────────────────────
   Widget _buildOrbBody(double orbPx, Size vp) {
-    return GestureDetector(
+    return Listener(
       behavior: HitTestBehavior.translucent,
-      onDoubleTap: cycleSizeMode,
-      onLongPress: _toggleDbPanel,
+      onPointerDown: _onOrbPointerDown,
+      onPointerMove: _onOrbPointerMove,
+      onPointerUp:   _onOrbPointerUp,
       child: Container(
         width:  orbPx,
         height: orbPx,
@@ -496,7 +543,7 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
             dsp:               widget.dsp,
             size:              orbPx - 4,
             expandOnHover:     false,
-            alwaysShowLabels:  true,   // ← dB labels always visible
+            alwaysShowLabels:  true,
             onProviderReady:   (p) {
               if (!mounted) return;
               setState(() => _orbProvider = p);
@@ -524,130 +571,159 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        children: OrbBusId.values.map((busId) {
-          final bus = provider.getBus(busId);
-          if (bus == null) return const SizedBox.shrink();
-          final db  = _toDb(bus.volume);
-          final pan = _toPan(bus.pan);
-          final isMuted  = bus.muted;
-          final isSolo   = bus.solo;
-          final peakDb   = bus.peak > 0.0001
-              ? '${(20.0 * math.log(bus.peak) / math.ln10).toStringAsFixed(1)}'
-              : '-∞';
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Header row: "BUSES" + close button ────────────────────────────
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('BUSES',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.55),
+                  fontSize: 8,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'SpaceGrotesk',
+                  letterSpacing: 1.2,
+                )),
+              const Spacer(),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _toggleDbPanel,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 12),
+                  child: Icon(Icons.close,
+                    size: 12,
+                    color: Colors.white.withValues(alpha: 0.45)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          ...OrbBusId.values.map((busId) {
+            final bus = provider.getBus(busId);
+            if (bus == null) return const SizedBox.shrink();
+            final db  = _toDb(bus.volume);
+            final pan = _toPan(bus.pan);
+            final isMuted  = bus.muted;
+            final isSolo   = bus.solo;
+            final peakDb   = bus.peak > 0.0001
+                ? '${(20.0 * math.log(bus.peak) / math.ln10).toStringAsFixed(1)}'
+                : '-∞';
 
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 1.0),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Bus color dot
-                Container(
-                  width: 6, height: 6,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: busId.color,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                // Bus label
-                SizedBox(
-                  width: 28,
-                  child: Text(busId.label,
-                    style: TextStyle(
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 1.0),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Bus color dot
+                  Container(
+                    width: 6, height: 6,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
                       color: busId.color,
-                      fontSize: 9, fontWeight: FontWeight.w700,
-                      fontFamily: 'SpaceGrotesk',
-                    )),
-                ),
-                // Volume dB
-                SizedBox(
-                  width: 52,
-                  child: Text(db,
-                    textAlign: TextAlign.right,
-                    style: TextStyle(
-                      color: isMuted
-                          ? Colors.white.withValues(alpha: 0.30)
-                          : Colors.white.withValues(alpha: 0.90),
-                      fontSize: 9, fontFamily: 'SpaceGrotesk',
-                    )),
-                ),
-                const SizedBox(width: 4),
-                // Peak
-                SizedBox(
-                  width: 30,
-                  child: Text('pk $peakDb',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.40),
-                      fontSize: 8, fontFamily: 'SpaceGrotesk',
-                    )),
-                ),
-                const SizedBox(width: 4),
-                // Pan
-                SizedBox(
-                  width: 24,
-                  child: Text(pan,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.cyanAccent.withValues(alpha: 0.70),
-                      fontSize: 8, fontFamily: 'SpaceGrotesk',
-                    )),
-                ),
-                const SizedBox(width: 4),
-                // Solo button
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () { provider.toggleSolo(busId); _restartAutoHide(); },
-                  child: Container(
-                    width: 16, height: 16,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(3),
-                      color: isSolo
-                          ? Colors.yellowAccent.withValues(alpha: 0.80)
-                          : Colors.white.withValues(alpha: 0.08),
-                      border: Border.all(
-                        color: isSolo
-                            ? Colors.yellowAccent
-                            : Colors.white.withValues(alpha: 0.25),
-                        width: 1,
-                      ),
                     ),
-                    child: Center(child: Text('S',
-                      style: TextStyle(
-                        color: isSolo ? Colors.black : Colors.white.withValues(alpha: 0.60),
-                        fontSize: 8, fontWeight: FontWeight.w800,
-                      ))),
                   ),
-                ),
-                const SizedBox(width: 3),
-                // Mute button
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () { provider.toggleMute(busId); _restartAutoHide(); },
-                  child: Container(
-                    width: 16, height: 16,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(3),
-                      color: isMuted
-                          ? Colors.redAccent.withValues(alpha: 0.80)
-                          : Colors.white.withValues(alpha: 0.08),
-                      border: Border.all(
+                  const SizedBox(width: 4),
+                  // Bus label
+                  SizedBox(
+                    width: 28,
+                    child: Text(busId.label,
+                      style: TextStyle(
+                        color: busId.color,
+                        fontSize: 9.5, fontWeight: FontWeight.w700,
+                        fontFamily: 'SpaceGrotesk',
+                      )),
+                  ),
+                  // Volume dB
+                  SizedBox(
+                    width: 52,
+                    child: Text(db,
+                      textAlign: TextAlign.right,
+                      style: TextStyle(
                         color: isMuted
-                            ? Colors.redAccent
-                            : Colors.white.withValues(alpha: 0.25),
-                        width: 1,
-                      ),
-                    ),
-                    child: Center(child: Text('M',
-                      style: TextStyle(
-                        color: isMuted ? Colors.white : Colors.white.withValues(alpha: 0.60),
-                        fontSize: 8, fontWeight: FontWeight.w800,
-                      ))),
+                            ? Colors.white.withValues(alpha: 0.30)
+                            : Colors.white.withValues(alpha: 0.90),
+                        fontSize: 9.5, fontFamily: 'SpaceGrotesk',
+                      )),
                   ),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
+                  const SizedBox(width: 4),
+                  // Peak
+                  SizedBox(
+                    width: 30,
+                    child: Text('pk $peakDb',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.40),
+                        fontSize: 8, fontFamily: 'SpaceGrotesk',
+                      )),
+                  ),
+                  const SizedBox(width: 4),
+                  // Pan
+                  SizedBox(
+                    width: 24,
+                    child: Text(pan,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.cyanAccent.withValues(alpha: 0.70),
+                        fontSize: 8, fontFamily: 'SpaceGrotesk',
+                      )),
+                  ),
+                  const SizedBox(width: 4),
+                  // Solo button
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () { provider.toggleSolo(busId); _restartAutoHide(); },
+                    child: Container(
+                      width: 16, height: 16,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(3),
+                        color: isSolo
+                            ? Colors.yellowAccent.withValues(alpha: 0.80)
+                            : Colors.white.withValues(alpha: 0.08),
+                        border: Border.all(
+                          color: isSolo
+                              ? Colors.yellowAccent
+                              : Colors.white.withValues(alpha: 0.25),
+                          width: 1,
+                        ),
+                      ),
+                      child: Center(child: Text('S',
+                        style: TextStyle(
+                          color: isSolo ? Colors.black : Colors.white.withValues(alpha: 0.60),
+                          fontSize: 8, fontWeight: FontWeight.w800,
+                        ))),
+                    ),
+                  ),
+                  const SizedBox(width: 3),
+                  // Mute button
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () { provider.toggleMute(busId); _restartAutoHide(); },
+                    child: Container(
+                      width: 16, height: 16,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(3),
+                        color: isMuted
+                            ? Colors.redAccent.withValues(alpha: 0.80)
+                            : Colors.white.withValues(alpha: 0.08),
+                        border: Border.all(
+                          color: isMuted
+                              ? Colors.redAccent
+                              : Colors.white.withValues(alpha: 0.25),
+                          width: 1,
+                        ),
+                      ),
+                      child: Center(child: Text('M',
+                        style: TextStyle(
+                          color: isMuted ? Colors.white : Colors.white.withValues(alpha: 0.60),
+                          fontSize: 8, fontWeight: FontWeight.w800,
+                        ))),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
       ),
     );
   }
@@ -671,6 +747,7 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
         bg:      Colors.white.withValues(alpha: 0.15),
         border:  Colors.white.withValues(alpha: 0.35),
         tooltip: 'Tap: cycle size\nDouble-tap: hide\nDrag: move',
+        semanticLabel: 'Drag to move orb',
       ),
     );
   }
@@ -690,6 +767,7 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
             ? Colors.cyanAccent.withValues(alpha: 0.80)
             : Colors.white.withValues(alpha: 0.28),
         tooltip: 'dB panel\n(also: long-press orb)',
+        semanticLabel: 'Toggle dB panel',
       ),
     );
   }
@@ -710,6 +788,7 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
             ? Colors.redAccent.withValues(alpha: 0.85)
             : Colors.white.withValues(alpha: 0.28),
         tooltip: 'Capture mix problem',
+        semanticLabel: 'Mark mix problem',
       ),
     );
   }
@@ -727,6 +806,7 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
           bg:     Colors.white.withValues(alpha: 0.10),
           border: Colors.white.withValues(alpha: 0.28),
           tooltip: 'Problems inbox',
+          semanticLabel: 'Open problems inbox',
         ),
         if (count > 0)
           Positioned(
@@ -862,19 +942,24 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
     required Color bg,
     required Color border,
     String? tooltip,
-    double iconSize = 13,
+    String? semanticLabel,
+    double iconSize = 14,
   }) {
-    final btn = Container(
-      width:  _btnPx,
-      height: _btnPx,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: bg,
-        border: Border.all(color: border, width: 1),
-        boxShadow: [BoxShadow(
-          color: Colors.black.withValues(alpha: 0.40), blurRadius: 5)],
+    final btn = Semantics(
+      label: semanticLabel,
+      button: semanticLabel != null,
+      child: Container(
+        width:  _btnPx,
+        height: _btnPx,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: bg,
+          border: Border.all(color: border, width: 1),
+          boxShadow: [BoxShadow(
+            color: Colors.black.withValues(alpha: 0.40), blurRadius: 5)],
+        ),
+        child: Center(child: Icon(icon, size: iconSize, color: color)),
       ),
-      child: Center(child: Icon(icon, size: iconSize, color: color)),
     );
     if (tooltip != null) {
       return Tooltip(
