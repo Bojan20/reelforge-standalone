@@ -1,46 +1,59 @@
-/// PHASE 9 — Live Play Companion Mode (ULTIMATE v4)
+/// PHASE 9 — Live Play Companion Mode (ULTIMATE v6 — CARD LAYOUT)
 ///
-/// Floating OrbMixer overlay — ALL parameters visible, ALL gestures working.
+/// Floating mixer CARD — orb + every parameter visible at once.
 ///
-/// ┌──────────────────────────────────────┐
-/// │  [⠿] Drag  ear (32px)  [📊] dBPanel │  ← ear top
-/// ├──────────────────────────────────────┤
-/// │  ┌────────────────────────────────┐  │
-/// │  │  OrbMixer  (labels always on)  │  │  ← orb with dB labels
-/// │  │  doubletap=cycle, LP=dB panel  │  │
-/// │  └────────────────────────────────┘  │
-/// ├──────────────────────────────────────┤
-/// │  [⚐] Mark  ear (32px)  [📥] Inbox[⤢]│  ← ear bottom
-/// └──────────────────────────────────────┘
-/// │  dB panel (toggleable via Focus/LP): │
-/// │  BUSES                          [×] │
-/// │  MST -6.2dB  [S][M]  pan 0%         │
-/// │  MUS -12.4dB [S][M]  pan L12        │
-/// │  SFX -∞      [S][M]  pan 0%         │
-/// │  VO  -∞      [S][M]  pan 0%         │
-/// │  AMB -8.3dB  [S][M]  pan R5         │
-/// │  AUX -∞      [S][M]  pan 0%         │
-/// └──────────────────────────────────────┘
-/// │  [SFX] [Loud] [Recent] [NoMute]      │  ← filter chips
+/// Layout (standard 320×480):
+/// ┌──────────────────────────────────────────────┐
+/// │ ▓▓ MIXER      [−] [+] [⤒] [×]               │  ← 32px title bar
+/// ├──────────────────────────────────────────────┤
+/// │                                              │
+/// │             ┌──────────────┐                 │
+/// │             │              │                 │
+/// │             │  OrbMixer    │                 │  ← centered, sized to fit
+/// │             │              │                 │
+/// │             └──────────────┘                 │
+/// │                                              │
+/// ├──────────────────────────────────────────────┤
+/// │ BUSES                                        │
+/// │ ● MST  -6.2dB  pk -3  C    [S] [M]           │
+/// │ ● MUS -12.4dB  pk-15  L12  [S] [M]           │  ← all 6 always visible
+/// │ ● SFX    -∞    pk -∞  C    [S] [M]           │
+/// │ ● VO     -∞    pk -∞  C    [S] [M]           │
+/// │ ● AMB  -8.3dB  pk -6  R5   [S] [M]           │
+/// │ ● AUX    -∞    pk -∞  C    [S] [M]           │
+/// ├──────────────────────────────────────────────┤
+/// │ [SFX] [Loud] [Recent] [NoMute]   [⚐] [📥 3]  │  ← filters + actions
+/// └──────────────────────────────────────────────┘
+///                                            [⤢] ← corner resize
+///
+/// Design principles:
+///   - Single card, glass-style, rounded 14px, border + shadow
+///   - Every control labeled, sized 32×28 min (easy click on macOS)
+///   - NO hidden gestures anywhere in the card
+///   - Drag from title bar (big target), resize from bottom-right corner
+///   - dB panel NOT toggleable — always visible as part of layout
+///   - OrbMixer inside owns ONLY its own gestures (volume/pan/solo/mute)
+///   - Filter chips + mark + inbox in footer row
 ///
 /// Gestures:
-///   Drag handle (⠿, top-left): pan=move orb, tap=cycle size, doubletap=hide
-///   Focus/dB button (📊, top-right): tap=toggle dB panel
-///   Mark (⚐, bottom-left): tap=capture current mix as problem
-///   Inbox (📥, bottom-right): tap=open problems panel
-///   Resize dot (⤢, bottom-right corner): pan=resize orb
-///   Orb body: doubletap=cycle size, long-press=toggle dB panel
-///
-/// Bug fixes (v4):
-///   - dB panel and filter chips moved to OUTER Stack → fully hit-testable
-///   - Ear buttons use HitTestBehavior.opaque, no overlap with OrbMixer
-///   - Orb body uses manual Listener-based gesture detection (no GestureDetector)
-///     to avoid platform gesture-arena issues on macOS
-///   - _longPressTimer and _lastOrbTapTime are class-level state variables
+///   Title bar drag    → move card
+///   [−] button        → shrink orb
+///   [+] button        → grow orb
+///   [⤒] button        → cycle preset size (mini/std/full)
+///   [×] button        → hide card (reveal button appears bottom-right)
+///   [S]/[M] per bus   → solo/mute
+///   filter chip       → toggle quick-filter
+///   [⚐] mark          → capture current mix as problem
+///   [📥] inbox        → open problems panel
+///   corner dot [⤢]    → drag to smooth-resize
+///   OrbMixer surface  → drag=volume/pan, tap=solo, right-click=mute,
+///                       scroll=fine volume, long-press=voice detail
 library;
 
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -56,20 +69,26 @@ import 'problems_inbox_panel.dart';
 // ─── Size presets ─────────────────────────────────────────────────────────────
 
 enum LivePlayOrbSize {
-  mini(70.0, 'Mini'),
-  standard(140.0, 'Standard'),
-  full(220.0, 'Full');
+  mini(90.0, 'Mini'),
+  standard(160.0, 'Standard'),
+  full(240.0, 'Full');
 
   final double px;
   final String label;
   const LivePlayOrbSize(this.px, this.label);
 }
 
-// ─── dB conversion helper ─────────────────────────────────────────────────────
+// ─── dB conversion helpers ────────────────────────────────────────────────────
 String _toDb(double linear) {
   if (linear <= 0.0001) return '-∞';
   final db = 20.0 * math.log(linear) / math.ln10;
   return '${db.toStringAsFixed(1)} dB';
+}
+
+String _toPeakDb(double linear) {
+  if (linear <= 0.0001) return '-∞';
+  final db = 20.0 * math.log(linear) / math.ln10;
+  return db.toStringAsFixed(1);
 }
 
 String _toPan(double pan) {
@@ -108,36 +127,44 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
   static const _prefKeySizePx  = 'psp_orb_overlay_size_px';
   static const _prefKeyVisible = 'psp_orb_overlay_visible';
 
-  // ─── Layout constants ───────────────────────────────────────────────────────
-  /// Ear thickness around the orb — buttons live here, guaranteed outside circle
-  static const double _earPx    = 32.0;
-  /// Button size (increased from 26 to 28)
-  static const double _btnPx    = 28.0;
-  /// Padding inside ear
-  static const double _btnPad   = (_earPx - _btnPx) / 2; // 2 px
-  /// Resize dot size (extreme bottom-right corner)
-  static const double _resizePx = 16.0;
-  /// Gap between inbox and resize dot
-  static const double _inboxGap = _resizePx + 4;
+  // ─── Card dimensions ────────────────────────────────────────────────────────
+  /// Horizontal padding inside card
+  static const double _cardPadH   = 10.0;
+  /// Title bar height (big drag target)
+  static const double _titleH     = 34.0;
+  /// Bus row height
+  static const double _busRowH    = 22.0;
+  /// Header label height ("BUSES")
+  static const double _busHdrH    = 16.0;
+  /// Footer row height (filters + actions)
+  static const double _footerH    = 34.0;
+  /// Resize handle (bottom-right corner)
+  static const double _resizePx   = 16.0;
+  /// Card content vertical gap
+  static const double _vGap       = 6.0;
 
-  static const double _minOrbPx = 70.0;
+  /// Minimum orb diameter inside the card
+  static const double _minOrbPx = 90.0;
+  /// Maximum orb diameter inside the card
   static const double _maxOrbPx = 320.0;
-  static const double _maxViewportFraction = 0.45;
+
+  /// Max card fraction of viewport (so card doesn't eat screen)
+  static const double _maxViewportFraction = 0.7;
 
   // ─── Autohide / opacity ─────────────────────────────────────────────────────
-  static const Duration _autoHideDelay  = Duration(seconds: 4);
+  static const Duration _autoHideDelay = Duration(seconds: 6);
   static const Duration _opacityDur    = Duration(milliseconds: 220);
   static const Duration _snapDur       = Duration(milliseconds: 180);
 
-  static const double _opacityIdle    = 0.90;
+  static const double _opacityIdle    = 0.94;
   static const double _opacityActive  = 1.0;
-  static const double _opacityDormant = 0.60;
+  static const double _opacityDormant = 0.65;
 
   // ─── State ───────────────────────────────────────────────────────────────────
   Offset _position         = const Offset(16, 16);
   bool   _hasInitialPos    = false;
   LivePlayOrbSize _sizeMode  = LivePlayOrbSize.standard;
-  double _orbPx            = 140.0;
+  double _orbPx            = 160.0;
   bool   _isResizing       = false;
   bool   _visible          = true;
   bool   _interacting      = false;
@@ -145,15 +172,7 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
   Timer? _autoHideTimer;
   bool   _settingsLoaded   = false;
 
-  /// dB panel open/closed
-  bool   _showDbPanel      = false;
-
   OrbMixerProvider? _orbProvider;
-
-  // ─── Manual gesture detection state for orb body ─────────────────────────────
-  Timer?    _longPressTimer;
-  DateTime? _lastOrbTapTime;
-  Offset    _orbPointerDownPos = Offset.zero;
 
   // ─── Lifecycle ───────────────────────────────────────────────────────────────
   @override
@@ -172,7 +191,6 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
   @override
   void dispose() {
     _autoHideTimer?.cancel();
-    _longPressTimer?.cancel();
     _orbProvider?.removeListener(_onOrbProviderChanged);
     _orbProvider = null;
     ProblemsInboxService.instance.removeListener(_onInboxChanged);
@@ -253,7 +271,8 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
 
   LivePlayOrbSize cycleSizeMode() {
     setState(() {
-      _sizeMode = LivePlayOrbSize.values[(_sizeMode.index + 1) % LivePlayOrbSize.values.length];
+      _sizeMode = LivePlayOrbSize.values[
+          (_sizeMode.index + 1) % LivePlayOrbSize.values.length];
       _orbPx = _sizeMode.px;
     });
     _restartAutoHide();
@@ -271,89 +290,17 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
   LivePlayOrbSize get sizeMode => _sizeMode;
   double get sizePx   => _orbPx;
 
-  void _toggleDbPanel() {
-    setState(() => _showDbPanel = !_showDbPanel);
-    _restartAutoHide();
+  // ─── Step size +/- ───────────────────────────────────────────────────────────
+  static const double _sizeStep = 24.0;
+
+  void _shrinkStep() {
+    final next = (_orbPx - _sizeStep).clamp(_minOrbPx, _maxOrbPx);
+    setSizePx(next);
   }
 
-  // ─── Drag helpers ────────────────────────────────────────────────────────────
-  void _onDragStart(DragStartDetails _) {
-    setState(() { _interacting = true; _dormant = false; });
-  }
-
-  double _totalW() => _orbPx + 2 * _earPx;
-  double _totalH() => _orbPx + 2 * _earPx;
-
-  void _onDragUpdate(DragUpdateDetails d, Size vp) {
-    final maxX = (vp.width  - _totalW() - 8).clamp(0.0, double.infinity);
-    final maxY = (vp.height - _totalH() - 8).clamp(0.0, double.infinity);
-    setState(() {
-      _position = Offset(
-        (_position.dx + d.delta.dx).clamp(0.0, maxX),
-        (_position.dy + d.delta.dy).clamp(0.0, maxY),
-      );
-    });
-  }
-
-  void _onDragEnd(DragEndDetails _, Size vp) {
-    final tw = _totalW();
-    final th = _totalH();
-    final cx = _position.dx + tw / 2;
-    final cy = _position.dy + th / 2;
-
-    final ld = cx;
-    final rd = vp.width  - cx;
-    final td = cy;
-    final bd = vp.height - cy;
-    final minE = [ld, rd, td, bd].reduce((a, b) => a < b ? a : b);
-
-    double sx = _position.dx, sy = _position.dy;
-    const m = 12.0;
-    if (minE < 96.0) {
-      if (minE == ld) sx = m;
-      if (minE == rd) sx = vp.width  - tw - m;
-      if (minE == td) sy = m;
-      if (minE == bd) sy = vp.height - th - m;
-    }
-    setState(() { _position = Offset(sx, sy); _interacting = false; });
-    _restartAutoHide();
-    _saveSettings();
-  }
-
-  void _onPointerDown(PointerDownEvent _) {
-    if (_dormant) setState(() => _dormant = false);
-    _restartAutoHide();
-  }
-
-  void _onPointerUp(PointerUpEvent _) { _restartAutoHide(); }
-
-  // ─── Manual orb gesture handlers ─────────────────────────────────────────────
-  void _onOrbPointerDown(PointerDownEvent e) {
-    _orbPointerDownPos = e.localPosition;
-    _longPressTimer?.cancel();
-    _longPressTimer = Timer(const Duration(milliseconds: 450), () {
-      if (mounted) _toggleDbPanel();
-    });
-  }
-
-  void _onOrbPointerMove(PointerMoveEvent e) {
-    // Cancel long press on movement > 4px from down position
-    if ((e.localPosition - _orbPointerDownPos).distance > 4.0) {
-      _longPressTimer?.cancel();
-    }
-  }
-
-  void _onOrbPointerUp(PointerUpEvent e) {
-    _longPressTimer?.cancel();
-    final now = DateTime.now();
-    final last = _lastOrbTapTime;
-    if (last != null && now.difference(last) < const Duration(milliseconds: 300)) {
-      // Double-tap
-      cycleSizeMode();
-      _lastOrbTapTime = null;
-    } else {
-      _lastOrbTapTime = now;
-    }
+  void _growStep() {
+    final next = (_orbPx + _sizeStep).clamp(_minOrbPx, _maxOrbPx);
+    setSizePx(next);
   }
 
   // ─── Mark problem ────────────────────────────────────────────────────────────
@@ -371,11 +318,51 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
 
   void _onOrbProviderChanged() { if (mounted) setState(() {}); }
 
-  // ─── dB panel height ─────────────────────────────────────────────────────────
-  double _dbPanelHeight() {
-    // header 24px + 6 buses × 22px row + 8px padding
-    return 24 + 6 * 22.0 + 8;
+  // ─── Card geometry ───────────────────────────────────────────────────────────
+  /// Card width based on orb size (ensures minimum for readable bus rows)
+  double _cardW(double orbPx) {
+    const minCardW = 320.0;
+    return math.max(minCardW, orbPx + 2 * _cardPadH);
   }
+
+  /// Card height: title + gap + orb + gap + busHdr + 6×busRow + gap + footer + gap
+  double _cardH(double orbPx) {
+    return _titleH
+         + _vGap + orbPx
+         + _vGap + _busHdrH
+         + 6 * _busRowH
+         + _vGap + _footerH
+         + _cardPadH; // bottom padding
+  }
+
+  // ─── Drag (title bar) ────────────────────────────────────────────────────────
+  void _onDragStart(DragStartDetails _) {
+    setState(() { _interacting = true; _dormant = false; });
+  }
+
+  void _onDragUpdate(DragUpdateDetails d, Size vp, double cardW, double cardH) {
+    final maxX = (vp.width  - cardW - 8).clamp(0.0, double.infinity);
+    final maxY = (vp.height - cardH - 8).clamp(0.0, double.infinity);
+    setState(() {
+      _position = Offset(
+        (_position.dx + d.delta.dx).clamp(0.0, maxX),
+        (_position.dy + d.delta.dy).clamp(0.0, maxY),
+      );
+    });
+  }
+
+  void _onDragEnd(DragEndDetails _, Size vp, double cardW, double cardH) {
+    setState(() => _interacting = false);
+    _restartAutoHide();
+    _saveSettings();
+  }
+
+  void _onPointerDown(PointerDownEvent _) {
+    if (_dormant) setState(() => _dormant = false);
+    _restartAutoHide();
+  }
+
+  void _onPointerUp(PointerUpEvent _) { _restartAutoHide(); }
 
   // ─── Build ───────────────────────────────────────────────────────────────────
   @override
@@ -386,44 +373,40 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
     return LayoutBuilder(builder: (ctx, constraints) {
       final vp = Size(constraints.maxWidth, constraints.maxHeight);
 
-      // Clamp orb size to viewport fraction
+      // Clamp orb size to viewport
       final vpMin = vp.width < vp.height ? vp.width : vp.height;
       final effMax = (vpMin * _maxViewportFraction).clamp(_minOrbPx, _maxOrbPx);
       if (_orbPx > effMax) _orbPx = effMax;
 
-      final double orbPx  = _orbPx;
-      final double totalW = orbPx + 2 * _earPx;
-      final double totalH = orbPx + 2 * _earPx;
+      final double orbPx = _orbPx;
+      final double cardW = _cardW(orbPx);
+      final double cardH = _cardH(orbPx);
 
-      // Default position: top-right, below header
+      // Default position: top-right below header
       if (!_hasInitialPos) {
-        _position = Offset(vp.width - totalW - 12, 80.0);
+        _position = Offset(vp.width - cardW - 14, 80.0);
         _hasInitialPos = true;
       }
 
-      // Clamp position
-      final maxX = (vp.width  - totalW - 8).clamp(0.0, double.infinity);
-      final maxY = (vp.height - totalH - 8).clamp(0.0, double.infinity);
+      // Clamp position to viewport
+      final maxX = (vp.width  - cardW - 8).clamp(0.0, double.infinity);
+      final maxY = (vp.height - cardH - 8).clamp(0.0, double.infinity);
       if (_position.dx > maxX) _position = Offset(maxX, _position.dy);
       if (_position.dy > maxY) _position = Offset(_position.dx, maxY);
 
-      final bool showChrome = orbPx >= 80.0;
       final double opacity = (_interacting || _isResizing)
           ? _opacityActive
           : (_dormant ? _opacityDormant : _opacityIdle);
 
-      final bool panelVisible = _showDbPanel && _orbProvider != null && showChrome;
-
       return Stack(
         children: [
-          // ── 1. Orb + ear buttons ─────────────────────────────────────────────
           AnimatedPositioned(
             duration: (_interacting || _isResizing) ? Duration.zero : _snapDur,
             curve: Curves.easeOutCubic,
             left: _position.dx,
             top:  _position.dy,
-            width:  totalW,
-            height: totalH,
+            width:  cardW,
+            height: cardH,
             child: AnimatedOpacity(
               duration: _opacityDur,
               opacity: opacity,
@@ -432,62 +415,16 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
                 onPointerDown: _onPointerDown,
                 onPointerUp:   _onPointerUp,
                 child: Stack(
-                  // Clip.none only for visual effects — interactive elements
-                  // are positioned within bounds on the outer Stack
                   clipBehavior: Clip.none,
                   children: [
-                    // ── Orb body (centered in total bounds) ─────────────────
-                    Positioned(
-                      left:   _earPx,
-                      top:    _earPx,
-                      width:  orbPx,
-                      height: orbPx,
-                      child:  _buildOrbBody(orbPx, vp),
+                    // ─── Card ────────────────────────────────────────────
+                    Positioned.fill(
+                      child: _buildCard(orbPx, cardW, cardH, vp),
                     ),
-
-                    // ── Drag handle (top-LEFT ear) ───────────────────────────
+                    // ─── Resize dot (outside card, bottom-right corner) ──
                     Positioned(
-                      left:   _btnPad,
-                      top:    _btnPad,
-                      width:  _btnPx,
-                      height: _btnPx,
-                      child:  _buildDragHandle(vp),
-                    ),
-
-                    // ── dB/Focus button (top-RIGHT ear) ─────────────────────
-                    if (showChrome)
-                      Positioned(
-                        right:  _btnPad,
-                        top:    _btnPad,
-                        width:  _btnPx,
-                        height: _btnPx,
-                        child:  _buildDbToggleButton(),
-                      ),
-
-                    // ── Mark button (bottom-LEFT ear) ────────────────────────
-                    if (showChrome)
-                      Positioned(
-                        left:   _btnPad,
-                        bottom: _btnPad,
-                        width:  _btnPx,
-                        height: _btnPx,
-                        child:  _buildMarkButton(),
-                      ),
-
-                    // ── Inbox button (bottom-RIGHT ear, left of resize) ───────
-                    if (showChrome)
-                      Positioned(
-                        right:  _btnPad + _inboxGap,
-                        bottom: _btnPad,
-                        width:  _btnPx,
-                        height: _btnPx,
-                        child:  _buildInboxButton(),
-                      ),
-
-                    // ── Resize dot (extreme bottom-RIGHT corner) ─────────────
-                    Positioned(
-                      right:  0,
-                      bottom: 0,
+                      right: -_resizePx / 2,
+                      bottom: -_resizePx / 2,
                       width:  _resizePx,
                       height: _resizePx,
                       child:  _buildResizeHandle(vp),
@@ -497,478 +434,693 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay> {
               ),
             ),
           ),
-
-          // ── 2. dB panel — outer Stack level → fully hit-testable ────────────
-          if (panelVisible)
-            Positioned(
-              left: _position.dx,
-              top:  _position.dy + totalH + 4,
-              child: _buildDbPanel(),
-            ),
-
-          // ── 3. Filter chips — outer Stack level → fully hit-testable ────────
-          if (showChrome && _orbProvider != null)
-            Positioned(
-              left:  _position.dx - 28,
-              top:   _position.dy + totalH + (panelVisible ? 4 + _dbPanelHeight() : 4),
-              width: totalW + 56,
-              child: _buildFilterChips(),
-            ),
         ],
       );
     });
   }
 
-  // ─── Orb body — manual Listener-based gesture detection ───────────────────────
-  Widget _buildOrbBody(double orbPx, Size vp) {
-    return Listener(
-      behavior: HitTestBehavior.translucent,
-      onPointerDown: _onOrbPointerDown,
-      onPointerMove: _onOrbPointerMove,
-      onPointerUp:   _onOrbPointerUp,
-      child: Container(
-        width:  orbPx,
-        height: orbPx,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: Colors.black.withValues(alpha: 0.50),
-          boxShadow: [BoxShadow(
-            color: Colors.black.withValues(alpha: 0.65),
-            blurRadius: 20, spreadRadius: 3,
-          )],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(2.0),
-          child: OrbMixer(
-            dsp:               widget.dsp,
-            size:              orbPx - 4,
-            expandOnHover:     false,
-            alwaysShowLabels:  true,
-            onProviderReady:   (p) {
-              if (!mounted) return;
-              setState(() => _orbProvider = p);
-              p.addListener(_onOrbProviderChanged);
-            },
+  // ─── Card (glass panel with title + orb + busses + footer) ─────────────────
+  Widget _buildCard(double orbPx, double cardW, double cardH, Size vp) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xF0070710),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.14), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.55),
+            blurRadius: 18, spreadRadius: 2,
           ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildTitleBar(cardW, cardH, vp),
+            SizedBox(height: _vGap),
+            _buildOrbSection(orbPx),
+            SizedBox(height: _vGap),
+            _buildBussesSection(),
+            SizedBox(height: _vGap),
+            _buildFooter(),
+            SizedBox(height: _cardPadH),
+          ],
         ),
       ),
     );
   }
 
-  // ─── dB panel ────────────────────────────────────────────────────────────────
-  Widget _buildDbPanel() {
-    final provider = _orbProvider;
-    if (provider == null) return const SizedBox.shrink();
-
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xF0070710),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.15), width: 1),
-        boxShadow: [BoxShadow(
-          color: Colors.black.withValues(alpha: 0.55), blurRadius: 12)],
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+  // ─── Title bar ───────────────────────────────────────────────────────────────
+  Widget _buildTitleBar(double cardW, double cardH, Size vp) {
+    return SizedBox(
+      height: _titleH,
+      child: Row(
         children: [
-          // ── Header row: "BUSES" + close button ────────────────────────────
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('BUSES',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.55),
-                  fontSize: 8,
-                  fontWeight: FontWeight.w700,
-                  fontFamily: 'SpaceGrotesk',
-                  letterSpacing: 1.2,
-                )),
-              const Spacer(),
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: _toggleDbPanel,
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 12),
-                  child: Icon(Icons.close,
-                    size: 12,
-                    color: Colors.white.withValues(alpha: 0.45)),
+          // Drag zone: everything left of action buttons
+          Expanded(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onPanStart:  _onDragStart,
+              onPanUpdate: (d) => _onDragUpdate(d, vp, cardW, cardH),
+              onPanEnd:    (d) => _onDragEnd(d, vp, cardW, cardH),
+              child: MouseRegion(
+                cursor: SystemMouseCursors.move,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end:   Alignment.bottomCenter,
+                      colors: [
+                        Colors.white.withValues(alpha: 0.06),
+                        Colors.white.withValues(alpha: 0.02),
+                      ],
+                    ),
+                    borderRadius: const BorderRadius.only(
+                      topLeft:  Radius.circular(14),
+                      topRight: Radius.circular(14),
+                    ),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Row(
+                    children: [
+                      Icon(Icons.drag_indicator,
+                        size: 14,
+                        color: Colors.white.withValues(alpha: 0.55)),
+                      const SizedBox(width: 6),
+                      Text('MIXER',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.85),
+                          fontSize: 10, fontWeight: FontWeight.w800,
+                          letterSpacing: 1.4, fontFamily: 'SpaceGrotesk',
+                        )),
+                      const SizedBox(width: 8),
+                      Text(_sizeMode.label,
+                        style: TextStyle(
+                          color: Colors.cyanAccent.withValues(alpha: 0.70),
+                          fontSize: 9, fontWeight: FontWeight.w700,
+                          letterSpacing: 0.8, fontFamily: 'SpaceGrotesk',
+                        )),
+                      const Spacer(),
+                      Text('${_orbPx.toInt()}px',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.35),
+                          fontSize: 9, fontFamily: 'SpaceGrotesk',
+                        )),
+                    ],
+                  ),
                 ),
               ),
-            ],
+            ),
           ),
-          const SizedBox(height: 4),
-          ...OrbBusId.values.map((busId) {
-            final bus = provider.getBus(busId);
-            if (bus == null) return const SizedBox.shrink();
-            final db  = _toDb(bus.volume);
-            final pan = _toPan(bus.pan);
-            final isMuted  = bus.muted;
-            final isSolo   = bus.solo;
-            final peakDb   = bus.peak > 0.0001
-                ? '${(20.0 * math.log(bus.peak) / math.ln10).toStringAsFixed(1)}'
-                : '-∞';
-
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 1.0),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Bus color dot
-                  Container(
-                    width: 6, height: 6,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: busId.color,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  // Bus label
-                  SizedBox(
-                    width: 28,
-                    child: Text(busId.label,
-                      style: TextStyle(
-                        color: busId.color,
-                        fontSize: 9.5, fontWeight: FontWeight.w700,
-                        fontFamily: 'SpaceGrotesk',
-                      )),
-                  ),
-                  // Volume dB
-                  SizedBox(
-                    width: 52,
-                    child: Text(db,
-                      textAlign: TextAlign.right,
-                      style: TextStyle(
-                        color: isMuted
-                            ? Colors.white.withValues(alpha: 0.30)
-                            : Colors.white.withValues(alpha: 0.90),
-                        fontSize: 9.5, fontFamily: 'SpaceGrotesk',
-                      )),
-                  ),
-                  const SizedBox(width: 4),
-                  // Peak
-                  SizedBox(
-                    width: 30,
-                    child: Text('pk $peakDb',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.40),
-                        fontSize: 8, fontFamily: 'SpaceGrotesk',
-                      )),
-                  ),
-                  const SizedBox(width: 4),
-                  // Pan
-                  SizedBox(
-                    width: 24,
-                    child: Text(pan,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.cyanAccent.withValues(alpha: 0.70),
-                        fontSize: 8, fontFamily: 'SpaceGrotesk',
-                      )),
-                  ),
-                  const SizedBox(width: 4),
-                  // Solo button
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () { provider.toggleSolo(busId); _restartAutoHide(); },
-                    child: Container(
-                      width: 16, height: 16,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(3),
-                        color: isSolo
-                            ? Colors.yellowAccent.withValues(alpha: 0.80)
-                            : Colors.white.withValues(alpha: 0.08),
-                        border: Border.all(
-                          color: isSolo
-                              ? Colors.yellowAccent
-                              : Colors.white.withValues(alpha: 0.25),
-                          width: 1,
-                        ),
-                      ),
-                      child: Center(child: Text('S',
-                        style: TextStyle(
-                          color: isSolo ? Colors.black : Colors.white.withValues(alpha: 0.60),
-                          fontSize: 8, fontWeight: FontWeight.w800,
-                        ))),
-                    ),
-                  ),
-                  const SizedBox(width: 3),
-                  // Mute button
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () { provider.toggleMute(busId); _restartAutoHide(); },
-                    child: Container(
-                      width: 16, height: 16,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(3),
-                        color: isMuted
-                            ? Colors.redAccent.withValues(alpha: 0.80)
-                            : Colors.white.withValues(alpha: 0.08),
-                        border: Border.all(
-                          color: isMuted
-                              ? Colors.redAccent
-                              : Colors.white.withValues(alpha: 0.25),
-                          width: 1,
-                        ),
-                      ),
-                      child: Center(child: Text('M',
-                        style: TextStyle(
-                          color: isMuted ? Colors.white : Colors.white.withValues(alpha: 0.60),
-                          fontSize: 8, fontWeight: FontWeight.w800,
-                        ))),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
+          // Action buttons: shrink, grow, preset-cycle, hide
+          _titleBtn(
+            icon: Icons.remove,
+            tooltip: 'Shrink orb',
+            onTap: _orbPx > _minOrbPx + 0.5 ? _shrinkStep : null,
+          ),
+          _titleBtn(
+            icon: Icons.add,
+            tooltip: 'Grow orb',
+            onTap: _orbPx < _maxOrbPx - 0.5 ? _growStep : null,
+          ),
+          _titleBtn(
+            icon: Icons.aspect_ratio,
+            tooltip: 'Cycle preset size\n(Mini → Standard → Full)',
+            onTap: () => cycleSizeMode(),
+          ),
+          _titleBtn(
+            icon: Icons.close,
+            tooltip: 'Hide mixer',
+            onTap: hide,
+            danger: true,
+          ),
         ],
       ),
     );
   }
 
-  // ─── Drag handle (top-left) ───────────────────────────────────────────────────
-  Widget _buildDragHandle(Size vp) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: cycleSizeMode,
-      onDoubleTap: () {
-        setState(() => _visible = false);
-        widget.onVisibilityChanged?.call(false);
-        _saveSettings();
-      },
-      onPanStart:  _onDragStart,
-      onPanUpdate: (d) => _onDragUpdate(d, vp),
-      onPanEnd:    (d) => _onDragEnd(d, vp),
-      child: _earButton(
-        icon:    Icons.drag_indicator,
-        color:   Colors.white,
-        bg:      Colors.white.withValues(alpha: 0.15),
-        border:  Colors.white.withValues(alpha: 0.35),
-        tooltip: 'Tap: cycle size\nDouble-tap: hide\nDrag: move',
-        semanticLabel: 'Drag to move orb',
-      ),
-    );
-  }
-
-  // ─── dB panel toggle button (top-right) ───────────────────────────────────────
-  Widget _buildDbToggleButton() {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: _toggleDbPanel,
-      child: _earButton(
-        icon:   _showDbPanel ? Icons.bar_chart : Icons.equalizer,
-        color:  _showDbPanel ? Colors.cyanAccent : Colors.white,
-        bg:     _showDbPanel
-            ? Colors.cyanAccent.withValues(alpha: 0.25)
-            : Colors.white.withValues(alpha: 0.10),
-        border: _showDbPanel
-            ? Colors.cyanAccent.withValues(alpha: 0.80)
-            : Colors.white.withValues(alpha: 0.28),
-        tooltip: 'dB panel\n(also: long-press orb)',
-        semanticLabel: 'Toggle dB panel',
-      ),
-    );
-  }
-
-  // ─── Mark problem (bottom-left) ───────────────────────────────────────────────
-  Widget _buildMarkButton() {
-    final hasAlerts = (_orbProvider?.activeAlerts.isNotEmpty ?? false);
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: _markProblem,
-      child: _earButton(
-        icon:   Icons.flag,
-        color:  Colors.white,
-        bg:     hasAlerts
-            ? Colors.redAccent.withValues(alpha: 0.40)
-            : Colors.white.withValues(alpha: 0.10),
-        border: hasAlerts
-            ? Colors.redAccent.withValues(alpha: 0.85)
-            : Colors.white.withValues(alpha: 0.28),
-        tooltip: 'Capture mix problem',
-        semanticLabel: 'Mark mix problem',
-      ),
-    );
-  }
-
-  // ─── Inbox button (bottom-right, left of resize) ─────────────────────────────
-  Widget _buildInboxButton() {
-    final count = ProblemsInboxService.instance.count;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => showProblemsInbox(context),
-      child: Stack(clipBehavior: Clip.none, children: [
-        _earButton(
-          icon:   Icons.inbox,
-          color:  Colors.white,
-          bg:     Colors.white.withValues(alpha: 0.10),
-          border: Colors.white.withValues(alpha: 0.28),
-          tooltip: 'Problems inbox',
-          semanticLabel: 'Open problems inbox',
-        ),
-        if (count > 0)
-          Positioned(
-            right: -4, top: -4,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-              decoration: BoxDecoration(
-                color: Colors.redAccent,
-                borderRadius: BorderRadius.circular(8),
+  Widget _titleBtn({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback? onTap,
+    bool danger = false,
+  }) {
+    final enabled = onTap != null;
+    final color = danger
+        ? (enabled ? Colors.redAccent : Colors.redAccent.withValues(alpha: 0.30))
+        : (enabled ? Colors.white    : Colors.white.withValues(alpha: 0.25));
+    return Tooltip(
+      message: tooltip,
+      preferBelow: true,
+      waitDuration: const Duration(milliseconds: 500),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: MouseRegion(
+          cursor: enabled
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.basic,
+          child: Container(
+            width: 34, height: _titleH,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: danger && enabled
+                  ? Colors.redAccent.withValues(alpha: 0.14)
+                  : Colors.transparent,
+              borderRadius: danger
+                  ? const BorderRadius.only(topRight: Radius.circular(14))
+                  : null,
+              border: Border(
+                left: BorderSide(
+                  color: Colors.white.withValues(alpha: 0.08), width: 1),
               ),
-              constraints: const BoxConstraints(minWidth: 14),
-              child: Text('$count',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white, fontSize: 8, fontWeight: FontWeight.w700,
-                )),
+            ),
+            child: Icon(icon, size: 15, color: color),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── Orb section (centered) ─────────────────────────────────────────────────
+  Widget _buildOrbSection(double orbPx) {
+    return SizedBox(
+      height: orbPx,
+      child: Center(
+        child: Container(
+          width:  orbPx,
+          height: orbPx,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: RadialGradient(
+              colors: [
+                const Color(0xFF0C0C18),
+                const Color(0xFF060610),
+              ],
+              radius: 0.85,
+            ),
+            boxShadow: [BoxShadow(
+              color: Colors.black.withValues(alpha: 0.60),
+              blurRadius: 14, spreadRadius: 1,
+            )],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(2.0),
+            child: OrbMixer(
+              dsp:               widget.dsp,
+              size:              orbPx - 4,
+              expandOnHover:     false,
+              alwaysShowLabels:  true,
+              onProviderReady:   (p) {
+                if (!mounted) return;
+                setState(() => _orbProvider = p);
+                p.addListener(_onOrbProviderChanged);
+              },
             ),
           ),
-      ]),
-    );
-  }
-
-  // ─── Resize dot (bottom-right extreme corner) ─────────────────────────────────
-  Widget _buildResizeHandle(Size vp) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onPanStart: (_) => setState(() => _isResizing = true),
-      onPanUpdate: (d) {
-        final delta = (d.delta.dx + d.delta.dy) / 2;
-        final vpMin = vp.width < vp.height ? vp.width : vp.height;
-        final effMax = (vpMin * _maxViewportFraction).clamp(_minOrbPx, _maxOrbPx);
-        final maxByVP = [
-          vp.width  - _position.dx - 2 * _earPx - 12,
-          vp.height - _position.dy - 2 * _earPx - 12,
-        ].reduce((a, b) => a < b ? a : b).clamp(_minOrbPx, effMax);
-        setState(() => _orbPx = (_orbPx + delta * 2).clamp(_minOrbPx, maxByVP));
-      },
-      onPanEnd: (_) {
-        setState(() => _isResizing = false);
-        _restartAutoHide();
-        _saveSettings();
-      },
-      child: MouseRegion(
-        cursor: SystemMouseCursors.resizeDownRight,
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(4),
-            color: Colors.cyanAccent.withValues(alpha: 0.25),
-            border: Border.all(
-              color: Colors.cyanAccent.withValues(alpha: 0.65), width: 1),
-          ),
-          child: const Center(
-            child: Icon(Icons.open_in_full, size: 9, color: Colors.cyanAccent)),
         ),
       ),
     );
   }
 
-  // ─── Reveal button (when orb is hidden) ──────────────────────────────────────
+  // ─── Busses section (all 6 always visible, with dB/peak/pan/S/M) ───────────
+  Widget _buildBussesSection() {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: _cardPadH),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            height: _busHdrH,
+            child: Row(
+              children: [
+                Text('BUSES',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.55),
+                    fontSize: 9, fontWeight: FontWeight.w800,
+                    letterSpacing: 1.4, fontFamily: 'SpaceGrotesk',
+                  )),
+                const SizedBox(width: 8),
+                Expanded(child: Container(
+                  height: 1,
+                  color: Colors.white.withValues(alpha: 0.08),
+                )),
+              ],
+            ),
+          ),
+          ...OrbBusId.values.map(_buildBusRow),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBusRow(OrbBusId busId) {
+    final provider = _orbProvider;
+    final bus = provider?.getBus(busId);
+    final volume = bus?.volume ?? 0.0;
+    final pan    = bus?.pan ?? 0.0;
+    final peak   = bus?.peak ?? 0.0;
+    final muted  = bus?.muted ?? false;
+    final solo   = bus?.solo ?? false;
+
+    final db      = _toDb(volume);
+    final peakDb  = _toPeakDb(peak);
+    final panTxt  = _toPan(pan);
+
+    return SizedBox(
+      height: _busRowH,
+      child: Row(
+        children: [
+          // Color dot
+          Container(
+            width: 8, height: 8,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: busId.color,
+              boxShadow: peak > 0.4 ? [BoxShadow(
+                color: busId.color.withValues(alpha: 0.8),
+                blurRadius: 6,
+              )] : null,
+            ),
+          ),
+          const SizedBox(width: 6),
+          // Bus label (3 chars)
+          SizedBox(
+            width: 30,
+            child: Text(busId.label,
+              style: TextStyle(
+                color: busId.color,
+                fontSize: 10, fontWeight: FontWeight.w800,
+                fontFamily: 'SpaceGrotesk',
+              )),
+          ),
+          // dB volume
+          SizedBox(
+            width: 56,
+            child: Text(db,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                color: muted
+                    ? Colors.white.withValues(alpha: 0.30)
+                    : Colors.white.withValues(alpha: 0.92),
+                fontSize: 10, fontWeight: FontWeight.w600,
+                fontFamily: 'SpaceGrotesk',
+              )),
+          ),
+          const SizedBox(width: 6),
+          // Peak mini-meter
+          _peakBar(peak),
+          const SizedBox(width: 6),
+          // Peak dB
+          SizedBox(
+            width: 30,
+            child: Text('pk $peakDb',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.40),
+                fontSize: 8, fontFamily: 'SpaceGrotesk',
+              )),
+          ),
+          const SizedBox(width: 4),
+          // Pan
+          SizedBox(
+            width: 22,
+            child: Text(panTxt,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.cyanAccent.withValues(alpha: 0.75),
+                fontSize: 9, fontWeight: FontWeight.w700,
+                fontFamily: 'SpaceGrotesk',
+              )),
+          ),
+          const Spacer(),
+          // Solo
+          _busChip(
+            label: 'S',
+            active: solo,
+            activeColor: Colors.yellowAccent,
+            tooltip: 'Solo',
+            onTap: provider == null ? null : () {
+              provider.toggleSolo(busId);
+              _restartAutoHide();
+            },
+          ),
+          const SizedBox(width: 3),
+          // Mute
+          _busChip(
+            label: 'M',
+            active: muted,
+            activeColor: Colors.redAccent,
+            tooltip: 'Mute',
+            onTap: provider == null ? null : () {
+              provider.toggleMute(busId);
+              _restartAutoHide();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _peakBar(double peak) {
+    const w = 40.0, h = 4.0;
+    final p = peak.clamp(0.0, 1.2);
+    Color color;
+    if (p < 0.6) {
+      color = const Color(0xFF39D98A); // green
+    } else if (p < 0.85) {
+      color = const Color(0xFFF5C542); // yellow
+    } else if (p < 1.0) {
+      color = const Color(0xFFF58E42); // orange
+    } else {
+      color = const Color(0xFFE44D4D); // red (clip)
+    }
+    return Container(
+      width: w, height: h,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(1),
+        color: Colors.white.withValues(alpha: 0.06),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.10), width: 0.5),
+      ),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          width: w * p.clamp(0.0, 1.0),
+          height: h,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(1),
+            color: color,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _busChip({
+    required String label,
+    required bool active,
+    required Color activeColor,
+    required String tooltip,
+    required VoidCallback? onTap,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      waitDuration: const Duration(milliseconds: 500),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: MouseRegion(
+          cursor: onTap != null
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.basic,
+          child: Container(
+            width: 18, height: 18,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(3),
+              color: active
+                  ? activeColor.withValues(alpha: 0.80)
+                  : Colors.white.withValues(alpha: 0.07),
+              border: Border.all(
+                color: active
+                    ? activeColor
+                    : Colors.white.withValues(alpha: 0.22),
+                width: 1,
+              ),
+            ),
+            child: Text(label,
+              style: TextStyle(
+                color: active
+                    ? (activeColor == Colors.yellowAccent ? Colors.black : Colors.white)
+                    : Colors.white.withValues(alpha: 0.55),
+                fontSize: 9, fontWeight: FontWeight.w900,
+              )),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── Footer (filters + mark + inbox) ────────────────────────────────────────
+  Widget _buildFooter() {
+    final p = _orbProvider;
+    final count = ProblemsInboxService.instance.count;
+    final hasAlerts = (p?.activeAlerts.isNotEmpty ?? false);
+
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: _cardPadH),
+      child: SizedBox(
+        height: _footerH,
+        child: Row(
+          children: [
+            // Filter chips (expand scroll if needed)
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: OrbQuickFilter.values.map((f) {
+                    final on = p?.activeFilters.contains(f) ?? false;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: _filterChip(
+                        label: f.label,
+                        active: on,
+                        onTap: p == null ? null : () {
+                          p.toggleFilter(f);
+                          _restartAutoHide();
+                        },
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            // Mark button
+            _footerAction(
+              icon: Icons.flag,
+              tooltip: 'Mark current mix as problem',
+              onTap: p == null ? null : _markProblem,
+              highlight: hasAlerts,
+              highlightColor: Colors.redAccent,
+            ),
+            const SizedBox(width: 4),
+            // Inbox button (with count badge)
+            _footerAction(
+              icon: Icons.inbox,
+              tooltip: 'Open problems inbox',
+              onTap: () => showProblemsInbox(context),
+              badge: count > 0 ? count : null,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _filterChip({
+    required String label,
+    required bool active,
+    required VoidCallback? onTap,
+  }) {
+    return Tooltip(
+      message: 'Filter: $label',
+      waitDuration: const Duration(milliseconds: 500),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: MouseRegion(
+          cursor: onTap != null
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.basic,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              color: active
+                  ? Colors.cyanAccent.withValues(alpha: 0.22)
+                  : Colors.white.withValues(alpha: 0.05),
+              border: Border.all(
+                color: active
+                    ? Colors.cyanAccent.withValues(alpha: 0.85)
+                    : Colors.white.withValues(alpha: 0.18),
+                width: 1,
+              ),
+            ),
+            child: Text(label,
+              style: TextStyle(
+                color: active
+                    ? Colors.cyanAccent
+                    : Colors.white.withValues(alpha: 0.80),
+                fontSize: 10, fontWeight: FontWeight.w700,
+                letterSpacing: 0.4, fontFamily: 'SpaceGrotesk',
+              )),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _footerAction({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback? onTap,
+    int? badge,
+    bool highlight = false,
+    Color? highlightColor,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      waitDuration: const Duration(milliseconds: 500),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: MouseRegion(
+          cursor: onTap != null
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.basic,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 34, height: 26,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(6),
+                  color: highlight
+                      ? (highlightColor ?? Colors.white).withValues(alpha: 0.22)
+                      : Colors.white.withValues(alpha: 0.06),
+                  border: Border.all(
+                    color: highlight
+                        ? (highlightColor ?? Colors.white).withValues(alpha: 0.75)
+                        : Colors.white.withValues(alpha: 0.22),
+                    width: 1,
+                  ),
+                ),
+                child: Icon(icon,
+                  size: 14,
+                  color: onTap != null
+                      ? Colors.white
+                      : Colors.white.withValues(alpha: 0.30)),
+              ),
+              if (badge != null)
+                Positioned(
+                  right: -4, top: -4,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: Colors.redAccent,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    constraints: const BoxConstraints(minWidth: 14),
+                    child: Text('$badge',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 8, fontWeight: FontWeight.w800,
+                      )),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── Resize handle (bottom-right corner, hangs half outside card) ───────────
+  Widget _buildResizeHandle(Size vp) {
+    return Tooltip(
+      message: 'Drag to resize orb',
+      waitDuration: const Duration(milliseconds: 500),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onPanStart: (_) => setState(() => _isResizing = true),
+        onPanUpdate: (d) {
+          final delta = (d.delta.dx + d.delta.dy) / 2;
+          final vpMin = vp.width < vp.height ? vp.width : vp.height;
+          final effMax = (vpMin * _maxViewportFraction).clamp(_minOrbPx, _maxOrbPx);
+          final maxByVP = [
+            vp.width  - _position.dx - 2 * _cardPadH - 12,
+            vp.height - _position.dy - (_titleH + _busHdrH + 6 * _busRowH + _footerH + 4 * _vGap + _cardPadH) - 12,
+          ].reduce((a, b) => a < b ? a : b).clamp(_minOrbPx, effMax);
+          setState(() => _orbPx = (_orbPx + delta * 2).clamp(_minOrbPx, maxByVP));
+        },
+        onPanEnd: (_) {
+          setState(() => _isResizing = false);
+          _restartAutoHide();
+          _saveSettings();
+        },
+        child: MouseRegion(
+          cursor: SystemMouseCursors.resizeDownRight,
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.cyanAccent.withValues(alpha: 0.30),
+              border: Border.all(
+                color: Colors.cyanAccent.withValues(alpha: 0.70), width: 1.2),
+              boxShadow: [BoxShadow(
+                color: Colors.black.withValues(alpha: 0.55),
+                blurRadius: 6,
+              )],
+            ),
+            child: const Center(
+              child: Icon(Icons.open_in_full,
+                size: 9, color: Colors.cyanAccent)),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── Reveal button (when card is hidden) ────────────────────────────────────
   Widget _buildRevealButton() {
     return Stack(children: [
       Positioned(
         right: 16, bottom: 16,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () {
-            setState(() => _visible = true);
-            widget.onVisibilityChanged?.call(true);
-            _restartAutoHide();
-            _saveSettings();
-          },
-          child: Container(
-            width: 38, height: 38,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.black.withValues(alpha: 0.65),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.30), width: 1),
-              boxShadow: [BoxShadow(
-                color: Colors.black.withValues(alpha: 0.50), blurRadius: 14)],
+        child: Tooltip(
+          message: 'Show mixer',
+          waitDuration: const Duration(milliseconds: 500),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              setState(() => _visible = true);
+              widget.onVisibilityChanged?.call(true);
+              _restartAutoHide();
+              _saveSettings();
+            },
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: Container(
+                width: 42, height: 42,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.black.withValues(alpha: 0.72),
+                  border: Border.all(
+                    color: Colors.cyanAccent.withValues(alpha: 0.55), width: 1.2),
+                  boxShadow: [BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.55),
+                    blurRadius: 16,
+                  )],
+                ),
+                child: const Center(
+                  child: Icon(Icons.graphic_eq,
+                    size: 20, color: Colors.cyanAccent)),
+              ),
             ),
-            child: const Center(
-              child: Icon(Icons.graphic_eq, size: 18, color: Colors.white)),
           ),
         ),
       ),
     ]);
   }
-
-  // ─── Filter chips ─────────────────────────────────────────────────────────────
-  Widget _buildFilterChips() {
-    final p = _orbProvider;
-    if (p == null) return const SizedBox.shrink();
-    final active = p.activeFilters;
-    return Center(
-      child: Wrap(
-        alignment: WrapAlignment.center,
-        spacing: 4, runSpacing: 3,
-        children: OrbQuickFilter.values.map((f) {
-          final on = active.contains(f);
-          return GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () { p.toggleFilter(f); _restartAutoHide(); },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: on
-                    ? Colors.cyanAccent.withValues(alpha: 0.22)
-                    : Colors.black.withValues(alpha: 0.65),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: on
-                      ? Colors.cyanAccent.withValues(alpha: 0.80)
-                      : Colors.white.withValues(alpha: 0.20),
-                  width: 1,
-                ),
-              ),
-              child: Text(f.label,
-                style: TextStyle(
-                  color: on ? Colors.cyanAccent : Colors.white.withValues(alpha: 0.75),
-                  fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 0.4,
-                )),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  // ─── Shared ear-button factory ────────────────────────────────────────────────
-  Widget _earButton({
-    required IconData icon,
-    required Color color,
-    required Color bg,
-    required Color border,
-    String? tooltip,
-    String? semanticLabel,
-    double iconSize = 14,
-  }) {
-    final btn = Semantics(
-      label: semanticLabel,
-      button: semanticLabel != null,
-      child: Container(
-        width:  _btnPx,
-        height: _btnPx,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: bg,
-          border: Border.all(color: border, width: 1),
-          boxShadow: [BoxShadow(
-            color: Colors.black.withValues(alpha: 0.40), blurRadius: 5)],
-        ),
-        child: Center(child: Icon(icon, size: iconSize, color: color)),
-      ),
-    );
-    if (tooltip != null) {
-      return Tooltip(
-        message: tooltip,
-        preferBelow: true,
-        waitDuration: const Duration(milliseconds: 600),
-        child: btn,
-      );
-    }
-    return btn;
-  }
 }
+
+// Suppress unused-import warning when not using ui.*
+// ignore: unused_element
+ui.ImageFilter _unused() => ui.ImageFilter.blur(sigmaX: 1, sigmaY: 1);
