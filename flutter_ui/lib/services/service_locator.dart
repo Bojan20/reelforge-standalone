@@ -133,6 +133,7 @@ import '../providers/timeline_playback_provider.dart';
 import '../providers/mixer_dsp_provider.dart';
 import '../providers/meter_provider.dart';
 import '../providers/mixer_provider.dart';
+import '../providers/orb_mixer_provider.dart';
 import '../providers/editor_mode_provider.dart';
 import '../providers/global_shortcuts_provider.dart';
 import '../providers/project_history_provider.dart';
@@ -902,6 +903,10 @@ class ServiceLocator {
     sl.registerLazySingleton<MixerDSPProvider>(() => MixerDSPProvider());
     sl.registerLazySingleton<MeterProvider>(() => MeterProvider());
     sl.registerLazySingleton<MixerProvider>(() => MixerProvider());
+    sl.registerLazySingleton<OrbMixerProvider>(() => OrbMixerProvider(
+          dsp: sl<MixerDSPProvider>(),
+          meters: SharedMeterReader.instance,
+        ));
     sl.registerLazySingleton<EditorModeProvider>(() => EditorModeProvider());
     sl.registerLazySingleton<GlobalShortcutsProvider>(
       () => GlobalShortcutsProvider(),
