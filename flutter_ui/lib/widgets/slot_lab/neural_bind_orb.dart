@@ -35,6 +35,7 @@ import '../../src/rust/native_ffi.dart';
 import '../../src/rust/slot_lab_v2_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
 import 'auto_bind_dialog_v2.dart';
+import 'ghost_stage_indicator.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ORB STATE
@@ -822,6 +823,10 @@ class _NeuralBindSheetState extends State<NeuralBindSheet>
                 ],
               ),
             ),
+            // Phase 10 NeuralBindOrb v2 — ghost stage coverage indicator.
+            // Reads live audio assignments from SlotLabProjectProvider so
+            // the user sees coverage improve in real time after a bind.
+            _buildGhostIndicator(),
             // Bottom bar
             _BottomBar(
               analysis: a,
@@ -833,6 +838,27 @@ class _NeuralBindSheetState extends State<NeuralBindSheet>
         ),
       ),
     );
+  }
+
+  /// Live ghost-stage indicator bound to the current project's assignments.
+  /// Listens to SlotLabProjectProvider so coverage refreshes on each bind.
+  Widget _buildGhostIndicator() {
+    try {
+      final provider = GetIt.instance<SlotLabProjectProvider>();
+      return AnimatedBuilder(
+        animation: provider,
+        builder: (_, __) => Padding(
+          padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+          child: GhostStageIndicator(
+            audioAssignments: provider.audioAssignments,
+            initiallyExpanded: false,
+          ),
+        ),
+      );
+    } catch (_) {
+      // Provider not registered (tests / standalone preview) — hide silently.
+      return const SizedBox.shrink();
+    }
   }
 }
 
