@@ -93,6 +93,66 @@ String _toPan(double pan) {
   return pan < 0 ? 'L$pct' : 'R$pct';
 }
 
+// ─── Card geometry (pure math, testable) ─────────────────────────────────────
+/// Pure-math helper for the mixer card dimensions.
+///
+/// Extracted from [LivePlayOrbOverlayState] so the invariant
+/// `cardH == columnContentHeight + 2 * borderW` can be verified by unit tests
+/// without booting the Flutter engine or FFI. This is the "proof" side of the
+/// 2px RenderFlex overflow fix — if this invariant holds, the card Container
+/// always has exactly enough height to accommodate the Column children plus
+/// the BoxDecoration border inset.
+class LivePlayOrbCardGeometry {
+  /// Horizontal padding inside card (also used as trailing pad below footer).
+  static const double cardPadH = 10.0;
+  /// Title bar height (big drag target).
+  static const double titleH = 34.0;
+  /// Bus row height.
+  static const double busRowH = 22.0;
+  /// Header label height ("BUSES").
+  static const double busHdrH = 16.0;
+  /// Footer row height (filters + actions).
+  static const double footerH = 34.0;
+  /// Card content vertical gap between sections.
+  static const double vGap = 6.0;
+  /// Card border width — `BoxDecoration.Border.all(width: 1)`.
+  /// Border is inset: reduces Column available height by 1px top + 1px bottom.
+  static const double borderW = 1.0;
+  /// Fixed number of visible bus rows.
+  static const int numBusRows = 6;
+
+  static const double minOrbPx = 90.0;
+  static const double maxOrbPx = 320.0;
+  static const double minCardW = 320.0;
+
+  /// Exact height of the Column children stack (no border compensation).
+  ///
+  /// Layout:
+  ///   titleH + vGap + orbPx + vGap + (busHdrH + 6*busRowH) + vGap + footerH + cardPadH
+  static double columnContentHeight(double orbPx) {
+    return titleH
+         + vGap + orbPx
+         + vGap + busHdrH
+         + numBusRows * busRowH
+         + vGap + footerH
+         + cardPadH;
+  }
+
+  /// Card container height — Column content + border inset compensation.
+  ///
+  /// Without `+2*borderW` the Column overflows by exactly 2px because
+  /// `Container(decoration: BoxDecoration(border: Border.all(width: 1)))`
+  /// paints the border *inside* the container bounds.
+  static double cardH(double orbPx) {
+    return columnContentHeight(orbPx) + 2 * borderW;
+  }
+
+  /// Card width: max(minCardW, orbPx + 2*cardPadH).
+  static double cardW(double orbPx) {
+    return math.max(minCardW, orbPx + 2 * cardPadH);
+  }
+}
+
 // ─── Widget ───────────────────────────────────────────────────────────────────
 
 class LivePlayOrbOverlay extends StatefulWidget {
@@ -124,26 +184,18 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
   static const _prefKeySizePx  = 'psp_orb_overlay_size_px';
   static const _prefKeyVisible = 'psp_orb_overlay_visible';
 
-  // ─── Card dimensions ────────────────────────────────────────────────────────
-  /// Horizontal padding inside card
-  static const double _cardPadH   = 10.0;
-  /// Title bar height (big drag target)
-  static const double _titleH     = 34.0;
-  /// Bus row height
-  static const double _busRowH    = 22.0;
-  /// Header label height ("BUSES")
-  static const double _busHdrH    = 16.0;
-  /// Footer row height (filters + actions)
-  static const double _footerH    = 34.0;
-  /// Resize handle (bottom-right corner)
-  static const double _resizePx   = 16.0;
-  /// Card content vertical gap
-  static const double _vGap       = 6.0;
+  // ─── Card dimensions (aliases to testable LivePlayOrbCardGeometry) ─────────
+  static const double _cardPadH = LivePlayOrbCardGeometry.cardPadH;
+  static const double _titleH   = LivePlayOrbCardGeometry.titleH;
+  static const double _busRowH  = LivePlayOrbCardGeometry.busRowH;
+  static const double _busHdrH  = LivePlayOrbCardGeometry.busHdrH;
+  static const double _footerH  = LivePlayOrbCardGeometry.footerH;
+  /// Resize handle (bottom-right corner) — NOT part of card geometry.
+  static const double _resizePx = 16.0;
+  static const double _vGap     = LivePlayOrbCardGeometry.vGap;
 
-  /// Minimum orb diameter inside the card
-  static const double _minOrbPx = 90.0;
-  /// Maximum orb diameter inside the card
-  static const double _maxOrbPx = 320.0;
+  static const double _minOrbPx = LivePlayOrbCardGeometry.minOrbPx;
+  static const double _maxOrbPx = LivePlayOrbCardGeometry.maxOrbPx;
 
   /// Max card fraction of viewport (so card doesn't eat screen)
   static const double _maxViewportFraction = 0.7;
@@ -327,28 +379,14 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
 
   void _onOrbProviderChanged() { if (mounted) setState(() {}); }
 
-  // ─── Card geometry ───────────────────────────────────────────────────────────
-  /// Card width based on orb size (ensures minimum for readable bus rows)
-  double _cardW(double orbPx) {
-    const minCardW = 320.0;
-    return math.max(minCardW, orbPx + 2 * _cardPadH);
-  }
+  // ─── Card geometry (delegated to testable static helper) ────────────────────
+  /// Card width based on orb size (ensures minimum for readable bus rows).
+  double _cardW(double orbPx) => LivePlayOrbCardGeometry.cardW(orbPx);
 
-  /// Card border width — accounts for 1px border top + bottom = 2px taken from Column.
-  static const double _borderW = 1.0;
-
-  /// Card height: title + gap + orb + gap + busHdr + 6×busRow + gap + footer + pad.
-  /// +2px: BoxDecoration border (width=1) is inset and reduces Column available height
-  /// by 1px top + 1px bottom — without compensation this causes a 2px RenderFlex overflow.
-  double _cardH(double orbPx) {
-    return _titleH
-         + _vGap + orbPx
-         + _vGap + _busHdrH
-         + 6 * _busRowH
-         + _vGap + _footerH
-         + _cardPadH
-         + 2 * _borderW; // border compensation — prevents bottom overflow
-  }
+  /// Card height: sum of all Column children + 2px border inset compensation.
+  /// See [LivePlayOrbCardGeometry.cardH] for the invariant that prevents
+  /// the 2px RenderFlex overflow.
+  double _cardH(double orbPx) => LivePlayOrbCardGeometry.cardH(orbPx);
 
   // ─── Drag (title bar) ────────────────────────────────────────────────────────
   void _onDragStart(DragStartDetails _) {
