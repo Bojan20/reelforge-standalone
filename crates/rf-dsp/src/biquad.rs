@@ -460,6 +460,8 @@ impl BiquadTDF2 {
     #[cfg(target_arch = "x86_64")]
     #[target_feature(enable = "avx2")]
     unsafe fn process_block_avx2(&mut self, buffer: &mut [Sample]) {
+        // edition 2024: explicit `unsafe {}` inside `unsafe fn`
+        unsafe {
         // Biquad IIR filter state depends on previous samples,
         // so we CAN'T truly process 4 independent samples in parallel.
         //
@@ -473,16 +475,18 @@ impl BiquadTDF2 {
         //
         // Fall back to optimized scalar for now.
         self.process_block_scalar(buffer);
-    }
+    }}
 
     /// SSE4.2 optimized processing
     #[cfg(target_arch = "x86_64")]
     #[target_feature(enable = "sse4.2")]
     unsafe fn process_block_sse42(&mut self, buffer: &mut [Sample]) {
+        // edition 2024: explicit `unsafe {}` inside `unsafe fn`
+        unsafe {
         // SSE4.2 processes 2 doubles at once
         // For simplicity, fall back to scalar (or implement 2-wide SIMD)
         self.process_block_scalar(buffer);
-    }
+    }}
 }
 
 impl Processor for BiquadTDF2 {
