@@ -10,6 +10,8 @@ import '../models/middleware_models.dart';
 import '../providers/middleware_provider.dart';
 import '../services/unified_playback_controller.dart';
 import '../src/rust/native_ffi.dart';
+import '../src/rust/slot_lab_v2_ffi.dart';
+import 'dart:convert';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STAGE TO AUDIO MAPPER
@@ -116,10 +118,20 @@ class StageAudioMapper {
       _triggerCompositeEvent(compositeEvent, stage, payload);
     }
 
-    // 2. Also trigger built-in slot events (for fallback/defaults)
+    // 2. Try Rust canonical audio resolution (preferred over hardcoded mapper)
+    if (userEvents.isEmpty) {
+      final canonicalAssets = _resolveCanonicalAudio(stage);
+      if (canonicalAssets.isNotEmpty) {
+        for (final assetId in canonicalAssets) {
+          _triggerEvent(assetId, stage, payload);
+        }
+        return; // Canonical resolution succeeded — skip hardcoded fallback
+      }
+    }
+
+    // 3. Hardcoded fallback (legacy — for events not yet in canonical registry)
     final builtinEventIds = _mapStageToEvents(stage, payload);
     for (final eventId in builtinEventIds) {
-      // Only trigger if no user event matched (avoid double-triggering)
       if (userEvents.isEmpty || !_slotEvents.containsKey(eventId)) {
         _triggerEvent(eventId, stage, payload);
       }
@@ -226,6 +238,29 @@ class StageAudioMapper {
       // ─── Default ────────────────────────────────────────────────────────
       _ => _handleUnknownStage(stage),
     };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // RUST CANONICAL AUDIO RESOLUTION
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Resolve canonical audio asset IDs from Rust audio_naming module.
+  /// Returns list of asset IDs (e.g., "sfx_reel_stop_0", "mus_free_spins_loop")
+  /// or empty list if resolution fails (fallback to hardcoded mapper).
+  List<String> _resolveCanonicalAudio(Stage stage) {
+    try {
+      final stageJson = jsonEncode(stage.toJson());
+      final bindings = _ffi.resolveStageAudio(stageJson);
+      if (bindings.isEmpty) return [];
+
+      return bindings
+          .map((b) => b['asset_id'] as String?)
+          .where((id) => id != null)
+          .cast<String>()
+          .toList();
+    } catch (_) {
+      return []; // Fall through to hardcoded mapper
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

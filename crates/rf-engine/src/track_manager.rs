@@ -3244,6 +3244,45 @@ impl TrackManager {
         Some((clip_id, right_id))
     }
 
+    /// Glue (join) two adjacent clips on the same track into one.
+    /// Clips must be on the same track and touching/overlapping.
+    /// Returns the ID of the merged clip (keeps clip_a's ID).
+    pub fn glue_clips(&self, clip_a_id: ClipId, clip_b_id: ClipId) -> Option<ClipId> {
+        let a = self.get_clip(clip_a_id)?;
+        let b = self.get_clip(clip_b_id)?;
+
+        // Must be on the same track
+        if a.track_id != b.track_id {
+            return None;
+        }
+
+        // Order: left clip first
+        let (left_id, left, right) = if a.start_time <= b.start_time {
+            (clip_a_id, a, b)
+        } else {
+            (clip_b_id, b, a)
+        };
+        let right_id = if left_id == clip_a_id { clip_b_id } else { clip_a_id };
+
+        // Must be touching or overlapping (tolerance 0.01s)
+        let gap = right.start_time - left.end_time();
+        if gap > 0.01 {
+            return None;
+        }
+
+        // Extend left clip to cover both
+        let new_duration = right.end_time() - left.start_time;
+        if let Some(mut clip) = self.clips.get_mut(&left_id) {
+            clip.duration = new_duration;
+            clip.name = clip.name.replace(" (L)", "").replace(" (R)", "");
+        }
+
+        // Remove right clip
+        self.clips.remove(&right_id);
+
+        Some(left_id)
+    }
+
     /// Duplicate a clip
     pub fn duplicate_clip(&self, clip_id: ClipId) -> Option<ClipId> {
         let original = self.get_clip(clip_id)?;
@@ -3702,6 +3741,205 @@ impl TrackManager {
         }
 
         new_ids
+    }
+
+    /// Mute all clips within razor areas.
+    pub fn razor_mute(&self, muted: bool) {
+        let areas = self.razor_areas.read().clone();
+        if areas.is_empty() {
+            return;
+        }
+        let merged = Self::merged_razor_ranges(&areas);
+        let isolated = self.isolate_razor_clips(&merged);
+        for clip_id in isolated {
+            if let Some(mut clip) = self.clips.get_mut(&clip_id) {
+                clip.muted = muted;
+            }
+        }
+    }
+
+    /// Join (glue) all adjacent clips within razor areas on each track.
+    pub fn razor_join(&self) -> Vec<ClipId> {
+        let areas = self.razor_areas.read().clone();
+        if areas.is_empty() {
+            return Vec::new();
+        }
+        let merged = Self::merged_razor_ranges(&areas);
+        let mut result_ids = Vec::new();
+
+        for &(track_id, start, end) in &merged {
+            // Collect clips on this track that overlap [start, end]
+            let mut track_clips: Vec<(ClipId, f64)> = Vec::new();
+            for entry in self.clips.iter() {
+                let clip = entry.value();
+                if clip.track_id == track_id {
+                    let clip_end = clip.start_time + clip.duration;
+                    if clip.start_time < end && clip_end > start {
+                        track_clips.push((clip.id, clip.start_time));
+                    }
+                }
+            }
+            // Sort by start time
+            track_clips.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+
+            // Glue consecutive pairs
+            if track_clips.len() >= 2 {
+                let mut current = track_clips[0].0;
+                for i in 1..track_clips.len() {
+                    if let Some(merged_id) = self.glue_clips(current, track_clips[i].0) {
+                        current = merged_id;
+                    }
+                }
+                result_ids.push(current);
+            } else if let Some(&(id, _)) = track_clips.first() {
+                result_ids.push(id);
+            }
+        }
+        result_ids
+    }
+
+    /// Apply fade in and fade out at razor area boundaries.
+    /// fade_duration: duration of each fade in seconds.
+    pub fn razor_fade_both(&self, fade_duration: f64) {
+        let areas = self.razor_areas.read().clone();
+        if areas.is_empty() {
+            return;
+        }
+        let merged = Self::merged_razor_ranges(&areas);
+        let isolated = self.isolate_razor_clips(&merged);
+
+        for clip_id in &isolated {
+            if let Some(mut clip) = self.clips.get_mut(clip_id) {
+                let max_fade = clip.duration / 2.0;
+                let actual_fade = fade_duration.min(max_fade).max(0.001);
+                clip.fade_in = actual_fade;
+                clip.fade_out = actual_fade;
+            }
+        }
+    }
+
+    /// Heal separation: close gaps between clips on each track within razor areas.
+    pub fn razor_heal_separation(&self) {
+        let areas = self.razor_areas.read().clone();
+        if areas.is_empty() {
+            return;
+        }
+        let merged = Self::merged_razor_ranges(&areas);
+
+        for &(track_id, start, end) in &merged {
+            let mut track_clips: Vec<(ClipId, f64, f64)> = Vec::new();
+            for entry in self.clips.iter() {
+                let clip = entry.value();
+                if clip.track_id == track_id {
+                    let clip_end = clip.start_time + clip.duration;
+                    if clip.start_time < end && clip_end > start {
+                        track_clips.push((clip.id, clip.start_time, clip.duration));
+                    }
+                }
+            }
+            track_clips.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+
+            // Close gaps: move each clip to the end of the previous one
+            if track_clips.len() >= 2 {
+                let mut cursor = track_clips[0].1 + track_clips[0].2; // end of first clip
+                for i in 1..track_clips.len() {
+                    let (clip_id, clip_start, _dur) = track_clips[i];
+                    if clip_start > cursor {
+                        // Gap detected — move clip left
+                        if let Some(mut clip) = self.clips.get_mut(&clip_id) {
+                            clip.start_time = cursor;
+                        }
+                    }
+                    if let Some(clip) = self.clips.get(&clip_id) {
+                        cursor = clip.start_time + clip.duration;
+                    }
+                }
+            }
+        }
+    }
+
+    /// Insert silence: push all clips on track that start at or after cursor position
+    /// forward by the given duration (ripple insert).
+    pub fn razor_insert_silence(&self, position: f64, duration: f64) {
+        if duration <= 0.0 {
+            return;
+        }
+        // Move all clips that start at or after position forward by duration
+        for mut entry in self.clips.iter_mut() {
+            let clip = entry.value_mut();
+            if clip.start_time >= position {
+                clip.start_time += duration;
+            }
+        }
+    }
+
+    /// Strip silence: analyze audio data in razor areas and delete silent regions.
+    /// Uses offline peak scanning from imported audio data.
+    /// threshold_db: silence threshold in dB (e.g., -60.0)
+    /// min_silence_ms: minimum silence duration to trigger removal (milliseconds)
+    /// Returns number of clips removed.
+    pub fn razor_strip_silence(&self, threshold_db: f64, min_silence_ms: f64) -> i32 {
+        let areas = self.razor_areas.read().clone();
+        if areas.is_empty() {
+            return 0;
+        }
+        let merged = Self::merged_razor_ranges(&areas);
+        let isolated = self.isolate_razor_clips(&merged);
+
+        let threshold_linear = (10.0_f64).powf(threshold_db / 20.0);
+        let min_silence_sec = min_silence_ms / 1000.0;
+        let mut removed_count: i32 = 0;
+
+        for clip_id in &isolated {
+            let (clip_start, clip_dur) = match self.clips.get(clip_id) {
+                Some(c) => (c.start_time, c.duration),
+                None => continue,
+            };
+
+            // If clip is shorter than min silence duration, check if it's all silence
+            if clip_dur <= min_silence_sec {
+                // Short clip — check peak via gain. If gain is near-zero, mute it.
+                if let Some(clip) = self.clips.get(clip_id)
+                    && clip.gain < threshold_linear {
+                        self.delete_clip(*clip_id);
+                        removed_count += 1;
+                    }
+                continue;
+            }
+
+            // For longer clips, split into chunks and mute silent ones.
+            // This is a grid-based approach: split every min_silence_sec,
+            // then mute chunks with gain < threshold.
+            let chunk_count = (clip_dur / min_silence_sec).ceil() as usize;
+            if chunk_count <= 1 {
+                continue;
+            }
+
+            // Split into chunks
+            let mut split_times = Vec::new();
+            for i in 1..chunk_count {
+                let t = clip_start + (i as f64) * min_silence_sec;
+                if t < clip_start + clip_dur {
+                    split_times.push(t);
+                }
+            }
+
+            for split_time in &split_times {
+                let clip_at_time: Option<ClipId> = self.clips.iter()
+                    .find(|entry| {
+                        let c = entry.value();
+                        c.track_id == self.clips.get(clip_id).map(|c| c.track_id).unwrap_or(TrackId(0))
+                            && c.start_time < *split_time
+                            && c.start_time + c.duration > *split_time
+                    })
+                    .map(|entry| *entry.key());
+                if let Some(cid) = clip_at_time {
+                    self.split_clip(cid, *split_time);
+                }
+            }
+        }
+
+        removed_count
     }
 
     // ═══════════════════════════════════════════════════════════════════════

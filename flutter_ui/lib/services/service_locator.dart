@@ -78,6 +78,7 @@ import '../providers/spectral_allocation_provider.dart';
 import '../providers/aurexis_audit_provider.dart';
 import '../providers/aurexis_profile_provider.dart';
 import '../providers/slot_lab/behavior_tree_provider.dart';
+import '../providers/slot_lab/helix_bt_canvas_provider.dart';
 import '../providers/slot_lab/state_gate_provider.dart';
 import '../providers/slot_lab/emotional_state_provider.dart';
 import '../providers/slot_lab/transition_system_provider.dart';
@@ -112,6 +113,12 @@ import '../providers/slot_lab/neural_fingerprint_provider.dart';
 import '../providers/slot_lab/spatial_audio_provider.dart';
 import '../providers/slot_lab/ai_copilot_provider.dart';
 import '../providers/slot_lab/game_flow_provider.dart';
+import '../providers/rgai_ffi_provider.dart';
+import '../providers/slot_spatial_provider.dart';
+import '../providers/ab_sim_provider.dart';
+import '../providers/slot_export_provider.dart';
+import '../providers/sfx_pipeline_provider.dart';
+import 'rgar_report_service.dart';
 import '../providers/fluxmacro_provider.dart';
 import '../providers/slot_lab/stage_flow_provider.dart';
 import '../providers/video_provider.dart';
@@ -126,6 +133,7 @@ import '../providers/timeline_playback_provider.dart';
 import '../providers/mixer_dsp_provider.dart';
 import '../providers/meter_provider.dart';
 import '../providers/mixer_provider.dart';
+import '../providers/orb_mixer_provider.dart';
 import '../providers/editor_mode_provider.dart';
 import '../providers/global_shortcuts_provider.dart';
 import '../providers/project_history_provider.dart';
@@ -158,8 +166,21 @@ import '../providers/control_room_provider.dart';
 import '../providers/stage_provider.dart';
 import '../providers/stage_ingest_provider.dart';
 import '../providers/soundbank_provider.dart';
+import '../providers/warp_state_provider.dart';
 import 'extension_sdk_service.dart';
 import 'hook_graph/hook_graph_service.dart';
+import '../models/slot_audio_events.dart' show SlotCompositeEvent;
+import 'par_import_service.dart'; // T2.1
+import 'batch_sim_service.dart'; // T2.3
+import 'math_audio_bridge_service.dart'; // T2.5+T2.8
+import 'voice_budget_analyzer_service.dart'; // T2.6
+import 'slot_lab_export_service.dart'; // T3.1–T3.6
+import 'neuro_audio_service.dart'; // T4.1–T4.2
+import 'ai_copilot_service.dart'; // T5.1–T5.4
+import 'fingerprint_service.dart'; // T6.1–T6.5
+import 'project_history_service.dart'; // T7.1
+import 'spatial_audio_service.dart'; // T7.2–T7.4
+import 'ai_generation_service.dart'; // T8.1–T8.4
 
 /// Global service locator instance
 final GetIt sl = GetIt.instance;
@@ -309,6 +330,11 @@ class ServiceLocator {
       () => MiddlewareProvider(NativeFFI.instance),
     );
 
+    // T1.4+T1.6: CompositeEventAccessor — thin bridge for RgarReportService
+    sl.registerLazySingleton<CompositeEventAccessor>(
+      () => _MiddlewareCompositeEventAccessor(sl<MiddlewareProvider>()),
+    );
+
     // ═══════════════════════════════════════════════════════════════════════════
     // LAYER 5.5.0b: SlotLabCoordinator (Slot Lab main coordinator)
     // ═══════════════════════════════════════════════════════════════════════════
@@ -430,6 +456,10 @@ class ServiceLocator {
       () => BehaviorTreeProvider(),
     );
 
+    sl.registerLazySingleton<HelixBtCanvasProvider>(
+      () => HelixBtCanvasProvider(),
+    );
+
     // ═══════════════════════════════════════════════════════════════════════════
     // LAYER 5.9.7: State Gate Provider (SlotLab Middleware §4)
     // ═══════════════════════════════════════════════════════════════════════════
@@ -466,10 +496,105 @@ class ServiceLocator {
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.10c-2: RGAR Report Service (T1.4 + T1.6 — auto-analysis + export)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<RgarReportService>(
+      () => RgarReportService(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // LAYER 5.9.10d: UCP Export™ Provider (STUB5 — Universal Casino Protocol)
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<UcpExportProvider>(
       () => UcpExportProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.10e: PAR Import Service (T2.1 + T2.2)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<ParImportService>(() => ParImportService());
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.10f: Batch Simulation Service (T2.3 + T2.4)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<BatchSimService>(() => BatchSimService());
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.10g-BRIDGE: MathAudio Bridge Service (T2.5 + T2.8)
+    // PAR → AudioEventMap + change notification system
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<MathAudioBridgeService>(
+      () => MathAudioBridgeService(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.10h-VOICE: Voice Budget Analyzer Service (T2.6)
+    // Analytical peak voice prediction from AudioEventMap (Little's Law)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<VoiceBudgetAnalyzerService>(
+      () => VoiceBudgetAnalyzerService(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.10i-EXPORT: SlotLab Export Service (T3.1–T3.6)
+    // UCP Export Engine — Howler.js / Wwise / FMOD / Generic JSON
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<SlotLabExportService>(
+      () => SlotLabExportService(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.10j-NEURO: NeuroAudio Service (T4.1–T4.2)
+    // Player Behavioral Signal Processor — 8D PSV + AudioAdaptation
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<NeuroAudioService>(
+      () => NeuroAudioService(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.10k-COPILOT: AI Co-Pilot Service (T5.1–T5.4)
+    // Rule-based suggestion engine with industry benchmark database
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<AiCopilotService>(
+      () => AiCopilotService(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.10l-FINGERPRINT: Neural Fingerprint™ Service (T6.1–T6.5)
+    // SHA-256 bundle fingerprinting, A/B analytics, honeypot leak tracing
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<FingerprintService>(
+      () => FingerprintService(sl<NativeFFI>()),
+    );
+    sl.registerLazySingleton<AbTestService>(
+      () => AbTestService(sl<NativeFFI>()),
+    );
+    sl.registerLazySingleton<HoneypotService>(
+      () => HoneypotService(sl<NativeFFI>()),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.10m-HISTORY: Project History Service (T7.1)
+    // Rust-backed Git-like versioning — commit/diff/checkout/log
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<ProjectHistoryService>(
+      () => ProjectHistoryService(sl<NativeFFI>()),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.10n-SPATIAL: Spatial Audio Service (T7.2–T7.4)
+    // 3D slot audio scene + HRTF binaural + Ambisonics export
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<SpatialAudioService>(
+      () => SpatialAudioService(sl<NativeFFI>()),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.10o-AI-GEN: AI Generation Service (T8.1–T8.4)
+    // Procedural AI audio: prompt parsing, backend adapters, post-processing, FFNC classify
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<AiGenerationService>(
+      () => AiGenerationService(sl<NativeFFI>()),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -498,6 +623,26 @@ class ServiceLocator {
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<AiCopilotProvider>(
       () => AiCopilotProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.10-FFI: Real Rust FFI-backed providers (rf-rgai, rf-slot-spatial,
+    // rf-ab-sim, rf-slot-export) — delegate to actual Rust engines via C FFI.
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<RgaiFfiProvider>(
+      () => RgaiFfiProvider(ffi: sl.get<NativeFFI>()),
+    );
+    sl.registerLazySingleton<SlotSpatialProvider>(
+      () => SlotSpatialProvider(ffi: sl.get<NativeFFI>()),
+    );
+    sl.registerLazySingleton<AbSimProvider>(
+      () => AbSimProvider(ffi: sl.get<NativeFFI>()),
+    );
+    sl.registerLazySingleton<SlotExportProvider>(
+      () => SlotExportProvider(ffi: sl.get<NativeFFI>()),
+    );
+    sl.registerLazySingleton<SfxPipelineProvider>(
+      () => SfxPipelineProvider(),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -758,6 +903,10 @@ class ServiceLocator {
     sl.registerLazySingleton<MixerDSPProvider>(() => MixerDSPProvider());
     sl.registerLazySingleton<MeterProvider>(() => MeterProvider());
     sl.registerLazySingleton<MixerProvider>(() => MixerProvider());
+    sl.registerLazySingleton<OrbMixerProvider>(() => OrbMixerProvider(
+          dsp: sl<MixerDSPProvider>(),
+          meters: SharedMeterReader.instance,
+        ));
     sl.registerLazySingleton<EditorModeProvider>(() => EditorModeProvider());
     sl.registerLazySingleton<GlobalShortcutsProvider>(
       () => GlobalShortcutsProvider(),
@@ -825,6 +974,9 @@ class ServiceLocator {
       () => SoundbankProvider(sl<NativeFFI>()),
     );
 
+    // Warp Markers State (Phase 4-5)
+    sl.registerLazySingleton<WarpStateProvider>(() => WarpStateProvider());
+
     // Initialize plugin alternatives registry
     PluginAlternativesRegistry.instance.initBuiltInAlternatives();
 
@@ -865,4 +1017,19 @@ class ServiceLocator {
 extension ServiceLocatorExtension on Object {
   /// Get a registered service
   T getService<T extends Object>() => sl<T>();
+}
+
+// =============================================================================
+// INTERNAL — CompositeEventAccessor implementation (T1.4 / T1.6)
+// =============================================================================
+
+/// Thin wrapper that lets RgarReportService read live composite events
+/// from MiddlewareProvider without creating a circular dependency.
+class _MiddlewareCompositeEventAccessor implements CompositeEventAccessor {
+  final MiddlewareProvider _middleware;
+
+  const _MiddlewareCompositeEventAccessor(this._middleware);
+
+  @override
+  List<SlotCompositeEvent> get events => _middleware.compositeEvents;
 }

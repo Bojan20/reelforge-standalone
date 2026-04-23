@@ -482,7 +482,7 @@ impl OfflinePipeline {
             self.set_state(PipelineState::Cancelled);
             return Ok(JobResult::cancelled(
                 job.id,
-                self.start_time.unwrap_or_else(|| std::time::Instant::now()).elapsed(),
+                self.start_time.unwrap_or_else(std::time::Instant::now).elapsed(),
             ));
         }
 
@@ -525,7 +525,7 @@ impl OfflinePipeline {
             self.set_state(PipelineState::Cancelled);
             return Ok(JobResult::cancelled(
                 job.id,
-                self.start_time.unwrap_or_else(|| std::time::Instant::now()).elapsed(),
+                self.start_time.unwrap_or_else(std::time::Instant::now).elapsed(),
             ));
         }
 
@@ -605,7 +605,7 @@ impl OfflinePipeline {
             job.id,
             job.output_path.clone(),
             output_size,
-            self.start_time.unwrap_or_else(|| std::time::Instant::now()).elapsed(),
+            self.start_time.unwrap_or_else(std::time::Instant::now).elapsed(),
             peak_db,
             peak_db, // true_peak (same as peak for now)
             loudness,

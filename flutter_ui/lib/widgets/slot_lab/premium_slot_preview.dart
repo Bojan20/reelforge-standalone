@@ -29,6 +29,8 @@ import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
 import 'forced_outcome_panel.dart';
 import 'game_flow_overlay.dart';
+import 'live_play_orb_overlay.dart';
+import '../../providers/mixer_dsp_provider.dart';
 import '../../models/game_flow_models.dart';
 import '../../providers/slot_lab/game_flow_provider.dart';
 import 'project_dashboard_dialog.dart';
@@ -582,17 +584,7 @@ class _HeaderZone extends StatelessWidget {
       height: 48, // Reduced from 56
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            theme.bgDark,
-            theme.bgDark.withOpacity(0.95),
-          ],
-        ),
-        border: Border(
-          bottom: BorderSide(color: theme.border, width: 1),
-        ),
+        color: theme.bgDark,
       ),
       child: Row(
         children: [
@@ -1600,6 +1592,8 @@ class _MainGameZone extends StatelessWidget {
   final bool showWildExpansion;
   final bool showScatterWin;
   final bool showCascade;
+  final void Function(int reelIndex, int rowIndex)? onCellTap;
+  final GlobalKey<SlotPreviewWidgetState>? previewKey;
 
   const _MainGameZone({
     required this.provider,
@@ -1612,6 +1606,8 @@ class _MainGameZone extends StatelessWidget {
     this.showWildExpansion = false,
     this.showScatterWin = false,
     this.showCascade = false,
+    this.onCellTap,
+    this.previewKey,
   });
 
   @override
@@ -1685,30 +1681,25 @@ class _MainGameZone extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: isWinning ? glowColor : theme.gold.withOpacity(0.4),
-                width: isWinning ? 5 : 3,
+                color: isWinning
+                    ? glowColor.withOpacity(0.7)
+                    : const Color(0xFF1E1E28),
+                width: isWinning ? 2 : 1,
               ),
               boxShadow: [
-                // Inner glow
-                BoxShadow(
-                  color: theme.gold.withOpacity(0.15),
-                  blurRadius: 30,
-                  spreadRadius: -5,
-                ),
-                // Main glow
-                BoxShadow(
-                  color: isWinning
-                      ? glowColor.withOpacity(0.6)
-                      : FluxForgeTheme.accentBlue.withOpacity(0.25),
-                  blurRadius: isWinning ? 50 : 30,
-                  spreadRadius: isWinning ? 15 : 5,
-                ),
-                // Deep shadow
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.9),
-                  blurRadius: 80,
-                  spreadRadius: 30,
-                ),
+                if (isWinning) ...[
+                  BoxShadow(
+                    color: glowColor.withOpacity(0.5),
+                    blurRadius: 40,
+                    spreadRadius: 8,
+                  ),
+                ] else ...[
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.6),
+                    blurRadius: 40,
+                    spreadRadius: 10,
+                  ),
+                ],
               ],
             ),
             child: ClipRRect(
@@ -1719,13 +1710,14 @@ class _MainGameZone extends StatelessWidget {
                   // Consumer ensures reels are hidden during scene transitions
                   Consumer<GameFlowProvider>(
                     builder: (context, flow, _) => SlotPreviewWidget(
-                      key: ValueKey('slot_preview_${reels}x$rows'),
+                      key: previewKey,
                       provider: provider,
                       projectProvider: projectProvider ?? context.read<SlotLabProjectProvider>(),
                       reels: reels,
                       rows: rows,
                       showWinPresentation: true,
                       isTransitionActive: flow.isInTransition,
+                      onCellTap: onCellTap,
                     ),
                   ),
                   // L5 Game Flow Overlay — feature-specific UI (FS counter, H&W grid, etc.)
@@ -3223,17 +3215,7 @@ class _ControlBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            theme.bgMid.withOpacity(0.95),
-            theme.bgDark,
-          ],
-        ),
-        border: Border(
-          top: BorderSide(color: theme.border, width: 1),
-        ),
+        color: theme.bgDark,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -3492,7 +3474,7 @@ class _ModernBetControl extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.bgSurface,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: theme.gold.withOpacity(0.5), width: 1.5),
+        border: Border.all(color: theme.border, width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -3912,10 +3894,10 @@ class _SpinButtonState extends State<_SpinButton>
         return const Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.stop, color: Colors.white, size: 32),
+            Icon(Icons.flash_on_rounded, color: Colors.white, size: 32),
             SizedBox(height: 4),
             Text(
-              'STOP',
+              'SLAM',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 14,
@@ -4770,6 +4752,10 @@ class PremiumSlotPreview extends StatefulWidget {
   /// Called when user clicks Reload button in header
   final VoidCallback? onReload;
 
+  /// Called when user taps a reel cell (reelIndex, rowIndex)
+  /// Used by HELIX Context Lens (C1)
+  final void Function(int reelIndex, int rowIndex)? onCellTap;
+
   const PremiumSlotPreview({
     super.key,
     required this.onExit,
@@ -4780,6 +4766,7 @@ class PremiumSlotPreview extends StatefulWidget {
     this.showSplash = false,
     this.onSplashComplete,
     this.onReload,
+    this.onCellTap,
   });
 
   @override
@@ -4789,6 +4776,11 @@ class PremiumSlotPreview extends StatefulWidget {
 class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     with TickerProviderStateMixin {
   final FocusNode _focusNode = FocusNode();
+
+  /// GlobalKey to access SlotPreviewWidgetState for slam stop.
+  final _previewKey = GlobalKey<SlotPreviewWidgetState>();
+  /// Phase 9: Live Play Orb Overlay key — used for keyboard toggle / cycle.
+  final _liveOrbKey = GlobalKey<LivePlayOrbOverlayState>();
 
   // Animation controllers
   late AnimationController _jackpotTickController;
@@ -5117,6 +5109,11 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       final themeIndex = prefs.getInt(_prefKeyTheme) ?? 0;
       _themeA = SlotThemePreset.values[themeIndex.clamp(0, SlotThemePreset.values.length - 1)];
     });
+    // TALAS 3: sync loaded turbo state to FSM so FS dwell uses correct timing
+    // from the very first FS auto-loop after app restart.
+    try {
+      GetIt.instance<GameFlowProvider>().setFsTurboMode(_isTurbo);
+    } catch (_) {}
 
     // Apply loaded settings to FFI — bus 1=music, bus 2=sfx
     NativeFFI.instance.setBusMute(1, !_isMusicOn);
@@ -5573,6 +5570,12 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   /// Toggle turbo mode
   void _toggleTurbo() {
     setState(() => _isTurbo = !_isTurbo);
+    // TALAS 3: propagate turbo to FSM so FS inter-spin dwell scales
+    // (500ms normal / 250ms turbo per IGT). If currently in FS auto-loop,
+    // the next scheduled spin picks up the new delay.
+    try {
+      GetIt.instance<GameFlowProvider>().setFsTurboMode(_isTurbo);
+    } catch (_) {}
     _saveSettings();
   }
 
@@ -6406,16 +6409,48 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   }
 
   void _handleStop() {
-    // Stop all reels immediately by stopping stage playback
-    // This triggers SlotPreviewWidget._onProviderUpdate() which calls _finalizeSpin()
-    // which in turn calls _reelAnimController.stopImmediately()
+    // IGT Slam Stop: staggered L→R reel stop with 30ms stagger, no bounce.
+    // SlotPreviewWidget.slamStop() handles animation + audio + finalization chain.
+    _previewKey.currentState?.slamStop();
+
+    // Kill anticipation audio immediately — don't wait for widget listener cycle
+    _stopAnticipationAudio();
+
+    // Fallback: if previewKey not yet mounted, fall back to provider-driven stop
     final provider = context.read<SlotLabProvider>();
-    if (provider.isPlayingStages) {
+    if (_previewKey.currentState == null && provider.isPlayingStages) {
       provider.stopStagePlayback();
     }
 
-    // Kill anticipation audio immediately (don't wait for widget listener cycle)
-    _stopAnticipationAudio();
+    // Cancel pending visual-sync reel-stop timers — slamStop() already snapped
+    // reels to target grid; leftover timers would re-fire _onAllReelsStopped().
+    for (final timer in _reelStopTimers) {
+      timer.cancel();
+    }
+    _reelStopTimers.clear();
+
+    // ─── TALAS 1 — Wire 1.3: SLAM zombie watchdog ────────────────────────
+    // Normal flow: slamStop() → _finalizeSpin() → flushGameFlowResult() →
+    // GameFlow.onSpinComplete() → _scheduleNextFsSpin() → next FS auto-spin.
+    //
+    // Edge case: if engine result hasn't returned when SLAM fires, _finalizeSpin
+    // never runs, FSM never advances, FS auto-loop scheduler stalls. After 800ms
+    // (longer than SLAM stagger + worst-case engine RTT), if engine is idle and
+    // FS is still flagged active, recover by rescheduling the auto-spin.
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (!mounted) return;
+      try {
+        final gameFlow = GetIt.instance<GameFlowProvider>();
+        if (gameFlow.currentState == GameFlowState.freeSpins &&
+            gameFlow.isFsAutoLoopActive &&
+            !provider.isSpinning &&
+            !provider.isPlayingStages) {
+          gameFlow.recoverFsAutoLoop();
+        }
+      } catch (_) {
+        // GameFlowProvider not registered — silent no-op
+      }
+    });
   }
 
   /// Stop all anticipation audio events immediately.
@@ -6457,6 +6492,18 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     }
   }
 
+  /// Phase 9: Build the floating Live Play orb. Tries to grab MixerDSPProvider
+  /// from GetIt; silently hides if not registered (defensive — preview should
+  /// still render even if mixer isn't up yet).
+  Widget _buildLivePlayOrb() {
+    try {
+      final dsp = GetIt.instance<MixerDSPProvider>();
+      return LivePlayOrbOverlay(key: _liveOrbKey, dsp: dsp);
+    } catch (_) {
+      return const SizedBox.shrink();
+    }
+  }
+
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
     final primaryFocus = FocusManager.instance.primaryFocus;
@@ -6466,6 +6513,22 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     }
 
     final provider = context.read<SlotLabProvider>();
+
+    // Phase 9: Live Play orb keyboard shortcuts
+    //   O       → toggle overlay visibility
+    //   Shift+O → cycle size (mini → standard → full → mini)
+    if (event.logicalKey == LogicalKeyboardKey.keyO) {
+      final shift = HardwareKeyboard.instance.isShiftPressed;
+      final state = _liveOrbKey.currentState;
+      if (state != null) {
+        if (shift) {
+          state.cycleSizeMode();
+        } else {
+          state.toggleVisible();
+        }
+        return KeyEventResult.handled;
+      }
+    }
 
     switch (event.logicalKey) {
       case LogicalKeyboardKey.escape:
@@ -6701,6 +6764,8 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                       reels: widget.reels,
                       rows: widget.rows,
                       winTier: _currentWinTier,
+                      onCellTap: widget.onCellTap,
+                      previewKey: _previewKey,
                     ),
                   ),
                 ),
@@ -6749,6 +6814,18 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
             // D. Win Presenter — REMOVED
             // SlotPreviewWidget (child) already has complete win presentation system
             // that WORKS correctly with tier labels. No need for duplicate overlay.
+
+            // Phase 9: Live Play Orb Overlay — floating mix companion.
+            // Sits above slot content so player can adjust mix while playing.
+            // Hit-test only registers where the orb actually is (Positioned
+            // inside LayoutBuilder). Rest of the viewport passes through to
+            // the slot controls below.
+            Positioned.fill(
+              child: IgnorePointer(
+                ignoring: false,
+                child: _buildLivePlayOrb(),
+              ),
+            ),
 
             // Gamble Screen (overlay) — disabled for basic mockup
             // To re-enable: uncomment the block below

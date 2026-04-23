@@ -8,6 +8,7 @@
 /// - Configurable timing profiles (normal, turbo, studio)
 library;
 
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
@@ -41,31 +42,31 @@ class ReelTimingProfile {
     this.accelerationMs = 150,
   });
 
-  /// Normal gameplay timing
+  /// Normal gameplay timing — IGT-standard overshoot + settle
   static const normal = ReelTimingProfile(
     firstReelStopMs: 800,
     reelStopIntervalMs: 300,
-    decelerationMs: 250,
-    bounceMs: 0,  // No bounce animation (disabled per user request)
+    decelerationMs: 220,
+    bounceMs: 180,  // IGT standard: 180ms elastic overshoot on landing
     accelerationMs: 100,
   );
 
-  /// Turbo mode - faster but still visible
+  /// Turbo mode — faster bounce, still tactile
   static const turbo = ReelTimingProfile(
     firstReelStopMs: 400,
     reelStopIntervalMs: 100,
-    decelerationMs: 150,
-    bounceMs: 0,  // No bounce animation (disabled per user request)
+    decelerationMs: 120,
+    bounceMs: 80,   // Turbo: shorter overshoot, snappier feel
     accelerationMs: 80,
   );
 
-  /// Studio mode - optimized for audio testing
+  /// Studio mode — slightly longer settle for audio sync precision
   /// CRITICAL: Must match timing.rs studio() values!
   static const studio = ReelTimingProfile(
     firstReelStopMs: 1000,   // Matches timing.rs: reel_spin_duration_ms
     reelStopIntervalMs: 370, // Matches timing.rs: reel_stop_interval_ms
-    decelerationMs: 280,
-    bounceMs: 0,  // No bounce animation (disabled per user request)
+    decelerationMs: 250,
+    bounceMs: 220,  // Studio: generous bounce for precise audio alignment
     accelerationMs: 120,
   );
 
@@ -317,7 +318,7 @@ class ReelAnimationState {
       // Elastic overshoot curve
       // Goes past target by ~15%, then settles back
       final elastic = _elasticOut(phaseProgress);
-      overshootAmount = (elastic - 1.0) * 0.15;
+      overshootAmount = (elastic - 1.0) * 0.30; // 30% of cell height for IGT-style landing
 
       scrollOffset = targetSymbolOffset + overshootAmount;
     } else {
@@ -723,6 +724,55 @@ class ProfessionalReelAnimationController extends ChangeNotifier {
 
     // Fire all-stopped callback
     onAllReelsStopped?.call();
+  }
+
+  /// IGT-standard Slam Stop — sequential reel stop L→R with stagger.
+  /// No bounce, no deceleration curve — instant snap per reel.
+  /// [staggerMs] — delay between consecutive reel stops (IGT default: 30ms).
+  void slamStop({int staggerMs = 30}) {
+    if (!_isSpinning) return;
+
+    int reelsStopped = 0;
+    final total = _reelStates.length;
+
+    for (int i = 0; i < total; i++) {
+      final idx = i; // capture for closure
+      final state = _reelStates[idx];
+      final wasMoving = state.phase != ReelPhase.stopped
+                     && state.phase != ReelPhase.idle;
+      if (!wasMoving) {
+        reelsStopped++;
+        if (reelsStopped == total) {
+          _isSpinning = false;
+          notifyListeners();
+          onAllReelsStopped?.call();
+        }
+        continue;
+      }
+
+      void stopReel() {
+        if (state.phase == ReelPhase.stopped || state.phase == ReelPhase.idle) return;
+        state.phase = ReelPhase.stopped;
+        state.velocity = 0;
+        if (!state._audioCallbackFired) {
+          state._audioCallbackFired = true;
+          onReelStop?.call(idx);
+        }
+        notifyListeners();
+        reelsStopped++;
+        if (reelsStopped >= total) {
+          _isSpinning = false;
+          notifyListeners();
+          onAllReelsStopped?.call();
+        }
+      }
+
+      if (i == 0) {
+        stopReel();
+      } else {
+        Future.delayed(Duration(milliseconds: staggerMs * i), stopReel);
+      }
+    }
   }
 
   /// Reset to initial state

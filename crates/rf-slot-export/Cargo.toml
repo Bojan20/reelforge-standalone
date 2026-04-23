@@ -1,0 +1,13 @@
+[package]
+name = "rf-slot-export"
+version = "0.1.0"
+edition = "2021"
+description = "FluxForge Slot Export Engine — UCP multi-platform export (Howler.js, Wwise, FMOD, Generic JSON)"
+
+[dependencies]
+rf-slot-lab = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]

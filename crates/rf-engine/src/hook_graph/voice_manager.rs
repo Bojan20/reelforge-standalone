@@ -116,6 +116,12 @@ pub struct VoiceManager {
     global_tick: u64,
 }
 
+impl Default for VoiceManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl VoiceManager {
     pub fn new() -> Self {
         let voices = (0..MAX_VOICES).map(|_| Voice::new_idle()).collect();

@@ -1,6 +1,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 // HELIX BUS — Unified Lock-Free Reactive Message Bus
 // ═══════════════════════════════════════════════════════════════════════════════
+#![allow(clippy::field_reassign_with_default)]
 //
 // The nervous system of SlotLab. Every subsystem (AUREXIS, ALE, RTPC, Stage,
 // Compliance, NeuroAudio, Spatial, FluxMacro) publishes and subscribes through

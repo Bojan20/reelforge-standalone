@@ -516,6 +516,10 @@ class SlotPreviewWidget extends StatefulWidget {
   /// reels are not visible or spinning behind the transition overlay.
   final bool isTransitionActive;
 
+  /// Called when user taps a reel cell (reelIndex, rowIndex)
+  /// Used by HELIX Context Lens (C1)
+  final void Function(int reelIndex, int rowIndex)? onCellTap;
+
   const SlotPreviewWidget({
     super.key,
     required this.provider,
@@ -525,6 +529,7 @@ class SlotPreviewWidget extends StatefulWidget {
     this.onSpaceKeyHandled,
     this.showWinPresentation = true, // Default: show (for standalone usage)
     this.isTransitionActive = false,
+    this.onCellTap,
   });
 
   @override
@@ -1228,10 +1233,13 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // REMOVED: setState(() { _displayGrid[reelIndex][row] = _targetGrid... });
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // V2: LANDING IMPACT EFFECT — DISABLED per user request
-    // To re-enable: uncomment _triggerLandingImpact(reelIndex);
+    // V2: LANDING IMPACT — scale pop per reel + screen shake on last reel
     // ═══════════════════════════════════════════════════════════════════════════
-    // _triggerLandingImpact(reelIndex);
+    _triggerLandingImpact(reelIndex);
+    // Screen shake only on last reel (IGT: haptic-style feedback on final land)
+    if (reelIndex == widget.reels - 1) {
+      _triggerScreenShake();
+    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // IGT-STYLE SEQUENTIAL BUFFER
@@ -4322,16 +4330,20 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
               // Win line layer — draws connecting lines between winning symbols
               // P1.2: Line "grows" from first to last symbol (250ms animation)
+              // AnimatedBuilder ensures pulseValue updates every animation frame
               if (_isShowingWinLines && _currentPresentingLine != null)
                 Positioned.fill(
-                  child: CustomPaint(
-                    painter: _WinLinePainter(
-                      positions: _currentPresentingLine!.positions,
-                      reelCount: widget.reels,
-                      rowCount: widget.rows,
-                      pulseValue: _winPulseAnimation.value.clamp(0.0, 1.0),
-                      lineColor: _getWinGlowColor(),
-                      drawProgress: _lineDrawProgress, // P1.2: 0→1 during animation
+                  child: AnimatedBuilder(
+                    animation: _winPulseAnimation,
+                    builder: (_, _) => CustomPaint(
+                      painter: _WinLinePainter(
+                        positions: _currentPresentingLine!.positions,
+                        reelCount: widget.reels,
+                        rowCount: widget.rows,
+                        pulseValue: _winPulseAnimation.value.clamp(0.0, 1.0),
+                        lineColor: _getWinGlowColor(),
+                        drawProgress: _lineDrawProgress, // P1.2: 0→1 during animation
+                      ),
                     ),
                   ),
                 ),
@@ -4423,6 +4435,78 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       // Notify parent that we handled the space key
       widget.onSpaceKeyHandled?.call();
     }
+  }
+
+  /// IGT Slam Stop — sequential reel stop L→R with 30ms stagger.
+  /// PUBLIC: PremiumSlotPreview calls this from its _handleStop().
+  /// Fires slam audio events and chains into normal spin finalization.
+  void slamStop() {
+    if (!_isSpinning) return;
+
+    const staggerMs = 30;
+    final er = EventRegistry.instance;
+    final reels = widget.reels;
+
+    // Fire per-reel slam audio events with same stagger timing
+    for (int i = 0; i < reels; i++) {
+      final delay = Duration(milliseconds: staggerMs * i);
+      Future.delayed(delay, () {
+        if (!mounted) return;
+        er.triggerStage('REEL_SLAM_STOP_$i');
+        // Fallback: trigger generic reel stop if slam stage not assigned
+        er.triggerStage('REEL_STOP_$i');
+      });
+    }
+
+    // Trigger staggered visual stop in animation controller
+    _reelAnimController.slamStop(staggerMs: staggerMs);
+
+    // After all reels stopped (last reel delay + 100ms buffer), finalize spin
+    final totalDelayMs = staggerMs * (reels - 1) + 100;
+    Future.delayed(Duration(milliseconds: totalDelayMs), () async {
+      if (!mounted || !_isSpinning) return;
+      // Update display grid to targets
+      setState(() {
+        for (int r = 0; r < reels && r < _targetGrid.length; r++) {
+          for (int row = 0; row < widget.rows && row < _targetGrid[r].length; row++) {
+            _displayGrid[r][row] = _targetGrid[r][row];
+          }
+        }
+      });
+
+      // Engine result usually arrives in <50ms; under load it may not be ready
+      // when the user slams. Without a result we cannot call _finalizeSpin,
+      // which leaves _isSpinning=true (zombie) and skips flushGameFlowResult,
+      // so any active FS auto-loop never schedules its next spin. Poll briefly.
+      var result = widget.provider.lastResult;
+      var waitedMs = 0;
+      while (result == null && waitedMs < 1500 && mounted && _isSpinning) {
+        await Future.delayed(const Duration(milliseconds: 25));
+        waitedMs += 25;
+        result = widget.provider.lastResult;
+      }
+      if (!mounted || !_isSpinning) return;
+
+      if (result != null) {
+        _finalizeSpin(result);
+      } else {
+        // Engine never delivered. Clear local spin state so the widget is not
+        // a zombie, then flush whatever the coordinator queued (no-op if empty)
+        // so the FSM advances and any active auto-loop terminates cleanly.
+        eventRegistry.stopEvent('REEL_SPIN_LOOP');
+        _stopWinLinePresentation();
+        if (_reelAnimController.isSpinning) {
+          _reelAnimController.stopImmediately();
+        }
+        setState(() {
+          _isSpinning = false;
+          _spinFinalized = true;
+        });
+        widget.provider.setWinPresentationActive(false);
+        widget.provider.flushGameFlowResult();
+      }
+      widget.provider.stopStagePlayback();
+    });
   }
 
   /// Get the tier to display (current tier during progression, or final tier)
@@ -5475,7 +5559,11 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             child: Opacity(
               // CRITICAL: Ensure opacity is always valid (0.0-1.0) - double guard
               opacity: (cascadeOpacity * dimOpacity).clamp(0.0, 1.0),
-              child: _clipForShape(cellShape, Container(
+              child: GestureDetector(
+                onTap: widget.onCellTap != null
+                    ? () => widget.onCellTap!(reelIndex, rowIndex)
+                    : null,
+                child: _clipForShape(cellShape, Container(
                 width: cellWidth,
                 height: cellHeight,
                 margin: const EdgeInsets.all(1),
@@ -5545,7 +5633,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                   ],
                 ),
               )),
-            ),
+            )), // Close GestureDetector + Opacity child
           ), // V6: Close Transform.rotate
         ),
         );

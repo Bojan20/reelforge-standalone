@@ -379,9 +379,9 @@ void main() {
         'Slot_Feature', 'Slot_Bonus', 'Slot_Gamble', 'Slot_Jackpot', 'Slot_UI']));
     });
 
-    test('big win events have 5 tiers', () {
+    test('big win events have 8 tiers', () {
       final bw = SlotAudioEventFactory.createBigWinEvents();
-      expect(bw.length, 5);
+      expect(bw.length, 8);
       for (final e in bw) { expect(e.category, 'Slot_BigWin'); }
     });
   });

@@ -488,7 +488,7 @@ impl SampleRateConverter {
             for ch in 0..num_channels {
                 let mut sum = 0.0f64;
 
-                for tap in 0..SINC_SIZE {
+                for (tap, &coeff) in coeff_row.iter().enumerate() {
                     // Ring buffer index: current position minus kernel center offset
                     let ring_frame = in_frame - SINC_HALF as i64 + tap as i64;
 
@@ -503,7 +503,7 @@ impl SampleRateConverter {
                     let ring_idx = ((self.ring_pos as i64 - 1 - frames_ago)
                         .rem_euclid(SINC_SIZE as i64)) as usize;
 
-                    sum += self.ring[ring_idx * num_channels + ch] * coeff_row[tap];
+                    sum += self.ring[ring_idx * num_channels + ch] * coeff;
                 }
 
                 output.push(sum);

@@ -1,0 +1,12 @@
+{
+  "name": "cortex-eyes",
+  "version": "1.0.0",
+  "description": "Cortex visual interface — eyes and hands for HELIX",
+  "scripts": {
+    "install-browsers": "npx playwright install chromium",
+    "eyes": "node cortex_eyes.js"
+  },
+  "dependencies": {
+    "playwright": "^1.44.0"
+  }
+}

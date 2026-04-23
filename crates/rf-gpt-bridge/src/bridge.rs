@@ -589,6 +589,7 @@ impl GptBridge {
         // Process pipeline stages that need sending (chain mode — next stage after completion)
         {
             let mgr = self.pipeline_manager.lock();
+            #[allow(clippy::type_complexity)]
             let pending_stages: Vec<(String, Vec<(usize, GptPersona, String, f32)>)> = mgr
                 .stages_to_send()
                 .iter()

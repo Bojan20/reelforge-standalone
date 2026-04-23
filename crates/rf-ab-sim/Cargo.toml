@@ -1,0 +1,24 @@
+[package]
+name = "rf-ab-sim"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Audio-aware 1M+ spin batch simulator for slot game audio validation"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+rf-core = { workspace = true }
+rf-slot-lab = { workspace = true }
+
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+rayon = { workspace = true }
+rand = { workspace = true }
+rand_chacha = { workspace = true }
+log = { workspace = true }
+thiserror = { workspace = true }
+parking_lot = { workspace = true }
+num_cpus = { workspace = true }

@@ -28,6 +28,8 @@ use rf_slot_lab::{
     parser::GddParser,
     scenario::{ScenarioPlayback, ScenarioRegistry},
 };
+// T2.3: Batch simulation
+use rf_ab_sim;
 use rf_stage::StageEvent;
 
 // P12.0.5: Ultimate FFI bounds checking
@@ -845,6 +847,165 @@ pub extern "C" fn slot_lab_free_string(s: *mut c_char) {
     }
     unsafe {
         drop(CString::from_raw(s));
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// AUDIO ASSET RESOLUTION (Stage → canonical asset IDs)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Resolve audio assets for all stages from the last spin.
+///
+/// Returns JSON array of objects:
+/// ```json
+/// [
+///   {
+///     "stage_index": 0,
+///     "stage_type": "reel_stop",
+///     "assets": [
+///       { "asset_id": "sfx_reel_stop_0", "category": "sfx", "looping": false, "exclusive": false }
+///     ]
+///   },
+///   ...
+/// ]
+/// ```
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_resolve_audio_assets() -> *mut c_char {
+    let stages = LAST_STAGES.read();
+    let mut results = Vec::with_capacity(stages.len());
+
+    for (idx, stage_event) in stages.iter().enumerate() {
+        let bindings = rf_stage::audio_naming::resolve_audio_assets(&stage_event.stage);
+        let assets: Vec<serde_json::Value> = bindings
+            .iter()
+            .map(|b| {
+                serde_json::json!({
+                    "asset_id": b.asset_id,
+                    "category": b.category.prefix(),
+                    "looping": b.looping,
+                    "exclusive": b.exclusive,
+                })
+            })
+            .collect();
+
+        results.push(serde_json::json!({
+            "stage_index": idx,
+            "stage_type": stage_event.stage.type_name(),
+            "timestamp_ms": stage_event.timestamp_ms,
+            "assets": assets,
+        }));
+    }
+
+    let json = serde_json::to_string(&results).unwrap_or_else(|_| "[]".to_string());
+    match CString::new(json) {
+        Ok(cstr) => cstr.into_raw(),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Resolve audio assets for a single stage by JSON.
+///
+/// Input: JSON string of a Stage object (e.g., `{"type":"reel_stop","reel_index":2}`)
+/// Output: JSON array of AudioAssetBinding objects
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_resolve_stage_audio(stage_json: *const c_char) -> *mut c_char {
+    if stage_json.is_null() {
+        return ptr::null_mut();
+    }
+
+    let json_str = unsafe { CStr::from_ptr(stage_json) };
+    let json_str = match json_str.to_str() {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let stage: rf_stage::Stage = match serde_json::from_str(json_str) {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let bindings = rf_stage::audio_naming::resolve_audio_assets(&stage);
+    let assets: Vec<serde_json::Value> = bindings
+        .iter()
+        .map(|b| {
+            serde_json::json!({
+                "asset_id": b.asset_id,
+                "category": b.category.prefix(),
+                "looping": b.looping,
+                "exclusive": b.exclusive,
+            })
+        })
+        .collect();
+
+    let json = serde_json::to_string(&assets).unwrap_or_else(|_| "[]".to_string());
+    match CString::new(json) {
+        Ok(cstr) => cstr.into_raw(),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Get all canonical audio asset IDs as JSON array of strings.
+/// Used for asset pipeline validation and completeness checking.
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_get_canonical_asset_ids() -> *mut c_char {
+    let ids = rf_stage::audio_naming::all_canonical_asset_ids();
+    let json = serde_json::to_string(&ids).unwrap_or_else(|_| "[]".to_string());
+    match CString::new(json) {
+        Ok(cstr) => cstr.into_raw(),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Get audio asset coverage percentage for provided asset list.
+/// Input: JSON array of asset ID strings
+/// Returns: coverage percentage (0.0 - 100.0)
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_audio_coverage(provided_json: *const c_char) -> f64 {
+    if provided_json.is_null() {
+        return 0.0;
+    }
+
+    let json_str = unsafe { CStr::from_ptr(provided_json) };
+    let json_str = match json_str.to_str() {
+        Ok(s) => s,
+        Err(_) => return 0.0,
+    };
+
+    let provided: Vec<String> = match serde_json::from_str(json_str) {
+        Ok(v) => v,
+        Err(_) => return 0.0,
+    };
+
+    let refs: Vec<&str> = provided.iter().map(|s| s.as_str()).collect();
+    rf_stage::audio_naming::coverage_percent(&refs) as f64
+}
+
+/// Get missing audio assets for provided asset list.
+/// Input: JSON array of asset ID strings
+/// Returns: JSON array of missing asset ID strings (caller must free with slot_lab_free_string)
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_missing_assets(provided_json: *const c_char) -> *mut c_char {
+    if provided_json.is_null() {
+        return ptr::null_mut();
+    }
+
+    let json_str = unsafe { CStr::from_ptr(provided_json) };
+    let json_str = match json_str.to_str() {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let provided: Vec<String> = match serde_json::from_str(json_str) {
+        Ok(v) => v,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let refs: Vec<&str> = provided.iter().map(|s| s.as_str()).collect();
+    let missing = rf_stage::audio_naming::missing_assets(&refs);
+    let json = serde_json::to_string(&missing).unwrap_or_else(|_| "[]".to_string());
+    match CString::new(json) {
+        Ok(cstr) => cstr.into_raw(),
+        Err(_) => ptr::null_mut(),
     }
 }
 
@@ -2977,6 +3138,1365 @@ pub extern "C" fn slot_lab_win_tier_set_big_win_durations(
         end_duration_ms,
         fade_out_duration_ms
     );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// T2.3: BATCH SIMULATION FFI
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Start a batch simulation. Returns task_id (0 = error).
+/// config_json must be a serialized BatchSimConfig.
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_batch_sim_start(config_json: *const c_char) -> u64 {
+    if config_json.is_null() {
+        return 0;
+    }
+    let json = unsafe {
+        match CStr::from_ptr(config_json).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+    rf_ab_sim::ffi::batch_sim_start_impl(json)
+}
+
+/// Poll simulation progress. Returns 0.0–1.0 (negative = invalid task).
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_batch_sim_progress(task_id: u64) -> f64 {
+    rf_ab_sim::ffi::batch_sim_progress_impl(task_id)
+}
+
+/// Get simulation result JSON. Returns null if not ready yet.
+/// Caller must free the result with slot_lab_free_string.
+/// Task is removed from registry after this call.
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_batch_sim_result(task_id: u64) -> *mut c_char {
+    match rf_ab_sim::ffi::batch_sim_result_impl(task_id) {
+        Some(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        None => ptr::null_mut(),
+    }
+}
+
+/// Cancel a running simulation.
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_batch_sim_cancel(task_id: u64) {
+    rf_ab_sim::ffi::batch_sim_cancel_impl(task_id);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// T2.1: PAR FILE PARSER FFI
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Parse PAR file content and return JSON ParDocument.
+/// `format` is a C string: "json", "csv", "xlsx_csv", or "auto" (default).
+/// Returns JSON string (caller must free with slot_lab_free_string).
+/// Returns null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_par_parse(
+    data_ptr: *const c_char,
+    format_ptr: *const c_char,
+) -> *mut c_char {
+    use rf_slot_lab::parser::ParParser;
+
+    if data_ptr.is_null() {
+        return ptr::null_mut();
+    }
+    let content = unsafe {
+        match CStr::from_ptr(data_ptr).to_str() {
+            Ok(s) => s,
+            Err(_) => return ptr::null_mut(),
+        }
+    };
+    let format = if format_ptr.is_null() {
+        "auto"
+    } else {
+        unsafe {
+            CStr::from_ptr(format_ptr)
+                .to_str()
+                .unwrap_or("auto")
+        }
+    };
+
+    let parser = ParParser::new();
+    let result = match format.to_lowercase().as_str() {
+        "json" => parser.parse_json(content),
+        "csv" => parser.parse_csv(content),
+        "xlsx_csv" => parser.parse_xlsx_csv(content),
+        _ => parser.parse_auto(content),
+    };
+
+    match result {
+        Ok(doc) => match serde_json::to_string(&doc) {
+            Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+            Err(_) => ptr::null_mut(),
+        },
+        Err(e) => {
+            log::warn!("slot_lab_par_parse error: {}", e);
+            ptr::null_mut()
+        }
+    }
+}
+
+/// Validate a PAR JSON document.
+/// Returns JSON ParValidationReport.
+/// Returns null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_par_validate(par_json_ptr: *const c_char) -> *mut c_char {
+    use rf_slot_lab::parser::{ParDocument, ParParser};
+
+    if par_json_ptr.is_null() {
+        return ptr::null_mut();
+    }
+    let json = unsafe {
+        match CStr::from_ptr(par_json_ptr).to_str() {
+            Ok(s) => s,
+            Err(_) => return ptr::null_mut(),
+        }
+    };
+
+    let doc: ParDocument = match serde_json::from_str(json) {
+        Ok(d) => d,
+        Err(e) => {
+            log::warn!("slot_lab_par_validate: cannot deserialize ParDocument: {}", e);
+            return ptr::null_mut();
+        }
+    };
+
+    let parser = ParParser::new();
+    let report = parser.validate(&doc);
+    match serde_json::to_string(&report) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Auto-calibrate win tiers from PAR document JSON.
+/// Returns JSON CalibrationResult (contains RegularWinConfig + diagnostics).
+/// Returns null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_par_calibrate_win_tiers(par_json_ptr: *const c_char) -> *mut c_char {
+    use rf_slot_lab::{parser::ParDocument, auto_calibrate_win_tiers};
+
+    if par_json_ptr.is_null() {
+        return ptr::null_mut();
+    }
+    let json = unsafe {
+        match CStr::from_ptr(par_json_ptr).to_str() {
+            Ok(s) => s,
+            Err(_) => return ptr::null_mut(),
+        }
+    };
+
+    let doc: ParDocument = match serde_json::from_str(json) {
+        Ok(d) => d,
+        Err(e) => {
+            log::warn!("slot_lab_par_calibrate_win_tiers: cannot deserialize: {}", e);
+            return ptr::null_mut();
+        }
+    };
+
+    let result = auto_calibrate_win_tiers(&doc);
+    match serde_json::to_string(&result) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Convert a PAR document to a GameModel JSON.
+/// Returns null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_par_to_game_model(par_json_ptr: *const c_char) -> *mut c_char {
+    use rf_slot_lab::{parser::ParDocument, GameModel};
+    use rf_slot_lab::model::{GameInfo, WinMechanism};
+    use rf_slot_lab::config::GridSpec;
+    use rf_slot_lab::timing::TimingConfig;
+
+    if par_json_ptr.is_null() {
+        return ptr::null_mut();
+    }
+    let json = unsafe {
+        match CStr::from_ptr(par_json_ptr).to_str() {
+            Ok(s) => s,
+            Err(_) => return ptr::null_mut(),
+        }
+    };
+
+    let doc: ParDocument = match serde_json::from_str(json) {
+        Ok(d) => d,
+        Err(e) => {
+            log::warn!("slot_lab_par_to_game_model: cannot deserialize: {}", e);
+            return ptr::null_mut();
+        }
+    };
+
+    // Build a GameModel from PAR data
+    let volatility = match doc.volatility {
+        rf_slot_lab::parser::ParVolatility::Low => rf_slot_lab::model::Volatility::Low,
+        rf_slot_lab::parser::ParVolatility::Medium => rf_slot_lab::model::Volatility::Medium,
+        rf_slot_lab::parser::ParVolatility::High => rf_slot_lab::model::Volatility::High,
+        rf_slot_lab::parser::ParVolatility::VeryHigh => rf_slot_lab::model::Volatility::VeryHigh,
+        rf_slot_lab::parser::ParVolatility::Extreme => rf_slot_lab::model::Volatility::VeryHigh,
+    };
+
+    let info = GameInfo::new(&doc.game_name, &doc.game_id)
+        .with_volatility(volatility)
+        .with_rtp(doc.rtp_target / 100.0);
+
+    let grid = GridSpec {
+        reels: doc.reels,
+        rows: doc.rows,
+        paylines: doc.paylines,
+    };
+
+    let win_mechanism = if let Some(ways) = doc.ways_to_win {
+        match ways {
+            243 => WinMechanism::ways_243(),
+            1024 => WinMechanism::ways_1024(),
+            _ => WinMechanism::ways_243(),
+        }
+    } else {
+        WinMechanism::standard_20_paylines()
+    };
+
+    // Calibrate win tiers from PAR data
+    let calibration = rf_slot_lab::auto_calibrate_win_tiers(&doc);
+    let win_tiers_legacy = rf_slot_lab::WinTierConfig::standard(); // Legacy compat
+
+    let model = GameModel {
+        info,
+        grid,
+        symbols: rf_slot_lab::model::SymbolSetConfig::Standard,
+        win_mechanism,
+        features: doc.features.iter().map(|f| rf_slot_lab::model::FeatureRef {
+            id: format!("{:?}", f.feature_type).to_lowercase(),
+            config: None,
+            builtin: true,
+        }).collect(),
+        win_tiers: win_tiers_legacy,
+        timing: TimingConfig::normal(),
+        mode: rf_slot_lab::model::GameMode::GddOnly,
+        math: None,
+    };
+
+    // Include calibration result alongside the model in a wrapper
+    let output = serde_json::json!({
+        "game_model": serde_json::to_value(&model).unwrap_or_default(),
+        "calibrated_win_tiers": serde_json::to_value(&calibration.regular_win_config).unwrap_or_default(),
+        "calibration_diagnostics": serde_json::to_value(&calibration.diagnostics).unwrap_or_default(),
+    });
+
+    match serde_json::to_string(&output) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// T2.7: PAR+ Extended Format FFI
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Parse a PAR+ JSON document (superset of standard PAR).
+/// Returns serialized `ParPlusDocument` JSON, or null on error.
+///
+/// # Safety
+/// `json_ptr` must be a valid null-terminated UTF-8 C string.
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_par_plus_parse(json_ptr: *const c_char) -> *mut c_char {
+    use rf_slot_lab::ParPlusParser;
+
+    let json = unsafe {
+        match CStr::from_ptr(json_ptr).to_str() {
+            Ok(s) => s,
+            Err(_) => return ptr::null_mut(),
+        }
+    };
+
+    match ParPlusParser::parse_json(json) {
+        Ok(doc) => match serde_json::to_string(&doc) {
+            Ok(out) => CString::new(out).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+            Err(_) => ptr::null_mut(),
+        },
+        Err(e) => {
+            log::warn!("slot_lab_par_plus_parse error: {}", e);
+            ptr::null_mut()
+        }
+    }
+}
+
+/// Validate a PAR+ document.
+/// Input: PAR+ JSON string (from slot_lab_par_plus_parse).
+/// Returns JSON array of `ParPlusWarning` objects, or null on error.
+///
+/// # Safety
+/// `par_plus_json_ptr` must be a valid null-terminated UTF-8 C string.
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_par_plus_validate(par_plus_json_ptr: *const c_char) -> *mut c_char {
+    use rf_slot_lab::ParPlusDocument;
+
+    let json = unsafe {
+        match CStr::from_ptr(par_plus_json_ptr).to_str() {
+            Ok(s) => s,
+            Err(_) => return ptr::null_mut(),
+        }
+    };
+
+    let doc: ParPlusDocument = match serde_json::from_str(json) {
+        Ok(d) => d,
+        Err(e) => {
+            log::warn!("slot_lab_par_plus_validate: deserialize failed: {}", e);
+            return ptr::null_mut();
+        }
+    };
+
+    let warnings = doc.validate_plus();
+    match serde_json::to_string(&warnings) {
+        Ok(out) => CString::new(out).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Generate a PAR+ template JSON for a new document.
+/// Returns a template JSON string with all PAR+ sections populated with
+/// sensible defaults.
+///
+/// # Safety
+/// All pointer arguments must be valid null-terminated UTF-8 C strings.
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_par_plus_template(
+    game_name_ptr: *const c_char,
+    game_id_ptr: *const c_char,
+    rtp: f64,
+) -> *mut c_char {
+    use rf_slot_lab::ParPlusParser;
+
+    let game_name = unsafe {
+        match CStr::from_ptr(game_name_ptr).to_str() {
+            Ok(s) => s,
+            Err(_) => return ptr::null_mut(),
+        }
+    };
+    let game_id = unsafe {
+        match CStr::from_ptr(game_id_ptr).to_str() {
+            Ok(s) => s,
+            Err(_) => return ptr::null_mut(),
+        }
+    };
+
+    let template = ParPlusParser::generate_template(game_name, game_id, rtp);
+    CString::new(template).map(|c| c.into_raw()).unwrap_or(ptr::null_mut())
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// T3.1–T3.5: Export FFI
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Export a FluxForge project JSON to a specific format.
+/// Returns JSON ExportBundle, or null on error.
+///
+/// # Safety
+/// All pointers must be valid null-terminated UTF-8 C strings.
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_export(
+    project_json_ptr: *const c_char,
+    format_ptr: *const c_char,
+) -> *mut c_char {
+    use rf_slot_export::{
+        FluxForgeExportProject, ExportTarget,
+        HowlerAudioSpriteExporter, WwiseBankExporter, FModBankExporter, GenericJsonExporter,
+    };
+
+    let project_json = unsafe {
+        match CStr::from_ptr(project_json_ptr).to_str() {
+            Ok(s) => s,
+            Err(_) => return ptr::null_mut(),
+        }
+    };
+    let format = unsafe {
+        match CStr::from_ptr(format_ptr).to_str() {
+            Ok(s) => s,
+            Err(_) => return ptr::null_mut(),
+        }
+    };
+
+    let project: FluxForgeExportProject = match serde_json::from_str(project_json) {
+        Ok(p) => p,
+        Err(e) => {
+            log::warn!("slot_lab_export: cannot deserialize project: {}", e);
+            return ptr::null_mut();
+        }
+    };
+
+    let result = match format.to_lowercase().as_str() {
+        "howler" | "howler.js" | "audiosprite" => HowlerAudioSpriteExporter.export(&project),
+        "wwise" => WwiseBankExporter.export(&project),
+        "fmod" => FModBankExporter.export(&project),
+        "json" | "generic" | "generic_json" => GenericJsonExporter.export(&project),
+        _ => {
+            log::warn!("slot_lab_export: unknown format '{}'", format);
+            return ptr::null_mut();
+        }
+    };
+
+    match result {
+        Ok(bundle) => match serde_json::to_string(&bundle) {
+            Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+            Err(_) => ptr::null_mut(),
+        },
+        Err(e) => {
+            log::warn!("slot_lab_export: export error: {}", e);
+            ptr::null_mut()
+        }
+    }
+}
+
+/// Export to all available formats at once.
+/// Returns JSON array of ExportBundle objects (one per format), or null on error.
+///
+/// # Safety
+/// `project_json_ptr` must be a valid null-terminated UTF-8 C string.
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_export_all(project_json_ptr: *const c_char) -> *mut c_char {
+    use rf_slot_export::{FluxForgeExportProject, export_all};
+
+    let project_json = unsafe {
+        match CStr::from_ptr(project_json_ptr).to_str() {
+            Ok(s) => s,
+            Err(_) => return ptr::null_mut(),
+        }
+    };
+
+    let project: FluxForgeExportProject = match serde_json::from_str(project_json) {
+        Ok(p) => p,
+        Err(e) => {
+            log::warn!("slot_lab_export_all: cannot deserialize: {}", e);
+            return ptr::null_mut();
+        }
+    };
+
+    let results = export_all(&project);
+    let output: Vec<serde_json::Value> = results.into_iter().map(|(format, result)| {
+        match result {
+            Ok(bundle) => serde_json::json!({
+                "format": format,
+                "success": true,
+                "bundle": bundle,
+            }),
+            Err(e) => serde_json::json!({
+                "format": format,
+                "success": false,
+                "error": e.to_string(),
+            }),
+        }
+    }).collect();
+
+    match serde_json::to_string(&output) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// List all available export formats.
+/// Returns JSON array of {name, version} objects.
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_export_formats() -> *mut c_char {
+    use rf_slot_export::available_formats;
+
+    let formats: Vec<serde_json::Value> = available_formats()
+        .into_iter()
+        .map(|(name, version)| serde_json::json!({ "name": name, "version": version }))
+        .collect();
+
+    match serde_json::to_string(&formats) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// T4.1–T4.2: NeuroAudio™ — Player Behavioral Signal Processor FFI
+// ─────────────────────────────────────────────────────────────────────────────
+
+use rf_neuro::{NeuroConfig, NeuroEngine, BehavioralSample, SessionSimulation, SimulationResult};
+
+/// Global registry of active NeuroEngine instances (engine_id → NeuroEngine)
+static NEURO_ENGINES: std::sync::OnceLock<parking_lot::Mutex<std::collections::HashMap<i64, NeuroEngine>>> =
+    std::sync::OnceLock::new();
+
+fn neuro_engines() -> &'static parking_lot::Mutex<std::collections::HashMap<i64, NeuroEngine>> {
+    NEURO_ENGINES.get_or_init(|| parking_lot::Mutex::new(std::collections::HashMap::new()))
+}
+
+/// Create a new NeuroEngine.
+/// [config_json] — JSON-encoded NeuroConfig, or null for defaults.
+/// Returns engine_id (> 0) on success, -1 on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn neuro_engine_create(config_json_ptr: *const c_char) -> i64 {
+    let config = if config_json_ptr.is_null() {
+        NeuroConfig::default()
+    } else {
+        match unsafe { CStr::from_ptr(config_json_ptr) }.to_str() {
+            Ok(s) => serde_json::from_str(s).unwrap_or_default(),
+            Err(_) => return -1,
+        }
+    };
+
+    let engine = NeuroEngine::new(config);
+    let mut guard = neuro_engines().lock();
+    let id = guard.len() as i64 + 1;
+    guard.insert(id, engine);
+    id
+}
+
+/// Process one behavioral sample and return updated PlayerStateVector JSON.
+/// Returns null on error or invalid engine_id.
+#[unsafe(no_mangle)]
+pub extern "C" fn neuro_engine_process(engine_id: i64, event_json_ptr: *const c_char) -> *mut c_char {
+    let json_str = match unsafe { CStr::from_ptr(event_json_ptr) }.to_str() {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let sample: BehavioralSample = match serde_json::from_str(json_str) {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let mut guard = neuro_engines().lock();
+    let engine = match guard.get_mut(&engine_id) {
+        Some(e) => e,
+        None => return ptr::null_mut(),
+    };
+
+    let state = engine.process(&sample).clone();
+    match serde_json::to_string(&state) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Get current AudioAdaptation JSON for an engine.
+/// Returns null on error or invalid engine_id.
+#[unsafe(no_mangle)]
+pub extern "C" fn neuro_engine_adaptation(engine_id: i64) -> *mut c_char {
+    let guard = neuro_engines().lock();
+    let engine = match guard.get(&engine_id) {
+        Some(e) => e,
+        None => return ptr::null_mut(),
+    };
+
+    match serde_json::to_string(engine.adaptation()) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Simulate a session from an archetype preset and return SimulationResult JSON.
+/// [sim_json] — JSON-encoded SessionSimulation.
+/// Returns null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn neuro_engine_simulate(sim_json_ptr: *const c_char) -> *mut c_char {
+    let json_str = match unsafe { CStr::from_ptr(sim_json_ptr) }.to_str() {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let sim: SessionSimulation = match serde_json::from_str(json_str) {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let result = SimulationResult::run(&sim);
+    match serde_json::to_string(&result) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Reset engine state (start new session without destroying the engine).
+#[unsafe(no_mangle)]
+pub extern "C" fn neuro_engine_reset(engine_id: i64) {
+    let mut guard = neuro_engines().lock();
+    if let Some(engine) = guard.get_mut(&engine_id) {
+        engine.reset();
+    }
+}
+
+/// Destroy a NeuroEngine and free its memory.
+#[unsafe(no_mangle)]
+pub extern "C" fn neuro_engine_destroy(engine_id: i64) {
+    neuro_engines().lock().remove(&engine_id);
+}
+
+/// Get all available player archetypes as JSON array.
+#[unsafe(no_mangle)]
+pub extern "C" fn neuro_available_archetypes() -> *mut c_char {
+    use rf_neuro::ArchetypePreset;
+    let archetypes: Vec<serde_json::Value> = ArchetypePreset::all()
+        .into_iter()
+        .map(|a| serde_json::json!({
+            "key": format!("{:?}", a).to_lowercase(),
+            "name": a.display_name(),
+        }))
+        .collect();
+
+    match serde_json::to_string(&archetypes) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// T5.1–T5.4: AI Co-Pilot™ — Context-aware suggestion engine FFI
+// ─────────────────────────────────────────────────────────────────────────────
+
+use rf_copilot::{SuggestionEngine, AudioProjectSpec};
+
+/// Analyze an AudioProjectSpec JSON and return a CopilotReport JSON.
+/// [project_json] — JSON-encoded AudioProjectSpec
+/// Returns CopilotReport JSON, or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn copilot_analyze(project_json_ptr: *const c_char) -> *mut c_char {
+    let json_str = match unsafe { CStr::from_ptr(project_json_ptr) }.to_str() {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let project: AudioProjectSpec = match serde_json::from_str(json_str) {
+        Ok(p) => p,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let report = SuggestionEngine::analyze(&project);
+    match serde_json::to_string(&report) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Get the list of available industry benchmarks.
+/// Returns JSON array of {name, description} objects.
+#[unsafe(no_mangle)]
+pub extern "C" fn copilot_available_benchmarks() -> *mut c_char {
+    use rf_copilot::benchmarks::available_benchmarks;
+    let list: Vec<serde_json::Value> = available_benchmarks()
+        .into_iter()
+        .map(|(name, desc)| serde_json::json!({ "name": name, "description": desc }))
+        .collect();
+
+    match serde_json::to_string(&list) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// T6.1–T6.5: Neural Fingerprint™ + A/B Analytics + Honeypot
+// ─────────────────────────────────────────────────────────────────────────────
+
+use rf_fingerprint::{
+    BundleFingerprint, FingerprintSpec, VerificationResult,
+    AbTestConfig, AbTestReport,
+    HoneypotMarker, HoneypotResult,
+};
+
+/// Compute a SHA-256 fingerprint for an audio bundle.
+///
+/// Input JSON (FingerprintRequest):
+/// ```json
+/// {
+///   "game_id": "golden_phoenix",
+///   "tool_version": "1.0.0",
+///   "generated_at": "2026-04-16T12:00:00Z",
+///   "events": [
+///     { "name": "SPIN_START", "category": "BaseGame", "tier": "subtle",
+///       "duration_ms": 150, "voice_count": 1, "is_required": true, "can_loop": false }
+///   ]
+/// }
+/// ```
+/// Returns JSON `BundleFingerprint` or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn fingerprint_compute(request_json_ptr: *const c_char) -> *mut c_char {
+    if request_json_ptr.is_null() { return ptr::null_mut(); }
+    let input = unsafe { CStr::from_ptr(request_json_ptr) };
+    let input_str = match input.to_str() {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    #[derive(serde::Deserialize)]
+    struct FingerprintRequest {
+        game_id: String,
+        tool_version: String,
+        generated_at: String,
+        events: Vec<FingerprintSpec>,
+    }
+
+    let req: FingerprintRequest = match serde_json::from_str(input_str) {
+        Ok(r) => r,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let mut events = req.events;
+    let fp = BundleFingerprint::compute(
+        &req.game_id,
+        &mut events,
+        &req.tool_version,
+        &req.generated_at,
+    );
+
+    match serde_json::to_string(&fp) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Verify a current bundle against a stored fingerprint.
+///
+/// Input JSON (VerifyRequest):
+/// ```json
+/// {
+///   "stored": { ...BundleFingerprint... },
+///   "current": { ...BundleFingerprint... }
+/// }
+/// ```
+/// Returns JSON `VerificationResult` or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn fingerprint_verify(request_json_ptr: *const c_char) -> *mut c_char {
+    if request_json_ptr.is_null() { return ptr::null_mut(); }
+    let input = unsafe { CStr::from_ptr(request_json_ptr) };
+    let input_str = match input.to_str() {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    #[derive(serde::Deserialize)]
+    struct VerifyRequest {
+        stored: BundleFingerprint,
+        current: BundleFingerprint,
+    }
+
+    let req: VerifyRequest = match serde_json::from_str(input_str) {
+        Ok(r) => r,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let result = VerificationResult::verify(&req.stored, &req.current);
+    match serde_json::to_string(&result) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Run A/B test statistical significance analysis.
+///
+/// Input JSON: `AbTestConfig` struct.
+/// Returns JSON `AbTestReport` or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn ab_test_analyze(config_json_ptr: *const c_char) -> *mut c_char {
+    if config_json_ptr.is_null() { return ptr::null_mut(); }
+    let input = unsafe { CStr::from_ptr(config_json_ptr) };
+    let input_str = match input.to_str() {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let config: AbTestConfig = match serde_json::from_str(input_str) {
+        Ok(c) => c,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let report = AbTestReport::analyze(&config);
+    match serde_json::to_string(&report) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Generate a honeypot marker for a recipient.
+///
+/// Input JSON (HoneypotRequest):
+/// ```json
+/// {
+///   "game_id": "golden_phoenix",
+///   "recipient_id": "casino_malta",
+///   "secret_seed": "server_secret",
+///   "issued_at": "2026-04-16T12:00:00Z"
+/// }
+/// ```
+/// Returns JSON `HoneypotMarker` or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn honeypot_generate(request_json_ptr: *const c_char) -> *mut c_char {
+    if request_json_ptr.is_null() { return ptr::null_mut(); }
+    let input = unsafe { CStr::from_ptr(request_json_ptr) };
+    let input_str = match input.to_str() {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    #[derive(serde::Deserialize)]
+    struct HoneypotRequest {
+        game_id: String,
+        recipient_id: String,
+        secret_seed: String,
+        issued_at: String,
+    }
+
+    let req: HoneypotRequest = match serde_json::from_str(input_str) {
+        Ok(r) => r,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let marker = HoneypotMarker::generate(
+        &req.game_id,
+        &req.recipient_id,
+        &req.secret_seed,
+        &req.issued_at,
+    );
+
+    match serde_json::to_string(&marker) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Inject honeypot marker into an export JSON payload.
+///
+/// Input JSON (InjectRequest):
+/// ```json
+/// {
+///   "marker": { ...HoneypotMarker... },
+///   "export_json": "{...}"
+/// }
+/// ```
+/// Returns modified export JSON string or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn honeypot_inject(request_json_ptr: *const c_char) -> *mut c_char {
+    if request_json_ptr.is_null() { return ptr::null_mut(); }
+    let input = unsafe { CStr::from_ptr(request_json_ptr) };
+    let input_str = match input.to_str() {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    #[derive(serde::Deserialize)]
+    struct InjectRequest {
+        marker: HoneypotMarker,
+        export_json: String,
+    }
+
+    let req: InjectRequest = match serde_json::from_str(input_str) {
+        Ok(r) => r,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    match req.marker.inject_into_json(&req.export_json) {
+        Ok(injected) => CString::new(injected).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Detect and attribute a honeypot marker in a leaked export.
+///
+/// Input JSON (DetectRequest):
+/// ```json
+/// {
+///   "export_json": "{...}",
+///   "marker": { ...HoneypotMarker... }  // optional — null if just detecting presence
+/// }
+/// ```
+/// Returns JSON `HoneypotResult` or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn honeypot_detect(request_json_ptr: *const c_char) -> *mut c_char {
+    if request_json_ptr.is_null() { return ptr::null_mut(); }
+    let input = unsafe { CStr::from_ptr(request_json_ptr) };
+    let input_str = match input.to_str() {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    #[derive(serde::Deserialize)]
+    struct DetectRequest {
+        export_json: String,
+        marker: Option<HoneypotMarker>,
+    }
+
+    let req: DetectRequest = match serde_json::from_str(input_str) {
+        Ok(r) => r,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let result = HoneypotResult::detect(&req.export_json, req.marker.as_ref());
+    match serde_json::to_string(&result) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// T7.1: Cloud Sync — Git-like project versioning
+// ─────────────────────────────────────────────────────────────────────────────
+
+use rf_cloud_sync::{SyncManager, SyncConfig};
+use parking_lot::Mutex as ParkingMutex;
+use std::sync::OnceLock;
+use std::collections::HashMap;
+
+static SYNC_MANAGERS: OnceLock<ParkingMutex<HashMap<i64, SyncManager>>> = OnceLock::new();
+fn sync_managers() -> &'static ParkingMutex<HashMap<i64, SyncManager>> {
+    SYNC_MANAGERS.get_or_init(|| ParkingMutex::new(HashMap::new()))
+}
+
+/// Create a new sync manager for a project.
+/// Returns a manager ID (> 0) or -1 on error.
+/// [config_json]: optional SyncConfig JSON (pass null for defaults)
+#[unsafe(no_mangle)]
+pub extern "C" fn cloud_sync_create(project_id_ptr: *const c_char, config_json_ptr: *const c_char) -> i64 {
+    if project_id_ptr.is_null() { return -1; }
+    let project_id = unsafe {
+        match CStr::from_ptr(project_id_ptr).to_str() {
+            Ok(s) => s.to_string(),
+            Err(_) => return -1,
+        }
+    };
+
+    let config = if !config_json_ptr.is_null() {
+        let json = unsafe { CStr::from_ptr(config_json_ptr).to_str().unwrap_or("{}") };
+        serde_json::from_str::<SyncConfig>(json).unwrap_or_default()
+    } else {
+        SyncConfig::default()
+    };
+
+    let manager = SyncManager::new(project_id, config);
+    let mut map = sync_managers().lock();
+    let id = (map.len() + 1) as i64;
+    map.insert(id, manager);
+    id
+}
+
+/// Commit a new project snapshot.
+/// Returns JSON ProjectSnapshot or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn cloud_sync_commit(
+    manager_id: i64,
+    project_data_ptr: *const c_char,
+    author_ptr: *const c_char,
+    message_ptr: *const c_char,
+) -> *mut c_char {
+    let project_data = unsafe {
+        if project_data_ptr.is_null() { return ptr::null_mut(); }
+        match CStr::from_ptr(project_data_ptr).to_str() {
+            Ok(s) => s.to_string(),
+            Err(_) => return ptr::null_mut(),
+        }
+    };
+    let author = unsafe {
+        if author_ptr.is_null() { return ptr::null_mut(); }
+        CStr::from_ptr(author_ptr).to_str().unwrap_or("unknown").to_string()
+    };
+    let message = unsafe {
+        if message_ptr.is_null() { return ptr::null_mut(); }
+        CStr::from_ptr(message_ptr).to_str().unwrap_or("").to_string()
+    };
+
+    let mut map = sync_managers().lock();
+    let mgr = match map.get_mut(&manager_id) {
+        Some(m) => m,
+        None => return ptr::null_mut(),
+    };
+
+    match mgr.commit(project_data, author, message) {
+        Ok(snapshot) => {
+            match serde_json::to_string(&snapshot) {
+                Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+                Err(_) => ptr::null_mut(),
+            }
+        }
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Compute diff between two snapshot IDs.
+/// Returns JSON ProjectDiff or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn cloud_sync_diff(
+    manager_id: i64,
+    from_id_ptr: *const c_char,
+    to_id_ptr: *const c_char,
+) -> *mut c_char {
+    let from_id = unsafe {
+        if from_id_ptr.is_null() { return ptr::null_mut(); }
+        match CStr::from_ptr(from_id_ptr).to_str() { Ok(s) => s.to_string(), Err(_) => return ptr::null_mut() }
+    };
+    let to_id = unsafe {
+        if to_id_ptr.is_null() { return ptr::null_mut(); }
+        match CStr::from_ptr(to_id_ptr).to_str() { Ok(s) => s.to_string(), Err(_) => return ptr::null_mut() }
+    };
+
+    let map = sync_managers().lock();
+    let mgr = match map.get(&manager_id) { Some(m) => m, None => return ptr::null_mut() };
+
+    match mgr.diff(&from_id, &to_id) {
+        Ok(diff) => match serde_json::to_string(&diff) {
+            Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+            Err(_) => ptr::null_mut(),
+        },
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Get project history log (newest first).
+/// Returns JSON array of SnapshotSummary or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn cloud_sync_log(manager_id: i64) -> *mut c_char {
+    let map = sync_managers().lock();
+    let mgr = match map.get(&manager_id) { Some(m) => m, None => return ptr::null_mut() };
+    match serde_json::to_string(&mgr.log()) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Checkout a specific snapshot by ID. Returns JSON ProjectSnapshot or null.
+#[unsafe(no_mangle)]
+pub extern "C" fn cloud_sync_checkout(manager_id: i64, snapshot_id_ptr: *const c_char) -> *mut c_char {
+    let snapshot_id = unsafe {
+        if snapshot_id_ptr.is_null() { return ptr::null_mut(); }
+        match CStr::from_ptr(snapshot_id_ptr).to_str() { Ok(s) => s.to_string(), Err(_) => return ptr::null_mut() }
+    };
+
+    let mut map = sync_managers().lock();
+    let mgr = match map.get_mut(&manager_id) { Some(m) => m, None => return ptr::null_mut() };
+
+    match mgr.checkout(&snapshot_id) {
+        Ok(snap) => match serde_json::to_string(&snap) {
+            Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+            Err(_) => ptr::null_mut(),
+        },
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Serialize history to JSON for persistence.
+#[unsafe(no_mangle)]
+pub extern "C" fn cloud_sync_serialize(manager_id: i64) -> *mut c_char {
+    let map = sync_managers().lock();
+    let mgr = match map.get(&manager_id) { Some(m) => m, None => return ptr::null_mut() };
+    match mgr.serialize() {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Destroy a sync manager and free its memory.
+#[unsafe(no_mangle)]
+pub extern "C" fn cloud_sync_destroy(manager_id: i64) {
+    sync_managers().lock().remove(&manager_id);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// T7.2–T7.4: Slot Spatial Audio — 3D scene, HRTF, Ambisonics export
+// ─────────────────────────────────────────────────────────────────────────────
+
+use rf_slot_spatial::{
+    SpatialSlotScene,
+    SlotLayoutPreset, layout_for_preset,
+    AmbisonicsExportConfig, SpatialExportManifest,
+};
+
+/// Generate default spatial layout for a slot game.
+///
+/// [preset_name]: "desktop", "vr_standing", "vr_seated", "live_casino", "mobile"
+/// Returns JSON array of SpatialAudioSource or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn spatial_layout_generate(
+    game_id_ptr: *const c_char,
+    preset_name_ptr: *const c_char,
+) -> *mut c_char {
+    let game_id = unsafe {
+        if game_id_ptr.is_null() { return ptr::null_mut(); }
+        match CStr::from_ptr(game_id_ptr).to_str() { Ok(s) => s.to_string(), Err(_) => return ptr::null_mut() }
+    };
+    let preset_name = unsafe {
+        if preset_name_ptr.is_null() { return ptr::null_mut(); }
+        CStr::from_ptr(preset_name_ptr).to_str().unwrap_or("desktop")
+    };
+
+    let preset = match preset_name {
+        "vr_standing"   => SlotLayoutPreset::VrStanding,
+        "vr_seated"     => SlotLayoutPreset::VrSeated,
+        "live_casino"   => SlotLayoutPreset::LiveCasinoBigScreen,
+        "mobile"        => SlotLayoutPreset::Mobile,
+        _               => SlotLayoutPreset::Desktop,
+    };
+
+    let sources = layout_for_preset(preset, &game_id);
+    match serde_json::to_string(&sources) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Build Ambisonics/Binaural export manifest from a spatial scene.
+///
+/// [scene_json]: JSON SpatialSlotScene
+/// [config_json]: JSON AmbisonicsExportConfig (optional, null for defaults)
+/// [generated_at]: ISO 8601 timestamp string
+/// Returns JSON SpatialExportManifest or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn spatial_export_manifest(
+    scene_json_ptr: *const c_char,
+    config_json_ptr: *const c_char,
+    generated_at_ptr: *const c_char,
+) -> *mut c_char {
+    let scene_str = unsafe {
+        if scene_json_ptr.is_null() { return ptr::null_mut(); }
+        match CStr::from_ptr(scene_json_ptr).to_str() { Ok(s) => s.to_string(), Err(_) => return ptr::null_mut() }
+    };
+    let config = if !config_json_ptr.is_null() {
+        let s = unsafe { CStr::from_ptr(config_json_ptr).to_str().unwrap_or("{}") };
+        serde_json::from_str::<AmbisonicsExportConfig>(s).unwrap_or_default()
+    } else {
+        AmbisonicsExportConfig::default()
+    };
+    let generated_at = unsafe {
+        if generated_at_ptr.is_null() { "1970-01-01T00:00:00Z" }
+        else { CStr::from_ptr(generated_at_ptr).to_str().unwrap_or("1970-01-01T00:00:00Z") }
+    };
+
+    let scene: SpatialSlotScene = match serde_json::from_str(&scene_str) {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let manifest = SpatialExportManifest::build(&scene, &config, generated_at);
+    match serde_json::to_string(&manifest) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Get list of available spatial layout presets.
+/// Returns JSON array of {name, description} objects.
+#[unsafe(no_mangle)]
+pub extern "C" fn spatial_available_presets() -> *mut c_char {
+    let presets = serde_json::json!([
+        {"name": "desktop",     "description": "Standard desktop/monitor setup (2D near-field)"},
+        {"name": "vr_standing", "description": "VR standing position — full 360° immersive sphere"},
+        {"name": "vr_seated",   "description": "VR seated — slot elevated, immersive surround"},
+        {"name": "live_casino", "description": "Live casino big screen — elevated wide display"},
+        {"name": "mobile",      "description": "Mobile — simplified mono/stereo"},
+    ]);
+    match serde_json::to_string(&presets) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// T8.1–T8.4: Procedural AI Generation — prompt→spec, generation, FFNC classify
+// ─────────────────────────────────────────────────────────────────────────────
+
+use rf_ai_gen::{
+    PromptParser, GenerationPipeline, GenerationBackend, GenerationSpec,
+    FfncClassifier, AudioAnalysisMetadata,
+    PostProcessingConfig,
+};
+
+/// Parse a text prompt into an AudioDescriptor JSON (T8.1).
+///
+/// Returns JSON AudioDescriptor or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn ai_gen_parse_prompt(prompt_ptr: *const c_char) -> *mut c_char {
+    if prompt_ptr.is_null() { return ptr::null_mut(); }
+    let prompt = unsafe {
+        match CStr::from_ptr(prompt_ptr).to_str() { Ok(s) => s, Err(_) => return ptr::null_mut() }
+    };
+    let descriptor = PromptParser::parse(prompt);
+    match serde_json::to_string(&descriptor) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Build a GenerationSpec for a text prompt and backend (T8.2).
+///
+/// [backend_name]: "audiocraft", "elevenlabs", "stability_ai", "openai", "stub"
+/// Returns JSON GenerationSpec or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn ai_gen_build_spec(
+    prompt_ptr: *const c_char,
+    backend_name_ptr: *const c_char,
+) -> *mut c_char {
+    if prompt_ptr.is_null() { return ptr::null_mut(); }
+    let prompt = unsafe {
+        match CStr::from_ptr(prompt_ptr).to_str() { Ok(s) => s, Err(_) => return ptr::null_mut() }
+    };
+    let backend_name = unsafe {
+        if backend_name_ptr.is_null() { "stub" }
+        else { CStr::from_ptr(backend_name_ptr).to_str().unwrap_or("stub") }
+    };
+
+    let backend = match backend_name {
+        "audiocraft"   => GenerationBackend::AudioCraft,
+        "elevenlabs"   => GenerationBackend::ElevenLabs,
+        "stability_ai" => GenerationBackend::StabilityAi,
+        "openai"       => GenerationBackend::OpenAi,
+        _              => GenerationBackend::Stub,
+    };
+
+    let spec = GenerationPipeline::prepare(prompt, backend);
+    match serde_json::to_string(&spec) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Format a GenerationSpec into a BackendRequest JSON (T8.2).
+///
+/// [spec_json]: JSON GenerationSpec
+/// [api_key]: API key string (null = empty)
+/// Returns JSON BackendRequest or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn ai_gen_format_request(
+    spec_json_ptr: *const c_char,
+    api_key_ptr: *const c_char,
+) -> *mut c_char {
+    let spec_str = unsafe {
+        if spec_json_ptr.is_null() { return ptr::null_mut(); }
+        match CStr::from_ptr(spec_json_ptr).to_str() { Ok(s) => s.to_string(), Err(_) => return ptr::null_mut() }
+    };
+    let api_key = if api_key_ptr.is_null() {
+        None
+    } else {
+        Some(unsafe { CStr::from_ptr(api_key_ptr).to_str().unwrap_or("") })
+    };
+
+    let spec: GenerationSpec = match serde_json::from_str(&spec_str) {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let request = GenerationPipeline::format_request(&spec, api_key);
+    match serde_json::to_string(&request) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Execute generation with stub backend (no network, T8.2 testing).
+/// Returns JSON GenerationResult or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn ai_gen_execute_stub(spec_json_ptr: *const c_char) -> *mut c_char {
+    let spec_str = unsafe {
+        if spec_json_ptr.is_null() { return ptr::null_mut(); }
+        match CStr::from_ptr(spec_json_ptr).to_str() { Ok(s) => s.to_string(), Err(_) => return ptr::null_mut() }
+    };
+    let spec: GenerationSpec = match serde_json::from_str(&spec_str) {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+    let result = GenerationPipeline::execute_stub(spec);
+    match serde_json::to_string(&result) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Get post-processing config for a descriptor (T8.3).
+///
+/// [descriptor_json]: JSON AudioDescriptor
+/// Returns JSON PostProcessingConfig or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn ai_gen_postprocess_config(descriptor_json_ptr: *const c_char) -> *mut c_char {
+    let desc_str = unsafe {
+        if descriptor_json_ptr.is_null() { return ptr::null_mut(); }
+        match CStr::from_ptr(descriptor_json_ptr).to_str() { Ok(s) => s.to_string(), Err(_) => return ptr::null_mut() }
+    };
+
+    let descriptor: rf_ai_gen::AudioDescriptor = match serde_json::from_str(&desc_str) {
+        Ok(d) => d,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let config = PostProcessingConfig::for_descriptor(&descriptor);
+    match serde_json::to_string(&config) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Auto-classify a generated asset into FFNC categories (T8.4).
+///
+/// [descriptor_json]: JSON AudioDescriptor
+/// [metadata_json]: Optional JSON AudioAnalysisMetadata (null = skip)
+/// Returns JSON ClassificationResult or null on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn ai_gen_classify_asset(
+    descriptor_json_ptr: *const c_char,
+    metadata_json_ptr: *const c_char,
+) -> *mut c_char {
+    let desc_str = unsafe {
+        if descriptor_json_ptr.is_null() { return ptr::null_mut(); }
+        match CStr::from_ptr(descriptor_json_ptr).to_str() { Ok(s) => s.to_string(), Err(_) => return ptr::null_mut() }
+    };
+
+    let descriptor: rf_ai_gen::AudioDescriptor = match serde_json::from_str(&desc_str) {
+        Ok(d) => d,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let metadata: Option<AudioAnalysisMetadata> = if !metadata_json_ptr.is_null() {
+        let s = unsafe { CStr::from_ptr(metadata_json_ptr).to_str().unwrap_or("{}") };
+        serde_json::from_str(s).ok()
+    } else {
+        None
+    };
+
+    let result = FfncClassifier::classify(&descriptor, metadata.as_ref());
+    match serde_json::to_string(&result) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Get list of available generation backends.
+/// Returns JSON array of {name, display_name, requires_internet, available} or null.
+#[unsafe(no_mangle)]
+pub extern "C" fn ai_gen_available_backends() -> *mut c_char {
+    let backends = GenerationPipeline::available_backends();
+    let list: Vec<serde_json::Value> = backends.iter().map(|(b, avail)| serde_json::json!({
+        "name": match b {
+            GenerationBackend::AudioCraft   => "audiocraft",
+            GenerationBackend::ElevenLabs   => "elevenlabs",
+            GenerationBackend::StabilityAi  => "stability_ai",
+            GenerationBackend::OpenAi       => "openai",
+            GenerationBackend::Stub         => "stub",
+        },
+        "display_name": b.display_name(),
+        "requires_internet": b.requires_internet(),
+        "available": avail,
+    })).collect();
+
+    match serde_json::to_string(&list) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Get all FFNC categories.
+/// Returns JSON array of {code, display_name} or null.
+#[unsafe(no_mangle)]
+pub extern "C" fn ai_gen_ffnc_categories() -> *mut c_char {
+    let cats = FfncClassifier::all_categories();
+    let list: Vec<serde_json::Value> = cats.iter().map(|c| serde_json::json!({
+        "code": c.ffnc_code(),
+        "display_name": c.display_name(),
+    })).collect();
+
+    match serde_json::to_string(&list) {
+        Ok(json) => CString::new(json).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        Err(_) => ptr::null_mut(),
+    }
 }
 
 #[cfg(test)]

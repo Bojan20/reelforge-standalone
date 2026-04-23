@@ -54,6 +54,7 @@ pub mod ffi;
 pub mod ffi_control_room;
 pub mod ffi_routing;
 pub mod playback;
+pub mod sonic_dna_extractor;
 pub mod audio_stretcher;
 pub mod signalsmith_elastic;
 pub mod transient_detector;
@@ -121,6 +122,12 @@ pub mod preview;
 
 // HELIX Bus: Unified lock-free reactive message bus for SlotLab intelligence
 pub mod helix_bus;
+
+// Phase 10e-2: Master-output ring buffer for Problems Inbox WAV export.
+pub mod master_ring;
+
+// Phase 10e-3: Per-bus 4-band energy analyzer for precise masking detection.
+pub mod per_bus_band_energy;
 
 // Re-exports: Core
 pub use bus::*;

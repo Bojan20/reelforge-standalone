@@ -377,14 +377,13 @@ impl Validator {
                     "Set either fixed_amount or contribution_rate",
                 ));
             }
-            if let Some(rate) = jp.contribution_rate {
-                if rate <= 0.0 || rate > 0.1 {
+            if let Some(rate) = jp.contribution_rate
+                && (rate <= 0.0 || rate > 0.1) {
                     findings.push(ValidationFinding::warn(
                         "MATH-005",
                         &format!("Jackpot '{name}' contribution rate {rate:.3} seems unusual (expected 0.001-0.05)"),
                     ));
                 }
-            }
         }
 
         findings
@@ -404,8 +403,8 @@ impl Validator {
         ];
 
         for node in flow.nodes.values() {
-            if critical_categories.contains(&node.category) {
-                if node.audio.on_enter.is_empty() && node.audio.on_loop.is_empty() {
+            if critical_categories.contains(&node.category)
+                && node.audio.on_enter.is_empty() && node.audio.on_loop.is_empty() {
                     findings.push(
                         ValidationFinding::warn(
                             "AUDIO-001",
@@ -415,7 +414,6 @@ impl Validator {
                         .with_suggestion("Add at least one entry audio event for this node"),
                     );
                 }
-            }
         }
 
         // Idle loop must have audio
@@ -477,8 +475,8 @@ impl Validator {
         }
 
         // Win cap
-        if let Some(cap) = profile.win_cap_multiplier {
-            if math.max_payout > cap {
+        if let Some(cap) = profile.win_cap_multiplier
+            && math.max_payout > cap {
                 findings.push(
                     ValidationFinding::critical(
                         &format!("{code}-WIN-CAP"),
@@ -489,7 +487,6 @@ impl Validator {
                     .with_jurisdiction(code),
                 );
             }
-        }
 
         // Buy feature check
         if !profile.buy_feature_allowed && math.buy_feature_cost.is_some() {
@@ -551,7 +548,7 @@ impl Validator {
             // Check spin nodes have min display >= jurisdiction requirement
             let slow_spins: Vec<_> = flow.nodes.values()
                 .filter(|n| n.category == NodeCategory::Spin
-                    && n.is_entry == false
+                    && !n.is_entry
                     && n.min_display_ms < profile.min_spin_duration_ms
                     && n.stage_type == "ui_spin_press")
                 .collect();

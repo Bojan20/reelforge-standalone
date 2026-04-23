@@ -383,6 +383,107 @@ pub struct Lv2Descriptor {
     pub bundle_path: PathBuf,
     /// Binary name (relative to bundle)
     pub binary_name: String,
+    /// UI extension: path to UI bundle (may be same as plugin bundle)
+    pub ui_bundle_path: Option<PathBuf>,
+    /// UI binary name within ui_bundle_path
+    pub ui_binary_name: Option<String>,
+    /// UI type URI (CocoaUI / X11UI / WindowsUI)
+    pub ui_type_uri: Option<String>,
+    /// UI plugin URI (identifies which UI within the bundle)
+    pub ui_uri: Option<String>,
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LV2 UI C ABI DEFINITIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// LV2 UI Descriptor (returned by lv2ui_descriptor())
+#[repr(C)]
+struct Lv2UiDescriptor {
+    uri: *const c_char,
+    instantiate: Option<
+        unsafe extern "C" fn(
+            descriptor: *const Lv2UiDescriptor,
+            plugin_uri: *const c_char,
+            bundle_path: *const c_char,
+            write_function: Option<unsafe extern "C" fn(*mut c_void, u32, u32, u32, *const c_void)>,
+            controller: *mut c_void,
+            widget: *mut *mut c_void, // out: native widget handle
+            features: *const *const Lv2Feature,
+        ) -> *mut c_void, // LV2UI_Handle
+    >,
+    cleanup: Option<unsafe extern "C" fn(handle: *mut c_void)>,
+    port_event: Option<
+        unsafe extern "C" fn(handle: *mut c_void, port_index: u32, buffer_size: u32, format: u32, buffer: *const c_void)
+    >,
+    extension_data: Option<unsafe extern "C" fn(uri: *const c_char) -> *const c_void>,
+}
+
+/// Type of the lv2ui_descriptor() entry point
+type Lv2UiDescriptorFn = unsafe extern "C" fn(index: u32) -> *const Lv2UiDescriptor;
+
+// LV2 UI type URIs
+const LV2_UI_COCOA: &str = "http://lv2plug.in/ns/extensions/ui#CocoaUI";
+const LV2_UI_X11: &str = "http://lv2plug.in/ns/extensions/ui#X11UI";
+const LV2_UI_WINDOWS: &str = "http://lv2plug.in/ns/extensions/ui#WindowsUI";
+
+// LV2 UI Idle interface (host calls idle() periodically for toolkit event processing)
+const LV2_UI_IDLE_URI: &str = "http://lv2plug.in/ns/extensions/ui#idleInterface";
+// LV2 UI Resize interface (host queries/sets preferred UI size)
+const LV2_UI_RESIZE_URI: &str = "http://lv2plug.in/ns/extensions/ui#resize";
+
+/// LV2 UI Idle Interface — returned by extension_data(idleInterface URI)
+#[repr(C)]
+struct Lv2UiIdleInterface {
+    /// Returns 0 on success, non-zero if UI should be closed
+    idle: unsafe extern "C" fn(handle: *mut c_void) -> i32,
+}
+
+/// LV2 UI Resize Interface (plugin-side) — returned by UI's extension_data
+#[repr(C)]
+struct Lv2UiResizePlugin {
+    /// Plugin requests resize to (width, height). Returns 0 on success.
+    ui_resize: unsafe extern "C" fn(handle: *mut c_void, width: i32, height: i32) -> i32,
+}
+
+/// Controller data passed to the UI write_function callback.
+/// This is a raw pointer to a heap-allocated struct, kept alive for UI lifetime.
+struct Lv2UiController {
+    /// Pointer to port_values array for direct parameter updates
+    port_values: *mut Vec<f32>,
+    /// Number of ports (bounds check)
+    num_ports: usize,
+}
+
+/// Write function callback — called by UI when user changes a parameter.
+/// Signature: write_function(controller, port_index, buffer_size, format, buffer)
+/// format=0 means buffer points to a single f32 value (LV2 protocol atom).
+unsafe extern "C" fn lv2_ui_write_callback(
+    controller: *mut c_void,
+    port_index: u32,
+    buffer_size: u32,
+    format: u32,
+    buffer: *const c_void,
+) {
+    if controller.is_null() || buffer.is_null() { return; }
+    // SAFETY: controller is a pointer to a heap-allocated Lv2UiController that lives
+    // for the UI's lifetime. Called from UI thread (synchronous with open/close).
+    unsafe {
+        let ctrl = &*(controller as *const Lv2UiController);
+        // format 0 = float protocol (standard LV2 control port update)
+        if format == 0 && buffer_size == std::mem::size_of::<f32>() as u32 {
+            let value = *(buffer as *const f32);
+            let idx = port_index as usize;
+            if idx < ctrl.num_ports {
+                let values = &mut *ctrl.port_values;
+                if idx < values.len() {
+                    values[idx] = value;
+                }
+            }
+        }
+    }
+    // format != 0: Atom protocol (MIDI, patch:Set, etc.) — ignore for now,
+    // would need atom buffer routing for full implementation
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -423,6 +524,30 @@ fn parse_ttl_simple(content: &str) -> HashMap<String, String> {
     // Extract plugin URI from first subject
     if let Some(cap) = regex_lite_find(content, r#"<(http[^>]+)>\s+a\s+lv2:Plugin"#) {
         map.insert("uri".to_string(), cap);
+    }
+
+    // Extract UI binary (ui:binary)
+    if let Some(cap) = regex_lite_find(content, r#"ui:binary\s+<([^>]+)>"#) {
+        map.insert("ui_binary".to_string(), cap);
+    }
+
+    // Extract UI type URI (CocoaUI / X11UI / WindowsUI)
+    for ui_type in &["ui:CocoaUI", "ui:X11UI", "ui:WindowsUI"] {
+        if content.contains(ui_type) {
+            let uri_val = match *ui_type {
+                "ui:CocoaUI"   => LV2_UI_COCOA,
+                "ui:X11UI"     => LV2_UI_X11,
+                "ui:WindowsUI" => LV2_UI_WINDOWS,
+                _ => "",
+            };
+            map.insert("ui_type".to_string(), uri_val.to_string());
+            break;
+        }
+    }
+
+    // Extract UI URI (subject of ui:UI block)
+    if let Some(cap) = regex_lite_find(content, r#"<(http[^>]+)>\s+a\s+ui:"#) {
+        map.insert("ui_uri".to_string(), cap);
     }
 
     map
@@ -644,6 +769,38 @@ impl Lv2Host {
             .cloned()
             .unwrap_or_default();
 
+        // ── UI extension discovery ────────────────────────────────────────
+        // Check for UI binary (may be in manifest.ttl, plugin.ttl, or separate ui.ttl)
+        let ui_ttl_path = bundle_path.join("ui.ttl");
+        let ui_data = if ui_ttl_path.exists() {
+            std::fs::read_to_string(&ui_ttl_path)
+                .map(|content| parse_ttl_simple(&content))
+                .unwrap_or_default()
+        } else {
+            HashMap::new()
+        };
+
+        // Merge: dedicated ui.ttl → plugin.ttl → manifest.ttl
+        let ui_binary_name = ui_data.get("ui_binary")
+            .or(plugin_data.get("ui_binary"))
+            .or(manifest_data.get("ui_binary"))
+            .cloned();
+        let ui_type = ui_data.get("ui_type")
+            .or(plugin_data.get("ui_type"))
+            .or(manifest_data.get("ui_type"))
+            .cloned();
+        let ui_uri = ui_data.get("ui_uri")
+            .or(plugin_data.get("ui_uri"))
+            .or(manifest_data.get("ui_uri"))
+            .cloned();
+
+        // UI bundle path: same directory as plugin bundle (LV2 spec §3.4)
+        let ui_bundle_path = if ui_binary_name.is_some() {
+            Some(bundle_path.to_path_buf())
+        } else {
+            None
+        };
+
         Ok(Lv2Descriptor {
             uri,
             name,
@@ -654,6 +811,10 @@ impl Lv2Host {
             optional_features: Vec::new(),
             bundle_path: bundle_path.to_path_buf(),
             binary_name,
+            ui_bundle_path,
+            ui_binary_name,
+            ui_type_uri: ui_type,
+            ui_uri,
         })
     }
 
@@ -716,6 +877,25 @@ pub struct Lv2PluginInstance {
     sequence_urid: u32,
     /// URID for midi:MidiEvent type
     midi_event_urid: u32,
+    // === UI extension fields ===
+    /// Path to UI bundle (used for open_editor)
+    ui_bundle_path: Option<PathBuf>,
+    /// UI binary name within bundle
+    ui_binary_name: Option<String>,
+    /// UI type URI (CocoaUI / X11UI / WindowsUI)
+    ui_type_uri: Option<String>,
+    /// Active UI handle (null when editor closed)
+    ui_handle: *mut c_void,
+    /// Active UI descriptor pointer (from lv2ui_descriptor())
+    ui_descriptor: *const Lv2UiDescriptor,
+    /// Cached preferred editor size (set after successful open or resize query)
+    ui_width: u32,
+    ui_height: u32,
+    /// UI idle interface (if supported by plugin UI)
+    ui_idle_interface: *const Lv2UiIdleInterface,
+    /// UI controller heap allocation (kept alive while editor open, freed on close)
+    _ui_controller: Option<Box<Lv2UiController>>,
+
     // === LIFETIME-CRITICAL: fields below must be dropped LAST ===
     // Rust drops struct fields in declaration order. These own resources
     // that plugin pointers depend on. Dropping them last ensures no
@@ -728,6 +908,8 @@ pub struct Lv2PluginInstance {
     /// URID map feature (pointed to by _feature_structs)
     _urid_map: Box<Lv2UridMap>,
     _urid_unmap: Box<Lv2UridUnmap>,
+    /// UI library (kept alive while editor is open) — dropped before _library
+    _ui_library: Option<Arc<libloading::Library>>,
     /// Loaded dynamic library — MUST be LAST (dylib unload = all symbols invalid)
     _library: Option<Arc<libloading::Library>>,
 }
@@ -839,6 +1021,14 @@ impl Lv2PluginInstance {
             Lv2Class::InstrumentPlugin | Lv2Class::GeneratorPlugin
         );
 
+        // ── UI extension: check if plugin has a GUI ───────────────────────
+        let has_ui = desc.ui_binary_name.is_some();
+        // Verify UI binary actually exists before advertising has_editor=true
+        let has_ui = has_ui && desc.ui_bundle_path.as_ref().is_some_and(|bp| {
+            let binary = desc.ui_binary_name.as_ref().unwrap();
+            bp.join(binary).exists()
+        });
+
         let info = PluginInfo {
             id: plugin_uri,
             name: desc.name.clone(),
@@ -851,7 +1041,7 @@ impl Lv2PluginInstance {
             audio_outputs: 2,
             has_midi_input: has_midi,
             has_midi_output: false,
-            has_editor: false,
+            has_editor: has_ui,
             latency: 0,
             is_shell: false,
             sub_plugins: Vec::new(),
@@ -884,6 +1074,17 @@ impl Lv2PluginInstance {
             atom_output_port: None,
             sequence_urid,
             midi_event_urid,
+            // UI extension fields
+            ui_bundle_path: desc.ui_bundle_path.clone(),
+            ui_binary_name: desc.ui_binary_name.clone(),
+            ui_type_uri: desc.ui_type_uri.clone(),
+            ui_handle: std::ptr::null_mut(),
+            ui_descriptor: std::ptr::null(),
+            ui_width: 800,
+            ui_height: 600,
+            ui_idle_interface: std::ptr::null(),
+            _ui_controller: None,
+            _ui_library: None,
         })
     }
 
@@ -946,6 +1147,61 @@ impl Lv2PluginInstance {
                         val as *mut f32 as *mut c_void,
                     )
                 };
+            }
+        }
+    }
+
+    /// Send all current port values to the UI via port_event.
+    /// Called after open_editor to sync UI display with actual plugin state.
+    fn notify_ui_all_ports(&self) {
+        if self.ui_handle.is_null() || self.ui_descriptor.is_null() { return; }
+        unsafe {
+            let port_event = match (*self.ui_descriptor).port_event {
+                Some(f) => f,
+                None => return, // UI has no port_event — can't receive updates
+            };
+            let audio_port_count = self.audio_inputs.len() + self.audio_outputs.len();
+            // Include atom port offsets
+            let atom_offset = if self.atom_input_port.is_some() { 1 } else { 0 }
+                            + if self.atom_output_port.is_some() { 1 } else { 0 };
+            for (i, val) in self.port_values.iter().enumerate() {
+                let port_index = (audio_port_count + atom_offset + i) as u32;
+                // format 0 = float protocol, buffer_size = sizeof(f32)
+                port_event(
+                    self.ui_handle,
+                    port_index,
+                    std::mem::size_of::<f32>() as u32,
+                    0, // format: 0 = float
+                    val as *const f32 as *const c_void,
+                );
+            }
+        }
+    }
+
+    /// Call UI idle interface (must be called periodically from UI thread).
+    /// Returns false if UI requests close.
+    pub fn idle_ui(&self) -> bool {
+        if self.ui_handle.is_null() || self.ui_idle_interface.is_null() {
+            return true; // no idle needed
+        }
+        unsafe {
+            let result = ((*self.ui_idle_interface).idle)(self.ui_handle);
+            result == 0 // 0 = OK, non-zero = close requested
+        }
+    }
+
+    /// Notify UI of a single port value change (called from set_parameter path).
+    fn notify_ui_port(&self, port_index: u32, value: f32) {
+        if self.ui_handle.is_null() || self.ui_descriptor.is_null() { return; }
+        unsafe {
+            if let Some(port_event) = (*self.ui_descriptor).port_event {
+                port_event(
+                    self.ui_handle,
+                    port_index,
+                    std::mem::size_of::<f32>() as u32,
+                    0,
+                    &value as *const f32 as *const c_void,
+                );
             }
         }
     }
@@ -1160,9 +1416,16 @@ impl PluginInstance for Lv2PluginInstance {
     }
 
     fn set_parameter(&mut self, id: u32, value: f64) -> PluginResult<()> {
+        let value_f32 = value as f32;
         if let Some(val) = self.port_values.get_mut(id as usize) {
-            *val = value as f32;
+            *val = value_f32;
         }
+        // Notify open UI of parameter change (so knobs reflect automation/host changes)
+        let audio_port_count = self.audio_inputs.len() + self.audio_outputs.len();
+        let atom_offset = if self.atom_input_port.is_some() { 1 } else { 0 }
+                        + if self.atom_output_port.is_some() { 1 } else { 0 };
+        let port_index = (audio_port_count + atom_offset + id as usize) as u32;
+        self.notify_ui_port(port_index, value_f32);
         Ok(())
     }
 
@@ -1179,17 +1442,258 @@ impl PluginInstance for Lv2PluginInstance {
     }
 
     fn has_editor(&self) -> bool {
-        false // TODO: LV2 UI extension
+        self.info.has_editor
     }
 
     #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
-    fn open_editor(&mut self, _parent: *mut std::ffi::c_void) -> PluginResult<()> {
-        Err(PluginError::UnsupportedFormat(
-            "LV2 GUI not yet implemented".into(),
-        ))
+    fn open_editor(&mut self, parent: *mut std::ffi::c_void) -> PluginResult<()> {
+        if parent.is_null() {
+            return Err(PluginError::InitError("Null parent window handle for LV2 UI".into()));
+        }
+
+        // Close existing editor if open (defensive)
+        if !self.ui_handle.is_null() {
+            let _ = self.close_editor();
+        }
+
+        // Validate that a UI binary exists
+        let ui_bundle = self.ui_bundle_path.as_ref().ok_or_else(|| {
+            PluginError::UnsupportedFormat("LV2 plugin has no UI extension".into())
+        })?.clone();
+        let ui_binary_name = self.ui_binary_name.as_ref().ok_or_else(|| {
+            PluginError::UnsupportedFormat("LV2 plugin has no UI binary".into())
+        })?.clone();
+
+        // Verify platform-appropriate UI type
+        let ui_type = self.ui_type_uri.as_deref().unwrap_or("");
+        #[cfg(target_os = "macos")]
+        if !ui_type.is_empty() && ui_type != LV2_UI_COCOA {
+            return Err(PluginError::UnsupportedFormat(
+                format!("LV2 UI type {} not supported on macOS (need CocoaUI)", ui_type)
+            ));
+        }
+        #[cfg(target_os = "linux")]
+        if !ui_type.is_empty() && ui_type != LV2_UI_X11 {
+            return Err(PluginError::UnsupportedFormat(
+                format!("LV2 UI type {} not supported on Linux (need X11UI)", ui_type)
+            ));
+        }
+        #[cfg(target_os = "windows")]
+        if !ui_type.is_empty() && ui_type != LV2_UI_WINDOWS {
+            return Err(PluginError::UnsupportedFormat(
+                format!("LV2 UI type {} not supported on Windows (need WindowsUI)", ui_type)
+            ));
+        }
+
+        let ui_binary_path = ui_bundle.join(&ui_binary_name);
+        log::info!("LV2 UI: loading {:?} for {}", ui_binary_path, self.info.name);
+
+        // Load UI library
+        let ui_lib = unsafe {
+            libloading::Library::new(&ui_binary_path)
+                .map_err(|e| PluginError::LoadFailed(format!("LV2 UI dlopen failed: {}", e)))?
+        };
+        let ui_lib = Arc::new(ui_lib);
+
+        // Get lv2ui_descriptor entry point
+        let ui_descriptor_fn: libloading::Symbol<Lv2UiDescriptorFn> = unsafe {
+            ui_lib.get(b"lv2ui_descriptor\0")
+                .map_err(|e| PluginError::LoadFailed(format!("lv2ui_descriptor missing: {}", e)))?
+        };
+
+        // Find matching UI descriptor by URI
+        let mut ui_desc_ptr = std::ptr::null::<Lv2UiDescriptor>();
+        unsafe {
+            let mut idx = 0u32;
+            loop {
+                let desc = (*ui_descriptor_fn)(idx);
+                if desc.is_null() { break; }
+                let uri = CStr::from_ptr((*desc).uri).to_string_lossy();
+                if uri.contains(&self.info.id) || idx == 0 {
+                    ui_desc_ptr = desc;
+                    break;
+                }
+                idx += 1;
+                if idx > 64 { break; } // sanity limit
+            }
+        }
+
+        if ui_desc_ptr.is_null() {
+            return Err(PluginError::LoadFailed(
+                format!("LV2 UI descriptor not found for {}", self.info.id)
+            ));
+        }
+
+        // ── Build UI controller (heap-allocated, lives for editor lifetime) ──
+        let controller = Box::new(Lv2UiController {
+            port_values: &mut self.port_values as *mut Vec<f32>,
+            num_ports: self.port_values.len(),
+        });
+        let controller_ptr = &*controller as *const Lv2UiController as *mut c_void;
+
+        // ── Build features list for UI ───────────────────────────────────────
+        // Most LV2 UIs need: parent window + URID map + URID unmap
+        let parent_uri = std::ffi::CString::new("http://lv2plug.in/ns/extensions/ui#parent")
+            .unwrap_or_default();
+        let parent_feature = Box::new(Lv2Feature {
+            uri: parent_uri.as_ptr(),
+            data: parent,
+        });
+
+        let map_uri = std::ffi::CString::new("http://lv2plug.in/ns/ext/urid#map").unwrap_or_default();
+        let map_feature = Box::new(Lv2Feature {
+            uri: map_uri.as_ptr(),
+            data: &*self._urid_map as *const Lv2UridMap as *const c_void,
+        });
+
+        let unmap_uri = std::ffi::CString::new("http://lv2plug.in/ns/ext/urid#unmap").unwrap_or_default();
+        let unmap_feature = Box::new(Lv2Feature {
+            uri: unmap_uri.as_ptr(),
+            data: &*self._urid_unmap as *const Lv2UridUnmap as *const c_void,
+        });
+
+        // Instance-access feature: gives UI direct plugin handle access
+        let instance_uri = std::ffi::CString::new("http://lv2plug.in/ns/ext/instance-access").unwrap_or_default();
+        let instance_feature = Box::new(Lv2Feature {
+            uri: instance_uri.as_ptr(),
+            data: self.handle as *const c_void,
+        });
+
+        // Null-terminated features array
+        let ui_features: [*const Lv2Feature; 5] = [
+            &*parent_feature as *const Lv2Feature,
+            &*map_feature as *const Lv2Feature,
+            &*unmap_feature as *const Lv2Feature,
+            &*instance_feature as *const Lv2Feature,
+            std::ptr::null(),
+        ];
+
+        // Build CStrings for instantiate
+        let plugin_uri_cstr = std::ffi::CString::new(self.info.id.as_str()).unwrap_or_default();
+        let bundle_path_str = ui_bundle.to_string_lossy().to_string();
+        let bundle_cstr = std::ffi::CString::new(bundle_path_str).unwrap_or_default();
+
+        // ── Instantiate the UI with write callback + controller ──────────────
+        let mut widget_ptr: *mut c_void = std::ptr::null_mut();
+        let ui_handle = unsafe {
+            let instantiate = (*ui_desc_ptr).instantiate.ok_or_else(|| {
+                PluginError::InitError("LV2 UI has no instantiate function".into())
+            })?;
+            instantiate(
+                ui_desc_ptr,
+                plugin_uri_cstr.as_ptr(),
+                bundle_cstr.as_ptr(),
+                Some(lv2_ui_write_callback), // write_function: routes UI changes → port_values
+                controller_ptr,              // controller: passed back to write_function
+                &mut widget_ptr,
+                ui_features.as_ptr(),
+            )
+        };
+
+        if ui_handle.is_null() {
+            return Err(PluginError::InitError(
+                format!("LV2 UI instantiate returned null for {}", self.info.name)
+            ));
+        }
+
+        // ── Query idle extension (toolkit event processing) ──────────────────
+        let idle_interface = unsafe {
+            if let Some(ext_data) = (*ui_desc_ptr).extension_data {
+                let uri = std::ffi::CString::new(LV2_UI_IDLE_URI).unwrap_or_default();
+                let ptr = ext_data(uri.as_ptr());
+                if ptr.is_null() {
+                    std::ptr::null::<Lv2UiIdleInterface>()
+                } else {
+                    ptr as *const Lv2UiIdleInterface
+                }
+            } else {
+                std::ptr::null()
+            }
+        };
+
+        // ── Query resize extension to get actual UI size ─────────────────────
+        unsafe {
+            if let Some(ext_data) = (*ui_desc_ptr).extension_data {
+                let uri = std::ffi::CString::new(LV2_UI_RESIZE_URI).unwrap_or_default();
+                let ptr = ext_data(uri.as_ptr());
+                if !ptr.is_null() {
+                    let resize = &*(ptr as *const Lv2UiResizePlugin);
+                    // Try to get size by requesting resize to 0,0 (some UIs report actual size)
+                    // Most UIs will just report their preferred size via the widget
+                    let _ = (resize.ui_resize)(ui_handle, 0, 0);
+                }
+            }
+        }
+
+        log::info!(
+            "LV2 UI opened: {} widget={:?} handle={:?} idle={}",
+            self.info.name, widget_ptr, ui_handle, !idle_interface.is_null()
+        );
+
+        self.ui_handle = ui_handle;
+        self.ui_descriptor = ui_desc_ptr;
+        self.ui_idle_interface = idle_interface;
+        self._ui_controller = Some(controller);
+        self._ui_library = Some(ui_lib);
+
+        // ── Send current port values to UI (so it shows actual state, not defaults) ──
+        self.notify_ui_all_ports();
+
+        // Keep CStrings alive through the synchronous call above
+        let _ = (parent_uri, map_uri, unmap_uri, instance_uri);
+        let _ = (parent_feature, map_feature, unmap_feature, instance_feature);
+        let _ = plugin_uri_cstr;
+        let _ = bundle_cstr;
+
+        Ok(())
     }
 
     fn close_editor(&mut self) -> PluginResult<()> {
+        if self.ui_handle.is_null() {
+            return Ok(());
+        }
+        unsafe {
+            if let Some(cleanup) = (*self.ui_descriptor).cleanup {
+                cleanup(self.ui_handle);
+            }
+        }
+        self.ui_handle = std::ptr::null_mut();
+        self.ui_descriptor = std::ptr::null();
+        self.ui_idle_interface = std::ptr::null();
+        self._ui_controller = None; // free controller before library
+        self._ui_library = None;    // drop the library after cleanup
+        log::info!("LV2 UI closed: {}", self.info.name);
+        Ok(())
+    }
+
+    fn editor_size(&self) -> Option<(u32, u32)> {
+        Some((self.ui_width, self.ui_height))
+    }
+
+    fn resize_editor(&mut self, width: u32, height: u32) -> PluginResult<()> {
+        if self.ui_handle.is_null() {
+            return Ok(());
+        }
+        // Query the resize extension from the UI
+        unsafe {
+            if !self.ui_descriptor.is_null()
+                && let Some(ext_data) = (*self.ui_descriptor).extension_data {
+                    let uri = std::ffi::CString::new(LV2_UI_RESIZE_URI).unwrap_or_default();
+                    let ptr = ext_data(uri.as_ptr());
+                    if !ptr.is_null() {
+                        let resize = &*(ptr as *const Lv2UiResizePlugin);
+                        let result = (resize.ui_resize)(self.ui_handle, width as i32, height as i32);
+                        if result == 0 {
+                            self.ui_width = width;
+                            self.ui_height = height;
+                        }
+                        return Ok(());
+                    }
+                }
+        }
+        // Fallback: just update cached size
+        self.ui_width = width;
+        self.ui_height = height;
         Ok(())
     }
 }

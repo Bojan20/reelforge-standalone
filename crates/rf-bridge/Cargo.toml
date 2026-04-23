@@ -23,6 +23,15 @@ rf-event = { path = "../rf-event" }
 rf-stage = { path = "../rf-stage" }
 rf-ingest = { path = "../rf-ingest" }
 rf-slot-lab = { path = "../rf-slot-lab" }
+rf-ab-sim = { path = "../rf-ab-sim" }
+rf-slot-export = { path = "../rf-slot-export" }
+rf-neuro = { path = "../rf-neuro" }
+rf-copilot = { path = "../rf-copilot" }
+rf-fingerprint = { path = "../rf-fingerprint" }
+rf-cloud-sync = { path = "../rf-cloud-sync" }
+rf-slot-spatial = { path = "../rf-slot-spatial" }
+rf-ai-gen = { path = "../rf-ai-gen" }
+rf-rgai = { path = "../rf-rgai" }
 rf-ale = { path = "../rf-ale" }
 rf-aurexis = { path = "../rf-aurexis" }
 rf-connector = { path = "../rf-connector" }

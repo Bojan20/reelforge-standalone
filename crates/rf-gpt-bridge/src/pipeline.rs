@@ -413,9 +413,7 @@ impl Pipeline {
 
             PipelineMode::Chain => {
                 // Chain mode: use the last stage's output
-                let Some(last) = completed_stages.last() else {
-                    return None;
-                };
+                let last = completed_stages.last()?;
                 let contributors: Vec<GptPersona> = completed_stages.iter().map(|s| s.persona).collect();
                 if let StageState::Completed {
                     response,

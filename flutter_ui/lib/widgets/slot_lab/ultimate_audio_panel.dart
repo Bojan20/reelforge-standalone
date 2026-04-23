@@ -60,7 +60,8 @@ import '../../services/audio_playback_service.dart';
 import '../../services/variant_manager.dart'; // SL-LP-P1.4
 import '../../services/waveform_thumbnail_cache.dart'; // SL-LP-P1.1
 import 'package:get_it/get_it.dart'; // V11: Feature Composer + Pacing
-import 'enhanced_autobind_dialog.dart'; // Enhanced Auto-Bind
+import 'auto_bind_dialog_v2.dart'; // AutoBind v2 — full dialog
+import 'neural_bind_orb.dart'; // Neural Bind Orb — instant binding
 import 'ffnc_rename_dialog.dart'; // FFNC Rename Tool
 import '../../services/ffnc/event_presets.dart'; // Event Presets
 import '../../services/ffnc/phase_presets.dart'; // Phase Presets
@@ -518,10 +519,13 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
           final isNarrow = constraints.maxWidth < 200;
           return Row(
             children: [
-              _compactActionBtn(
-                Icons.auto_fix_high, 'Auto-Bind',
-                FluxForgeTheme.accentGreen,
-                () => _showAutoBindDialog(context),
+              // Neural Bind Orb — instant drag & drop binding
+              NeuralBindOrb.large(
+                onBindComplete: (analysis, path) {
+                  SlotLabScreen.triggerAutoBindReload(path);
+                  widget.onBusVolumesChanged?.call(const {0: 1.0, 1: 1.0, 2: 1.0, 3: 1.0, 4: 1.0});
+                },
+                onBusVolumesChanged: widget.onBusVolumesChanged,
               ),
               const SizedBox(width: 2),
               _compactActionBtn(
@@ -812,14 +816,14 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   }
 
   void _showAutoBindDialog(BuildContext context) async {
-    final result = await showDialog<EnhancedAutoBindResult>(
+    final result = await showDialog<AutoBindV2Result>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const EnhancedAutoBindDialog(),
+      builder: (_) => const AutoBindDialogV2(),
     );
     if (result == null || !mounted) return;
 
-    if (result.bindings.isEmpty) {
+    if (result.analysis.matchedCount == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('No matching sound files found in folder'),
@@ -839,7 +843,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       final renamed = result.didRename ? ' (renamed to FFNC)' : '';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Auto-Bind: ${result.bindings.length} stages bound$renamed'),
+          content: Text('Auto-Bind: ${result.analysis.uniqueStageCount} stages bound$renamed'),
           backgroundColor: FluxForgeTheme.bgMid,
           duration: const Duration(seconds: 3),
         ),

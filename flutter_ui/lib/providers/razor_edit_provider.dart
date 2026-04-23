@@ -26,6 +26,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../src/rust/native_ffi.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -364,14 +365,128 @@ class RazorEditProvider extends ChangeNotifier {
 
   // ═══ Actions ═══
 
-  /// Execute action on current selection
+  /// Execute action on current selection — wired to Rust FFI
   void executeAction(RazorAction action) {
     if (!hasSelection) return;
+
+    final ffi = NativeFFI.instance;
+    if (ffi.isLoaded) {
+      // Sync selection to Rust engine
+      _syncToRust(ffi);
+
+      switch (action) {
+        case RazorAction.delete:
+          ffi.razorDelete();
+        case RazorAction.split:
+          ffi.razorSplit();
+        case RazorAction.cut:
+          _clipboard = ffi.razorCut();
+        case RazorAction.copy:
+          _clipboard = ffi.razorCopy();
+        case RazorAction.paste:
+          if (_clipboard != null && _clipboard!.isNotEmpty) {
+            ffi.razorPaste(_clipboard!, _selection.startTime);
+          }
+        case RazorAction.join:
+          ffi.razorJoin();
+        case RazorAction.mute:
+          ffi.razorMute(muted: true);
+        case RazorAction.bounce:
+          // Bounce = offline render — requires separate bounce engine pipeline
+          break;
+        case RazorAction.process:
+          // Direct Offline Processing — requires DOP dialog + processing chain
+          break;
+        case RazorAction.fadeBoth:
+          ffi.razorFadeBoth(fadeDuration: 0.05);
+        case RazorAction.healSeparation:
+          ffi.razorHealSeparation();
+        case RazorAction.insertSilence:
+          ffi.razorInsertSilence(_selection.startTime, _selection.duration);
+        case RazorAction.stripSilence:
+          ffi.razorStripSilence(thresholdDb: -60.0, minSilenceMs: 100.0);
+        case RazorAction.createClip:
+          // Duplicate selection content
+          ffi.razorDuplicate();
+      }
+
+      // Reverse/stretch handled separately (not in menu, but available)
+
+      // Clear Rust razor state after action
+      ffi.razorClearAll();
+    }
+
+    // Notify callbacks for UI updates
     onActionRequested?.call(action, _selection);
 
     // Clear selection after destructive actions
     if (action == RazorAction.delete || action == RazorAction.cut) {
       clearSelection();
+    }
+  }
+
+  String? _clipboard;
+
+  /// Get clipboard contents from last cut/copy
+  String? get clipboard => _clipboard;
+
+  /// Reverse audio content within current razor selection
+  void reverseSelection() {
+    if (!hasSelection) return;
+    final ffi = NativeFFI.instance;
+    if (ffi.isLoaded) {
+      _syncToRust(ffi);
+      ffi.razorReverse();
+      ffi.razorClearAll();
+    }
+    onActionRequested?.call(RazorAction.delete, _selection); // trigger UI refresh
+    notifyListeners();
+  }
+
+  /// Stretch audio content within current razor selection by ratio
+  void stretchSelection(double ratio) {
+    if (!hasSelection || ratio <= 0) return;
+    final ffi = NativeFFI.instance;
+    if (ffi.isLoaded) {
+      _syncToRust(ffi);
+      ffi.razorStretch(ratio);
+      ffi.razorClearAll();
+    }
+    notifyListeners();
+  }
+
+  /// Duplicate content within current razor selection
+  void duplicateSelection() {
+    if (!hasSelection) return;
+    final ffi = NativeFFI.instance;
+    if (ffi.isLoaded) {
+      _syncToRust(ffi);
+      ffi.razorDuplicate();
+      ffi.razorClearAll();
+    }
+    notifyListeners();
+  }
+
+  /// Move content within current razor selection by time delta
+  void moveSelection(double deltaTime, {int targetTrackId = 0}) {
+    if (!hasSelection) return;
+    final ffi = NativeFFI.instance;
+    if (ffi.isLoaded) {
+      _syncToRust(ffi);
+      ffi.razorMove(deltaTime, targetTrackId: targetTrackId);
+      ffi.razorClearAll();
+    }
+    notifyListeners();
+  }
+
+  /// Sync current Dart selection to Rust razor areas
+  void _syncToRust(NativeFFI ffi) {
+    ffi.razorClearAll();
+    for (final region in _selection.regions) {
+      final trackId = int.tryParse(region.trackId) ?? 0;
+      if (trackId > 0) {
+        ffi.razorAddArea(trackId, region.startTime, region.endTime);
+      }
     }
   }
 

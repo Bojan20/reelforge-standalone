@@ -841,11 +841,10 @@ impl HxGraph {
         visited.insert(node_id, 1); // Mark as in-progress
 
         for conn in &self.connections {
-            if conn.from_node == node_id && conn.active {
-                if self.dfs_cycle_check(conn.to_node, visited) {
+            if conn.from_node == node_id && conn.active
+                && self.dfs_cycle_check(conn.to_node, visited) {
                     return true;
                 }
-            }
         }
 
         visited.insert(node_id, 2); // Mark as complete

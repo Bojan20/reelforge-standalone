@@ -44,10 +44,13 @@ impl SequenceContainer {
         }
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> usize {
         if self.count == 0 { return 0; }
 
-        let result = match self.mode {
+        
+
+        match self.mode {
             SequenceMode::Forward => {
                 let r = self.current;
                 self.current = (self.current + 1) % self.count;
@@ -83,9 +86,7 @@ impl SequenceContainer {
                 self.last_random = Some(candidate);
                 candidate
             }
-        };
-
-        result
+        }
     }
 
     fn next_random(&mut self) -> usize {

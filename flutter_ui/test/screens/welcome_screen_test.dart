@@ -155,15 +155,7 @@ void main() {
       expect(find.text('RECENT PROJECTS'), findsOneWidget);
     });
 
-    testWidgets('shows EQ Test Lab button', (WidgetTester tester) async {
-      await tester.binding.setSurfaceSize(const Size(1920, 1080));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-
-      await tester.pumpWidget(buildTestWidget());
-      await tester.pump(const Duration(seconds: 1));
-      tester.takeException();
-
-      expect(find.text('EQ Test Lab'), findsOneWidget);
-    });
+    // "EQ Test Lab" button was removed from the welcome screen. The
+    // equivalent coverage is now in the Lower Zone / DAW tab tests.
   });
 }

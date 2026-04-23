@@ -7997,6 +7997,100 @@ class NativeFFI {
   }
 
   // ============================================================
+  // ORB MIXER — Active Voice Query + Per-Voice Control
+  // ============================================================
+
+  late final _orbGetActiveVoices = _lib.lookupFunction<
+      UintPtr Function(Pointer<Double>, UintPtr, UintPtr),
+      int Function(Pointer<Double>, int, int)>('orb_get_active_voices');
+
+  late final _orbSetVoiceParam = _lib.lookupFunction<
+      Int32 Function(Uint64, Uint8, Float),
+      int Function(int, int, double)>('orb_set_voice_param');
+
+  /// Get active voices for OrbMixer (packed f64 buffer).
+  /// Returns list of voice data: each voice = 8 doubles
+  /// [voice_id, bus_idx, volume, pan, peak_l, peak_r, state, looping]
+  /// state: 0=playing, 1=looping, 2=fading
+  List<Float64List>? orbGetActiveVoices({int maxVoices = 64}) {
+    if (!_loaded) return null;
+
+    const fieldsPerVoice = 8;
+    final bufLen = maxVoices * fieldsPerVoice;
+    final buf = calloc<Double>(bufLen);
+
+    try {
+      final count = _orbGetActiveVoices(buf, bufLen, maxVoices);
+      if (count == 0) return [];
+
+      final result = <Float64List>[];
+      for (int i = 0; i < count; i++) {
+        final offset = i * fieldsPerVoice;
+        final voice = Float64List(fieldsPerVoice);
+        for (int j = 0; j < fieldsPerVoice; j++) {
+          voice[j] = buf[offset + j];
+        }
+        result.add(voice);
+      }
+      return result;
+    } finally {
+      calloc.free(buf);
+    }
+  }
+
+  /// Set per-voice parameter.
+  /// param: 0=volume, 1=pan, 2=pitch (semitones), 3=mute (>0.5=true)
+  void orbSetVoiceParam(int voiceId, int param, double value) {
+    if (!_loaded) return;
+    _orbSetVoiceParam(voiceId, param, value);
+  }
+
+  // ============================================================
+  // ORB — Master-output ring capture (Phase 10e-2)
+  // ============================================================
+
+  late final _orbRingInit = _lib.lookupFunction<
+      Int32 Function(Float, Uint32),
+      int Function(double, int)>('orb_ring_init');
+
+  late final _orbRingFramesWritten = _lib.lookupFunction<
+      Uint64 Function(),
+      int Function()>('orb_ring_frames_written');
+
+  late final _orbCaptureLastNSeconds = _lib.lookupFunction<
+      Uint64 Function(Pointer<Utf8>, Float),
+      int Function(Pointer<Utf8>, double)>('orb_capture_last_n_seconds');
+
+  /// Initialise or reconfigure the master-output ring buffer.
+  /// Call once at engine start with the engine's sample rate and the desired
+  /// window (clamped to 10 s on the Rust side). The default window matches
+  /// `ProblemsInboxService.clipSeconds` so capture lines up with the ring.
+  void orbRingInit({required double seconds, required int sampleRate}) {
+    if (!_loaded) return;
+    _orbRingInit(seconds, sampleRate);
+  }
+
+  /// Total frames the audio thread has written to the ring since engine start.
+  /// UI uses this to check whether any audio played at all before exporting.
+  int orbRingFramesWritten() {
+    if (!_loaded) return 0;
+    return _orbRingFramesWritten();
+  }
+
+  /// Capture the last N seconds of master output into a 32-bit float stereo
+  /// WAV at the given file path. Returns the number of frames written.
+  /// Returns 0 on any failure (invalid path, zero audio, I/O error).
+  int orbCaptureLastNSeconds(String path, {double seconds = 5.0}) {
+    if (!_loaded) return 0;
+    final cPath = path.toNativeUtf8();
+    try {
+      return _orbCaptureLastNSeconds(cPath, seconds);
+    } finally {
+      calloc.free(cPath);
+    }
+  }
+
+  // ============================================================
   // ELASTIC PRO (TIME STRETCHING) API
   // ============================================================
 
@@ -22761,6 +22855,53 @@ extension ProfilerFFI on NativeFFI {
   /// Total commands that successfully healed a problem.
   int cortexGetTotalHealed() => _cortexGetTotalHealed();
 
+  static final _cortexGetCommandsDrained = _loadNativeLibrary().lookupFunction<
+      Uint64 Function(),
+      int Function()>('cortex_get_commands_drained');
+
+  static final _cortexGetCommandsFailed = _loadNativeLibrary().lookupFunction<
+      Uint64 Function(),
+      int Function()>('cortex_get_commands_failed');
+
+  /// Total commands drained (processed) by executor — all outcomes.
+  int cortexGetCommandsDrained() => _cortexGetCommandsDrained();
+
+  /// Total commands that failed healing or had no effect.
+  int cortexGetCommandsFailed() => _cortexGetCommandsFailed();
+
+  // ═══ PLUGIN INSTRUMENT MIDI INJECTION (BUG #24) ═══
+  // Routes live MIDI from Dart UI → instrument plugin instances via audio thread.
+
+  static final _midiInjectNoteOnToTrack = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint64, Uint8, Uint8, Uint8),
+      int Function(int, int, int, int)>('midi_inject_note_on_to_track');
+
+  static final _midiInjectNoteOffToTrack = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint64, Uint8, Uint8, Uint8),
+      int Function(int, int, int, int)>('midi_inject_note_off_to_track');
+
+  static final _midiInjectAllNotesOffToTrack = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint64),
+      int Function(int)>('midi_inject_all_notes_off_to_track');
+
+  /// Inject note-on into an instrument track's plugin.
+  /// [trackId] — the instrument track ID.
+  /// [channel] — MIDI channel 0-15.
+  /// [note] — MIDI note number 0-127.
+  /// [velocity] — note velocity 0-127.
+  /// Returns true on success.
+  bool midiInjectNoteOnToTrack(int trackId, int channel, int note, int velocity) =>
+      _midiInjectNoteOnToTrack(trackId, channel, note, velocity) == 1;
+
+  /// Inject note-off into an instrument track's plugin.
+  bool midiInjectNoteOffToTrack(int trackId, int channel, int note, int velocity) =>
+      _midiInjectNoteOffToTrack(trackId, channel, note, velocity) == 1;
+
+  /// Inject all-notes-off (panic) into an instrument track's plugin.
+  /// Silences all stuck notes — call on stop/panic.
+  bool midiInjectAllNotesOffToTrack(int trackId) =>
+      _midiInjectAllNotesOffToTrack(trackId) == 1;
+
   // ═══ CORTEX VISION FFI ═══
 
   static final _cortexReportVision = _loadNativeLibrary().lookupFunction<
@@ -28430,6 +28571,2159 @@ extension HookGraphAPI on NativeFFI {
       return result;
     } catch (_) {
       return null;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // T2.3: BATCH SIMULATION FFI WRAPPERS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Start a batch simulation. Returns task_id (0 = error).
+  int slotLabBatchSimStart(String configJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Uint64 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)
+      >('slot_lab_batch_sim_start');
+
+      final ptr = configJson.toNativeUtf8();
+      try {
+        return fn(ptr);
+      } finally {
+        malloc.free(ptr);
+      }
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// Poll simulation progress (0.0–1.0, negative = invalid).
+  double slotLabBatchSimProgress(int taskId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Double Function(Uint64),
+          double Function(int)
+      >('slot_lab_batch_sim_progress');
+      return fn(taskId);
+    } catch (_) {
+      return -1.0;
+    }
+  }
+
+  /// Get simulation result JSON. Returns null if not ready.
+  String? slotLabBatchSimResult(int taskId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Uint64),
+          Pointer<Utf8> Function(int)
+      >('slot_lab_batch_sim_result');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr = fn(taskId);
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Cancel a running simulation.
+  void slotLabBatchSimCancel(int taskId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Void Function(Uint64),
+          void Function(int)
+      >('slot_lab_batch_sim_cancel');
+      fn(taskId);
+    } catch (_) {}
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // T2.1: PAR FILE PARSER FFI WRAPPERS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Parse PAR content (CSV / JSON / auto-detect).
+  /// [format]: "json", "csv", "xlsx_csv", or "auto"
+  /// Returns raw JSON string of ParDocument, or null on error.
+  String? slotLabParParse(String content, String format) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>)
+      >('slot_lab_par_parse');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final contentPtr = content.toNativeUtf8();
+      final formatPtr = format.toNativeUtf8();
+      try {
+        final ptr = fn(contentPtr, formatPtr);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(contentPtr);
+        malloc.free(formatPtr);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Validate a PAR JSON document.
+  /// Returns raw JSON string of ParValidationReport, or null on error.
+  String? slotLabParValidate(String parJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('slot_lab_par_validate');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final jsonPtr = parJson.toNativeUtf8();
+      try {
+        final ptr = fn(jsonPtr);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(jsonPtr);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Auto-calibrate win tiers from PAR JSON document.
+  /// Returns raw JSON string of CalibrationResult, or null on error.
+  String? slotLabParCalibrateWinTiers(String parJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('slot_lab_par_calibrate_win_tiers');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final jsonPtr = parJson.toNativeUtf8();
+      try {
+        final ptr = fn(jsonPtr);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(jsonPtr);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Convert PAR JSON document to GameModel + calibrated tiers.
+  /// Returns raw JSON string with {game_model, calibrated_win_tiers, calibration_diagnostics},
+  /// or null on error.
+  String? slotLabParToGameModel(String parJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('slot_lab_par_to_game_model');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final jsonPtr = parJson.toNativeUtf8();
+      try {
+        final ptr = fn(jsonPtr);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(jsonPtr);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // T2.7: PAR+ Extended Format
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /// Parse a PAR+ JSON document (superset of standard PAR).
+  /// Returns serialized ParPlusDocument JSON, or null on error.
+  String? slotLabParPlusParse(String json) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('slot_lab_par_plus_parse');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final jsonPtr = json.toNativeUtf8();
+      try {
+        final ptr = fn(jsonPtr);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(jsonPtr);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Validate a PAR+ document JSON.
+  /// Returns JSON array of ParPlusWarning objects, or null on error.
+  String? slotLabParPlusValidate(String parPlusJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('slot_lab_par_plus_validate');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final jsonPtr = parPlusJson.toNativeUtf8();
+      try {
+        final ptr = fn(jsonPtr);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(jsonPtr);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Generate a PAR+ template JSON for authoring new documents.
+  /// [gameName] — display name, [gameId] — short identifier, [rtp] — target RTP %.
+  String? slotLabParPlusTemplate(String gameName, String gameId, double rtp) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>, Double),
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>, double)
+      >('slot_lab_par_plus_template');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final namePtr = gameName.toNativeUtf8();
+      final idPtr = gameId.toNativeUtf8();
+      try {
+        final ptr = fn(namePtr, idPtr, rtp);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(namePtr);
+        malloc.free(idPtr);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // T3: UCP Export Engine — Howler.js, Wwise, FMOD, Generic JSON
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// Export FluxForgeExportProject JSON to a specific format.
+  /// [projectJson] — serialized FluxForgeExportProject
+  /// [format] — "howler" | "wwise" | "fmod" | "json"
+  /// Returns serialized ExportBundle JSON, or null on error.
+  String? slotLabExport(String projectJson, String format) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>)
+      >('slot_lab_export');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final projectPtr = projectJson.toNativeUtf8();
+      final formatPtr = format.toNativeUtf8();
+      try {
+        final ptr = fn(projectPtr, formatPtr);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(projectPtr);
+        malloc.free(formatPtr);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Export FluxForgeExportProject to all formats at once.
+  /// Returns JSON array of FormatExportEntry objects, or null on error.
+  String? slotLabExportAll(String projectJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('slot_lab_export_all');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr2 = projectJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr2);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr2);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Get list of available export formats.
+  /// Returns JSON array of {name, version} objects, or null on error.
+  String? slotLabExportFormats() {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()
+      >('slot_lab_export_formats');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // T4.1–T4.2: NeuroAudio™ — Player Behavioral Signal Processor
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// Create a new NeuroEngine.
+  /// [configJson] — JSON-encoded NeuroConfig, or null for defaults.
+  /// Returns engine_id > 0 on success, -1 on error.
+  int neuroEngineCreate({String? configJson}) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int64 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)
+      >('neuro_engine_create');
+
+      if (configJson != null) {
+        final ptr = configJson.toNativeUtf8();
+        try {
+          return fn(ptr);
+        } finally {
+          malloc.free(ptr);
+        }
+      } else {
+        return fn(nullptr);
+      }
+    } catch (_) {
+      return -1;
+    }
+  }
+
+  /// Process one behavioral sample.
+  /// [eventJson] — JSON-encoded BehavioralSample.
+  /// Returns PlayerStateVector JSON, or null on error.
+  String? neuroEngineProcess(int engineId, String eventJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Int64, Pointer<Utf8>),
+          Pointer<Utf8> Function(int, Pointer<Utf8>)
+      >('neuro_engine_process');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr2 = eventJson.toNativeUtf8();
+      try {
+        final ptr = fn(engineId, ptr2);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr2);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Get current AudioAdaptation JSON for an engine.
+  String? neuroEngineAdaptation(int engineId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Int64),
+          Pointer<Utf8> Function(int)
+      >('neuro_engine_adaptation');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr = fn(engineId);
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Simulate a session from an archetype preset.
+  /// [simJson] — JSON-encoded SessionSimulation.
+  /// Returns SimulationResult JSON, or null on error.
+  String? neuroEngineSimulate(String simJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('neuro_engine_simulate');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr2 = simJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr2);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr2);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Reset engine state (start new session).
+  void neuroEngineReset(int engineId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Void Function(Int64),
+          void Function(int)
+      >('neuro_engine_reset');
+      fn(engineId);
+    } catch (_) {}
+  }
+
+  /// Destroy a NeuroEngine and free memory.
+  void neuroEngineDestroy(int engineId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Void Function(Int64),
+          void Function(int)
+      >('neuro_engine_destroy');
+      fn(engineId);
+    } catch (_) {}
+  }
+
+  /// Get available player archetypes as JSON array of {key, name}.
+  String? neuroAvailableArchetypes() {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()
+      >('neuro_available_archetypes');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // T5.1–T5.4: AI Co-Pilot™ — Context-aware suggestion engine
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// Analyze an AudioProjectSpec JSON and return a CopilotReport JSON.
+  /// Returns CopilotReport JSON, or null on error.
+  String? copilotAnalyze(String projectJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('copilot_analyze');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr2 = projectJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr2);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr2);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Get list of available industry benchmarks as JSON array of {name, description}.
+  String? copilotAvailableBenchmarks() {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()
+      >('copilot_available_benchmarks');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // T6.1–T6.5: Neural Fingerprint™ + A/B Analytics + Honeypot
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Compute SHA-256 fingerprint for an audio bundle.
+  /// [requestJson]: FingerprintRequest JSON {game_id, tool_version, generated_at, events[]}
+  /// Returns BundleFingerprint JSON or null on error.
+  String? fingerprintCompute(String requestJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('fingerprint_compute');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr1 = requestJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Verify a current bundle against a stored fingerprint.
+  /// [requestJson]: {stored: BundleFingerprint, current: BundleFingerprint}
+  /// Returns VerificationResult JSON or null on error.
+  String? fingerprintVerify(String requestJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('fingerprint_verify');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr1 = requestJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Run A/B test statistical significance analysis.
+  /// [configJson]: AbTestConfig JSON
+  /// Returns AbTestReport JSON or null on error.
+  String? abTestAnalyze(String configJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('ab_test_analyze');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr1 = configJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Generate a honeypot marker for a recipient.
+  /// [requestJson]: {game_id, recipient_id, secret_seed, issued_at}
+  /// Returns HoneypotMarker JSON or null on error.
+  String? honeypotGenerate(String requestJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('honeypot_generate');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr1 = requestJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Inject a honeypot marker into an export JSON payload.
+  /// [requestJson]: {marker: HoneypotMarker, export_json: String}
+  /// Returns modified export JSON string or null on error.
+  String? honeypotInject(String requestJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('honeypot_inject');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr1 = requestJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // T7.1: Cloud Sync — Git-like project versioning
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Create a new sync manager for a project.
+  /// Returns manager ID (> 0) or -1 on error.
+  int cloudSyncCreate(String projectId, String? configJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int64 Function(Pointer<Utf8>, Pointer<Utf8>),
+          int Function(Pointer<Utf8>, Pointer<Utf8>)
+      >('cloud_sync_create');
+
+      final ptr1 = projectId.toNativeUtf8();
+      final ptr2 = (configJson ?? '{}').toNativeUtf8();
+      try {
+        return fn(ptr1, ptr2);
+      } finally {
+        malloc.free(ptr1);
+        malloc.free(ptr2);
+      }
+    } catch (_) {
+      return -1;
+    }
+  }
+
+  /// Commit a new project snapshot.
+  /// Returns JSON ProjectSnapshot or null on error.
+  String? cloudSyncCommit(int managerId, String projectData, String author, String message) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Int64, Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>),
+          Pointer<Utf8> Function(int, Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>)
+      >('cloud_sync_commit');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr1 = projectData.toNativeUtf8();
+      final ptr2 = author.toNativeUtf8();
+      final ptr3 = message.toNativeUtf8();
+      try {
+        final ptr = fn(managerId, ptr1, ptr2, ptr3);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+        malloc.free(ptr2);
+        malloc.free(ptr3);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Compute diff between two snapshot IDs.
+  /// Returns JSON ProjectDiff or null on error.
+  String? cloudSyncDiff(int managerId, String fromId, String toId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Int64, Pointer<Utf8>, Pointer<Utf8>),
+          Pointer<Utf8> Function(int, Pointer<Utf8>, Pointer<Utf8>)
+      >('cloud_sync_diff');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr1 = fromId.toNativeUtf8();
+      final ptr2 = toId.toNativeUtf8();
+      try {
+        final ptr = fn(managerId, ptr1, ptr2);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+        malloc.free(ptr2);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Get project history log (newest first).
+  /// Returns JSON array of SnapshotSummary or null on error.
+  String? cloudSyncLog(int managerId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Int64),
+          Pointer<Utf8> Function(int)
+      >('cloud_sync_log');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr = fn(managerId);
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Checkout a specific snapshot by ID.
+  /// Returns JSON ProjectSnapshot or null on error.
+  String? cloudSyncCheckout(int managerId, String snapshotId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Int64, Pointer<Utf8>),
+          Pointer<Utf8> Function(int, Pointer<Utf8>)
+      >('cloud_sync_checkout');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr1 = snapshotId.toNativeUtf8();
+      try {
+        final ptr = fn(managerId, ptr1);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Serialize history to JSON for persistence.
+  String? cloudSyncSerialize(int managerId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Int64),
+          Pointer<Utf8> Function(int)
+      >('cloud_sync_serialize');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr = fn(managerId);
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Destroy a sync manager.
+  void cloudSyncDestroy(int managerId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Void Function(Int64),
+          void Function(int)
+      >('cloud_sync_destroy');
+      fn(managerId);
+    } catch (_) {}
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // T7.2–T7.4: Slot Spatial Audio — 3D scene, HRTF, Ambisonics
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Generate default spatial layout for a preset.
+  /// [preset]: "desktop", "vr_standing", "vr_seated", "live_casino", "mobile"
+  /// Returns JSON array of SpatialAudioSource or null on error.
+  String? spatialLayoutGenerate(String gameId, String preset) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>)
+      >('spatial_layout_generate');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr1 = gameId.toNativeUtf8();
+      final ptr2 = preset.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1, ptr2);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+        malloc.free(ptr2);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Build Ambisonics/Binaural export manifest from a spatial scene.
+  /// [sceneJson]: JSON SpatialSlotScene
+  /// [configJson]: JSON AmbisonicsExportConfig (null for defaults)
+  /// [generatedAt]: ISO 8601 timestamp
+  /// Returns JSON SpatialExportManifest or null on error.
+  String? spatialExportManifest(String sceneJson, String? configJson, String generatedAt) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>)
+      >('spatial_export_manifest');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr1 = sceneJson.toNativeUtf8();
+      final ptr2 = (configJson ?? '{}').toNativeUtf8();
+      final ptr3 = generatedAt.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1, ptr2, ptr3);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+        malloc.free(ptr2);
+        malloc.free(ptr3);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Get list of available spatial layout presets.
+  /// Returns JSON array of {name, description} objects.
+  String? spatialAvailablePresets() {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()
+      >('spatial_available_presets');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Detect and attribute a honeypot marker in a leaked export.
+  /// [requestJson]: {export_json: String, marker?: HoneypotMarker}
+  /// Returns HoneypotResult JSON or null on error.
+  String? honeypotDetect(String requestJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('honeypot_detect');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr1 = requestJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // T8.1–T8.4: Procedural AI Generation
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Parse a text prompt into an AudioDescriptor JSON (T8.1).
+  String? aiGenParsePrompt(String prompt) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('ai_gen_parse_prompt');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr1 = prompt.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Build a GenerationSpec for a prompt and backend (T8.2).
+  /// [backend]: "audiocraft", "elevenlabs", "stability_ai", "openai", "stub"
+  String? aiGenBuildSpec(String prompt, String backend) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>)
+      >('ai_gen_build_spec');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr1 = prompt.toNativeUtf8();
+      final ptr2 = backend.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1, ptr2);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+        malloc.free(ptr2);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Format a GenerationSpec into a BackendRequest JSON (T8.2).
+  String? aiGenFormatRequest(String specJson, String? apiKey) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>)
+      >('ai_gen_format_request');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr1 = specJson.toNativeUtf8();
+      final ptr2 = (apiKey ?? '').toNativeUtf8();
+      try {
+        final ptr = fn(ptr1, ptr2);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+        malloc.free(ptr2);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Execute generation with stub backend (T8.2 testing).
+  String? aiGenExecuteStub(String specJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('ai_gen_execute_stub');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr1 = specJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Get post-processing config for an AudioDescriptor (T8.3).
+  String? aiGenPostprocessConfig(String descriptorJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('ai_gen_postprocess_config');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr1 = descriptorJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Auto-classify a generated asset into FFNC categories (T8.4).
+  /// [metadataJson]: optional JSON AudioAnalysisMetadata (null to skip)
+  String? aiGenClassifyAsset(String descriptorJson, String? metadataJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>)
+      >('ai_gen_classify_asset');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr1 = descriptorJson.toNativeUtf8();
+      final ptr2 = (metadataJson ?? 'null').toNativeUtf8();
+      try {
+        final ptr = fn(ptr1, ptr2);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+        malloc.free(ptr2);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Get list of available generation backends.
+  String? aiGenAvailableBackends() {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()
+      >('ai_gen_available_backends');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Get all FFNC categories.
+  String? aiGenFfncCategories() {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()
+      >('ai_gen_ffnc_categories');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // RGAI™ — Responsible Gaming Audio Intelligence
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// Initialize RGAI with target jurisdictions.
+  /// [jurisdictionsJson] — JSON array of codes: ["UKGC","MGA","SE",...]
+  /// Returns 0 on success, -1 on error.
+  int rgaiInit({String? jurisdictionsJson}) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)
+      >('rgai_init');
+
+      if (jurisdictionsJson != null) {
+        final ptr = jurisdictionsJson.toNativeUtf8();
+        try {
+          return fn(ptr);
+        } finally {
+          malloc.free(ptr);
+        }
+      } else {
+        return fn(nullptr);
+      }
+    } catch (_) {
+      return -1;
+    }
+  }
+
+  /// Analyze a single audio asset for RGAI compliance.
+  /// [assetJson] — JSON AudioAssetProfile.
+  /// Returns analysis JSON with metrics + per-jurisdiction pass/fail.
+  String? rgaiAnalyzeAsset(String assetJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('rgai_analyze_asset_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('rgai_free_string');
+
+      final ptr1 = assetJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Analyze an entire game audio session for RGAI compliance.
+  /// [sessionJson] — JSON GameAudioSession.
+  /// Returns full session analysis JSON.
+  String? rgaiAnalyzeSession(String sessionJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('rgai_analyze_session_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('rgai_free_string');
+
+      final ptr1 = sessionJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Export gate check — can we export this session?
+  /// Returns JSON with decision (Approved/Blocked) + details.
+  String? rgaiExportGate(String sessionJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('rgai_export_gate_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('rgai_free_string');
+
+      final ptr1 = sessionJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Generate RGAR compliance report for a session.
+  /// Returns full report JSON with 6 sections + integrity hash.
+  String? rgaiGetReport(String sessionJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('rgai_get_report_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('rgai_free_string');
+
+      final ptr1 = sessionJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Get remediation suggestions for a failing asset.
+  /// Returns JSON plan with per-metric fix suggestions.
+  String? rgaiGetRemediation(String assetJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('rgai_get_remediation_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('rgai_free_string');
+
+      final ptr1 = assetJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// List all supported jurisdictions with profiles.
+  /// Returns JSON array of jurisdiction objects.
+  String? rgaiJurisdictions() {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()
+      >('rgai_jurisdictions_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('rgai_free_string');
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Slot Spatial Audio™ — 3D Positional Audio for Slot Games
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// Initialize spatial audio scene.
+  /// [configJson] — JSON {"game_id": "..."}, or null for defaults.
+  /// Returns 0 on success.
+  int slotSpatialInit({String? configJson}) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)
+      >('slot_spatial_init');
+
+      if (configJson != null) {
+        final ptr = configJson.toNativeUtf8();
+        try {
+          return fn(ptr);
+        } finally {
+          malloc.free(ptr);
+        }
+      } else {
+        return fn(nullptr);
+      }
+    } catch (_) {
+      return -1;
+    }
+  }
+
+  /// Add or update a spatial audio source.
+  /// [sourceJson] — JSON SpatialAudioSource.
+  /// Returns 0 on success, -1 on error.
+  int slotSpatialAddSource(String sourceJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)
+      >('slot_spatial_add_source_json');
+
+      final ptr = sourceJson.toNativeUtf8();
+      try {
+        return fn(ptr);
+      } finally {
+        malloc.free(ptr);
+      }
+    } catch (_) {
+      return -1;
+    }
+  }
+
+  /// Remove a spatial audio source by event_id.
+  /// Returns 0 on success, -1 on error.
+  int slotSpatialRemoveSource(String eventId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)
+      >('slot_spatial_remove_source');
+
+      final ptr = eventId.toNativeUtf8();
+      try {
+        return fn(ptr);
+      } finally {
+        malloc.free(ptr);
+      }
+    } catch (_) {
+      return -1;
+    }
+  }
+
+  /// Get current spatial scene as JSON.
+  String? slotSpatialGetScene() {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()
+      >('slot_spatial_get_scene_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_spatial_free_string');
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Get number of active spatial sources.
+  int slotSpatialSourceCount() {
+    try {
+      final fn = _lib.lookupFunction<
+          Uint32 Function(),
+          int Function()
+      >('slot_spatial_source_count');
+      return fn();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // A/B Testing Analytics™ — Batch Simulation Engine
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// Start a batch A/B simulation in background.
+  /// [configJson] — JSON BatchSimConfig.
+  /// Returns task ID > 0 on success, 0 on error.
+  int abSimStart(String configJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Uint64 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)
+      >('ab_sim_start');
+
+      final ptr = configJson.toNativeUtf8();
+      try {
+        return fn(ptr);
+      } finally {
+        malloc.free(ptr);
+      }
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// Get simulation progress (0.0 – 1.0).
+  double abSimProgress(int taskId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Double Function(Uint64),
+          double Function(int)
+      >('ab_sim_progress');
+      return fn(taskId);
+    } catch (_) {
+      return 0.0;
+    }
+  }
+
+  /// Get simulation result as JSON.
+  /// Returns {"status":"running"} if still in progress.
+  String? abSimResult(int taskId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Uint64),
+          Pointer<Utf8> Function(int)
+      >('ab_sim_result_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('ab_sim_free_string');
+
+      final ptr = fn(taskId);
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Cancel a running A/B simulation.
+  void abSimCancel(int taskId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Void Function(Uint64),
+          void Function(int)
+      >('ab_sim_cancel');
+      fn(taskId);
+    } catch (_) {
+      // ignore
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // UCP Export™ — Universal Compliance Package Export
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// List available export formats.
+  /// Returns JSON array of {"name": "...", "version": "..."}.
+  String? slotExportFormats() {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()
+      >('slot_export_formats_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_export_free_string');
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Export to ALL formats at once.
+  /// [projectJson] — JSON FluxForgeExportProject.
+  /// Returns JSON array of per-format results.
+  String? slotExportAll(String projectJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('slot_export_all_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_export_free_string');
+
+      final ptr1 = projectJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SPECTRAL DNA — Audio Classifier (Level 2 Auto-bind)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Analyze a single audio file using Spectral DNA classifier.
+  /// Returns JSON with duration_ms, spectral features, and stage candidates.
+  String? spectralDnaAnalyze(String path) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('spectral_dna_analyze');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('free_string');
+
+      final pathPtr = path.toNativeUtf8();
+      try {
+        final resultPtr = fn(pathPtr);
+        if (resultPtr == nullptr) return null;
+        final result = resultPtr.toDartString();
+        freeFn(resultPtr);
+        return result;
+      } finally {
+        malloc.free(pathPtr);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Batch analyze multiple audio files.
+  /// [pathsJson] — JSON array of file paths.
+  /// Returns JSON array of analysis results.
+  String? spectralDnaAnalyzeBatch(List<String> paths) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('spectral_dna_analyze_batch');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('free_string');
+
+      final jsonStr = jsonEncode(paths);
+      final jsonPtr = jsonStr.toNativeUtf8();
+      try {
+        final resultPtr = fn(jsonPtr);
+        if (resultPtr == nullptr) return null;
+        final result = resultPtr.toDartString();
+        freeFn(resultPtr);
+        return result;
+      } finally {
+        malloc.free(jsonPtr);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Export to a single format.
+  /// [requestJson] — JSON {"project": {...}, "format": "howler"|"wwise"|"fmod"|"generic"}.
+  String? slotExportSingle(String requestJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('slot_export_single_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('slot_export_free_string');
+
+      final ptr1 = requestJson.toNativeUtf8();
+      try {
+        final ptr = fn(ptr1);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(ptr1);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// RAZOR EDIT FFI BINDINGS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+typedef _RazorAddAreaN = Uint64 Function(Uint64 trackId, Double start, Double end, Uint32 content);
+typedef _RazorAddAreaD = int Function(int trackId, double start, double end, int content);
+
+typedef _RazorUpdateAreaN = Int32 Function(Uint64 areaId, Double start, Double end);
+typedef _RazorUpdateAreaD = int Function(int areaId, double start, double end);
+
+typedef _RazorRemoveAreaN = Int32 Function(Uint64 areaId);
+typedef _RazorRemoveAreaD = int Function(int areaId);
+
+typedef _RazorClearAllN = Int32 Function();
+typedef _RazorClearAllD = int Function();
+
+typedef _RazorClearTrackN = Int32 Function(Uint64 trackId);
+typedef _RazorClearTrackD = int Function(int trackId);
+
+typedef _RazorHasAreasN = Int32 Function();
+typedef _RazorHasAreasD = int Function();
+
+typedef _RazorGetAreasJsonN = Pointer<Utf8> Function();
+typedef _RazorGetAreasJsonD = Pointer<Utf8> Function();
+
+typedef _RazorDeleteN = Int32 Function();
+typedef _RazorDeleteD = int Function();
+
+typedef _RazorSplitN = Int32 Function();
+typedef _RazorSplitD = int Function();
+
+typedef _RazorCutN = Pointer<Utf8> Function();
+typedef _RazorCutD = Pointer<Utf8> Function();
+
+typedef _RazorCopyN = Pointer<Utf8> Function();
+typedef _RazorCopyD = Pointer<Utf8> Function();
+
+typedef _RazorMoveN = Int32 Function(Double deltaTime, Uint64 targetTrackId);
+typedef _RazorMoveD = int Function(double deltaTime, int targetTrackId);
+
+typedef _RazorReverseN = Int32 Function();
+typedef _RazorReverseD = int Function();
+
+typedef _RazorStretchN = Int32 Function(Double ratio);
+typedef _RazorStretchD = int Function(double ratio);
+
+typedef _RazorDuplicateN = Int32 Function();
+typedef _RazorDuplicateD = int Function();
+
+// Razor extended operations
+typedef _RazorMuteN = Int32 Function(Int32 muted);
+typedef _RazorMuteD = int Function(int muted);
+
+typedef _RazorJoinN = Int32 Function();
+typedef _RazorJoinD = int Function();
+
+typedef _RazorFadeBothN = Int32 Function(Double fadeDuration);
+typedef _RazorFadeBothD = int Function(double fadeDuration);
+
+typedef _RazorHealSeparationN = Int32 Function();
+typedef _RazorHealSeparationD = int Function();
+
+typedef _RazorInsertSilenceN = Int32 Function(Double position, Double duration);
+typedef _RazorInsertSilenceD = int Function(double position, double duration);
+
+typedef _RazorStripSilenceN = Int32 Function(Double thresholdDb, Double minSilenceMs);
+typedef _RazorStripSilenceD = int Function(double thresholdDb, double minSilenceMs);
+
+typedef _RazorPasteN = Int32 Function(Pointer<Utf8> clipboardJson, Double pasteTime);
+typedef _RazorPasteD = int Function(Pointer<Utf8> clipboardJson, double pasteTime);
+
+// Glue
+typedef _EngineGlueClipsN = Uint64 Function(Uint64 clipAId, Uint64 clipBId);
+typedef _EngineGlueClipsD = int Function(int clipAId, int clipBId);
+
+/// Razor Edit + Glue FFI extension
+extension RazorEditFFI on NativeFFI {
+  static _RazorAddAreaD? _addArea;
+  static _RazorUpdateAreaD? _updateArea;
+  static _RazorRemoveAreaD? _removeArea;
+  static _RazorClearAllD? _clearAll;
+  static _RazorClearTrackD? _clearTrack;
+  static _RazorHasAreasD? _hasAreas;
+  static _RazorGetAreasJsonD? _getAreasJson;
+  static _RazorDeleteD? _razorDelete;
+  static _RazorSplitD? _razorSplit;
+  static _RazorCutD? _razorCut;
+  static _RazorCopyD? _razorCopy;
+  static _RazorMoveD? _razorMove;
+  static _RazorReverseD? _razorReverse;
+  static _RazorStretchD? _razorStretch;
+  static _RazorDuplicateD? _razorDuplicate;
+  static _RazorMuteD? _razorMute;
+  static _RazorJoinD? _razorJoin;
+  static _RazorFadeBothD? _razorFadeBoth;
+  static _RazorHealSeparationD? _razorHealSeparation;
+  static _RazorInsertSilenceD? _razorInsertSilence;
+  static _RazorStripSilenceD? _razorStripSilence;
+  static _RazorPasteD? _razorPaste;
+  static _EngineGlueClipsD? _glueClips;
+
+  void _initRazorFFI() {
+    _addArea ??= lib.lookupFunction<_RazorAddAreaN, _RazorAddAreaD>('razor_add_area');
+    _updateArea ??= lib.lookupFunction<_RazorUpdateAreaN, _RazorUpdateAreaD>('razor_update_area');
+    _removeArea ??= lib.lookupFunction<_RazorRemoveAreaN, _RazorRemoveAreaD>('razor_remove_area');
+    _clearAll ??= lib.lookupFunction<_RazorClearAllN, _RazorClearAllD>('razor_clear_all');
+    _clearTrack ??= lib.lookupFunction<_RazorClearTrackN, _RazorClearTrackD>('razor_clear_track');
+    _hasAreas ??= lib.lookupFunction<_RazorHasAreasN, _RazorHasAreasD>('razor_has_areas');
+    _getAreasJson ??= lib.lookupFunction<_RazorGetAreasJsonN, _RazorGetAreasJsonD>('razor_get_areas_json');
+    _razorDelete ??= lib.lookupFunction<_RazorDeleteN, _RazorDeleteD>('razor_delete');
+    _razorSplit ??= lib.lookupFunction<_RazorSplitN, _RazorSplitD>('razor_split');
+    _razorCut ??= lib.lookupFunction<_RazorCutN, _RazorCutD>('razor_cut');
+    _razorCopy ??= lib.lookupFunction<_RazorCopyN, _RazorCopyD>('razor_copy');
+    _razorMove ??= lib.lookupFunction<_RazorMoveN, _RazorMoveD>('razor_move');
+    _razorReverse ??= lib.lookupFunction<_RazorReverseN, _RazorReverseD>('razor_reverse');
+    _razorStretch ??= lib.lookupFunction<_RazorStretchN, _RazorStretchD>('razor_stretch');
+    _razorDuplicate ??= lib.lookupFunction<_RazorDuplicateN, _RazorDuplicateD>('razor_duplicate');
+    _razorMute ??= lib.lookupFunction<_RazorMuteN, _RazorMuteD>('razor_mute');
+    _razorJoin ??= lib.lookupFunction<_RazorJoinN, _RazorJoinD>('razor_join');
+    _razorFadeBoth ??= lib.lookupFunction<_RazorFadeBothN, _RazorFadeBothD>('razor_fade_both');
+    _razorHealSeparation ??= lib.lookupFunction<_RazorHealSeparationN, _RazorHealSeparationD>('razor_heal_separation');
+    _razorInsertSilence ??= lib.lookupFunction<_RazorInsertSilenceN, _RazorInsertSilenceD>('razor_insert_silence');
+    _razorStripSilence ??= lib.lookupFunction<_RazorStripSilenceN, _RazorStripSilenceD>('razor_strip_silence');
+    _razorPaste ??= lib.lookupFunction<_RazorPasteN, _RazorPasteD>('razor_paste');
+    _glueClips ??= lib.lookupFunction<_EngineGlueClipsN, _EngineGlueClipsD>('engine_glue_clips');
+  }
+
+  /// Add a razor area on a track. content: 0=Media, 1=Envelope, 2=Both
+  int razorAddArea(int trackId, double start, double end, {int content = 0}) {
+    _initRazorFFI();
+    return _addArea!(trackId, start, end, content);
+  }
+
+  /// Update razor area bounds during drag
+  bool razorUpdateArea(int areaId, double start, double end) {
+    _initRazorFFI();
+    return _updateArea!(areaId, start, end) != 0;
+  }
+
+  /// Remove a specific razor area
+  bool razorRemoveArea(int areaId) {
+    _initRazorFFI();
+    return _removeArea!(areaId) != 0;
+  }
+
+  /// Clear all razor areas
+  bool razorClearAll() {
+    _initRazorFFI();
+    return _clearAll!() != 0;
+  }
+
+  /// Clear razor areas for a specific track
+  bool razorClearTrack(int trackId) {
+    _initRazorFFI();
+    return _clearTrack!(trackId) != 0;
+  }
+
+  /// Check if any razor areas exist
+  bool razorHasAreas() {
+    _initRazorFFI();
+    return _hasAreas!() != 0;
+  }
+
+  /// Get all razor areas as JSON string
+  String? razorGetAreasJson() {
+    _initRazorFFI();
+    final ptr = _getAreasJson!();
+    if (ptr == nullptr) return null;
+    final result = ptr.toDartString();
+    freeString(ptr);
+    return result;
+  }
+
+  /// Delete content within all razor areas
+  bool razorDelete() {
+    _initRazorFFI();
+    return _razorDelete!() != 0;
+  }
+
+  /// Split clips at razor area boundaries
+  bool razorSplit() {
+    _initRazorFFI();
+    return _razorSplit!() != 0;
+  }
+
+  /// Cut content (copy + delete). Returns clipboard JSON
+  String? razorCut() {
+    _initRazorFFI();
+    final ptr = _razorCut!();
+    if (ptr == nullptr) return null;
+    final result = ptr.toDartString();
+    freeString(ptr);
+    return result;
+  }
+
+  /// Copy content within razor areas. Returns clipboard JSON
+  String? razorCopy() {
+    _initRazorFFI();
+    final ptr = _razorCopy!();
+    if (ptr == nullptr) return null;
+    final result = ptr.toDartString();
+    freeString(ptr);
+    return result;
+  }
+
+  /// Move razor content by time delta, optionally to target track
+  bool razorMove(double deltaTime, {int targetTrackId = 0}) {
+    _initRazorFFI();
+    return _razorMove!(deltaTime, targetTrackId) != 0;
+  }
+
+  /// Reverse audio within all razor areas
+  bool razorReverse() {
+    _initRazorFFI();
+    return _razorReverse!() != 0;
+  }
+
+  /// Stretch content within razor areas by ratio
+  bool razorStretch(double ratio) {
+    _initRazorFFI();
+    return _razorStretch!(ratio) != 0;
+  }
+
+  /// Duplicate razor content
+  int razorDuplicate() {
+    _initRazorFFI();
+    return _razorDuplicate!();
+  }
+
+  /// Mute/unmute clips within razor areas
+  bool razorMute({bool muted = true}) {
+    _initRazorFFI();
+    return _razorMute!(muted ? 1 : 0) != 0;
+  }
+
+  /// Join/glue all clips within razor areas per track
+  int razorJoin() {
+    _initRazorFFI();
+    return _razorJoin!();
+  }
+
+  /// Apply fade-in and fade-out to clips within razor areas
+  bool razorFadeBoth({double fadeDuration = 0.05}) {
+    _initRazorFFI();
+    return _razorFadeBoth!(fadeDuration) != 0;
+  }
+
+  /// Close gaps between clips by moving them left
+  bool razorHealSeparation() {
+    _initRazorFFI();
+    return _razorHealSeparation!() != 0;
+  }
+
+  /// Insert silence at position, pushing all clips forward
+  bool razorInsertSilence(double position, double duration) {
+    _initRazorFFI();
+    return _razorInsertSilence!(position, duration) != 0;
+  }
+
+  /// Strip silence from clips using threshold detection
+  int razorStripSilence({double thresholdDb = -60.0, double minSilenceMs = 100.0}) {
+    _initRazorFFI();
+    return _razorStripSilence!(thresholdDb, minSilenceMs);
+  }
+
+  /// Paste clips from clipboard JSON at given time position
+  int razorPaste(String clipboardJson, double pasteTime) {
+    _initRazorFFI();
+    final jsonPtr = clipboardJson.toNativeUtf8();
+    try {
+      return _razorPaste!(jsonPtr, pasteTime);
+    } finally {
+      calloc.free(jsonPtr);
+    }
+  }
+
+  /// Glue (join) two adjacent clips. Returns merged clip ID or 0
+  int glueClips(int clipAId, int clipBId) {
+    _initRazorFFI();
+    return _glueClips!(clipAId, clipBId);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CLIP ENVELOPE FFI BINDINGS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+typedef _ClipEnvEnableN = Int32 Function(Uint64 clipId, Uint8 envType);
+typedef _ClipEnvEnableD = int Function(int clipId, int envType);
+
+typedef _ClipEnvAddPointN = Int32 Function(Uint64 clipId, Uint8 envType, Uint64 offsetSamples, Double value);
+typedef _ClipEnvAddPointD = int Function(int clipId, int envType, int offsetSamples, double value);
+
+typedef _ClipEnvRemovePointN = Int32 Function(Uint64 clipId, Uint8 envType, Uint64 index);
+typedef _ClipEnvRemovePointD = int Function(int clipId, int envType, int index);
+
+typedef _ClipEnvClearN = Int32 Function(Uint64 clipId, Uint8 envType);
+typedef _ClipEnvClearD = int Function(int clipId, int envType);
+
+typedef _ClipEnvCountN = Int32 Function(Uint64 clipId, Uint8 envType);
+typedef _ClipEnvCountD = int Function(int clipId, int envType);
+
+typedef _ClipEnvValueAtN = Double Function(Uint64 clipId, Uint8 envType, Uint64 offsetSamples);
+typedef _ClipEnvValueAtD = double Function(int clipId, int envType, int offsetSamples);
+
+typedef _ClipEnvGetJsonN = Pointer<Utf8> Function(Uint64 clipId, Uint8 envType);
+typedef _ClipEnvGetJsonD = Pointer<Utf8> Function(int clipId, int envType);
+
+typedef _ClipEnvSetJsonN = Int32 Function(Uint64 clipId, Uint8 envType, Pointer<Utf8> json);
+typedef _ClipEnvSetJsonD = int Function(int clipId, int envType, Pointer<Utf8> json);
+
+/// Clip Envelope FFI extension
+/// envType: 0=Volume, 1=Pan, 2=Pitch, 3=Filter
+extension ClipEnvelopeFFI on NativeFFI {
+  static _ClipEnvEnableD? _envEnable;
+  static _ClipEnvEnableD? _envDisable;
+  static _ClipEnvAddPointD? _envAddPoint;
+  static _ClipEnvRemovePointD? _envRemovePoint;
+  static _ClipEnvClearD? _envClear;
+  static _ClipEnvCountD? _envCount;
+  static _ClipEnvValueAtD? _envValueAt;
+  static _ClipEnvGetJsonD? _envGetJson;
+  static _ClipEnvSetJsonD? _envSetJson;
+
+  void _initClipEnvFFI() {
+    _envEnable ??= lib.lookupFunction<_ClipEnvEnableN, _ClipEnvEnableD>('clip_envelope_enable');
+    _envDisable ??= lib.lookupFunction<_ClipEnvEnableN, _ClipEnvEnableD>('clip_envelope_disable');
+    _envAddPoint ??= lib.lookupFunction<_ClipEnvAddPointN, _ClipEnvAddPointD>('clip_envelope_add_point');
+    _envRemovePoint ??= lib.lookupFunction<_ClipEnvRemovePointN, _ClipEnvRemovePointD>('clip_envelope_remove_point');
+    _envClear ??= lib.lookupFunction<_ClipEnvClearN, _ClipEnvClearD>('clip_envelope_clear');
+    _envCount ??= lib.lookupFunction<_ClipEnvCountN, _ClipEnvCountD>('clip_envelope_point_count');
+    _envValueAt ??= lib.lookupFunction<_ClipEnvValueAtN, _ClipEnvValueAtD>('clip_envelope_value_at');
+    _envGetJson ??= lib.lookupFunction<_ClipEnvGetJsonN, _ClipEnvGetJsonD>('clip_envelope_get_points_json');
+    _envSetJson ??= lib.lookupFunction<_ClipEnvSetJsonN, _ClipEnvSetJsonD>('clip_envelope_set_points_json');
+  }
+
+  /// Enable clip envelope. envType: 0=Volume, 1=Pan, 2=Pitch, 3=Filter
+  bool clipEnvelopeEnable(int clipId, int envType) {
+    _initClipEnvFFI();
+    return _envEnable!(clipId, envType) != 0;
+  }
+
+  /// Disable clip envelope
+  bool clipEnvelopeDisable(int clipId, int envType) {
+    _initClipEnvFFI();
+    return _envDisable!(clipId, envType) != 0;
+  }
+
+  /// Add point to clip envelope. Returns point count or 0
+  int clipEnvelopeAddPoint(int clipId, int envType, int offsetSamples, double value) {
+    _initClipEnvFFI();
+    return _envAddPoint!(clipId, envType, offsetSamples, value);
+  }
+
+  /// Remove point at index
+  bool clipEnvelopeRemovePoint(int clipId, int envType, int index) {
+    _initClipEnvFFI();
+    return _envRemovePoint!(clipId, envType, index) != 0;
+  }
+
+  /// Clear all points
+  bool clipEnvelopeClear(int clipId, int envType) {
+    _initClipEnvFFI();
+    return _envClear!(clipId, envType) != 0;
+  }
+
+  /// Get point count
+  int clipEnvelopePointCount(int clipId, int envType) {
+    _initClipEnvFFI();
+    return _envCount!(clipId, envType);
+  }
+
+  /// Get interpolated value at sample offset
+  double clipEnvelopeValueAt(int clipId, int envType, int offsetSamples) {
+    _initClipEnvFFI();
+    return _envValueAt!(clipId, envType, offsetSamples);
+  }
+
+  /// Get all points as JSON
+  String? clipEnvelopeGetPointsJson(int clipId, int envType) {
+    _initClipEnvFFI();
+    final ptr = _envGetJson!(clipId, envType);
+    if (ptr == nullptr) return null;
+    final result = ptr.toDartString();
+    freeString(ptr);
+    return result;
+  }
+
+  /// Set points from JSON
+  bool clipEnvelopeSetPointsJson(int clipId, int envType, String json) {
+    _initClipEnvFFI();
+    final jsonPtr = json.toNativeUtf8();
+    try {
+      return _envSetJson!(clipId, envType, jsonPtr) != 0;
+    } finally {
+      malloc.free(jsonPtr);
     }
   }
 }

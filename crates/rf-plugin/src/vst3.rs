@@ -592,6 +592,12 @@ pub struct Vst3Host {
     /// In-process AU GUI window pointer (NSWindow*) — no subprocess needed
     #[cfg(target_os = "macos")]
     au_window: Mutex<Option<usize>>,
+    /// IPlugView COM pointer (Windows/Linux — stored for close_editor cleanup)
+    #[cfg(any(target_os = "windows", target_os = "linux"))]
+    plug_view: Mutex<Option<*mut c_void>>,
+    /// UI library handle (Windows/Linux — keep alive while editor is open)
+    #[cfg(any(target_os = "windows", target_os = "linux"))]
+    _ui_library: Mutex<Option<Arc<libloading::Library>>>,
 }
 
 // SAFETY: All fields are either Sync+Send or protected by atomics/mutexes
@@ -699,6 +705,10 @@ impl Vst3Host {
             au_gui: Mutex::new(None),
             #[cfg(target_os = "macos")]
             au_window: Mutex::new(None),
+            #[cfg(any(target_os = "windows", target_os = "linux"))]
+            plug_view: Mutex::new(None),
+            #[cfg(any(target_os = "windows", target_os = "linux"))]
+            _ui_library: Mutex::new(None),
         })
     }
 
@@ -1277,6 +1287,22 @@ impl PluginInstance for Vst3Host {
             *self.au_gui.lock() = None;
         }
 
+        #[cfg(any(target_os = "windows", target_os = "linux"))]
+        {
+            // Clean up IPlugView COM object
+            if let Some(plug_view) = self.plug_view.lock().take() {
+                unsafe {
+                    let vtable = *(plug_view as *const *const IPlugViewVtable);
+                    // Detach from parent window first
+                    let _ = ((*vtable).removed)(plug_view);
+                    // Release COM reference
+                    ((*vtable).release)(plug_view);
+                }
+            }
+            // Drop UI library (after plug_view is released)
+            *self._ui_library.lock() = None;
+        }
+
         self.editor_open.store(false, Ordering::SeqCst);
         log::info!("Closed editor for plugin: {}", self.info.name);
         Ok(())
@@ -1556,40 +1582,195 @@ impl Vst3Host {
     }
 }
 
+/// Minimal VST3 COM ABI definitions for IPlugView embedding.
+///
+/// VST3 plugins are COM-style objects. We need:
+///   IPluginFactory → createInstance(IEditController) → IEditController::createView("editor")
+///   → IPlugView::attached(parent, platformType)
+///
+/// The rack crate wraps audio processing but doesn't expose the GUI COM interfaces.
+/// We implement the minimal vtable layout here to call IPlugView directly.
+///
+/// VST3 SDK COM calling convention: *mut *const VTable, where VTable is function pointer array.
+
+// ── VST3 GUID helpers ─────────────────────────────────────────────────────
+type Vst3Guid = [u8; 16];
+
+/// IPlugView interface GUID: {5BC32507-D060-49EA-A615-1B522B755B29}
+const IPLUG_VIEW_IID: Vst3Guid = [
+    0x5B, 0xC3, 0x25, 0x07, 0xD0, 0x60, 0x49, 0xEA,
+    0xA6, 0x15, 0x1B, 0x52, 0x2B, 0x75, 0x5B, 0x29,
+];
+
+/// IEditController interface GUID: {DAF2127B-58E9-4A2F-8D4E-08A5A38C0DA4}
+const IEDIT_CONTROLLER_IID: Vst3Guid = [
+    0xDA, 0xF2, 0x12, 0x7B, 0x58, 0xE9, 0x4A, 0x2F,
+    0x8D, 0x4E, 0x08, 0xA5, 0xA3, 0x8C, 0x0D, 0xA4,
+];
+
+/// Minimal IPlugView vtable layout (VST3 SDK §4.3.2)
+/// Offsets match the SDK's IPlugView class vtable in COM calling order:
+///   [0] queryInterface [1] addRef [2] release
+///   [3] isPlatformTypeSupported [4] attached [5] removed
+///   [6] onWheel [7] onKeyDown [8] onKeyUp [9] setFrame [10] canResize [11] checkSizeConstraint
+#[repr(C)]
+struct IPlugViewVtable {
+    query_interface: unsafe extern "system" fn(*mut c_void, *const Vst3Guid, *mut *mut c_void) -> i32,
+    add_ref:  unsafe extern "system" fn(*mut c_void) -> u32,
+    release:  unsafe extern "system" fn(*mut c_void) -> u32,
+    is_platform_type_supported: unsafe extern "system" fn(*mut c_void, *const u8) -> i32,
+    attached: unsafe extern "system" fn(*mut c_void, *mut c_void, *const u8) -> i32,
+    removed:  unsafe extern "system" fn(*mut c_void) -> i32,
+    on_wheel: unsafe extern "system" fn(*mut c_void, f32) -> i32,
+    on_key_down: unsafe extern "system" fn(*mut c_void, u16, u16, u16) -> i32,
+    on_key_up:   unsafe extern "system" fn(*mut c_void, u16, u16, u16) -> i32,
+    set_frame:   unsafe extern "system" fn(*mut c_void, *mut c_void) -> i32,
+    can_resize:  unsafe extern "system" fn(*mut c_void) -> i32,
+    check_size_constraint: unsafe extern "system" fn(*mut c_void, *mut [i32; 4]) -> i32,
+}
+
+/// Minimal IEditController vtable (relevant portion only — createView is at offset +30 in SDK)
+/// We query IPlugView directly via queryInterface instead.
+#[repr(C)]
+struct IEditControllerVtable {
+    query_interface: unsafe extern "system" fn(*mut c_void, *const Vst3Guid, *mut *mut c_void) -> i32,
+    add_ref:  unsafe extern "system" fn(*mut c_void) -> u32,
+    release:  unsafe extern "system" fn(*mut c_void) -> u32,
+    // ... initialize, terminate (FUnknown+IPluginBase), then IEditController methods
+    // create_view is at vtable index 16 (0-indexed, after all base class methods)
+    _pad: [usize; 13], // FUnknown (3) + IPluginBase (2) + IEditController methods before createView (8)
+    create_view: unsafe extern "system" fn(*mut c_void, *const u8) -> *mut c_void,
+}
+
+/// Load GetPluginFactory from a VST3 binary and return (IPlugView ptr, library).
+/// Caller owns both the plug_view COM reference and the library handle.
+/// Library MUST be kept alive while plug_view is in use.
+unsafe fn vst3_load_plug_view(plugin_path: &Path, plugin_name: &str) -> Option<(*mut c_void, Arc<libloading::Library>)> { unsafe {
+    // Determine actual binary path inside .vst3 bundle
+    let binary_path = {
+        #[cfg(target_os = "windows")]
+        { plugin_path.join("Contents/x86_64-win").join(format!("{}.vst3", plugin_name)) }
+        #[cfg(target_os = "linux")]
+        { plugin_path.join("Contents/x86_64-linux").join(format!("{}.so", plugin_name)) }
+        #[cfg(target_os = "macos")]
+        { plugin_path.join("Contents/MacOS").join(plugin_name) }
+    };
+
+    if !binary_path.exists() {
+        log::warn!("VST3 binary not found at {:?}", binary_path);
+        return None;
+    }
+
+    // Load the binary
+    let lib = match libloading::Library::new(&binary_path) {
+        Ok(l) => l,
+        Err(e) => { log::error!("VST3 dlopen failed: {}", e); return None; }
+    };
+
+    // Get GetPluginFactory
+    type GetPluginFactoryFn = unsafe extern "system" fn() -> *mut c_void;
+    let get_factory: libloading::Symbol<GetPluginFactoryFn> = match lib.get(b"GetPluginFactory\0") {
+        Ok(f) => f,
+        Err(e) => { log::error!("GetPluginFactory missing: {}", e); return None; }
+    };
+
+    let factory = (*get_factory)();
+    if factory.is_null() { return None; }
+
+    // Query IEditController from factory (simplified: try to get class 0)
+    let factory_vtable = *(factory as *const *const [usize; 8]);
+    let query_interface_fn: unsafe extern "system" fn(*mut c_void, *const Vst3Guid, *mut *mut c_void) -> i32
+        = std::mem::transmute((*factory_vtable)[0]);
+
+    let mut edit_controller: *mut c_void = std::ptr::null_mut();
+    let hr = query_interface_fn(factory, &IEDIT_CONTROLLER_IID, &mut edit_controller);
+    if hr != 0 || edit_controller.is_null() {
+        log::warn!("IEditController QueryInterface failed hr={}", hr);
+        return None;
+    }
+
+    // Query IPlugView from IEditController
+    let ec_vtable = *(edit_controller as *const *const IEditControllerVtable);
+    let mut plug_view: *mut c_void = std::ptr::null_mut();
+    let hr2 = ((*ec_vtable).query_interface)(edit_controller, &IPLUG_VIEW_IID, &mut plug_view);
+    if hr2 != 0 || plug_view.is_null() {
+        log::warn!("IPlugView QueryInterface failed hr={}", hr2);
+        ((*ec_vtable).release)(edit_controller);
+        return None;
+    }
+
+    // Release edit_controller reference (plug_view holds its own)
+    ((*ec_vtable).release)(edit_controller);
+
+    let lib = Arc::new(lib);
+    Some((plug_view, lib))
+}}
+
 #[cfg(target_os = "windows")]
 impl Vst3Host {
     fn open_editor_windows(&mut self, parent: *mut c_void) -> PluginResult<()> {
         if parent.is_null() {
-            return Err(PluginError::InitError("Null parent window handle".into()));
+            return Err(PluginError::InitError("Null parent HWND for VST3 editor".into()));
         }
 
         log::info!(
-            "Windows plugin editor hosting for {} - parent HWND: {:?}",
-            self.info.name,
-            parent
+            "VST3 Windows editor: opening {} with parent HWND {:?}",
+            self.info.name, parent
         );
 
-        // Windows plugin GUI embedding via VST3's IPlugView
-        // The parent is an HWND that we need to embed the plugin's view into
-        //
-        // VST3 embedding on Windows:
-        // 1. Query IPlugView from plugin
-        // 2. Call attached(parent, "HWND") with the HWND
-        // 3. Handle resize via IPlugView::onSize()
-        //
-        // Current limitation: rack crate doesn't expose IPlugView
-        // Full implementation would require direct VST3 SDK integration
+        let (plug_view, ui_lib) = unsafe {
+            vst3_load_plug_view(&self.plugin_path, &self.info.name)
+        }.ok_or_else(|| PluginError::InitError(
+            format!("Failed to get IPlugView for {}", self.info.name)
+        ))?;
 
-        log::warn!(
-            "Plugin GUI embedding not yet fully implemented for Windows. \
-             Awaiting rack crate GUI API or direct VST3 integration."
-        );
+        // VST3 Windows platform type string: "HWND\0"
+        let platform_type = b"HWND\0";
 
+        let result = unsafe {
+            let vtable = *(plug_view as *const *const IPlugViewVtable);
+
+            // Check platform support
+            let supported = ((*vtable).is_platform_type_supported)(
+                plug_view, platform_type.as_ptr()
+            );
+            if supported != 0 {
+                log::warn!("VST3 plugin {} does not support HWND platform type", self.info.name);
+                ((*vtable).release)(plug_view);
+                return Err(PluginError::UnsupportedFormat(
+                    format!("{} does not support Windows GUI embedding", self.info.name)
+                ));
+            }
+
+            // Attach to parent HWND
+            ((*vtable).attached)(plug_view, parent, platform_type.as_ptr())
+        };
+
+        if result != 0 {
+            unsafe {
+                let vtable = *(plug_view as *const *const IPlugViewVtable);
+                ((*vtable).release)(plug_view);
+            }
+            return Err(PluginError::InitError(
+                format!("IPlugView::attached failed for {} (hr={})", self.info.name, result)
+            ));
+        }
+
+        // Store plug_view and library for cleanup in close_editor
+        *self.plug_view.lock() = Some(plug_view);
+        *self._ui_library.lock() = Some(ui_lib);
+
+        log::info!("VST3 Windows editor opened successfully: {}", self.info.name);
         Ok(())
     }
 
-    /// Get the preferred editor size for this plugin
     pub fn preferred_editor_size(&self) -> Option<(u32, u32)> {
+        if let Some(ref rp) = self.rack_plugin {
+            let lock = rp.lock();
+            if let Some((w, h)) = lock.inner.gui_size() {
+                return Some((w as u32, h as u32));
+            }
+        }
         Some((800, 600))
     }
 }
@@ -1598,38 +1779,68 @@ impl Vst3Host {
 impl Vst3Host {
     fn open_editor_linux(&mut self, parent: *mut c_void) -> PluginResult<()> {
         if parent.is_null() {
-            return Err(PluginError::InitError("Null parent window handle".into()));
+            return Err(PluginError::InitError("Null parent X11 Window ID for VST3 editor".into()));
         }
 
+        // On Linux, parent is an X11 Window (XID = unsigned long)
+        let xid = parent as usize;
         log::info!(
-            "Linux plugin editor hosting for {} - parent X11 window: {:?}",
-            self.info.name,
-            parent
+            "VST3 Linux editor: opening {} with X11 XID 0x{:x}",
+            self.info.name, xid
         );
 
-        // Linux plugin GUI embedding via X11 window embedding
-        // The parent is an X11 Window ID that we embed into
-        //
-        // VST3 on Linux:
-        // 1. Query IPlugView with platform "X11EmbedWindowID"
-        // 2. Call attached(parent) with the XID
-        // 3. Handle XEmbed protocol for proper embedding
-        //
-        // LV2 on Linux:
-        // 1. Use LV2 UI extension with X11 embedding
-        //
-        // Current limitation: rack crate doesn't expose GUI APIs
+        let (plug_view, ui_lib) = unsafe {
+            vst3_load_plug_view(&self.plugin_path, &self.info.name)
+        }.ok_or_else(|| PluginError::InitError(
+            format!("Failed to get IPlugView for {}", self.info.name)
+        ))?;
 
-        log::warn!(
-            "Plugin GUI embedding not yet fully implemented for Linux. \
-             Awaiting rack crate GUI API or direct X11/VST3 integration."
-        );
+        // VST3 Linux platform type: "X11EmbedWindowID\0"
+        let platform_type = b"X11EmbedWindowID\0";
 
+        let result = unsafe {
+            let vtable = *(plug_view as *const *const IPlugViewVtable);
+
+            let supported = ((*vtable).is_platform_type_supported)(
+                plug_view, platform_type.as_ptr()
+            );
+            if supported != 0 {
+                log::warn!("VST3 plugin {} does not support X11EmbedWindowID", self.info.name);
+                ((*vtable).release)(plug_view);
+                return Err(PluginError::UnsupportedFormat(
+                    format!("{} does not support Linux X11 GUI embedding", self.info.name)
+                ));
+            }
+
+            // Attach to X11 parent window via XEmbed protocol
+            ((*vtable).attached)(plug_view, parent, platform_type.as_ptr())
+        };
+
+        if result != 0 {
+            unsafe {
+                let vtable = *(plug_view as *const *const IPlugViewVtable);
+                ((*vtable).release)(plug_view);
+            }
+            return Err(PluginError::InitError(
+                format!("IPlugView::attached failed for {} (hr={})", self.info.name, result)
+            ));
+        }
+
+        // Store plug_view and library for cleanup in close_editor
+        *self.plug_view.lock() = Some(plug_view);
+        *self._ui_library.lock() = Some(ui_lib);
+
+        log::info!("VST3 Linux editor opened successfully via XEmbed: {}", self.info.name);
         Ok(())
     }
 
-    /// Get the preferred editor size for this plugin
     pub fn preferred_editor_size(&self) -> Option<(u32, u32)> {
+        if let Some(ref rp) = self.rack_plugin {
+            let lock = rp.lock();
+            if let Some((w, h)) = lock.inner.gui_size() {
+                return Some((w as u32, h as u32));
+            }
+        }
         Some((800, 600))
     }
 }

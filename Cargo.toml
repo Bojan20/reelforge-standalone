@@ -54,6 +54,24 @@ members = [
     "crates/cortex-daemon",
     # Slot Construction Kit — modular blueprint engine
     "crates/rf-slot-builder",
+    # Audio-aware batch spin simulator (T2.3)
+    "crates/rf-ab-sim",
+    # UCP Export Engine — Howler.js, Wwise, FMOD, Generic JSON (T3.1–T3.5)
+    "crates/rf-slot-export",
+    # NeuroAudio™ — Real-time Player Behavioral Signal Processor (T4.1–T4.2)
+    "crates/rf-neuro",
+    # AI Co-Pilot™ — Context-aware suggestion engine (T5.1–T5.4)
+    "crates/rf-copilot",
+    # Neural Fingerprint™ — Audio watermarking + A/B test analytics (T6.1–T6.5)
+    "crates/rf-fingerprint",
+    # Cloud Sync Engine — Git-like project versioning (T7.1)
+    "crates/rf-cloud-sync",
+    # Slot Spatial Audio — VR positioning, HRTF, Ambisonics export (T7.2–T7.4)
+    "crates/rf-slot-spatial",
+    # Procedural AI Generation — prompt→spec pipeline, FFNC auto-classification (T8.1–T8.4)
+    "crates/rf-ai-gen",
+    # RGAI™ — Responsible Gaming Audio Intelligence (T1.1–T1.7)
+    "crates/rf-rgai",
 ]
 
 [workspace.package]
@@ -87,6 +105,15 @@ rf-stage = { path = "crates/rf-stage" }
 rf-ingest = { path = "crates/rf-ingest" }
 rf-connector = { path = "crates/rf-connector" }
 rf-slot-lab = { path = "crates/rf-slot-lab" }
+rf-ab-sim = { path = "crates/rf-ab-sim" }
+rf-slot-export = { path = "crates/rf-slot-export" }
+rf-neuro = { path = "crates/rf-neuro" }
+rf-copilot = { path = "crates/rf-copilot" }
+rf-fingerprint = { path = "crates/rf-fingerprint" }
+rf-cloud-sync = { path = "crates/rf-cloud-sync" }
+rf-slot-spatial = { path = "crates/rf-slot-spatial" }
+rf-ai-gen = { path = "crates/rf-ai-gen" }
+rf-rgai = { path = "crates/rf-rgai" }
 rf-ale = { path = "crates/rf-ale" }
 rf-aurexis = { path = "crates/rf-aurexis" }
 rf-offline = { path = "crates/rf-offline" }

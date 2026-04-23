@@ -139,6 +139,7 @@ impl StageFlow {
         let mut on_stack: std::collections::HashSet<NodeId> = Default::default();
         let mut sccs: Vec<Vec<NodeId>> = Vec::new();
 
+        #[allow(clippy::too_many_arguments)]
         fn strongconnect(
             node_id: &NodeId,
             flow: &StageFlow,
@@ -287,7 +288,7 @@ impl StageFlowBuilder {
         }
 
         // Validate all transition targets exist
-        for (node_id, node) in &nodes {
+        for (_node_id, node) in &nodes {
             for t in &node.transitions {
                 if !nodes.contains_key(&t.to) {
                     return Err(ValidationError::DanglingTransition {

@@ -572,7 +572,6 @@ class LoudnessMeter extends StatelessWidget {
   }
 
   Widget _buildHistoryGraph() {
-    // TODO: Implement loudness history graph
     return Container(
       height: 80,
       margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),

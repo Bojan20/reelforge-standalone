@@ -374,9 +374,9 @@ void main() {
       expect(config.getMaxTierForWin(150.0, 10.0), 0);
     });
 
-    test('defaultConfig creates 5 tiers', () {
+    test('defaultConfig creates 8 tiers', () {
       final config = BigWinConfig.defaultConfig();
-      expect(config.tiers.length, 5);
+      expect(config.tiers.length, 8);
       expect(config.threshold, 20.0);
     });
   });
@@ -499,8 +499,10 @@ void main() {
       expect(firstRegularTier.rollupDurationMs, lessThan(600));
     });
 
-    test('all presets have exactly 5 big win tiers', () {
-      expect(SlotWinConfigurationPresets.standard.bigWins.tiers.length, 5);
+    test('presets have expected big-win tier counts', () {
+      // standard reuses BigWinConfig.defaultConfig() (8 tiers).
+      expect(SlotWinConfigurationPresets.standard.bigWins.tiers.length, 8);
+      // other presets define their own compact 5-tier big-win ladders.
       expect(SlotWinConfigurationPresets.highVolatility.bigWins.tiers.length, 5);
       expect(SlotWinConfigurationPresets.jackpotFocus.bigWins.tiers.length, 5);
       expect(SlotWinConfigurationPresets.mobileOptimized.bigWins.tiers.length, 5);

@@ -1,0 +1,17 @@
+[package]
+name = "rf-ai-gen"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Procedural AI Audio Generation Engine — prompt→spec pipeline, FFNC auto-categorization (T8.1–T8.4)"
+
+[lib]
+name = "rf_ai_gen"
+crate-type = ["rlib"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

@@ -52,7 +52,7 @@ void main() {
       const panel = UltimateAudioPanel(
         canUndo: true,
         canRedo: false,
-        undoDescription: 'Undo assign SPIN_START',
+        undoDescription: 'Undo assign UI_SPIN_PRESS',
       );
       expect(panel.canUndo, true);
       expect(panel.canRedo, false);

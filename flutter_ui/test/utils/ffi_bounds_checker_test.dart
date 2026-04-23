@@ -234,17 +234,17 @@ void main() {
         expect(FFIBoundsChecker.checkReelIndex(-1, 5).isValid, isFalse);
       });
 
-      test('checkTierIndex validates win tiers', () {
-        expect(FFIBoundsChecker.checkTierIndex(0).isValid, isTrue);  // WIN_LOW
-        expect(FFIBoundsChecker.checkTierIndex(6).isValid, isTrue);  // WIN_6
-        expect(FFIBoundsChecker.checkTierIndex(7).isValid, isFalse);
+      test('checkTierIndex validates win tiers (10 slots: WIN_LOW, WIN_EQUAL, WIN_1..8)', () {
+        expect(FFIBoundsChecker.checkTierIndex(0).isValid, isTrue);   // WIN_LOW slot
+        expect(FFIBoundsChecker.checkTierIndex(9).isValid, isTrue);   // WIN_8 slot
+        expect(FFIBoundsChecker.checkTierIndex(10).isValid, isFalse);
         expect(FFIBoundsChecker.checkTierIndex(-1).isValid, isFalse);
       });
 
-      test('checkBigWinTierIndex validates big win tiers', () {
+      test('checkBigWinTierIndex validates big win tiers (8 tiers)', () {
         expect(FFIBoundsChecker.checkBigWinTierIndex(0).isValid, isTrue);
-        expect(FFIBoundsChecker.checkBigWinTierIndex(4).isValid, isTrue);
-        expect(FFIBoundsChecker.checkBigWinTierIndex(5).isValid, isFalse);
+        expect(FFIBoundsChecker.checkBigWinTierIndex(7).isValid, isTrue);
+        expect(FFIBoundsChecker.checkBigWinTierIndex(8).isValid, isFalse);
       });
 
       test('checkJackpotTierIndex validates jackpot tiers', () {

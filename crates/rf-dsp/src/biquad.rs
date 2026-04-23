@@ -413,6 +413,20 @@ impl BiquadTDF2 {
         self.coeffs = BiquadCoeffs::bypass();
     }
 
+    /// Clear filter state (delay line) without changing coefficients.
+    /// Call on voice activate/deactivate to avoid clicks from stale history.
+    #[inline]
+    pub fn reset(&mut self) {
+        self.z1 = 0.0;
+        self.z2 = 0.0;
+    }
+
+    /// Current sample rate
+    #[inline]
+    pub fn sample_rate(&self) -> f64 {
+        self.sample_rate
+    }
+
     /// Process mono block with SIMD optimization
     #[cfg(target_arch = "x86_64")]
     pub fn process_block(&mut self, buffer: &mut [Sample]) {

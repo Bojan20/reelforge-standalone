@@ -792,6 +792,25 @@ pub extern "C" fn cortex_get_total_healed() -> u64 {
         .unwrap_or(0)
 }
 
+/// C FFI: Total commands drained by executor (dispatched AND processed, regardless of outcome).
+#[unsafe(no_mangle)]
+pub extern "C" fn cortex_get_commands_drained() -> u64 {
+    cortex_executor_shared()
+        .map(|s| s.total_drained.load(std::sync::atomic::Ordering::Relaxed))
+        .unwrap_or(0)
+}
+
+/// C FFI: Total commands that failed or could not heal (not_healed + failed).
+#[unsafe(no_mangle)]
+pub extern "C" fn cortex_get_commands_failed() -> u64 {
+    cortex_executor_shared()
+        .map(|s| {
+            s.total_failed.load(std::sync::atomic::Ordering::Relaxed)
+                + s.total_not_healed.load(std::sync::atomic::Ordering::Relaxed)
+        })
+        .unwrap_or(0)
+}
+
 /// C FFI: Has any chronic anomaly?
 #[unsafe(no_mangle)]
 pub extern "C" fn cortex_get_has_chronic() -> i32 {

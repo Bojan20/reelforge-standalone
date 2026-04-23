@@ -1,0 +1,134 @@
+#!/usr/bin/env bash
+# ═══════════════════════════════════════════════════════════════════════════
+# cortex_see — CORTEX oči za FluxForge
+#
+# Snima screenshot FluxForge app-a i čuva ga na /tmp/cortex_eye.png
+# Zatim Claude Code može da READ-a taj PNG i vidi UI.
+#
+# Upotreba:
+#   ./cortex_see              # full window snapshot
+#   ./cortex_see timeline     # specifičan region
+#   ./cortex_see state        # JSON opis UI stanja
+#   ./cortex_see regions      # lista regiona
+#   ./cortex_see ping         # provjera da li server radi
+#
+# Server mora biti pokrenut (FluxForge app otvoren).
+# ═══════════════════════════════════════════════════════════════════════════
+
+set -euo pipefail
+
+HOST="127.0.0.1"
+PORT="7735"
+BASE_URL="http://${HOST}:${PORT}"
+OUT="/tmp/cortex_eye.png"
+REGION_OUT="/tmp/cortex_eye_region.png"
+
+ACTION="${1:-snapshot}"
+
+# ─── Provjera servera ──────────────────────────────────────────────────────
+check_server() {
+  if ! curl -sf "${BASE_URL}/eye/ping" > /dev/null 2>&1; then
+    echo "❌ CortexEyeServer nije dostupan na ${BASE_URL}"
+    echo "   → Otvori FluxForge Studio i pričekaj inicijalizaciju"
+    exit 1
+  fi
+}
+
+# ─── Akcije ────────────────────────────────────────────────────────────────
+
+case "$ACTION" in
+  ping)
+    check_server
+    curl -s "${BASE_URL}/eye/ping" | python3 -m json.tool
+    ;;
+
+  snapshot|full)
+    check_server
+    echo "📸 Snimam FluxForge UI..."
+    HTTP_CODE=$(curl -s -o "$OUT" -w "%{http_code}" "${BASE_URL}/eye/snapshot")
+    if [ "$HTTP_CODE" = "200" ]; then
+      SIZE=$(wc -c < "$OUT" | tr -d ' ')
+      echo "✅ Screenshot sačuvan: $OUT (${SIZE} bytes)"
+      echo ""
+      echo "👁 Da vidim UI, pročitaj ovaj fajl u Claude Code-u:"
+      echo "   Read $OUT"
+    else
+      echo "❌ Snapshot failed (HTTP $HTTP_CODE)"
+      cat "$OUT"
+      exit 1
+    fi
+    ;;
+
+  state)
+    check_server
+    echo "🧠 UI stanje:"
+    curl -s "${BASE_URL}/eye/state" | python3 -m json.tool
+    ;;
+
+  regions)
+    check_server
+    echo "🗺  Registrovani regioni:"
+    curl -s "${BASE_URL}/eye/regions" | python3 -m json.tool
+    ;;
+
+  latest)
+    check_server
+    LATEST=$(curl -s "${BASE_URL}/eye/latest")
+    FILE=$(echo "$LATEST" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('file',''))")
+    if [ -n "$FILE" ] && [ -f "$FILE" ]; then
+      cp "$FILE" "$OUT"
+      echo "✅ Poslednji snapshot kopiran: $OUT"
+      echo "   Originalni: $FILE"
+      echo "   $(echo "$LATEST" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('resolution','')) ")"
+    else
+      echo "❌ Nema snimaka"
+    fi
+    ;;
+
+  observe)
+    check_server
+    INTERVAL="${2:-10}"
+    echo "👁 Pokretam auto-observe (${INTERVAL}s interval)..."
+    curl -s -X POST \
+      -H "Content-Type: application/json" \
+      -d "{\"action\":\"start\",\"intervalSeconds\":${INTERVAL}}" \
+      "${BASE_URL}/eye/observe" | python3 -m json.tool
+    ;;
+
+  stop-observe)
+    check_server
+    echo "⏹  Zaustavljam auto-observe..."
+    curl -s -X POST \
+      -H "Content-Type: application/json" \
+      -d '{"action":"stop"}' \
+      "${BASE_URL}/eye/observe" | python3 -m json.tool
+    ;;
+
+  *)
+    # Tretiramo argument kao ime regiona
+    check_server
+    REGION_NAME="$ACTION"
+    echo "📸 Snimam region: $REGION_NAME..."
+    HTTP_CODE=$(curl -s -o "$REGION_OUT" -w "%{http_code}" "${BASE_URL}/eye/region/${REGION_NAME}")
+    if [ "$HTTP_CODE" = "200" ]; then
+      cp "$REGION_OUT" "$OUT"
+      SIZE=$(wc -c < "$OUT" | tr -d ' ')
+      echo "✅ Region screenshot: $OUT (${SIZE} bytes)"
+      echo ""
+      echo "👁 Da vidim region, pročitaj:"
+      echo "   Read $OUT"
+    else
+      echo "❌ Region '$REGION_NAME' nije pronađen (HTTP $HTTP_CODE)"
+      echo ""
+      echo "Dostupni regioni:"
+      curl -s "${BASE_URL}/eye/regions" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+for r in d.get('regions', []):
+    mounted = '✓' if r.get('hasKey') else '✗'
+    print(f'  [{mounted}] {r[\"name\"]} — {r[\"description\"]}')
+"
+      exit 1
+    fi
+    ;;
+esac

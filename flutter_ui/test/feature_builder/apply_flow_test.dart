@@ -156,7 +156,11 @@ void main() {
       }
     });
 
-    test('generated stages have valid priorities (0-100)', () {
+    test('generated stages have valid priorities (0-127)', () {
+      // Priorities map to the hook-graph u8 priority byte (0..127 safe;
+      // 128..255 reserved for SoundID flags). The old 100 cap was an
+      // accidentally-tight assertion — e.g. TIER_5_WIN_INTRO legitimately
+      // uses 105 to outrank regular WIN_* stages during big-win playback.
       final provider = FeatureBuilderProvider();
 
       provider.enableBlock('free_spins');
@@ -164,7 +168,7 @@ void main() {
       final result = provider.generateStages();
 
       for (final stage in result.stages) {
-        expect(stage.stage.priority, inInclusiveRange(0, 100),
+        expect(stage.stage.priority, inInclusiveRange(0, 127),
             reason: 'Stage ${stage.stage.name} has invalid priority: ${stage.stage.priority}');
       }
     });

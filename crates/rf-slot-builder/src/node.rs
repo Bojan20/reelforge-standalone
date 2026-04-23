@@ -8,6 +8,7 @@
 //!
 //! Nodes are assembled into a [`StageFlow`] directed graph.
 
+use std::cmp::Reverse;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -552,7 +553,7 @@ impl StageNode {
     /// Sorted transitions by priority (desc) for evaluation
     pub fn sorted_transitions(&self) -> Vec<&StageTransition> {
         let mut t: Vec<&StageTransition> = self.transitions.iter().collect();
-        t.sort_by(|a, b| b.priority.cmp(&a.priority));
+        t.sort_by_key(|x| Reverse(x.priority));
         t
     }
 

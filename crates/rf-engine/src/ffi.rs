@@ -438,7 +438,7 @@ fn validate_audio_buffer(ptr: *const f64, frames: usize, context: &str) -> bool 
 
     // Check for potential overflow
     let byte_size = frames.checked_mul(std::mem::size_of::<f64>());
-    if !byte_size.map_or(false, |s| s <= MAX_FFI_BUFFER_SIZE) {
+    if byte_size.is_none_or(|s| s > MAX_FFI_BUFFER_SIZE) {
         log::warn!("FFI {} buffer size overflow", context);
         return false;
     }
@@ -3013,7 +3013,7 @@ pub extern "C" fn engine_set_bus_solo(bus_idx: i32, soloed: i32) {
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_set_bus_output(bus_idx: i32, target: i32) {
     if (0..6).contains(&bus_idx) {
-        let dest = if target >= 0 && target < 6 && target != bus_idx {
+        let dest = if (0..6).contains(&target) && target != bus_idx {
             crate::playback::BusOutputDest::Bus(target as usize)
         } else {
             crate::playback::BusOutputDest::Master
@@ -4508,6 +4508,124 @@ pub extern "C" fn return_set_solo(return_index: u32, solo: i32) {
     if let Some(bus) = manager.get(return_index as usize) {
         bus.set_solo(solo != 0);
     }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ORB MIXER FFI — Active voice query + per-voice control
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Get all active one-shot voices for OrbMixer display.
+/// Writes packed data to `out_buf`: 8 f64 per voice.
+/// Layout: [voice_id, bus_idx, volume, pan, peak_l, peak_r, state, looping]
+///   state: 0=playing, 1=looping, 2=fading
+/// `max_voices`: maximum voices to return.
+/// Returns: number of voices written.
+#[unsafe(no_mangle)]
+pub extern "C" fn orb_get_active_voices(
+    out_buf: *mut f64,
+    buf_len: usize,
+    max_voices: usize,
+) -> usize {
+    if out_buf.is_null() || buf_len == 0 {
+        return 0;
+    }
+    let out_slice = unsafe { std::slice::from_raw_parts_mut(out_buf, buf_len) };
+    PLAYBACK_ENGINE.get_active_voices_for_orb(out_slice, max_voices)
+}
+
+/// Set per-voice parameter from OrbMixer.
+/// param: 0=volume, 1=pan, 2=pitch (semitones), 3=mute (>0.5=true)
+/// Returns 1 on success, 0 on failure.
+#[unsafe(no_mangle)]
+pub extern "C" fn orb_set_voice_param(
+    voice_id: u64,
+    param: u8,
+    value: f32,
+) -> i32 {
+    PLAYBACK_ENGINE.set_voice_param(voice_id, param, value);
+    1
+}
+
+// ─── Phase 10e-2: Master-output ring-buffer capture ─────────────────────────
+
+/// Initialise or re-configure the master-output ring buffer.
+/// Safe to call before audio starts (init-time). Returns 1 on success.
+///
+/// `seconds` is clamped to the `MAX_SECONDS` constant (currently 10 s).
+/// If the ring was already initialised, this updates only the sample rate.
+#[unsafe(no_mangle)]
+pub extern "C" fn orb_ring_init(seconds: f32, sample_rate: u32) -> i32 {
+    MASTER_RING.ensure_capacity(seconds, sample_rate);
+    1
+}
+
+/// Return the number of frames written to the master ring since engine start.
+/// Used by the UI to detect whether any audio has played at all before asking
+/// for a capture (otherwise snapshot is empty and WAV would be a 0-sample file).
+#[unsafe(no_mangle)]
+pub extern "C" fn orb_ring_frames_written() -> u64 {
+    MASTER_RING.frames_written()
+}
+
+/// Capture the last `seconds` of master output to a 32-bit float stereo WAV
+/// at the UTF-8 path provided (null-terminated C string).
+///
+/// Returns the number of frames written on success, 0 on any failure
+/// (null path, invalid UTF-8, zero-length snapshot, I/O error, WAV write error).
+///
+/// The ring buffer will auto-initialise to `master_ring::DEFAULT_SECONDS` at
+/// `master_ring::DEFAULT_SAMPLE_RATE` if it has not been configured yet — but
+/// will only contain as much audio as has been played since engine start.
+#[unsafe(no_mangle)]
+pub extern "C" fn orb_capture_last_n_seconds(
+    path_ptr: *const std::os::raw::c_char,
+    seconds: f32,
+) -> u64 {
+    if path_ptr.is_null() || !seconds.is_finite() || seconds <= 0.0 {
+        return 0;
+    }
+    // Lazy init if caller forgot.
+    if MASTER_RING.capacity() == 0 {
+        MASTER_RING.ensure_capacity(
+            crate::master_ring::DEFAULT_SECONDS,
+            crate::master_ring::DEFAULT_SAMPLE_RATE,
+        );
+    }
+
+    // SAFETY: caller guarantees path_ptr is a valid null-terminated C string.
+    let cstr = unsafe { std::ffi::CStr::from_ptr(path_ptr) };
+    let path = match cstr.to_str() {
+        Ok(s) => s,
+        Err(_) => return 0,
+    };
+    if path.is_empty() { return 0; }
+
+    let (left, right, sr) = MASTER_RING.snapshot(seconds);
+    if left.is_empty() || left.len() != right.len() || sr == 0 {
+        return 0;
+    }
+
+    // Write interleaved stereo 32-bit float WAV.
+    let spec = hound::WavSpec {
+        channels: 2,
+        sample_rate: sr,
+        bits_per_sample: 32,
+        sample_format: hound::SampleFormat::Float,
+    };
+
+    let mut writer = match hound::WavWriter::create(path, spec) {
+        Ok(w) => w,
+        Err(_) => return 0,
+    };
+
+    let n = left.len();
+    for i in 0..n {
+        if writer.write_sample(left[i]).is_err() { return 0; }
+        if writer.write_sample(right[i]).is_err() { return 0; }
+    }
+    if writer.finalize().is_err() { return 0; }
+
+    n as u64
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -9452,10 +9570,11 @@ pub extern "C" fn elastic_apply_to_clip(clip_id: u32) -> i32 {
             let tid = TrackId(clip_id as u64);
             let clips = TRACK_MANAGER.get_clips_for_track(tid);
             if let Some(c) = clips.first() {
-                let mut cfg = rf_dsp::elastic_pro::ElasticProConfig::default();
-                cfg.stretch_ratio = c.stretch_ratio;
-                cfg.pitch_shift = c.pitch_shift;
-                cfg
+                rf_dsp::elastic_pro::ElasticProConfig {
+                    stretch_ratio: c.stretch_ratio,
+                    pitch_shift: c.pitch_shift,
+                    ..Default::default()
+                }
             } else {
                 rf_dsp::elastic_pro::ElasticProConfig::default()
             }
@@ -9510,7 +9629,7 @@ pub extern "C" fn elastic_apply_to_clip(clip_id: u32) -> i32 {
     // Signalsmith only compensates pitch), here Signalsmith does BOTH in one
     // pass — no cascading artifacts.
 
-    let mut stretcher = Stretch::preset_default(2, sample_rate as u32);
+    let mut stretcher = Stretch::preset_default(2, sample_rate);
     stretcher.set_transpose_factor_semitones(pitch_semitones as f32, None);
 
     // Apply formant preservation from config
@@ -19102,11 +19221,10 @@ pub extern "C" fn plugin_insert_get_mix(channel_id: u64, slot_index: u32) -> f32
 pub extern "C" fn plugin_insert_get_latency(channel_id: u64, slot_index: u32) -> i32 {
     // Query the insert chain for this track's specific slot latency
     let chains = PLAYBACK_ENGINE.get_track_insert_chain(crate::track_manager::TrackId(channel_id)).read();
-    if let Some(chain) = chains.get(&channel_id) {
-        if let Some(slot) = chain.slot(slot_index as usize) {
+    if let Some(chain) = chains.get(&channel_id)
+        && let Some(slot) = chain.slot(slot_index as usize) {
             return slot.latency() as i32;
         }
-    }
     0
 }
 
@@ -23869,6 +23987,16 @@ pub struct SharedMeterBuffer {
 
     // Spectrum data (32-band simplified spectrum for overview)
     pub spectrum_bands: [AtomicU64; 32],
+
+    // Phase 10e-3: per-bus 4-band RMS (linear, normalized 0..1-ish).
+    // Layout: [bus0_bass, bus0_lowmid, bus0_highmid, bus0_treble,
+    //          bus1_bass, bus1_lowmid, bus1_highmid, bus1_treble,
+    //          ... 6 buses ...]
+    // Bus indices match SlotLab bus order:
+    // 0=Master, 1=Music, 2=SFX, 3=VO, 4=Ambience, 5=Aux.
+    // Stored as f32 bits in AtomicU32 — per-band RMS is in [0, ~1.5] so f32
+    // precision is ample and this halves memory vs f64.
+    pub bus_band_rms: [AtomicU32; 24],
 }
 
 impl Default for SharedMeterBuffer {
@@ -23954,6 +24082,14 @@ impl SharedMeterBuffer {
                 AtomicU64::new(NEG_INF),
                 AtomicU64::new(NEG_INF),
             ],
+            bus_band_rms: [
+                AtomicU32::new(0), AtomicU32::new(0), AtomicU32::new(0), AtomicU32::new(0),
+                AtomicU32::new(0), AtomicU32::new(0), AtomicU32::new(0), AtomicU32::new(0),
+                AtomicU32::new(0), AtomicU32::new(0), AtomicU32::new(0), AtomicU32::new(0),
+                AtomicU32::new(0), AtomicU32::new(0), AtomicU32::new(0), AtomicU32::new(0),
+                AtomicU32::new(0), AtomicU32::new(0), AtomicU32::new(0), AtomicU32::new(0),
+                AtomicU32::new(0), AtomicU32::new(0), AtomicU32::new(0), AtomicU32::new(0),
+            ],
         }
     }
 
@@ -24019,6 +24155,12 @@ impl SharedMeterBuffer {
 
 /// Global shared meter buffer instance
 pub static SHARED_METERS: SharedMeterBuffer = SharedMeterBuffer::new();
+
+/// Global master-output ring buffer — 5s of the last master stereo @ engine SR.
+/// Audio thread writes on every block; UI thread exports via
+/// `orb_capture_last_n_seconds`. Lazily sized on first `ensure_capacity` call.
+pub static MASTER_RING: crate::master_ring::MasterRingBuffer =
+    crate::master_ring::MasterRingBuffer::empty();
 
 /// Get pointer to shared meter buffer
 /// Dart can use this pointer to read meters directly without FFI calls
@@ -24202,6 +24344,7 @@ pub extern "C" fn metering_update_spectrum_band(band: u32, value: f64) {
 ///   17 = psr, 18 = gain_reduction
 ///   19 = playback_position_samples, 20 = is_playing, 21 = sample_rate
 ///   22 = channel_peaks (base), 23 = spectrum_bands (base)
+///   24 = bus_band_rms (base, 24 × f32 = 6 buses × 4 bands)  [Phase 10e-3]
 #[unsafe(no_mangle)]
 pub extern "C" fn metering_get_field_offset(field_id: u32) -> u64 {
     use std::mem::offset_of;
@@ -24231,6 +24374,7 @@ pub extern "C" fn metering_get_field_offset(field_id: u32) -> u64 {
         21 => offset_of!(SharedMeterBuffer, sample_rate) as u64,
         22 => offset_of!(SharedMeterBuffer, channel_peaks) as u64,
         23 => offset_of!(SharedMeterBuffer, spectrum_bands) as u64,
+        24 => offset_of!(SharedMeterBuffer, bus_band_rms) as u64,
         _ => u64::MAX, // Invalid field
     }
 }
@@ -24927,6 +25071,18 @@ pub extern "C" fn razor_duplicate() -> i32 {
     })
 }
 
+/// Glue (join) two adjacent clips into one.
+/// Returns the merged clip ID (>0) on success, 0 on failure.
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_glue_clips(clip_a_id: u64, clip_b_id: u64) -> u64 {
+    ffi_panic_guard!(0, {
+        match TRACK_MANAGER.glue_clips(ClipId(clip_a_id), ClipId(clip_b_id)) {
+            Some(id) => id.0,
+            None => 0,
+        }
+    })
+}
+
 /// Helper: convert razor clipboard to JSON c_char pointer
 fn razor_clipboard_to_json(
     clipboard: &[(f64, crate::track_manager::TrackId, crate::track_manager::Clip)],
@@ -24959,6 +25115,117 @@ fn razor_clipboard_to_json(
         Ok(c) => c.into_raw(),
         Err(_) => std::ptr::null_mut(),
     }
+}
+
+/// Mute clips within razor areas.
+/// muted: 1 = mute, 0 = unmute
+#[unsafe(no_mangle)]
+pub extern "C" fn razor_mute(muted: i32) -> i32 {
+    ffi_panic_guard!(0, {
+        TRACK_MANAGER.razor_mute(muted != 0);
+        1
+    })
+}
+
+/// Join (glue) all clips within razor areas on each track.
+/// Returns number of resulting clips.
+#[unsafe(no_mangle)]
+pub extern "C" fn razor_join() -> i32 {
+    ffi_panic_guard!(0, {
+        let result = TRACK_MANAGER.razor_join();
+        result.len() as i32
+    })
+}
+
+/// Apply fade in + fade out to clips within razor areas.
+/// fade_duration: fade duration in seconds.
+#[unsafe(no_mangle)]
+pub extern "C" fn razor_fade_both(fade_duration: f64) -> i32 {
+    ffi_panic_guard!(0, {
+        TRACK_MANAGER.razor_fade_both(fade_duration);
+        1
+    })
+}
+
+/// Heal separation: close gaps between clips within razor areas.
+#[unsafe(no_mangle)]
+pub extern "C" fn razor_heal_separation() -> i32 {
+    ffi_panic_guard!(0, {
+        TRACK_MANAGER.razor_heal_separation();
+        1
+    })
+}
+
+/// Insert silence: push clips forward from cursor position.
+/// position: time in seconds. duration: silence duration in seconds.
+#[unsafe(no_mangle)]
+pub extern "C" fn razor_insert_silence(position: f64, duration: f64) -> i32 {
+    ffi_panic_guard!(0, {
+        TRACK_MANAGER.razor_insert_silence(position, duration);
+        1
+    })
+}
+
+/// Strip silence: split and remove silent regions within razor areas.
+/// threshold_db: silence threshold (e.g., -60.0)
+/// min_silence_ms: minimum silence duration in ms (e.g., 200.0)
+#[unsafe(no_mangle)]
+pub extern "C" fn razor_strip_silence(threshold_db: f64, min_silence_ms: f64) -> i32 {
+    ffi_panic_guard!(0, {
+        TRACK_MANAGER.razor_strip_silence(threshold_db, min_silence_ms)
+    })
+}
+
+/// Paste clipboard content at given position.
+/// clipboard_json: JSON string from razor_cut/razor_copy.
+/// paste_time: time in seconds to paste at.
+/// Returns number of clips pasted.
+#[unsafe(no_mangle)]
+pub extern "C" fn razor_paste(clipboard_json: *const c_char, paste_time: f64) -> i32 {
+    ffi_panic_guard!(0, {
+        if clipboard_json.is_null() {
+            return 0;
+        }
+        let json_str = unsafe { CStr::from_ptr(clipboard_json) }.to_str().unwrap_or("");
+        if json_str.is_empty() {
+            return 0;
+        }
+        // Parse clipboard JSON back into clip data
+        let parsed: Result<Vec<serde_json::Value>, _> = serde_json::from_str(json_str);
+        match parsed {
+            Ok(items) => {
+                let mut clipboard = Vec::new();
+                for item in &items {
+                    let rel_time = item["rel_time"].as_f64().unwrap_or(0.0);
+                    let track_id = item["track_id"].as_u64().unwrap_or(0);
+                    let name = item["name"].as_str().unwrap_or("pasted").to_string();
+                    let source = item["source"].as_str().unwrap_or("").to_string();
+                    let start = item["start"].as_f64().unwrap_or(0.0);
+                    let duration = item["duration"].as_f64().unwrap_or(1.0);
+                    let source_offset = item["source_offset"].as_f64().unwrap_or(0.0);
+                    let gain = item["gain"].as_f64().unwrap_or(1.0);
+                    let reversed = item["reversed"].as_bool().unwrap_or(false);
+
+                    let mut clip = crate::track_manager::Clip::new(
+                        crate::track_manager::TrackId(track_id),
+                        &name,
+                        &source,
+                        start,
+                        duration,
+                    );
+                    clip.source_file = source;
+                    clip.source_offset = source_offset;
+                    clip.gain = gain;
+                    clip.reversed = reversed;
+
+                    clipboard.push((rel_time, crate::track_manager::TrackId(track_id), clip));
+                }
+                let new_ids = TRACK_MANAGER.razor_paste(&clipboard, paste_time, None);
+                new_ids.len() as i32
+            }
+            Err(_) => 0,
+        }
+    })
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -25900,4 +26167,72 @@ pub extern "C" fn hook_graph_poll_feedback(max_events: u32) -> *mut c_char {
 
     let json = format!("[{}]", events.join(","));
     string_to_cstr(&json)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SONIC DNA CLASSIFIER FFI
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Klasifikuje sve audio fajlove u folderu.
+///
+/// Vraća JSON string sa PlacementResult:
+/// ```json
+/// {
+///   "classifications": [
+///     { "original_path": "/path/to/boom.wav", "sound_type": "BigWin",
+///       "ffnc_name": "sfx_big_win.wav", "confidence": 0.87,
+///       "variant_index": 0 }
+///   ],
+///   "missing_types": ["Rollup", "Transition"],
+///   "type_counts": { "sfx_big_win": 1 },
+///   "avg_confidence": 0.87
+/// }
+/// ```
+///
+/// Vraća null pointer na grešci.
+#[unsafe(no_mangle)]
+pub extern "C" fn sonic_dna_classify_folder(folder_path: *const c_char) -> *mut c_char {
+    let path_str = unsafe {
+        if folder_path.is_null() {
+            return std::ptr::null_mut();
+        }
+        match CStr::from_ptr(folder_path).to_str() {
+            Ok(s) => s,
+            Err(_) => return std::ptr::null_mut(),
+        }
+    };
+
+    let folder = std::path::Path::new(path_str);
+    if !folder.is_dir() {
+        let err = r#"{"error":"not a directory"}"#;
+        return CString::new(err).map(|s| s.into_raw()).unwrap_or(std::ptr::null_mut());
+    }
+
+    // Feature extraction (može potrajati za veće foldere)
+    let extracted = crate::sonic_dna_extractor::extract_features_from_folder(folder);
+    if extracted.is_empty() {
+        let empty = r#"{"classifications":[],"missing_types":[],"type_counts":{},"avg_confidence":0.0}"#;
+        return CString::new(empty).map(|s| s.into_raw()).unwrap_or(std::ptr::null_mut());
+    }
+
+    let (paths, features): (Vec<String>, Vec<rf_stage::FeatureVector>) = extracted.into_iter().unzip();
+
+    // Classification + placement
+    let result = rf_stage::classify_and_place(&paths, features);
+
+    // Serialize to JSON
+    match serde_json::to_string(&result) {
+        Ok(json) => CString::new(json).map(|s| s.into_raw()).unwrap_or(std::ptr::null_mut()),
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
+/// Oslobodi CString alociran od sonic_dna_classify_folder
+#[unsafe(no_mangle)]
+pub extern "C" fn sonic_dna_free_result(ptr: *mut c_char) {
+    if !ptr.is_null() {
+        unsafe {
+            let _ = CString::from_raw(ptr);
+        }
+    }
 }

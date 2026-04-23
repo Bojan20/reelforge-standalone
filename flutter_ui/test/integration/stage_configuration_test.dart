@@ -54,10 +54,11 @@ void main() {
 
   group('Stage lookup', () {
     test('getStage is case-insensitive', () {
+      // Use a stage we know is registered. Three case variants of the same
+      // name must all resolve to the same canonical definition.
       final upper = service.getStage('UI_SPIN_PRESS');
-      final lower = service.getStage('spin_start');
-      final mixed = service.getStage('Spin_Start');
-      // All should resolve the same (or all null if not registered)
+      final lower = service.getStage('ui_spin_press');
+      final mixed = service.getStage('Ui_Spin_Press');
       if (upper != null) {
         expect(lower?.name, upper.name);
         expect(mixed?.name, upper.name);

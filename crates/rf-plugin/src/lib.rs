@@ -481,6 +481,10 @@ impl PluginHost {
                     optional_features: Vec::new(),
                     bundle_path: info.path.clone(),
                     binary_name: String::new(),
+                    ui_bundle_path: None,
+                    ui_binary_name: None,
+                    ui_type_uri: None,
+                    ui_uri: None,
                 };
                 let instance = lv2::Lv2PluginInstance::load(&descriptor)?;
                 Box::new(instance)
@@ -543,6 +547,10 @@ impl PluginHost {
                     optional_features: Vec::new(),
                     bundle_path: info.path.clone(),
                     binary_name: String::new(),
+                    ui_bundle_path: None,
+                    ui_binary_name: None,
+                    ui_type_uri: None,
+                    ui_uri: None,
                 };
                 let instance = lv2::Lv2PluginInstance::load(&descriptor)?;
                 Box::new(instance)

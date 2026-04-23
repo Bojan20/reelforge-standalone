@@ -615,10 +615,10 @@ impl SharedAudioBuffer {
         let available = self.len - (write.wrapping_sub(read));
         let to_write = samples.len().min(available);
 
-        for i in 0..to_write {
+        for (i, &sample) in samples.iter().enumerate().take(to_write) {
             let idx = (write + i) % self.len;
             // SAFETY: idx is within bounds (modulo len), ptr is valid.
-            unsafe { self.ptr.add(idx).write(samples[i]) };
+            unsafe { self.ptr.add(idx).write(sample) };
         }
 
         self.write_pos.store((write + to_write) as u64, Ordering::Release);
@@ -633,10 +633,10 @@ impl SharedAudioBuffer {
         let available = write.wrapping_sub(read);
         let to_read = output.len().min(available);
 
-        for i in 0..to_read {
+        for (i, slot) in output.iter_mut().enumerate().take(to_read) {
             let idx = (read + i) % self.len;
             // SAFETY: idx is within bounds (modulo len), ptr is valid.
-            output[i] = unsafe { self.ptr.add(idx).read() };
+            *slot = unsafe { self.ptr.add(idx).read() };
         }
 
         self.read_pos.store((read + to_read) as u64, Ordering::Release);
@@ -1284,7 +1284,7 @@ impl BridgeRustHandle {
                     Err(e) => CortexResponse::error(
                         request.id,
                         5010,
-                        &format!("Load failed: {e}"),
+                        format!("Load failed: {e}"),
                     ),
                 }
             }
@@ -1295,7 +1295,7 @@ impl BridgeRustHandle {
                     Err(e) => CortexResponse::error(
                         request.id,
                         5011,
-                        &format!("Save failed: {e}"),
+                        format!("Save failed: {e}"),
                     ),
                 }
             }
@@ -1341,7 +1341,7 @@ impl BridgeRustHandle {
                     Err(e) => CortexResponse::error(
                         request.id,
                         5012,
-                        &format!("Export failed: {e:?}"),
+                        format!("Export failed: {e:?}"),
                     ),
                 }
             }

@@ -19,6 +19,7 @@ class CrossfadeOverlay extends StatefulWidget {
   /// Called when startTime and/or duration changes (full resize support)
   final void Function(double startTime, double duration)? onFullUpdate;
   final VoidCallback? onDelete;
+  final ValueChanged<CrossfadeCurve>? onCurveTypeChanged;
 
   const CrossfadeOverlay({
     super.key,
@@ -29,6 +30,7 @@ class CrossfadeOverlay extends StatefulWidget {
     this.onUpdate,
     this.onFullUpdate,
     this.onDelete,
+    this.onCurveTypeChanged,
   });
 
   @override
@@ -41,6 +43,42 @@ class _CrossfadeOverlayState extends State<CrossfadeOverlay> {
   double _startDuration = 0;
   double _startStartTime = 0;
   double _startX = 0;
+
+  void _showCurveMenu(BuildContext context, Offset position) {
+    if (widget.onCurveTypeChanged == null) return;
+    final current = widget.crossfade.curveType;
+    showMenu<CrossfadeCurve>(
+      context: context,
+      position: RelativeRect.fromLTRB(position.dx, position.dy, position.dx + 1, position.dy + 1),
+      color: const Color(0xFF1A1A24),
+      items: CrossfadeCurve.values.map((curve) {
+        final label = switch (curve) {
+          CrossfadeCurve.linear => 'Linear',
+          CrossfadeCurve.equalPower => 'Equal Power',
+          CrossfadeCurve.sCurve => 'S-Curve',
+          CrossfadeCurve.logarithmic => 'Logarithmic',
+          CrossfadeCurve.exponential => 'Exponential',
+        };
+        return PopupMenuItem<CrossfadeCurve>(
+          value: curve,
+          child: Row(
+            children: [
+              if (curve == current)
+                const Icon(Icons.check, size: 16, color: Color(0xFF64FFDA))
+              else
+                const SizedBox(width: 16),
+              const SizedBox(width: 8),
+              Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
+            ],
+          ),
+        );
+      }).toList(),
+    ).then((value) {
+      if (value != null && value != current) {
+        widget.onCurveTypeChanged!(value);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,6 +95,7 @@ class _CrossfadeOverlayState extends State<CrossfadeOverlay> {
       height: widget.height - 4,
       child: GestureDetector(
         onDoubleTap: widget.onDelete,
+        onSecondaryTapUp: (details) => _showCurveMenu(context, details.globalPosition),
         child: Container(
           decoration: BoxDecoration(
             border: Border.all(

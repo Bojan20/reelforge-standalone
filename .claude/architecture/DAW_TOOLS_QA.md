@@ -682,12 +682,15 @@ FFI CHAIN:
 | FFI Funkcija | Rust (ffi.rs) | Dart Binding (native_ffi.dart) | Koristi se? |
 |-------------|--------------|-------------------------------|-------------|
 | `edit_mode_set()` | ✅ L8587, čuva u EDIT_CONTEXT | ✅ `editModeSet()` L8174 | ✅ `EditModeProProvider:419` poziva ga |
-| `razor_add_area()` | ✅ L23995 | ❌ **NEMA BINDING** | N/A |
-| `razor_delete/cut/copy/split()` | ✅ L24108-24139 | ❌ **NEMA BINDING** | N/A |
-| `razor_move/reverse/stretch/dup()` | ✅ L24149-24183 | ❌ **NEMA BINDING** | N/A |
-| `clip_envelope_*()` | ✅ Postoji | ❌ **NEMA BINDING** | N/A |
-| `clip_fade_in/out()` curveType | ✅ Param postoji | ✅ Binding postoji (L5633/5639) | ⚠️ curveType se IGNORIŠE u Rust |
-| `createCrossfade()` | ✅ Radi | ✅ Binding postoji (L4617) | ✅ Koristi se u auto-crossfade |
-| `bounceStart()` | ✅ Radi | ✅ Binding postoji (L8715) | ✅ Koristi se za export |
+| `razor_add_area()` | ✅ | ✅ `razorAddArea()` | ✅ RazorEditProvider |
+| `razor_delete/cut/copy/split()` | ✅ | ✅ `razorDelete/Cut/Copy/Split()` | ✅ RazorEditProvider.executeAction() |
+| `razor_move/reverse/stretch/dup()` | ✅ | ✅ `razorMove/Reverse/Stretch/Duplicate()` | ✅ RazorEditProvider |
+| `razor_mute/join/fadeBoth()` | ✅ | ✅ `razorMute/Join/FadeBoth()` | ✅ RazorEditProvider.executeAction() |
+| `razor_healSeparation/insertSilence/stripSilence()` | ✅ | ✅ Dart bindings | ✅ RazorEditProvider |
+| `razor_paste()` | ✅ | ✅ `razorPaste()` | ✅ RazorEditProvider (clipboard JSON) |
+| `clip_envelope_*()` | ✅ | ✅ `clipEnvelope*()` | ✅ ClipEnvelopeFFI extension |
+| `clip_fade_in/out()` curveType | ✅ | ✅ Binding postoji | ✅ engine_connected_layout wiring |
+| `createCrossfade()` | ✅ | ✅ Binding postoji | ✅ auto-crossfade + curve wiring |
+| `bounceStart()` | ✅ | ✅ Binding postoji | ✅ Koristi se za export |
 
-**ZAKLJUČAK:** Od 30+ Rust FFI funkcija za editing, crossfade (3), bounce (2), fade (2), i edit mode (10+ funkcija: set/get mode, grid, tempo, sample rate, snap, time sig) imaju Dart bindinge i KORISTE SE. Razor (15 funkcija) i Envelope (~5) NEMAJU Dart binding — moraju se prvo dodati u `native_ffi.dart` pre UI wiring-a. Jedini preostali nedostatak za edit modes: Rust `move_clip()` ne konsultuje EDIT_CONTEXT.
+**ZAKLJUČAK (ažurirano 2026-04-21):** Svih 22+ Razor FFI funkcija sada imaju kompletne Dart bindinge i wirovani su kroz RazorEditProvider.executeAction(). Preostale 2 akcije bez FFI (bounce, process) zahtevaju posebne pipeline-ove (DOP dijalog, offline render engine). Crossfade curve i clip fade curve wirovani kroz TrackLane→Timeline→engine_connected_layout. Clip envelope FFI bindinge kompletne.

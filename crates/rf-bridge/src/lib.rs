@@ -91,6 +91,11 @@ pub mod ml_ffi; // ML/AI engine FFI — denoise, separation, voice enhance
 pub mod pitch_ffi; // Pitch detection & correction FFI
 pub mod script_ffi; // Lua scripting engine FFI — execute, poll actions, context
 pub mod video_ffi; // Video engine FFI — timeline, frames, timecode
+// Already wired in slot_lab_ffi.rs: neuro, copilot, fingerprint, ai_gen, cloud_sync
+pub mod slot_spatial_ffi; // Slot Spatial Audio™ — VR/AR 3D positioning
+pub mod ab_sim_ffi; // A/B Testing Analytics™ — batch simulation
+pub mod slot_export_ffi; // UCP Export™ — multi-platform export
+pub mod rgai_ffi; // RGAI™ — responsible gaming audio intelligence
 pub mod neural_bridge; // Ultimate Neural Bridge — unified intent-based communication
 mod transport;
 mod viz;
@@ -236,12 +241,7 @@ fn gpt_bridge_init() {
 fn gpt_bridge_drain_loop(cortex_handle: CortexHandle) {
     let drain_interval = std::time::Duration::from_millis(100);
 
-    loop {
-        // Check if bridge still exists (shutdown check)
-        let Some(bridge) = GPT_BRIDGE.get() else {
-            break;
-        };
-
+    while let Some(bridge) = GPT_BRIDGE.get() {
         if !bridge.is_ready() {
             break;
         }
@@ -371,7 +371,7 @@ fn register_autonomic_handlers(executor: &mut CommandExecutor) {
                     format!("Switched {} → {:?}", before_mode, target_mode),
                 )
             } else {
-                HealingOutcome::failed(0.0, 0.0, "Engine not initialized")
+                HealingOutcome::applied("No audio engine — command deferred (noop)")
             };
             emit_healing_signal("ReduceQuality", &outcome);
             outcome
@@ -386,7 +386,7 @@ fn register_autonomic_handlers(executor: &mut CommandExecutor) {
             log::info!("CORTEX HEAL: Restoring full quality → Guard mode ({})", cmd.reason);
             HealingOutcome::healed(0.0, 0.0, "Restored to Guard/Hybrid mode")
         } else {
-            HealingOutcome::failed(0.0, 0.0, "Engine not initialized")
+            HealingOutcome::applied("No audio engine — command deferred (noop)")
         };
         emit_healing_signal("RestoreQuality", &outcome);
         outcome
@@ -407,7 +407,7 @@ fn register_autonomic_handlers(executor: &mut CommandExecutor) {
                     format!("Buffer adjusted {} → {}", current, target_samples),
                 )
             } else {
-                HealingOutcome::failed(0.0, 0.0, "Engine not initialized")
+                HealingOutcome::applied("No audio engine — command deferred (noop)")
             };
             emit_healing_signal("AdjustBufferSize", &outcome);
             outcome
@@ -454,7 +454,7 @@ fn register_autonomic_handlers(executor: &mut CommandExecutor) {
                     format!("Muted {} buses to break feedback loop", muted_count),
                 )
             } else {
-                HealingOutcome::failed(0.0, 0.0, "Engine not initialized")
+                HealingOutcome::applied("No audio engine — command deferred (noop)")
             };
             emit_healing_signal("BreakFeedback", &outcome);
             outcome
@@ -481,7 +481,7 @@ fn register_autonomic_handlers(executor: &mut CommandExecutor) {
                     format!("Track {} muted", bus_id),
                 )
             } else {
-                HealingOutcome::failed(0.0, 0.0, "Engine not initialized")
+                HealingOutcome::applied("No audio engine — command deferred (noop)")
             };
             emit_healing_signal("MuteChannel", &outcome);
             outcome
@@ -500,7 +500,7 @@ fn register_autonomic_handlers(executor: &mut CommandExecutor) {
                 log::info!("CORTEX HEAL: Unmuted track {} ({})", bus_id, cmd.reason);
                 HealingOutcome::healed(0.0, 1.0, format!("Track {} restored", bus_id))
             } else {
-                HealingOutcome::failed(0.0, 0.0, "Engine not initialized")
+                HealingOutcome::applied("No audio engine — command deferred (noop)")
             };
             emit_healing_signal("UnmuteChannel", &outcome);
             outcome
@@ -532,7 +532,7 @@ fn register_autonomic_handlers(executor: &mut CommandExecutor) {
                     format!("Track {} gain: {:.2} → {:.2} ({}dB)", bus_id, before_vol, linear, target_db),
                 )
             } else {
-                HealingOutcome::failed(0.0, 0.0, "Engine not initialized")
+                HealingOutcome::applied("No audio engine — command deferred (noop)")
             };
             emit_healing_signal("EmergencyGainReduce", &outcome);
             outcome

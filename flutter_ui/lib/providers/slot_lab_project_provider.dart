@@ -595,6 +595,74 @@ class SlotLabProjectProvider extends ChangeNotifier {
     _markDirty();
   }
 
+  // ────────────────────────────────────────────────────────────────────────
+  // TRANSACTION API — used by AutoBindEngine for atomic apply + rollback
+  // ────────────────────────────────────────────────────────────────────────
+
+  /// Export a snapshot of current audio assignments for rollback purposes.
+  Map<String, String> exportAudioAssignmentsSnapshot() =>
+      Map<String, String>.unmodifiable(Map.from(_audioAssignments));
+
+  /// Restore a snapshot produced by [exportAudioAssignmentsSnapshot].
+  void restoreAudioAssignmentsSnapshot(Map<String, String> snapshot) {
+    _audioAssignments
+      ..clear()
+      ..addAll(snapshot);
+    _audioVariants.clear();
+    ffncLayerData = {};
+    _markDirty();
+    notifyListeners();
+  }
+
+  /// Atomically apply a complete auto-bind result from AutoBindEngine.
+  ///
+  /// Transaction order:
+  ///   1. Clear current state
+  ///   2. Apply all primary bindings
+  ///   3. Apply variant pools
+  ///   4. Apply layer data
+  ///   5. Create GAME_START composite if needed
+  ///   6. Create MusicLayerConfig if 2+ layers
+  ///   7. Mark dirty + notify
+  ///
+  /// Any exception propagates to caller; snapshot-based rollback is the
+  /// caller's responsibility (AutoBindEngine.apply handles this).
+  void applyAutoBindTransaction({
+    required Map<String, String> primaryBindings,
+    required Map<String, List<String>> variantPools,
+    required Map<String, List<({String path, int layer, String? variant})>> layerData,
+  }) {
+    // Step 1: Clear ALL existing state
+    _audioAssignments.clear();
+    _audioVariants.clear();
+    ffncLayerData = {};
+
+    // Step 2: Apply all primary bindings
+    for (final entry in primaryBindings.entries) {
+      _audioAssignments[entry.key] = entry.value;
+    }
+
+    // Step 3: Apply variant pools
+    for (final entry in variantPools.entries) {
+      _audioVariants[entry.key] = List<String>.from(entry.value);
+    }
+
+    // Step 4: Apply layer data
+    ffncLayerData = Map.from(layerData);
+
+    // Step 5: GAME_START composite
+    _createBaseGameMusicComposite(primaryBindings);
+
+    // Step 6: MusicLayerConfig
+    _autoCreateMusicLayerConfig(primaryBindings);
+
+    // Step 7: Finalize
+    if (primaryBindings.isNotEmpty) _markDirty();
+    notifyListeners();
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
+
   /// Auto-bind audio files from a folder to stages based on filename patterns.
   /// Returns record with bindings (stage→filePath) and unmapped file names.
   /// When [dryRun] is true, only analyzes without applying bindings (for preview).
@@ -1504,9 +1572,18 @@ class SlotLabProjectProvider extends ChangeNotifier {
     _markDirty();
   }
 
-  /// Update grid configuration (can be called independently of full GDD import)
+  /// Update grid configuration and propagate to Rust engine + stage/audio providers.
+  /// Full chain: Dart config → SlotLabCoordinator.updateGridSize → FFI slotLabSetGridSize
+  /// → StageProvider.setTotalReels → AudioProvider.setTotalReels
   void setGridConfig(GddGridConfig config) {
     _gridConfig = config;
+    // Propagate to Rust engine + stage/audio providers via coordinator
+    try {
+      final coordinator = GetIt.instance<SlotLabCoordinator>();
+      coordinator.updateGridSize(config.columns, config.rows);
+    } catch (_) {
+      // Coordinator may not be available outside SlotLab context — config still saved
+    }
     _markDirty();
   }
 
@@ -1526,8 +1603,67 @@ class SlotLabProjectProvider extends ChangeNotifier {
   /// Get GDD math model (if GDD is imported)
   GddMathModel? get gddMath => _importedGdd?.math;
 
+  // ==========================================================================
+  // AUDIO DNA PERSISTENCE (HELIX DNA panel)
+  // ==========================================================================
+
+  String _dnaBrand = 'VanVinkl';
+  String _dnaRootKey = 'C';
+  String _dnaMode = 'minor';
+  double _dnaBpmMin = 110;
+  double _dnaBpmMax = 140;
+  List<String> _dnaInstruments = ['piano', 'strings', 'brass'];
+  String _dnaBaseProfile = 'ambient_dark';
+  String _dnaFeatureProfile = 'epic_orchestral';
+  double _dnaWinEscalation = 1.5;
+  double _dnaAmbientLayerCount = 3;
+
+  String get dnaBrand => _dnaBrand;
+  String get dnaRootKey => _dnaRootKey;
+  String get dnaMode => _dnaMode;
+  double get dnaBpmMin => _dnaBpmMin;
+  double get dnaBpmMax => _dnaBpmMax;
+  List<String> get dnaInstruments => List.unmodifiable(_dnaInstruments);
+  String get dnaBaseProfile => _dnaBaseProfile;
+  String get dnaFeatureProfile => _dnaFeatureProfile;
+  double get dnaWinEscalation => _dnaWinEscalation;
+  double get dnaAmbientLayerCount => _dnaAmbientLayerCount;
+
+  void setAudioDna({
+    required String brand,
+    required String rootKey,
+    required String mode,
+    required double bpmMin,
+    required double bpmMax,
+    required List<String> instruments,
+    required String baseProfile,
+    required String featureProfile,
+    required double winEscalation,
+    required double ambientLayerCount,
+  }) {
+    _dnaBrand = brand;
+    _dnaRootKey = rootKey;
+    _dnaMode = mode;
+    _dnaBpmMin = bpmMin;
+    _dnaBpmMax = bpmMax;
+    _dnaInstruments = List.from(instruments);
+    _dnaBaseProfile = baseProfile;
+    _dnaFeatureProfile = featureProfile;
+    _dnaWinEscalation = winEscalation;
+    _dnaAmbientLayerCount = ambientLayerCount;
+    _markDirty();
+    notifyListeners();
+  }
+
   // Session stats getters (Dashboard Integration)
   SessionStats get sessionStats => _sessionStats;
+  /// Target RTP from GDD math config, defaults to 96.0% (industry standard)
+  /// GddMathModel.rtp is 0.0-1.0 scale, we return as percentage
+  double get targetRtp {
+    final gddRtp = _importedGdd?.math.rtp;
+    if (gddRtp == null) return 96.0;
+    return gddRtp <= 1.0 ? gddRtp * 100.0 : gddRtp;
+  }
   List<SessionWin> get recentWins => List.unmodifiable(_recentWins);
 
   /// Record a spin result (updates session stats)

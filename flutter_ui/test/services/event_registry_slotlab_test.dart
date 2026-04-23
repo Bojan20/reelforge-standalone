@@ -193,11 +193,13 @@ void main() {
 
   group('ContainerType', () {
     test('values are defined', () {
-      expect(ContainerType.values.length, 4);
+      // Container types: none, blend, random, sequence, switchContainer.
+      expect(ContainerType.values.length, 5);
       expect(ContainerType.none.index, 0);
       expect(ContainerType.blend.index, 1);
       expect(ContainerType.random.index, 2);
       expect(ContainerType.sequence.index, 3);
+      expect(ContainerType.switchContainer.index, 4);
     });
 
     test('displayName returns human-readable strings', () {
@@ -222,8 +224,9 @@ void main() {
     });
 
     test('fromValue returns none for out-of-range values', () {
+      // Valid indices are now 0..4 (switchContainer added at index 4).
       expect(ContainerTypeExtension.fromValue(-1), ContainerType.none);
-      expect(ContainerTypeExtension.fromValue(4), ContainerType.none);
+      expect(ContainerTypeExtension.fromValue(5), ContainerType.none);
       expect(ContainerTypeExtension.fromValue(100), ContainerType.none);
     });
   });
@@ -342,7 +345,9 @@ void main() {
       expect(json['duration'], 3.5);
       expect(json['loop'], true);
       expect(json['priority'], 80);
-      expect(json['containerType'], ContainerType.blend.value);
+      // toJson now stores the enum *name* (string) rather than its int value
+      // so project JSON stays readable when inspected by humans / diff tools.
+      expect(json['containerType'], ContainerType.blend.name);
       expect(json['containerId'], 7);
       expect(json['overlap'], false);
       expect(json['crossfadeMs'], 500);
@@ -493,11 +498,14 @@ void main() {
     });
 
     test('displayName returns numbered tier labels', () {
-      expect(BigWinTier.tier1.displayName, 'WIN 1');
-      expect(BigWinTier.tier2.displayName, 'WIN 2');
-      expect(BigWinTier.tier3.displayName, 'WIN 3');
-      expect(BigWinTier.tier4.displayName, 'WIN 4');
-      expect(BigWinTier.tier5.displayName, 'WIN 5');
+      // Canonical display names are "BIG WIN TIER N" — the "WIN N" short
+      // form was retired when we added the 8-tier big-win ladder so there
+      // is no label collision with regular WIN_N stages.
+      expect(BigWinTier.tier1.displayName, 'BIG WIN TIER 1');
+      expect(BigWinTier.tier2.displayName, 'BIG WIN TIER 2');
+      expect(BigWinTier.tier3.displayName, 'BIG WIN TIER 3');
+      expect(BigWinTier.tier4.displayName, 'BIG WIN TIER 4');
+      expect(BigWinTier.tier5.displayName, 'BIG WIN TIER 5');
     });
 
     test('minRatio returns correct thresholds', () {
@@ -524,19 +532,15 @@ void main() {
       expect(BigWinTier.tier5.toJson(), 'tier_5');
     });
 
-    test('fromJson parses both new and legacy formats', () {
-      // New format
+    test('fromJson parses tier_N format', () {
+      // Canonical format. Old "win/big_win/mega_win/epic_win/ultra_win"
+      // legacy aliases were removed — projects saved before the migration
+      // were one-shot rewritten to tier_N on load.
       expect(BigWinTier.fromJson('tier_1'), BigWinTier.tier1);
       expect(BigWinTier.fromJson('tier_2'), BigWinTier.tier2);
       expect(BigWinTier.fromJson('tier_3'), BigWinTier.tier3);
       expect(BigWinTier.fromJson('tier_4'), BigWinTier.tier4);
       expect(BigWinTier.fromJson('tier_5'), BigWinTier.tier5);
-      // Legacy format (backward compat)
-      expect(BigWinTier.fromJson('win'), BigWinTier.tier1);
-      expect(BigWinTier.fromJson('big_win'), BigWinTier.tier2);
-      expect(BigWinTier.fromJson('mega_win'), BigWinTier.tier3);
-      expect(BigWinTier.fromJson('epic_win'), BigWinTier.tier4);
-      expect(BigWinTier.fromJson('ultra_win'), BigWinTier.tier5);
     });
 
     test('fromJson returns null for invalid input', () {
@@ -733,8 +737,12 @@ void main() {
 
   group('Stage sealed class', () {
     test('SpinStart has correct typeName and category', () {
+      // SpinStart.typeName is aliased to 'ui_spin_press' — the old
+      // 'spin_start' stage was collapsed into UI_SPIN_PRESS in the 10e
+      // stage cleanup so the button press and the transport event share
+      // one handler.
       const stage = SpinStart();
-      expect(stage.typeName, 'spin_start');
+      expect(stage.typeName, 'ui_spin_press');
       expect(stage.category, StageDomainCategory.spinLifecycle);
       expect(stage.isLooping, false);
       expect(stage.shouldDuckMusic, false);
@@ -1052,7 +1060,7 @@ void main() {
         timestampMs: 1234.0,
       );
 
-      expect(event.typeName, 'spin_start');
+      expect(event.typeName, 'ui_spin_press');
       expect(event.timestampMs, 1234.0);
       expect(event.tags, isEmpty);
       expect(event.sourceEvent, isNull);
@@ -1129,7 +1137,8 @@ void main() {
     });
 
     test('hasStage checks for typeName presence', () {
-      expect(trace.hasStage('spin_start'), true);
+      // SpinStart.typeName was rewired to ui_spin_press.
+      expect(trace.hasStage('ui_spin_press'), true);
       expect(trace.hasStage('reel_stop'), true);
       expect(trace.hasStage('evaluate_wins'), true);
       expect(trace.hasStage('jackpot_trigger'), false);
@@ -1233,7 +1242,7 @@ void main() {
       expect(restored.traceId, trace.traceId);
       expect(restored.gameId, trace.gameId);
       expect(restored.events, hasLength(trace.events.length));
-      expect(restored.events.first.typeName, 'spin_start');
+      expect(restored.events.first.typeName, 'ui_spin_press');
       expect(restored.events.last.typeName, 'spin_end');
     });
   });
@@ -1328,7 +1337,7 @@ void main() {
     test('eventsAt returns active events at given time', () {
       final at50 = timedTrace.eventsAt(50.0);
       expect(at50, hasLength(1));
-      expect(at50.first.event.typeName, 'spin_start');
+      expect(at50.first.event.typeName, 'ui_spin_press');
 
       final at500 = timedTrace.eventsAt(500.0);
       expect(at500, hasLength(1));

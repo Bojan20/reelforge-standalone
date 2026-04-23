@@ -110,7 +110,7 @@ import '../widgets/common/context_menu.dart';
 import '../widgets/editor/clip_editor.dart' as clip_editor;
 import '../widgets/editors/crossfade_editor.dart';
 import '../widgets/timeline/automation_lane.dart';
-import 'slot_lab_screen.dart';
+import 'helix_screen.dart';
 import '../widgets/dsp/time_stretch_panel.dart';
 import '../widgets/dsp/delay_panel.dart';
 import '../widgets/dsp/dynamics_panel.dart';
@@ -152,6 +152,7 @@ import 'settings/midi_settings_screen.dart';
 import 'settings/plugin_manager_screen.dart';
 import 'settings/shortcuts_settings_screen.dart';
 import 'project/project_settings_screen.dart';
+import '../providers/warp_state_provider.dart';
 import 'main_layout.dart';
 import '../widgets/project/track_templates_panel.dart';
 import '../widgets/project/project_versions_panel.dart';
@@ -354,6 +355,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         return c;
       }).toList();
     });
+    // Keep WarpStateProvider in sync so warp panels react reactively
+    if (mounted) {
+      sl<WarpStateProvider>().refreshForClip(numericId);
+    }
   }
 
   /// Update a single track by ID without rebuilding the entire list.
@@ -6818,12 +6823,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   /// PERFORMANCE: Center content without Consumer wrapper
   /// Uses the existing _buildDAWCenterContent which already has Selector inside
   Widget _buildCenterContentOptimized() {
-    // Slot Lab mode — fullscreen slot lab as center content (control bar stays visible)
+    // Slot Lab mode — prikazuje HELIX direktno, SlotLab UI je isključen (ne briše se)
     if (_editorMode == EditorMode.slot) {
-      return SlotLabScreen(
+      return HelixScreen(
         onClose: () {
-          // If launched directly as SlotLab, go back to launcher
-          // If switched from DAW, go back to DAW
           if (widget.initialEditorMode == EditorMode.slot) {
             widget.onBackToLauncher?.call();
           } else {
@@ -7673,6 +7676,33 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         _mwTimelineSyncController.handleClipParameterChanged(clipId, 'fadeIn', fadeIn);
         _mwTimelineSyncController.handleClipParameterChanged(clipId, 'fadeOut', fadeOut);
       },
+      onClipFadeCurveChange: (clipId, fadeInCurve, fadeOutCurve) {
+        // Map FadeCurve enum to Rust curve_type u8
+        int curveToIndex(FadeCurve curve) => switch (curve) {
+          FadeCurve.linear => 0,
+          FadeCurve.log3 => 1,
+          FadeCurve.sine => 2,
+          FadeCurve.log1 => 3,
+          FadeCurve.invSCurve => 4,
+          FadeCurve.sCurve => 5,
+          FadeCurve.exp1 => 6,
+          FadeCurve.exp3 => 7,
+        };
+        // Re-apply fades with new curves
+        final clip = _clips.firstWhere((c) => c.id == clipId, orElse: () => _clips.first);
+        if (clip.id == clipId) {
+          if (clip.fadeIn > 0) {
+            EngineApi.instance.fadeInClip(clipId, clip.fadeIn, curveType: curveToIndex(fadeInCurve));
+          }
+          if (clip.fadeOut > 0) {
+            EngineApi.instance.fadeOutClip(clipId, clip.fadeOut, curveType: curveToIndex(fadeOutCurve));
+          }
+          setState(() {
+            _clips = _clips.map((c) => c.id == clipId
+              ? c.copyWith(fadeInCurve: fadeInCurve, fadeOutCurve: fadeOutCurve) : c).toList();
+          });
+        }
+      },
       onClipRename: (clipId, newName) {
         // Block rename on MW-synced clips — names are controlled by middleware
         if (_mwTimelineSyncController.isMwSyncedClip(clipId)) return;
@@ -8301,17 +8331,21 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         NativeFFI.instance.clipDetectTransients(numericClipId);
         // Step 2: Create warp markers from transients
         NativeFFI.instance.clipWarpCreateFromTransients(numericClipId);
-        // Step 3: Quantize to beat grid
+        // Step 3: Quantize to beat grid — use provider strength (user-adjustable)
+        final warpProvider = context.read<WarpStateProvider>();
+        final quantizeStrength = warpProvider.quantizeStrength;
+        // BPM: user override → detected source tempo → project tempo
         final currentTempo = context.read<EngineProvider>().transport.tempo;
-        final beatDuration = 60.0 / currentTempo;
-        NativeFFI.instance.clipWarpQuantize(numericClipId, beatDuration, 1.0);
+        final effectiveBpm = warpProvider.effectiveSourceBpm ?? currentTempo;
+        final beatDuration = 60.0 / effectiveBpm;
+        NativeFFI.instance.clipWarpQuantize(numericClipId, beatDuration, quantizeStrength);
         _refreshClipWarpState(clipId);
         UiUndoManager.instance.record(GenericUndoAction(
           description: 'Warp to Tempo',
           onExecute: () {
             NativeFFI.instance.clipDetectTransients(numericClipId);
             NativeFFI.instance.clipWarpCreateFromTransients(numericClipId);
-            NativeFFI.instance.clipWarpQuantize(numericClipId, beatDuration, 1.0);
+            NativeFFI.instance.clipWarpQuantize(numericClipId, beatDuration, quantizeStrength);
             _refreshClipWarpState(clipId);
           },
           onUndo: () {
@@ -8515,6 +8549,25 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       onCrossfadeDelete: (crossfadeId) {
         setState(() {
           _crossfades = _crossfades.where((x) => x.id != crossfadeId).toList();
+        });
+      },
+      onCrossfadeCurveChanged: (crossfadeId, curve) {
+        // Map CrossfadeCurve enum to Rust u32
+        final curveIndex = switch (curve) {
+          timeline.CrossfadeCurve.linear => 0,
+          timeline.CrossfadeCurve.equalPower => 1,
+          timeline.CrossfadeCurve.sCurve => 2,
+          timeline.CrossfadeCurve.logarithmic => 3,
+          timeline.CrossfadeCurve.exponential => 4,
+        };
+        final xfadeIdInt = int.tryParse(RegExp(r'\d+').firstMatch(crossfadeId)?.group(0) ?? '');
+        if (xfadeIdInt != null) {
+          final xfade = _crossfades.firstWhere((x) => x.id == crossfadeId, orElse: () => _crossfades.first);
+          NativeFFI.instance.updateCrossfade(xfadeIdInt, xfade.duration, curveIndex);
+        }
+        setState(() {
+          _crossfades = _crossfades.map((x) => x.id == crossfadeId
+            ? x.copyWith(curveType: curve) : x).toList();
         });
       },
       // File drop callback for drag & drop audio files from system

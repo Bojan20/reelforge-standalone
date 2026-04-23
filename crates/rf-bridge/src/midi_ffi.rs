@@ -341,3 +341,61 @@ pub extern "C" fn midi_send_raw(data: *const u8, len: u8) -> i32 {
         Err(_) => -1,
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PLUGIN INSTRUMENT MIDI INJECTION (BUG #24)
+// Routes live MIDI from Dart UI directly to instrument plugin instances.
+// Events are merged into the instrument MIDI buffer on the audio thread.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Inject MIDI note-on into an instrument track's plugin.
+/// track_id: the track that owns the instrument plugin.
+/// channel: MIDI channel (0-15).
+/// note: MIDI note number (0-127).
+/// velocity: note velocity (0-127).
+/// Returns 1 on success, -1 if parameters invalid.
+#[unsafe(no_mangle)]
+pub extern "C" fn midi_inject_note_on_to_track(
+    track_id: u64,
+    channel: u8,
+    note: u8,
+    velocity: u8,
+) -> i32 {
+    if note > 127 || velocity > 127 || channel > 15 {
+        return -1;
+    }
+    rf_engine::playback::inject_live_midi_note(track_id, channel, note, velocity, true);
+    1
+}
+
+/// Inject MIDI note-off into an instrument track's plugin.
+/// track_id: the track that owns the instrument plugin.
+/// channel: MIDI channel (0-15).
+/// note: MIDI note number (0-127).
+/// velocity: release velocity (0-127, typically 64).
+/// Returns 1 on success, -1 if parameters invalid.
+#[unsafe(no_mangle)]
+pub extern "C" fn midi_inject_note_off_to_track(
+    track_id: u64,
+    channel: u8,
+    note: u8,
+    velocity: u8,
+) -> i32 {
+    if note > 127 || channel > 15 {
+        return -1;
+    }
+    rf_engine::playback::inject_live_midi_note(track_id, channel, note, velocity, false);
+    1
+}
+
+/// Inject all-notes-off (CC 123) into an instrument track's plugin.
+/// Used for panic/stop to silence stuck notes.
+/// Returns 1 on success.
+#[unsafe(no_mangle)]
+pub extern "C" fn midi_inject_all_notes_off_to_track(track_id: u64) -> i32 {
+    // Inject note-off for all 128 notes on channel 0
+    for note in 0u8..=127 {
+        rf_engine::playback::inject_live_midi_note(track_id, 0, note, 0, false);
+    }
+    1
+}

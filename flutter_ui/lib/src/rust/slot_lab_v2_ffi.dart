@@ -610,6 +610,223 @@ extension SlotLabV2FFI on NativeFFI {
       return GameModelResult.error('Exception: $e');
     }
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AUDIO ASSET RESOLUTION — Stage→canonical asset IDs
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Resolve audio assets for all stages from the last spin.
+  ///
+  /// Returns list of stage audio bindings:
+  /// ```dart
+  /// [
+  ///   {
+  ///     "stage_index": 0,
+  ///     "stage_type": "reel_stop",
+  ///     "timestamp_ms": 150,
+  ///     "assets": [
+  ///       { "asset_id": "sfx_reel_stop_0", "category": "sfx", "looping": false, "exclusive": false }
+  ///     ]
+  ///   }
+  /// ]
+  /// ```
+  List<Map<String, dynamic>> resolveAudioAssets() {
+    try {
+      final fn = lib.lookupFunction<
+        Pointer<Utf8> Function(),
+        Pointer<Utf8> Function()
+      >('slot_lab_resolve_audio_assets');
+
+      final freeFn = lib.lookupFunction<
+        Void Function(Pointer<Utf8>),
+        void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr = fn();
+      if (ptr == nullptr) return [];
+
+      try {
+        final json = ptr.toDartString();
+        final list = jsonDecode(json) as List;
+        return list.cast<Map<String, dynamic>>();
+      } finally {
+        freeFn(ptr);
+      }
+    } catch (e) {
+      dev.log('[SlotLabFFI] resolveAudioAssets error: $e');
+      return [];
+    }
+  }
+
+  /// Resolve audio assets for a single stage (by JSON).
+  ///
+  /// Input: stage JSON, e.g. `{"type":"reel_stop","reel_index":2,"symbols":[]}`
+  /// Returns list of audio asset bindings.
+  List<Map<String, dynamic>> resolveStageAudio(String stageJson) {
+    try {
+      final fn = lib.lookupFunction<
+        Pointer<Utf8> Function(Pointer<Utf8>),
+        Pointer<Utf8> Function(Pointer<Utf8>)
+      >('slot_lab_resolve_stage_audio');
+
+      final freeFn = lib.lookupFunction<
+        Void Function(Pointer<Utf8>),
+        void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final jsonPtr = stageJson.toNativeUtf8();
+      try {
+        final ptr = fn(jsonPtr);
+        if (ptr == nullptr) return [];
+
+        try {
+          final json = ptr.toDartString();
+          final list = jsonDecode(json) as List;
+          return list.cast<Map<String, dynamic>>();
+        } finally {
+          freeFn(ptr);
+        }
+      } finally {
+        calloc.free(jsonPtr);
+      }
+    } catch (e) {
+      dev.log('[SlotLabFFI] resolveStageAudio error: $e');
+      return [];
+    }
+  }
+
+  /// Get all canonical audio asset IDs.
+  ///
+  /// Returns complete list of asset IDs that a game should provide.
+  /// Used for completeness checking in SlotLab UI.
+  List<String> getCanonicalAssetIds() {
+    try {
+      final fn = lib.lookupFunction<
+        Pointer<Utf8> Function(),
+        Pointer<Utf8> Function()
+      >('slot_lab_get_canonical_asset_ids');
+
+      final freeFn = lib.lookupFunction<
+        Void Function(Pointer<Utf8>),
+        void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final ptr = fn();
+      if (ptr == nullptr) return [];
+
+      try {
+        final json = ptr.toDartString();
+        final list = jsonDecode(json) as List;
+        return list.cast<String>();
+      } finally {
+        freeFn(ptr);
+      }
+    } catch (e) {
+      dev.log('[SlotLabFFI] getCanonicalAssetIds error: $e');
+      return [];
+    }
+  }
+
+  /// Get audio asset coverage percentage.
+  ///
+  /// Pass a list of asset IDs that the game provides,
+  /// returns percentage of canonical assets covered (0.0 - 100.0).
+  double getAudioCoverage(List<String> providedAssetIds) {
+    try {
+      final fn = lib.lookupFunction<
+        Double Function(Pointer<Utf8>),
+        double Function(Pointer<Utf8>)
+      >('slot_lab_audio_coverage');
+
+      final json = jsonEncode(providedAssetIds);
+      final jsonPtr = json.toNativeUtf8();
+      try {
+        return fn(jsonPtr);
+      } finally {
+        calloc.free(jsonPtr);
+      }
+    } catch (e) {
+      dev.log('[SlotLabFFI] getAudioCoverage error: $e');
+      return 0.0;
+    }
+  }
+
+  /// Get missing audio assets for provided asset list.
+  ///
+  /// Returns list of canonical asset IDs that are NOT in [providedAssetIds].
+  /// Useful for showing which sounds a game still needs.
+  List<String> getMissingAssets(List<String> providedAssetIds) {
+    try {
+      final fn = lib.lookupFunction<
+        Pointer<Utf8> Function(Pointer<Utf8>),
+        Pointer<Utf8> Function(Pointer<Utf8>)
+      >('slot_lab_missing_assets');
+
+      final freeFn = lib.lookupFunction<
+        Void Function(Pointer<Utf8>),
+        void Function(Pointer<Utf8>)
+      >('slot_lab_free_string');
+
+      final json = jsonEncode(providedAssetIds);
+      final jsonPtr = json.toNativeUtf8();
+      try {
+        final ptr = fn(jsonPtr);
+        if (ptr == nullptr) return [];
+
+        try {
+          final resultJson = ptr.toDartString();
+          final list = jsonDecode(resultJson) as List;
+          return list.cast<String>();
+        } finally {
+          freeFn(ptr);
+        }
+      } finally {
+        calloc.free(jsonPtr);
+      }
+    } catch (e) {
+      dev.log('[SlotLabFFI] getMissingAssets error: $e');
+      return [];
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SONIC DNA CLASSIFIER — Zero-Click Sound Placement
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Klasifikuje sve audio fajlove u folderu.
+  ///
+  /// Vraća [SonicDnaResult] sa klasifikacijom svakog fajla, FFNC imenima,
+  /// confidence score-om, i gap analizom (koji tipovi fale).
+  ///
+  /// Može potrajati (audio I/O + FFT). Pozovi u isolate ili sa compute().
+  SonicDnaResult? classifyFolder(String folderPath) {
+    try {
+      final classifyFn = lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)>('sonic_dna_classify_folder');
+      final freeFn = lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('sonic_dna_free_result');
+
+      final pathPtr = folderPath.toNativeUtf8();
+      Pointer<Utf8> resultPtr = nullptr;
+      try {
+        resultPtr = classifyFn(pathPtr);
+        if (resultPtr == nullptr) return null;
+        final jsonStr = resultPtr.toDartString();
+        final decoded = jsonDecode(jsonStr) as Map<String, dynamic>;
+        return SonicDnaResult.fromJson(decoded);
+      } finally {
+        malloc.free(pathPtr);
+        if (resultPtr != nullptr) {
+          freeFn(resultPtr);
+        }
+      }
+    } catch (e) {
+      dev.log('[SonicDNA] classifyFolder error: $e');
+      return null;
+    }
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -778,4 +995,90 @@ enum ForcedOutcomeV2 {
 
   final int value;
   const ForcedOutcomeV2(this.value);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SONIC DNA DATA MODELS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Rezultat Sonic DNA klasifikacije celog foldera
+class SonicDnaResult {
+  final List<SoundClassification> classifications;
+  final List<String> missingTypes;
+  final Map<String, int> typeCounts;
+  final double avgConfidence;
+
+  const SonicDnaResult({
+    required this.classifications,
+    required this.missingTypes,
+    required this.typeCounts,
+    required this.avgConfidence,
+  });
+
+  factory SonicDnaResult.fromJson(Map<String, dynamic> json) => SonicDnaResult(
+        classifications: (json['classifications'] as List<dynamic>? ?? [])
+            .map((e) => SoundClassification.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        missingTypes: (json['missing_types'] as List<dynamic>? ?? [])
+            .map((e) => e.toString())
+            .toList(),
+        typeCounts: (json['type_counts'] as Map<String, dynamic>? ?? {})
+            .map((k, v) => MapEntry(k, (v as num).toInt())),
+        avgConfidence: (json['avg_confidence'] as num? ?? 0.0).toDouble(),
+      );
+
+  /// Broj klasifikovanih zvukova
+  int get totalSounds => classifications.length;
+
+  /// Procenat stage-ova koji imaju zvuk
+  double get coveragePercent {
+    const total = 15; // SlotSoundType.all().len()
+    final assigned = totalSounds.clamp(0, total);
+    return assigned / total;
+  }
+
+  @override
+  String toString() =>
+      'SonicDnaResult(${classifications.length} sounds, ${missingTypes.length} missing, '
+      'confidence=${(avgConfidence * 100).toStringAsFixed(0)}%)';
+}
+
+/// Klasifikacija jednog zvuka
+class SoundClassification {
+  final String originalPath;
+  final String soundType;
+  final String ffncName;
+  final double confidence;
+  final int variantIndex;
+
+  const SoundClassification({
+    required this.originalPath,
+    required this.soundType,
+    required this.ffncName,
+    required this.confidence,
+    required this.variantIndex,
+  });
+
+  factory SoundClassification.fromJson(Map<String, dynamic> json) =>
+      SoundClassification(
+        originalPath: json['original_path'] as String? ?? '',
+        soundType: json['sound_type'] as String? ?? '',
+        ffncName: json['ffnc_name'] as String? ?? '',
+        confidence: (json['confidence'] as num? ?? 0.0).toDouble(),
+        variantIndex: (json['variant_index'] as num? ?? 0).toInt(),
+      );
+
+  /// Originalni filename bez puta
+  String get originalFilename {
+    final parts = originalPath.replaceAll('\\', '/').split('/');
+    return parts.last;
+  }
+
+  /// Confidence kao procenat string
+  String get confidencePercent =>
+      '${(confidence * 100).toStringAsFixed(0)}%';
+
+  @override
+  String toString() =>
+      'SoundClassification($originalFilename → $ffncName, $confidencePercent)';
 }

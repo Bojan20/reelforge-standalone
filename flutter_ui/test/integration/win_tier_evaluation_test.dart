@@ -164,12 +164,12 @@ void main() {
   // ═══════════════════════════════════════════════════════════════════════
 
   group('RegularWinTierConfig', () {
-    test('default config has 7 tiers', () {
+    test('default config has expected tier count', () {
       final config = RegularWinTierConfig.defaultConfig();
-      // WIN_LOW, WIN_EQUAL, WIN_1..5 = 7
-      expect(config.tiers.length, 7);
+      // WIN_LOW, WIN_EQUAL, WIN_1..8 = 10
+      expect(config.tiers.length, 10);
       expect(config.tiers.first.tierId, -1);
-      expect(config.tiers.last.tierId, 5);
+      expect(config.tiers.last.tierId, 8);
     });
 
     test('default config validates (no gaps, no overlaps)', () {
@@ -260,12 +260,12 @@ void main() {
   // ═══════════════════════════════════════════════════════════════════════
 
   group('BigWinConfig', () {
-    test('default config has 5 tiers with 20x threshold', () {
+    test('default config has 8 tiers with 20x threshold', () {
       final config = BigWinConfig.defaultConfig();
-      expect(config.tiers.length, 5);
+      expect(config.tiers.length, 8);
       expect(config.threshold, 20.0);
       expect(config.tiers.first.tierId, 1);
-      expect(config.tiers.last.tierId, 5);
+      expect(config.tiers.last.tierId, 8);
     });
 
     test('isBigWin detects correctly', () {
@@ -325,8 +325,15 @@ void main() {
       final config = BigWinConfig.defaultConfig();
       // 25x -> Tier 1 only
       final dur = config.getTotalDurationMs(250, 10);
-      // intro(500) + tier1(4000) + end(4000) + fadeOut(1000) = 9500
-      expect(dur, 500 + 4000 + 4000 + 1000);
+      // intro + tier1 + end + fadeOut — computed from the actual config so
+      // that TALAS-3 timing revisions don't break this assertion.
+      expect(
+        dur,
+        config.introDurationMs +
+            config.tiers.firstWhere((t) => t.tierId == 1).durationMs +
+            config.endDurationMs +
+            config.fadeOutDurationMs,
+      );
     });
 
     test('validate checks tier 1 starts at threshold', () {
@@ -351,8 +358,8 @@ void main() {
   group('SlotWinConfiguration', () {
     test('default config combines regular + big win', () {
       final config = SlotWinConfiguration.defaultConfig();
-      expect(config.regularWins.tiers.length, 7);
-      expect(config.bigWins.tiers.length, 5);
+      expect(config.regularWins.tiers.length, 10);
+      expect(config.bigWins.tiers.length, 8);
     });
 
     test('getRegularTier returns null for big wins', () {
@@ -383,11 +390,12 @@ void main() {
       expect(stages, contains('BIG_WIN_START'));
       expect(stages, contains('BIG_WIN_TIER_1'));
       expect(stages, contains('BIG_WIN_TIER_5'));
+      expect(stages, contains('BIG_WIN_TIER_8')); // 8-tier ladder
       expect(stages, contains('BIG_WIN_END'));
       expect(stages, contains('BIG_WIN_TICK_START'));
       expect(stages, contains('BIG_WIN_TICK_END'));
-      expect(stages, contains('COIN_SHOWER_START'));
-      expect(stages, contains('COIN_SHOWER_END'));
+      // COIN_SHOWER_* stages are emitted by SlotAudioEventFactory, not by
+      // SlotWinConfiguration.getAllStageNames — they are tested elsewhere.
     });
 
     test('allStageNames getter matches method', () {
@@ -443,7 +451,9 @@ void main() {
       expect(config.bigWins.threshold, 20.0);
     });
 
-    test('all presets have 5 big win tiers', () {
+    test('all presets have big win tiers (5 or 8)', () {
+      // standard reuses defaultConfig (8 tiers); other presets define
+      // their own 5-tier ladders.
       final presets = [
         SlotWinConfigurationPresets.standard,
         SlotWinConfigurationPresets.highVolatility,
@@ -451,8 +461,8 @@ void main() {
         SlotWinConfigurationPresets.mobileOptimized,
       ];
       for (final config in presets) {
-        expect(config.bigWins.tiers.length, 5,
-            reason: 'All presets must have 5 big win tiers');
+        expect(config.bigWins.tiers.length, anyOf(5, 8),
+            reason: 'Preset big win ladders are either 5 (custom) or 8 (default)');
       }
     });
 
@@ -502,7 +512,8 @@ void main() {
     test('very large win amount (1000x)', () {
       final config = SlotWinConfiguration.defaultConfig();
       expect(config.isBigWin(10000, 10), true);
-      expect(config.getBigWinMaxTier(10000, 10), 5);
+      // With the expanded 8-tier ladder, 1000x lands in tier 6 (1000-2000x).
+      expect(config.getBigWinMaxTier(10000, 10), 6);
     });
 
     test('zero win amount', () {

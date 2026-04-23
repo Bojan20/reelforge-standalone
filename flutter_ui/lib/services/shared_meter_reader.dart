@@ -63,6 +63,14 @@ class SharedMeterSnapshot {
   // Spectrum (32 bands)
   final Float64List spectrumBands;
 
+  /// Phase 10e-3: per-bus 4-band RMS (linear).
+  /// Layout: [bus0_bass, bus0_lowmid, bus0_highmid, bus0_treble,
+  ///          bus1_bass, bus1_lowmid, bus1_highmid, bus1_treble, ... 6 buses].
+  /// Bus order matches OrbBusId.engineIndex (0=Master, 1=Music, ..., 5=Aux).
+  /// Bands: 0=bass (<200Hz), 1=lowmid (220-950Hz),
+  ///        2=highmid (900-3500Hz), 3=treble (>3500Hz).
+  final Float32List busBandRms;
+
   const SharedMeterSnapshot({
     required this.sequence,
     required this.masterPeakL,
@@ -88,6 +96,7 @@ class SharedMeterSnapshot {
     required this.sampleRate,
     required this.channelPeaks,
     required this.spectrumBands,
+    required this.busBandRms,
   });
 
   /// Empty/default snapshot
@@ -116,6 +125,7 @@ class SharedMeterSnapshot {
     sampleRate: 48000,
     channelPeaks: Float64List(12),
     spectrumBands: Float64List(32),
+    busBandRms: Float32List(24),
   );
 
   /// Convert dB to normalized (0-1) for meter display
@@ -151,6 +161,14 @@ class SharedMeterReader {
 
   // Initialization state
   bool _initialized = false;
+
+  // Pre-allocated scratch arrays for the seqlock retry loop — up to 3
+  // attempts per tick would otherwise allocate three full sets of arrays.
+  // These are owned by the singleton and handed out as fresh copies on
+  // successful read so callers keep their own immutable snapshot.
+  final Float64List _scratchChannelPeaks = Float64List(12);
+  final Float64List _scratchSpectrum = Float64List(32);
+  final Float32List _scratchBusBandRms = Float32List(24);
 
   /// Initialize the reader (call once at app startup)
   Future<bool> initialize() async {
@@ -194,6 +212,13 @@ class SharedMeterReader {
     if (_bufferPtr == null || offset < 0) return 0;
     final ptr = Pointer<Uint64>.fromAddress(_bufferPtr!.address + offset);
     return _bitsToDouble(ptr.value);
+  }
+
+  /// Read f32 from buffer at offset (Phase 10e-3 per-bus band RMS is f32).
+  double _readF32(int offset) {
+    if (_bufferPtr == null || offset < 0) return 0;
+    final ptr = Pointer<Float>.fromAddress(_bufferPtr!.address + offset);
+    return ptr.value;
   }
 
   /// Read u32 from buffer at offset
@@ -256,18 +281,28 @@ class SharedMeterReader {
       final isPlaying = _readU32(offsets[20]!) != 0;
       final sampleRate = _readU32(offsets[21]!);
 
-      // Read channel peaks array (12 values: 6 channels * 2 channels each)
+      // Read channel peaks array into scratch (12 values: 6 channels × L/R)
       final channelPeaksBase = offsets[22]!;
-      final channelPeaks = Float64List(12);
       for (int i = 0; i < 12; i++) {
-        channelPeaks[i] = _readF64(channelPeaksBase + i * 8);
+        _scratchChannelPeaks[i] = _readF64(channelPeaksBase + i * 8);
       }
 
-      // Read spectrum bands array (32 values)
+      // Read spectrum bands into scratch (32 values)
       final spectrumBase = offsets[23]!;
-      final spectrum = Float64List(32);
       for (int i = 0; i < 32; i++) {
-        spectrum[i] = _readF64(spectrumBase + i * 8);
+        _scratchSpectrum[i] = _readF64(spectrumBase + i * 8);
+      }
+
+      // Per-bus 4-band RMS (24 f32 values at offset 24) into scratch.
+      final busBandOffset = offsets[24];
+      if (busBandOffset != null) {
+        for (int i = 0; i < 24; i++) {
+          _scratchBusBandRms[i] = _readF32(busBandOffset + i * 4);
+        }
+      } else {
+        for (int i = 0; i < 24; i++) {
+          _scratchBusBandRms[i] = 0;
+        }
       }
 
       // Read sequence AFTER data (via FFI Acquire fence)
@@ -299,8 +334,10 @@ class SharedMeterReader {
           playbackPositionSamples: playbackPositionSamples,
           isPlaying: isPlaying,
           sampleRate: sampleRate,
-          channelPeaks: channelPeaks,
-          spectrumBands: spectrum,
+          // Copy scratch arrays so callers get their own immutable snapshot.
+          channelPeaks: Float64List.fromList(_scratchChannelPeaks),
+          spectrumBands: Float64List.fromList(_scratchSpectrum),
+          busBandRms: Float32List.fromList(_scratchBusBandRms),
         );
       }
       // Sequence changed during read — data may be torn, retry

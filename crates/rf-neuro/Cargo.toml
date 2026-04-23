@@ -1,0 +1,18 @@
+[package]
+name = "rf-neuro"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "NeuroAudio™ — Real-time Player Behavioral Signal Processor"
+
+[lib]
+name = "rf_neuro"
+crate-type = ["rlib"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+parking_lot.workspace = true

@@ -3022,6 +3022,14 @@ impl AlgorithmicReverb {
             self.sync_predelay_to_bpm();
         }
     }
+
+    /// Set project BPM — updates the pre-delay BPM sync parameter so tempo-
+    /// synced pre-delay stays correct when the project BPM changes.
+    /// BUG#7: Reverb was hardcoded to 120.0 BPM — call this from the FFI layer
+    /// whenever the project BPM changes.
+    pub fn set_bpm(&mut self, bpm: f64) {
+        self.set_predelay_bpm(bpm);
+    }
     pub fn set_predelay_note_div(&mut self, div: u8) {
         self.predelay_note_div = div.min(7);
         if self.predelay_bpm_sync {

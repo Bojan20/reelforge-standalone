@@ -170,7 +170,7 @@ class VisionDiffEngine extends ChangeNotifier {
   /// Compare two byte arrays using sampling for speed
   _ByteCompareResult _compareBytes(Uint8List a, Uint8List b) {
     // Fast path: identical length check
-    if (a.length == b.length && a.length == 0) {
+    if (a.isEmpty && b.isEmpty) {
       return const _ByteCompareResult(0, 0);
     }
 

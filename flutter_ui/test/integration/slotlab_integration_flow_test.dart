@@ -164,8 +164,8 @@ void main() {
         config = RegularWinTierConfig.defaultConfig();
       });
 
-      test('default config has 7 tiers', () {
-        expect(config.tiers.length, 7);
+      test('default config has expected tier count', () {
+        expect(config.tiers.length, 10);
       });
 
       test('getTierForWin returns correct tier for 0.5x', () {
@@ -259,8 +259,8 @@ void main() {
         expect(config.threshold, 20.0);
       });
 
-      test('default has 5 tiers', () {
-        expect(config.tiers.length, 5);
+      test('default has 8 tiers', () {
+        expect(config.tiers.length, 8);
       });
 
       test('isBigWin returns true for 25x', () {
@@ -296,8 +296,9 @@ void main() {
       });
 
       test('getMaxTierForWin returns correct tier for 1000x', () {
-        final tier = config.getMaxTierForWin(10000.0, 10.0); // 1000x → tier 5 (500+)
-        expect(tier, 5);
+        // 1000x lands in tier 6 (1000-2000x) in the 8-tier ladder.
+        final tier = config.getMaxTierForWin(10000.0, 10.0);
+        expect(tier, 6);
       });
 
       test('getMaxTierForWin returns 0 for non-big-win', () {
@@ -332,9 +333,16 @@ void main() {
       });
 
       test('getTotalDurationMs includes intro + tiers + end + fadeout', () {
-        // Tier 1 only (30x) → intro(500) + tier1(4000) + end(4000) + fadeout(1000)
+        // Tier 1 only (30x) — derived from actual config so TALAS revisions
+        // (e.g. fadeOutDurationMs 1000 → 750) don't break this assertion.
         final duration = config.getTotalDurationMs(300.0, 10.0);
-        expect(duration, 500 + 4000 + 4000 + 1000);
+        expect(
+          duration,
+          config.introDurationMs +
+              config.tiers.firstWhere((t) => t.tierId == 1).durationMs +
+              config.endDurationMs +
+              config.fadeOutDurationMs,
+        );
       });
 
       test('getTotalDurationMs returns 0 for non-big-win', () {
@@ -420,15 +428,16 @@ void main() {
       expect(stages, contains('ROLLUP_TICK_1'));
       expect(stages, contains('ROLLUP_END_1'));
 
-      // Big win stages
+      // Big win stages — 8-tier ladder
       expect(stages, contains('BIG_WIN_START'));
       expect(stages, contains('BIG_WIN_TIER_1'));
       expect(stages, contains('BIG_WIN_TIER_5'));
+      expect(stages, contains('BIG_WIN_TIER_8'));
       expect(stages, contains('BIG_WIN_END'));
       expect(stages, contains('BIG_WIN_TICK_START'));
       expect(stages, contains('BIG_WIN_TICK_END'));
-      expect(stages, contains('COIN_SHOWER_START'));
-      expect(stages, contains('COIN_SHOWER_END'));
+      // COIN_SHOWER_* stages are emitted by SlotAudioEventFactory, not by
+      // SlotWinConfiguration.getAllStageNames — verified in the factory group.
     });
 
     test('allStageNames getter matches getAllStageNames()', () {
@@ -632,20 +641,23 @@ void main() {
       expect(spinStart.actions, isNotEmpty);
     });
 
-    test('big win events exist for all 5 tiers', () {
+    test('big win events exist for all 8 tiers', () {
       final events = SlotAudioEventFactory.createBigWinEvents();
-      expect(events.any((e) => e.id == 'slot_bigwin_tier_1'), true);
-      expect(events.any((e) => e.id == 'slot_bigwin_tier_2'), true);
-      expect(events.any((e) => e.id == 'slot_bigwin_tier_3'), true);
-      expect(events.any((e) => e.id == 'slot_bigwin_tier_4'), true);
-      expect(events.any((e) => e.id == 'slot_bigwin_tier_5'), true);
+      for (int i = 1; i <= 8; i++) {
+        expect(events.any((e) => e.id == 'slot_bigwin_tier_$i'), true,
+            reason: 'expected slot_bigwin_tier_$i');
+      }
     });
 
-    test('big win tier 5 has stopAll action', () {
+    test('big win tier 5 fires play + music duck', () {
+      // Legacy "stopAll" action was removed in favour of a smooth
+      // `setVolume` duck + `play` combo per tier. Verify both are present.
       final events = SlotAudioEventFactory.createBigWinEvents();
       final tier5 = events.firstWhere((e) => e.id == 'slot_bigwin_tier_5');
       expect(
-          tier5.actions.any((a) => a.type == ActionType.stopAll), true);
+          tier5.actions.any((a) => a.type == ActionType.setVolume), true);
+      expect(
+          tier5.actions.any((a) => a.type == ActionType.play), true);
     });
 
     test('cascade events cover start/step/end lifecycle', () {

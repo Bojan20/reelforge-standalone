@@ -75,8 +75,14 @@ import 'services/localization_service.dart';
 import 'services/asset_cloud_service.dart';
 import 'services/crdt_sync_service.dart';
 import 'services/cortex_vision_service.dart';
+import 'services/cortex_eye_server.dart';
 import 'services/cortex_intelligence_loop.dart';
 import 'providers/cortex_provider.dart';
+import 'providers/rgai_ffi_provider.dart';
+import 'providers/slot_spatial_provider.dart';
+import 'providers/ab_sim_provider.dart';
+import 'providers/slot_export_provider.dart';
+import 'providers/sfx_pipeline_provider.dart';
 import 'utils/path_validator.dart';
 import 'dart:io';
 import 'package:path/path.dart' as p;
@@ -98,6 +104,7 @@ import 'blocks/bonus_game_block.dart';
 import 'blocks/wild_features_block.dart';
 import 'blocks/transitions_block.dart';
 import 'blocks/gambling_block.dart';
+import 'providers/warp_state_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -159,6 +166,9 @@ void main() async {
 
   // Initialize CORTEX Vision Service (The Eyes of the Organism)
   await CortexVisionService.instance.init();
+
+  // Start CORTEX Eye HTTP Server (localhost:7735 — gives Claude Code eyes)
+  await CortexEyeServer.instance.start();
 
   // P13.9.8: Initialize Feature Block Registry with all 17 blocks
   FeatureBlockRegistry.instance.initialize([
@@ -325,6 +335,9 @@ class FluxForgeApp extends StatelessWidget {
           value: sl<ScaleAssistantProvider>(),
         ),
 
+        // Warp Markers State (Phase 4-5)
+        ChangeNotifierProvider<WarpStateProvider>.value(value: sl<WarpStateProvider>()),
+
         // Error Handling
         ChangeNotifierProvider<ErrorProvider>.value(value: sl<ErrorProvider>()),
 
@@ -407,6 +420,23 @@ class FluxForgeApp extends StatelessWidget {
         ),
         ChangeNotifierProvider<VideoPlaybackService>.value(
           value: sl<VideoPlaybackService>(),
+        ),
+
+        // ═══ FFI-backed providers (real Rust engine delegates) ═══
+        ChangeNotifierProvider<RgaiFfiProvider>.value(
+          value: sl<RgaiFfiProvider>(),
+        ),
+        ChangeNotifierProvider<SlotSpatialProvider>.value(
+          value: sl<SlotSpatialProvider>(),
+        ),
+        ChangeNotifierProvider<AbSimProvider>.value(
+          value: sl<AbSimProvider>(),
+        ),
+        ChangeNotifierProvider<SlotExportProvider>.value(
+          value: sl<SlotExportProvider>(),
+        ),
+        ChangeNotifierProvider<SfxPipelineProvider>.value(
+          value: sl<SfxPipelineProvider>(),
         ),
       ],
       child: RepaintBoundary(
@@ -535,7 +565,25 @@ class _AppInitializerState extends State<_AppInitializer> {
         intelligence.start(); // 30s cycle: capture → analyze → suggest
       }
 
-      // Phase 6: Engine ready — enable launcher buttons
+      // Phase 6: Register CortexEye navigation handler (CORTEX can navigate the app)
+      CortexEyeNav.instance.onNavigate = (destination) {
+        if (!mounted) return;
+        switch (destination) {
+          case 'slotlab':
+            _handleModeSelected(AppMode.slotLab);
+          case 'daw':
+            _handleModeSelected(AppMode.daw);
+          case 'launcher':
+            _handleBackToLauncher();
+          case 'helix':
+            // HELIX is a panel within SLOTLAB — navigate there first
+            _handleModeSelected(AppMode.slotLab);
+          default:
+            debugPrint('[CortexEye] Unknown nav destination: $destination');
+        }
+      };
+
+      // Phase 7: Engine ready — enable launcher buttons
       if (mounted) {
         setState(() => _engineReady = true);
       }

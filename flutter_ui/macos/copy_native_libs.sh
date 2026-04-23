@@ -42,22 +42,31 @@ fi
 # Fix library paths using install_name_tool
 echo "Fixing library paths..."
 
-# Fix librf_bridge.dylib
-install_name_tool -change \
-    /opt/homebrew/opt/flac/lib/libFLAC.14.dylib \
-    @executable_path/../Frameworks/libFLAC.14.dylib \
-    "$FRAMEWORKS_DIR/librf_bridge.dylib" 2>/dev/null || true
+# BUG#15 FIX: Detect actual library paths from binary via otool instead of hardcoding.
+# This handles both /opt/homebrew (ARM) and /usr/local (Intel) homebrew installs.
+
+# Fix librf_bridge.dylib — patch any absolute FLAC reference to @executable_path
+FLAC_REF=$(otool -L "$FRAMEWORKS_DIR/librf_bridge.dylib" 2>/dev/null | grep -o '/.*libFLAC[^ ]*' | head -1)
+if [ -n "$FLAC_REF" ]; then
+    install_name_tool -change \
+        "$FLAC_REF" \
+        @executable_path/../Frameworks/libFLAC.14.dylib \
+        "$FRAMEWORKS_DIR/librf_bridge.dylib" 2>/dev/null || true
+fi
 
 install_name_tool -id \
     @executable_path/../Frameworks/librf_bridge.dylib \
     "$FRAMEWORKS_DIR/librf_bridge.dylib" 2>/dev/null || true
 
-# Fix libFLAC.14.dylib
+# Fix libFLAC.14.dylib — patch any absolute OGG reference
 if [ -f "$FRAMEWORKS_DIR/libFLAC.14.dylib" ]; then
-    install_name_tool -change \
-        /opt/homebrew/opt/libogg/lib/libogg.0.dylib \
-        @executable_path/../Frameworks/libogg.0.dylib \
-        "$FRAMEWORKS_DIR/libFLAC.14.dylib" 2>/dev/null || true
+    OGG_REF=$(otool -L "$FRAMEWORKS_DIR/libFLAC.14.dylib" 2>/dev/null | grep -o '/.*libogg[^ ]*' | head -1)
+    if [ -n "$OGG_REF" ]; then
+        install_name_tool -change \
+            "$OGG_REF" \
+            @executable_path/../Frameworks/libogg.0.dylib \
+            "$FRAMEWORKS_DIR/libFLAC.14.dylib" 2>/dev/null || true
+    fi
 
     install_name_tool -id \
         @executable_path/../Frameworks/libFLAC.14.dylib \

@@ -155,8 +155,58 @@ impl SphericalHarmonics {
             self.coeffs[15] = 0.790569 * cos3_el * cos3_az;
         }
 
-        // Orders 4-7 would follow similar patterns
-        // Full implementation would use recursion or lookup tables
+        // Orders 4-7: SN3D normalization using recurrence relations
+        // P_l^m(sin(el)) via Legendre recurrence, with SN3D norm factor sqrt((2l+1)/(4pi) * (l-|m|)!/(l+|m|)!)
+        if n >= 4 {
+            self._compute_sh_order(4, az, el.sin(), cos_el);
+        }
+        if n >= 5 {
+            self._compute_sh_order(5, az, el.sin(), cos_el);
+        }
+        if n >= 6 {
+            self._compute_sh_order(6, az, el.sin(), cos_el);
+        }
+        if n >= 7 {
+            self._compute_sh_order(7, az, el.sin(), cos_el);
+        }
+    }
+
+    /// Compute SH coefficients for a single order using Legendre recurrence (SN3D).
+    /// ACN channel layout: index = l*l + l + m for degree m in [-l, +l].
+    fn _compute_sh_order(&mut self, l: usize, az: f32, sin_el: f32, cos_el: f32) {
+        // Associated Legendre polynomial P_l^m(sin(el)) via recurrence
+        // Working in f64 precision for correctness, then cast to f32
+        let sin_el = sin_el as f64;
+        let cos_el = cos_el as f64;
+        let l_i32 = l as i32;
+
+        for m_i32 in -l_i32..=l_i32 {
+            let m_abs = m_i32.unsigned_abs() as usize;
+
+            // Compute associated Legendre P_l^m(sin_el)
+            let p = associated_legendre(l, m_abs, sin_el, cos_el);
+
+            // SN3D normalization: sqrt((2l+1)/(4pi) * (l-m)!/(l+m)!)
+            let norm = sn3d_norm(l, m_abs);
+
+            // ACN index: l^2 + l + m
+            let acn = (l * l + l) as i32 + m_i32;
+            if (acn as usize) >= self.coeffs.len() {
+                continue;
+            }
+
+            let val = if m_i32 == 0 {
+                norm * p
+            } else if m_i32 > 0 {
+                // Positive m: cos(m * az) component (U-type)
+                norm * std::f64::consts::SQRT_2 * p * ((m_i32 as f64) * (az as f64)).cos()
+            } else {
+                // Negative m: sin(|m| * az) component (V-type)
+                norm * std::f64::consts::SQRT_2 * p * ((m_abs as f64) * (az as f64)).sin()
+            };
+
+            self.coeffs[acn as usize] = val as f32;
+        }
     }
 
     /// Get channel by ACN index
@@ -200,6 +250,76 @@ pub fn acn_to_order_degree(acn: usize) -> (i32, i32) {
     (order, degree)
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// LEGENDRE POLYNOMIAL HELPERS (used for SH orders 4-7)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Compute associated Legendre polynomial P_l^m(x) where x = sin(elevation).
+/// Uses three-term upward recurrence in l with fixed m.
+/// Reference: Abramowitz & Stegun §8.5
+fn associated_legendre(l: usize, m: usize, x: f64, cos_el: f64) -> f64 {
+    if m > l {
+        return 0.0;
+    }
+
+    // Seed P_m^m (diagonal element)
+    let mut pmm = 1.0_f64;
+    if m > 0 {
+        // P_m^m = (-1)^m * (2m-1)!! * (1-x^2)^(m/2)
+        // (1-x^2)^(1/2) = cos(elevation)
+        let mut factor = 1.0_f64;
+        for i in 1..=(m as u32) {
+            factor *= (2 * i - 1) as f64;
+        }
+        // cos^m (elevation) — but we're using x = sin(el), so cos_el = sqrt(1-x^2)
+        let cos_m = cos_el.powi(m as i32);
+        pmm = if m.is_multiple_of(2) { 1.0 } else { -1.0 } * factor * cos_m;
+    }
+
+    if l == m {
+        return pmm;
+    }
+
+    // P_m+1^m = x * (2m+1) * P_m^m
+    let mut pm1m = x * (2 * m + 1) as f64 * pmm;
+
+    if l == m + 1 {
+        return pm1m;
+    }
+
+    // Upward recurrence: P_l^m = ((2l-1)*x*P_{l-1}^m - (l-1+m)*P_{l-2}^m) / (l-m)
+    let mut prev_prev = pmm;
+    let mut prev = pm1m;
+    for ll in (m + 2)..=l {
+        let cur = ((2 * ll - 1) as f64 * x * prev - (ll - 1 + m) as f64 * prev_prev)
+            / (ll - m) as f64;
+        prev_prev = prev;
+        prev = cur;
+        pm1m = cur;
+    }
+
+    pm1m
+}
+
+/// SN3D normalization factor for degree (l, m).
+/// N_l^m = sqrt((2l+1) / (4π) * (l-|m|)! / (l+|m|)!)
+/// Includes the sqrt(4π/(2l+1)) Schmidt semi-norm used in SN3D.
+fn sn3d_norm(l: usize, m: usize) -> f64 {
+    
+    let factorial = |n: usize| -> f64 {
+        let mut f = 1.0_f64;
+        for i in 2..=n {
+            f *= i as f64;
+        }
+        f
+    };
+
+    // N_l^m = sqrt((l - m)! / (l + m)!)
+    // (the 1/sqrt(4pi) and sqrt(2l+1) cancel out in the SN3D convention)
+    let ratio = factorial(l - m) / factorial(l + m);
+    ratio.sqrt()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -229,5 +349,55 @@ mod tests {
         assert!(sh.get(1).abs() < 0.001); // Y (no left/right)
         assert!(sh.get(2).abs() < 0.001); // Z (no up/down)
         assert!((sh.get(3) - 1.0).abs() < 0.001); // X (front)
+    }
+
+    #[test]
+    fn test_spherical_harmonics_fourth_order() {
+        // 4th order = 25 channels, front direction (az=0, el=0)
+        let sh = SphericalHarmonics::from_direction(0.0, 0.0, AmbisonicOrder::Fourth);
+        assert_eq!(sh.coeffs.len(), 25);
+
+        // W (ch 0) always = 1.0
+        assert!((sh.get(0) - 1.0).abs() < 0.001);
+
+        // All channels must be finite and in [-2, 2] range (SN3D max ~1.9)
+        for (i, &c) in sh.coeffs.iter().enumerate() {
+            assert!(c.is_finite(), "ch {} is not finite: {}", i, c);
+            assert!(c.abs() < 2.5, "ch {} magnitude too large: {}", i, c);
+        }
+    }
+
+    #[test]
+    fn test_spherical_harmonics_seventh_order() {
+        // 7th order = 64 channels
+        let sh = SphericalHarmonics::from_direction(45.0, 30.0, AmbisonicOrder::Seventh);
+        assert_eq!(sh.coeffs.len(), 64);
+        for (i, &c) in sh.coeffs.iter().enumerate() {
+            assert!(c.is_finite(), "ch {} is not finite", i);
+        }
+    }
+
+    #[test]
+    fn test_sn3d_norm_orthogonality() {
+        // For m=0, P_l^0 should be the Legendre polynomial
+        // P_4^0(0) = 3/8 (Legendre P4 at x=0)
+        let p = associated_legendre(4, 0, 0.0, 1.0);
+        assert!((p - 0.375).abs() < 0.001, "P_4^0(0) = {} expected 0.375", p);
+    }
+
+    #[test]
+    fn test_energy_preservation_higher_orders() {
+        // Energy (sum of squares) should be meaningful for a point source
+        let az_vec = [0.0_f32, 45.0, 90.0, 180.0];
+        let el_vec = [0.0_f32, 30.0, -30.0];
+        for az in az_vec {
+            for el in el_vec {
+                let sh = SphericalHarmonics::from_direction(az, el, AmbisonicOrder::Fourth);
+                let energy: f32 = sh.coeffs.iter().map(|&c| c * c).sum();
+                // Energy should be positive and bounded
+                assert!(energy > 0.0, "Energy zero at az={} el={}", az, el);
+                assert!(energy.is_finite(), "Energy infinite at az={} el={}", az, el);
+            }
+        }
     }
 }

@@ -24,6 +24,7 @@
 //! - Zero-copy audio path preserved (rtrb stays, bridge wraps intent layer on top)
 //! - Bidirectional: Flutter→Rust via `bridge_send()`, Rust→Flutter via `StreamHub`
 
+use std::cmp::Reverse;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
@@ -542,7 +543,7 @@ impl NeuralBridge {
 
         // Sort by priority (highest first) for optimal routing
         let mut intents = batch.intents;
-        intents.sort_by(|a, b| b.priority.cmp(&a.priority));
+        intents.sort_by_key(|x| Reverse(x.priority));
 
         for intent in intents {
             let response = self.route(intent);

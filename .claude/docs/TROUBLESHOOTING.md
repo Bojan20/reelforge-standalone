@@ -377,3 +377,75 @@ void _startSpin() {
 
 ---
 
+## 🔧 TROUBLESHOOTING — HELIX
+
+#### 13. ESC Key Izlazi Iz HELIX-a Umesto Da Zatvara Overlaye (2026-04-21)
+
+**Simptom:**
+- Pritisak ESC zatvara ceo HELIX umesto samo otvoreni spine panel/overlay
+- Korisnik gubi kontekst jer se vraca na launcher
+
+**Uzrok:** `PremiumSlotPreview._handleKeyEvent()` (helix_screen.dart ~6461) interceptuje ESC i poziva `widget.onExit()`. `onExit` bio prosledjen kao `widget.onClose ?? () {}` -> `onBackToLauncher()` -> HELIX se uklanja iz widget tree.
+
+**Fix (2026-04-21):**
+```dart
+onExit: () {
+  setState(() {
+    _spineOpen = null;
+    _contextLensEvent = null;
+    _mode = 0;
+    _showReelLens = false;
+  });
+},
+```
+ESC sada zatvara interne overlaye, ne izlazi iz HELIX-a.
+
+**Kljucni fajl:** `helix_screen.dart`
+
+#### 14. SPIN Button Obscured By Dock Panel — Tap Ne Radi (2026-04-21)
+
+**Simptom:**
+- Integration test `tester.tap(spinButton)` failuje sa hit test error
+- SPIN dugme postoji ali je iza dock panela
+
+**Uzrok:** Dock panel overlay prekriva SPIN button u z-order-u. `tap()` ne moze da klikne element koji nije na vrhu.
+
+**Fix:** U integration testovima koristiti Space key umesto tap:
+```dart
+Future<void> spin() async {
+  await pressSpace(tester);
+}
+```
+Za SLAM/SKIP koristiti `warnIfMissed: false` jer mogu biti obscured.
+
+**Kljucni fajl:** `integration_test/pages/helix_page.dart`
+
+#### 15. Spectral DNA FFI Bindings Nedostaju (2026-04-21)
+
+**Simptom:**
+- `spectral_dna_classifier.dart` ne kompajlira — `spectralDnaAnalyze` i `spectralDnaAnalyzeBatch` ne postoje na NativeFFI klasi
+- flutter analyze prijavljuje 2 errora
+
+**Uzrok:** FFI metode bile planirane ali nikad dodate u `native_ffi.dart`. Rust C-compatible exports postoje u rf-bridge, ali Dart strana ih nije lookupovala.
+
+**Fix (2026-04-21):** Dodate `spectralDnaAnalyze()` i `spectralDnaAnalyzeBatch()` metode u NativeFFI klasu sa proper `toNativeUtf8`/`free_string` lifecycle.
+
+**Kljucni fajlovi:** `native_ffi.dart`, `spectral_dna_classifier.dart`
+
+#### 16. Dock Tab Text Ambiguity u Testovima (2026-04-21)
+
+**Simptom:**
+- `find.text('AUDIO')` matchuje i dock tab i tekst u _FlowPanel
+- Test klika pogresan element
+
+**Uzrok:** Vise widgeta imaju isti tekst "AUDIO" — dock tab i kategorija u FLOW panelu.
+
+**Fix:** Koristiti key-based findere umesto text-based:
+```dart
+final keyFinder = find.byKey(Key('dock_tab_$tabName'));
+```
+
+**Kljucni fajl:** `integration_test/pages/helix_page.dart`
+
+---
+

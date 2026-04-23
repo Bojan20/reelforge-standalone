@@ -14,6 +14,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/game_flow_models.dart';
@@ -1674,9 +1675,28 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
     final canDismiss = t.config.dismissMode == TransitionDismissMode.clickToContinue ||
         t.config.dismissMode == TransitionDismissMode.timedOrClick;
 
-    return GestureDetector(
-      onTap: canDismiss ? widget.onDismiss : null,
-      child: AnimatedBuilder(
+    // TALAS 2: Keyboard dismiss — Space / Enter / Escape for any dismissable
+    // transition. Uses Focus + onKeyEvent (autofocus keeps focus on plaque
+    // while visible so player doesn't have to click first to enable keys).
+    return Focus(
+      autofocus: canDismiss,
+      onKeyEvent: canDismiss
+          ? (node, event) {
+              if (event is! KeyDownEvent) return KeyEventResult.ignored;
+              final k = event.logicalKey;
+              if (k == LogicalKeyboardKey.space ||
+                  k == LogicalKeyboardKey.enter ||
+                  k == LogicalKeyboardKey.numpadEnter ||
+                  k == LogicalKeyboardKey.escape) {
+                widget.onDismiss();
+                return KeyEventResult.handled;
+              }
+              return KeyEventResult.ignored;
+            }
+          : null,
+      child: GestureDetector(
+        onTap: canDismiss ? widget.onDismiss : null,
+        child: AnimatedBuilder(
         animation: Listenable.merge([
           _fadeAnim,
           _burstController,
@@ -1777,6 +1797,7 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
             },
           );
         },
+      ),
       ),
     );
   }

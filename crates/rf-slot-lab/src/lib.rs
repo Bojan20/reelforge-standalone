@@ -92,4 +92,18 @@ pub use timing::*;
 pub use features::{FeatureCategory, FeatureChapter, FeatureId, FeatureRegistry};
 pub use model::{GameInfo, GameMode, GameModel, Volatility, WinMechanism, WinTierConfig};
 pub use parser::{GddParseError, GddParser, GddSchema, ValidationReport};
+// T2.1 + T2.2: PAR parser + auto-calibration
+pub use parser::{
+    ParParser, ParDocument, ParParseError, ParValidationReport, ParVolatility,
+    ParSymbol, PayCombination, ParFeature, ParFeatureType, RtpBreakdown,
+    ParJackpotLevel, CalibrationResult, CalibrationDiagnostics, auto_calibrate_win_tiers,
+};
+// T2.7: PAR+ extended format
+pub use parser::{
+    ParPlusParser, ParPlusDocument, ParPlusExtension, ParPlusWarning, ParPlusParseError,
+    FeatureTriggerMatrix, WinMultiplierDistribution, WinMultiplierBucket,
+    SessionVolatilityMetrics, NearMissRates,
+};
+// P5 RegularWinConfig re-export (used by CalibrationResult)
+pub use model::RegularWinConfig;
 pub use scenario::{DemoScenario, LoopMode, ScenarioPlayback, ScriptedOutcome};

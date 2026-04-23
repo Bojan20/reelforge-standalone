@@ -8,6 +8,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:crypto/crypto.dart';
+import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -571,7 +572,18 @@ class AssetCloudService extends ChangeNotifier {
   // AUTHENTICATION
   // ============================================================================
 
-  /// Authenticate with cloud service
+  /// Build auth headers for API calls
+  Map<String, String> _authHeadersAsset() {
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+    };
+    if (_authToken != null) {
+      headers['Authorization'] = 'Bearer $_authToken';
+    }
+    return headers;
+  }
+
+  /// Authenticate with cloud asset service
   Future<bool> authenticate({
     required String email,
     required String password,
@@ -579,19 +591,43 @@ class AssetCloudService extends ChangeNotifier {
     try {
       _lastError = null;
 
-      // Simulate API call
-      await Future.delayed(const Duration(milliseconds: 800));
+      if (_apiBaseUrl.isEmpty) {
+        // Fallback: use email hash for offline/unconfigured mode
+        _authToken = null;
+        _userId = 'user_${email.hashCode.abs()}';
+        _userName = email.split('@').first;
+        _isAuthenticated = true;
+      } else {
+        final response = await http.post(
+          Uri.parse('$_apiBaseUrl/auth/login'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'email': email, 'password': password}),
+        ).timeout(const Duration(seconds: 15));
 
-      // Mock successful auth
-      _authToken = 'mock_token_${DateTime.now().millisecondsSinceEpoch}';
-      _userId = 'user_${email.hashCode.abs()}';
-      _userName = email.split('@').first;
-      _isAuthenticated = true;
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          _authToken = data['token'] as String? ?? data['access_token'] as String?;
+          _userId = data['userId'] as String? ?? data['user_id'] as String?;
+          _userName = data['name'] as String? ?? email.split('@').first;
+          _userId ??= 'user_${email.hashCode.abs()}';
+          _isAuthenticated = true;
+        } else {
+          throw Exception('Auth failed: ${response.statusCode}');
+        }
+      }
 
       await _saveConfig();
       notifyListeners();
 
       return true;
+    } on TimeoutException {
+      _lastError = 'Authentication timed out';
+      notifyListeners();
+      return false;
+    } on SocketException catch (e) {
+      _lastError = 'Cannot reach server: ${e.message}';
+      notifyListeners();
+      return false;
     } catch (e) {
       _lastError = 'Authentication failed: $e';
       notifyListeners();
@@ -617,7 +653,7 @@ class AssetCloudService extends ChangeNotifier {
   // ASSET SEARCH & BROWSE
   // ============================================================================
 
-  /// Search for assets
+  /// Search for assets via cloud API
   Future<AssetSearchResults> searchAssets({
     AssetSearchFilters filters = const AssetSearchFilters(),
     int page = 1,
@@ -626,28 +662,56 @@ class AssetCloudService extends ChangeNotifier {
     try {
       _lastError = null;
 
-      // Simulate API call
-      await Future.delayed(const Duration(milliseconds: 500));
+      if (_apiBaseUrl.isEmpty) {
+        // No API configured — return empty results
+        return const AssetSearchResults(
+          assets: [], totalCount: 0, page: 1, pageSize: 20, hasMore: false,
+        );
+      }
 
-      // Generate mock results
-      final assets = _generateMockAssets(pageSize, filters);
+      // Build query parameters
+      final queryParams = <String, String>{
+        'page': page.toString(),
+        'pageSize': pageSize.toString(),
+      };
+      if (filters.query != null && filters.query!.isNotEmpty) {
+        queryParams['q'] = filters.query!;
+      }
+      if (filters.category != null) {
+        queryParams['category'] = filters.category!.name;
+      }
 
-      return AssetSearchResults(
-        assets: assets,
-        totalCount: 100,
-        page: page,
-        pageSize: pageSize,
-        hasMore: page * pageSize < 100,
+      final uri = Uri.parse('$_apiBaseUrl/assets/search').replace(queryParameters: queryParams);
+      final response = await http.get(uri, headers: _authHeadersAsset())
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final assetsList = (data['assets'] as List<dynamic>?)
+            ?.map((a) => CloudAsset.fromJson(a as Map<String, dynamic>))
+            .toList() ?? [];
+
+        return AssetSearchResults(
+          assets: assetsList,
+          totalCount: data['totalCount'] as int? ?? assetsList.length,
+          page: page,
+          pageSize: pageSize,
+          hasMore: data['hasMore'] as bool? ?? false,
+        );
+      } else {
+        throw Exception('Search failed: ${response.statusCode}');
+      }
+    } on TimeoutException {
+      _lastError = 'Search timed out';
+      notifyListeners();
+      return const AssetSearchResults(
+        assets: [], totalCount: 0, page: 1, pageSize: 20, hasMore: false,
       );
     } catch (e) {
       _lastError = 'Search failed: $e';
       notifyListeners();
       return const AssetSearchResults(
-        assets: [],
-        totalCount: 0,
-        page: 1,
-        pageSize: 20,
-        hasMore: false,
+        assets: [], totalCount: 0, page: 1, pageSize: 20, hasMore: false,
       );
     }
   }
@@ -660,13 +724,19 @@ class AssetCloudService extends ChangeNotifier {
     }
 
     try {
-      // Simulate API call
-      await Future.delayed(const Duration(milliseconds: 200));
+      if (_apiBaseUrl.isEmpty) return null;
 
-      // Mock asset
-      final asset = _generateMockAsset(assetId);
-      _assetCache[assetId] = asset;
-      return asset;
+      final response = await http.get(
+        Uri.parse('$_apiBaseUrl/assets/$assetId'),
+        headers: _authHeadersAsset(),
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final asset = CloudAsset.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+        _assetCache[assetId] = asset;
+        return asset;
+      }
+      return null;
     } catch (e) {
       _lastError = 'Failed to get asset: $e';
       return null;
@@ -676,8 +746,19 @@ class AssetCloudService extends ChangeNotifier {
   /// Get featured/trending assets
   Future<List<CloudAsset>> getFeaturedAssets() async {
     try {
-      await Future.delayed(const Duration(milliseconds: 300));
-      return _generateMockAssets(10, const AssetSearchFilters());
+      if (_apiBaseUrl.isEmpty) return [];
+
+      final response = await http.get(
+        Uri.parse('$_apiBaseUrl/assets/featured'),
+        headers: _authHeadersAsset(),
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final list = (data is List) ? data : (data['assets'] as List<dynamic>? ?? []);
+        return list.map((a) => CloudAsset.fromJson(a as Map<String, dynamic>)).toList();
+      }
+      return [];
     } catch (e) {
       return [];
     }
@@ -701,31 +782,18 @@ class AssetCloudService extends ChangeNotifier {
     if (!_isAuthenticated) return [];
 
     try {
-      await Future.delayed(const Duration(milliseconds: 300));
+      if (_apiBaseUrl.isEmpty) return [];
 
-      // Mock collections
-      return [
-        AssetCollection(
-          id: 'col_1',
-          name: 'Slot Game SFX',
-          description: 'Sound effects for casino slot games',
-          ownerId: _userId!,
-          ownerName: _userName!,
-          assetCount: 45,
-          createdAt: DateTime.now().subtract(const Duration(days: 30)),
-          isPublic: false,
-        ),
-        AssetCollection(
-          id: 'col_2',
-          name: 'Win Celebrations',
-          description: 'Big win fanfares and celebrations',
-          ownerId: _userId!,
-          ownerName: _userName!,
-          assetCount: 23,
-          createdAt: DateTime.now().subtract(const Duration(days: 15)),
-          isPublic: true,
-        ),
-      ];
+      final response = await http.get(
+        Uri.parse('$_apiBaseUrl/collections'),
+        headers: _authHeadersAsset(),
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final list = jsonDecode(response.body) as List<dynamic>;
+        return list.map((c) => AssetCollection.fromJson(c as Map<String, dynamic>)).toList();
+      }
+      return [];
     } catch (e) {
       return [];
     }
@@ -734,8 +802,19 @@ class AssetCloudService extends ChangeNotifier {
   /// Get assets in a collection
   Future<List<CloudAsset>> getCollectionAssets(String collectionId) async {
     try {
-      await Future.delayed(const Duration(milliseconds: 300));
-      return _generateMockAssets(20, const AssetSearchFilters());
+      if (_apiBaseUrl.isEmpty) return [];
+
+      final response = await http.get(
+        Uri.parse('$_apiBaseUrl/collections/$collectionId/assets'),
+        headers: _authHeadersAsset(),
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final list = (data is List) ? data : (data['assets'] as List<dynamic>? ?? []);
+        return list.map((a) => CloudAsset.fromJson(a as Map<String, dynamic>)).toList();
+      }
+      return [];
     } catch (e) {
       return [];
     }
@@ -750,17 +829,35 @@ class AssetCloudService extends ChangeNotifier {
     if (!_isAuthenticated) return null;
 
     try {
-      await Future.delayed(const Duration(milliseconds: 300));
+      AssetCollection collection;
 
-      final collection = AssetCollection(
-        id: 'col_${DateTime.now().millisecondsSinceEpoch}',
-        name: name,
-        description: description,
-        ownerId: _userId!,
-        ownerName: _userName!,
-        createdAt: DateTime.now(),
-        isPublic: isPublic,
-      );
+      if (_apiBaseUrl.isNotEmpty) {
+        final response = await http.post(
+          Uri.parse('$_apiBaseUrl/collections'),
+          headers: _authHeadersAsset(),
+          body: jsonEncode({
+            'name': name,
+            'description': description,
+            'isPublic': isPublic,
+          }),
+        ).timeout(const Duration(seconds: 15));
+
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          collection = AssetCollection.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+        } else {
+          throw Exception('Create collection failed: ${response.statusCode}');
+        }
+      } else {
+        collection = AssetCollection(
+          id: 'col_${DateTime.now().millisecondsSinceEpoch}',
+          name: name,
+          description: description,
+          ownerId: _userId!,
+          ownerName: _userName!,
+          createdAt: DateTime.now(),
+          isPublic: isPublic,
+        );
+      }
 
       _collectionCache[collection.id] = collection;
       notifyListeners();
@@ -773,11 +870,51 @@ class AssetCloudService extends ChangeNotifier {
 
   /// Add asset to collection
   Future<bool> addToCollection(String assetId, String collectionId) async {
+    if (!_isAuthenticated) return false;
+
     try {
-      await Future.delayed(const Duration(milliseconds: 200));
+      final response = await http.post(
+        Uri.parse('$_apiBaseUrl/collections/$collectionId/assets'),
+        headers: {
+          ..._authHeadersAsset(),
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'asset_id': assetId}),
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        _lastError = 'Failed to add to collection: ${response.statusCode}';
+        return false;
+      }
+
+      // Update local cache — reconstruct with incremented count
+      final cached = _collectionCache[collectionId];
+      if (cached != null) {
+        _collectionCache[collectionId] = AssetCollection(
+          id: cached.id,
+          name: cached.name,
+          description: cached.description,
+          ownerId: cached.ownerId,
+          ownerName: cached.ownerName,
+          coverImageUrl: cached.coverImageUrl,
+          assetCount: cached.assetCount + 1,
+          createdAt: cached.createdAt,
+          updatedAt: cached.updatedAt,
+          isPublic: cached.isPublic,
+          tags: cached.tags,
+        );
+      }
+
       notifyListeners();
       return true;
+    } on TimeoutException {
+      _lastError = 'Request timed out';
+      return false;
+    } on SocketException {
+      _lastError = 'No network connection';
+      return false;
     } catch (e) {
+      _lastError = 'Failed to add to collection: $e';
       return false;
     }
   }
@@ -856,15 +993,45 @@ class AssetCloudService extends ChangeNotifier {
       final bytes = await file.readAsBytes();
       final checksum = md5.convert(bytes).toString();
 
-      // Simulate upload progress
-      for (var i = 1; i <= 10; i++) {
-        await Future.delayed(const Duration(milliseconds: 100));
+      // Upload file to server
+      if (_apiBaseUrl.isNotEmpty) {
+        final request = http.MultipartRequest(
+          'POST',
+          Uri.parse('$_apiBaseUrl/assets/upload'),
+        );
+        request.headers.addAll(_authHeadersAsset());
+        request.fields['name'] = name;
+        if (description != null) request.fields['description'] = description;
+        request.fields['category'] = category.name;
+        request.fields['tags'] = tags.join(',');
+        request.fields['license'] = license.name;
+        request.fields['isPublic'] = isPublic.toString();
+        request.files.add(await http.MultipartFile.fromPath('file', filePath));
+
+        final streamedResponse = await request.send()
+            .timeout(const Duration(seconds: 120));
+
+        // Track progress via response
+        final responseBytes = await streamedResponse.stream.toBytes();
+        if (streamedResponse.statusCode != 200 && streamedResponse.statusCode != 201) {
+          throw Exception('Upload failed: ${streamedResponse.statusCode} ${String.fromCharCodes(responseBytes)}');
+        }
+
+        // Update transfer progress
         final updatedTransfer = transfer.copyWith(
-          transferredBytes: (fileSize * i / 10).round(),
+          transferredBytes: fileSize,
           status: AssetTransferStatus.inProgress,
         );
         _updateTransfer(updatedTransfer);
-        onProgress?.call(i / 10);
+        onProgress?.call(1.0);
+      } else {
+        // No API — just mark as done (local-only mode)
+        final updatedTransfer = transfer.copyWith(
+          transferredBytes: fileSize,
+          status: AssetTransferStatus.inProgress,
+        );
+        _updateTransfer(updatedTransfer);
+        onProgress?.call(1.0);
       }
 
       // Create asset
@@ -950,19 +1117,35 @@ class AssetCloudService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Simulate download progress
-      for (var i = 1; i <= 10; i++) {
-        await Future.delayed(const Duration(milliseconds: 80));
+      // Download file from cloud
+      if (asset.cloudUrl.isNotEmpty && !asset.cloudUrl.startsWith('mock://')) {
+        final downloadUrl = asset.cloudUrl.startsWith('http')
+            ? asset.cloudUrl
+            : '$_cdnBaseUrl/${asset.cloudUrl}';
+
+        final response = await http.get(
+          Uri.parse(downloadUrl),
+          headers: _authHeadersAsset(),
+        ).timeout(const Duration(seconds: 120));
+
+        if (response.statusCode != 200) {
+          throw Exception('Download failed: ${response.statusCode}');
+        }
+
+        await File(targetPath).parent.create(recursive: true);
+        await File(targetPath).writeAsBytes(response.bodyBytes);
+
         final updatedTransfer = transfer.copyWith(
-          transferredBytes: (asset.sizeBytes * i / 10).round(),
+          transferredBytes: response.bodyBytes.length,
           status: AssetTransferStatus.inProgress,
         );
         _updateTransfer(updatedTransfer);
-        onProgress?.call(i / 10);
+        onProgress?.call(1.0);
+      } else {
+        // No real URL — create placeholder (unconfigured mode)
+        await File(targetPath).create(recursive: true);
+        onProgress?.call(1.0);
       }
-
-      // Create empty file (mock)
-      await File(targetPath).create(recursive: true);
 
       // Mark transfer complete
       final completedTransfer = transfer.copyWith(
@@ -1016,10 +1199,65 @@ class AssetCloudService extends ChangeNotifier {
     if (!_isAuthenticated || rating < 1 || rating > 5) return false;
 
     try {
-      await Future.delayed(const Duration(milliseconds: 200));
-      // Would update rating on server
+      final response = await http.post(
+        Uri.parse('$_apiBaseUrl/assets/$assetId/rate'),
+        headers: {
+          ..._authHeadersAsset(),
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'rating': rating}),
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        _lastError = 'Failed to rate asset: ${response.statusCode}';
+        return false;
+      }
+
+      // Update cached asset rating if available
+      final cached = _assetCache[assetId];
+      if (cached != null) {
+        final newCount = cached.ratingCount + 1;
+        final newRating =
+            ((cached.rating * cached.ratingCount) + rating) / newCount;
+        _assetCache[assetId] = CloudAsset(
+          id: cached.id,
+          name: cached.name,
+          description: cached.description,
+          category: cached.category,
+          tags: cached.tags,
+          format: cached.format,
+          sizeBytes: cached.sizeBytes,
+          durationSeconds: cached.durationSeconds,
+          sampleRate: cached.sampleRate,
+          channels: cached.channels,
+          bitDepth: cached.bitDepth,
+          cloudUrl: cached.cloudUrl,
+          thumbnailUrl: cached.thumbnailUrl,
+          waveformUrl: cached.waveformUrl,
+          checksum: cached.checksum,
+          uploaderId: cached.uploaderId,
+          uploaderName: cached.uploaderName,
+          uploadedAt: cached.uploadedAt,
+          updatedAt: cached.updatedAt,
+          license: cached.license,
+          downloadCount: cached.downloadCount,
+          rating: newRating,
+          ratingCount: newCount,
+          isPublic: cached.isPublic,
+          collections: cached.collections,
+        );
+      }
+
+      notifyListeners();
       return true;
+    } on TimeoutException {
+      _lastError = 'Request timed out';
+      return false;
+    } on SocketException {
+      _lastError = 'No network connection';
+      return false;
     } catch (e) {
+      _lastError = 'Failed to rate asset: $e';
       return false;
     }
   }
@@ -1059,90 +1297,6 @@ class AssetCloudService extends ChangeNotifier {
     _apiBaseUrl = apiUrl;
     _cdnBaseUrl = cdnUrl;
     await _saveConfig();
-  }
-
-  // ============================================================================
-  // HELPERS
-  // ============================================================================
-
-  List<CloudAsset> _generateMockAssets(int count, AssetSearchFilters filters) {
-    final categories = AssetCategory.values;
-    final formats = ['wav', 'mp3', 'ogg', 'flac'];
-    final sampleRates = [44100, 48000, 96000];
-
-    return List.generate(count, (i) {
-      final cat = filters.category ?? categories[i % categories.length];
-      final format = formats[i % formats.length];
-
-      return CloudAsset(
-        id: 'asset_${DateTime.now().millisecondsSinceEpoch}_$i',
-        name: _getMockAssetName(cat, i),
-        description: 'High quality ${cat.displayName.toLowerCase()} sound',
-        category: cat,
-        tags: _getMockTags(cat),
-        format: format,
-        sizeBytes: 500000 + (i * 100000),
-        durationSeconds: 1.0 + (i % 10) * 0.5,
-        sampleRate: sampleRates[i % sampleRates.length],
-        channels: i % 3 == 0 ? 1 : 2,
-        bitDepth: i % 2 == 0 ? 16 : 24,
-        cloudUrl: '$_cdnBaseUrl/assets/mock_$i.$format',
-        checksum: md5.convert(utf8.encode('asset_$i')).toString(),
-        uploaderId: 'user_123',
-        uploaderName: 'FluxForge',
-        uploadedAt: DateTime.now().subtract(Duration(days: i)),
-        license: AssetLicense.values[i % AssetLicense.values.length],
-        downloadCount: i * 10,
-        rating: 3.5 + (i % 3) * 0.5,
-        ratingCount: i * 5,
-      );
-    });
-  }
-
-  CloudAsset _generateMockAsset(String id) {
-    return CloudAsset(
-      id: id,
-      name: 'Asset $id',
-      category: AssetCategory.sfx,
-      format: 'wav',
-      sizeBytes: 1000000,
-      durationSeconds: 3.0,
-      sampleRate: 48000,
-      channels: 2,
-      bitDepth: 24,
-      cloudUrl: '$_cdnBaseUrl/assets/$id.wav',
-      checksum: md5.convert(utf8.encode(id)).toString(),
-      uploaderId: 'user_123',
-      uploaderName: 'FluxForge',
-      uploadedAt: DateTime.now(),
-    );
-  }
-
-  String _getMockAssetName(AssetCategory category, int index) {
-    final names = <AssetCategory, List<String>>{
-      AssetCategory.sfx: ['Impact Hit', 'Whoosh', 'Click', 'Pop', 'Explosion'],
-      AssetCategory.music: ['Epic Theme', 'Ambient Loop', 'Victory Fanfare', 'Tension Build'],
-      AssetCategory.voiceover: ['Jackpot Announce', 'Win Call', 'Bonus Voice', 'Countdown'],
-      AssetCategory.ambience: ['Casino Floor', 'Crowd Chatter', 'Machine Hum'],
-      AssetCategory.foley: ['Coin Drop', 'Lever Pull', 'Button Press', 'Card Flip'],
-      AssetCategory.ui: ['Menu Open', 'Select', 'Confirm', 'Error', 'Notification'],
-      AssetCategory.slot: ['Reel Stop', 'Spin Start', 'Win Present', 'Big Win', 'Scatter Land'],
-      AssetCategory.custom: ['Custom Sound'],
-    };
-
-    final categoryNames = names[category] ?? ['Sound'];
-    return '${categoryNames[index % categoryNames.length]} ${index + 1}';
-  }
-
-  List<String> _getMockTags(AssetCategory category) {
-    final baseTags = <String>['professional', 'high-quality'];
-    final categoryTags = <AssetCategory, List<String>>{
-      AssetCategory.sfx: ['impact', 'hit', 'punch'],
-      AssetCategory.music: ['cinematic', 'epic', 'orchestral'],
-      AssetCategory.slot: ['casino', 'slot', 'game'],
-      AssetCategory.ui: ['interface', 'button', 'click'],
-    };
-    return [...baseTags, ...(categoryTags[category] ?? [])];
   }
 
   // ============================================================================

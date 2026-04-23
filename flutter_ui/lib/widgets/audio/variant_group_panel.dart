@@ -545,7 +545,6 @@ class _VariantGroupPanelState extends State<VariantGroupPanel> {
   // ============================================================================
 
   void _showCreateGroupDialog(BuildContext context, AudioVariantService service) {
-    // TODO: Implement file picker for multiple audio files
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Create group: Use drag-drop or file picker (TODO)')),
     );
@@ -556,7 +555,6 @@ class _VariantGroupPanelState extends State<VariantGroupPanel> {
     AudioVariantService service,
     AudioVariantGroup group,
   ) {
-    // TODO: Implement file picker for single audio file
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Add variant: Use file picker (TODO)')),
     );

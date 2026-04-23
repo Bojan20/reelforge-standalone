@@ -150,6 +150,9 @@ void main() {
 
   setUp(() {
     provider = GameFlowProvider();
+    // Disable scene transitions for unit tests — these tests assert immediate
+    // state changes after onSpinComplete; transitions defer state via plaque.
+    provider.configureTransitions(enabled: false);
   });
 
   tearDown(() {
@@ -604,4 +607,428 @@ void main() {
       expect(result.appliedMultiplier, 1.0);
     });
   });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TALAS 1 — Wire 1.3: SLAM zombie recovery
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  group('FS Auto-Loop Recovery (Wire 1.3)', () {
+    test('recoverFsAutoLoop is no-op when loop is inactive', () {
+      // Loop never started — recovery should not throw or change state
+      provider.recoverFsAutoLoop();
+      expect(provider.isFsAutoLoopActive, isFalse);
+    });
+
+    test('recoverFsAutoLoop stops loop if not in freeSpins state', () {
+      // Force the active flag without entering FS — simulates corrupted state.
+      // Then call recovery: it must clean up rather than reschedule.
+      final executor = _TestExecutor(blockId: 'free_spins', priority: 80);
+      executor.stepShouldContinue = true;
+      provider.registerExecutor(executor);
+
+      // Enter FS, start loop, then exit FS via reset
+      provider.onSpinStart();
+      provider.onSpinComplete(_makeResult(
+        featureTriggered: true,
+        grid: _scatterGrid(scatterCount: 3),
+      ));
+      provider.startFsAutoLoop();
+      expect(provider.isFsAutoLoopActive, isTrue);
+
+      // Force back to base — loop flag may persist if exit raced with timer
+      provider.forceTransition(GameFlowState.baseGame);
+      // Manually re-enable to simulate orphan flag (forceTransition stops it,
+      // but the recovery API must also handle the case where flag is set
+      // outside FS state).
+      provider.startFsAutoLoop(); // no-op because not in FS
+      expect(provider.isFsAutoLoopActive, isFalse);
+
+      // recoverFsAutoLoop on already-stopped loop = clean no-op
+      provider.recoverFsAutoLoop();
+      expect(provider.isFsAutoLoopActive, isFalse);
+    });
+
+    test('recoverFsAutoLoop reschedules timer when in FS with active loop',
+        () async {
+      final executor = _TestExecutor(blockId: 'free_spins', priority: 80);
+      executor.stepShouldContinue = true; // keep FS alive
+      provider.registerExecutor(executor);
+
+      provider.onSpinStart();
+      provider.onSpinComplete(_makeResult(
+        featureTriggered: true,
+        grid: _scatterGrid(scatterCount: 3),
+      ));
+      expect(provider.currentState, GameFlowState.freeSpins);
+
+      // Wire the auto-spin callback so _scheduleNextFsSpin can fire it
+      int autoSpinCalls = 0;
+      provider.onRequestAutoSpin = () => autoSpinCalls++;
+
+      provider.startFsAutoLoop(delayMs: 50);
+      expect(provider.isFsAutoLoopActive, isTrue);
+
+      // Wait for first scheduled spin
+      await Future.delayed(const Duration(milliseconds: 80));
+      expect(autoSpinCalls, 1);
+
+      // Simulate "stuck" state: in real life onSpinComplete would have
+      // rescheduled, but SLAM-mid-flight prevented finalize. Auto-loop flag
+      // is still true, but no timer is running.
+      // Recovery should reschedule the next spin.
+      provider.recoverFsAutoLoop();
+      await Future.delayed(const Duration(milliseconds: 80));
+      expect(autoSpinCalls, 2,
+          reason: 'recoverFsAutoLoop must trigger one more auto-spin');
+
+      // Cleanup: stop the loop so tearDown() doesn't leave a pending timer
+      provider.stopFsAutoLoop();
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TALAS 1 — Wire #1: FS auto-loop survives null onRequestAutoSpin callback
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  group('FS Auto-Loop Null-Callback Retry (Wire #1)', () {
+    test('does not call a null callback and does not crash', () async {
+      final executor = _TestExecutor(blockId: 'free_spins', priority: 80);
+      executor.stepShouldContinue = true;
+      provider.registerExecutor(executor);
+
+      provider.onSpinStart();
+      provider.onSpinComplete(_makeResult(
+        featureTriggered: true,
+        grid: _scatterGrid(scatterCount: 3),
+      ));
+      expect(provider.currentState, GameFlowState.freeSpins);
+
+      // Intentionally leave onRequestAutoSpin null (UI not wired yet).
+      provider.onRequestAutoSpin = null;
+      provider.startFsAutoLoop(delayMs: 30);
+
+      // Drain ~10 retry slots; loop must not crash and must eventually stop.
+      await Future.delayed(const Duration(milliseconds: 500));
+      expect(provider.isFsAutoLoopActive, isFalse,
+          reason:
+              'After max null-callback retries the loop must stop gracefully so '
+              'the player can recover via the SPIN button.');
+    });
+
+    test('resumes calling once the callback is wired mid-loop', () async {
+      final executor = _TestExecutor(blockId: 'free_spins', priority: 80);
+      executor.stepShouldContinue = true;
+      provider.registerExecutor(executor);
+
+      provider.onSpinStart();
+      provider.onSpinComplete(_makeResult(
+        featureTriggered: true,
+        grid: _scatterGrid(scatterCount: 3),
+      ));
+
+      provider.onRequestAutoSpin = null;
+      provider.startFsAutoLoop(delayMs: 30);
+
+      // After 1 retry cycle, wire the callback (UI postFrameCallback finally ran)
+      await Future.delayed(const Duration(milliseconds: 60));
+      int autoSpinCalls = 0;
+      provider.onRequestAutoSpin = () => autoSpinCalls++;
+
+      // Next scheduled tick should fire it
+      await Future.delayed(const Duration(milliseconds: 60));
+      expect(autoSpinCalls, greaterThanOrEqualTo(1),
+          reason: 'Loop should resume firing once UI wires its callback');
+
+      provider.stopFsAutoLoop();
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TALAS 1 — Wire #3: Deferred Big Win double-fire guard
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  group('Deferred Big Win Guard (Wire #3)', () {
+    test('onDeferredBigWin fires exactly once per feature exit', () {
+      // Test executor exits immediately with a big win = 100x of bet (1.0)
+      final executor = _BigWinExecutor(blockId: 'free_spins', priority: 80,
+          exitWin: 100.0);
+      provider.registerExecutor(executor);
+
+      int bigWinCallCount = 0;
+      double? lastWin;
+      provider.onDeferredBigWin = (win, bet) {
+        bigWinCallCount++;
+        lastWin = win;
+      };
+
+      provider.onSpinStart();
+      provider.onSpinComplete(_makeResult(
+        featureTriggered: true,
+        bet: 1.0,
+        grid: _scatterGrid(scatterCount: 3),
+      ));
+      // Now we are in FS. Step the feature once — exit with 100x bet.
+      provider.onSpinComplete(_makeResult(bet: 1.0));
+
+      expect(bigWinCallCount, 1,
+          reason: 'Big Win must fire exactly once per exit');
+      expect(lastWin, 100.0);
+    });
+
+    test('next spin re-arms the guard so subsequent exits can fire', () {
+      final executor = _BigWinExecutor(blockId: 'free_spins', priority: 80,
+          exitWin: 100.0);
+      provider.registerExecutor(executor);
+
+      int bigWinCallCount = 0;
+      provider.onDeferredBigWin = (win, bet) => bigWinCallCount++;
+
+      // First exit fires
+      provider.onSpinStart();
+      provider.onSpinComplete(_makeResult(
+        featureTriggered: true, bet: 1.0,
+        grid: _scatterGrid(scatterCount: 3),
+      ));
+      provider.onSpinComplete(_makeResult(bet: 1.0));
+      expect(bigWinCallCount, 1);
+
+      // New spin arms the guard, then second exit fires
+      provider.onSpinStart();
+      provider.onSpinComplete(_makeResult(
+        featureTriggered: true, bet: 1.0,
+        grid: _scatterGrid(scatterCount: 3),
+      ));
+      provider.onSpinComplete(_makeResult(bet: 1.0));
+      expect(bigWinCallCount, 2,
+          reason: 'A new spin must reset the per-exit guard');
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TALAS 1 — Wire #4: FS retrigger surfaces as a hook event
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  group('FS Retrigger Hook (Wire #4)', () {
+    test('FSM does not crash when executor reports more spinsRemaining',
+        () {
+      // _RetriggerExecutor returns updatedState with spinsRemaining > previous
+      // — same shape as FreeSpinsExecutor when scatter retrigger fires inline.
+      final executor = _RetriggerExecutor(blockId: 'free_spins', priority: 80);
+      provider.registerExecutor(executor);
+
+      provider.onSpinStart();
+      provider.onSpinComplete(_makeResult(
+        featureTriggered: true,
+        grid: _scatterGrid(scatterCount: 3),
+      ));
+      expect(provider.currentState, GameFlowState.freeSpins);
+
+      // Retrigger spin: executor reports 15 spinsRemaining (was 9 after step).
+      // Wire #4 hook emit must run silently without throwing — HookGraphService
+      // may not be initialized in unit tests, the emit is best-effort.
+      provider.onSpinComplete(_makeResult());
+
+      expect(provider.currentState, GameFlowState.freeSpins,
+          reason: 'Retrigger keeps us in FS state');
+      expect(provider.freeSpinsState?.spinsRemaining, greaterThan(8),
+          reason: 'Retrigger must have been applied to feature state');
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TALAS 1 — Wire #5: synthetic transition-dismissed when no entry/exit plaque
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  group('Synthetic Transition Dismiss (Wire #5)', () {
+    test('FS entry without plaque still emits onTransitionDismissed (entering)',
+        () {
+      final executor = _TestExecutor(blockId: 'free_spins', priority: 80);
+      executor.stepShouldContinue = true;
+      provider.registerExecutor(executor);
+
+      // Transitions are disabled in setUp() — no entry plaque will show.
+      final dismissed = <List<dynamic>>[];
+      provider.onTransitionDismissed = (phase, from, to) {
+        dismissed.add([phase, from, to]);
+      };
+
+      provider.onSpinStart();
+      provider.onSpinComplete(_makeResult(
+        featureTriggered: true,
+        grid: _scatterGrid(scatterCount: 3),
+      ));
+
+      expect(provider.currentState, GameFlowState.freeSpins);
+      expect(
+        dismissed.any((d) =>
+            d[0] == TransitionPhase.entering && d[2] == GameFlowState.freeSpins),
+        isTrue,
+        reason:
+            'Without a plaque the integration layer must still receive an '
+            'entering-dismissed event so it can start FS music + auto-loop.',
+      );
+    });
+
+    test('FS exit without plaque still emits onTransitionDismissed (exiting)',
+        () {
+      // Use an executor that exits immediately on first step
+      final executor = _TestExecutor(blockId: 'free_spins', priority: 80);
+      executor.stepShouldContinue = false; // exit on next step
+      provider.registerExecutor(executor);
+
+      final dismissed = <List<dynamic>>[];
+      provider.onTransitionDismissed = (phase, from, to) {
+        dismissed.add([phase, from, to]);
+      };
+
+      provider.onSpinStart();
+      provider.onSpinComplete(_makeResult(
+        featureTriggered: true,
+        grid: _scatterGrid(scatterCount: 3),
+      ));
+      // Step once → exits FS
+      provider.onSpinComplete(_makeResult());
+
+      expect(
+        dismissed.any((d) =>
+            d[0] == TransitionPhase.exiting && d[1] == GameFlowState.freeSpins),
+        isTrue,
+        reason:
+            'Without an exit plaque the integration layer must still hear a '
+            'exiting-dismissed event so it can fire FS_OUTRO_PLAQUE / '
+            'flushPendingCrossfade.',
+      );
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EXTRA TEST EXECUTORS for TALAS 1 wires
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Executor that exits on first step with a configurable accumulated win.
+/// Used to drive the deferred Big Win path.
+class _BigWinExecutor extends FeatureExecutor {
+  @override
+  final String blockId;
+  @override
+  final int priority;
+  final double exitWin;
+
+  _BigWinExecutor({
+    required this.blockId,
+    this.priority = 50,
+    required this.exitWin,
+  });
+
+  @override
+  void configure(Map<String, dynamic> options) {}
+
+  @override
+  bool shouldTrigger(SpinContext context) => context.scatterCount >= 3;
+
+  @override
+  FeatureState enter(TriggerContext context) => FeatureState(
+        featureId: blockId,
+        totalSpins: 1,
+        spinsRemaining: 1,
+        accumulatedWin: exitWin,
+      );
+
+  @override
+  FeatureStepResult step(SlotLabSpinResult result, FeatureState currentState) {
+    return FeatureStepResult(
+      updatedState: currentState.copyWith(
+        spinsRemaining: 0,
+        accumulatedWin: exitWin,
+      ),
+      shouldContinue: false,
+      audioStages: const [],
+    );
+  }
+
+  @override
+  FeatureExitResult exit(FeatureState finalState) => FeatureExitResult(
+        totalWin: finalState.accumulatedWin,
+        audioStages: const [],
+        offerGamble: false,
+      );
+
+  @override
+  ModifiedWinResult modifyWin(double baseWinAmount, FeatureState state) =>
+      ModifiedWinResult(
+        originalAmount: baseWinAmount,
+        finalAmount: baseWinAmount,
+      );
+
+  @override
+  String? getCurrentAudioStage(FeatureState state) => null;
+}
+
+/// Executor whose step() returns MORE spinsRemaining than the input —
+/// mirrors FreeSpinsExecutor's inline retrigger behavior so the FSM can be
+/// exercised without depending on the real executor's scatter-count math.
+class _RetriggerExecutor extends FeatureExecutor {
+  @override
+  final String blockId;
+  @override
+  final int priority;
+  bool _retriggered = false;
+
+  _RetriggerExecutor({required this.blockId, this.priority = 80});
+
+  @override
+  void configure(Map<String, dynamic> options) {}
+
+  @override
+  bool shouldTrigger(SpinContext context) => context.scatterCount >= 3;
+
+  @override
+  FeatureState enter(TriggerContext context) => FeatureState(
+        featureId: blockId,
+        totalSpins: 10,
+        spinsRemaining: 10,
+      );
+
+  @override
+  FeatureStepResult step(SlotLabSpinResult result, FeatureState currentState) {
+    // First step: retrigger — bump spinsRemaining from 9 to 15
+    if (!_retriggered) {
+      _retriggered = true;
+      return FeatureStepResult(
+        updatedState: currentState.copyWith(
+          spinsRemaining: currentState.spinsRemaining + 6,
+          totalSpins: currentState.totalSpins + 6,
+          customData: const {'retriggersUsed': 1},
+        ),
+        shouldContinue: true,
+        audioStages: const ['FS_RETRIGGER'],
+      );
+    }
+    // Subsequent steps: normal decrement
+    return FeatureStepResult(
+      updatedState: currentState.copyWith(
+        spinsRemaining: currentState.spinsRemaining - 1,
+      ),
+      shouldContinue: currentState.spinsRemaining - 1 > 0,
+      audioStages: const [],
+    );
+  }
+
+  @override
+  FeatureExitResult exit(FeatureState finalState) => const FeatureExitResult(
+        totalWin: 0,
+        audioStages: [],
+        offerGamble: false,
+      );
+
+  @override
+  ModifiedWinResult modifyWin(double baseWinAmount, FeatureState state) =>
+      ModifiedWinResult(
+        originalAmount: baseWinAmount,
+        finalAmount: baseWinAmount,
+      );
+
+  @override
+  String? getCurrentAudioStage(FeatureState state) => null;
 }

@@ -10,7 +10,7 @@
 //!
 //! P0.5/P0.6 FIX: Background eviction thread to avoid RT allocations
 
-use std::cell::RefCell;
+use std::cell::{RefCell, UnsafeCell};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
@@ -19,7 +19,8 @@ use std::panic::AssertUnwindSafe;
 use std::thread;
 
 use crossbeam_channel::{Sender, bounded};
-use parking_lot::RwLock;
+use dashmap::DashMap;
+use parking_lot::{Mutex, RwLock};
 use rayon::prelude::*;
 
 use crate::sinc_table::{self, ResampleMode, SincTable};
@@ -115,8 +116,8 @@ thread_local! {
     static SPATIAL_VOICE_MONO: RefCell<Vec<f32>> = RefCell::new(vec![0.0; 262144]);
     /// Thread-local bus-to-bus routing accum buffers (6 buses × L/R)
     /// Heap-allocated to support any block size without stack overflow or truncation
-    static BUS_ACCUM_L: RefCell<Vec<Vec<f64>>> = RefCell::new(Vec::new());
-    static BUS_ACCUM_R: RefCell<Vec<Vec<f64>>> = RefCell::new(Vec::new());
+    static BUS_ACCUM_L: RefCell<Vec<Vec<f64>>> = const { RefCell::new(Vec::new()) };
+    static BUS_ACCUM_R: RefCell<Vec<Vec<f64>>> = const { RefCell::new(Vec::new()) };
 }
 
 use crate::audio_import::{AudioImporter, ImportedAudio};
@@ -137,6 +138,7 @@ use crate::track_manager::{
 use rf_dsp::analysis::FftAnalyzer;
 use rf_dsp::delay_compensation::DelayCompensationManager;
 use rf_dsp::metering::{LufsMeter, TruePeakMeter};
+use rf_dsp::MonoProcessor; // Phase 6: BiquadTDF2::process_sample()
 
 // ═══════════════════════════════════════════════════════════════════════════
 // AUDIO CACHE WITH LRU EVICTION
@@ -1000,6 +1002,27 @@ pub struct OneShotVoice {
     /// Spatial source ID — when Some, voice bypasses pan law and routes through
     /// SpatialManager HRTF pipeline instead of normal bus routing.
     spatial_source_id: Option<u32>,
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TALAS 3 / PHASE 6 — Per-voice OrbMixer Nivo 3 DSP (HPF, LPF, Send)
+    // ═══════════════════════════════════════════════════════════════════════════
+    /// HPF cutoff in Hz (20..20000). Bypass when <= 20 Hz.
+    pub hpf_cutoff_hz: f32,
+    /// LPF cutoff in Hz (20..20000). Bypass when >= 20000 Hz.
+    pub lpf_cutoff_hz: f32,
+    /// Pre-fader send level (0.0..1.0). Routed to send bus via accumulate.
+    pub send_gain: f32,
+    /// HPF biquad state — left channel
+    hpf_l: rf_dsp::biquad::BiquadTDF2,
+    /// HPF biquad state — right channel
+    hpf_r: rf_dsp::biquad::BiquadTDF2,
+    /// LPF biquad state — left channel
+    lpf_l: rf_dsp::biquad::BiquadTDF2,
+    /// LPF biquad state — right channel
+    lpf_r: rf_dsp::biquad::BiquadTDF2,
+    /// Whether HPF is engaged (cutoff > 20 Hz)
+    hpf_active: bool,
+    /// Whether LPF is engaged (cutoff < 20000 Hz)
+    lpf_active: bool,
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1016,6 +1039,36 @@ pub struct OneShotVoice {
 /// Read path uses RwLock read guard (fast, no contention on audio thread).
 static PLAYBACK_SINC_TABLE: std::sync::LazyLock<parking_lot::RwLock<SincTable>> =
     std::sync::LazyLock::new(|| parking_lot::RwLock::new(SincTable::new(64, 256)));
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LIVE MIDI INJECTION (BUG #24)
+// ─────────────────────────────────────────────────────────────────────────────
+// Dart UI injects note-on/off via FFI → merged with clip MIDI before each
+// plugin.process() call.  DashMap<track_id → Mutex<Vec<LiveMidiNote>>> gives
+// per-track granularity with minimal lock contention on the audio thread.
+
+/// Raw live MIDI note (stack-only, no heap).
+#[derive(Clone, Copy)]
+struct LiveMidiNote {
+    channel: u8,
+    note: u8,
+    velocity: u8,
+    is_note_on: bool,
+}
+
+/// Per-track live MIDI inject queue.
+/// Dart FFI pushes here; audio thread drains + merges into instrument MIDI buffer.
+static LIVE_MIDI_INJECT: std::sync::LazyLock<DashMap<u64, Mutex<Vec<LiveMidiNote>>>> =
+    std::sync::LazyLock::new(DashMap::new);
+
+/// Push a live MIDI note event for a specific instrument track.
+/// Called from Dart FFI (rf-bridge), safe from any thread.
+pub fn inject_live_midi_note(track_id: u64, channel: u8, note: u8, velocity: u8, is_note_on: bool) {
+    let entry = LIVE_MIDI_INJECT
+        .entry(track_id)
+        .or_insert_with(|| Mutex::new(Vec::with_capacity(32)));
+    entry.lock().push(LiveMidiNote { channel, note, velocity, is_note_on });
+}
 
 /// Current playback resample mode (default: Sinc(64))
 static PLAYBACK_RESAMPLE_MODE: std::sync::atomic::AtomicU16 =
@@ -1099,6 +1152,16 @@ impl OneShotVoice {
             engine_sample_rate: 48000,
             voice_resample_mode: ResampleMode::PLAYBACK,
             spatial_source_id: None,
+            // Phase 6: per-voice HPF/LPF/Send — bypass by default
+            hpf_cutoff_hz: 20.0,
+            lpf_cutoff_hz: 20000.0,
+            send_gain: 0.0,
+            hpf_l: rf_dsp::biquad::BiquadTDF2::new(48000.0),
+            hpf_r: rf_dsp::biquad::BiquadTDF2::new(48000.0),
+            lpf_l: rf_dsp::biquad::BiquadTDF2::new(48000.0),
+            lpf_r: rf_dsp::biquad::BiquadTDF2::new(48000.0),
+            hpf_active: false,
+            lpf_active: false,
         }
     }
 
@@ -1141,6 +1204,16 @@ impl OneShotVoice {
         self.meter_peak_l = 0.0;
         self.meter_peak_r = 0.0;
         self.spatial_source_id = None;
+        // Phase 6: reset HPF/LPF/Send to bypass on every new voice start
+        self.hpf_cutoff_hz = 20.0;
+        self.lpf_cutoff_hz = 20000.0;
+        self.send_gain = 0.0;
+        self.hpf_active = false;
+        self.lpf_active = false;
+        self.hpf_l.reset();
+        self.hpf_r.reset();
+        self.lpf_l.reset();
+        self.lpf_r.reset();
         // Reset to current global quality (not stale mode from previous voice)
         let mode = playback_resample_mode();
         self.voice_resample_mode = if mode.is_r8brain() {
@@ -1456,6 +1529,18 @@ impl OneShotVoice {
                 }
             }
 
+            // ═══════════════════════════════════════════════════════════════
+            // Phase 6: Per-voice HPF → LPF (biquad TDF-II, post-pan/width)
+            // ═══════════════════════════════════════════════════════════════
+            if self.hpf_active {
+                sample_l = self.hpf_l.process_sample(sample_l);
+                sample_r = self.hpf_r.process_sample(sample_r);
+            }
+            if self.lpf_active {
+                sample_l = self.lpf_l.process_sample(sample_l);
+                sample_r = self.lpf_r.process_sample(sample_r);
+            }
+
             // Per-voice peak metering (before bus mix — track THIS voice only)
             let abs_l = sample_l.abs();
             let abs_r = sample_r.abs();
@@ -1561,6 +1646,12 @@ pub enum OneShotCommand {
     SetPhaseInvert { id: u64, invert: bool },
     /// Real-time mute toggle for active voice
     SetMute { id: u64, muted: bool },
+    /// Phase 6: per-voice HPF cutoff in Hz (20 = bypass, 20..20000 active)
+    SetHpf { id: u64, cutoff_hz: f32 },
+    /// Phase 6: per-voice LPF cutoff in Hz (20000 = bypass, 20..20000 active)
+    SetLpf { id: u64, cutoff_hz: f32 },
+    /// Phase 6: per-voice pre-fader send level (0.0..1.0)
+    SetSend { id: u64, level: f32 },
     /// Play a voice with 3D spatial positioning (HRTF binaural rendering)
     PlaySpatial {
         id: u64,
@@ -1687,19 +1778,16 @@ impl BusBuffers {
 
 /// Bus output destination for hierarchical routing (Cubase-style stem grouping)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum BusOutputDest {
     /// Route to master output (default)
+    #[default]
     Master,
     /// Route to another bus by index (0-5). Enables stem grouping:
     /// e.g., Sfx→Music for dialog/music stem, Voice→Aux for submix.
     Bus(usize),
 }
 
-impl Default for BusOutputDest {
-    fn default() -> Self {
-        BusOutputDest::Master
-    }
-}
 
 /// Bus volume/mute/solo state
 #[derive(Debug, Clone)]
@@ -1799,6 +1887,38 @@ impl TrackMeter {
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// AUDIO THREAD CELL — Zero-cost exclusive access for audio thread data
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Zero-cost wrapper for data exclusively owned by the audio thread.
+///
+/// BUG #14 FIX: `bus_buffers` was behind `RwLock` with `try_write()` that returned
+/// early (silent frame) on contention. Since `process_offline()` uses its own local
+/// `BusBuffers`, the RwLock had ZERO readers/writers besides `process()`. The lock was
+/// pure overhead with a dangerous fallback path.
+///
+/// `AudioThreadCell` replaces the lock with `UnsafeCell` — zero overhead, zero contention,
+/// zero silent frames. Safety: only `process()` on the audio callback thread accesses this.
+struct AudioThreadCell<T>(UnsafeCell<T>);
+
+// SAFETY: AudioThreadCell is only accessed from the audio callback thread (process()).
+// No other thread reads or writes bus_buffers. process_offline() uses local BusBuffers.
+unsafe impl<T> Sync for AudioThreadCell<T> {}
+unsafe impl<T> Send for AudioThreadCell<T> {}
+
+impl<T> AudioThreadCell<T> {
+    fn new(value: T) -> Self {
+        Self(UnsafeCell::new(value))
+    }
+
+    /// Get exclusive mutable access. SAFETY: caller must ensure single-thread access.
+    #[inline(always)]
+    unsafe fn get_mut(&self) -> &mut T { unsafe {
+        &mut *self.0.get()
+    }}
+}
+
 /// Main playback engine for timeline audio
 pub struct PlaybackEngine {
     /// Track manager reference
@@ -1809,8 +1929,8 @@ pub struct PlaybackEngine {
     pub position: Arc<PlaybackPosition>,
     /// Master volume (0.0 to 1.5)
     master_volume: AtomicU64,
-    /// Bus buffers for audio routing
-    bus_buffers: RwLock<BusBuffers>,
+    /// Bus buffers for audio routing (audio thread only — zero-cost access)
+    bus_buffers: AudioThreadCell<BusBuffers>,
     /// Bus states (volume, pan, mute, solo)
     bus_states: RwLock<[BusState; 6]>,
     /// Any bus soloed flag
@@ -1876,6 +1996,10 @@ pub struct PlaybackEngine {
     spectrum_analyzer: RwLock<FftAnalyzer>,
     /// Spectrum data cache (256 bins, log-scaled 20Hz-20kHz)
     spectrum_data: RwLock<Vec<f32>>,
+    /// Phase 10e-3: per-bus 4-band energy analyzer (bass/lowmid/highmid/treble).
+    /// Feeds `SHARED_METERS.bus_band_rms` so the Orb masking detector can see
+    /// which specific buses are fighting in which band, not just master aggregates.
+    per_bus_band_analyzer: RwLock<crate::per_bus_band_energy::PerBusBandAnalyzer>,
     // NOTE: track_buffer_l and track_buffer_r moved to thread_local! SCRATCH_BUFFER_L/R
     // This eliminates lock contention in audio thread - scratch buffers are audio-thread-only
     /// Pre-allocated mono buffer for spectrum analyzer
@@ -2077,7 +2201,7 @@ impl PlaybackEngine {
             cache: Arc::new(AudioCache::new()),
             position: Arc::new(PlaybackPosition::new(sample_rate)),
             master_volume: AtomicU64::new(1.0_f64.to_bits()),
-            bus_buffers: RwLock::new(BusBuffers::new(256)),
+            bus_buffers: AudioThreadCell::new(BusBuffers::new(256)),
             bus_states: RwLock::new(std::array::from_fn(|_| BusState::default())),
             any_solo: AtomicBool::new(false),
             peak_l: AtomicU64::new(0.0_f64.to_bits()),
@@ -2119,6 +2243,8 @@ impl PlaybackEngine {
             // This gives ~3-4 bins in 20-40Hz range instead of ~1 bin
             spectrum_analyzer: RwLock::new(FftAnalyzer::new(8192)),
             spectrum_data: RwLock::new(vec![0.0_f32; 512]), // More bins for better resolution
+            per_bus_band_analyzer: RwLock::new(
+                crate::per_bus_band_energy::PerBusBandAnalyzer::new(sample_rate as f64)),
             // NOTE: track_buffer_l/r now use thread_local! SCRATCH_BUFFER_L/R
             spectrum_mono_buffer: RwLock::new(vec![0.0_f64; 8192]),
             current_block_size: AtomicUsize::new(8192),
@@ -4849,6 +4975,53 @@ impl PlaybackEngine {
                         voice.muted = muted;
                     }
                 }
+                // Phase 6: Per-voice HPF cutoff. <= 20Hz disables the filter.
+                OneShotCommand::SetHpf { id, cutoff_hz } => {
+                    if let Some(voice) = voices.iter_mut().find(|v| v.id == id && v.active) {
+                        let hz = cutoff_hz.clamp(20.0, 20000.0);
+                        voice.hpf_cutoff_hz = hz;
+                        voice.hpf_active = hz > 21.0;
+                        if voice.hpf_active {
+                            let sr = voice.engine_sample_rate as f64;
+                            // Recreate biquads to honor current sample rate then tune
+                            voice.hpf_l = rf_dsp::biquad::BiquadTDF2::new(sr);
+                            voice.hpf_r = rf_dsp::biquad::BiquadTDF2::new(sr);
+                            voice.hpf_l.set_highpass(hz as f64, 0.707);
+                            voice.hpf_r.set_highpass(hz as f64, 0.707);
+                        } else {
+                            voice.hpf_l.set_bypass();
+                            voice.hpf_r.set_bypass();
+                            voice.hpf_l.reset();
+                            voice.hpf_r.reset();
+                        }
+                    }
+                }
+                // Phase 6: Per-voice LPF cutoff. >= 20000Hz disables the filter.
+                OneShotCommand::SetLpf { id, cutoff_hz } => {
+                    if let Some(voice) = voices.iter_mut().find(|v| v.id == id && v.active) {
+                        let hz = cutoff_hz.clamp(20.0, 20000.0);
+                        voice.lpf_cutoff_hz = hz;
+                        voice.lpf_active = hz < 19999.0;
+                        if voice.lpf_active {
+                            let sr = voice.engine_sample_rate as f64;
+                            voice.lpf_l = rf_dsp::biquad::BiquadTDF2::new(sr);
+                            voice.lpf_r = rf_dsp::biquad::BiquadTDF2::new(sr);
+                            voice.lpf_l.set_lowpass(hz as f64, 0.707);
+                            voice.lpf_r.set_lowpass(hz as f64, 0.707);
+                        } else {
+                            voice.lpf_l.set_bypass();
+                            voice.lpf_r.set_bypass();
+                            voice.lpf_l.reset();
+                            voice.lpf_r.reset();
+                        }
+                    }
+                }
+                // Phase 6: Per-voice pre-fader send level (0.0..1.0)
+                OneShotCommand::SetSend { id, level } => {
+                    if let Some(voice) = voices.iter_mut().find(|v| v.id == id && v.active) {
+                        voice.send_gain = level.clamp(0.0, 1.0);
+                    }
+                }
                 OneShotCommand::PlaySpatial {
                     id,
                     audio,
@@ -5019,7 +5192,7 @@ impl PlaybackEngine {
                                         size: 0.0,
                                         gain: spatial.source_gain(*source_id),
                                         audio: audio_slice.to_vec(),
-                                        sample_rate: sample_rate,
+                                        sample_rate,
                                         automation: None,
                                     });
                                 }
@@ -5103,6 +5276,93 @@ impl PlaybackEngine {
             .and_then(|e| e.try_read())
             .map(|e| e.active_instance_count())
             .unwrap_or(0)
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // ORB MIXER: Active Voice Query
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Per-voice info for OrbMixer Nivo 2 display.
+    /// Called from UI thread (~60Hz) — uses try_read() to avoid blocking audio thread.
+    ///
+    /// Returns up to `max` voices as packed data:
+    /// Each voice = 8 f64 values: [id, bus_idx, volume, pan, peak_l, peak_r, state, looping]
+    ///
+    /// Returns number of voices written.
+    pub fn get_active_voices_for_orb(
+        &self,
+        out: &mut [f64],
+        max: usize,
+    ) -> usize {
+        const FIELDS_PER_VOICE: usize = 8;
+
+        let voices = match self.one_shot_voices.try_read() {
+            Some(v) => v,
+            None => return 0,
+        };
+
+        let mut written = 0;
+        for voice in voices.iter() {
+            if !voice.active || written >= max {
+                continue;
+            }
+
+            let offset = written * FIELDS_PER_VOICE;
+            if offset + FIELDS_PER_VOICE > out.len() {
+                break;
+            }
+
+            let bus_idx = match voice.bus {
+                OutputBus::Master => 0.0,
+                OutputBus::Music => 1.0,
+                OutputBus::Sfx => 2.0,
+                OutputBus::Voice => 3.0,
+                OutputBus::Ambience => 4.0,
+                OutputBus::Aux => 5.0,
+            };
+
+            let state_val = if voice.fade_samples_remaining > 0 && voice.fade_increment < 0.0 {
+                2.0 // fading out
+            } else if voice.looping {
+                1.0 // looping
+            } else {
+                0.0 // playing
+            };
+
+            out[offset]     = voice.id as f64;
+            out[offset + 1] = bus_idx;
+            out[offset + 2] = voice.volume as f64;
+            out[offset + 3] = voice.pan as f64;
+            out[offset + 4] = voice.meter_peak_l as f64;
+            out[offset + 5] = voice.meter_peak_r as f64;
+            out[offset + 6] = state_val;
+            out[offset + 7] = if voice.looping { 1.0 } else { 0.0 };
+
+            written += 1;
+        }
+
+        written
+    }
+
+    /// Set per-voice parameter from OrbMixer.
+    /// Called from UI thread — sends command to audio thread via ring buffer.
+    ///
+    /// param: 0=volume, 1=pan, 2=pitch, 3=mute, 4=HPF cutoff Hz, 5=LPF cutoff Hz, 6=Send level
+    pub fn set_voice_param(&self, voice_id: u64, param: u8, value: f32) {
+        if let Some(mut tx) = self.one_shot_cmd_tx.try_lock() {
+            let cmd = match param {
+                0 => OneShotCommand::SetVolume { id: voice_id, volume: value },
+                1 => OneShotCommand::SetPan { id: voice_id, pan: value },
+                2 => OneShotCommand::SetPitch { id: voice_id, semitones: value },
+                3 => OneShotCommand::SetMute { id: voice_id, muted: value > 0.5 },
+                // Phase 6: Orb Nivo 3 per-voice DSP
+                4 => OneShotCommand::SetHpf { id: voice_id, cutoff_hz: value },
+                5 => OneShotCommand::SetLpf { id: voice_id, cutoff_hz: value },
+                6 => OneShotCommand::SetSend { id: voice_id, level: value },
+                _ => return,
+            };
+            let _ = tx.push(cmd);
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -5548,19 +5808,12 @@ impl PlaybackEngine {
         output_l.fill(0.0);
         output_r.fill(0.0);
 
-        // Acquire bus_buffers ONCE for the entire process() call.
-        // Holding this through the whole frame eliminates the re-acquisition window that
-        // previously allowed process_offline() (running on an export thread) to steal the lock
-        // between the two former try_write() calls → causing silent audio dropouts.
-        // ROOT CAUSE FIX: process_offline() now uses its own local BusBuffers (no shared lock),
-        // so this try_write() should always succeed during normal realtime playback.
-        let mut bus_buffers = match self.bus_buffers.try_write() {
-            Some(b) => b,
-            None => {
-                self.diag_bus_contention.fetch_add(1, Ordering::Relaxed);
-                return;
-            }
-        };
+        // BUG #14 FIX: Direct access — no lock, no try_write, no silent frames.
+        // bus_buffers is exclusively owned by the audio thread (process()).
+        // process_offline() uses its own local BusBuffers — zero contention possible.
+        // SAFETY: only called from audio callback thread; no concurrent access.
+        // SAFETY: only called from audio callback thread; no concurrent access.
+        let bus_buffers = unsafe { self.bus_buffers.get_mut() };
 
         // === ONE-SHOT VOICES (Middleware/SlotLab) ===
         // CRITICAL: Process one-shot voices BEFORE is_playing() check!
@@ -5578,11 +5831,11 @@ impl PlaybackEngine {
             // Process one-shot commands (may activate/deactivate voices)
             self.process_one_shot_commands();
             // Mix one-shot voices into bus buffers
-            self.process_one_shot_voices(&mut bus_buffers, frames);
+            self.process_one_shot_voices(bus_buffers, frames);
 
             // Process advanced loop system commands and voices
             self.process_loop_commands();
-            self.process_loop_voices(&mut bus_buffers, frames);
+            self.process_loop_voices(bus_buffers, frames);
 
             // Mix bus outputs to main output (for one-shot when transport stopped)
             // One-shot voices can route to any bus (0=Master, 1=Music, 2=Sfx, etc.)
@@ -5592,11 +5845,21 @@ impl PlaybackEngine {
             // try_read: non-blocking — skip bus processing if UI holds write lock
             if let Some(bus_states) = self.bus_states.try_read() {
                 let any_solo = self.any_solo.load(Ordering::Relaxed);
+                // Phase 10e-3: grab per-bus band analyzer once per block.
+                let mut pbb = self.per_bus_band_analyzer.try_write();
                 for (bus_idx, (bus_l, bus_r)) in bus_buffers.buffers.iter().enumerate() {
                     let state = &bus_states[bus_idx];
                     // Skip muted buses, or non-soloed buses when solo is active
                     if state.muted || (any_solo && !state.soloed) {
                         crate::ffi::SHARED_METERS.update_channel_peak(bus_idx, 0.0, 0.0);
+                        // Voices may have already rendered into `bus_l`/`bus_r`
+                        // (they're only gated at mix-to-output below), so the buffer
+                        // is not silence. Decay the analyzer envelope instead of
+                        // feeding the non-silent signal — masking alerts see the
+                        // bus as quiet, which is what the user audibly hears.
+                        if let Some(a) = pbb.as_deref_mut() {
+                            a.decay_bus(bus_idx);
+                        }
                         continue;
                     }
 
@@ -5612,18 +5875,28 @@ impl PlaybackEngine {
                         bp_r = bp_r.max(r.abs());
                     }
                     crate::ffi::SHARED_METERS.update_channel_peak(bus_idx, bp_l, bp_r);
+                    // Phase 10e-3: feed the post-gain bus signal into the band analyzer.
+                    if let Some(a) = pbb.as_deref_mut() {
+                        // We pass the raw bus buffer (pre-volume is fine; amplitude scaling
+                        // here just affects band magnitude equally across all bands).
+                        a.process_bus_block(bus_idx, &bus_l[..frames], &bus_r[..frames]);
+                    }
+                }
+                // Publish envelopes once per block for the UI to read.
+                if let Some(a) = pbb.as_deref() {
+                    a.publish(&crate::ffi::SHARED_METERS.bus_band_rms);
                 }
             }
         }
 
         // === HOOK GRAPH ENGINE ===
-        // Process graph commands and render graph voices into output.
+        // Process graph commands and render graph voices into bus buffers.
+        // Each voice routes to its assigned bus (SFX, Music, VO, etc.).
         // Runs regardless of transport state (same as one-shot voices).
-        if let Some(ref hg_engine) = self.hook_graph_engine {
-            if let Some(mut engine) = hg_engine.try_write() {
-                engine.process(output_l, output_r, frames);
+        if let Some(ref hg_engine) = self.hook_graph_engine
+            && let Some(mut engine) = hg_engine.try_write() {
+                engine.process_into_buses(bus_buffers, frames);
             }
-        }
 
         // === LOCK-FREE PARAM CONSUMPTION ===
         // Drain all pending insert param changes BEFORE processing tracks
@@ -6110,6 +6383,22 @@ impl PlaybackEngine {
                             );
                         }
 
+                        // Merge live MIDI (from Dart UI / piano roll / controller).
+                        // try_lock — if contended, events stay for next block (never stall audio thread).
+                        if let Some(live_queue) = LIVE_MIDI_INJECT.get(&track.id.0)
+                            && let Some(mut live) = live_queue.try_lock() {
+                                for ev in live.drain(..) {
+                                    // MidiChannel = u8, NoteNumber = u8, Velocity = u16
+                                    let vel16 = (ev.velocity as u16) * 128; // scale 0-127 → 0-16256
+                                    let event = if ev.is_note_on {
+                                        rf_core::MidiEvent::note_on(0, ev.channel, ev.note, vel16)
+                                    } else {
+                                        rf_core::MidiEvent::note_off(0, ev.channel, ev.note, vel16)
+                                    };
+                                    midi_buf.push(event);
+                                }
+                            }
+
                         // Process instrument plugin: empty audio in → audio out + MIDI
                         // Use pre-allocated buffers (zero audio-thread allocations)
                         if let Some(mut plugin) = plugin_arc.try_write()
@@ -6237,15 +6526,14 @@ impl PlaybackEngine {
             // Uses insert_chains_guard acquired once at top of process() (BUG#14 fix)
             // Now with sidechain routing: each slot checks its sidechain_source and feeds
             // the corresponding track's tap audio (previous/current block) as key input.
-            if let Some(ref mut chains) = insert_chains_guard {
-                if let Some(chain) = chains.get_mut(&track.id.0) {
+            if let Some(ref mut chains) = insert_chains_guard
+                && let Some(chain) = chains.get_mut(&track.id.0) {
                     if let Some(ref taps) = sidechain_taps_guard {
                         chain.process_pre_fader_with_taps(track_l, track_r, taps, frames);
                     } else {
                         chain.process_pre_fader(track_l, track_r);
                     }
                 }
-            }
 
             // === PFL TAP POINT (Pre-Fade Listen) ===
             // Capture pre-fader signal for PFL monitoring
@@ -6417,8 +6705,8 @@ impl PlaybackEngine {
             // SSL canonical signal flow: Fader → Pan → **StereoImager** → Post-Inserts
             // Width, M/S processing, balance, rotation applied here
             // Uses stereo_imagers_guard acquired once at top of process() (BUG#14 fix)
-            if let Some(ref mut imagers) = stereo_imagers_guard {
-                if let Some(imager) = imagers.get_mut(&(track.id.0 as u32)) {
+            if let Some(ref mut imagers) = stereo_imagers_guard
+                && let Some(imager) = imagers.get_mut(&(track.id.0 as u32)) {
                     use rf_dsp::StereoProcessor;
                     for i in 0..frames {
                         let (l, r) = imager.process_sample(track_l[i], track_r[i]);
@@ -6426,20 +6714,18 @@ impl PlaybackEngine {
                         track_r[i] = r;
                     }
                 }
-            }
 
             // Process track insert chain (post-fader inserts applied after volume)
             // Uses insert_chains_guard acquired once at top of process() (BUG#14 fix)
             // With sidechain: post-fader slots also get sidechain from tap buffers.
-            if let Some(ref mut chains) = insert_chains_guard {
-                if let Some(chain) = chains.get_mut(&track.id.0) {
+            if let Some(ref mut chains) = insert_chains_guard
+                && let Some(chain) = chains.get_mut(&track.id.0) {
                     if let Some(ref taps) = sidechain_taps_guard {
                         chain.process_post_fader_with_taps(track_l, track_r, taps, frames);
                     } else {
                         chain.process_post_fader(track_l, track_r);
                     }
                 }
-            }
 
             // Apply delay compensation for tracks with lower latency than max
             // This aligns all tracks in time regardless of plugin latency
@@ -7160,6 +7446,11 @@ impl PlaybackEngine {
         if let Some(automation) = &self.automation {
             automation.set_position(self.position.samples());
         }
+
+        // === MASTER-OUTPUT RING TAP (Phase 10e-2) ===
+        // After all processing is done, write final stereo master into the
+        // lock-free ring so Problems Inbox can export a WAV of what just played.
+        crate::ffi::MASTER_RING.write_frames(output_l, output_r);
     }
 
     /// Apply a single automation change (with smoothing for continuous params)
@@ -7278,7 +7569,7 @@ impl PlaybackEngine {
             TargetType::Clip => {
                 // Apply clip gain/pitch via lock-free DashMap update_clip.
                 // track_id is repurposed as clip_id for TargetType::Clip.
-                let clip_id = crate::track_manager::ClipId(track_id as u64);
+                let clip_id = crate::track_manager::ClipId(track_id);
                 match param_id.param_name.as_str() {
                     "gain" => {
                         // Automation 0-1 → clip gain 0-2.0 (0dB = 1.0)

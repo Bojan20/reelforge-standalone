@@ -111,12 +111,11 @@ impl GraphInstancePool {
     }
 
     pub fn release(&mut self, instance_id: u32) {
-        if let Some(inst) = self.instances.iter_mut().find(|i| i.id == instance_id) {
-            if inst.state != InstanceState::Pooled {
+        if let Some(inst) = self.instances.iter_mut().find(|i| i.id == instance_id)
+            && inst.state != InstanceState::Pooled {
                 inst.recycle();
                 self.active_count = self.active_count.saturating_sub(1);
             }
-        }
     }
 
     pub fn instance(&self, id: u32) -> Option<&GraphInstance> {

@@ -1,0 +1,19 @@
+[package]
+name = "rf-fingerprint"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Neural Fingerprint™ — Audio watermarking and A/B test analytics"
+
+[lib]
+name = "rf_fingerprint"
+crate-type = ["rlib"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+sha2.workspace = true
+hex.workspace = true

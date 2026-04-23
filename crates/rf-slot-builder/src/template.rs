@@ -95,7 +95,7 @@ fn build_classic_5x3() -> SlotBlueprint {
 
     // ── Nodes ──
     let idle = StageNode::new("Idle", "idle_loop")
-        .with_id(idle_id.clone())
+        .with_id(idle_id)
         .with_category(NodeCategory::Idle)
         .as_entry()
         .with_visual(50.0, 200.0, "#2d3561")
@@ -118,7 +118,7 @@ fn build_classic_5x3() -> SlotBlueprint {
         );
 
     let spin = StageNode::new("Spin", "ui_spin_press")
-        .with_id(spin_id.clone())
+        .with_id(spin_id)
         .with_category(NodeCategory::Spin)
         .with_visual(250.0, 200.0, "#1a6b4a")
         .with_audio(
@@ -129,7 +129,7 @@ fn build_classic_5x3() -> SlotBlueprint {
         .add_transition(StageTransition::always(reel_stop_id.clone()));
 
     let reel_stop = StageNode::new("Reels Stopping", "reel_stop")
-        .with_id(reel_stop_id.clone())
+        .with_id(reel_stop_id)
         .with_category(NodeCategory::Spin)
         .with_visual(450.0, 200.0, "#1a6b4a")
         .interruptible()
@@ -141,7 +141,7 @@ fn build_classic_5x3() -> SlotBlueprint {
         .add_transition(StageTransition::always(evaluate_id.clone()));
 
     let evaluate = StageNode::new("Evaluate Wins", "evaluate_wins")
-        .with_id(evaluate_id.clone())
+        .with_id(evaluate_id)
         .with_category(NodeCategory::Spin)
         .with_visual(650.0, 200.0, "#1a6b4a")
         .with_max_display(200)
@@ -150,7 +150,7 @@ fn build_classic_5x3() -> SlotBlueprint {
         .add_transition(StageTransition::on_no_win(no_win_id.clone()));
 
     let no_win = StageNode::new("No Win", "spin_end")
-        .with_id(no_win_id.clone())
+        .with_id(no_win_id)
         .with_category(NodeCategory::Win)
         .with_visual(850.0, 100.0, "#555577")
         .with_max_display(300)
@@ -158,7 +158,7 @@ fn build_classic_5x3() -> SlotBlueprint {
         .with_audio(AudioBinding::default().enter(AudioEventRef::new("no_win_settle")));
 
     let win_present = StageNode::new("Win Present", "win_present")
-        .with_id(win_id.clone())
+        .with_id(win_id)
         .with_category(NodeCategory::Win)
         .with_visual(850.0, 200.0, "#c07d10")
         .with_audio(
@@ -202,7 +202,7 @@ fn build_classic_5x3() -> SlotBlueprint {
         .add_transition(StageTransition::always(settle_id.clone()));
 
     let bigwin = StageNode::new("Big Win", "bigwin_tier")
-        .with_id(bigwin_id.clone())
+        .with_id(bigwin_id)
         .with_category(NodeCategory::Win)
         .with_visual(1050.0, 50.0, "#e8a020")
         .with_min_display(2000)
@@ -217,7 +217,7 @@ fn build_classic_5x3() -> SlotBlueprint {
         .add_transition(StageTransition::always(rollup_id.clone()));
 
     let settle = StageNode::new("Settle", "spin_end")
-        .with_id(settle_id.clone())
+        .with_id(settle_id)
         .with_category(NodeCategory::Win)
         .with_visual(1250.0, 200.0, "#2d3561")
         .as_terminal()
@@ -225,7 +225,7 @@ fn build_classic_5x3() -> SlotBlueprint {
 
     // ── Feature trigger ──
     let feature_trigger = StageNode::new("Feature Trigger", "feature_enter")
-        .with_id(feature_trig.clone())
+        .with_id(feature_trig)
         .with_category(NodeCategory::Feature)
         .with_visual(850.0, 350.0, "#7c3aed")
         .with_min_display(2000)
@@ -249,7 +249,7 @@ fn build_classic_5x3() -> SlotBlueprint {
         .add_transition(StageTransition::always(fs_eval_id.clone()));
 
     let fs_evaluate = StageNode::new("Free Spin Evaluate", "evaluate_wins")
-        .with_id(fs_eval_id.clone())
+        .with_id(fs_eval_id)
         .with_category(NodeCategory::Feature)
         .with_visual(1250.0, 350.0, "#7c3aed")
         .with_max_display(200)
@@ -280,17 +280,17 @@ fn build_classic_5x3() -> SlotBlueprint {
         .add_transition(StageTransition::always(fs_spin_id.clone()));
 
     let fs_win = StageNode::new("Free Spin Win", "win_present")
-        .with_id(fs_win_id.clone())
+        .with_id(fs_win_id)
         .with_category(NodeCategory::Feature)
         .with_visual(1450.0, 350.0, "#7c3aed")
         .with_audio(
             AudioBinding::default()
                 .enter(AudioEventRef::new("fs_win_fanfare"))
         )
-        .add_transition(StageTransition::always(fs_spin_id.clone()));
+        .add_transition(StageTransition::always(fs_spin_id));
 
     let fs_end = StageNode::new("Free Spins End", "feature_exit")
-        .with_id(fs_end_id.clone())
+        .with_id(fs_end_id)
         .with_category(NodeCategory::Feature)
         .with_visual(1650.0, 350.0, "#7c3aed")
         .with_min_display(1500)
@@ -299,7 +299,7 @@ fn build_classic_5x3() -> SlotBlueprint {
                 .enter(AudioEventRef::new("feature_end_sting"))
                 .exit(AudioEventRef::new("base_music_fade_in").with_fade(2000, 0))
         )
-        .add_transition(StageTransition::always(rollup_id.clone()));
+        .add_transition(StageTransition::always(rollup_id));
 
     // ── Build flow ──
     let flow = StageFlow::builder()
@@ -317,7 +317,7 @@ fn build_classic_5x3() -> SlotBlueprint {
         .node(fs_evaluate)
         .node(fs_win)
         .node(fs_end)
-        .allow_loop(fs_spin.id.clone())  // free-spins loop is intentional
+        .allow_loop(fs_spin.id)  // free-spins loop is intentional
         .build()
         .expect("Classic 5x3 template must be valid");
 
@@ -350,21 +350,21 @@ fn build_megaways() -> SlotBlueprint {
     let fs_id        = NodeId::from_static("mw::fs_spin");
 
     let idle = StageNode::new("Idle", "idle_loop")
-        .with_id(idle_id.clone())
+        .with_id(idle_id)
         .as_entry().with_category(NodeCategory::Idle)
         .with_visual(50.0, 200.0, "#1e293b")
         .add_transition(StageTransition::always(spin_id.clone())
             .with_condition(TransitionCondition::UserConfirm));
 
     let spin = StageNode::new("Megaways Spin", "ui_spin_press")
-        .with_id(spin_id.clone())
+        .with_id(spin_id)
         .with_category(NodeCategory::Spin).with_visual(250.0, 200.0, "#0f4c75")
         .with_audio(AudioBinding::default().enter(AudioEventRef::new("mw_spin_start"))
             .looping(AudioEventRef::new("mw_reel_loop")))
         .add_transition(StageTransition::always(stop_id.clone()));
 
     let stop = StageNode::new("Reels Stop", "reel_stop")
-        .with_id(stop_id.clone())
+        .with_id(stop_id)
         .with_category(NodeCategory::Spin).with_visual(450.0, 200.0, "#0f4c75")
         .add_transition(StageTransition::always(eval_id.clone()));
 
@@ -377,7 +377,7 @@ fn build_megaways() -> SlotBlueprint {
         .add_transition(StageTransition::on_no_win(settle_id.clone()));
 
     let cascade = StageNode::new("Cascade Step", "cascade_start")
-        .with_id(cascade_id.clone())
+        .with_id(cascade_id)
         .with_category(NodeCategory::Cascade).with_visual(850.0, 250.0, "#166534")
         .with_audio(AudioBinding::default()
             .enter(AudioEventRef::new("cascade_drop"))
@@ -395,7 +395,7 @@ fn build_megaways() -> SlotBlueprint {
         .add_transition(StageTransition::on_win(win_id.clone(), Some(0.01)));
 
     let win = StageNode::new("Win Present", "win_present")
-        .with_id(win_id.clone())
+        .with_id(win_id)
         .with_category(NodeCategory::Win).with_visual(1050.0, 200.0, "#92400e")
         .with_audio(AudioBinding::default().enter(AudioEventRef::new("mw_win_sting")))
         .add_transition(StageTransition::always(settle_id.clone()));
@@ -406,27 +406,27 @@ fn build_megaways() -> SlotBlueprint {
         .as_terminal().with_visual(1250.0, 200.0, "#1e293b");
 
     let feat = StageNode::new("Feature Trigger", "feature_enter")
-        .with_id(feat_id.clone())
+        .with_id(feat_id)
         .with_category(NodeCategory::Feature).with_visual(850.0, 350.0, "#7c3aed")
         .with_audio(AudioBinding::default().enter(AudioEventRef::new("mw_feature_trigger")))
         .add_transition(StageTransition::always(fs_id.clone()));
 
     let fs = StageNode::new("Free Spin (Megaways)", "ui_spin_press")
-        .with_id(fs_id.clone())
+        .with_id(fs_id)
         .with_category(NodeCategory::Feature).with_visual(1050.0, 350.0, "#7c3aed")
         .add_transition(StageTransition {
             id: uuid::Uuid::new_v4(),
-            to: settle_id.clone(),
+            to: settle_id,
             condition: TransitionCondition::FeatureTriggered { feature_id: None },
             priority: crate::node::TransitionPriority(100),
             delay_ms: 0,
             label: Some("FS DONE".to_string()),
         })
-        .add_transition(StageTransition::always(eval_id.clone()));
+        .add_transition(StageTransition::always(eval_id));
 
     let flow = StageFlow::builder()
         .nodes([idle, spin, stop, eval, cascade, win, settle, feat, fs.clone()])
-        .allow_loop(fs.id.clone())
+        .allow_loop(fs.id)
         .build()
         .expect("Megaways template valid");
 
@@ -443,13 +443,13 @@ fn build_cluster_pays() -> SlotBlueprint {
     let explode_id = NodeId::from_static("cp::explode");
     let settle_id = NodeId::from_static("cp::settle");
 
-    let idle = StageNode::new("Idle", "idle_loop").with_id(idle_id.clone()).as_entry()
+    let idle = StageNode::new("Idle", "idle_loop").with_id(idle_id).as_entry()
         .with_category(NodeCategory::Idle).with_visual(50.0, 200.0, "#0f172a")
         .add_transition(StageTransition::always(spin_id.clone())
             .with_condition(TransitionCondition::UserConfirm));
 
     let spin = StageNode::new("Cluster Spin", "ui_spin_press")
-        .with_id(spin_id.clone())
+        .with_id(spin_id)
         .with_category(NodeCategory::Spin).with_visual(250.0, 200.0, "#1d4ed8")
         .with_audio(AudioBinding::default().enter(AudioEventRef::new("cluster_spin")))
         .add_transition(StageTransition::always(eval_id.clone()));
@@ -462,14 +462,14 @@ fn build_cluster_pays() -> SlotBlueprint {
         .add_transition(StageTransition::on_no_win(settle_id.clone()));
 
     let explode = StageNode::new("Cluster Explode + Refill", "cascade_step")
-        .with_id(explode_id.clone())
+        .with_id(explode_id)
         .with_category(NodeCategory::Cascade).with_visual(650.0, 200.0, "#7c3aed")
         .with_audio(AudioBinding::default()
             .enter(AudioEventRef::new("cluster_explode"))
             .enter(AudioEventRef::new("cluster_refill")))
         .add_transition(StageTransition {
             id: uuid::Uuid::new_v4(),
-            to: eval_id.clone(),
+            to: eval_id,
             condition: TransitionCondition::CascadeOccurred,
             priority: crate::node::TransitionPriority(200),
             delay_ms: 300,
@@ -477,7 +477,7 @@ fn build_cluster_pays() -> SlotBlueprint {
         })
         .add_transition(StageTransition::always(settle_id.clone()));
 
-    let settle = StageNode::new("Settle", "spin_end").with_id(settle_id.clone()).as_terminal()
+    let settle = StageNode::new("Settle", "spin_end").with_id(settle_id).as_terminal()
         .with_visual(850.0, 200.0, "#0f172a");
 
     let flow = StageFlow::builder()
@@ -500,13 +500,13 @@ fn build_cascade_reels() -> SlotBlueprint {
     let win_id    = NodeId::from_static("cr::win");
     let settle_id = NodeId::from_static("cr::settle");
 
-    let idle = StageNode::new("Idle", "idle_loop").with_id(idle_id.clone()).as_entry()
+    let idle = StageNode::new("Idle", "idle_loop").with_id(idle_id).as_entry()
         .with_category(NodeCategory::Idle).with_visual(50.0, 200.0, "#1c1917")
         .add_transition(StageTransition::always(spin_id.clone())
             .with_condition(TransitionCondition::UserConfirm));
 
     let spin = StageNode::new("Spin", "ui_spin_press")
-        .with_id(spin_id.clone())
+        .with_id(spin_id)
         .with_category(NodeCategory::Spin).with_visual(250.0, 200.0, "#9a3412")
         .add_transition(StageTransition::always(eval_id.clone()));
 
@@ -517,14 +517,14 @@ fn build_cascade_reels() -> SlotBlueprint {
         .add_transition(StageTransition::on_no_win(settle_id.clone()));
 
     let cascade = StageNode::new("Cascade Drop", "cascade_step")
-        .with_id(cascade_id.clone())
+        .with_id(cascade_id)
         .with_category(NodeCategory::Cascade).with_visual(650.0, 200.0, "#b45309")
         .with_audio(AudioBinding::default()
             .enter(AudioEventRef::new("cascade_drop"))
             .with_rtpc("cascade_level", 1.0))
         .add_transition(StageTransition {
             id: uuid::Uuid::new_v4(),
-            to: eval_id.clone(),
+            to: eval_id,
             condition: TransitionCondition::CascadeOccurred,
             priority: crate::node::TransitionPriority(210),
             delay_ms: 350,
@@ -533,11 +533,11 @@ fn build_cascade_reels() -> SlotBlueprint {
         .add_transition(StageTransition::on_win(win_id.clone(), Some(0.01)));
 
     let win = StageNode::new("Win Present", "win_present")
-        .with_id(win_id.clone())
+        .with_id(win_id)
         .with_category(NodeCategory::Win).with_visual(850.0, 200.0, "#b45309")
         .add_transition(StageTransition::always(settle_id.clone()));
 
-    let settle = StageNode::new("Settle", "spin_end").with_id(settle_id.clone()).as_terminal()
+    let settle = StageNode::new("Settle", "spin_end").with_id(settle_id).as_terminal()
         .with_visual(1050.0, 200.0, "#1c1917");
 
     let flow = StageFlow::builder()
@@ -560,25 +560,25 @@ fn build_hold_and_spin() -> SlotBlueprint {
     let respin_id = NodeId::from_static("hs::respin");
     let settle_id = NodeId::from_static("hs::settle");
 
-    let idle = StageNode::new("Idle", "idle_loop").with_id(idle_id.clone()).as_entry()
+    let idle = StageNode::new("Idle", "idle_loop").with_id(idle_id).as_entry()
         .with_category(NodeCategory::Idle).with_visual(50.0, 200.0, "#0c4a6e")
         .add_transition(StageTransition::always(spin_id.clone())
             .with_condition(TransitionCondition::UserConfirm));
 
     let spin = StageNode::new("Spin", "ui_spin_press")
-        .with_id(spin_id.clone())
+        .with_id(spin_id)
         .with_category(NodeCategory::Spin).with_visual(250.0, 200.0, "#075985")
         .add_transition(StageTransition::always(eval_id.clone()));
 
     let eval = StageNode::new("Evaluate", "evaluate_wins")
-        .with_id(eval_id.clone())
+        .with_id(eval_id)
         .with_category(NodeCategory::Spin).with_visual(450.0, 200.0, "#075985")
         .add_transition(StageTransition::on_feature(hold_id.clone(), Some("hold_and_spin".to_string())))
         .add_transition(StageTransition::on_no_win(settle_id.clone()))
         .add_transition(StageTransition::on_win(settle_id.clone(), None));
 
     let hold = StageNode::new("Hold & Spin Init", "feature_enter")
-        .with_id(hold_id.clone())
+        .with_id(hold_id)
         .with_category(NodeCategory::Feature).with_visual(650.0, 350.0, "#0369a1")
         .with_audio(AudioBinding::default().enter(AudioEventRef::new("hold_spin_trigger")))
         .add_transition(StageTransition::always(respin_id.clone()));
@@ -591,7 +591,7 @@ fn build_hold_and_spin() -> SlotBlueprint {
             .looping(AudioEventRef::new("respin_loop")))
         .add_transition(StageTransition {
             id: uuid::Uuid::new_v4(),
-            to: respin_id.clone(),
+            to: respin_id,
             condition: TransitionCondition::FeatureTriggered { feature_id: None },
             priority: crate::node::TransitionPriority(220),
             delay_ms: 300,
@@ -610,7 +610,7 @@ fn build_hold_and_spin() -> SlotBlueprint {
         })
         .add_transition(StageTransition::always(settle_id.clone()));
 
-    let settle = StageNode::new("Settle", "spin_end").with_id(settle_id.clone()).as_terminal()
+    let settle = StageNode::new("Settle", "spin_end").with_id(settle_id).as_terminal()
         .with_visual(1050.0, 200.0, "#0c4a6e");
 
     let flow = StageFlow::builder()
@@ -646,18 +646,18 @@ fn build_jackpot() -> SlotBlueprint {
     let win_id    = NodeId::from_static("jp::win");
     let settle_id = NodeId::from_static("jp::settle");
 
-    let idle = StageNode::new("Idle", "idle_loop").with_id(idle_id.clone()).as_entry()
+    let idle = StageNode::new("Idle", "idle_loop").with_id(idle_id).as_entry()
         .with_category(NodeCategory::Idle).with_visual(50.0, 200.0, "#1a0533")
         .add_transition(StageTransition::always(spin_id.clone())
             .with_condition(TransitionCondition::UserConfirm));
 
     let spin = StageNode::new("Spin", "ui_spin_press")
-        .with_id(spin_id.clone())
+        .with_id(spin_id)
         .with_category(NodeCategory::Spin).with_visual(250.0, 200.0, "#4c1d95")
         .add_transition(StageTransition::always(eval_id.clone()));
 
     let eval = StageNode::new("Evaluate", "evaluate_wins")
-        .with_id(eval_id.clone())
+        .with_id(eval_id)
         .with_category(NodeCategory::Spin).with_visual(450.0, 200.0, "#4c1d95")
         .add_transition(StageTransition {
             id: uuid::Uuid::new_v4(),
@@ -671,7 +671,7 @@ fn build_jackpot() -> SlotBlueprint {
         .add_transition(StageTransition::on_no_win(settle_id.clone()));
 
     let jp_trigger = StageNode::new("Jackpot Trigger", "jackpot_trigger")
-        .with_id(jp_trig.clone())
+        .with_id(jp_trig)
         .with_category(NodeCategory::Jackpot).with_visual(650.0, 350.0, "#7c2d12")
         .with_min_display(1000)
         .with_audio(AudioBinding::default()
@@ -680,7 +680,7 @@ fn build_jackpot() -> SlotBlueprint {
         .add_transition(StageTransition::always(jp_build.clone()));
 
     let jp_buildup = StageNode::new("Jackpot Buildup", "jackpot_buildup")
-        .with_id(jp_build.clone())
+        .with_id(jp_build)
         .with_category(NodeCategory::Jackpot).with_visual(850.0, 350.0, "#7c2d12")
         .with_min_display(2000)
         .with_audio(AudioBinding::default()
@@ -689,14 +689,14 @@ fn build_jackpot() -> SlotBlueprint {
         .add_transition(StageTransition::always(jp_reveal.clone()));
 
     let jp_reveal_node = StageNode::new("Jackpot Reveal", "jackpot_reveal")
-        .with_id(jp_reveal.clone())
+        .with_id(jp_reveal)
         .with_category(NodeCategory::Jackpot).with_visual(1050.0, 350.0, "#991b1b")
         .with_audio(AudioBinding::default()
             .enter(AudioEventRef::new("jackpot_reveal_sting")))
         .add_transition(StageTransition::always(jp_cel.clone()));
 
     let jp_celebration = StageNode::new("Jackpot Celebration", "jackpot_celebration")
-        .with_id(jp_cel.clone())
+        .with_id(jp_cel)
         .with_category(NodeCategory::Jackpot).with_visual(1250.0, 350.0, "#dc2626")
         .with_min_display(5000)
         .interruptible()
@@ -706,11 +706,11 @@ fn build_jackpot() -> SlotBlueprint {
         .add_transition(StageTransition::always(settle_id.clone()));
 
     let win = StageNode::new("Win Present", "win_present")
-        .with_id(win_id.clone())
+        .with_id(win_id)
         .with_category(NodeCategory::Win).with_visual(650.0, 200.0, "#78350f")
         .add_transition(StageTransition::always(settle_id.clone()));
 
-    let settle = StageNode::new("Settle", "spin_end").with_id(settle_id.clone()).as_terminal()
+    let settle = StageNode::new("Settle", "spin_end").with_id(settle_id).as_terminal()
         .with_visual(850.0, 200.0, "#1a0533");
 
     let flow = StageFlow::builder()
@@ -744,25 +744,25 @@ fn build_multi_level_bonus() -> SlotBlueprint {
     let b_end_id  = NodeId::from_static("mlb::bonus_end");
     let settle_id = NodeId::from_static("mlb::settle");
 
-    let idle = StageNode::new("Idle", "idle_loop").with_id(idle_id.clone()).as_entry()
+    let idle = StageNode::new("Idle", "idle_loop").with_id(idle_id).as_entry()
         .with_category(NodeCategory::Idle).with_visual(50.0, 200.0, "#134e4a")
         .add_transition(StageTransition::always(spin_id.clone())
             .with_condition(TransitionCondition::UserConfirm));
 
     let spin = StageNode::new("Spin", "ui_spin_press")
-        .with_id(spin_id.clone())
+        .with_id(spin_id)
         .with_category(NodeCategory::Spin).with_visual(250.0, 200.0, "#115e59")
         .add_transition(StageTransition::always(eval_id.clone()));
 
     let eval = StageNode::new("Evaluate", "evaluate_wins")
-        .with_id(eval_id.clone())
+        .with_id(eval_id)
         .with_category(NodeCategory::Spin).with_visual(450.0, 200.0, "#115e59")
         .add_transition(StageTransition::on_feature(b1_id.clone(), Some("bonus".to_string())))
         .add_transition(StageTransition::on_no_win(settle_id.clone()))
         .add_transition(StageTransition::on_win(settle_id.clone(), None));
 
     let bonus_l1 = StageNode::new("Bonus Level 1 — Pick", "bonus_choice")
-        .with_id(b1_id.clone())
+        .with_id(b1_id)
         .with_category(NodeCategory::Bonus).with_visual(650.0, 350.0, "#0d9488")
         .with_audio(AudioBinding::default()
             .enter(AudioEventRef::new("bonus_level1_enter")))
@@ -776,7 +776,7 @@ fn build_multi_level_bonus() -> SlotBlueprint {
         });
 
     let bonus_l2 = StageNode::new("Bonus Level 2 — Path", "bonus_reveal")
-        .with_id(b2_id.clone())
+        .with_id(b2_id)
         .with_category(NodeCategory::Bonus).with_visual(850.0, 350.0, "#0d9488")
         .with_audio(AudioBinding::default()
             .enter(AudioEventRef::new("bonus_level2_enter")))
@@ -800,7 +800,7 @@ fn build_multi_level_bonus() -> SlotBlueprint {
         });
 
     let bonus_l3 = StageNode::new("Bonus Level 3 — Grand Prize", "bonus_prize_reveal")
-        .with_id(b3_id.clone())
+        .with_id(b3_id)
         .with_category(NodeCategory::Bonus).with_visual(1050.0, 350.0, "#0f766e")
         .with_min_display(2000)
         .with_audio(AudioBinding::default()
@@ -809,13 +809,13 @@ fn build_multi_level_bonus() -> SlotBlueprint {
         .add_transition(StageTransition::always(b_end_id.clone()));
 
     let bonus_end = StageNode::new("Bonus End", "bonus_complete")
-        .with_id(b_end_id.clone())
+        .with_id(b_end_id)
         .with_category(NodeCategory::Bonus).with_visual(1250.0, 350.0, "#134e4a")
         .with_audio(AudioBinding::default()
             .enter(AudioEventRef::new("bonus_end_sting")))
         .add_transition(StageTransition::always(settle_id.clone()));
 
-    let settle = StageNode::new("Settle", "spin_end").with_id(settle_id.clone()).as_terminal()
+    let settle = StageNode::new("Settle", "spin_end").with_id(settle_id).as_terminal()
         .with_visual(1450.0, 200.0, "#134e4a");
 
     let flow = StageFlow::builder()

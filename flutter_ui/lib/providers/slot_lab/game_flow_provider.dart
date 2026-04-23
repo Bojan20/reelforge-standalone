@@ -97,6 +97,79 @@ class GameFlowProvider extends ChangeNotifier {
   bool _fsAutoLoopActive = false;
   Timer? _fsAutoSpinTimer;
   int _fsAutoSpinDelayMs = 500;
+  /// TALAS 3: turbo mode awareness — 250ms inter-spin vs 500ms normal
+  bool _fsTurboMode = false;
+  /// TALAS 3: last-spin dwell — 800ms normal / 400ms turbo per IGT spec
+  static const int _fsLastSpinDelayMsNormal = 800;
+  static const int _fsLastSpinDelayMsTurbo = 400;
+  static const int _fsSpinDelayMsNormal = 500;
+  static const int _fsSpinDelayMsTurbo = 250;
+  /// Wire #1: retry counter when onRequestAutoSpin is null (UI not yet wired)
+  int _fsAutoSpinNullRetries = 0;
+  static const int _fsAutoSpinMaxNullRetries = 10;
+
+  /// Set turbo mode — affects FS inter-spin dwell timing.
+  /// Call from UI when player toggles turbo.
+  void setFsTurboMode(bool turbo) {
+    _fsTurboMode = turbo;
+    _fsAutoSpinDelayMs = turbo ? _fsSpinDelayMsTurbo : _fsSpinDelayMsNormal;
+  }
+
+  /// Is FS auto-loop currently in turbo mode?
+  bool get isFsTurboMode => _fsTurboMode;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TALAS 3 — IGT TIMING CONSTANTS (authoritative source for UI widgets)
+  // Per WRATH_OF_OLYMPUS_GAME_FLOW.md + SLOTLAB_VS_PLAYA_ANALYSIS.md
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Scatter highlight pause before FS intro plaque fires (IGT: 2000ms).
+  /// UI should hold reels post-stop this long when 3+ scatters detected
+  /// before triggering the enter transition.
+  static const int igtScatterHighlightPauseMs = 2000;
+
+  /// UI fadeout when entering FS (IGT: 300ms).
+  static const int igtUiFadeoutFsMs = 300;
+
+  /// UI fadein when entering FS without preceding Big Win (IGT: 300ms).
+  static const int igtUiFadeinFsMs = 300;
+
+  /// UI fadein when entering FS after a Big Win celebration (IGT: 600ms).
+  static const int igtUiFadeinFsAfterBwMs = 600;
+
+  /// Multiplier popup visible duration (IGT: 1500ms).
+  static const int igtMultiplierPopupMs = 1500;
+
+  /// Multiplier popup fade-out duration (IGT: 400ms).
+  static const int igtMultiplierPopupFadeMs = 400;
+
+  /// Retrigger overlay visible duration (IGT: 2000ms).
+  static const int igtRetriggerOverlayMs = 2000;
+
+  /// Retrigger overlay fade-out duration (IGT: 400ms).
+  static const int igtRetriggerOverlayFadeMs = 400;
+
+  /// Big Win overlay fade-out — normal dismiss (IGT: 750ms).
+  static const int igtBigWinFadeOutMs = 750;
+
+  /// Big Win overlay fade-out — skip-button dismiss (IGT: 300ms).
+  static const int igtBigWinFadeOutSkipMs = 300;
+
+  /// Post-last-FS-spin dwell before exit plaque (IGT: 800ms normal, 400 turbo).
+  int get igtFsLastSpinDwellMs =>
+      _fsTurboMode ? _fsLastSpinDelayMsTurbo : _fsLastSpinDelayMsNormal;
+
+  /// Balance rollup duration (IGT: 900ms normal, 500ms turbo).
+  int get igtBalanceRollupMs => _fsTurboMode ? 500 : 900;
+
+  /// Status-bar rollup duration (IGT: 300-400ms either mode).
+  static const int igtStatusBarRollupMs = 400;
+
+  // ─── Deferred Big Win guard ────────────────────────────────────────────
+  /// Wire #3: per-spin guard to prevent the deferred Big Win callback
+  /// from firing twice for the same feature exit (e.g., when both the
+  /// transition timer and a manual dismiss race to call onExitComplete).
+  bool _deferredBigWinFiredForExit = false;
 
   // ─── Scene Transitions ─────────────────────────────────────────────────
   ActiveTransition? _activeTransition;
@@ -503,6 +576,9 @@ class GameFlowProvider extends ChangeNotifier {
     if (_currentState == GameFlowState.idle) {
       _transitionTo(GameFlowState.baseGame);
     }
+    // Wire #3: a new spin clears any prior exit's Big Win guard so the next
+    // feature exit can fire its deferred overlay.
+    _deferredBigWinFiredForExit = false;
     _emitHookEvent('spin_start', data: {
       'state': _currentState.name,
       'isFreeSpin': _currentState == GameFlowState.freeSpins,
@@ -639,6 +715,17 @@ class GameFlowProvider extends ChangeNotifier {
     } else {
       _transitionTo(toState);
       onFeatureStateUpdated?.call(executor.blockId, featureState);
+      // Wire #5: when no entry transition is shown (transitions disabled, or
+      // the target skips them like cascading), the integration layer never
+      // hears `onTransitionDismissed` and so FS auto-loop / feature music
+      // never starts. Emit a synthetic "entering-dismissed" event so the
+      // existing dismiss handler (game_flow_integration._onTransitionDismissed)
+      // does its work — start MUSIC_FS_L1, kick off FS auto-loop, etc.
+      onTransitionDismissed?.call(
+        TransitionPhase.entering,
+        fromState,
+        toState,
+      );
     }
   }
 
@@ -661,6 +748,22 @@ class GameFlowProvider extends ChangeNotifier {
     // Fire audio stages
     for (final stage in stepResult.audioStages) {
       _fireAudioStage(stage);
+    }
+
+    // Wire #4: surface FS retrigger as a hook event so RTPC / UI badges /
+    // analytics can react. The executor handles the spin-counter math
+    // inline; the FSM wasn't emitting any signal before.
+    if (blockId == 'free_spins' &&
+        stepResult.updatedState.spinsRemaining > currentFeatureState.spinsRemaining) {
+      _emitHookEvent('feature_retrigger', data: {
+        'featureId': blockId,
+        'spinsRemaining': stepResult.updatedState.spinsRemaining,
+        'totalSpins': stepResult.updatedState.totalSpins,
+        'addedSpins': stepResult.updatedState.spinsRemaining -
+            currentFeatureState.spinsRemaining,
+        'retriggersUsed':
+            stepResult.updatedState.customData['retriggersUsed'] ?? 0,
+      });
     }
 
     onFeatureStateUpdated?.call(blockId, stepResult.updatedState);
@@ -728,13 +831,20 @@ class GameFlowProvider extends ChangeNotifier {
     // Capture bet for deferred Big Win check (before state changes)
     final deferredBetAmount = _lastBetAmount;
 
+    // Wire #3: arm the per-exit Big Win guard. Cleared on next spin start.
+    _deferredBigWinFiredForExit = false;
+
     // Callback to execute after exit transition completes (or immediately if no transition)
     void onExitComplete() {
       // Deferred Big Win: if feature accumulated win qualifies, show Big Win overlay
       // WoO flow: FS exit plaque → Big Win overlay → base game
-      if (exitWin > 0 && deferredBetAmount > 0) {
+      // Wire #3: guard against double-fire (transition timer + manual dismiss race).
+      if (!_deferredBigWinFiredForExit &&
+          exitWin > 0 &&
+          deferredBetAmount > 0) {
         final winRatio = exitWin / deferredBetAmount;
         if (winRatio >= 10.0 && onDeferredBigWin != null) {
+          _deferredBigWinFiredForExit = true;
           onDeferredBigWin!(exitWin, deferredBetAmount);
         }
       }
@@ -753,6 +863,15 @@ class GameFlowProvider extends ChangeNotifier {
         exitingState != GameFlowState.cascading) {
       _startExitTransition(exitingState, returnState, exitWin, onComplete: onExitComplete);
     } else {
+      // Wire #5 (exit half): mirror the dismissed event so integration layer
+      // can fire FS_OUTRO_PLAQUE / flushPendingCrossfade even when the
+      // exit plaque is suppressed. Order matches the with-transition path:
+      // dismiss callback first, then exit completion.
+      onTransitionDismissed?.call(
+        TransitionPhase.exiting,
+        exitingState,
+        returnState,
+      );
       onExitComplete();
     }
   }
@@ -842,6 +961,27 @@ class GameFlowProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Force FSM directly to [state], bypassing FeatureExecutor requirements.
+  /// Intended for HELIX demo/preview mode — no executor registration needed.
+  /// For idle/base, calls [resetToBaseGame] + optionally sets baseGame.
+  void forceTransition(GameFlowState state) {
+    if (state == GameFlowState.idle) {
+      resetToBaseGame();
+      return;
+    }
+    if (state == GameFlowState.baseGame) {
+      resetToBaseGame();
+      _currentState = GameFlowState.baseGame;
+      notifyListeners();
+      return;
+    }
+    // For feature states: clear conflicting features, then transition directly
+    _activeFeatures.clear();
+    _featureQueue.clear();
+    _stack.clear();
+    _transitionTo(state);
+  }
+
   /// Apply multiplier pipeline to a win amount
   ModifiedWinResult applyWinPipeline(double rawWin) {
     double current = rawWin;
@@ -876,11 +1016,17 @@ class GameFlowProvider extends ChangeNotifier {
   // ═══════════════════════════════════════════════════════════════════════════
 
   /// Start the FS auto-spin loop. Called when FS entry plaque is dismissed.
-  void startFsAutoLoop({int delayMs = 500}) {
+  ///
+  /// TALAS 3: `delayMs` default uses turbo-aware value (250ms turbo / 500ms
+  /// normal per IGT). Caller may override explicitly (e.g. integration layer
+  /// uses 500ms before first spin regardless of turbo to let intro breathe).
+  void startFsAutoLoop({int? delayMs}) {
     if (_currentState != GameFlowState.freeSpins) return;
     if (_fsAutoLoopActive) return;
 
-    _fsAutoSpinDelayMs = delayMs;
+    _fsAutoSpinDelayMs = delayMs ??
+        (_fsTurboMode ? _fsSpinDelayMsTurbo : _fsSpinDelayMsNormal);
+    _fsAutoSpinNullRetries = 0;
     _fsAutoLoopActive = true;
     notifyListeners();
     _scheduleNextFsSpin();
@@ -893,6 +1039,28 @@ class GameFlowProvider extends ChangeNotifier {
     _fsAutoSpinTimer = null;
     _fsAutoLoopActive = false;
     notifyListeners();
+  }
+
+  /// Recover FS auto-loop from a stuck state.
+  ///
+  /// Why: SLAM during an in-flight spin can prevent _finalizeSpin() from running,
+  /// which means flushGameFlowResult() never fires, onSpinComplete() never advances
+  /// the FSM, and _scheduleNextFsSpin() never runs from the normal path.
+  /// The auto-spin scheduler stalls and FS appears frozen.
+  ///
+  /// How to apply: called by the UI watchdog (PremiumSlotPreview._handleStop)
+  /// 800ms after SLAM if engine is idle and FS auto-loop is still flagged active.
+  /// Idempotent: no-op if loop is healthy or already stopped.
+  void recoverFsAutoLoop() {
+    if (!_fsAutoLoopActive) return;
+    if (_currentState != GameFlowState.freeSpins) {
+      stopFsAutoLoop();
+      return;
+    }
+    _fsAutoSpinNullRetries = 0;
+    _fsAutoSpinTimer?.cancel();
+    _fsAutoSpinTimer = null;
+    _scheduleNextFsSpin();
   }
 
   /// Schedule the next FS auto-spin after delay.
@@ -913,7 +1081,15 @@ class GameFlowProvider extends ChangeNotifier {
       return;
     }
 
-    _fsAutoSpinTimer = Timer(Duration(milliseconds: _fsAutoSpinDelayMs), () {
+    // TALAS 3: last-spin dwell override per IGT spec (800ms normal / 400ms
+    // turbo). Before last FS spin, let the player breathe longer so they
+    // realize it's the final one and the rollup doesn't feel rushed.
+    final bool isLastSpin = fs.spinsRemaining == 1;
+    final int delay = isLastSpin
+        ? (_fsTurboMode ? _fsLastSpinDelayMsTurbo : _fsLastSpinDelayMsNormal)
+        : _fsAutoSpinDelayMs;
+
+    _fsAutoSpinTimer = Timer(Duration(milliseconds: delay), () {
       if (!_fsAutoLoopActive || _currentState != GameFlowState.freeSpins) {
         stopFsAutoLoop();
         return;
@@ -924,8 +1100,22 @@ class GameFlowProvider extends ChangeNotifier {
         stopFsAutoLoop();
         return;
       }
-      // Request UI to execute the spin
-      onRequestAutoSpin?.call();
+      // Wire #1: if UI hasn't wired the auto-spin callback yet, reschedule
+      // instead of dropping the loop. UI may be mid-rebuild (PremiumSlotPreview
+      // dispose/init or postFrameCallback wiring). Cap retries so a permanently
+      // missing wiring doesn't spin forever.
+      if (onRequestAutoSpin == null) {
+        if (_fsAutoSpinNullRetries < _fsAutoSpinMaxNullRetries) {
+          _fsAutoSpinNullRetries++;
+          _scheduleNextFsSpin();
+        } else {
+          // Give up — UI never wired. Stop quietly so user can recover via SPIN.
+          stopFsAutoLoop();
+        }
+        return;
+      }
+      _fsAutoSpinNullRetries = 0;
+      onRequestAutoSpin!.call();
     });
   }
 
@@ -1148,7 +1338,13 @@ class GameFlowProvider extends ChangeNotifier {
     });
   }
 
-  /// Dismiss the active transition (click-to-continue or early dismiss)
+  /// Dismiss the active transition (click-to-continue or early dismiss).
+  ///
+  /// Order matters: `pending` runs BEFORE `onTransitionDismissed` so that
+  /// `_currentState` already reflects the post-transition value when listeners
+  /// react. Example — FS entry: pending calls `_transitionTo(freeSpins)`, then
+  /// `onTransitionDismissed` → `_startFsLoopWhenReady` → `startFsAutoLoop`
+  /// guards on `_currentState == freeSpins`. Reversed order strands the loop.
   void dismissTransition() {
     if (_activeTransition == null) return;
 
@@ -1160,11 +1356,13 @@ class GameFlowProvider extends ChangeNotifier {
     final pending = _pendingTransitionComplete;
     _activeTransition = null;
     _pendingTransitionComplete = null;
+
+    // Apply deferred state change first (entry: _transitionTo, exit:
+    // _currentState = returnState) so post-dismissal listeners see fresh state.
+    pending?.call();
+
     onTransitionDismissed?.call(phase, from, to);
     notifyListeners();
-
-    // Execute pending completion callback
-    pending?.call();
   }
 
   void Function()? _pendingTransitionComplete;

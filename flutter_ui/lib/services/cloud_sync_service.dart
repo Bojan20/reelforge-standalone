@@ -22,6 +22,7 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -424,6 +425,8 @@ class CloudSyncService extends ChangeNotifier {
       // Load user info
       _userId = prefs.getString(_prefsKeyUserId);
       _apiEndpoint = prefs.getString(_prefsKeyApiEndpoint);
+      _authToken = prefs.getString('cloud_sync_auth_token');
+      _isAuthenticated = _userId != null;
 
       // Load projects
       await _loadProjects();
@@ -456,7 +459,13 @@ class CloudSyncService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Authenticate user
+  /// Authenticate user against cloud backend.
+  ///
+  /// For custom/firebase/aws providers, POSTs to `{apiEndpoint}/auth/login`.
+  /// For local provider, uses email hash as offline identity.
+  /// Stores auth token for subsequent API calls.
+  String? _authToken;
+
   Future<bool> authenticate({
     required String email,
     required String password,
@@ -464,33 +473,99 @@ class CloudSyncService extends ChangeNotifier {
     _setStatus(SyncStatus.checking, 'Authenticating...');
 
     try {
-      // Simulate authentication (replace with actual auth provider)
-      await Future.delayed(const Duration(seconds: 1));
+      if (_provider == CloudProvider.local) {
+        // Local network: no server auth, use email hash as identity
+        _userId = md5.convert(utf8.encode(email)).toString().substring(0, 16);
+        _userEmail = email;
+        _isAuthenticated = true;
+        _authToken = null;
+      } else {
+        // Server-based auth: POST to /auth/login
+        final endpoint = _resolveEndpoint();
+        if (endpoint == null) {
+          throw Exception('No API endpoint configured. Set endpoint first.');
+        }
 
-      // Generate user ID from email hash
-      _userId = md5.convert(utf8.encode(email)).toString().substring(0, 16);
-      _userEmail = email;
-      _isAuthenticated = true;
+        final response = await http.post(
+          Uri.parse('$endpoint/auth/login'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'email': email, 'password': password}),
+        ).timeout(const Duration(seconds: 15));
+
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          _authToken = data['token'] as String? ?? data['access_token'] as String?;
+          _userId = data['userId'] as String? ?? data['user_id'] as String? ?? data['id'] as String?;
+          _userEmail = data['email'] as String? ?? email;
+
+          // Fallback: if server doesn't return userId, derive from email
+          _userId ??= md5.convert(utf8.encode(email)).toString().substring(0, 16);
+
+          _isAuthenticated = true;
+        } else if (response.statusCode == 401 || response.statusCode == 403) {
+          throw Exception('Invalid credentials');
+        } else {
+          throw Exception('Server error ${response.statusCode}: ${response.body}');
+        }
+      }
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_prefsKeyUserId, _userId!);
+      if (_authToken != null) {
+        await prefs.setString('cloud_sync_auth_token', _authToken!);
+      }
 
       _setStatus(SyncStatus.idle);
       return true;
+    } on TimeoutException {
+      _setStatus(SyncStatus.error, null, 'Authentication timed out — check your connection');
+      return false;
+    } on SocketException catch (e) {
+      _setStatus(SyncStatus.error, null, 'Cannot reach server: ${e.message}');
+      return false;
     } catch (e) {
       _setStatus(SyncStatus.error, null, 'Authentication failed: $e');
       return false;
     }
   }
 
-  /// Sign out
+  /// Resolve API endpoint for current provider
+  String? _resolveEndpoint() {
+    switch (_provider) {
+      case CloudProvider.firebase:
+        // Firebase REST: Cloud Functions or Firestore REST API
+        return _apiEndpoint ?? 'https://us-central1-fluxforge-studio.cloudfunctions.net/api';
+      case CloudProvider.aws:
+        return _apiEndpoint ?? 'https://api.fluxforge.studio';
+      case CloudProvider.custom:
+        return _apiEndpoint;
+      case CloudProvider.local:
+        return _apiEndpoint ?? 'http://localhost:8766';
+    }
+  }
+
+  /// Build auth headers for API calls
+  Map<String, String> _authHeaders() {
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+    };
+    if (_authToken != null) {
+      headers['Authorization'] = 'Bearer $_authToken';
+    }
+    return headers;
+  }
+
+  /// Sign out and clear all auth state
   Future<void> signOut() async {
     _userId = null;
     _userEmail = null;
     _isAuthenticated = false;
+    _authToken = null;
+    disableAutoSync();
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_prefsKeyUserId);
+    await prefs.remove('cloud_sync_auth_token');
 
     notifyListeners();
   }
@@ -791,8 +866,18 @@ class CloudSyncService extends ChangeNotifier {
     if (!_isAuthenticated) return false;
 
     try {
-      // Remove from cloud (simulate)
-      await Future.delayed(const Duration(milliseconds: 500));
+      // Delete from server
+      final endpoint = _resolveEndpoint();
+      if (endpoint != null && _provider != CloudProvider.local) {
+        final response = await http.delete(
+          Uri.parse('$endpoint/projects/$projectId'),
+          headers: _authHeaders(),
+        ).timeout(const Duration(seconds: 15));
+
+        if (response.statusCode != 200 && response.statusCode != 204) {
+          throw Exception('Delete failed: ${response.statusCode}');
+        }
+      }
 
       // Remove from local list
       _projects.removeWhere((p) => p.id == projectId);
@@ -802,6 +887,11 @@ class CloudSyncService extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
+      // Still remove locally even if server fails
+      _projects.removeWhere((p) => p.id == projectId);
+      _lastSyncTimes.remove(projectId);
+      await _saveProjects();
+      notifyListeners();
       return false;
     }
   }
@@ -813,6 +903,20 @@ class CloudSyncService extends ChangeNotifier {
     try {
       final index = _projects.indexWhere((p) => p.id == projectId);
       if (index < 0) return false;
+
+      // Notify server about share
+      final endpoint = _resolveEndpoint();
+      if (endpoint != null && _provider != CloudProvider.local) {
+        final response = await http.post(
+          Uri.parse('$endpoint/projects/$projectId/share'),
+          headers: _authHeaders(),
+          body: jsonEncode({'email': email}),
+        ).timeout(const Duration(seconds: 15));
+
+        if (response.statusCode != 200 && response.statusCode != 201) {
+          throw Exception('Share failed: ${response.statusCode}');
+        }
+      }
 
       final project = _projects[index];
       final updatedSharedWith = List<String>.from(project.sharedWith)..add(email);
@@ -925,20 +1029,65 @@ class CloudSyncService extends ChangeNotifier {
     }
   }
 
+  /// Upload project files to cloud storage.
+  ///
+  /// Strategy: collect all project files, create a tar-like manifest,
+  /// upload each file via multipart POST. Server stores files under
+  /// `projects/{projectId}/{relativePath}`.
   Future<int> _uploadProjectFiles(
     CloudProject project, {
     void Function(double)? onProgress,
   }) async {
-    // Simulate file upload (replace with actual implementation)
     final dir = Directory(project.localPath);
     if (!await dir.exists()) return 0;
 
-    final files = await dir.list(recursive: true).where((e) => e is File).toList();
+    final endpoint = _resolveEndpoint();
+    if (endpoint == null) {
+      throw Exception('No API endpoint configured');
+    }
+
+    // Collect all files
+    final files = <File>[];
+    await for (final entity in dir.list(recursive: true)) {
+      if (entity is File) {
+        // Skip macOS metadata files and build artifacts
+        final name = path.basename(entity.path);
+        if (name.startsWith('._') || name == '.DS_Store') continue;
+        files.add(entity);
+      }
+    }
+
+    if (files.isEmpty) return 0;
+
     int uploaded = 0;
 
+    // Upload metadata first
+    await http.put(
+      Uri.parse('$endpoint/projects/${project.id}'),
+      headers: _authHeaders(),
+      body: jsonEncode(project.toJson()),
+    ).timeout(const Duration(seconds: 15));
+
+    // Upload files in batches (avoid overwhelming the server)
     for (int i = 0; i < files.length; i++) {
-      // Simulate upload delay
-      await Future.delayed(const Duration(milliseconds: 50));
+      final file = files[i];
+      final relativePath = file.path.replaceFirst('${project.localPath}/', '');
+
+      // Create multipart request for each file
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$endpoint/projects/${project.id}/files'),
+      );
+      request.headers.addAll(_authHeaders());
+      request.fields['path'] = relativePath;
+      request.files.add(await http.MultipartFile.fromPath('file', file.path));
+
+      final response = await request.send().timeout(const Duration(seconds: 60));
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        final body = await response.stream.bytesToString();
+        throw Exception('Upload failed for $relativePath: ${response.statusCode} $body');
+      }
+
       uploaded++;
       onProgress?.call((i + 1) / files.length);
     }
@@ -946,34 +1095,96 @@ class CloudSyncService extends ChangeNotifier {
     return uploaded;
   }
 
+  /// Download project files from cloud storage.
+  ///
+  /// Strategy: GET file manifest from server, then download each file.
+  /// Server provides file list at `projects/{projectId}/manifest`.
   Future<int> _downloadProjectFiles(
     CloudProject project,
     String targetPath, {
     void Function(double)? onProgress,
   }) async {
-    // Simulate file download (replace with actual implementation)
     await Directory(targetPath).create(recursive: true);
 
-    // Simulate download of 10 files
-    const totalFiles = 10;
-    for (int i = 0; i < totalFiles; i++) {
-      await Future.delayed(const Duration(milliseconds: 100));
-      onProgress?.call((i + 1) / totalFiles);
+    final endpoint = _resolveEndpoint();
+    if (endpoint == null) {
+      throw Exception('No API endpoint configured');
     }
 
-    return totalFiles;
+    // Get file manifest from server
+    final manifestResponse = await http.get(
+      Uri.parse('$endpoint/projects/${project.id}/manifest'),
+      headers: _authHeaders(),
+    ).timeout(const Duration(seconds: 15));
+
+    if (manifestResponse.statusCode != 200) {
+      throw Exception('Failed to get project manifest: ${manifestResponse.statusCode}');
+    }
+
+    final manifestData = jsonDecode(manifestResponse.body);
+    final fileList = (manifestData['files'] as List<dynamic>?)
+        ?.cast<Map<String, dynamic>>() ?? [];
+
+    if (fileList.isEmpty) return 0;
+
+    int downloaded = 0;
+
+    for (int i = 0; i < fileList.length; i++) {
+      final fileInfo = fileList[i];
+      final relativePath = fileInfo['path'] as String;
+      final fileUrl = fileInfo['url'] as String? ??
+          '$endpoint/projects/${project.id}/files/$relativePath';
+
+      // Download file
+      final response = await http.get(
+        Uri.parse(fileUrl),
+        headers: _authHeaders(),
+      ).timeout(const Duration(seconds: 60));
+
+      if (response.statusCode != 200) {
+        throw Exception('Download failed for $relativePath: ${response.statusCode}');
+      }
+
+      // Write to local filesystem
+      final outputFile = File(path.join(targetPath, relativePath));
+      await outputFile.parent.create(recursive: true);
+      await outputFile.writeAsBytes(response.bodyBytes);
+
+      downloaded++;
+      onProgress?.call((i + 1) / fileList.length);
+    }
+
+    return downloaded;
   }
 
+  /// Fetch remote project metadata from server.
+  ///
+  /// Returns null if project doesn't exist on server or server is unreachable.
   Future<CloudProject?> _fetchRemoteProject(String projectId) async {
-    // Simulate fetching remote project metadata
-    // In real implementation, this would call the cloud API
-    await Future.delayed(const Duration(milliseconds: 200));
+    final endpoint = _resolveEndpoint();
+    if (endpoint == null) return null;
 
-    final index = _projects.indexWhere((p) => p.id == projectId);
-    if (index < 0) return null;
+    try {
+      final response = await http.get(
+        Uri.parse('$endpoint/projects/$projectId'),
+        headers: _authHeaders(),
+      ).timeout(const Duration(seconds: 10));
 
-    // Return a copy with potentially different hash (simulating remote changes)
-    return _projects[index];
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return CloudProject.fromJson(data);
+      } else if (response.statusCode == 404) {
+        return null; // Project doesn't exist on server yet
+      } else {
+        return null; // Server error — treat as no remote data
+      }
+    } on TimeoutException {
+      return null; // Server unreachable — work offline
+    } on SocketException {
+      return null; // No network — work offline
+    } catch (e) {
+      return null;
+    }
   }
 
   @override

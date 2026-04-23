@@ -396,7 +396,7 @@ class MetadataBrowserService extends ChangeNotifier {
     if (ext == 'wav') {
       entries.addAll([
         MetadataEntry(key: 'IART', value: 'Unknown Artist', standard: MetadataStandard.riff),
-        MetadataEntry(key: 'INAM', value: fileName.replaceAll('.$ext', ''), standard: MetadataStandard.riff),
+        MetadataEntry(key: 'INAM', value: fileName.replaceFirst(RegExp(r'\.' + RegExp.escape(ext) + r'$'), ''), standard: MetadataStandard.riff),
         MetadataEntry(key: 'ICRD', value: '2026', standard: MetadataStandard.riff),
         MetadataEntry(key: 'ISFT', value: 'FluxForge Studio v1.0', standard: MetadataStandard.riff),
         MetadataEntry(key: 'ICMT', value: 'Recorded in FluxForge', standard: MetadataStandard.riff),
@@ -406,7 +406,7 @@ class MetadataBrowserService extends ChangeNotifier {
     // ID3v2 (MP3)
     if (ext == 'mp3') {
       entries.addAll([
-        MetadataEntry(key: 'TIT2', value: fileName.replaceAll('.$ext', ''), standard: MetadataStandard.id3v2),
+        MetadataEntry(key: 'TIT2', value: fileName.replaceFirst(RegExp(r'\.' + RegExp.escape(ext) + r'$'), ''), standard: MetadataStandard.id3v2),
         MetadataEntry(key: 'TPE1', value: 'Unknown Artist', standard: MetadataStandard.id3v2),
         MetadataEntry(key: 'TALB', value: 'Unknown Album', standard: MetadataStandard.id3v2),
         MetadataEntry(key: 'TRCK', value: '1/12', standard: MetadataStandard.id3v2),
@@ -421,7 +421,7 @@ class MetadataBrowserService extends ChangeNotifier {
     // Vorbis comments (OGG)
     if (ext == 'ogg') {
       entries.addAll([
-        MetadataEntry(key: 'TITLE', value: fileName.replaceAll('.$ext', ''), standard: MetadataStandard.vorbis),
+        MetadataEntry(key: 'TITLE', value: fileName.replaceFirst(RegExp(r'\.' + RegExp.escape(ext) + r'$'), ''), standard: MetadataStandard.vorbis),
         MetadataEntry(key: 'ARTIST', value: 'Unknown Artist', standard: MetadataStandard.vorbis),
         MetadataEntry(key: 'ALBUM', value: 'Unknown Album', standard: MetadataStandard.vorbis),
         MetadataEntry(key: 'TRACKNUMBER', value: '1', standard: MetadataStandard.vorbis),
@@ -434,7 +434,7 @@ class MetadataBrowserService extends ChangeNotifier {
     // FLAC metadata
     if (ext == 'flac') {
       entries.addAll([
-        MetadataEntry(key: 'TITLE', value: fileName.replaceAll('.$ext', ''), standard: MetadataStandard.flac),
+        MetadataEntry(key: 'TITLE', value: fileName.replaceFirst(RegExp(r'\.' + RegExp.escape(ext) + r'$'), ''), standard: MetadataStandard.flac),
         MetadataEntry(key: 'ARTIST', value: 'Unknown Artist', standard: MetadataStandard.flac),
         MetadataEntry(key: 'ALBUM', value: 'Unknown Album', standard: MetadataStandard.flac),
         MetadataEntry(key: 'TRACKNUMBER', value: '1', standard: MetadataStandard.flac),

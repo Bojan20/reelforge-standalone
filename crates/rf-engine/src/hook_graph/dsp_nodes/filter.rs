@@ -51,7 +51,8 @@ pub struct FilterNode {
 
 impl FilterNode {
     pub fn new(filter_type: FilterType, freq: f32, q: f32, gain_db: f32) -> Self {
-        let node = Self {
+        
+        Self {
             filter_type,
             freq: freq.clamp(20.0, 20000.0),
             q: q.clamp(0.1, 30.0),
@@ -62,8 +63,7 @@ impl FilterNode {
             a1: 0.0, a2: 0.0,
             needs_recalc: true,
             last_sample_rate: 0,
-        };
-        node
+        }
     }
 
     pub fn set_params(&mut self, freq: f32, q: f32, gain_db: f32) {
