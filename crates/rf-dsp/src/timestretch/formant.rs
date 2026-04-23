@@ -379,7 +379,10 @@ impl FormantPreserver {
 
 #[cfg(target_arch = "x86_64")]
 pub mod simd {
-    use std::simd::{Simd, SimdFloat, f64x4};
+    // `SimdFloat` moved under `std::simd::num::SimdFloat` in newer nightly
+    // portable_simd API (reduce_sum / reduce_min / reduce_max live there).
+    #[allow(unused_imports)]
+    use std::simd::{Simd, f64x4, num::SimdFloat};
 
     /// SIMD-optimized autocorrelation (AVX2)
     pub fn autocorrelation_simd(input: &[f64], max_lag: usize) -> Vec<f64> {
