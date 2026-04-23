@@ -18316,8 +18316,12 @@ pub extern "C" fn bounce_start(
         BOUNCE_EPOCH.elapsed().as_nanos() as u64,
         Ordering::Relaxed,
     );
-    // Use lock().unwrap_or_else to recover from poison — bounce must store output path
-    let mut guard = BOUNCE_STATE.output_path.lock().unwrap_or_else(|e| e.into_inner());
+    // Recover from poisoned lock, but LOG it — silent recovery masks panics
+    // (QA wisdom: "Lock poisoning: never silently recover without logging").
+    let mut guard = BOUNCE_STATE.output_path.lock().unwrap_or_else(|e| {
+        log::warn!("🔒 BOUNCE_STATE.output_path poisoned in bounce_start; recovering inner — a prior thread panicked holding this lock");
+        e.into_inner()
+    });
     *guard = Some(PathBuf::from(&path_str));
     drop(guard);
 
@@ -18480,7 +18484,10 @@ pub extern "C" fn bounce_is_active() -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn bounce_clear() {
     BOUNCE_STATE.reset();
-    let mut guard = BOUNCE_STATE.output_path.lock().unwrap_or_else(|e| e.into_inner());
+    let mut guard = BOUNCE_STATE.output_path.lock().unwrap_or_else(|e| {
+        log::warn!("🔒 BOUNCE_STATE.output_path poisoned in bounce_clear; recovering inner — a prior thread panicked holding this lock");
+        e.into_inner()
+    });
     *guard = None;
     drop(guard);
 }
@@ -18490,7 +18497,10 @@ pub extern "C" fn bounce_clear() {
 /// Caller must free the returned string
 #[unsafe(no_mangle)]
 pub extern "C" fn bounce_get_output_path() -> *mut c_char {
-    let guard = BOUNCE_STATE.output_path.lock().unwrap_or_else(|e| e.into_inner());
+    let guard = BOUNCE_STATE.output_path.lock().unwrap_or_else(|e| {
+        log::warn!("🔒 BOUNCE_STATE.output_path poisoned in bounce_get_output_path; recovering inner — a prior thread panicked holding this lock");
+        e.into_inner()
+    });
     guard.as_ref()
         .and_then(|p| p.to_str())
         .and_then(|s| CString::new(s).ok())
