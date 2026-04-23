@@ -33,6 +33,11 @@ jobs:
         with:
           components: rustfmt, clippy
 
+      - name: Install Linux dependencies (alsa + jack for audio crates)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libjack-jackd2-dev
+
       - name: Cache cargo
         uses: actions/cache@v4
         with:
@@ -297,6 +302,11 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install Linux dependencies (alsa + jack for audio crates)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libjack-jackd2-dev
 
       - name: Build documentation
         run: cargo doc --workspace --no-deps
