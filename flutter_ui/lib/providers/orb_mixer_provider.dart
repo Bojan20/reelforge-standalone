@@ -7,6 +7,7 @@
 //   Music: 90° (top), SFX: 0° (right), Ambience: 180° (left),
 //   VO: 270° (bottom), Aux: 45° (top-right), Master: center
 
+import 'dart:async' show unawaited;
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' show Color, Offset;
@@ -556,7 +557,18 @@ class OrbMixerProvider extends ChangeNotifier {
 
     // PHASE 10: update history buffer — records ghosts for voices that
     // disappeared since the previous tick. Cheap: set diff + timestamp.
-    _voiceHistory.observe(_allVoices);
+    //
+    // Phase 10e-4: route through the background isolate when voice count is
+    // large so the UI tick never stalls on diff/bookkeeping for > 100 voices.
+    // Sync fast-path is still used for typical small active sets.
+    if (_allVoices.length > 100) {
+      // Fire-and-forget: listeners already notified via the sync snapshot
+      // above. The integrate() on isolate completion will call setState via
+      // the next tick naturally.
+      unawaited(_voiceHistory.observeInIsolate(_allVoices));
+    } else {
+      _voiceHistory.observe(_allVoices);
+    }
 
     // PHASE 10: recompute category buckets (Nivo 1.5 aggregate grouping).
     _voiceBuckets = VoiceCategoryResolver.bucketize(_allVoices);

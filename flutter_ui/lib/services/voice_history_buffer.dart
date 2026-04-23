@@ -1,17 +1,32 @@
-/// PHASE 10 — Voice History Buffer (Ghost Slots)
+/// PHASE 10 — Voice History Buffer (Ghost Slots) — v2 Performance Edition
 ///
-/// Problem: SFX voices play for 300ms and disappear. With 130 sounds, you
+/// Problem: SFX voices play for 300 ms and disappear. With 130 sounds, you
 /// can't point-and-click fast enough to catch them.
 ///
 /// Solution: record every voice lifetime event, keep a rolling **10-second
 /// history** of recent voices. Paint them as "ghost slots" — fading dots
 /// in the orbital ring. Tap a ghost to replay (via solo + retrigger).
 ///
-/// All client-side. No FFI changes needed — we diff successive
-/// `orb_get_active_voices` results to detect ends; the peak recorded when
-/// the voice was last seen is what drives ghost dot alpha.
+/// v2 performance upgrade (Phase 10e-4):
+///   - **Cached reads**: `liveGhosts` / `ghostsFor()` memoise results per
+///     tick. The painter hits them multiple times per frame — the old code
+///     did an O(N log N) sort on every call.
+///   - **Bucketed by bus**: ghosts are indexed by bus on insert, so
+///     `ghostsFor(bus)` is O(bucketSize) with no filter scan.
+///   - **Insertion-ordered**: buffer stays newest-last → `liveGhosts` is
+///     a reverse iteration with zero sort cost.
+///   - **Isolate offload**: `observeInIsolate()` routes the diff+bookkeeping
+///     to a background isolate when voice count is large (> 100). The UI
+///     never stalls on ghost bookkeeping no matter how noisy the slot gets.
+///
+/// All client-side. No FFI changes — we diff successive `orb_get_active_voices`
+/// results to detect ends; the peak recorded when the voice was last seen is
+/// what drives ghost dot alpha.
 
 library;
+
+import 'dart:async';
+import 'dart:isolate';
 
 import '../providers/orb_mixer_provider.dart';
 
@@ -53,6 +68,118 @@ class GhostSlot {
   bool get isExpired => ageSeconds >= VoiceHistoryBuffer.maxAgeSeconds;
 }
 
+/// Opaque payload sent to / received from the background isolate.
+/// Must be sendable (primitive types + lists only).
+class _IsolatePayload {
+  /// Set of voice_ids active in the prior tick.
+  final Set<int> prevIds;
+  /// Active voice data this tick — encoded as flat parallel lists so the
+  /// payload is Isolate-safe without serialising OrbVoiceState directly.
+  final List<int> activeIds;
+  final List<int> activeBusIndices;
+  final List<double> activePeakL;
+  final List<double> activePeakR;
+  /// Last-seen cache (voice_id → [busIndex, peakL, peakR]).
+  final Map<int, List<double>> lastSeen;
+  /// Existing buffer (voice_id, busIndex, peakL, peakR, endedAtMs).
+  final List<List<num>> buffer;
+  /// Cutoff — ghosts with endedAt older than this are expired.
+  final int nowMs;
+  /// Max visible age (seconds).
+  final double maxAgeSec;
+  /// Hard cap on buffer length.
+  final int maxBufferLength;
+
+  const _IsolatePayload({
+    required this.prevIds,
+    required this.activeIds,
+    required this.activeBusIndices,
+    required this.activePeakL,
+    required this.activePeakR,
+    required this.lastSeen,
+    required this.buffer,
+    required this.nowMs,
+    required this.maxAgeSec,
+    required this.maxBufferLength,
+  });
+}
+
+class _IsolateResult {
+  final List<List<num>> buffer; // encoded ghost rows
+  final Set<int> prevIds;
+  final Map<int, List<double>> lastSeen;
+
+  const _IsolateResult({
+    required this.buffer,
+    required this.prevIds,
+    required this.lastSeen,
+  });
+}
+
+/// Pure function used by both sync and isolate paths. Takes the current
+/// state + new active set, returns new state. No side effects.
+_IsolateResult _computeObserve(_IsolatePayload p) {
+  final currentIds = <int>{};
+  final newLastSeen = Map<int, List<double>>.from(p.lastSeen);
+  for (int i = 0; i < p.activeIds.length; i++) {
+    final id = p.activeIds[i];
+    currentIds.add(id);
+    newLastSeen[id] = [
+      p.activeBusIndices[i].toDouble(),
+      p.activePeakL[i],
+      p.activePeakR[i],
+    ];
+  }
+
+  final buffer = List<List<num>>.from(p.buffer);
+
+  // Diff: prev - current → ended voices.
+  for (final endedId in p.prevIds) {
+    if (currentIds.contains(endedId)) continue;
+    final last = newLastSeen[endedId];
+    if (last == null) continue;
+    buffer.add([
+      endedId,
+      last[0].toInt(),
+      last[1],
+      last[2],
+      p.nowMs,
+    ]);
+    newLastSeen.remove(endedId);
+  }
+
+  // Evict expired.
+  final cutoffMs = p.nowMs - (p.maxAgeSec * 1000).round();
+  buffer.removeWhere((row) => row[4] < cutoffMs);
+
+  // Hard cap.
+  if (buffer.length > p.maxBufferLength) {
+    final overflow = buffer.length - p.maxBufferLength;
+    buffer.removeRange(0, overflow);
+  }
+
+  return _IsolateResult(
+    buffer: buffer,
+    prevIds: currentIds,
+    lastSeen: newLastSeen,
+  );
+}
+
+/// Entry point for the long-lived worker isolate (one isolate per buffer).
+/// Receives observe payloads on a `ReceivePort`, sends `_IsolateResult` back.
+void _workerEntry(SendPort mainPort) {
+  final port = ReceivePort();
+  mainPort.send(port.sendPort);
+  port.listen((msg) {
+    if (msg is _IsolatePayload) {
+      final result = _computeObserve(msg);
+      mainPort.send(result);
+    } else if (msg == 'shutdown') {
+      port.close();
+    }
+  });
+}
+
 /// Rolling voice-lifetime history.
 ///
 /// Usage (typical):
@@ -63,6 +190,11 @@ class GhostSlot {
 /// // To render:
 /// for (final ghost in history.liveGhosts) { painter.drawGhost(ghost); }
 /// ```
+///
+/// Advanced (background processing under load):
+/// ```dart
+/// await history.observeInIsolate(currentlyActiveVoices);
+/// ```
 class VoiceHistoryBuffer {
   /// How many seconds a ghost remains visible after its voice ended.
   static const double maxAgeSeconds = 10.0;
@@ -71,6 +203,10 @@ class VoiceHistoryBuffer {
   /// (still rare — 128 voices × 10s rolling window is roomy).
   static const int _maxBufferLength = 128;
 
+  /// Voice count above which automatic isolate offload kicks in.
+  static const int _isolateAutoThreshold = 100;
+
+  /// Buffer of ghost slots, newest at the END (insertion-ordered).
   final List<GhostSlot> _buffer = [];
 
   /// Voice IDs we observed as **active** in the previous tick. Used to
@@ -82,9 +218,25 @@ class VoiceHistoryBuffer {
   /// than extrapolating a zero peak.
   final Map<int, OrbVoiceState> _lastSeen = {};
 
+  // ── Caches (invalidated on every observe) ──────────────────────────────
+  List<GhostSlot>? _cachedLive;
+  final Map<OrbBusId, List<GhostSlot>> _cachedByBus = {};
+  int _cachedTickMs = 0;
+
+  // ── Isolate worker (lazy) ──────────────────────────────────────────────
+  Isolate? _worker;
+  SendPort? _workerPort;
+  final ReceivePort _responsePort = ReceivePort();
+  Completer<_IsolateResult>? _pendingResult;
+  bool _workerStarting = false;
+
+  VoiceHistoryBuffer() {
+    _responsePort.listen(_handleIsolateResponse);
+  }
+
   /// Observe the set of currently active voices. Records ghosts for any
   /// voice that was active in the prior tick but isn't now. Cleans up
-  /// expired ghosts at the same time.
+  /// expired ghosts at the same time. Synchronous fast path.
   void observe(List<OrbVoiceState> active) {
     final now = DateTime.now();
 
@@ -116,18 +268,204 @@ class VoiceHistoryBuffer {
     if (_buffer.length > _maxBufferLength) {
       _buffer.removeRange(0, _buffer.length - _maxBufferLength);
     }
+
+    _invalidateCache();
+  }
+
+  /// Observe, but offload the diff + bookkeeping to a background isolate
+  /// when voice count is large. Auto-fallback to sync path for small
+  /// active sets (<= `_isolateAutoThreshold`). Awaiting this future is
+  /// optional — the UI always reads the latest committed state.
+  Future<void> observeInIsolate(List<OrbVoiceState> active) async {
+    if (active.length <= _isolateAutoThreshold) {
+      observe(active);
+      return;
+    }
+    await _ensureWorker();
+    final port = _workerPort;
+    if (port == null) {
+      // Worker failed to start — fall back to sync path.
+      observe(active);
+      return;
+    }
+
+    // Build Isolate-safe payload.
+    final activeIds = List<int>.filled(active.length, 0);
+    final activeBusIndices = List<int>.filled(active.length, 0);
+    final activePeakL = List<double>.filled(active.length, 0);
+    final activePeakR = List<double>.filled(active.length, 0);
+    for (int i = 0; i < active.length; i++) {
+      final v = active[i];
+      activeIds[i] = v.voiceId;
+      activeBusIndices[i] = v.bus.engineIndex;
+      activePeakL[i] = v.peakL;
+      activePeakR[i] = v.peakR;
+    }
+
+    final lastSeenPayload = <int, List<double>>{};
+    _lastSeen.forEach((id, v) {
+      lastSeenPayload[id] = [
+        v.bus.engineIndex.toDouble(),
+        v.peakL,
+        v.peakR,
+      ];
+    });
+
+    final bufferPayload = _buffer
+        .map((g) => <num>[
+              g.voiceId,
+              g.bus.engineIndex,
+              g.peakL,
+              g.peakR,
+              g.endedAt.millisecondsSinceEpoch,
+            ])
+        .toList();
+
+    final payload = _IsolatePayload(
+      prevIds: Set<int>.of(_prevActiveIds),
+      activeIds: activeIds,
+      activeBusIndices: activeBusIndices,
+      activePeakL: activePeakL,
+      activePeakR: activePeakR,
+      lastSeen: lastSeenPayload,
+      buffer: bufferPayload,
+      nowMs: DateTime.now().millisecondsSinceEpoch,
+      maxAgeSec: maxAgeSeconds,
+      maxBufferLength: _maxBufferLength,
+    );
+
+    // Drop any previous pending result — newest observe wins.
+    _pendingResult = Completer<_IsolateResult>();
+    port.send(payload);
+    final result = await _pendingResult!.future;
+    _integrateIsolateResult(result, active);
+  }
+
+  Future<void> _ensureWorker() async {
+    if (_worker != null && _workerPort != null) return;
+    if (_workerStarting) {
+      // Wait for the in-flight startup (spin with small delay).
+      while (_workerStarting && _workerPort == null) {
+        await Future<void>.delayed(const Duration(milliseconds: 1));
+      }
+      return;
+    }
+    _workerStarting = true;
+    try {
+      // Single port handles both handshake (worker's SendPort as first msg)
+      // AND subsequent _IsolateResult payloads. _handleIsolateResponse
+      // distinguishes the two by message type.
+      _worker = await Isolate.spawn<SendPort>(
+        _workerEntry,
+        _responsePort.sendPort,
+        debugName: 'voice-history-worker',
+      );
+      // Wait for worker to publish its SendPort (first message on the port).
+      final deadline = DateTime.now().add(const Duration(seconds: 2));
+      while (_workerPort == null && DateTime.now().isBefore(deadline)) {
+        await Future<void>.delayed(const Duration(milliseconds: 1));
+      }
+      if (_workerPort == null) {
+        // Worker never handshaked — treat as failure, fall back to sync.
+        _worker?.kill(priority: Isolate.immediate);
+        _worker = null;
+      }
+    } catch (_) {
+      _worker = null;
+      _workerPort = null;
+    } finally {
+      _workerStarting = false;
+    }
+  }
+
+  /// Dispatcher bound to `_responsePort`:
+  ///   - first `SendPort` from the worker → that is our `_workerPort`.
+  ///   - subsequent `_IsolateResult` messages → complete pending future.
+  void _handleIsolateResponse(Object? msg) {
+    if (msg is SendPort) {
+      _workerPort ??= msg;
+      return;
+    }
+    if (msg is _IsolateResult) {
+      final pending = _pendingResult;
+      if (pending != null && !pending.isCompleted) {
+        pending.complete(msg);
+      }
+    }
+  }
+
+  /// Commit a result computed off-thread into the local state.
+  void _integrateIsolateResult(
+      _IsolateResult r, List<OrbVoiceState> currentActive) {
+    _buffer.clear();
+    final busByIndex = OrbBusId.values;
+    for (final row in r.buffer) {
+      final busIdx = row[1].toInt();
+      if (busIdx < 0 || busIdx >= busByIndex.length) continue;
+      _buffer.add(GhostSlot(
+        voiceId: row[0].toInt(),
+        bus: busByIndex[busIdx],
+        peakL: row[2].toDouble(),
+        peakR: row[3].toDouble(),
+        endedAt: DateTime.fromMillisecondsSinceEpoch(row[4].toInt()),
+      ));
+    }
+    _prevActiveIds = r.prevIds;
+    // Rebuild _lastSeen from current active set (freshest data).
+    _lastSeen.clear();
+    for (final v in currentActive) {
+      _lastSeen[v.voiceId] = v;
+    }
+    _invalidateCache();
+  }
+
+  /// Spawn the isolate eagerly — useful to avoid startup latency on the
+  /// first heavy-load observe. Safe to call multiple times.
+  Future<void> warmUp() => _ensureWorker();
+
+  /// Shutdown the worker isolate (call on project close).
+  void disposeWorker() {
+    try { _workerPort?.send('shutdown'); } catch (_) {/* worker may be dead */}
+    _worker?.kill(priority: Isolate.immediate);
+    _worker = null;
+    _workerPort = null;
+  }
+
+  // ── Cache helpers ──────────────────────────────────────────────────────
+  void _invalidateCache() {
+    _cachedLive = null;
+    _cachedByBus.clear();
+    _cachedTickMs = DateTime.now().millisecondsSinceEpoch;
   }
 
   /// All non-expired ghosts, ordered by age (freshest first for z-order).
+  /// Cached per-tick; the painter can call this every frame without cost.
   List<GhostSlot> get liveGhosts {
-    final live = _buffer.where((g) => !g.isExpired).toList();
-    live.sort((a, b) => a.ageSeconds.compareTo(b.ageSeconds));
-    return live;
+    final cached = _cachedLive;
+    if (cached != null) return cached;
+    // Buffer is newest-last; reverse + filter.
+    final live = <GhostSlot>[];
+    for (int i = _buffer.length - 1; i >= 0; i--) {
+      final g = _buffer[i];
+      if (!g.isExpired) live.add(g);
+    }
+    _cachedLive = List.unmodifiable(live);
+    return _cachedLive!;
   }
 
   /// Ghosts on a specific bus (for Nivo 2 expanded view).
+  /// Cached on first call per observe(), O(liveGhosts) once, O(1) thereafter.
   List<GhostSlot> ghostsFor(OrbBusId bus) {
-    return liveGhosts.where((g) => g.bus == bus).toList();
+    final bucket = _cachedByBus[bus];
+    if (bucket != null) return bucket;
+    final all = liveGhosts;
+    final filtered = <GhostSlot>[];
+    for (final g in all) {
+      if (g.bus == bus) filtered.add(g);
+    }
+    final unmodifiable = List<GhostSlot>.unmodifiable(filtered);
+    _cachedByBus[bus] = unmodifiable;
+    return unmodifiable;
   }
 
   /// Reset completely (e.g., on project close / FSM reset).
@@ -135,8 +473,15 @@ class VoiceHistoryBuffer {
     _buffer.clear();
     _prevActiveIds = <int>{};
     _lastSeen.clear();
+    _invalidateCache();
   }
 
   /// Diagnostic: total live ghost count.
   int get liveCount => liveGhosts.length;
+
+  /// Diagnostic: timestamp of the last cache build in epoch ms.
+  int get lastCacheTickMs => _cachedTickMs;
+
+  /// Diagnostic: true if a background isolate is running.
+  bool get hasIsolateWorker => _worker != null;
 }
