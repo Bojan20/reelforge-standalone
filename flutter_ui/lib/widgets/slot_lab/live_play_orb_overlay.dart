@@ -334,14 +334,20 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
     return math.max(minCardW, orbPx + 2 * _cardPadH);
   }
 
-  /// Card height: title + gap + orb + gap + busHdr + 6×busRow + gap + footer + gap
+  /// Card border width — accounts for 1px border top + bottom = 2px taken from Column.
+  static const double _borderW = 1.0;
+
+  /// Card height: title + gap + orb + gap + busHdr + 6×busRow + gap + footer + pad.
+  /// +2px: BoxDecoration border (width=1) is inset and reduces Column available height
+  /// by 1px top + 1px bottom — without compensation this causes a 2px RenderFlex overflow.
   double _cardH(double orbPx) {
     return _titleH
          + _vGap + orbPx
          + _vGap + _busHdrH
          + 6 * _busRowH
          + _vGap + _footerH
-         + _cardPadH; // bottom padding
+         + _cardPadH
+         + 2 * _borderW; // border compensation — prevents bottom overflow
   }
 
   // ─── Drag (title bar) ────────────────────────────────────────────────────────
