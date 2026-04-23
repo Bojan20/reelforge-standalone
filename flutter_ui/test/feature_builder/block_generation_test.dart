@@ -108,7 +108,10 @@ void main() {
       expect(holdIntro.priority, 90);
     });
 
-    test('generates FS_START when hasDedicatedMusic is true', () {
+    test('generates FS_START unconditionally (trigger SFX)', () {
+      // FS_START is the "free spins mode started" cue — a non-looping SFX
+      // on the sfx bus, emitted regardless of hasDedicatedMusic. Music is
+      // handled by the dedicated music states block (FS_MUSIC was removed).
       final block = FreeSpinsBlock();
       block.isEnabled = true;
       block.setOptionValue('hasDedicatedMusic', true);
@@ -116,8 +119,8 @@ void main() {
 
       expect(stages.any((s) => s.name == 'FS_START'), isTrue);
       final start = stages.firstWhere((s) => s.name == 'FS_START');
-      expect(start.looping, isTrue);
-      expect(start.bus, 'music');
+      expect(start.looping, isFalse);
+      expect(start.bus, 'sfx');
     });
 
     test('generates retrigger stages when enabled', () {
@@ -248,9 +251,14 @@ void main() {
       block.setOptionValue('perReelAudio', true);
       final stages = block.generateStages();
 
-      // Reels 1-4 (reel 0 never has anticipation per industry standard)
-      for (int reel = 1; reel <= 4; reel++) {
-        expect(stages.any((s) => s.name == 'ANTICIPATION_TENSION_R$reel'), isTrue);
+      // Default `anticipationReelIndices` are [2, 3, 4] — industry standard
+      // "last three reels". Reels 0 and 1 are never anticipated.
+      for (final reel in const [2, 3, 4]) {
+        expect(
+          stages.any((s) => s.name == 'ANTICIPATION_TENSION_R$reel'),
+          isTrue,
+          reason: 'expected ANTICIPATION_TENSION_R$reel',
+        );
       }
     });
 
@@ -262,10 +270,10 @@ void main() {
       block.setOptionValue('tensionLevels', 4);
       final stages = block.generateStages();
 
-      // Should have ANTICIPATION_TENSION_R{reel}_L{level} stages
-      expect(stages.any((s) => s.name == 'ANTICIPATION_TENSION_R1_L1'), isTrue);
-      expect(stages.any((s) => s.name == 'ANTICIPATION_TENSION_R2_L2'), isTrue);
-      expect(stages.any((s) => s.name == 'ANTICIPATION_TENSION_R3_L3'), isTrue);
+      // Should have ANTICIPATION_TENSION_R{reel}_L{level} stages —
+      // only for the default-anticipated reels [2, 3, 4].
+      expect(stages.any((s) => s.name == 'ANTICIPATION_TENSION_R2_L1'), isTrue);
+      expect(stages.any((s) => s.name == 'ANTICIPATION_TENSION_R3_L2'), isTrue);
       expect(stages.any((s) => s.name == 'ANTICIPATION_TENSION_R4_L4'), isTrue);
     });
 

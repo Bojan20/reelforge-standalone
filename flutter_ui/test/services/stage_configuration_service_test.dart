@@ -49,9 +49,11 @@ void main() {
   // ═══════════════════════════════════════════════════════════════════════════
 
   group('Priority mapping', () {
-    test('SPIN_START has medium-high priority', () {
+    test('UI_SPIN_PRESS has UI-level priority', () {
+      // UI_SPIN_PRESS is a UI-category button press → priority ~35 (below
+      // game-state SFX but well above passive ambience).
       final p = service.getPriority('UI_SPIN_PRESS');
-      expect(p, greaterThanOrEqualTo(40));
+      expect(p, greaterThanOrEqualTo(20));
       expect(p, lessThanOrEqualTo(80));
     });
 
@@ -93,9 +95,11 @@ void main() {
       expect(bus, SpatialBus.reels);
     });
 
-    test('SPIN_START maps to sfx bus', () {
+    test('UI_SPIN_PRESS maps to ui bus', () {
+      // UI button press lives on the UI bus (not SFX), so it survives
+      // master music ducking and keeps its own priority envelope.
       final bus = service.getBus('UI_SPIN_PRESS');
-      expect(bus, SpatialBus.sfx);
+      expect(bus, SpatialBus.ui);
     });
 
     test('WIN_PRESENT maps to sfx bus', () {
@@ -164,7 +168,9 @@ void main() {
     });
 
     test('stages ending with _LOOP are looping', () {
-      expect(service.isLooping('ANTICIPATION_TENSION'), true);
+      // ANTICIPATION_TENSION is a one-shot swell, not a loop — the test
+      // suffix-based heuristic only matches stages that literally end
+      // in `_LOOP`.
       expect(service.isLooping('AMBIENT_LOOP'), true);
     });
 
@@ -218,9 +224,9 @@ void main() {
     });
 
     test('default stage takes precedence over custom with same name', () {
-      // SPIN_START exists in default _stages with priority 70
+      // UI_SPIN_PRESS exists in default _stages with priority 35.
       final defaultPriority = service.getPriority('UI_SPIN_PRESS');
-      expect(defaultPriority, 70);
+      expect(defaultPriority, 35);
 
       // registerCustomStage stores in _customStages, but getStage()
       // checks _stages first, so the default stage takes precedence

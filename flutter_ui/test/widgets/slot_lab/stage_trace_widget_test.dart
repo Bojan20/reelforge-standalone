@@ -148,7 +148,7 @@ void main() {
     group('getColor()', () {
       test('should return color for known stages', () {
         expect(
-          StageConfig.instance.getColor('spin_start'),
+          StageConfig.instance.getColor('ui_spin_press'),
           const Color(0xFF4A9EFF),
         );
         expect(
@@ -165,9 +165,9 @@ void main() {
       });
 
       test('should be case-insensitive', () {
-        final color1 = StageConfig.instance.getColor('spin_start');
+        final color1 = StageConfig.instance.getColor('ui_spin_press');
         final color2 = StageConfig.instance.getColor('UI_SPIN_PRESS');
-        final color3 = StageConfig.instance.getColor('Spin_Start');
+        final color3 = StageConfig.instance.getColor('Ui_Spin_Press');
 
         expect(color1, color2);
         expect(color2, color3);
@@ -181,7 +181,7 @@ void main() {
     group('getIcon()', () {
       test('should return icon for known stages', () {
         expect(
-          StageConfig.instance.getIcon('spin_start'),
+          StageConfig.instance.getIcon('ui_spin_press'),
           Icons.play_circle_outline,
         );
       });
@@ -194,7 +194,7 @@ void main() {
       });
 
       test('should be case-insensitive', () {
-        final icon1 = StageConfig.instance.getIcon('spin_start');
+        final icon1 = StageConfig.instance.getIcon('ui_spin_press');
         final icon2 = StageConfig.instance.getIcon('UI_SPIN_PRESS');
 
         expect(icon1, icon2);
@@ -207,7 +207,7 @@ void main() {
 
     group('getConfig()', () {
       test('should return config for known stages', () {
-        final config = StageConfig.instance.getConfig('spin_start');
+        final config = StageConfig.instance.getConfig('ui_spin_press');
 
         expect(config, isNotNull);
         expect(config!.color, const Color(0xFF4A9EFF));
@@ -228,7 +228,7 @@ void main() {
     group('getCategory()', () {
       test('should return category for known stages', () {
         expect(
-          StageConfig.instance.getCategory('spin_start'),
+          StageConfig.instance.getCategory('ui_spin_press'),
           StageCategory.spin,
         );
         expect(
@@ -261,7 +261,7 @@ void main() {
       });
 
       test('should return false for non-pooled stages', () {
-        expect(StageConfig.instance.isPooled('spin_start'), false);
+        expect(StageConfig.instance.isPooled('ui_spin_press'), false);
         expect(StageConfig.instance.isPooled('win_present'), false);
       });
 
@@ -409,10 +409,10 @@ void main() {
       test('should not affect built-in stages', () {
         // spin_start is a built-in stage
         // removeCustomStage only removes from _customStages, not _stages
-        StageConfig.instance.removeCustomStage('spin_start');
+        StageConfig.instance.removeCustomStage('ui_spin_press');
 
         // Built-in stage should still exist
-        expect(StageConfig.instance.getConfig('spin_start'), isNotNull);
+        expect(StageConfig.instance.getConfig('ui_spin_press'), isNotNull);
       });
     });
 
@@ -442,8 +442,8 @@ void main() {
         expect(json['json_test_stage']['description'], 'JSON test');
 
         // Should also contain built-in stages
-        expect(json['spin_start'], isA<Map>());
-        expect(json['spin_start']['category'], 'spin');
+        expect(json['ui_spin_press'], isA<Map>());
+        expect(json['ui_spin_press']['category'], 'spin');
       });
 
       test('fromJson should import stages', () {
@@ -474,7 +474,7 @@ void main() {
 
     group('Built-in Stages', () {
       test('should have spin lifecycle stages', () {
-        expect(StageConfig.instance.getConfig('spin_start'), isNotNull);
+        expect(StageConfig.instance.getConfig('ui_spin_press'), isNotNull);
         expect(StageConfig.instance.getConfig('reel_spinning'), isNotNull);
         expect(StageConfig.instance.getConfig('reel_stop'), isNotNull);
         expect(StageConfig.instance.getConfig('spin_end'), isNotNull);
