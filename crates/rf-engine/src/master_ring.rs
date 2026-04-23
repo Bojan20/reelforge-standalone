@@ -112,18 +112,26 @@ impl MasterRingBuffer {
     pub fn write_frames(&self, left: &[f64], right: &[f64]) {
         let cap = self.capacity;
         if cap == 0 { return; }
-        let start = self.write_pos.load(Ordering::Relaxed) as usize;
+        let start = (self.write_pos.load(Ordering::Relaxed) as usize) % cap;
         let n = left.len().min(right.len());
         if n == 0 { return; }
         // SAFETY: single-writer audio thread — documented invariant.
         let l = unsafe { &mut *self.left.get() };
         let r = unsafe { &mut *self.right.get() };
-        for i in 0..n {
-            let idx = (start + i) % cap;
-            l[idx] = left[i] as f32;
-            r[idx] = right[i] as f32;
+        // Split into at most two straight-line runs — eliminates per-sample `%`.
+        let first = (cap - start).min(n);
+        for i in 0..first {
+            l[start + i] = left[i] as f32;
+            r[start + i] = right[i] as f32;
         }
-        self.write_pos.store((start + n) as u64, Ordering::Release);
+        let rest = n - first;
+        for i in 0..rest {
+            l[i] = left[first + i] as f32;
+            r[i] = right[first + i] as f32;
+        }
+        // write_pos is tracked in absolute frames (never wrapped) so readers can
+        // compute `wanted_total = min(cap, write_pos)` correctly on cold start.
+        self.write_pos.fetch_add(n as u64, Ordering::Release);
     }
 
     /// Snapshot the last `seconds` of master audio.

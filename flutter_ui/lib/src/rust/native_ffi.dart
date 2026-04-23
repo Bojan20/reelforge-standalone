@@ -8062,9 +8062,10 @@ class NativeFFI {
       int Function(Pointer<Utf8>, double)>('orb_capture_last_n_seconds');
 
   /// Initialise or reconfigure the master-output ring buffer.
-  /// Call once at engine start with the engine's sample rate.
-  /// `seconds` is clamped to 10s on the Rust side.
-  void orbRingInit({double seconds = 5.0, required int sampleRate}) {
+  /// Call once at engine start with the engine's sample rate and the desired
+  /// window (clamped to 10 s on the Rust side). The default window matches
+  /// `ProblemsInboxService.clipSeconds` so capture lines up with the ring.
+  void orbRingInit({required double seconds, required int sampleRate}) {
     if (!_loaded) return;
     _orbRingInit(seconds, sampleRate);
   }

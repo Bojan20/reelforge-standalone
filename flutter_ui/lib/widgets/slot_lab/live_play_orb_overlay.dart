@@ -64,6 +64,7 @@ import '../../providers/orb_mixer_provider.dart';
 import '../../providers/slot_lab/game_flow_provider.dart';
 import '../../services/problems_inbox_service.dart';
 import '../../services/shared_meter_reader.dart';
+import '../../utils/audio_math.dart' as audio_math;
 import 'orb_mixer.dart';
 import 'problems_inbox_panel.dart';
 
@@ -79,17 +80,11 @@ enum LivePlayOrbSize {
   const LivePlayOrbSize(this.px, this.label);
 }
 
-// ─── dB conversion helpers ────────────────────────────────────────────────────
-String _toDb(double linear) {
+// ─── dB / pan formatting helpers ─────────────────────────────────────────────
+String _toDb(double linear, {bool withUnit = true}) {
   if (linear <= 0.0001) return '-∞';
-  final db = 20.0 * math.log(linear) / math.ln10;
-  return '${db.toStringAsFixed(1)} dB';
-}
-
-String _toPeakDb(double linear) {
-  if (linear <= 0.0001) return '-∞';
-  final db = 20.0 * math.log(linear) / math.ln10;
-  return db.toStringAsFixed(1);
+  final s = audio_math.linearToDb(linear).toStringAsFixed(1);
+  return withUnit ? '$s dB' : s;
 }
 
 String _toPan(double pan) {
@@ -713,7 +708,7 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
     final solo   = bus?.solo ?? false;
 
     final db      = _toDb(volume);
-    final peakDb  = _toPeakDb(peak);
+    final peakDb  = _toDb(peak, withUnit: false);
     final panTxt  = _toPan(pan);
 
     return SizedBox(

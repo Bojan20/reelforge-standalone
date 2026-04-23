@@ -64,18 +64,34 @@ class _GhostStageIndicatorState extends State<GhostStageIndicator>
   bool _expanded = false;
   final Set<StageCategory> _openCategories = {};
 
+  // Report memo — `analyze()` iterates all stages and sorts missing lists,
+  // so when the widget rebuilds for animations (expand/collapse) we re-use
+  // the last report as long as the assignment map reference is identical.
+  Map<String, String>? _memoedAssignments;
+  AudioGapReport? _memoedReport;
+
   @override
   void initState() {
     super.initState();
     _expanded = widget.initiallyExpanded;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final report = AudioGapAnalysisService.instance.analyze(
-      widget.audioAssignments,
+  AudioGapReport _reportFor(Map<String, String> assignments) {
+    if (identical(_memoedAssignments, assignments) && _memoedReport != null) {
+      return _memoedReport!;
+    }
+    final r = AudioGapAnalysisService.instance.analyze(
+      assignments,
       stageSource: widget.stageSource,
     );
+    _memoedAssignments = assignments;
+    _memoedReport = r;
+    return r;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final report = _reportFor(widget.audioAssignments);
 
     return Container(
       decoration: BoxDecoration(

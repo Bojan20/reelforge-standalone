@@ -162,6 +162,14 @@ class SharedMeterReader {
   // Initialization state
   bool _initialized = false;
 
+  // Pre-allocated scratch arrays for the seqlock retry loop — up to 3
+  // attempts per tick would otherwise allocate three full sets of arrays.
+  // These are owned by the singleton and handed out as fresh copies on
+  // successful read so callers keep their own immutable snapshot.
+  final Float64List _scratchChannelPeaks = Float64List(12);
+  final Float64List _scratchSpectrum = Float64List(32);
+  final Float32List _scratchBusBandRms = Float32List(24);
+
   /// Initialize the reader (call once at app startup)
   Future<bool> initialize() async {
     if (_initialized) return true;
@@ -273,26 +281,27 @@ class SharedMeterReader {
       final isPlaying = _readU32(offsets[20]!) != 0;
       final sampleRate = _readU32(offsets[21]!);
 
-      // Read channel peaks array (12 values: 6 channels * 2 channels each)
+      // Read channel peaks array into scratch (12 values: 6 channels × L/R)
       final channelPeaksBase = offsets[22]!;
-      final channelPeaks = Float64List(12);
       for (int i = 0; i < 12; i++) {
-        channelPeaks[i] = _readF64(channelPeaksBase + i * 8);
+        _scratchChannelPeaks[i] = _readF64(channelPeaksBase + i * 8);
       }
 
-      // Read spectrum bands array (32 values)
+      // Read spectrum bands into scratch (32 values)
       final spectrumBase = offsets[23]!;
-      final spectrum = Float64List(32);
       for (int i = 0; i < 32; i++) {
-        spectrum[i] = _readF64(spectrumBase + i * 8);
+        _scratchSpectrum[i] = _readF64(spectrumBase + i * 8);
       }
 
-      // Phase 10e-3: read per-bus 4-band RMS (24 f32 values at offset 24).
-      final busBandRms = Float32List(24);
+      // Per-bus 4-band RMS (24 f32 values at offset 24) into scratch.
       final busBandOffset = offsets[24];
       if (busBandOffset != null) {
         for (int i = 0; i < 24; i++) {
-          busBandRms[i] = _readF32(busBandOffset + i * 4);
+          _scratchBusBandRms[i] = _readF32(busBandOffset + i * 4);
+        }
+      } else {
+        for (int i = 0; i < 24; i++) {
+          _scratchBusBandRms[i] = 0;
         }
       }
 
@@ -325,9 +334,10 @@ class SharedMeterReader {
           playbackPositionSamples: playbackPositionSamples,
           isPlaying: isPlaying,
           sampleRate: sampleRate,
-          channelPeaks: channelPeaks,
-          spectrumBands: spectrum,
-          busBandRms: busBandRms,
+          // Copy scratch arrays so callers get their own immutable snapshot.
+          channelPeaks: Float64List.fromList(_scratchChannelPeaks),
+          spectrumBands: Float64List.fromList(_scratchSpectrum),
+          busBandRms: Float32List.fromList(_scratchBusBandRms),
         );
       }
       // Sequence changed during read — data may be torn, retry

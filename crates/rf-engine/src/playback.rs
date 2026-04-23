@@ -5852,13 +5852,13 @@ impl PlaybackEngine {
                     // Skip muted buses, or non-soloed buses when solo is active
                     if state.muted || (any_solo && !state.soloed) {
                         crate::ffi::SHARED_METERS.update_channel_peak(bus_idx, 0.0, 0.0);
-                        // Feed silence into analyzer so its envelope decays naturally.
+                        // Voices may have already rendered into `bus_l`/`bus_r`
+                        // (they're only gated at mix-to-output below), so the buffer
+                        // is not silence. Decay the analyzer envelope instead of
+                        // feeding the non-silent signal — masking alerts see the
+                        // bus as quiet, which is what the user audibly hears.
                         if let Some(a) = pbb.as_deref_mut() {
-                            let silence_l = &bus_l[..frames];
-                            let silence_r = &bus_r[..frames];
-                            // Pass through; the bus buffer for muted buses is already
-                            // zero at this stage since voices didn't render.
-                            a.process_bus_block(bus_idx, silence_l, silence_r);
+                            a.decay_bus(bus_idx);
                         }
                         continue;
                     }

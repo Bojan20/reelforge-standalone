@@ -111,12 +111,10 @@ impl PerBusBandAnalyzer {
         }
     }
 
-    fn compute_release_coeff(sr: f64) -> f32 {
+    fn compute_release_coeff(_sr: f64) -> f32 {
         // Per-block coefficient for ~120 ms release when called once per 512-sample block.
-        // Approximation: alpha = exp(-block_dt / tau). Using typical 512-sample block @ 48 kHz:
-        //   block_dt ≈ 10.67 ms, tau = 120 ms → alpha ≈ 0.915.
-        // The exact block size does not dramatically shift this; ~0.92 is a good middle.
-        let _ = sr; // keep signature stable in case we later customise per SR
+        // alpha = exp(-block_dt / tau). Typical 512-sample block @ 48 kHz ≈ 10.67 ms,
+        // tau = 120 ms → alpha ≈ 0.915. Block-size variance doesn't shift this much.
         0.92
     }
 
@@ -155,16 +153,27 @@ impl PerBusBandAnalyzer {
         }
         let inv = 1.0 / (2.0 * n as f64);
         let coeff = self.release_coeff;
+        let inv_coeff = 1.0 - coeff;
         for b in 0..NUM_BANDS {
             let rms = (ss[b] * inv).sqrt() as f32;
-            // Attack: immediate if rising. Release: one-pole smoothing if falling.
+            // Attack: immediate on rise. Release: one-pole smoothing on fall.
             let prev = bus.env[b];
-            let smoothed = if rms >= prev {
-                rms
-            } else {
-                coeff * prev + (1.0 - coeff) * rms
-            };
+            let smoothed = if rms >= prev { rms } else { coeff * prev + inv_coeff * rms };
             bus.env[b] = if smoothed.is_finite() { smoothed } else { 0.0 };
+        }
+    }
+
+    /// Apply release decay without sampling new signal (called for muted /
+    /// solo-masked buses so their envelope fades to zero instead of staying
+    /// stuck at the last observed level).
+    #[inline]
+    pub fn decay_bus(&mut self, bus_idx: usize) {
+        if bus_idx >= NUM_BUSES { return; }
+        let coeff = self.release_coeff;
+        let env = &mut self.buses[bus_idx].env;
+        for b in 0..NUM_BANDS {
+            env[b] *= coeff;
+            if env[b] < 1e-6 { env[b] = 0.0; }
         }
     }
 

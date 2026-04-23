@@ -883,18 +883,21 @@ class _StageNode {
     this.soundType,
   });
 
-  /// Category color based on sound type
-  Color get categoryColor => switch (soundType) {
-    'sfx' || 'reel_spin' || 'reel_stop' || 'scatter_hit' ||
-    'button_click' || 'bonus_trigger' || 'multiplier' => FluxForgeTheme.accentOrange,
-    'mus' || 'music_base' || 'music_feature' => FluxForgeTheme.accentBlue,
-    'amb' || 'ambient_loop' => FluxForgeTheme.accentCyan,
-    'trn' || 'free_spin_start' => FluxForgeTheme.accentPurple,
-    'ui' => FluxForgeTheme.accentYellow,
-    'big_win' || 'small_win' => const Color(0xFFFFD700), // gold
-    _ => FluxForgeTheme.accentGreen,
-  };
+  /// Category color based on sound type.
+  Color get categoryColor => _soundTypeColor(soundType);
 }
+
+/// Single source of truth for Sonic-DNA category → accent colour.
+Color _soundTypeColor(String? soundType) => switch (soundType) {
+      'sfx' || 'reel_spin' || 'reel_stop' || 'scatter_hit' ||
+      'button_click' || 'bonus_trigger' || 'multiplier' => FluxForgeTheme.accentOrange,
+      'mus' || 'music_base' || 'music_feature' => FluxForgeTheme.accentBlue,
+      'amb' || 'ambient_loop' => FluxForgeTheme.accentCyan,
+      'trn' || 'free_spin_start' => FluxForgeTheme.accentPurple,
+      'ui' => FluxForgeTheme.accentYellow,
+      'big_win' || 'small_win' => const Color(0xFFFFD700), // gold
+      _ => FluxForgeTheme.accentGreen,
+    };
 
 class _NeuralViz extends StatefulWidget {
   final List<_StageNode> nodes;
@@ -1033,7 +1036,7 @@ class _NeuralVizPainter extends CustomPainter {
     for (int i = 0; i < categories.length && i < 5; i++) {
       final cat = categories[i];
       final ringR = maxR * (0.18 + i * 0.06);
-      final color = _categoryToColor(cat.key);
+      final color = _soundTypeColor(cat.key);
       // Arc length proportional to count
       final sweep = (cat.value / nodes.length * 2 * math.pi).clamp(0.2, 2 * math.pi);
 
@@ -1082,19 +1085,6 @@ class _NeuralVizPainter extends CustomPainter {
         );
       }
     }
-  }
-
-  Color _categoryToColor(String type) {
-    return switch (type) {
-      'sfx' || 'reel_spin' || 'reel_stop' || 'scatter_hit' ||
-      'button_click' || 'bonus_trigger' || 'multiplier' => FluxForgeTheme.accentOrange,
-      'mus' || 'music_base' || 'music_feature' => FluxForgeTheme.accentBlue,
-      'amb' || 'ambient_loop' => FluxForgeTheme.accentCyan,
-      'trn' || 'free_spin_start' => FluxForgeTheme.accentPurple,
-      'ui' => FluxForgeTheme.accentYellow,
-      'big_win' || 'small_win' => const Color(0xFFFFD700),
-      _ => FluxForgeTheme.accentGreen,
-    };
   }
 
   void _drawGrid(Canvas canvas, Size size) {

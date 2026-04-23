@@ -1,32 +1,19 @@
-/// PHASE 10 — Voice History Buffer (Ghost Slots) — v2 Performance Edition
+/// Rolling 10-second history of recent voices for ghost-slot rendering.
 ///
-/// Problem: SFX voices play for 300 ms and disappear. With 130 sounds, you
-/// can't point-and-click fast enough to catch them.
+/// Builds by diffing successive `orb_get_active_voices` results; records
+/// the voice's last-seen peak/bus so the painter can fade the ghost alpha
+/// based on where and how loud the voice was when it ended.
 ///
-/// Solution: record every voice lifetime event, keep a rolling **10-second
-/// history** of recent voices. Paint them as "ghost slots" — fading dots
-/// in the orbital ring. Tap a ghost to replay (via solo + retrigger).
-///
-/// v2 performance upgrade (Phase 10e-4):
-///   - **Cached reads**: `liveGhosts` / `ghostsFor()` memoise results per
-///     tick. The painter hits them multiple times per frame — the old code
-///     did an O(N log N) sort on every call.
-///   - **Bucketed by bus**: ghosts are indexed by bus on insert, so
-///     `ghostsFor(bus)` is O(bucketSize) with no filter scan.
-///   - **Insertion-ordered**: buffer stays newest-last → `liveGhosts` is
-///     a reverse iteration with zero sort cost.
-///   - **Isolate offload**: `observeInIsolate()` routes the diff+bookkeeping
-///     to a background isolate when voice count is large (> 100). The UI
-///     never stalls on ghost bookkeeping no matter how noisy the slot gets.
-///
-/// All client-side. No FFI changes — we diff successive `orb_get_active_voices`
-/// results to detect ends; the peak recorded when the voice was last seen is
-/// what drives ghost dot alpha.
+/// Reads (`liveGhosts`, `ghostsFor`) are cached per observe() so the
+/// painter can poll every frame at zero cost. Heavy load (>100 voices)
+/// optionally routes the diff through a dedicated worker `Isolate`.
 
 library;
 
 import 'dart:async';
 import 'dart:isolate';
+
+import 'package:flutter/foundation.dart' show visibleForTesting;
 
 import '../providers/orb_mixer_provider.dart';
 
@@ -221,7 +208,6 @@ class VoiceHistoryBuffer {
   // ── Caches (invalidated on every observe) ──────────────────────────────
   List<GhostSlot>? _cachedLive;
   final Map<OrbBusId, List<GhostSlot>> _cachedByBus = {};
-  int _cachedTickMs = 0;
 
   // ── Isolate worker (lazy) ──────────────────────────────────────────────
   Isolate? _worker;
@@ -263,11 +249,16 @@ class VoiceHistoryBuffer {
 
     _prevActiveIds = currentIds;
 
-    // Evict expired + enforce cap.
-    _buffer.removeWhere((g) => g.isExpired);
-    if (_buffer.length > _maxBufferLength) {
-      _buffer.removeRange(0, _buffer.length - _maxBufferLength);
+    // Evict expired + enforce cap in a single head-trim pass — insertion-
+    // ordered buffer (newest at end) means `ageSeconds` decreases monotonically
+    // from index 0, so all expired entries are a contiguous prefix.
+    int dropFront = 0;
+    while (dropFront < _buffer.length && _buffer[dropFront].isExpired) {
+      dropFront++;
     }
+    final overflow = (_buffer.length - dropFront) - _maxBufferLength;
+    if (overflow > 0) dropFront += overflow;
+    if (dropFront > 0) _buffer.removeRange(0, dropFront);
 
     _invalidateCache();
   }
@@ -281,6 +272,11 @@ class VoiceHistoryBuffer {
       observe(active);
       return;
     }
+    // Drop stale requests: if a prior observe is still in flight, skip this
+    // tick rather than queue. Keeps the inbound rate at worker capacity.
+    final inflight = _pendingResult;
+    if (inflight != null && !inflight.isCompleted) return;
+
     await _ensureWorker();
     final port = _workerPort;
     if (port == null) {
@@ -435,7 +431,6 @@ class VoiceHistoryBuffer {
   void _invalidateCache() {
     _cachedLive = null;
     _cachedByBus.clear();
-    _cachedTickMs = DateTime.now().millisecondsSinceEpoch;
   }
 
   /// All non-expired ghosts, ordered by age (freshest first for z-order).
@@ -476,12 +471,10 @@ class VoiceHistoryBuffer {
     _invalidateCache();
   }
 
-  /// Diagnostic: total live ghost count.
+  /// Total live ghost count.
   int get liveCount => liveGhosts.length;
 
-  /// Diagnostic: timestamp of the last cache build in epoch ms.
-  int get lastCacheTickMs => _cachedTickMs;
-
-  /// Diagnostic: true if a background isolate is running.
+  /// True if a background isolate is running.
+  @visibleForTesting
   bool get hasIsolateWorker => _worker != null;
 }

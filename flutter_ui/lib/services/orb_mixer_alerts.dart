@@ -38,6 +38,9 @@ enum OrbAlertType {
       };
 }
 
+/// Index-aligned with `SharedMeterBuffer.bus_band_rms` (slot = busIdx × 4 + band.index).
+enum _MaskingBand { bass, lowmid, highmid, treble }
+
 /// Single alert occurrence. Carries enough state for the painter to draw
 /// the correct ring color and for the UI to display a tooltip.
 class OrbAlert {
@@ -196,45 +199,44 @@ class OrbAlertsEngine {
         perBusRms.any((v) => v > 1e-6);
 
     if (hasPerBusData) {
-      // 4 bands, 6 buses. Find bus pairs fighting in each band.
-      const bandNames = ['bass', 'lowmid', 'highmid', 'treble'];
-      const skipMaster = true;
+      // 4 bands × 6 buses. Single pass to find the two loudest non-muted,
+      // non-master buses in each band — no sort, no per-band List alloc.
       final busList = OrbBusId.values;
-      for (int band = 0; band < 4; band++) {
-        // Collect (bus, rms) for this band.
-        final contenders = <MapEntry<OrbBusId, double>>[];
+      final t2 = _maskingBusBandThreshold * _maskingBusBandThreshold * 2;
+      for (final band in _MaskingBand.values) {
+        OrbBusId? topBus; double topRms = 0;
+        OrbBusId? secondBus; double secondRms = 0;
         for (final bus in busList) {
-          if (skipMaster && bus == OrbBusId.master) continue;
+          if (bus == OrbBusId.master) continue;
           final busIdx = bus.engineIndex;
           if (busIdx < 0 || busIdx >= 6) continue;
-          final slot = busIdx * 4 + band;
+          final slot = busIdx * 4 + band.index;
           if (slot >= perBusRms.length) continue;
           final state = busStates[bus];
           if (state == null || state.muted) continue;
           final rms = perBusRms[slot];
-          if (rms > _maskingBusBandThreshold) {
-            contenders.add(MapEntry(bus, rms));
+          if (rms <= _maskingBusBandThreshold) continue;
+          if (rms > topRms) {
+            secondBus = topBus; secondRms = topRms;
+            topBus = bus;       topRms = rms;
+          } else if (rms > secondRms) {
+            secondBus = bus;    secondRms = rms;
           }
         }
-        if (contenders.length < 2) continue;
-        // Sort by descending RMS.
-        contenders.sort((a, b) => b.value.compareTo(a.value));
-        // Pair the two loudest contributors.
-        final a = contenders[0];
-        final b = contenders[1];
-        final product = a.value * b.value;
-        // Severity: warning when product > threshold², critical when > 2× that.
-        final sev = product > _maskingBusBandThreshold * _maskingBusBandThreshold * 2
+        if (topBus == null || secondBus == null) continue;
+        final sev = topRms * secondRms > t2
             ? OrbAlertSeverity.critical
             : OrbAlertSeverity.warning;
-        final pair = [a.key.name, b.key.name]..sort();
+        // Stable pair ordering: alphabetically sorted bus names.
+        final a = topBus.name.compareTo(secondBus.name) < 0 ? topBus : secondBus;
+        final b = identical(a, topBus) ? secondBus : topBus;
         _touch(
-          'mask_${bandNames[band]}_${pair[0]}_${pair[1]}',
+          'mask_${band.name}_${a.name}_${b.name}',
           OrbAlertType.masking,
           sev,
           now,
-          bus: a.key,
-          otherBus: b.key,
+          bus: topBus,
+          otherBus: secondBus,
         );
       }
     } else {

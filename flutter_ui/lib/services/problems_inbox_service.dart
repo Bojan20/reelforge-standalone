@@ -144,33 +144,7 @@ class ProblemsInboxService extends ChangeNotifier {
         .toList(growable: false);
 
     final id = DateTime.now().millisecondsSinceEpoch;
-
-    // Phase 10e-2: capture last `clipSeconds` of master audio to a WAV.
-    // Best-effort — never fatal for metadata capture.
-    String? clipPath;
-    int clipFrames = 0;
-    int clipSampleRate = 0;
-    try {
-      final dir = await _ensureClipsDir();
-      if (dir != null) {
-        final path = '${dir.path}/$id.wav';
-        final ffi = NativeFFI.instance;
-        // Only attempt export if the audio thread has written any audio.
-        final framesWritten = ffi.orbRingFramesWritten();
-        if (framesWritten > 0) {
-          final n = ffi.orbCaptureLastNSeconds(path, seconds: clipSeconds);
-          if (n > 0) {
-            clipPath = path;
-            clipFrames = n;
-            // Derive SR from the number of frames and seconds actually grabbed
-            // (audio thread may have played less than `clipSeconds` so far).
-            clipSampleRate = (n / clipSeconds).round().clamp(1, 384000);
-          }
-        }
-      }
-    } catch (_) {
-      // Any capture failure: fall back to metadata-only problem.
-    }
+    final clip = await _captureClipFor(id);
 
     final problem = MixProblem(
       id: id,
@@ -182,9 +156,9 @@ class ProblemsInboxService extends ChangeNotifier {
       voices: voiceData,
       spectrumBands: snapshot.spectrumBands.toList(growable: false),
       alerts: alerts,
-      audioClipPath: clipPath,
-      audioClipFrames: clipFrames,
-      audioClipSampleRate: clipSampleRate,
+      audioClipPath: clip?.path,
+      audioClipFrames: clip?.frames ?? 0,
+      audioClipSampleRate: clip?.sampleRate ?? 0,
     );
 
     _problems.insert(0, problem);
@@ -194,6 +168,34 @@ class ProblemsInboxService extends ChangeNotifier {
     notifyListeners();
     await _persistAsync();
     return problem;
+  }
+
+  /// Best-effort audio clip capture for a new problem. Returns null if the
+  /// engine hasn't produced any audio yet or if any step fails.
+  Future<_CapturedClip?> _captureClipFor(int id) async {
+    try {
+      final dir = await _ensureClipsDir();
+      if (dir == null) return null;
+      final ffi = NativeFFI.instance;
+      if (ffi.orbRingFramesWritten() == 0) return null;
+      final path = '${dir.path}/$id.wav';
+      final n = ffi.orbCaptureLastNSeconds(path, seconds: clipSeconds);
+      if (n <= 0) return null;
+      // Audio thread may have played less than clipSeconds so far — derive SR
+      // from frames/seconds actually grabbed.
+      final sr = (n / clipSeconds).round().clamp(1, 384000);
+      return _CapturedClip(path: path, frames: n, sampleRate: sr);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _deleteClipFile(String? path) async {
+    if (path == null) return;
+    try {
+      final f = File(path);
+      if (await f.exists()) await f.delete();
+    } catch (_) {/* non-fatal */}
   }
 
   /// Update a problem's free-text note (user tag).
@@ -223,13 +225,7 @@ class ProblemsInboxService extends ChangeNotifier {
   Future<void> remove(int id) async {
     final idx = _problems.indexWhere((p) => p.id == id);
     if (idx >= 0) {
-      final clip = _problems[idx].audioClipPath;
-      if (clip != null) {
-        try {
-          final f = File(clip);
-          if (await f.exists()) await f.delete();
-        } catch (_) {/* non-fatal */}
-      }
+      await _deleteClipFile(_problems[idx].audioClipPath);
     }
     _problems.removeWhere((p) => p.id == id);
     notifyListeners();
@@ -241,13 +237,7 @@ class ProblemsInboxService extends ChangeNotifier {
   Future<void> clearAll() async {
     if (_problems.isEmpty) return;
     for (final p in _problems) {
-      final clip = p.audioClipPath;
-      if (clip != null) {
-        try {
-          final f = File(clip);
-          if (await f.exists()) await f.delete();
-        } catch (_) {/* non-fatal */}
-      }
+      await _deleteClipFile(p.audioClipPath);
     }
     _problems.clear();
     notifyListeners();
@@ -264,4 +254,15 @@ class ProblemsInboxService extends ChangeNotifier {
       // Write failures are non-fatal.
     }
   }
+}
+
+class _CapturedClip {
+  final String path;
+  final int frames;
+  final int sampleRate;
+  const _CapturedClip({
+    required this.path,
+    required this.frames,
+    required this.sampleRate,
+  });
 }
