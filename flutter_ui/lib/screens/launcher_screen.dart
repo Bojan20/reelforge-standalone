@@ -6,6 +6,7 @@
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../theme/fluxforge_theme.dart';
 
 /// Application mode selected by user
 enum AppMode {
@@ -292,8 +293,12 @@ class _LauncherScreenState extends State<LauncherScreen>
                                   subtitle: 'Digital Audio Workstation',
                                   description: 'Professional music production,\nmixing, mastering & sound design',
                                   icon: Icons.music_note_rounded,
-                                  accentColor: const Color(0xFF4A9EFF),
-                                  secondaryColor: const Color(0xFF40C8FF),
+                                  // DAW = reflects the workspace inside: Logic Pro blue + cyan
+                                  // (industry DAW standard, NOT the "AI slop" palette).
+                                  // User sees this color → enters DAW → same accent on
+                                  // transport, meters, selection, focus rings.
+                                  accentColor: FluxForgeTheme.trackBlue,
+                                  secondaryColor: FluxForgeTheme.accentCyan,
                                   features: [
                                     'Multi-track recording & editing',
                                     '64-band parametric EQ',
@@ -319,8 +324,9 @@ class _LauncherScreenState extends State<LauncherScreen>
                                   subtitle: 'Slot Game Audio Studio',
                                   description: 'Complete slot game audio design,\nevent system & live preview',
                                   icon: Icons.casino_rounded,
-                                  accentColor: const Color(0xFFFF9040),
-                                  secondaryColor: const Color(0xFFFFD700),
+                                  // SlotLab = casino royalty → rich gold + burgundy drama
+                                  accentColor: FluxForgeTheme.brandGold,
+                                  secondaryColor: FluxForgeTheme.brandBurgundy,
                                   features: [
                                     'Event-based audio system',
                                     'RTPC & state management',
@@ -355,7 +361,7 @@ class _LauncherScreenState extends State<LauncherScreen>
 
   Widget _buildSelectionFlash() {
     final isDAW = _selectedMode == AppMode.daw;
-    final color = isDAW ? const Color(0xFF4A9EFF) : const Color(0xFFFF9040);
+    final color = isDAW ? FluxForgeTheme.trackBlue : FluxForgeTheme.brandGold;
 
     return AnimatedBuilder(
       animation: _exitController,
@@ -397,24 +403,28 @@ class _LauncherScreenState extends State<LauncherScreen>
           ),
         ),
 
-        // Left accent glow (DAW - blue)
+        // Left accent glow (DAW - pro audio blue + cyan, top-left corner)
+        // Reflects workspace: Logic Pro blue + cyan spectrum halo.
         Positioned(
-          left: -100,
-          top: 100,
+          left: -260,
+          top: -180,
           child: AnimatedBuilder(
             animation: _pulseController,
             builder: (context, _) {
-              final intensity = 0.1 + 0.05 * _pulseController.value;
+              final intensity = 0.34 + 0.14 * _pulseController.value;
               return Container(
-                width: 400,
-                height: 400,
+                width: 700,
+                height: 700,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      const Color(0xFF4A9EFF).withValues(alpha: intensity),
+                      FluxForgeTheme.accentCyan.withValues(alpha: intensity),
+                      FluxForgeTheme.trackBlue.withValues(alpha: intensity * 0.65),
+                      FluxForgeTheme.accentBlue.withValues(alpha: intensity * 0.25),
                       Colors.transparent,
                     ],
+                    stops: const [0.0, 0.35, 0.65, 1.0],
                   ),
                 ),
               );
@@ -422,24 +432,26 @@ class _LauncherScreenState extends State<LauncherScreen>
           ),
         ),
 
-        // Right accent glow (Middleware - orange)
+        // Right accent glow (SlotLab - burgundy/gold, bottom-right corner)
         Positioned(
-          right: -100,
-          bottom: 100,
+          right: -260,
+          bottom: -180,
           child: AnimatedBuilder(
             animation: _pulseController,
             builder: (context, _) {
-              final intensity = 0.1 + 0.05 * (1 - _pulseController.value);
+              final intensity = 0.38 + 0.14 * (1 - _pulseController.value);
               return Container(
-                width: 400,
-                height: 400,
+                width: 760,
+                height: 760,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      const Color(0xFFFF9040).withValues(alpha: intensity),
+                      FluxForgeTheme.brandGold.withValues(alpha: intensity),
+                      FluxForgeTheme.brandBurgundy.withValues(alpha: intensity * 0.65),
                       Colors.transparent,
                     ],
+                    stops: const [0.0, 0.45, 1.0],
                   ),
                 ),
               );
@@ -496,15 +508,23 @@ class _LauncherScreenState extends State<LauncherScreen>
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 boxShadow: [
+                  // Inner gold core — FluxForge brand anchor
                   BoxShadow(
-                    color: const Color(0xFF4A9EFF).withValues(alpha: glow * 0.5),
-                    blurRadius: 40,
-                    spreadRadius: 8,
+                    color: FluxForgeTheme.brandGoldBright.withValues(alpha: glow * 0.7),
+                    blurRadius: 48,
+                    spreadRadius: 4,
                   ),
+                  // Mid cyan (DAW hint on the left side of halo)
                   BoxShadow(
-                    color: const Color(0xFFFF9040).withValues(alpha: glow * 0.3),
-                    blurRadius: 40,
-                    spreadRadius: 8,
+                    color: FluxForgeTheme.accentCyan.withValues(alpha: glow * 0.35),
+                    blurRadius: 72,
+                    spreadRadius: 14,
+                  ),
+                  // Outer burgundy (SlotLab hint on the right side of halo)
+                  BoxShadow(
+                    color: FluxForgeTheme.brandBurgundy.withValues(alpha: glow * 0.35),
+                    blurRadius: 88,
+                    spreadRadius: 18,
                   ),
                 ],
               ),
@@ -525,7 +545,13 @@ class _LauncherScreenState extends State<LauncherScreen>
         const SizedBox(height: 10),
         ShaderMask(
           shaderCallback: (bounds) => const LinearGradient(
-            colors: [Color(0xFF4A9EFF), Color(0xFFFF9040)],
+            colors: [
+              FluxForgeTheme.brandGoldDark,
+              FluxForgeTheme.brandGold,
+              FluxForgeTheme.brandGoldBright,
+              FluxForgeTheme.brandIvory,
+            ],
+            stops: [0.0, 0.4, 0.75, 1.0],
           ).createShader(bounds),
           child: const Text(
             'FluxForge Studio',
@@ -643,18 +669,20 @@ class _LauncherScreenState extends State<LauncherScreen>
             margin: EdgeInsets.all(24 - (8 * hoverIntensity) - (isSelected ? 8 : 0)),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
+              // Idle: visible graphite fill (not invisible 2% white).
+              // Hover/selected: warm accent wash.
               color: Color.lerp(
-                Colors.white.withValues(alpha: 0.02),
-                accentColor.withValues(alpha: 0.08),
+                FluxForgeTheme.brandGraphite.withValues(alpha: 0.55),
+                accentColor.withValues(alpha: 0.14),
                 isSelected ? 1.0 : hoverIntensity,
               ),
               border: Border.all(
                 color: Color.lerp(
-                  Colors.white.withValues(alpha: 0.05),
-                  accentColor.withValues(alpha: 0.4),
+                  FluxForgeTheme.brandGoldDark.withValues(alpha: 0.45),
+                  accentColor.withValues(alpha: 0.65),
                   isSelected ? 1.0 : hoverIntensity,
                 )!,
-                width: 1 + (isActive ? 1 : 0),
+                width: 1.2 + (isActive ? 1.0 : 0),
               ),
               boxShadow: isActive
                   ? [
@@ -941,7 +969,7 @@ class _LauncherScreenState extends State<LauncherScreen>
                 child: const LinearProgressIndicator(
                   minHeight: 2,
                   backgroundColor: Color(0xFF1A1A20),
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF4A9EFF)),
+                  valueColor: AlwaysStoppedAnimation<Color>(FluxForgeTheme.brandGold),
                 ),
               ),
             ),

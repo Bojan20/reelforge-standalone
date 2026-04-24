@@ -573,6 +573,13 @@ class _AppInitializerState extends State<_AppInitializer> {
             _handleModeSelected(AppMode.slotLab);
           case 'daw':
             _handleModeSelected(AppMode.daw);
+          case 'daw_workspace':
+            // Diagnostic path: enter DAW hub → create ephemeral project → enter workspace.
+            // Allows CORTEX to verify the workspace renders without needing AX click access.
+            _handleModeSelected(AppMode.daw);
+            Future.delayed(const Duration(milliseconds: 300), () {
+              if (mounted) _handleNewProject('_CortexEyeProbe');
+            });
           case 'launcher':
             _handleBackToLauncher();
           case 'helix':

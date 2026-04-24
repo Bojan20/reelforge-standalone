@@ -62,6 +62,84 @@ class FluxForgeTheme {
   // Pink - MIDI, markers
   static const Color accentPink = Color(0xFFFF80B0);
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BRAND PALETTE — "High-Stakes Engineering" (FluxForge identity)
+  //
+  // These colors are the FluxForge *brand voice*: precision, premium, serious.
+  // They are intentionally different from the "AI startup" palette (saturated
+  // purple + orange + pink) used by Cursor, Replit, Linear, Perplexity.
+  //
+  // FluxForge targets regulated B2B slot engineering — the brand must signal
+  // engineering rigor and casino-adjacent luxury, not "consumer AI vibes".
+  //
+  // Use brand colors ONLY for brand moments:
+  //   - Splash / launcher / welcome logos and hero gradients
+  //   - Primary CTAs on brand surfaces
+  //   - Hover/focus glows on top-level nav
+  //
+  // DO NOT replace semantic accents with these:
+  //   - accentOrange  → EQ boost, warning, hot meter         (stays)
+  //   - accentPurple  → automation lanes, MIDI aux returns   (stays)
+  //   - accentPink    → MIDI clips, markers                  (stays)
+  //   - accentBlue    → focus ring, selection (industry std) (stays)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // ─── CASINO VAULT palette ─────────────────────────────────────────
+  // Rich, deep, high-contrast. Opposite of pastel "AI slop".
+  // Logic: DAW = ivory + graphite (engineering precision, nacrt/blueprint),
+  //        SlotLab = royal gold + burgundy (casino royalty, vault),
+  //        Both anchored by the same gold so the brand reads as one.
+
+  /// Rich royal gold — primary brand accent. Saturated, warm, luxurious.
+  static const Color brandGold = Color(0xFFE8BC5C);
+  /// Shimmer highlight — brightest gold, for text shader top stop.
+  static const Color brandGoldBright = Color(0xFFF4D479);
+  /// Polished gold — subtle tint between bright and base.
+  static const Color brandPlatinum = Color(0xFFF4D479); // alias for brandGoldBright
+  /// Deep gold — pressed state, dark gold text.
+  static const Color brandGoldDeep = Color(0xFFB8892C);
+  /// Dark bronze — gradient anchor (deep shadow stop).
+  static const Color brandGoldDark = Color(0xFF6A4520);
+  /// Warm off-white ivory — precision accent (DAW).
+  static const Color brandIvory = Color(0xFFF5EDD6);
+
+  /// Deep graphite — high-end machined metal feel (DAW secondary).
+  static const Color brandGraphite = Color(0xFF1A1A1E);
+  /// Graphite highlight — elevated graphite surfaces.
+  static const Color brandGraphiteLight = Color(0xFF3A3A42);
+  /// Near-black carbon — deepest panel tier on brand surfaces.
+  static const Color brandCarbon = Color(0xFF12121A);
+
+  /// Deep oxblood — burgundy drama accent (SlotLab warmth).
+  static const Color brandOxblood = Color(0xFF6A1818);
+  /// Rich burgundy — SlotLab secondary accent (wine/velvet).
+  static const Color brandBurgundy = Color(0xFF8A2838);
+  /// Saturated copper — warm highlight (between gold and burgundy).
+  static const Color brandCopper = Color(0xFFC8743A);
+  /// Deep bronze — secondary warm tone.
+  static const Color brandBronze = Color(0xFF8A5830);
+
+  /// Legacy aliases (kept for backwards-compat with earlier refactor).
+  static const Color brandSteel = brandIvory;
+  static const Color brandSteelLight = brandIvory;
+  static const Color brandSteelDark = brandGraphiteLight;
+
+  /// Brand hero gradient — deep bronze → rich gold → shimmer.
+  /// Use for splash/launcher/welcome logo ShaderMasks.
+  static const LinearGradient brandGradient = LinearGradient(
+    colors: [brandGoldDark, brandGold, brandGoldBright, brandIvory],
+    stops: [0.0, 0.4, 0.75, 1.0],
+  );
+  /// Warm brand gradient — gold → burgundy (SlotLab royalty).
+  static const LinearGradient brandGradientWarm = LinearGradient(
+    colors: [brandGoldBright, brandGold, brandBurgundy],
+    stops: [0.0, 0.5, 1.0],
+  );
+  /// Cool brand gradient — ivory → graphite (DAW precision).
+  static const LinearGradient brandGradientCool = LinearGradient(
+    colors: [brandIvory, brandGraphiteLight],
+  );
+
   // Semantic aliases
   static const Color errorRed = accentRed;
   static const Color warningOrange = accentOrange;
