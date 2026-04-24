@@ -350,6 +350,33 @@ pub enum Stage {
     JackpotEnd,
 
     // ═══════════════════════════════════════════════════════════════════════
+    // FEATURE TRANSITIONS & SUMMARY
+    // ═══════════════════════════════════════════════════════════════════════
+    /// Free spins round complete — summary screen showing total win
+    FsSummary {
+        /// Total win accumulated during the free spins feature
+        total_win: f64,
+        /// Number of free spins played
+        spins_played: u32,
+        /// Number of times the feature was retriggered
+        #[serde(default)]
+        retriggered_count: u32,
+        /// Feature type (FreeSpins, etc.)
+        #[serde(default)]
+        feature_type: Option<FeatureType>,
+    },
+
+    /// Player pressed skip during win presentation
+    UiSkipPress {
+        /// Win tier at time of skip (e.g., "win", "big_win", "mega_win")
+        #[serde(default)]
+        win_tier: Option<String>,
+        /// Whether this was a big win (required second press)
+        #[serde(default)]
+        was_big_win: bool,
+    },
+
+    // ═══════════════════════════════════════════════════════════════════════
     // UI / IDLE
     // ═══════════════════════════════════════════════════════════════════════
     /// Game entering idle state
@@ -507,7 +534,9 @@ impl Stage {
             Stage::FeatureEnter { .. }
             | Stage::FeatureStep { .. }
             | Stage::FeatureRetrigger { .. }
-            | Stage::FeatureExit { .. } => StageCategory::Feature,
+            | Stage::FeatureExit { .. }
+            | Stage::FsSummary { .. }
+            | Stage::UiSkipPress { .. } => StageCategory::Feature,
 
             Stage::CascadeStart | Stage::CascadeStep { .. } | Stage::CascadeEnd { .. } => {
                 StageCategory::Cascade
@@ -575,6 +604,8 @@ impl Stage {
             Stage::FeatureStep { .. } => "feature_step",
             Stage::FeatureRetrigger { .. } => "feature_retrigger",
             Stage::FeatureExit { .. } => "feature_exit",
+            Stage::FsSummary { .. } => "fs_summary",
+            Stage::UiSkipPress { .. } => "ui_skip_press",
             Stage::CascadeStart => "cascade_start",
             Stage::CascadeStep { .. } => "cascade_step",
             Stage::CascadeEnd { .. } => "cascade_end",
@@ -638,6 +669,7 @@ impl Stage {
                 | Stage::JackpotReveal { .. }     // P1.5: Duck during reveal
                 | Stage::JackpotCelebration { .. } // P1.5: Duck during celebration
                 | Stage::FeatureEnter { .. }
+                | Stage::FsSummary { .. }         // Duck music during FS summary screen
         )
     }
 
@@ -665,6 +697,8 @@ impl Stage {
             "feature_step",
             "feature_retrigger",
             "feature_exit",
+            "fs_summary",
+            "ui_skip_press",
             "cascade_start",
             "cascade_step",
             "cascade_end",
@@ -811,6 +845,25 @@ impl Stage {
                     .and_then(|v| v.as_u64())
                     .unwrap_or(0) as u32,
                 total_win: get_f64("total_win"),
+            }),
+            "fs_summary" => Some(Stage::FsSummary {
+                total_win: get_f64("total_win"),
+                spins_played: data
+                    .get("spins_played")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0) as u32,
+                retriggered_count: data
+                    .get("retriggered_count")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0) as u32,
+                feature_type: None,
+            }),
+            "ui_skip_press" => Some(Stage::UiSkipPress {
+                win_tier: get_string("win_tier"),
+                was_big_win: data
+                    .get("was_big_win")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false),
             }),
             "jackpot_trigger" => {
                 let tier_str = get_string("tier").unwrap_or_default();

@@ -373,6 +373,24 @@ pub fn resolve_audio_assets(stage: &Stage) -> Vec<AudioAssetBinding> {
         Stage::Custom { name, .. } => {
             vec![AudioAssetBinding::sfx(&format!("custom_{}", name.to_lowercase()))]
         }
+
+        // ═══════════════════════════════════════════════════════════════
+        // FEATURE TRANSITIONS & SUMMARY
+        // ═══════════════════════════════════════════════════════════════
+        Stage::FsSummary { .. } => vec![
+            // FS summary sting — plays over exit transition plaque
+            AudioAssetBinding::sfx("fs_summary_sting"),
+            // Soft rollup accent for total win display
+            AudioAssetBinding::sfx("fs_summary_rollup"),
+        ],
+
+        Stage::UiSkipPress { was_big_win, .. } => {
+            if *was_big_win {
+                vec![AudioAssetBinding::ui("ui_skip_big_win")]
+            } else {
+                vec![AudioAssetBinding::ui("ui_skip_press")]
+            }
+        }
     }
 }
 

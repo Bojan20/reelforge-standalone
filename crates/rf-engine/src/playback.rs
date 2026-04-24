@@ -5048,11 +5048,8 @@ impl PlaybackEngine {
             None => return,
         };
 
-        // Get active section for filtering (atomic read - no lock)
         let active_section = PlaybackSource::from(self.active_section.load(Ordering::Relaxed));
 
-        // Pre-allocated temp buffers per bus for mixing
-        // Use thread-local scratch buffers to avoid allocation
         SCRATCH_BUFFER_L.with(|buf_l| {
             SCRATCH_BUFFER_R.with(|buf_r| {
                 let mut guard_l = buf_l.borrow_mut();
@@ -5064,16 +5061,8 @@ impl PlaybackEngine {
                     guard_r.resize(frames, 0.0);
                 }
 
-                // ═══════════════════════════════════════════════════════════════
-                // ADAPTIVE PER-VOICE QUALITY (unique — no DAW has this)
-                //
-                // CPU budget tracking: measure per-voice processing time.
-                // If budget exceeded, degrade background voices to Sinc(16).
-                // DAW/Browser voices ALWAYS keep global quality.
-                // ═══════════════════════════════════════════════════════════════
-
                 // Guard: zero frames or zero sample rate → skip processing
-                let sample_rate = self.position.sample_rate().max(1); // Prevent div-by-zero
+                let sample_rate = self.position.sample_rate().max(1);
                 if frames == 0 {
                     return;
                 }
@@ -5088,165 +5077,212 @@ impl PlaybackEngine {
                 let block_time_us = (frames as u64 * 1_000_000) / sample_rate as u64;
                 let voice_budget_us = block_time_us / 2;
 
-                let mut cumulative_us: u64 = 0;
-                let mut degraded_count: u32 = 0;
-
-                // Spatial HRTF: track which voices need batch rendering
                 let mut spatial_voice_indices: Vec<(usize, u32)> = Vec::new();
                 let mut spatial_voice_count: usize = 0;
 
-                for (voice_idx, voice) in voices.iter_mut().enumerate() {
-                    if !voice.active {
-                        continue;
-                    }
+                let (cumulative_us, degraded_count) = Self::iterate_one_shot_voices(
+                    &mut voices[..],
+                    &mut guard_l,
+                    &mut guard_r,
+                    frames,
+                    active_section,
+                    global_mode,
+                    voice_budget_us,
+                    bus_buffers,
+                    &mut spatial_voice_indices,
+                    &mut spatial_voice_count,
+                );
 
-                    // Section-based filtering
-                    let should_play = match voice.source {
-                        PlaybackSource::Daw => true,
-                        PlaybackSource::Browser => true,
-                        _ => voice.source == active_section,
-                    };
-
-                    if !should_play {
-                        continue;
-                    }
-
-                    // Adaptive quality: degrade background voices when over budget
-                    if cumulative_us > voice_budget_us {
-                        // Over budget — degrade non-essential voices to fast mode
-                        if voice.source != PlaybackSource::Daw
-                            && voice.source != PlaybackSource::Browser
-                        {
-                            voice.voice_resample_mode = ResampleMode::Sinc(16);
-                            degraded_count += 1;
-                        }
-                        // DAW/Browser voices keep global mode (never degraded)
-                    } else {
-                        // Within budget — use global quality mode
-                        voice.voice_resample_mode = global_mode;
-                    }
-
-                    // Clear temp buffers
-                    guard_l[..frames].fill(0.0);
-                    guard_r[..frames].fill(0.0);
-
-                    // Measure per-voice processing time (lock-free on macOS/Linux)
-                    let voice_start = std::time::Instant::now();
-
-                    let still_playing =
-                        voice.fill_buffer(&mut guard_l[..frames], &mut guard_r[..frames]);
-
-                    cumulative_us += voice_start.elapsed().as_micros() as u64;
-
-                    if let Some(src_id) = voice.spatial_source_id {
-                        // Spatial voice — collect mono audio for HRTF batch render
-                        // (fill_buffer already output mono when spatial_source_id is Some)
-                        spatial_voice_indices.push((voice_idx, src_id));
-                        // Copy mono audio (L channel = mono sum) into spatial voice buffer
-                        let offset = spatial_voice_count * frames;
-                        SPATIAL_VOICE_MONO.with(|buf| {
-                            let mut mono_buf = buf.borrow_mut();
-                            if mono_buf.len() < offset + frames {
-                                mono_buf.resize(offset + frames, 0.0);
-                            }
-                            for i in 0..frames {
-                                mono_buf[offset + i] = guard_l[i] as f32;
-                            }
-                        });
-                        spatial_voice_count += 1;
-                    } else {
-                        // Normal voice — route to bus (existing path)
-                        bus_buffers.add_to_bus(voice.bus, &guard_l[..frames], &guard_r[..frames]);
-                    }
-
-                    if !still_playing {
-                        voice.deactivate();
-                    }
-                }
-
-                // ═══ SPATIAL HRTF BATCH RENDER ═══
-                // All spatial voices collected — render through SpatialManager in one pass
                 if spatial_voice_count > 0 {
-                    if let Some(mut spatial) = crate::spatial_manager::SPATIAL_MANAGER.try_write() {
-                        SPATIAL_VOICE_MONO.with(|mono_buf| {
-                            SPATIAL_OUTPUT_BUF.with(|out_buf| {
-                                let mono = mono_buf.borrow();
-                                let mut output = out_buf.borrow_mut();
-                                let out_channels = spatial.output_channels();
-                                let out_size = frames * out_channels;
-                                if output.len() < out_size {
-                                    output.resize(out_size, 0.0);
-                                }
-                                output[..out_size].fill(0.0);
-
-                                // Build AudioObjects from pre-collected mono audio
-                                let mut objects = Vec::with_capacity(spatial_voice_count);
-                                for (idx, (_voice_idx, source_id)) in spatial_voice_indices.iter().enumerate() {
-                                    let offset = idx * frames;
-                                    let audio_slice = &mono[offset..offset + frames];
-                                    objects.push(rf_spatial::AudioObject {
-                                        id: *source_id,
-                                        name: String::new(),
-                                        position: spatial.source_position(*source_id)
-                                            .unwrap_or(rf_spatial::Position3D::origin()),
-                                        size: 0.0,
-                                        gain: spatial.source_gain(*source_id),
-                                        audio: audio_slice.to_vec(),
-                                        sample_rate,
-                                        automation: None,
-                                    });
-                                }
-
-                                if spatial.render(&objects, &mut output[..out_size], out_channels).is_ok() {
-                                    // Mix HRTF output into master bus (stereo)
-                                    let (master_l, master_r) = bus_buffers.master_mut();
-                                    for i in 0..frames {
-                                        master_l[i] += output[i * 2] as f64;
-                                        master_r[i] += output[i * 2 + 1] as f64;
-                                    }
-                                }
-                            });
-                        });
-                    } else {
-                        // SpatialManager lock contended — fall back to center-pan bus routing
-                        for (voice_idx, _source_id) in &spatial_voice_indices {
-                            SPATIAL_VOICE_MONO.with(|mono_buf| {
-                                let mono = mono_buf.borrow();
-                                let idx = spatial_voice_indices.iter()
-                                    .position(|(vi, _)| vi == voice_idx)
-                                    .unwrap_or(0);
-                                let offset = idx * frames;
-                                let bus = voices[*voice_idx].bus;
-                                let (bus_l, bus_r) = bus_buffers.get_bus_mut(bus);
-                                for i in 0..frames {
-                                    let s = mono[offset + i] as f64;
-                                    bus_l[i] += s;
-                                    bus_r[i] += s;
-                                }
-                            });
-                        }
-                    }
+                    Self::render_spatial_voices(
+                        &voices[..],
+                        bus_buffers,
+                        frames,
+                        sample_rate,
+                        spatial_voice_count,
+                        &spatial_voice_indices,
+                    );
                 }
 
-                // Update adaptive quality diagnostics (lock-free atomics)
-                let active_count = voices.iter().filter(|v| v.active).count() as u32;
-                self.diag_active_voices.store(active_count, Ordering::Relaxed);
-                self.diag_degraded_voices.store(degraded_count, Ordering::Relaxed);
-                let cpu_pct = (cumulative_us * 100)
-                    .checked_div(voice_budget_us)
-                    .unwrap_or(0)
-                    .min(200) as u32;
-                self.diag_cpu_load_pct.store(cpu_pct, Ordering::Relaxed);
-                let mode_val = match global_mode {
-                    ResampleMode::Point => 0,
-                    ResampleMode::Linear => 1,
-                    ResampleMode::R8brain => 65535,
-                    ResampleMode::Sinc(n) => n as u32,
-                };
-                self.diag_src_mode.store(mode_val, Ordering::Relaxed);
+                self.store_voice_diagnostics(&voices[..], degraded_count, cumulative_us, voice_budget_us, global_mode);
             });
         });
     }
+
+    /// Iterate active one-shot voices: section-filter, adapt quality, fill buffers,
+    /// route to bus or collect for spatial HRTF. Returns (cumulative_us, degraded_count).
+    #[allow(clippy::too_many_arguments)]
+    fn iterate_one_shot_voices(
+        voices: &mut [OneShotVoice],
+        guard_l: &mut [f64],
+        guard_r: &mut [f64],
+        frames: usize,
+        active_section: PlaybackSource,
+        global_mode: ResampleMode,
+        voice_budget_us: u64,
+        bus_buffers: &mut BusBuffers,
+        spatial_voice_indices: &mut Vec<(usize, u32)>,
+        spatial_voice_count: &mut usize,
+    ) -> (u64, u32) {
+        let mut cumulative_us: u64 = 0;
+        let mut degraded_count: u32 = 0;
+
+        for (voice_idx, voice) in voices.iter_mut().enumerate() {
+            if !voice.active {
+                continue;
+            }
+
+            let should_play = match voice.source {
+                PlaybackSource::Daw => true,
+                PlaybackSource::Browser => true,
+                _ => voice.source == active_section,
+            };
+            if !should_play {
+                continue;
+            }
+
+            // Adaptive quality: degrade background voices when over budget
+            if cumulative_us > voice_budget_us {
+                if voice.source != PlaybackSource::Daw
+                    && voice.source != PlaybackSource::Browser
+                {
+                    voice.voice_resample_mode = ResampleMode::Sinc(16);
+                    degraded_count += 1;
+                }
+            } else {
+                voice.voice_resample_mode = global_mode;
+            }
+
+            guard_l[..frames].fill(0.0);
+            guard_r[..frames].fill(0.0);
+
+            let voice_start = std::time::Instant::now();
+            let still_playing = voice.fill_buffer(&mut guard_l[..frames], &mut guard_r[..frames]);
+            cumulative_us += voice_start.elapsed().as_micros() as u64;
+
+            if let Some(src_id) = voice.spatial_source_id {
+                spatial_voice_indices.push((voice_idx, src_id));
+                let offset = *spatial_voice_count * frames;
+                SPATIAL_VOICE_MONO.with(|buf| {
+                    let mut mono_buf = buf.borrow_mut();
+                    if mono_buf.len() < offset + frames {
+                        mono_buf.resize(offset + frames, 0.0);
+                    }
+                    for i in 0..frames {
+                        mono_buf[offset + i] = guard_l[i] as f32;
+                    }
+                });
+                *spatial_voice_count += 1;
+            } else {
+                bus_buffers.add_to_bus(voice.bus, &guard_l[..frames], &guard_r[..frames]);
+            }
+
+            if !still_playing {
+                voice.deactivate();
+            }
+        }
+
+        (cumulative_us, degraded_count)
+    }
+
+    /// Batch-render collected spatial voices through SpatialManager (HRTF).
+    /// Falls back to center-pan bus routing if SpatialManager lock is contended.
+    fn render_spatial_voices(
+        voices: &[OneShotVoice],
+        bus_buffers: &mut BusBuffers,
+        frames: usize,
+        sample_rate: u32,
+        spatial_voice_count: usize,
+        spatial_voice_indices: &[(usize, u32)],
+    ) {
+        if let Some(mut spatial) = crate::spatial_manager::SPATIAL_MANAGER.try_write() {
+            SPATIAL_VOICE_MONO.with(|mono_buf| {
+                SPATIAL_OUTPUT_BUF.with(|out_buf| {
+                    let mono = mono_buf.borrow();
+                    let mut output = out_buf.borrow_mut();
+                    let out_channels = spatial.output_channels();
+                    let out_size = frames * out_channels;
+                    if output.len() < out_size {
+                        output.resize(out_size, 0.0);
+                    }
+                    output[..out_size].fill(0.0);
+
+                    let mut objects = Vec::with_capacity(spatial_voice_count);
+                    for (idx, (_voice_idx, source_id)) in spatial_voice_indices.iter().enumerate() {
+                        let offset = idx * frames;
+                        let audio_slice = &mono[offset..offset + frames];
+                        objects.push(rf_spatial::AudioObject {
+                            id: *source_id,
+                            name: String::new(),
+                            position: spatial.source_position(*source_id)
+                                .unwrap_or(rf_spatial::Position3D::origin()),
+                            size: 0.0,
+                            gain: spatial.source_gain(*source_id),
+                            audio: audio_slice.to_vec(),
+                            sample_rate,
+                            automation: None,
+                        });
+                    }
+
+                    if spatial.render(&objects, &mut output[..out_size], out_channels).is_ok() {
+                        let (master_l, master_r) = bus_buffers.master_mut();
+                        for i in 0..frames {
+                            master_l[i] += output[i * 2] as f64;
+                            master_r[i] += output[i * 2 + 1] as f64;
+                        }
+                    }
+                });
+            });
+        } else {
+            // SpatialManager lock contended — fall back to center-pan bus routing
+            for (voice_idx, _source_id) in spatial_voice_indices {
+                SPATIAL_VOICE_MONO.with(|mono_buf| {
+                    let mono = mono_buf.borrow();
+                    let idx = spatial_voice_indices.iter()
+                        .position(|(vi, _)| vi == voice_idx)
+                        .unwrap_or(0);
+                    let offset = idx * frames;
+                    let bus = voices[*voice_idx].bus;
+                    let (bus_l, bus_r) = bus_buffers.get_bus_mut(bus);
+                    for i in 0..frames {
+                        let s = mono[offset + i] as f64;
+                        bus_l[i] += s;
+                        bus_r[i] += s;
+                    }
+                });
+            }
+        }
+    }
+
+    /// Store adaptive-quality diagnostics atomics (lock-free).
+    fn store_voice_diagnostics(
+        &self,
+        voices: &[OneShotVoice],
+        degraded_count: u32,
+        cumulative_us: u64,
+        voice_budget_us: u64,
+        global_mode: ResampleMode,
+    ) {
+        let active_count = voices.iter().filter(|v| v.active).count() as u32;
+        self.diag_active_voices.store(active_count, Ordering::Relaxed);
+        self.diag_degraded_voices.store(degraded_count, Ordering::Relaxed);
+        let cpu_pct = (cumulative_us * 100)
+            .checked_div(voice_budget_us)
+            .unwrap_or(0)
+            .min(200) as u32;
+        self.diag_cpu_load_pct.store(cpu_pct, Ordering::Relaxed);
+        let mode_val = match global_mode {
+            ResampleMode::Point => 0,
+            ResampleMode::Linear => 1,
+            ResampleMode::R8brain => 65535,
+            ResampleMode::Sinc(n) => n as u32,
+        };
+        self.diag_src_mode.store(mode_val, Ordering::Relaxed);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // ADVANCED LOOP SYSTEM (Wwise-grade)
+    // ═══════════════════════════════════════════════════════════════════════
 
     // ═══════════════════════════════════════════════════════════════════════
     // ADVANCED LOOP SYSTEM (Wwise-grade)

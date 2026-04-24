@@ -1595,6 +1595,13 @@ class _MainGameZone extends StatelessWidget {
   final void Function(int reelIndex, int rowIndex)? onCellTap;
   final GlobalKey<SlotPreviewWidgetState>? previewKey;
 
+  // FS Summary overlay data
+  final bool showFsSummary;
+  final double fsSummaryTotalWin;
+  final int fsSummarySpinsPlayed;
+  final int fsSummaryRetriggerCount;
+  final VoidCallback? onFsSummaryDismiss;
+
   const _MainGameZone({
     required this.provider,
     this.projectProvider,
@@ -1608,6 +1615,11 @@ class _MainGameZone extends StatelessWidget {
     this.showCascade = false,
     this.onCellTap,
     this.previewKey,
+    this.showFsSummary = false,
+    this.fsSummaryTotalWin = 0.0,
+    this.fsSummarySpinsPlayed = 0,
+    this.fsSummaryRetriggerCount = 0,
+    this.onFsSummaryDismiss,
   });
 
   @override
@@ -1724,6 +1736,16 @@ class _MainGameZone extends StatelessWidget {
                   const Positioned.fill(
                     child: GameFlowOverlay(),
                   ),
+                  // L6 FS Summary Overlay — shown after Free Spins complete
+                  if (showFsSummary)
+                    Positioned.fill(
+                      child: _FsSummaryOverlay(
+                        totalWin: fsSummaryTotalWin,
+                        spinsPlayed: fsSummarySpinsPlayed,
+                        retriggeredCount: fsSummaryRetriggerCount,
+                        onDismiss: onFsSummaryDismiss ?? () {},
+                      ),
+                    ),
                   // Unconfigured overlay — shown when no slot machine config exists
                   if (!GetIt.instance<FeatureComposerProvider>().isConfigured)
                     Positioned.fill(
@@ -4873,6 +4895,12 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   int _cascadeCount = 0;
   int _specialSymbolCount = 0;
 
+  // FS Summary overlay — shown when Free Spins feature ends
+  bool _showFsSummary = false;
+  double _fsSummaryTotalWin = 0.0;
+  int _fsSummarySpinsPlayed = 0;
+  int _fsSummaryRetriggerCount = 0;
+
   // Auto-spin
   bool _isAutoSpin = false;
   int _autoSpinCount = 0;
@@ -5011,6 +5039,17 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
         GetIt.instance<SlotLabCoordinator>().audioProvider.fadeOutBaseGameLayers(fadeMs: 500);
         reg.triggerStage('BIG_WIN_START');
         _startBigWinProtection(_currentWinTier);
+      };
+
+      // FS Summary: shown after FS feature ends, before returning to base game
+      gameFlow.onFsSummary = (totalWin, spinsPlayed, retriggeredCount) {
+        if (!mounted) return;
+        setState(() {
+          _showFsSummary = true;
+          _fsSummaryTotalWin = totalWin;
+          _fsSummarySpinsPlayed = spinsPlayed;
+          _fsSummaryRetriggerCount = retriggeredCount;
+        });
       };
     }
 
@@ -5207,6 +5246,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       final gameFlow = GetIt.instance<GameFlowProvider>();
       gameFlow.onRequestAutoSpin = null;
       gameFlow.onDeferredBigWin = null;
+      gameFlow.onFsSummary = null;
     } catch (_) {}
 
     _composer.removeListener(_onComposerChanged);
@@ -5289,6 +5329,15 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
 
     final provider = context.read<SlotLabProvider>();
     final eventRegistry = EventRegistry.instance;
+
+    // Fire UiSkipPress stage event — captured by audio composer, stage timeline, coverage
+    final isBigWinSkip = _isBigWinTier(_currentWinTier);
+    eventRegistry.triggerStage('UI_SKIP_PRESS', context: {
+      'win_tier': _currentWinTier.isNotEmpty ? _currentWinTier.toLowerCase() : null,
+      'was_big_win': isBigWinSkip,
+      // Phase 2 = second press while big win end is already playing
+      'phase': _isPlayingBigWinEnd ? 2 : 1,
+    });
 
     // ═══════════════════════════════════════════════════════════════════════
     // PHASE 2: BIG_WIN_END is already playing → stop it and collect
@@ -5502,6 +5551,10 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       _freeSpins = 0;
       _freeSpinsRemaining = 0;
       _bonusMeter = 0.0;
+      _showFsSummary = false;
+      _fsSummaryTotalWin = 0.0;
+      _fsSummarySpinsPlayed = 0;
+      _fsSummaryRetriggerCount = 0;
       _featureProgress = 0.0;
       _multiplier = 1;
       _cascadeCount = 0;
@@ -6766,6 +6819,14 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                       winTier: _currentWinTier,
                       onCellTap: widget.onCellTap,
                       previewKey: _previewKey,
+                      showFsSummary: _showFsSummary,
+                      fsSummaryTotalWin: _fsSummaryTotalWin,
+                      fsSummarySpinsPlayed: _fsSummarySpinsPlayed,
+                      fsSummaryRetriggerCount: _fsSummaryRetriggerCount,
+                      onFsSummaryDismiss: () {
+                        setState(() => _showFsSummary = false);
+                        EventRegistry.instance.triggerStage('FS_SUMMARY_DISMISS');
+                      },
                     ),
                   ),
                 ),
@@ -7368,6 +7429,247 @@ class _SlotSplashScreenState extends State<_SlotSplashScreen>
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// FREE SPINS SUMMARY OVERLAY
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// FS Summary overlay — shown after Free Spins feature ends.
+/// Full-screen glass panel, displays total win, spins played, retriggers.
+/// Click-anywhere-to-dismiss, fires FS_SUMMARY_DISMISS audio stage.
+class _FsSummaryOverlay extends StatefulWidget {
+  final double totalWin;
+  final int spinsPlayed;
+  final int retriggeredCount;
+  final VoidCallback onDismiss;
+
+  const _FsSummaryOverlay({
+    required this.totalWin,
+    required this.spinsPlayed,
+    required this.retriggeredCount,
+    required this.onDismiss,
+  });
+
+  @override
+  State<_FsSummaryOverlay> createState() => _FsSummaryOverlayState();
+}
+
+class _FsSummaryOverlayState extends State<_FsSummaryOverlay>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animCtrl;
+  late Animation<double> _fadeAnim;
+  late Animation<double> _scaleAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _animCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 450),
+    );
+    _fadeAnim = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
+    _scaleAnim = Tween<double>(begin: 0.85, end: 1.0).animate(
+      CurvedAnimation(parent: _animCtrl, curve: Curves.easeOutBack),
+    );
+    _animCtrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _animCtrl.dispose();
+    super.dispose();
+  }
+
+  void _dismiss() {
+    _animCtrl.reverse().then((_) {
+      if (mounted) widget.onDismiss();
+    });
+  }
+
+  String _formatWin(double win) {
+    if (win >= 1000000) return '${(win / 1000000).toStringAsFixed(2)}M';
+    if (win >= 1000) return '${(win / 1000).toStringAsFixed(2)}K';
+    return win.toStringAsFixed(2);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _fadeAnim,
+      child: GestureDetector(
+        onTap: _dismiss,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          decoration: BoxDecoration(
+            // Deep dark glass with gold shimmer
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                const Color(0xFF0A0600).withOpacity(0.92),
+                const Color(0xFF1A0E00).withOpacity(0.95),
+              ],
+            ),
+          ),
+          child: ScaleTransition(
+            scale: _scaleAnim,
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // ─── HEADER ───────────────────────────────────────────────
+                  ShaderMask(
+                    shaderCallback: (bounds) => const LinearGradient(
+                      colors: [Color(0xFFFFD700), Color(0xFFFFA500), Color(0xFFFFD700)],
+                      stops: [0.0, 0.5, 1.0],
+                    ).createShader(bounds),
+                    child: const Text(
+                      'FREE SPINS COMPLETE',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 4,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+
+                  // ─── TOTAL WIN ────────────────────────────────────────────
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: const Color(0xFFFFD700).withOpacity(0.4),
+                        width: 1,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      color: const Color(0xFFFFD700).withOpacity(0.06),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          'TOTAL WIN',
+                          style: TextStyle(
+                            color: const Color(0xFFFFD700).withOpacity(0.6),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 3,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        ShaderMask(
+                          shaderCallback: (bounds) => const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [Color(0xFFFFE566), Color(0xFFFFD700), Color(0xFFFFAA00)],
+                          ).createShader(bounds),
+                          child: Text(
+                            _formatWin(widget.totalWin),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 52,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -1,
+                              height: 1.0,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // ─── STATS ROW ────────────────────────────────────────────
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _StatBadge(
+                        label: 'SPINS',
+                        value: widget.spinsPlayed.toString(),
+                      ),
+                      if (widget.retriggeredCount > 0) ...[
+                        const SizedBox(width: 16),
+                        _StatBadge(
+                          label: 'RETRIGGERS',
+                          value: '+${widget.retriggeredCount}',
+                          highlight: true,
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 40),
+
+                  // ─── TAP TO CONTINUE ──────────────────────────────────────
+                  AnimatedOpacity(
+                    opacity: 1.0,
+                    duration: const Duration(milliseconds: 800),
+                    child: Text(
+                      'TAP TO CONTINUE',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.35),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 3,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StatBadge extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool highlight;
+
+  const _StatBadge({
+    required this.label,
+    required this.value,
+    this.highlight = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = highlight ? const Color(0xFFFF8C00) : const Color(0xFFFFD700);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        color: color.withOpacity(0.08),
+        border: Border.all(color: color.withOpacity(0.25), width: 1),
+      ),
+      child: Column(
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: color.withOpacity(0.6),
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 2,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              color: color,
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -219,6 +219,10 @@ class GameFlowProvider extends ChangeNotifier {
   /// UI should show Big Win overlay with this amount AFTER exit plaque dismisses.
   void Function(double totalWin, double betAmount)? onDeferredBigWin;
 
+  /// Fired when a Free Spins feature ends — widget uses this to show FS summary overlay.
+  /// Parameters: totalWin (accumulated during FS), spinsPlayed, retriggeredCount.
+  void Function(double totalWin, int spinsPlayed, int retriggeredCount)? onFsSummary;
+
   // ═══════════════════════════════════════════════════════════════════════════
   // GETTERS
   // ═══════════════════════════════════════════════════════════════════════════
@@ -856,6 +860,22 @@ class GameFlowProvider extends ChangeNotifier {
         onStateChanged?.call(exitingState, returnState);
         notifyListeners();
       }
+    }
+
+    // Fire FS_SUMMARY stage when a Free Spins feature exits —
+    // captured by audio composer for summary music sting + UI overlay
+    if (exitingState == GameFlowState.freeSpins) {
+      final fsSpinsPlayed = featureState?.spinsCompleted ?? 0;
+      final fsRetriggerCount = (featureState?.customData['retriggered_count'] as int?) ?? 0;
+      _fireAudioStage('FS_SUMMARY');
+      // Also dispatch with win context for hook-graph observers (UI overlay data)
+      _emitHookEvent('FS_SUMMARY', data: {
+        'total_win': exitWin,
+        'spins_played': fsSpinsPlayed,
+        'retriggered_count': fsRetriggerCount,
+      });
+      // Notify UI widget to show FS summary overlay
+      onFsSummary?.call(exitWin, fsSpinsPlayed, fsRetriggerCount);
     }
 
     // Scene transition: show exit plaque with total win before returning
