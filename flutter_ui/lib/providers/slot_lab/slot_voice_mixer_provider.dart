@@ -675,6 +675,22 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
     // _onCompositeChanged → _rebuildChannels → channel removed
   }
 
+  /// Duplicate channel — adds a new layer to the same composite event with
+  /// the same audio path and a "<name> copy" suffix. Used by the radial
+  /// quick-action menu (long-press). Volume/pan/sends start at defaults
+  /// deliberately — deep-copy of all params can be done by the user once
+  /// they tweak, or added later if proven necessary.
+  void duplicateChannel(String layerId) {
+    final ch = _findChannel(layerId);
+    if (ch == null) return;
+    _compositeProvider.addLayerToEvent(
+      ch.eventId,
+      audioPath: ch.audioPath,
+      name: '${ch.displayName} copy',
+    );
+    // _onCompositeChanged → _rebuildChannels → new channel appears on same bus
+  }
+
   /// Preview/audition a channel — play the sound once with ALL channel settings
   void auditionChannel(String layerId) {
     final ch = _findChannel(layerId);
@@ -778,6 +794,60 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
     _multiSelectedIds.clear();
     if (layerId != null) _multiSelectedIds.add(layerId);
     notifyListeners();
+  }
+
+  /// Focus + auto-solo: master-fader-style behavior for Vo/Music channels.
+  ///
+  /// Boki req: "kada kliknem kanal kada ga fokusiram, zelim da se solira,
+  ///            kao sto to radi master".
+  ///
+  /// Behavior:
+  /// - Clicking a NEW channel → selects it AND makes it the sole soloed
+  ///   channel (all other channels' solo is cleared first).
+  /// - Clicking the SAME already-focused+soloed channel → clears focus +
+  ///   solo (escape hatch so you can return to a neutral "hear everything"
+  ///   state without hunting for an X button).
+  /// - Solo-in-context (SIC) semantics from `_applySoloState()` still apply:
+  ///   only voices on the SAME bus get muted; other buses remain audible to
+  ///   preserve bus-fx context.
+  void focusAndSoloChannel(String layerId) {
+    final target = _findChannel(layerId);
+    if (target == null) return;
+
+    final alreadyFocusSoloed =
+        _selectedChannelId == layerId && target.soloed && _exclusiveSoloCount() == 1;
+
+    // Always clear all existing solo flags — solo must track selection exactly.
+    for (final c in _channels) {
+      c.soloed = false;
+    }
+
+    if (alreadyFocusSoloed) {
+      // Second click on the focused channel → clear focus + solo.
+      _selectedChannelId = null;
+      _multiSelectedIds.clear();
+    } else {
+      // New focus → select + solo only this channel.
+      _selectedChannelId = layerId;
+      _multiSelectedIds
+        ..clear()
+        ..add(layerId);
+      target.soloed = true;
+    }
+
+    _hasSoloActive = _channels.any((c) => c.soloed);
+    _applySoloState();
+    notifyListeners();
+  }
+
+  /// How many channels are currently soloed (used to detect "pure" focus-solo
+  /// vs. a multi-solo state assembled via the toggle button).
+  int _exclusiveSoloCount() {
+    var n = 0;
+    for (final c in _channels) {
+      if (c.soloed) n++;
+    }
+    return n;
   }
 
   /// Ctrl+Click multi-select toggle

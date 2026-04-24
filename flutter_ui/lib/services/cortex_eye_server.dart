@@ -28,6 +28,8 @@ import 'cortex_vision_service.dart';
 import 'vision_diff_engine.dart';
 import '../providers/slot_lab/game_flow_provider.dart';
 import '../providers/slot_lab/slot_lab_coordinator.dart';
+import '../providers/slot_lab/slot_voice_mixer_provider.dart';
+import '../providers/subsystems/composite_event_system_provider.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CORTEX EYE SERVER
@@ -153,6 +155,12 @@ class CortexEyeServer {
         await _handleObserve(request);
       } else if (method == 'POST' && path == '/eye/click') {
         await _handleClick(request);
+      } else if (method == 'POST' && path == '/eye/voice') {
+        await _handleVoiceAction(request);
+      } else if (method == 'GET' && path == '/eye/voice/list') {
+        await _handleVoiceList(request);
+      } else if (method == 'POST' && path == '/eye/voice/seed') {
+        await _handleVoiceSeed(request);
       } else if (method == 'POST' && path == '/eye/navigate') {
         await _handleNavigate(request);
       } else if (method == 'POST' && path == '/eye/helix_tab') {
@@ -645,5 +653,177 @@ class CortexEyeServer {
         ContentType('application', 'json', charset: 'utf-8');
     request.response.write(const JsonEncoder.withIndent('  ').convert(data));
     await request.response.close();
+  }
+
+  // ─── Voice mixer dispatch (Flutter-native, no AX needed) ───────────────────
+  //
+  // Lets CORTEX programmatically exercise the SlotLab voice mixer interactions
+  // (focus-solo, mute, audition, duplicate, remove, open editor) without
+  // relying on macOS accessibility click simulation.
+  //
+  // GET  /eye/voice/list            → JSON list of channels + current solo/mute/selected state
+  // POST /eye/voice  body: {"action":"<name>","layerId":"<id>"}
+  //   action: focus_solo | mute_toggle | audition | duplicate | remove
+  //
+  // This gives Claude genuine "hands" on SlotLab mix controls.
+
+  /// POST /eye/voice/seed — create probe composite event with placeholder layers
+  /// so the voice mixer has channels to test against without loading a project.
+  Future<void> _handleVoiceSeed(HttpRequest request) async {
+    CompositeEventSystemProvider? composite;
+    try {
+      composite = GetIt.I<CompositeEventSystemProvider>();
+    } catch (_) {
+      request.response.statusCode = 503;
+      await _json(request, {'error': 'CompositeEventSystemProvider not registered'});
+      return;
+    }
+    final event = composite.createCompositeEvent(name: '_CortexEyeProbe', category: 'voice');
+    // Seed two placeholder layers — Voice + Music.
+    // Non-empty paths with valid extensions so the voice mixer's rebuild
+    // includes them (empty paths are filtered out even though they pass
+    // security validation). Fake paths are fine: we're exercising state
+    // logic, not playback.
+    final voLayer    = composite.addLayerToEvent(
+      event.id,
+      audioPath: '/tmp/_cortex_probe_vo.wav',
+      name: 'VO Probe',
+    );
+    final musicLayer = composite.addLayerToEvent(
+      event.id,
+      audioPath: '/tmp/_cortex_probe_music.wav',
+      name: 'Music Probe',
+    );
+
+    // Give the voice mixer a frame to sync channels from composite event.
+    await Future.delayed(const Duration(milliseconds: 250));
+
+    SlotVoiceMixerProvider? voice;
+    try {
+      voice = GetIt.I<SlotVoiceMixerProvider>();
+    } catch (_) { /* ignore */ }
+
+    await _json(request, {
+      'success': true,
+      'eventId': event.id,
+      'seededLayerIds': [voLayer.id, musicLayer.id],
+      'voiceChannelCount': voice?.channels.length ?? 0,
+    });
+  }
+
+  Future<void> _handleVoiceList(HttpRequest request) async {
+    SlotVoiceMixerProvider? provider;
+    try {
+      provider = GetIt.I<SlotVoiceMixerProvider>();
+    } catch (_) {
+      request.response.statusCode = 503;
+      await _json(request, {'error': 'SlotVoiceMixerProvider not registered'});
+      return;
+    }
+    final channels = provider.channels.map((c) => {
+      'layerId': c.layerId,
+      'eventId': c.eventId,
+      'displayName': c.displayName,
+      'audioPath': c.audioPath,
+      'busId': c.busId,
+      'volume': c.volume,
+      'pan': c.pan,
+      'panRight': c.panRight,
+      'width': c.stereoWidth,
+      'inputGainDb': c.inputGain,
+      'muted': c.muted,
+      'soloed': c.soloed,
+      'phaseInvert': c.phaseInvert,
+      'isPlaying': c.isPlaying,
+    }).toList();
+    await _json(request, {
+      'channels': channels,
+      'selectedChannelId': provider.selectedChannelId,
+      'hasSoloActive': provider.hasSoloActive,
+      'count': channels.length,
+    });
+  }
+
+  Future<void> _handleVoiceAction(HttpRequest request) async {
+    final body = await utf8.decodeStream(request);
+    Map<String, dynamic> params = {};
+    try {
+      params = jsonDecode(body) as Map<String, dynamic>;
+    } catch (_) {}
+
+    final action  = params['action']  as String?;
+    final layerId = params['layerId'] as String?;
+    if (action == null || layerId == null) {
+      request.response.statusCode = 400;
+      await _json(request, {'error': 'Required: action, layerId'});
+      return;
+    }
+
+    SlotVoiceMixerProvider? provider;
+    try {
+      provider = GetIt.I<SlotVoiceMixerProvider>();
+    } catch (_) {
+      request.response.statusCode = 503;
+      await _json(request, {'error': 'SlotVoiceMixerProvider not registered'});
+      return;
+    }
+
+    // Sanity: ensure channel exists
+    final exists = provider.channels.any((c) => c.layerId == layerId);
+    if (!exists) {
+      request.response.statusCode = 404;
+      await _json(request, {
+        'error': 'layerId not found',
+        'layerId': layerId,
+        'availableCount': provider.channels.length,
+      });
+      return;
+    }
+
+    switch (action) {
+      case 'focus_solo':
+        provider.focusAndSoloChannel(layerId);
+      case 'mute_toggle':
+        provider.toggleMute(layerId);
+      case 'audition':
+        provider.auditionChannel(layerId);
+      case 'duplicate':
+        provider.duplicateChannel(layerId);
+      case 'remove':
+        provider.removeChannel(layerId);
+      case 'select':
+        provider.selectChannel(layerId);
+      default:
+        request.response.statusCode = 400;
+        await _json(request, {
+          'error': 'Unknown action',
+          'action': action,
+          'valid': ['focus_solo','mute_toggle','audition','duplicate','remove','select'],
+        });
+        return;
+    }
+
+    // Wait a frame for state to settle before snapshotting.
+    await Future.delayed(const Duration(milliseconds: 200));
+
+    // Re-read channel state for verification
+    final ch = provider.channels.firstWhere(
+      (c) => c.layerId == layerId,
+      orElse: () => provider!.channels.first,
+    );
+    await _json(request, {
+      'success': true,
+      'action': action,
+      'layerId': layerId,
+      'channelAfter': {
+        'displayName': ch.displayName,
+        'soloed': ch.soloed,
+        'muted': ch.muted,
+        'volume': ch.volume,
+      },
+      'selectedChannelId': provider.selectedChannelId,
+      'hasSoloActive': provider.hasSoloActive,
+      'totalChannels': provider.channels.length,
+    });
   }
 }
