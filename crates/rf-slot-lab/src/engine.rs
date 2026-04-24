@@ -792,10 +792,19 @@ impl SyntheticSlotEngine {
     // STAGE GENERATION
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// Generate stage events for a spin result
+    /// Generate stage events for a spin result.
+    ///
+    /// Honors `self.config.anticipation` — when `sequential_stop = true` (the
+    /// industry-standard default), anticipation reels stop one-at-a-time with
+    /// escalating tension (L1→L2→L3→L4). When `false`, legacy parallel mode.
+    ///
+    /// Previously this path always used the legacy parallel generator, which
+    /// silently ignored `AnticipationConfig` and produced the "ne radi kao IGT"
+    /// flow. Now the generator receives the live config and matches IGT /
+    /// Pragmatic / NetEnt / Play'n GO behavior out of the box.
     pub fn generate_stages(&mut self, result: &SpinResult) -> Vec<StageEvent> {
         self.timestamp_gen.reset();
-        result.generate_stages(&mut self.timestamp_gen)
+        result.generate_stages_with_config(&mut self.timestamp_gen, &self.config.anticipation)
     }
 
     /// Execute spin and immediately generate stages
