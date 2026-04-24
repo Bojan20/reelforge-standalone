@@ -1388,6 +1388,25 @@ class GameFlowProvider extends ChangeNotifier {
   void Function()? _pendingTransitionComplete;
   Timer? _transitionDismissTimer;
 
+  /// Dismiss the active transition early via user interaction (tap/key).
+  ///
+  /// Only works when `dismissMode` allows early dismissal:
+  /// - `clickToContinue` — always dismissible by user
+  /// - `timedOrClick` — user can dismiss before the timer fires
+  ///
+  /// `timed`-only transitions are NOT early-dismissible; this is a no-op for them.
+  bool dismissTransitionEarly() {
+    final t = _activeTransition;
+    if (t == null) return false;
+
+    final canDismiss = t.config.dismissMode == TransitionDismissMode.clickToContinue ||
+        t.config.dismissMode == TransitionDismissMode.timedOrClick;
+    if (!canDismiss) return false;
+
+    dismissTransition();
+    return true;
+  }
+
   /// State name key for audio stage naming (e.g., "BASE", "FS", "BONUS")
   String _stateKey(GameFlowState state) {
     return switch (state) {
