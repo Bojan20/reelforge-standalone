@@ -321,6 +321,645 @@
 
 ---
 
+## SESIJA: DAW + HELIX Kompaktnost — Puni Implementacioni Specs
+
+> Svaki problem razrađen do nivoa: fajl:linija → šta se menja → kod pattern → before/after ponašanje → test.
+> Ovo je radna sesija — krene se redom, svakim problemom završimo pre sledećeg.
+
+---
+
+### SPEC-01 · Globalni `FluxCommandPalette` (Cmd+K)
+
+**Problem:** Nema fuzzy-search za 110+ sub-tabova, 57 shortcuts, projekata. Svaki detalj = 2-4 klika.
+
+**Root cause:** Nema `CommandRegistry` servisa ni palette widgeta. `global_shortcuts_provider.dart` ima shortcuts ali nema unified UI za search.
+
+**Implementacija:**
+
+```
+lib/services/command_registry.dart          ← novi singleton
+lib/widgets/command_palette/
+    flux_command_palette.dart               ← OverlayEntry widget
+    command_item.dart                       ← single result row
+lib/screens/main_layout.dart               ← wire trigger Cmd+K
+```
+
+**`CommandRegistry`** — 5 izvora, sve lazily registrovano:
+- `ShortcutSource` → 57 shortcuts iz `GlobalShortcutsProvider` + label + icon
+- `HelixTabSource` → sve 110+ HELIX sub-tabovi (super-tab + sub-tab naziv + keyboard key)
+- `DAWPanelSource` → svi DAW paneli (left/center/right/lower + sub-tabs)
+- `RecentSource` → poslednjih 10 akcija (SQLite persist, session-bound)
+- `ActionSource` → dynamic per-context (dodaju ga active provideri)
+
+**`FluxCommandPalette` widget:**
+- Trigger: `LogicalKeyboardKey.keyK` + meta, ili `/` kada nema text fokusa
+- `OverlayEntry` na `Navigator.overlay` — uvek iznad svega
+- Dimenzije: 560×420px, centrisano, glassmorphism `#0D0D12/85%` + gold border 1px
+- Enter animacija: `Spring(stiffness: 380, damping: 28)` — 180ms
+- Search: real-time Levenshtein + prefix boost + recent boost
+- Max 8 rezultata vidljivo, scroll za više
+- Row: 36px — `icon (20px) + title (bold) + subtitle (muted) + shortcut badge (right)`
+- `ArrowUp/Down` = navigate, `Enter` = execute, `Esc` = dismiss
+- Fajl: `main_layout.dart` → `Shortcuts` widget wraps ceo child tree
+
+**Before/After:**
+- Pre: HELIX → klik AUDIO super-tab → klik MIX sub-tab → klik DSP chain → klik EQ = 4 klika
+- Posle: `Cmd+K` → kucaj "eq" → Enter = 0.5s
+
+**Test:** `flutter_test` — palette se otvori, query "rtp", expected result "MATH → RTP Target", Enter navigira na MATH tab
+
+---
+
+### SPEC-02 · EDIT Tab Reorganizacija (31 → 3 grupe)
+
+**Problem:** DAW Lower Zone EDIT super-tab ima 31 sub-tabova u jednom linearnom scrollable redu — vizuelni chaos, korisnik ne zna šta se gde nalazi.
+
+**Root cause:** `lower_zone_types.dart:286` — `DawEditSubTab` enum sa 31 vrednosti, renderer ih crta redom bez hijerarhije.
+
+**Implementacija:**
+
+```
+lib/widgets/lower_zone/lower_zone_types.dart    ← dodati DawEditGroup enum
+lib/widgets/lower_zone/daw_lower_zone_widget.dart   ← render grupovano
+```
+
+**Nova 3-grupna struktura** (umesto flat liste):
+```
+TIMELINE  ▼  (expandable, default open)
+  timeline · pianoRoll · fades · warp · elastic · razorEdit
+
+CLIP  ▼  (expandable)
+  comping · beatDetect · tempoDetect · stripSilence
+  dynamicSplit · loopEditor · granularSynth
+
+ADVANCED  ▶  (expandable, default collapsed)
+  grid · punch · ucsNaming · video · cycleActions
+  regionPlaylist · mixSnapshots · metadataBrowser
+  screensets · projectTabs · subProjects · [ostalo]
+```
+
+**Group header widget:** 28px visok, `▶/▼` ikona + label (12px uppercase), klik = toggle, persist state u `DawLowerZoneController`
+
+**Before/After:**
+- Pre: linearni scroll kroz 31 item-a, gubiš se
+- Posle: 3 jasne kategorije, default vidljivo 6 najvažnijih
+
+**Test:** `DawEditGroup.timeline` expand/collapse toggle + persist kroz hot-reload
+
+---
+
+### SPEC-03 · Smart Contextual Right Panel (Inspector++)
+
+**Problem:** Right panel uvek prikazuje isti Inspector bez obzira šta je selektovano. Klik na audio clip = isti view kao klik na marker.
+
+**Root cause:** `engine_connected_layout.dart:274` — `_rightVisible` flag + statičan `InspectorPanel` widget, nema context switching.
+
+**Implementacija:**
+
+```
+lib/widgets/inspector/
+    contextual_inspector.dart               ← novi wrapper
+    track_inspector.dart                    ← track properties
+    clip_audio_inspector.dart               ← audio clip
+    clip_midi_inspector.dart                ← MIDI clip
+    marker_inspector.dart                   ← tempo/timesig marker
+    plugin_quick_inspector.dart             ← plugin 8-param micro view
+    project_overview_inspector.dart         ← ništa selektovano
+```
+
+**`ContextualInspector`** — sluša `SelectionProvider` i ruta na odgovarajući widget:
+```dart
+switch (selection.type) {
+  case SelectionType.track    → TrackInspector(track: selection.track)
+  case SelectionType.audioClip → ClipAudioInspector(clip: selection.clip)
+  case SelectionType.midiClip  → ClipMidiInspector(clip: selection.clip)
+  case SelectionType.marker    → MarkerInspector(marker: selection.marker)
+  case SelectionType.plugin    → PluginQuickInspector(plugin: selection.plugin)
+  default                      → ProjectOverviewInspector()
+}
+```
+
+**`TrackInspector`** (kompaktan, 6 rows):
+- Name (inline editable), Color (swatch picker), Routing (bus dropdown)
+- Pre-gain (slider ±24dB), Lock toggle, Freeze toggle
+
+**`ClipAudioInspector`** (8 rows):
+- Start/End time (editable), Duration, Gain slider (±24dB)
+- Pitch semitones (slider ±12st), Warp mode (enum dropdown)
+- Fade In/Out lengths (dual slider)
+
+**`PluginQuickInspector`** — 8 most-used params sa mini knobs, + "Open Full" dugme
+
+**Before/After:**
+- Pre: klik clip → inspector prikazuje generic "Clip Properties" sa ~3 stavke
+- Posle: klik clip → sve relevantne opcije odmah vidljive, inline edit bez dialoga
+
+**Test:** selection_provider mock → ContextualInspector ruta na correct widget
+
+---
+
+### SPEC-04 · Adaptive Toolbar (DAW)
+
+**Problem:** Toolbar prikazuje iste alate bez obzira na selekciju. Audio clip selektovan = nema shortcut za Fade/Normalize. MIDI selektovan = nema Quantize.
+
+**Root cause:** `engine_connected_layout.dart` toolbar zona — statičan `Row` sa fiksnim widgetima.
+
+**Implementacija:**
+
+```
+lib/widgets/toolbar/
+    adaptive_toolbar.dart                   ← wrapper
+    toolbar_section_transport.dart          ← Play/Stop/Record (uvek vidljivo)
+    toolbar_section_audio_clip.dart         ← Fade/Warp/Normalize/Pitch/Reverse
+    toolbar_section_midi_clip.dart          ← Quantize/Velocity/CC/PianoRoll
+    toolbar_section_marker.dart             ← Tempo Change/TimeSig/Color
+    toolbar_section_track.dart              ← Arm/Solo/Mute/Color/Rename
+```
+
+**Layout:**
+```
+[Transport — uvek]  |  [Contextual sekcija — animirano]  |  [Global: Undo/Redo/Save]
+```
+
+**Contextual sekcija tranzicija:** `AnimatedSwitcher` sa `FadeTransition` 150ms + `SlideTransition` Y=8px gore — osećaj da "ispliva" nova sekcija kad se promeni selekcija.
+
+**Before/After:**
+- Pre: toolbar isti za sve → tražiš akciju u meniju
+- Posle: selektuješ audio clip → fade/pitch/normalize dugmad se pojavljuju odmah, bez menija
+
+---
+
+### SPEC-05 · Layout Presets + Layout Snapshots
+
+**Problem:** Nema brze adaptacije layout-a za 1-monitor, 2-monitor, ultrawide, niti pamćenja custom layout-a.
+
+**Root cause:** `DawLowerZoneController` nema preset logiku; panel visibility state (`_leftVisible`, `_rightVisible`, `_lowerVisible`) je ephemeral.
+
+**Implementacija:**
+
+```
+lib/providers/panel_layout_provider.dart    ← novi, replaces ad-hoc bools
+lib/models/panel_layout_snapshot.dart       ← serializovani snapshot
+```
+
+**`PanelLayoutProvider`** state:
+```dart
+class PanelLayout {
+  bool leftVisible; double leftWidth;    // 250px default
+  bool rightVisible; double rightWidth;  // 300px default
+  bool lowerVisible; double lowerHeight; // 380px default
+  DawSuperTab activeLowerTab;
+  DawEditGroup expandedGroup;
+  // HELIX
+  int helixDockTab; double helixDockHeight;
+  bool helixSpineExpanded;
+}
+```
+
+**Presets (Cmd+Shift+1/2/3/0):**
+- `1` → Single monitor: left hidden, right hidden, lower 40% — maksimalan timeline
+- `2` → Dual monitor: left 250, right 300, lower 300 — balanced
+- `3` → Ultrawide (3440px+): left 320, right 400, lower 280 — sve vidljivo
+- `0` → Default factory reset
+
+**Snapshots (Cmd+Opt+1..9):** persist 9 named slots u `~/.fluxforge/layout_snapshots.json`
+- Hold `Cmd+Opt+1` 500ms = save (toast potvrda)
+- Tap `Cmd+Opt+1` = restore
+
+**Before/After:**
+- Pre: svaki put ručno podešavanje panela
+- Posle: `Cmd+Shift+1` = produkcija (fokus timeline), `Cmd+Shift+2` = mixing (sve vidljivo)
+
+---
+
+### SPEC-06 · HELIX Spine — Compact/Expanded Toggle
+
+**Problem:** Spine ima 5 ikona bez labela → novi korisnik ne zna šta je šta. Nema tooltip ni labela.
+
+**Root cause:** `helix_screen.dart:835-863` — ikone bez `Tooltip` wrappera, bez label widgeta.
+
+**Implementacija (minimalna promena — nema refaktora):**
+
+1. Wrap svake ikone u `Tooltip(message: 'AUDIO ASSIGN', waitDuration: Duration(ms: 120))`
+2. Dodati toggle dugme na dnu Spine-a (ikona `«`/`»` ili double-arrow)
+3. Kada expanded (toggle ON): width 96px, ispod svake ikone dodati `Text(label, 10px, brandSteel, letterSpacing: 0.8)`
+4. `_spineExpanded` bool persist u `SharedPreferences`
+
+**Animacija:** `AnimatedContainer(width: _expanded ? 96 : 48, duration: 200ms, curve: Curves.easeOutCubic)`
+
+**Before/After:**
+- Pre: 5 mystery ikone, ne znaš šta otvara šta
+- Posle: hover → tooltip za 120ms, ili expand za stalne labele
+
+**Fajl:** `helix_screen.dart:835-863` — minimalno 20 linija promena
+
+---
+
+### SPEC-07 · HELIX Stub Tabovi — Never Empty
+
+**Problem:** 6 od 12 Command Dock super-tabova (SFX, BT, DNA, AI, CLOUD, A/B) vraćaju praznu stranicu ili "placeholder" bez informacija.
+
+**Root cause:** `helix_screen.dart:2034, 2500, 2838, 3188, 3852, 4114` — `Container()` ili jednostavan `Text('Coming soon')`
+
+**Implementacija — `StubTabPlaceholder` widget:**
+```dart
+class StubTabPlaceholder extends StatelessWidget {
+  final String tabName, description, estimatedPhase;
+  final List<String> plannedFeatures; // max 4
+  final IconData icon;
+}
+```
+
+**UI za svaki stub tab:**
+```
+[ikona  64px  u gold gradient circle]
+[TAB NAME  20px  brandGold]
+[1-2 rečenica šta će ovde biti]
+[Planned: Phase X · Est: Q3 2026]
+[──────────────────]
+[• Feature 1]
+[• Feature 2]
+[• Feature 3]
+[⚡ Coming in Phase X]
+```
+
+**Svaki stub tab dobija opis:**
+- **SFX**: "Procedural SFX pipeline — generate sfx_reel_stop, sfx_coin, sfx_bonus iz fizičkih parametara"
+- **BT**: "Behavior Tree visual editor — drag-drop logic za slot mehanike bez koda"
+- **DNA**: "Slot Sound DNA analysis — spectral fingerprint, automatic stage classification"
+- **AI**: "Copilot v1 — voice authoring, gap detection, mix suggestions"
+- **CLOUD**: "Multi-studio sync — real-time collab via CRDT, cloud asset library"
+- **A/B**: "Live A/B testing — 2 mix varijante u produkciji, player retention metrics"
+
+**Before/After:**
+- Pre: prazan container → korisnik misli da je bug
+- Posle: lepa placeholder stranica, jasno šta dolazi, kada, zašto
+
+---
+
+### SPEC-08 · HELIX MONITOR Tab — 20 → 5 Kategorija
+
+**Problem:** MONITOR super-tab ima 20 sub-tabova u linearnom scrollable redu — previše za snalaženje.
+
+**Root cause:** `lower_zone_types.dart:726` `SlotLabMonitorSubTab` enum, renderer crta flat.
+
+**Nova struktura (5 collapsible kategorija):**
+```
+LIVE  ▼  (default open)
+  Timeline · Energy · Voice · Spectral
+
+AI  ▶  
+  Fatigue · Neuro · AI Copilot
+
+MATH  ▶
+  MathBridge · RGAI · A/B Test
+
+DEBUG  ▶
+  Debug · Profiler · Profiler Adv · Event Debug
+
+EXPORT  ▶
+  Export · UCP Export · Fingerprint · Spatial · Resource · Voice Stats
+```
+
+Isti pattern kao SPEC-02 — `SlotLabMonitorGroup` enum + group header widget.
+
+---
+
+### SPEC-09 · HELIX Command Dock — Quick Actions Strip
+
+**Problem:** Nema kontekstualnih quick-action dugmadi po aktivnom tabu — svaka akcija = navigacija u podmeniu.
+
+**Root cause:** `helix_screen.dart:1198-1303` — Command Dock nema akcije iznad tab bar-a.
+
+**Implementacija:**
+
+```dart
+// 10px visok strip (isti bg kao dock), između drag handle i tab bar
+Widget _buildQuickActionStrip(int activeTab) {
+  return AnimatedSwitcher(
+    duration: Duration(ms: 200),
+    child: _getActionsForTab(activeTab),
+  );
+}
+```
+
+**Akcije po tabu** (max 6 dugmadi, svako 28px visoko, 70-120px široko):
+- **FLOW**: `[▶ Sim Run]` `[+ Stage]` `[+ Transition]` `[↩ Reset FSM]`
+- **AUDIO**: `[Grid Snap]` `[Solo Bus]` `[Zero Gain]` `[Export Mix]`
+- **MATH**: `[🔒 Lock]` `[↺ Recalc]` `[📋 Blueprint]` `[Validate]`
+- **INTEL**: `[▶ Full Sim]` `[📊 Coverage]` `[🐛 Diagnostics]`
+- **EXPORT**: `[📦 Package]` `[git Commit]` `[✅ Validate All]` `[📧 Send Report]`
+- Ostali: po 2-3 najvažnije akcije
+
+**Style:** `TextButton.icon`, 28px, `brandSteel` boja, hover = `brandGold`, compact padding `EdgeInsets.symmetric(h: 8, v: 4)`
+
+**Before/After:**
+- Pre: klik na tab → find action u sub-tab → klik
+- Posle: action button odmah vidljiv na vrhu dock-a čim je tab aktivan
+
+---
+
+### SPEC-10 · Floating Math HUD na Neural Canvas
+
+**Problem:** RTP, Volatility, Hit Freq, Max Win su u MATH tabu — nevidljivi dok radiš u FLOW/AUDIO tabovima.
+
+**Root cause:** `helix_screen.dart:869-1014` NeuralCanvas — nema overlay sa live math metrics.
+
+**Implementacija:**
+
+```
+lib/widgets/helix/math_hud_overlay.dart     ← novi widget
+```
+
+**HUD widget:** pozicioniran top-right Neural Canvas-a, `Positioned(top: 12, right: 12)`:
+```
+[RTP: 96.2% ●] [VOL: 6.8 ●] [HIT: 1:4.2 ●] [MAX: 2847× ●]
+```
+- Svaka metrika: `Container(68×22px, color: _hudBg)` + vrednost (11px bold) + color dot
+- Color dot: `brandGold` = in target, `Colors.amber` = warn ±5%, `Colors.red` = out
+- Tap HUD → expand/collapse (height animira 22px → 0px, ikona ostaje)
+- Persist collapse state u session
+
+**`_hudBg`:** `Color(0xFF0D0D12).withOpacity(0.72)` — poluprozirno, ne ometa canvas
+
+**`MathHudProvider`** — consumer `NeuroAudioProvider` + `GameModelProvider`, real-time update svake 500ms
+
+**Before/After:**
+- Pre: meoriše RTP izvan MATH taba = 3 klika do informacije
+- Posle: uvek vidljivo bez prekidanja workflow-a
+
+---
+
+### SPEC-11 · Reel Context Lens Affordance
+
+**Problem:** Reel cell context lens ne znaš da možeš kliknuti — nema vizuelnog hinta.
+
+**Root cause:** `helix_screen.dart:1003-1008` + `premium_slot_preview.dart` reel cells — nema hover state ni affordance indikator.
+
+**Implementacija:**
+
+```dart
+// U reel cell widget (premium_slot_preview.dart)
+MouseRegion(
+  onEnter: (_) => setState(() => _reelHovered[i] = true),
+  onExit:  (_) => setState(() => _reelHovered[i] = false),
+  child: AnimatedContainer(
+    duration: Duration(ms: 120),
+    decoration: BoxDecoration(
+      border: Border.all(
+        color: _reelHovered[i] ? FluxForgeTheme.brandGold.withOpacity(0.7) : Colors.transparent,
+        width: 1.5,
+      ),
+    ),
+    child: Stack(children: [
+      reelContent,
+      if (_reelHovered[i]) Positioned(bottom: 4, right: 4,
+        child: Icon(Icons.search, size: 14, color: FluxForgeTheme.brandGold.withOpacity(0.9))),
+    ]),
+  ),
+)
+```
+
+**Lens expand sadržaj** (Context Lens panel):
+- Stage binding info (naziv stage-a ili "unbound")
+- Volume slider (0-200%, real-time FFI update)
+- Pitch offset (−12st do +12st)
+- 32px waveform preview strip
+- Long press na lens → `VoiceDetailEditor.open(layer)`
+
+**Before/After:**
+- Pre: korisnik ne zna da može kliknuti reel cell
+- Posle: hover → gold border + magnifier → klik → lens sa svim relevantnim kontrolama
+
+---
+
+### SPEC-12 · HELIX Mini Mode (200px strip)
+
+**Problem:** Nema kompaktnog prikaza za dual-monitor setup.
+
+**Root cause:** `helix_screen.dart:96, 225-227` — mode state machine ima COMPOSE(0)/FOCUS(1)/ARCHITECT(2), nedostaje MINI(3).
+
+**Implementacija:**
+
+```dart
+// helix_screen.dart — dodati u _HelixMode enum
+mini,   // = 3
+
+// Keyboard trigger
+case LogicalKeyboardKey.keyM when meta && shift:
+  setState(() => _mode = _mode == _HelixMode.mini ? _HelixMode.compose : _HelixMode.mini);
+```
+
+**Mini Mode layout (200px visina, full width):**
+```
+[SPIN ▶]  [FSM: BASE_SPIN]  [RTP 96.2%●]  [VOL 6.8●]  [HIT 1:4.2●]  |  [6× bus meters 8px wide]  |  [Orb 60px]  |  [🟢🟡🔴 compliance]  [Cmd+Shift+M ↗]
+```
+
+Animacija: `AnimatedContainer(height: _mode==MINI ? 200 : fullHeight, curve: Curves.easeInOutCubic, duration: Duration(ms: 300))`
+
+**Before/After:**
+- Pre: HELIX uvek zauzima ceo ekran
+- Posle: `Cmd+Shift+M` = kompresuje u 200px strip, ostatak ekrana slobodan za DAW ili drugu aplikaciju
+
+---
+
+### SPEC-13 · Quick Assign Hotbar
+
+**Problem:** Assign workflow zahteva skrolanje event liste svaki put. Nema "pinned stage" targeta.
+
+**Root cause:** Nema hotbar komponente. Drag-drop postoji ali bez persistent targeta.
+
+**Implementacija:**
+
+```
+lib/widgets/helix/quick_assign_hotbar.dart   ← novi
+```
+
+**Hotbar:** 5 slotova × 44px, pozicioniran između Omnibar-a i Neural Canvas-a (sakriven dok ASSIGN mode nije aktivan):
+```
+[REEL_STOP ×] [REEL_SPIN ×] [WIN_SMALL ×] [        ] [        ]
+  ↑ bound        ↑ bound       ↑ bound      empty drop  empty drop
+```
+
+**Interakcija:**
+- Drag zvuk iz event pool-a → drop na hotbar slot → bind direktno (nema more confirmation)
+- Tap bound slot → audition preview (Play ikona)
+- Long press bound slot → unbind
+- `×` dugme = unbind brzo
+- Slot se highlightuje gold outline tokom drag-a (drop target feedback)
+
+**Persist:** slots se čuvaju u `SlotLabProjectProvider` kao `List<String?> hotbarBindings` per project
+
+**Before/After:**
+- Pre: drag zvuk → skroluješ do pravog stage-a u listi → drop → repeat za svaki
+- Posle: drag zvuk → drop na hotbar slot → odmah bound, hotbar ostaje tu za sledeći put
+
+---
+
+### SPEC-14 · Panel Focus Indicator + Keyboard Routing
+
+**Problem:** Keyboard evente prima neizvestan panel. Tab prečice (1-9 u HELIX) ne rade ako je fokus negde drugde.
+
+**Root cause:** Flutter focus system — `FocusNode` nije eksplicitno dodeljen panelima; eventi proppadaju bez garantovanog primaoca.
+
+**Implementacija:**
+
+```
+lib/providers/panel_focus_provider.dart     ← koji panel je aktivan
+```
+
+**`PanelFocusProvider`:**
+```dart
+enum FocusedPanel { helix_dock, helix_canvas, helix_spine, daw_timeline, daw_lower, daw_left, daw_right }
+```
+Klik na panel = `provider.setFocus(panel)` → panel dobija 1px gold border:
+```dart
+Container(
+  decoration: BoxDecoration(
+    border: focused ? Border.all(color: FluxForgeTheme.brandGold.withOpacity(0.4), width: 1) : null,
+  ),
+  child: Focus(focusNode: _panelFocusNode, child: panelContent),
+)
+```
+
+**Keyboard routing:** `FocusScope` → aktivan panel prima key evente. `Tab` / `Shift+Tab` = `FocusScopeNode.nextFocus()` / `previousFocus()`.
+
+**Before/After:**
+- Pre: stisneš `1` u HELIX ali ništa se ne desi jer je fokus na DAW panelu
+- Posle: aktivan panel gold-bordered, keyboard uvek ide u pravi panel
+
+---
+
+### SPEC-15 · Selection Memory (Cmd+1..9 — Layout Comps)
+
+**Problem:** Nema brze navigacije između sačuvanih view konfiguracija. Authoring session od 30+ min = ručno vraćanje panela.
+
+**Root cause:** Nema `SelectionMemoryProvider`. Panel state je ephemeral.
+
+**Implementacija:**
+
+```
+lib/providers/selection_memory_provider.dart
+lib/models/selection_memory_slot.dart
+```
+
+**`SelectionMemorySlot`:**
+```dart
+class SelectionMemorySlot {
+  String? name;              // auto: "Slot 1" ili custom
+  PanelLayout layout;        // iz SPEC-05 PanelLayoutProvider
+  DateTime savedAt;
+  String? previewLabel;      // "MATH tab @ RTP 96.2%"
+}
+```
+
+**Trigger:**
+- `Cmd+Shift+[1-9]` (hold 400ms) = **save** slot → toast `"💾 Slot 1 sačuvan"`
+- `Cmd+[1-9]` (tap) = **restore** slot → instant layout switch sa 180ms Spring animacijom
+- `Cmd+0` = factory default layout
+
+**Persist:** `~/.fluxforge/selection_memory.json` — max 9 slotova, rotira FIFO
+
+**Before/After:**
+- Pre: ručno otvaranje/zatvaranje panela pri svakoj promeni konteksta
+- Posle: `Cmd+1` = authoring mode, `Cmd+2` = QA mode, `Cmd+3` = presentation mode — 0.2s
+
+---
+
+### SPEC-16 · Uniformni Hover Tooltips (150ms delay)
+
+**Problem:** Razne ikone i dugmadi nemaju tooltip ili imaju ga sa pogrešnim delay-om. Korisnik mora da pogađa.
+
+**Root cause:** Nedosledna upotreba `Tooltip` widgeta — neki imaju, neki nemaju.
+
+**Implementacija:**
+
+Centralizovani `FluxTooltip` wrapper koji zamenjuje sve inline `Tooltip`-e:
+```dart
+class FluxTooltip extends StatelessWidget {
+  final String message;
+  final String? shortcutHint;    // npr. "Cmd+K"
+  final Widget child;
+
+  // message + newline + "⌘K" ako shortcutHint postoji
+  // waitDuration: Duration(ms: 150)
+  // style: brandGold background 85% opacity, 11px white text
+}
+```
+
+**Rollout:** `grep -rn 'Tooltip(' flutter_ui/lib/ | wc -l` → nahodi sve, zameni sa `FluxTooltip`. Plus dodati na sve ikone koje nemaju tooltip (`Spine ikone, Orb buttons, toolbar dugmadi`).
+
+**Before/After:**
+- Pre: ikonice su mystery — ne znaš šta radi bez klikanja
+- Posle: hover 150ms → kompaktni tooltip sa label + keyboard hint
+
+---
+
+### SPEC-17 · Stage Trigger Keyboard Shortcuts u HELIX
+
+**Problem:** U HELIX FLOW tabu nema direktnih keyboard shortcuta za triggerovanje stage-ova. Svaki trigger = klik na FSM node.
+
+**Root cause:** `helix_screen.dart:580-600` keyboard zone — nema case za stage trigger keys.
+
+**Implementacija:**
+
+```dart
+// helix_screen.dart keyboard handler — dodati:
+case LogicalKeyboardKey.digit1 when _activeDockTab == HelixDockTab.flow && !isShift:
+  gameFlowProvider.triggerStage(GameFlowState.idle); break;
+case LogicalKeyboardKey.digit2 when _activeDockTab == HelixDockTab.flow && !isShift:
+  gameFlowProvider.triggerStage(GameFlowState.baseSpin); break;
+// ... 1-8 za 8 stage-ova
+case LogicalKeyboardKey.space when _activeDockTab == HelixDockTab.flow:
+  gameFlowProvider.triggerSpin(); break;
+case LogicalKeyboardKey.digit1..8 when isShift:
+  gameFlowProvider.forceExitToStage(stages[key - 1]); break;
+```
+
+**Visual feedback:** Klik shortcut → odgovarajući FSM node u FLOW tabi se pulse-uje (gold glow 300ms Spring) + toast "Stage: BASE_SPIN" 1.5s bottom-center.
+
+**Stage map (1-8):**
+1=IDLE · 2=BASE_SPIN · 3=REEL_STOP · 4=WIN · 5=CASCADE · 6=FREE_SPINS · 7=BONUS · 8=JACKPOT
+
+**Before/After:**
+- Pre: QA sesija = klik FSM node za svaki test scenario
+- Posle: `2` = start spin, `4` = force win, `6` = jump to free spins — 8× brži QA
+
+---
+
+### SESIJA REDOSLED (preporučen za implementaciju)
+
+```
+Sprint 1 (kompaktnost, visok impact, niski rizik):
+  SPEC-06  Spine labele          [2h]
+  SPEC-07  Stub tab placeholders [2h]
+  SPEC-16  Tooltips              [3h]
+  SPEC-17  Stage shortcuts       [2h]
+  SPEC-11  Reel Context Lens     [4h]
+  SPEC-10  Math HUD              [3h]
+
+Sprint 2 (navigacija, srednji kompleksitet):
+  SPEC-01  Cmd+K Palette         [1 ned]
+  SPEC-02  EDIT tab grupe        [3h]
+  SPEC-08  MONITOR grupe         [3h]
+  SPEC-09  Quick Actions Strip   [4h]
+  SPEC-14  Panel Focus           [3h]
+
+Sprint 3 (power features):
+  SPEC-03  Smart Inspector       [1 ned]
+  SPEC-04  Adaptive Toolbar      [3h]
+  SPEC-13  Quick Assign Hotbar   [3h]
+
+Sprint 4 (layout memory, power users):
+  SPEC-05  Layout Presets        [4h]
+  SPEC-15  Selection Memory      [4h]
+  SPEC-12  HELIX Mini Mode       [1 ned]
+```
+
+**Ukupan effort: ~6 nedelja fulltime. Impact: produktivnost ×3-5.**
+
+---
+
 ## FAZA 3 — Slot Machine Diferenciatori
 
 ### 3.1 IGT/Playa parity fixes (iz memorije)
