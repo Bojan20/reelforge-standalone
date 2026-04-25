@@ -413,6 +413,138 @@
 
 ---
 
+## MOONSHOTS — Blue-sky inovacije (sve što može biti bolje nego što jeste)
+
+> Boki: "od tebe mi treba sve futurističko i što može da bude bolje nego što jeste".
+> Ovo nije roadmap — ovo je open-ended istraživački kanon. Sve napisano je tehnički zamislivo do 2030. Implementacija po prilici, partnerima, prilikama. **Ništa nije preskočeno.**
+
+### M.1 Audio engine inovacije
+
+| # | Stavka | Detalj |
+|---|---|---|
+| M1.1 | **Differentiable audio engine** | Ceo `rf-engine` postaje differentiable computational graph. Definiš target ("treba da zvuči ovako") + reference audio → engine samosebe trenira da pristigne tu. Ozone-style mastering, ali za mix params. |
+| M1.2 | **Neural codec native storage** | Interno sve audio kao DAC/Encodec embeddings (6-12 kbps). Lossless re-encode na export. 50-100× manje storage, instant load, semantic search po sound bibliotekama. |
+| M1.3 | **Hybrid CPU+GPU+NPU automatic dispatch** | DSP graf zna gde da pošalje koju operaciju (CPU za simple biquad, GPU za convolution, NPU za neural inference). Auto-balance po platformi. |
+| M1.4 | **Time-varying impulse response reverb** | Reverb IR se menja sa game state-om real-time. Bonus mode = bigger room. Free spins = celestial. Bez disclosure latency. |
+| M1.5 | **Microsound granular at sample level** | Per-sample granularni shaping ispod sample rate-a. Texture morphing impossible u trenutnoj DSP-u. |
+| M1.6 | **Wave function physics modeling** | Slot symbol audio modeluje se kao quantum superposition; "observe" event kolapsuje state. Eksperimentalno. |
+| M1.7 | **Sub-millisecond latency mode** | Apple Audio Workgroups + Vulkan compute = <1ms voice→output latency. Headphone live monitoring uživo. |
+
+### M.2 UX paradigme (post-mouse era)
+
+| # | Stavka | Detalj |
+|---|---|---|
+| M2.1 | **3D spatial UI on Vision Pro** | Orbi u stvarnom 3D prostoru. Mix isfront tebe, EQ levo, automation desno. Telo postaje navigation. |
+| M2.2 | **Predictive disclosure** | UI se sažima/proširuje na osnovu šta korisnik **sledeće** radi (LSTM nad gesture history). Kad si na rollup mix-u, automation lane se sam expand-uje. |
+| M2.3 | **Touchless gesture** (Leap Motion v2 / camera) | Pomeraš ruku iznad laptopa, knob se okreće. Bez dodira. |
+| M2.4 | **Emotional state UI** | Kamera čita Bokijevu mimiku → frustration detected → UI density se smanjuje, Corti predlaže pauzu ili "želiš da preuzmem ovaj rollup?". |
+| M2.5 | **Sound-driven UI** | Pevaš melody, sistem prepoznaje, mapira na MIDI clip, postavlja u trenutni stage. Humming = audio sketch input. |
+| M2.6 | **Brain-computer interface (Neuralink class)** | Misli komanda → slot reaguje. Eksperimentalno, ne prioritet, ali ostavljeno za 2028+ kad BCI consumer-grade. |
+| M2.7 | **Spatial computing keyboard** | Virtuelna tastatura iznad bilo kog uređaja kroz visionOS/AR Glasses. Authoring bez fizičkog laptopa. |
+| M2.8 | **Adaptive density per-user** | Junior sound designer dobija pojednostavljen UI; senior dobija sve. Auto-detection po behavioral signature-u. |
+| M2.9 | **Single-key universal action** | "Make better" dugme — Corti analizira kontekst i radi 1 najbitniju izmenu. Lazy day mode. |
+
+### M.3 AI infrastruktura
+
+| # | Stavka | Detalj |
+|---|---|---|
+| M3.1 | **Federated learning** | Boki-jeve mix preferences kombinovane anonimno sa drugim FluxForge korisnicima. Sve corisniki postaju pametniji bez compromise privatnosti. |
+| M3.2 | **Agentic LLM execution** | Corti može da pokrene sub-agente: "ti optimizuj voice bus, ti kreiraj 3 variante big-win sting-a, ti validiraj UKGC compliance, vrati mi rezime za 30 minuta". |
+| M3.3 | **Multi-modal copilot** | Sluša audio + vidi screen + razume tekst → kombinovano razumevanje. "Ovaj zvuk levo na ekranu, smanji ga 2dB" radi bez specifikacije. |
+| M3.4 | **Explainable AI** | Svaka sugestija ima causal chain: "predlažem -3dB na 1.2kHz jer ima peak na 2.5s spina, koincidentan sa near-miss audio cue, što po UKGC test guideline-u može flagovati nepošten signaling". |
+| M3.5 | **Adversarial training u kompoziciji** | Jedan Corti pravi mix, drugi ga kritikuje (player umoran, regulator skeptic, igrač neopiranje). Iterativno do nirvane. |
+| M3.6 | **Long-context industry memory** | Cela slot audio istorija (svaki popularan slot 2010-2030) u persistent memoriji za referencu. "Šta bi MGM/IGT uradili?" |
+| M3.7 | **Self-improving DSP** | DSP algoritmi koje Corti piše/optimizuje sam. Custom EQ topology za specific use case. |
+| M3.8 | **Continuous-learning watcher** | Corti gleda Bokija svaki put; svake nedelje šalje "evo 3 stvari koje sam naučio od tebe ove nedelje". |
+
+### M.4 Slot mehanike (audio kao prvoklasna mehanika)
+
+| # | Stavka | Detalj |
+|---|---|---|
+| M4.1 | **Adaptive volatility** | Slot menja volatility profil na osnovu igračevog state-a (samo gde regulisano dozvoljava). Audio postaje signal koji vodi modulaciju. |
+| M4.2 | **Audio-driven RTP** | Soundscape utiče na win frequency u realnom vremenu. Domena gambling research. |
+| M4.3 | **Generative paytables** | Corti generiše balanced paytable za zadati RTP target + volatility profile + audio mood. |
+| M4.4 | **Cross-game audio motifs** | Shared melodic theme između slot-ova istog studio-a. Brand recognition kao Hollywood franchise. |
+| M4.5 | **Time-of-day aware slots** | Različiti audio mix za jutro / popodne / veče. Smiren ujutro, energičan uveče. |
+| M4.6 | **Quantum slot mode (eksperimentalno)** | Superpozicija outcome-a; igračeva opservacija kolapsuje. Teoretski model za novu generaciju mehanike. |
+| M4.7 | **Synesthesia slot** | Vizuelni feedback (boja simbola, emisija svetlosti) sinhronizovan sa audio nota — ton C = plavo, F# = ljubičasto. |
+| M4.8 | **Player-personalized mix** | Svaki igrač ima blago drugačiji audio mix po ML preferences. Privacy-preserving. |
+
+### M.5 Compliance / regulatory budućnost
+
+| # | Stavka | Detalj |
+|---|---|---|
+| M5.1 | **Explainable RTP** | Svaki spin ima math + audio attribution chain za regulator audit. Why this RTP, why this audio. |
+| M5.2 | **Real-time jurisdiction detection** | Geo-IP + cabinet ID → automatic compliance switch (UKGC, MGA, NV, NJ, ON). |
+| M5.3 | **Self-mutating compliance** | Kad regulacija changes, slot auto-adjusts (sa human approval gate). |
+| M5.4 | **Zero-knowledge player privacy** | Telemetry koja ne otkriva player ID nikom — homomorphic aggregation. |
+| M5.5 | **Regulator co-pilot** | Regulator ima view-only Corti sa explanation. "Ovaj slot u ovom mode-u radi ovo, evo proof." |
+| M5.6 | **Anti-money-laundering audio fingerprint** | Audio metadata pomaže AML detection (cabinet usage patterns). |
+| M5.7 | **Quantum-safe manifest** | Post-quantum signature na svaki compliance manifest (CRYSTALS-Dilithium). Survives 2030+ quantum break. |
+
+### M.6 Production / workflow budućnost
+
+| # | Stavka | Detalj |
+|---|---|---|
+| M6.1 | **Live remote sound design** | Boki šeta sa AirPods Pro + iPhone, podešava mix glasom dok je u kafiću. WebRTC streaming celog projekta. |
+| M6.2 | **Music synchronization to math** | Auto-tune base bed tempo na hit frequency / volatility. Tempo = 120 ako je high vol, 84 ako je low vol. |
+| M6.3 | **Polyphonic timelines** | Više simultanih timelines koji se sinhronizuju (slot + bonus + pick + jackpot). Bez dialog-a "switch context". |
+| M6.4 | **Project DNA** | Svaki projekat ima cryptographic hash istorije svake odluke. "Ovaj zvuk nastao je iz [genealogy chain] commits, autori X, Y, Z." |
+| M6.5 | **Time-machine debugging** | "U kom commitu se ovaj zvuk loše ponašao?" — git bisect za audio. |
+| M6.6 | **Intent merging u kolaboraciji** | Ne samo CRDT merge, nego semantičko merging "ti hoćeš punchier, ja hoćeš smoother → kompromis". |
+| M6.7 | **A/V sync engine** | Automatska sinhronizacija audio sa svakim video element u slotu. Frame-accurate by default. |
+| M6.8 | **Hot reload za sve** | Svaki kod change (Rust + Dart + DSP) — instant reload bez restart-a. State persisted. |
+
+### M.7 Distribution / runtime
+
+| # | Stavka | Detalj |
+|---|---|---|
+| M7.1 | **WebAssembly slot engine** | Slot kao `.wasm` modul, runs anywhere (browser, mobile, embedded) bez native build. |
+| M7.2 | **Edge inference** | Neural copilot deployed na CDN edge — Cloudflare Workers AI. Sub-100ms suggestion latency globally. |
+| M7.3 | **P2P self-distribution** | Slot ima embedded P2P delivery (BitTorrent layer). Cabinet pulls bandwidth-optimized. |
+| M7.4 | **Lite version u browseru** | Preview slot u Chrome bez instalacije. Sales pitch link click → live preview u 5 sekundi. |
+| M7.5 | **VR slot machine experience** | Slot kao VR scene, ne flat UI. Quest 3 / Vision Pro / PSVR2. |
+| M7.6 | **Smart TV native** | Tizen / webOS app za TV slot. Cabinet on TV setup. |
+| M7.7 | **Dolby Atmos for Home** | Slot u Dolby Atmos format za soundbar / AVR / home theater playback. |
+
+### M.8 Research collaboration
+
+| # | Stavka | Detalj |
+|---|---|---|
+| M8.1 | **Open dataset za slot audio research** | Anonimno otpakirana FluxForge data za istraživače. Free corpus → academic citations → reputational moat. |
+| M8.2 | **Slot Audio Olympics** | Yearly challenge sa scoring leaderboard. Najbolji studio audio dobija nagradu + press. |
+| M8.3 | **Cognitive science partnership** | Measurable engagement metrics (HRV, EEG, eye tracking). Da li audio zaista vodi engagement? Empirijski. |
+| M8.4 | **Synthetic player** | Psihometrijski model igrača koji testira novi slot pre deployment. "Ovaj je previše agresivan za novog igrača." |
+| M8.5 | **Audio-cognition paper publishing** | FluxForge tim objavljuje 2-3 paper-a godišnje (DAFx, AES, ICAD). Akademski autoritet. |
+
+### M.9 Hardware-level moonshots
+
+| # | Stavka | Detalj |
+|---|---|---|
+| M9.1 | **Holographic slot machine** | 3D pixel space (Looking Glass / autostereoscopic display). Simboli lebde u prostoru. |
+| M9.2 | **Haptic vest** | Bass pumping kroz haptic vest (bHaptics, Subpac). Big win = celo telo oseti. |
+| M9.3 | **Custom FluxForge hardware controller** | Fizički knob/fader kontroler dizajniran za FluxForge workflow. Kao Push za Ableton. |
+| M9.4 | **AirPods Pro 3 head-tracking compose** | Head tilt = pan, head nod = volume confirm, head shake = undo. Zero-keyboard authoring. |
+| M9.5 | **Quantum random number** | True quantum RNG za slot mehaniku (IBM Q cloud access). Provably random. |
+| M9.6 | **Neural processor co-design** | Ako stignemo do skale — partnerstvo sa silicon vendor-om za FluxForge-optimized NPU. |
+
+### M.10 Blue-sky / 2030+
+
+| # | Stavka | Detalj |
+|---|---|---|
+| M10.1 | **AGI sound director** | Do 2030, AI radi ceo slot audio sam, čovek samo daje creative brief. FluxForge postaje hiring platform za AI sound directors. |
+| M10.2 | **Brain-state-aware mixing** | Biofeedback od igrača utiče na audio (gde regulisano). EEG → mood detection → mix adapt. |
+| M10.3 | **Memory-augmented slot** | Slot koji se sećа prošlih spinova svakog igrača i evoluira (privacy-preserving). |
+| M10.4 | **Ambient slot — never-loop** | Slot bez ponavljanja audio-a u celom svom životnom veku. Generativna struktura. |
+| M10.5 | **Cross-modal generation** | Daš sliku → Corti generiše audio. Daš melody → Corti generiše vizual. |
+| M10.6 | **Self-replicating slot studio** | Studio kao kontejner — Corti može da klonira "naš stil rada" i predloži novi slot bez ljudske intervencije. |
+| M10.7 | **Speech-of-the-world voice library** | Svaki language u svetu, svaki dialect, svaki ton — gen-on-demand kroz ElevenLabs evolution. |
+| M10.8 | **AI Composer Twin** | Digital twin tvog kompozitora — još je živ, ali Corti uči od njega tako da kad ode, zna da održi style. |
+| M10.9 | **Post-DAW paradigm** | DAW kao koncept iz 2020-ih nestaje. FluxForge prelazi u "intent-based audio environment" — opisuješ šta hoćeš, sve se desi. |
+| M10.10 | **FluxForge OS** | Cela OS layer dizajnirana za audio professionals. Apple Logic + Ableton se gase. |
+
+---
+
 ## Futurističko (ideje bez tajm lajna)
 
 > Sve ideje koje su iznad standardnog roadmap-a. Boki je odobrio "sve" → ovde stoje kao kandidati za buduće faze ili kao istraživački pravci.
