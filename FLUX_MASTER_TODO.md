@@ -367,6 +367,52 @@
 
 ---
 
+## OPERATIVA & STRATEŠKO (kako radimo, kako se predstavljamo, kako se branimo)
+
+> 10 preporuka koje nisu featuri nego procesi, strateški potezi, micro-UX i risk mitigation. Sve odobreno za TODO.
+
+### Proces razvoja
+
+| # | Stavka | Detalj |
+|---|---|---|
+| OP1 | **Boki kao patient zero customer** | Svaka Bokijeva live sesija snimljena (CortexEye Vision postoji). Svaki frustration moment (long pause, pogrešan klik, glasna reakcija) = automatski backlog item. Razvoj vođen tvojim stvarnim trenjem, ne pretpostavkom. |
+| OP2 | **Release cadence — 2-nedeljni sprintovi sa tematskim imenima** | `release_005_atmos`, `release_006_copilot`, `release_007_collab`. Predvidljiv tempo. Partneri planiraju oko nas. Tema = jedan glavni differentiator po sprintu. |
+
+### Strateški potezi
+
+| # | Stavka | Detalj |
+|---|---|---|
+| OP3 | **Akademske partnership** | IRCAM (Pariz, audio research), Stanford CCRMA, McGill MIRA, MIT CSAIL audio. Internship pipeline. Istraživački radovi → FluxForge featuri kroz 3-6 mesečne projekte. Free R&D, talent funnel. |
+| OP4 | **Open Stage Taxonomy konzorcijum** | Pre nego konkurent forkne, osnuj nezavisan governance body koji vlada `rf-stage` taksonomijom (kao Khronos za grafiku, MMA za MIDI). Wwise i FMOD moraju da slušaju nas, ne obrnuto. Drives industry adoption. |
+
+### UX patterni (mali ali strateški)
+
+| # | Stavka | Detalj |
+|---|---|---|
+| OP5 | **Inline voice memos** | Pritisneš ikonicu pored bilo kog elementa (track, voice, stage, container) → snimaš 30s voice memo. Sound designer ostavlja white-board notu vezanu za konkretan stage. Niko od konkurenata ovo nema. Jednostavno za implementaciju, masivan UX boost. |
+| OP6 | **Selection memory — Cmd+1…9 / Cmd+Shift+1…9** | Photoshop layer comps za audio. Cmd+1 sačuva trenutni view (track + zoom + selected tab + lower zone state) na slot 1; Cmd+Shift+1 vraća. 30+ minuta authoring postaje 30 sekundi recall-a. Crucial za workflow brzinu. |
+| OP7 | **Right-click "Explain this"** | Corti objašnjava bilo koji parameter / feature kontekstualno. AI tooltip 2.0. Onboarding bez tutorijala. Onboarding novog tima u studio = nekoliko dana umesto nedelja. Reuses Faza 4 AI Copilot infrastrukturu. |
+
+### Risk mitigation
+
+| # | Stavka | Detalj |
+|---|---|---|
+| OP8 | **Wwise + FMOD interop layer** | `rf-bridge` može da exportuje u Wwise SoundBank i FMOD bank. Pozicija: "FluxForge je tvoj authoring tool, koristi bilo koji runtime". Studio koji koristi Wwise nema razloga da te odbije — koegzistuješ, ne zameniš. Najefikasnija obrana od pretnje #1 i #2. |
+
+### Operativno
+
+| # | Stavka | Detalj |
+|---|---|---|
+| OP9 | **Anonymous opt-in telemetry** | Koje funkcije se najčešće koriste, gde korisnik zaglavi (long pause + abandon), šta zatraži pa ne nađe (search query bez rezultata). Data-driven roadmap umesto pretpostavki. UKGC-friendly ako je opt-in + anonimno + agregirano. |
+
+### Brand / pozicioniranje
+
+| # | Stavka | Detalj |
+|---|---|---|
+| OP10 | **Quarterly "Sound of Slots" report** | Agregirana anonymous statistika iz svih FluxForge projekata: najčešći stages per market, LUFS distribucija, popularne bus konfiguracije, win-tier ratio. Industry benchmark — konkurenti se referenciraju **na nas**. Free press svake 3 meseca. Postavlja FluxForge kao autoritet, ne učesnika. |
+
+---
+
 ## Futurističko (ideje bez tajm lajna)
 
 > Sve ideje koje su iznad standardnog roadmap-a. Boki je odobrio "sve" → ovde stoje kao kandidati za buduće faze ili kao istraživački pravci.
