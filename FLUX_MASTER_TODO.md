@@ -141,6 +141,186 @@
 
 ---
 
+## FAZA 2B — DAW + HELIX Ultimativna Kompaktnost (Detaljan Plan)
+
+> **Izvor:** Duboki audit 2026-04-25 — engine_connected_layout.dart (17,292 LOC), helix_screen.dart (9,735 LOC), lower_zone_types.dart (1,797 LOC), global_shortcuts_provider.dart (57 shortcuts).
+> **Imperativ:** Boki ne sme da traži nešto i ne nađe u < 2 klika / 1 keyboard shortcut. Svaki element mora biti jasan bez labele. Zero confusion.
+
+---
+
+### 2B.1 DAW — Kompaktnost i navigacija
+
+#### Problem #1: EDIT tab ima 31 sub-tabova (jedini super-tab, sve utrpano)
+- **Rešenje:** Reorganizovati 31 → 3 grupe sa collapse-expand:
+  - **TIMELINE** (6): timeline, pianoRoll, fades, warp, elastic, razorEdit
+  - **CLIP** (8): comping, beatDetect, tempoDetect, stripSilence, dynamicSplit, loopEditor, granularSynth, crossfades
+  - **ADVANCED** (17): sve ostalo (grid, punch, ucsProjNaming, video, cycleActions, regionPlaylist, ...)
+- **Fajl:** `lib/widgets/lower_zone/lower_zone_types.dart:286`, `engine_connected_layout.dart` tab renderers
+- **Effort:** 3 h
+
+#### Problem #2: Cmd+K Command Palette postoji za HELIX ali ne za ceo DAW
+- **Rešenje:** Globalni `FluxCommandPalette` widget — fuzzy search po svim panelima, sub-tabovima, akcijama, projektima, stage-ovima
+  - Trigger: `Cmd+K` ili `/` u focus-modeu
+  - Sources: sve 57 global shortcuts + sve sub-tab nazive + sve FFI komande
+  - UI: 500×400 glassmorphism popup, real-time filter, arrow navigate, Enter izvršava
+- **Fajl:** novi `lib/widgets/command_palette/flux_command_palette.dart` + wire u `main_layout.dart`
+- **Effort:** 1 nedelja
+
+#### Problem #3: Left Panel nema jasnu hijerarhiju (Audio Pool + Tracks + MixConsole — nevidljivo koji je aktivan)
+- **Rešenje:** Left Panel tabs kao icon+label strip na vrhu (Audio Pool 🎵 / Tracks 📋 / MixConsole 🎛), active tab highlight gold, collapsed state = 40px ikonica kolona
+- **Fajl:** `engine_connected_layout.dart:273` `_leftVisible` zone
+- **Effort:** 2 h
+
+#### Problem #4: Toolbar je statičan — ne adaptira se na selekciju
+- **Rešenje:** Adaptive Toolbar — menja kontekstualne dugmadi prema selekciji:
+  - Ništa selektovano → standard (Play/Stop/Record/Undo/Redo)
+  - Audio clip selektovan → + Fade/Warp/Normalize/Pitch/Reverse
+  - MIDI selektovan → + Quantize/Velocity/CC/PianoRoll
+  - Marker selektovan → + Tempo Change/Time Sig/Color
+  - Track header → + Arm/Solo/Mute/Color/Rename
+- **Fajl:** `engine_connected_layout.dart` toolbar zone
+- **Effort:** 3 h
+
+#### Problem #5: Right Panel je uvek Inspector — ne zna kontekst
+- **Rešenje:** Smart Contextual Right Panel:
+  - Klik track → Track properties (name, color, routing, pre-gain)
+  - Klik clip → Clip properties (start/end, gain, pitch, fade lengths, warp markers)
+  - Klik marker → Tempo/TimeSig editor
+  - Klik plugin insert → Plugin micro-editor (8 most-used params, expand to full)
+  - Ništa → Project overview (total tracks, BPM, key, duration)
+- **Fajl:** `engine_connected_layout.dart:274` right panel + novi `lib/widgets/inspector/contextual_inspector.dart`
+- **Effort:** 1 nedelja
+
+#### Problem #6: Lower Zone CORTEX tab — prazan ili nedovršen
+- **Rešenje:** Ili (A) popuniti sa Cortex health dashboard (vitalni znaci, neural signals, reflex actions feed) ili (B) skloniti iz production build (sakriti u `kDebugMode`)
+- **Fajl:** `lib/widgets/lower_zone/` CORTEX tab renderer
+- **Effort:** 30 min (skip) ili 1 nedelja (implement)
+
+#### Problem #7: Nema Layout Presets (1-monitor, 2-monitor, ultrawide)
+- **Rešenje:** Layout Preset system — `Cmd+Shift+1/2/3`:
+  - **1-monitor (1440px)**: Left panel 0px (hidden), Center 75%, Right 0%, Lower 35% height
+  - **2-monitor primary**: Left 250px, Center max, Right 300px, Lower 30%
+  - **Ultrawide (3440px+)**: Left 300px, Center 60%, Right 400px, Lower 300px
+  - **Focus mode**: samo Center + mini toolbar (already in 2.1.8 / helix F mode)
+- **Fajl:** `lib/providers/layout_provider.dart` (novo ili extend DawLowerZoneController)
+- **Effort:** 4 h
+
+#### Problem #8: Mini MixConsole popup — nedostaje
+- **Rešenje:** Floating mini mixer (≤ 300×200px, glassmorphism) — trigger: `Cmd+M` ili toolbar ikona
+  - Prikazuje aktivan kanal (selektovan track) sa: volume fader, pan, 3 insert slot-a, mute/solo
+  - Uvek on-top, Escape da zatvori
+- **Fajl:** novi `lib/widgets/mixer/mini_mix_popup.dart`
+- **Effort:** 4 h
+
+---
+
+### 2B.2 HELIX — Kompaktnost i navigacija
+
+#### Problem #1: Spine ikone bez labela (5 ikona, nema teksta — konfuzno novim korisnicima)
+- **Rešenje:** Spine layout u 2 varijante toggle-om:
+  - **Compact** (48px): samo ikone sa 150ms hover tooltip
+  - **Expanded** (96px): ikona + 2-word label ispod (AUDIO ASSIGN, GAME CONFIG, AI INTEL, SETTINGS, ANALYTICS)
+  - Persist setting u `DawLowerZoneController` / local prefs
+- **Fajl:** `helix_screen.dart:835-863`
+- **Effort:** 2 h
+
+#### Problem #2: 6 od 12 Command Dock super-tabova su STUBS (SFX, BT, DNA, AI, CLOUD, A/B)
+- **Rešenje:** Stub tabovi dobijaju: (A) "⚡ Coming Soon" badge sa estimated ETA, (B) ili budu sakriven iza `kDebugMode` dok nisu gotovi
+  - Nikad prazna stranica — uvek nešto vidljivo (progress, teaser, placeholder sa opšim opisom)
+- **Fajl:** `helix_screen.dart:2034, 2500, 2838, 3188, 3852, 4114`
+- **Effort:** 2 h
+
+#### Problem #3: MONITOR super-tab ima 20 sub-tabova (previše, nema hijerarhije)
+- **Rešenje:** Reorganizovati 20 → 5 collapsible kategorija:
+  - **LIVE** (4): timeline, energy, voice, spectral
+  - **AI** (3): fatigue, neuro, aiCopilot
+  - **MATH** (3): mathBridge, rgai, abTest
+  - **DEBUG** (4): debug, profiler, profilerAdv, evtDebug
+  - **EXPORT** (6): export, ucpExport, fingerprint, spatial, resource, voiceStats
+- **Fajl:** `lib/widgets/lower_zone/lower_zone_types.dart:726` + MONITOR tab renderer
+- **Effort:** 3 h
+
+#### Problem #4: Command Dock nema Quick Actions Strip
+- **Rešenje:** 10px strip iznad tab bar-a sa contextual action buttons (ne zauzima tab space):
+  - FLOW tab aktivan → [+ Stage] [+ Transition] [Run Sim] [Export Flow]
+  - AUDIO tab → [Snap to Grid] [Solo Bus] [Reset Gain] [Export Mix]
+  - MATH tab → [Recalculate RTP] [Lock Math] [Export Blueprint]
+  - EXPORT tab → [Quick Package] [Git Commit] [Validate All]
+- **Fajl:** `helix_screen.dart:1198-1303` Command Dock
+- **Effort:** 4 h
+
+#### Problem #5: Nema Floating Math HUD na Neural Canvas
+- **Rešenje:** Kompaktni HUD overlay (gore-desno Neural Canvas-a, semi-transparent):
+  - 4 live metrics: `RTP: 96.2% ▲` `VOL: 6.8` `HIT: 1:4.2` `MAX: 2847×`
+  - Collapsible sa jednim klikom (→ samo 4 ikone ostaju)
+  - Boja se menja: zelena (u target range) / žuta (warn) / crvena (out of range)
+- **Fajl:** `helix_screen.dart:869-1014` NeuralCanvas zone + novi `lib/widgets/helix/math_hud_overlay.dart`
+- **Effort:** 3 h
+
+#### Problem #6: Reel Context Lens nije dovoljno vidljiv (ne znaš da klikneš)
+- **Rešenje:** Affordance poboljšanje:
+  - Reel cell hover → 2px gold border + magnifier ikonica (16×16) u uglu
+  - Tap → Lens se otvori sa: stage bind info, volume slider, pitch offset, audio waveform preview
+  - Long press na lens → Expand u full Voice Editor
+- **Fajl:** `helix_screen.dart:1003-1008` + `premium_slot_preview.dart` reel cell
+- **Effort:** 4 h
+
+#### Problem #7: HELIX Mini Mode ne postoji (za dual-monitor setup)
+- **Rešenje:** `Cmd+Shift+M` → HELIX kolapsira u 200px visoki strip:
+  - Strip: Spin button | Stage name | Live RTP | 6 bus meters | Orb mini | Compliance lights
+  - Ostatak monitora slobodan za druge alate
+  - `Cmd+Shift+M` opet → vraća full view
+- **Fajl:** `helix_screen.dart` mode state machine (lines 96, 225-227) — dodati MINI mode = 3
+- **Effort:** 1 nedelja
+
+#### Problem #8: Quick Assign Hotbar nedostaje
+- **Rešenje:** 5-slot drag target bar iznad NeuralCanvas-a (sakriven dok ASSIGN mode nije aktivan):
+  - Drag zvuk direktno na hotbar slot (svaki slot = jedan stage)
+  - Highlight-uje staged audio od prvog dropa
+  - Pins: stalni shortcut target da ne moraš skrolati event listu
+- **Fajl:** `helix_screen.dart` iznad Neural Canvas + `slot_lab_screen.dart` ASSIGN mode
+- **Effort:** 3 h
+
+#### Problem #9: Stage Trigger keyboard shortcuts ne postoje u HELIX
+- **Rešenje:** Dok je FLOW tab aktivan:
+  - `1-8` → triggeruje stage #1-8 direktno (IDLE, BASE_SPIN, STOP, WIN, CASCADE, FREE_SPINS, BONUS, JACKPOT)
+  - `Space` → Spin (već postoji u DAW, treba HELIX ekvivalent)
+  - `Shift+1-8` → Force-exit feature → dati stage
+- **Fajl:** `helix_screen.dart:580-600` keyboard zone
+- **Effort:** 2 h
+
+---
+
+### 2B.3 Cross-cutting — Konzistentnost DAW ↔ HELIX
+
+| # | Problem | Rešenje | Effort |
+|---|---|---|---|
+| 2B.3.1 | **Panel Focus indikator** — ne znaš koji panel prima keyboard evente | Aktivni panel dobija 1px gold border; focus chain: Tab prebacuje fokus između panela | 2 h |
+| 2B.3.2 | **Smart Panel Memory** — layout se ne pamti po projektu | `PanelLayoutProvider` pamti active tab/sub-tab + panel visibility per `projectId` u SQLite | 4 h |
+| 2B.3.3 | **Layout Snapshots** (`Cmd+Opt+1..9`) | Photoshop Layer Comps za panele — sačuvaj i vrati kompletan panel state jednim tasterom | 1 nedelja |
+| 2B.3.4 | **Hover tooltips** uniformni — 150ms delay, kompaktni, sa shortcut hintom | Sve ikone, sve dugmadi, svi slajderi. Format: `"Solo Bus (Cmd+S)"` | 3 h |
+| 2B.3.5 | **Keyboard nav između panela** — Tab/Shift+Tab | Tab = sledeći panel fokus, Arrow keys = unutar panela, Enter = primary action | 3 h |
+| 2B.3.6 | **Isti Cmd+K u DAW i HELIX** | Jedan globalni `FluxCommandPalette` (2B.1.2) dostupan svuda | 0 h (zavisi od 2B.1.2) |
+| 2B.3.7 | **Context menu "Explain this"** — Right-click na bilo koji param | Copilot tooltip: šta je ovaj param, tipične vrednosti, upozorenja. Onboarding bez tutorijala. | 1 nedelja (zavisi od Faza 4) |
+| 2B.3.8 | **Selection Memory** (`Cmd+1..9`) | Sačuvaj trenutni view (tab, zoom, selekcija) na slot, vrati jednim tasterom — kao Cmd+1..9 u Photoshop | 4 h |
+
+---
+
+### 2B.4 Merljivi ciljevi (Definition of Done)
+
+| Metrika | Sada | Cilj |
+|---------|------|------|
+| Klika do EQ na specifičnom stage | 3 klika | 1 (Cmd+K "open EQ stage X") |
+| Klika do promene reel count-a | 4 klika | 1 (Omnibar inline edit) |
+| Klika do preview zvuka | 2 klika | 1 (Space na selektovanom) |
+| Vidljive info simultano (1440px) | 4 zone | 4 zone + HUD float |
+| Sub-tab switchovanje | 2-3 klika | 1 keyboard key (1-9) |
+| Otvoren panel bez etikete | Spine (5 ikona) | Sve ikone imaju tooltip ≤ 150ms |
+| Stub tabovi sa praznom stranicom | 6 u HELIX | 0 (badge ili sakriti) |
+| Layout reset posle pomrnje šta je otvoreno | Ručno | Cmd+0 = default layout |
+
+---
+
 ## FAZA 3 — Slot Machine Diferenciatori
 
 ### 3.1 IGT/Playa parity fixes (iz memorije)
