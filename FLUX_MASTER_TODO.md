@@ -369,16 +369,42 @@
 
 ## Futurističko (ideje bez tajm lajna)
 
-- **Neural tension arc** — model koji mapira game-theory tension → target LUFS/spektralna kriva real-time
-- **Spectral gene editor** — "pomeri bass harmonics na +3dB pri rollup-u" kroz manipulaciju latent space-a neural reverb-a
-- **Haptic mixing** (Wacom haptic + Force Touch) — osetiš kad knob stigne do target-a
-- **Voice authoring hands-free** — ceo authoring flow glasom (dictate + commands)
-- **Cross-project style learn** — Corti prepoznaje "ovo zvuči kao Wrath of Olympus arc" i predlaže
-- **Compliance as contract** — smart contract koji regulator može cryptographically verify bez pristupa projektu
-- **Personalized spatial HRTF per-user** — kamera snimak uha → generated HRTF dataset
-- **Procedural ambient bed** — uvek pravljeni on-the-fly iz semantic description-a, zero loops
-- **AI regression tester** — Corti igra 10000 spinova i prijavljuje any audio anomaly koji ljudski QA ne bi čuo
-- **Quantum-safe compliance audit trail** — post-quantum signature na svaku manifest
+> Sve ideje koje su iznad standardnog roadmap-a. Boki je odobrio "sve" → ovde stoje kao kandidati za buduće faze ili kao istraživački pravci.
+
+### Audio + Mix
+
+- **Neural tension arc** — model koji mapira game-theory tension → target LUFS / spektralna kriva real-time. Slot ima emocionalni luk koji se autom prati.
+- **Spectral gene editor** — "pomeri bass harmonics +3dB samo pri rollup-u" kroz manipulaciju latent space-a neural reverb-a. Bez parametarskih krivulja, direktno na neural model kao DNA sekvenca.
+- **Haptic mixing** (Wacom + Force Touch) — osetiš kad knob stigne do target-a, kad LUFS pređe gate, kad solo prelazi.
+- **Voice authoring hands-free** — ceo authoring flow glasom (dictate + commands). Korisnik ne mora ni da gleda u ekran.
+- **Procedural ambient bed** — never-loop background koji se generiše real-time iz semantic description-a ("Mediterranean coastal village, sunset, light wind") → 4h jedinstvenog ambijenta bez ponavljanja.
+- **Foley sandbox sa fizikom** — fizički simulator (ball drop, water splash, glass shatter) — iz fizičkih parametara generišeš realistic SFX. Niko ne mora da snima foley za prototype.
+
+### Slot specifično
+
+- **Reelovi kao interaktivni audio kontroleri** — svaka pozicija na reelu = touchzone za audio asset. Reel postaje step-sequencer ili parameter modulator. Slot dizajner može da koristi sam reel UI kao audio canvas (rešenje za tvoje pitanje "kako iskoristiti reelove da ne stoje bezveze").
+- **AI Demo Reel generator** — daš slot, AI uzme best moments + applause + voice-over → 30s promo audio za sales pitch. Boki ide na sajam, ima 5 demo-a istog dana.
+
+### QA + testing
+
+- **AI regression tester** — Corti igra 10,000 spinova preko noći i prijavljuje audio anomalije koje ljudski QA ne bi nikad uhvatio (habituacija, fatigue, masking u win konstelacijama, near-miss iznad limita).
+- **Live Wear Test** — Corti glumi "umorenog igrača" i meri kada audio prelazi u "iritantno" posle 100/500/1000 spinova. Slot mašine žive od dugih sesija; audio mora da izdrži.
+- **Real-time A/B u produkciji** — produkcijski slot emituje 2 mix varijante, prikuplja player retention metrike, automatski bira winner. Audio postaje data-driven posle launch-a.
+
+### AI + Memory
+
+- **Cross-project style learn** — Corti prepoznaje "ovo zvuči kao Wrath of Olympus arc" i predlaže pattern preko više slot projekata.
+- **Personalized spatial HRTF per-user** — kamera snimak uha → ML generiše individual HRTF dataset (Apple radi to za AirPods Pro).
+
+### Ekosistem + monetizacija
+
+- **Style fingerprint marketplace** — kompozitori prodaju svoj `.style` potpis (iz V.4 persistent memory). Kupac dobija auto-mix u tom stilu. Ekosistem revenue za studio.
+- **Compositions-as-code** — slot kao `.ts` ili `.py` skript umesto JSON. Git diffable, peer-review-able, type-safe.
+
+### Compliance + budućnost
+
+- **Compliance as smart contract** — regulator verifikuje cryptographic proof bez pristupa projektu. Cryptographic manifest signed with private key.
+- **Quantum-safe compliance audit trail** — post-quantum signature na svaku manifest (CRYSTALS-Dilithium, Falcon). Manifest preživi i nakon kvantnog probojа.
 
 ---
 
