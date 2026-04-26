@@ -49,6 +49,10 @@ import '../services/gdd_import_service.dart';
 import '../src/rust/native_ffi.dart' show ForcedOutcome;
 import '../widgets/slot_lab/live_play_orb_overlay.dart';
 import '../widgets/slot_lab/premium_slot_preview.dart';
+// ── SPRINT 1 imports ──
+import '../widgets/common/flux_tooltip.dart';
+import '../widgets/helix/math_hud_overlay.dart';
+import '../widgets/helix/stub_tab_placeholder.dart';
 import '../models/game_flow_models.dart';
 import '../models/slot_audio_events.dart';
 // ── Faza 3 imports ──
@@ -97,6 +101,8 @@ class _HelixScreenState extends State<HelixScreen>
 
   // ── Spine overlay ─────────────────────────────────────────────────────────
   int? _spineOpen; // null=closed  0=audio 1=game 2=ai 3=settings 4=analytics
+  // SPRINT 1 SPEC-06 — Spine compact/expanded state.
+  bool _spineExpanded = false;
 
   // ── Stage glow ────────────────────────────────────────────────────────────
   late AnimationController _glowCtrl;
@@ -580,13 +586,63 @@ class _HelixScreenState extends State<HelixScreen>
   void _onKey(KeyEvent e) {
     if (e is! KeyDownEvent) return;
     final key = e.logicalKey;
+    final isShift = HardwareKeyboard.instance.isShiftPressed;
+    final isMeta  = HardwareKeyboard.instance.isMetaPressed;
+
     if (key == LogicalKeyboardKey.escape) {
       setState(() { _spineOpen = null; _mode = 0; _contextLensEvent = null; });
+      return;
     } else if (key == LogicalKeyboardKey.keyF) {
       setState(() => _mode = _mode == 1 ? 0 : 1);
+      return;
     } else if (key == LogicalKeyboardKey.keyA) {
       setState(() => _mode = _mode == 2 ? 0 : 2);
+      return;
     }
+
+    // SPRINT 1 SPEC-06 — Shift+Cmd+\\ toggles spine compact/expanded.
+    if (isShift && isMeta && key == LogicalKeyboardKey.backslash) {
+      setState(() => _spineExpanded = !_spineExpanded);
+      return;
+    }
+
+    // SPRINT 1 SPEC-17 — Stage trigger keyboard shortcuts in HELIX FLOW tab.
+    // Active only when FLOW dock tab (index 0) is selected; falls through
+    // to dock-tab nav otherwise so existing 1-9 behavior is preserved.
+    if (_dockTab == 0 && !isMeta) {
+      try {
+        final flow = context.read<GameFlowProvider>();
+        // Shift+letter triggers — manual feature triggers via existing API
+        if (isShift) {
+          if (key == LogicalKeyboardKey.keyS) {
+            flow.triggerManual(TransitionTrigger.featureBuy);
+            _showStageToast('FEATURE BUY');
+            return;
+          }
+          if (key == LogicalKeyboardKey.keyG) {
+            flow.triggerManual(TransitionTrigger.playerGamble);
+            _showStageToast('GAMBLE');
+            return;
+          }
+          if (key == LogicalKeyboardKey.keyC) {
+            flow.triggerManual(TransitionTrigger.playerCollect);
+            _showStageToast('COLLECT');
+            return;
+          }
+          if (key == LogicalKeyboardKey.keyJ) {
+            flow.triggerManual(TransitionTrigger.jackpotTriggered);
+            _showStageToast('JACKPOT');
+            return;
+          }
+          if (key == LogicalKeyboardKey.keyR) {
+            flow.triggerManual(TransitionTrigger.retrigger);
+            _showStageToast('RETRIGGER');
+            return;
+          }
+        }
+      } catch (_) {/* GameFlowProvider not available in this context */}
+    }
+
     // 1-9,0 → dock tabs (0 = tab 10), -/= → tabs 11/12
     final digit = int.tryParse(e.character ?? '');
     if (digit != null && digit >= 1 && digit <= 9) {
@@ -598,6 +654,45 @@ class _HelixScreenState extends State<HelixScreen>
     } else if (key == LogicalKeyboardKey.equal) {
       setState(() => _dockTab = 11);
     }
+  }
+
+  /// SPRINT 1 SPEC-17 — toast shown 1.5s bottom-center after a stage shortcut.
+  void _showStageToast(String stage) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.bolt_rounded, size: 16, color: FluxForgeTheme.brandGoldBright),
+            const SizedBox(width: 8),
+            Text(
+              'STAGE: $stage',
+              style: const TextStyle(
+                fontFamily: 'JetBrainsMono',
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: FluxForgeTheme.brandGoldBright,
+                letterSpacing: 1.4,
+              ),
+            ),
+          ],
+        ),
+        duration: const Duration(milliseconds: 1500),
+        backgroundColor: const Color(0xF20D0D12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(6),
+          side: BorderSide(
+            color: FluxForgeTheme.brandGold.withValues(alpha: 0.45),
+            width: 0.6,
+          ),
+        ),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.only(bottom: 32),
+        width: 200,
+      ),
+    );
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -835,11 +930,16 @@ class _HelixScreenState extends State<HelixScreen>
   Widget _buildSpine() {
     final icons = _spineIcons;
 
-    // Spine is just the icon column — overlay is rendered in the main Stack
-    return Container(
-      width: 48,
+    // SPRINT 1 SPEC-06 — Spine width animates between collapsed/expanded.
+    // Collapsed: 48px (icons only). Expanded: 112px (icons + labels under).
+    final spineWidth = _spineExpanded ? 112.0 : 48.0;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      width: spineWidth,
       decoration: const BoxDecoration(
-        color: FluxForgeTheme.bgDeepest, // #08080C = --abyss (matches mockup)
+        color: FluxForgeTheme.bgDeepest, // #08080C = --abyss
         border: Border(right: BorderSide(color: FluxForgeTheme.borderSubtle)),
       ),
       child: Column(
@@ -850,13 +950,48 @@ class _HelixScreenState extends State<HelixScreen>
             child: _SpineItem(
               icon: e.value.$1,
               label: e.value.$2,
+              shortcutHint: '⌘${e.key + 1}',
+              expanded: _spineExpanded,
               active: _spineOpen == e.key,
               onTap: () => setState(() =>
                 _spineOpen = _spineOpen == e.key ? null : e.key),
             ),
           )),
           const Spacer(),
-          const SizedBox(height: 12),
+          // SPRINT 1 SPEC-06 — collapse/expand toggle at the bottom.
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: FluxTooltip(
+              message: _spineExpanded ? 'Collapse spine' : 'Expand spine',
+              shortcutHint: '⇧⌘\\',
+              child: GestureDetector(
+                onTap: () => setState(() => _spineExpanded = !_spineExpanded),
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: FluxForgeTheme.bgVoid.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: FluxForgeTheme.borderSubtle,
+                        width: 0.6,
+                      ),
+                    ),
+                    child: Icon(
+                      _spineExpanded
+                        ? Icons.chevron_left_rounded
+                        : Icons.chevron_right_rounded,
+                      size: 18,
+                      color: FluxForgeTheme.textTertiary,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -953,6 +1088,14 @@ class _HelixScreenState extends State<HelixScreen>
               Positioned(
                 top: 56, right: 14,
                 child: IgnorePointer(child: _buildInfoChips()),
+              ),
+
+              // SPRINT 1 SPEC-10 — Floating Math HUD overlay (RTP / VOL / HIT / MAX).
+              // Always visible while user works in any HELIX dock tab.
+              // Positioned top-left so it doesn't clash with info chips top-right.
+              const Positioned(
+                top: 12, left: 12,
+                child: MathHudOverlay(),
               ),
 
               // Win line overlay — shows active paylines after spin
@@ -6574,20 +6717,27 @@ class _TransportBtnState extends State<_TransportBtn> {
 class _SpineItem extends StatefulWidget {
   final IconData icon;
   final String label;
+  final String? shortcutHint;   // SPRINT 1 SPEC-06
+  final bool expanded;          // SPRINT 1 SPEC-06
   final bool active;
   final VoidCallback onTap;
-  const _SpineItem({required this.icon, required this.label,
-    required this.active, required this.onTap});
+  const _SpineItem({
+    required this.icon,
+    required this.label,
+    required this.active,
+    required this.onTap,
+    this.shortcutHint,
+    this.expanded = false,
+  });
   @override
   State<_SpineItem> createState() => _SpineItemState();
 }
 class _SpineItemState extends State<_SpineItem> {
   bool _hovered = false;
   @override
-  Widget build(BuildContext context) => Tooltip(
-    message: widget.label,
-    preferBelow: false,
-    child: MouseRegion(
+  Widget build(BuildContext context) {
+    // SPRINT 1 SPEC-16 — FluxTooltip with shortcut hint.
+    final iconButton = MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
@@ -6616,8 +6766,42 @@ class _SpineItemState extends State<_SpineItem> {
               : _hovered ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary),
         ),
       ),
-    ),
-  );
+    );
+
+    // Wrap in FluxTooltip — only when collapsed (in expanded mode the label
+    // is already visible underneath, so a tooltip is redundant noise).
+    final tooltipped = widget.expanded
+        ? iconButton
+        : FluxTooltip(
+            message: widget.label,
+            shortcutHint: widget.shortcutHint,
+            preferBelow: false,
+            child: iconButton,
+          );
+
+    if (!widget.expanded) return tooltipped;
+
+    // SPRINT 1 SPEC-06 — expanded mode: icon + label centered below.
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        tooltipped,
+        const SizedBox(height: 4),
+        Text(
+          widget.label,
+          style: TextStyle(
+            fontSize: 8.5,
+            fontWeight: FontWeight.w700,
+            color: widget.active
+                ? FluxForgeTheme.accentBlue
+                : FluxForgeTheme.textTertiary,
+            letterSpacing: 1.0,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
 }
 
 class _SpineOverlay extends StatelessWidget {
