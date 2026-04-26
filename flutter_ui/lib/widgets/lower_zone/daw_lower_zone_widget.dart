@@ -323,6 +323,13 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
             // Multi-pane panel count
             panelCount: widget.controller.panelCount,
             onPanelCountChanged: widget.controller.setPanelCount,
+            // SPEC-02: EDIT tab 30 sub-tabs → 3 visual groups
+            // Group 1 (0-7): Core editing (Timeline→Elastic)
+            // Group 2 (8-17): Intelligent editing (BeatDet.→MarkerActions)
+            // Group 3 (18-29): Power tools (Granular→Sub-Proj)
+            subTabGroupBreaks: widget.controller.superTab == DawSuperTab.edit
+                ? const [7, 17]
+                : null,
           ),
           // Content panel (only when expanded)
           if (widget.controller.isExpanded) ...[

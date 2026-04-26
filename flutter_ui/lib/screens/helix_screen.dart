@@ -53,6 +53,8 @@ import '../widgets/slot_lab/premium_slot_preview.dart';
 import '../widgets/common/flux_tooltip.dart';
 import '../widgets/helix/math_hud_overlay.dart';
 import '../widgets/helix/stub_tab_placeholder.dart';
+// ── SPEC-14: Panel Focus ──
+import '../providers/panel_focus_provider.dart';
 import '../models/game_flow_models.dart';
 import '../models/slot_audio_events.dart';
 // ── Faza 3 imports ──
@@ -544,8 +546,16 @@ class _HelixScreenState extends State<HelixScreen>
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _buildSpine(),
-                      Expanded(child: _buildCanvas()),
+                      FocusablePanel(
+                        id: FocusPanelId.helixSpine,
+                        child: _buildSpine(),
+                      ),
+                      Expanded(
+                        child: FocusablePanel(
+                          id: FocusPanelId.helixCanvas,
+                          child: _buildCanvas(),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -554,7 +564,10 @@ class _HelixScreenState extends State<HelixScreen>
                 Consumer<GameFlowProvider>(
                   builder: (ctx, flow, _) => _buildStageRow(flow),
                 ),
-                if (_mode != 1) _buildDock(),
+                if (_mode != 1) FocusablePanel(
+                  id: FocusPanelId.helixDock,
+                  child: _buildDock(),
+                ),
               ],
             ),
           ),
@@ -1353,6 +1366,8 @@ class _HelixScreenState extends State<HelixScreen>
         children: [
           // Tab bar
           _buildDockTabBar(),
+          // SPEC-09: Quick Actions Strip — contextual per dock tab
+          _buildQuickActionsStrip(),
           // Panel content
           Expanded(child: Padding(
             padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
@@ -1361,6 +1376,241 @@ class _HelixScreenState extends State<HelixScreen>
         ],
       ),
     );
+  }
+
+  // ── SPEC-09: Quick Actions Strip ─────────────────────────────────────────
+  // 32px contextual strip beneath the dock tab bar.
+  // Each dock tab exposes its most-used actions inline, no digging into panels.
+  Widget _buildQuickActionsStrip() {
+    final actions = _quickActionsForTab(_dockTab);
+    if (actions.isEmpty) return const SizedBox.shrink();
+    return Container(
+      height: 32,
+      decoration: const BoxDecoration(
+        color: Color(0xFF0A0A10),
+        border: Border(
+          bottom: BorderSide(color: FluxForgeTheme.borderSubtle, width: 1),
+        ),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Row(
+          children: actions.map((a) => Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: _QuickActionPill(action: a),
+          )).toList(),
+        ),
+      ),
+    );
+  }
+
+  List<_QuickAction> _quickActionsForTab(int tab) {
+    switch (tab) {
+      case 0: // FLOW
+        return [
+          _QuickAction(
+            icon: Icons.play_arrow_rounded, label: 'SPIN',
+            color: FluxForgeTheme.accentBlue,
+            onTap: () {
+              try {
+                GetIt.instance<GameFlowProvider>().forceTransition(GameFlowState.baseGame);
+              } catch (_) {}
+            },
+          ),
+          _QuickAction(
+            icon: Icons.star_rounded, label: 'FREE',
+            color: FluxForgeTheme.accentYellow,
+            onTap: () {
+              try {
+                GetIt.instance<GameFlowProvider>().forceTransition(GameFlowState.freeSpins);
+              } catch (_) {}
+            },
+          ),
+          _QuickAction(
+            icon: Icons.emoji_events_rounded, label: 'JACKPOT',
+            color: FluxForgeTheme.accentOrange,
+            onTap: () {
+              try {
+                GetIt.instance<GameFlowProvider>().forceTransition(GameFlowState.jackpotPresentation);
+              } catch (_) {}
+            },
+          ),
+          _QuickAction(
+            icon: Icons.casino_rounded, label: 'BONUS',
+            color: FluxForgeTheme.accentPurple,
+            onTap: () {
+              try {
+                GetIt.instance<GameFlowProvider>().forceTransition(GameFlowState.bonusGame);
+              } catch (_) {}
+            },
+          ),
+          _QuickAction(
+            icon: Icons.restart_alt_rounded, label: 'RESET',
+            color: FluxForgeTheme.textTertiary,
+            onTap: () {
+              try {
+                GetIt.instance<GameFlowProvider>().forceTransition(GameFlowState.idle);
+              } catch (_) {}
+            },
+          ),
+        ];
+      case 1: // AUDIO
+        return [
+          _QuickAction(
+            icon: Icons.volume_off_rounded, label: 'MUTE ALL',
+            color: FluxForgeTheme.accentCyan,
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('AUDIO_MUTE_ALL'); } catch (_) {}
+            },
+          ),
+          _QuickAction(
+            icon: Icons.volume_up_rounded, label: 'UNMUTE',
+            color: FluxForgeTheme.accentCyan,
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('AUDIO_UNMUTE_ALL'); } catch (_) {}
+            },
+          ),
+          _QuickAction(
+            icon: Icons.stop_rounded, label: 'STOP ALL',
+            color: FluxForgeTheme.accentOrange,
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('AUDIO_STOP_ALL'); } catch (_) {}
+            },
+          ),
+          _QuickAction(
+            icon: Icons.refresh_rounded, label: 'RELOAD',
+            color: FluxForgeTheme.textTertiary,
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('AUDIO_RELOAD'); } catch (_) {}
+            },
+          ),
+        ];
+      case 2: // MATH
+        return [
+          _QuickAction(
+            icon: Icons.check_circle_outline_rounded, label: 'VERIFY RTP',
+            color: FluxForgeTheme.accentGreen,
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('MATH_VERIFY_RTP'); } catch (_) {}
+            },
+          ),
+          _QuickAction(
+            icon: Icons.calculate_rounded, label: 'RECALC',
+            color: FluxForgeTheme.accentCyan,
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('MATH_RECALCULATE'); } catch (_) {}
+            },
+          ),
+          _QuickAction(
+            icon: Icons.compare_rounded, label: 'COMPARE',
+            color: FluxForgeTheme.accentPurple,
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('MATH_COMPARE_BLUEPRINT'); } catch (_) {}
+            },
+          ),
+        ];
+      case 3: // TIMELINE
+        return [
+          _QuickAction(
+            icon: Icons.skip_previous_rounded, label: 'START',
+            color: FluxForgeTheme.textTertiary,
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('TIMELINE_GOTO_START'); } catch (_) {}
+            },
+          ),
+          _QuickAction(
+            icon: Icons.play_arrow_rounded, label: 'PLAY',
+            color: FluxForgeTheme.accentOrange,
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('TIMELINE_PLAY'); } catch (_) {}
+            },
+          ),
+          _QuickAction(
+            icon: Icons.stop_rounded, label: 'STOP',
+            color: FluxForgeTheme.accentOrange,
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('TIMELINE_STOP'); } catch (_) {}
+            },
+          ),
+          _QuickAction(
+            icon: Icons.fiber_manual_record_rounded, label: 'REC',
+            color: const Color(0xFFFF4060),
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('TIMELINE_RECORD'); } catch (_) {}
+            },
+          ),
+          _QuickAction(
+            icon: Icons.loop_rounded, label: 'LOOP',
+            color: FluxForgeTheme.accentCyan,
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('TIMELINE_TOGGLE_LOOP'); } catch (_) {}
+            },
+          ),
+        ];
+      case 4: // INTEL
+        return [
+          _QuickAction(
+            icon: Icons.analytics_rounded, label: 'ANALYZE',
+            color: FluxForgeTheme.accentPurple,
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('INTEL_ANALYZE'); } catch (_) {}
+            },
+          ),
+          _QuickAction(
+            icon: Icons.summarize_rounded, label: 'REPORT',
+            color: FluxForgeTheme.accentCyan,
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('INTEL_GENERATE_REPORT'); } catch (_) {}
+            },
+          ),
+          _QuickAction(
+            icon: Icons.delete_sweep_rounded, label: 'CLEAR',
+            color: FluxForgeTheme.textTertiary,
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('INTEL_CLEAR'); } catch (_) {}
+            },
+          ),
+        ];
+      case 5: // EXPORT
+        return [
+          _QuickAction(
+            icon: Icons.upload_file_rounded, label: 'EXPORT',
+            color: FluxForgeTheme.accentYellow,
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('EXPORT_QUICK'); } catch (_) {}
+            },
+          ),
+          _QuickAction(
+            icon: Icons.queue_music_rounded, label: 'STEMS',
+            color: FluxForgeTheme.accentCyan,
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('EXPORT_STEMS'); } catch (_) {}
+            },
+          ),
+          _QuickAction(
+            icon: Icons.preview_rounded, label: 'PREVIEW',
+            color: FluxForgeTheme.textTertiary,
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('EXPORT_PREVIEW'); } catch (_) {}
+            },
+          ),
+        ];
+      default:
+        // Faza 3 stubs — minimal actions
+        return [
+          _QuickAction(
+            icon: Icons.play_arrow_rounded, label: 'RUN',
+            color: FluxForgeTheme.textSecondary,
+            onTap: () {},
+          ),
+          _QuickAction(
+            icon: Icons.refresh_rounded, label: 'RESET',
+            color: FluxForgeTheme.textTertiary,
+            onTap: () {},
+          ),
+        ];
+    }
   }
 
   Widget _buildDockTabBar() {
@@ -9908,6 +10158,86 @@ class _ReelContextLensState extends State<_ReelContextLens> {
                       ),
                     ]),
                   )),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SPEC-09: Quick Action pill data + widget
+// ─────────────────────────────────────────────────────────────────────────────
+
+@immutable
+class _QuickAction {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+  const _QuickAction({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+}
+
+class _QuickActionPill extends StatefulWidget {
+  final _QuickAction action;
+  const _QuickActionPill({required this.action});
+  @override
+  State<_QuickActionPill> createState() => _QuickActionPillState();
+}
+
+class _QuickActionPillState extends State<_QuickActionPill> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: widget.action.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: _hovered
+                ? widget.action.color.withOpacity(0.12)
+                : const Color(0xFF14141E),
+            border: Border.all(
+              color: _hovered
+                  ? widget.action.color.withOpacity(0.5)
+                  : const Color(0xFF2A2A38),
+              width: 1,
+            ),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(widget.action.icon,
+                size: 11,
+                color: _hovered
+                    ? widget.action.color
+                    : widget.action.color.withOpacity(0.65),
+              ),
+              const SizedBox(width: 4),
+              Text(widget.action.label,
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 9,
+                  letterSpacing: 0.5,
+                  fontWeight: FontWeight.w600,
+                  color: _hovered
+                      ? widget.action.color
+                      : widget.action.color.withOpacity(0.65),
                 ),
               ),
             ],
