@@ -3507,7 +3507,7 @@ pub extern "C" fn slot_lab_export(
     project_json_ptr: *const c_char,
     format_ptr: *const c_char,
 ) -> *mut c_char {
-    if project_json_ptr.is_null() { return ptr::null_mut(); }
+    if project_json_ptr.is_null() || format_ptr.is_null() { return ptr::null_mut(); }
 
     use rf_slot_export::{
         FluxForgeExportProject, ExportTarget,

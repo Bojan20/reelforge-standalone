@@ -15949,6 +15949,10 @@ pub extern "C" fn render_selection_to_new_clip(
 ) -> u64 {
     use crate::track_manager::{ClipFxChain, ClipWarpState};
 
+    if output_path.is_null() {
+        return 0;
+    }
+
     // First render to file
     if render_in_place(track_id, start_time, end_time, output_path, bit_depth, 0) == 0 {
         return 0;

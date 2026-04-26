@@ -107,6 +107,9 @@ extern "C" fn scan_callback(
     subtype: u32,
     mfr_code: u32,
 ) {
+    if name.is_null() {
+        return;
+    }
     let name_str = unsafe { CStr::from_ptr(name) }
         .to_string_lossy()
         .to_string();

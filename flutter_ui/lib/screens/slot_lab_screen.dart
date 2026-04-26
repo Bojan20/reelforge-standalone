@@ -55,6 +55,7 @@ import 'package:provider/provider.dart';
 import '../services/native_file_picker.dart';
 import '../services/audio_playback_service.dart';
 import '../providers/middleware_provider.dart';
+import '../providers/selection_provider.dart';
 import '../providers/stage_provider.dart';
 import 'package:get_it/get_it.dart';
 import '../providers/slot_lab/slot_lab_coordinator.dart';
@@ -459,7 +460,20 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   final Map<String, ValueNotifier<bool>> _eventExpandedNotifiers = {};
   // Legacy — kept for backward compat with code that reads the map
   final ValueNotifier<Map<String, bool>> _eventExpandedNotifier = ValueNotifier<Map<String, bool>>({});
-  String? _selectedEventId;
+  // Storage backing for `_selectedEventId` getter/setter. The setter side-effects
+  // SelectionProvider so the global ContextualInspector reflects the SlotLab
+  // selection (SPEC-03 wire-up). Reads/writes elsewhere still use _selectedEventId.
+  String? _selectedEventIdStorage;
+  String? get _selectedEventId => _selectedEventIdStorage;
+  set _selectedEventId(String? v) {
+    _selectedEventIdStorage = v;
+    final sel = GetIt.instance<SelectionProvider>();
+    if (v == null) {
+      if (sel.selection.isSlotStage) sel.clear();
+    } else {
+      sel.selectSlotStage(v);
+    }
+  }
   /// Local notifier for composite event selection — avoids MiddlewareProvider.notifyListeners
   /// which triggers expensive Consumer3 rebuild of entire event list.
   final ValueNotifier<String?> _selectedCompositeEventNotifier = ValueNotifier<String?>(null);

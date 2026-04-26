@@ -59,7 +59,8 @@ type Lv2DescriptorFn = unsafe extern "C" fn(index: u32) -> *const Lv2PluginDescr
 
 /// URID (URI → integer) mapping table
 /// Thread-safe, global lifetime — plugins expect this to outlive them
-use std::sync::Mutex;
+/// BUG#32: parking_lot::Mutex used (no poisoning, no Result wrapping)
+use parking_lot::Mutex;
 use std::sync::LazyLock;
 
 static URID_MAP: LazyLock<Mutex<UridMapState>> = LazyLock::new(|| {
@@ -117,8 +118,8 @@ struct Lv2UridUnmap {
 unsafe extern "C" fn urid_map_callback(_handle: *mut c_void, uri: *const c_char) -> u32 {
     if uri.is_null() { return 0; }
     let uri_str = unsafe { CStr::from_ptr(uri) }.to_string_lossy().to_string();
-    // BUG#32 FIX: recover from mutex poison instead of crashing the host
-    let mut map = URID_MAP.lock().unwrap_or_else(|e| e.into_inner());
+    // BUG#32: parking_lot::Mutex — no poisoning possible
+    let mut map = URID_MAP.lock();
     if let Some(&id) = map.uri_to_id.get(&uri_str) {
         return id;
     }
@@ -132,8 +133,8 @@ unsafe extern "C" fn urid_map_callback(_handle: *mut c_void, uri: *const c_char)
 /// URID unmap callback — called by plugins to get URI from integer
 unsafe extern "C" fn urid_unmap_callback(_handle: *mut c_void, urid: u32) -> *const c_char {
     if urid == 0 { return std::ptr::null(); }
-    // BUG#32 FIX: recover from mutex poison instead of crashing the host
-    let map = URID_MAP.lock().unwrap_or_else(|e| e.into_inner());
+    // BUG#32: parking_lot::Mutex — no poisoning possible
+    let map = URID_MAP.lock();
     let idx = (urid - 1) as usize;
     if idx < map.id_to_uri.len() {
         // Return pointer to CString in a thread-local (stable for duration of plugin call)
