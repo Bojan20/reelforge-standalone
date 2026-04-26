@@ -1207,6 +1207,70 @@ impl StageLibrary {
             tags: vec!["feature".into(), "transition".into()],
             overridable: true,
         });
+
+        // FsSummary — Free Spins / feature summary screen.
+        // Plays over the exit transition plaque showing total feature win,
+        // spins played, retrigger count. Soft sting + rollup accent.
+        self.register(StageEnvelope {
+            stage_type: "fs_summary".into(),
+            description: "Feature summary screen — sting plays during \
+                          \"You won X coins in Y spins\" plaque".into(),
+            category: StageCategory::Feature,
+            playback: PlaybackMode::OneShot,
+            layer: AudioLayer::Mechanics,
+            priority: 70,
+            timing: AudioTiming {
+                attack_ms: 60.0,
+                sustain: false,
+                release_ms: 800.0,
+                attack_curve: FadeCurve::Linear,
+                release_curve: FadeCurve::SCurve,
+                min_duration_ms: 1_500.0,
+                ..Default::default()
+            },
+            // Duck lower-priority layers (music + ambient) so the summary sting reads cleanly
+            ducking: DuckBehavior::DuckBelow(0.4),
+            volume: 0.75,
+            pan: 0.0,
+            stopped_by: vec!["ui_skip_press".into()],
+            cancels: vec![],
+            compliance: ComplianceFlags::win_stage(),
+            visual: VisualHint {
+                animation: Some("fs_summary_plaque".into()),
+                bg_dim: 0.3,
+                ..Default::default()
+            },
+            asset_pattern: Some("features/{feature_type}/summary".into()),
+            tags: vec!["feature".into(), "summary".into(), "win_present".into()],
+            overridable: true,
+        });
+
+        // UiSkipPress — user pressed skip during win presentation / summary.
+        // Light UI click on regular skips; warmer sting on big-win skip
+        // (audio_naming.rs branches on was_big_win to choose asset).
+        self.register(StageEnvelope {
+            stage_type: "ui_skip_press".into(),
+            description: "User pressed SKIP during win presentation or \
+                          feature summary — fast UI click stinger".into(),
+            category: StageCategory::UI,
+            playback: PlaybackMode::OneShot,
+            layer: AudioLayer::UI,
+            priority: 80,
+            timing: AudioTiming::stinger(150.0),
+            ducking: DuckBehavior::None,
+            volume: 0.55,
+            pan: 0.0,
+            stopped_by: vec![],
+            cancels: vec![],
+            compliance: ComplianceFlags::none(),
+            visual: VisualHint {
+                animation: Some("ui_skip_flash".into()),
+                ..Default::default()
+            },
+            asset_pattern: Some("ui/skip_press".into()),
+            tags: vec!["ui".into(), "skip".into(), "user_action".into()],
+            overridable: true,
+        });
     }
 
     // ─── CASCADE ───────────────────────────────────────────────────────

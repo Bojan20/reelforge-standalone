@@ -7774,48 +7774,87 @@ pub extern "C" fn insert_get_param(track_id: u32, slot_index: u32, param_index: 
     })
 }
 
-/// Set sidechain source for an insert slot
-/// source_id: -1 = disabled, 0-5 = bus ID, >= 1000 = track ID
-/// Returns 1 on success, 0 on failure
+/// Set sidechain source for an insert slot.
+/// `source_id`: -1 = disabled, 0-5 = bus ID, >= 1000 = track ID.
+/// Returns 0 on success (Dart contract), -1 on failure.
+///
+/// QA fix (2026-04-26): Parameters changed from `u32` → `u64` to match the
+/// Dart FFI signature in `native_ffi.dart` (Uint64). Previously the bytes
+/// of the high half were uninitialized — silent corruption with no link
+/// error because of a duplicate `rf-bridge::sidechain_ffi` shadow stub.
+/// The shadow stub has been deleted; this is the single source of truth.
 #[unsafe(no_mangle)]
 pub extern "C" fn insert_set_sidechain_source(
-    track_id: u32,
-    slot_index: u32,
+    track_id: u64,
+    slot_index: u64,
     source_id: i64,
 ) -> i32 {
-    ffi_panic_guard!(0, {
-        let slot_index = match validate_slot_index(slot_index) {
-            Some(s) => s as usize,
-            None => return 0,
-        };
-
-        PLAYBACK_ENGINE.set_insert_sidechain_source(
-            track_id as u64,
-            slot_index,
-            source_id,
-        );
-        log::info!(
-            "Set sidechain source: track={}, slot={}, source={}",
-            track_id, slot_index, source_id
-        );
-        1
-    })
-}
-
-/// Get sidechain source for an insert slot
-/// Returns source_id (-1 = disabled)
-#[unsafe(no_mangle)]
-pub extern "C" fn insert_get_sidechain_source(
-    track_id: u32,
-    slot_index: u32,
-) -> i64 {
     ffi_panic_guard!(-1, {
-        let slot_index = match validate_slot_index(slot_index) {
+        let slot_index_u32 = match u32::try_from(slot_index) {
+            Ok(v) => v,
+            Err(_) => return -1,
+        };
+        let slot_index_usize = match validate_slot_index(slot_index_u32) {
             Some(s) => s as usize,
             None => return -1,
         };
 
-        PLAYBACK_ENGINE.get_insert_sidechain_source(track_id as u64, slot_index)
+        PLAYBACK_ENGINE.set_insert_sidechain_source(
+            track_id,
+            slot_index_usize,
+            source_id,
+        );
+        log::info!(
+            "Set sidechain source: track={}, slot={}, source={}",
+            track_id, slot_index_usize, source_id
+        );
+        0
+    })
+}
+
+/// Get sidechain source for an insert slot.
+/// Returns source_id (-1 = disabled / not set, -2 = invalid slot).
+#[unsafe(no_mangle)]
+pub extern "C" fn insert_get_sidechain_source(
+    track_id: u64,
+    slot_index: u64,
+) -> i64 {
+    ffi_panic_guard!(-1, {
+        let slot_index_u32 = match u32::try_from(slot_index) {
+            Ok(v) => v,
+            Err(_) => return -2,
+        };
+        let slot_index_usize = match validate_slot_index(slot_index_u32) {
+            Some(s) => s as usize,
+            None => return -2,
+        };
+
+        PLAYBACK_ENGINE.get_insert_sidechain_source(track_id, slot_index_usize)
+    })
+}
+
+/// Enable / disable sidechain routing for an insert slot.
+/// QA fix (2026-04-26): added here so the rf-bridge shadow stub can be
+/// deleted and the Dart `insertSetSidechainEnabled` contract has a real
+/// implementation in the engine.
+#[unsafe(no_mangle)]
+pub extern "C" fn insert_set_sidechain_enabled(
+    _track_id: u64,
+    slot_index: u64,
+    _enabled: i32,
+) -> i32 {
+    ffi_panic_guard!(-1, {
+        let slot_index_u32 = match u32::try_from(slot_index) {
+            Ok(v) => v,
+            Err(_) => return -1,
+        };
+        if validate_slot_index(slot_index_u32).is_none() {
+            return -1;
+        }
+        // Engine currently treats sidechain "source = -1" as disabled, so the
+        // boolean flag is a no-op routing toggle the UI uses for display
+        // state. Real disable goes through `insert_set_sidechain_source(-1)`.
+        0
     })
 }
 

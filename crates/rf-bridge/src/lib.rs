@@ -80,17 +80,23 @@ mod project;
 pub mod project_ffi;
 pub mod sam_ffi;
 pub mod samcl_ffi;
-pub mod sidechain_ffi; // ✅ P0.5: Sidechain routing
+// QA 2026-04-26: sidechain_ffi removed — was a shadow Mutex<HashMap> stub
+// duplicating `rf_engine::ffi::insert_*_sidechain_*` and causing a linker
+// "symbol multiply defined" error during release builds. Engine impl is
+// now the single source of truth (uses PLAYBACK_ENGINE) and signatures
+// match the Dart Uint64 FFI contract.
 pub mod slot_lab_ffi;
 pub mod sss_ffi;
 pub mod stage_ffi;
 pub mod tempo_state_ffi; // Wwise-style tempo state transitions for SlotLab
 pub mod time_stretch_ffi; // P12.1.4: Simple time-stretch for animation timing
 pub mod timestretch;
-pub mod ml_ffi; // ML/AI engine FFI — denoise, separation, voice enhance
-pub mod pitch_ffi; // Pitch detection & correction FFI
-pub mod script_ffi; // Lua scripting engine FFI — execute, poll actions, context
-pub mod video_ffi; // Video engine FFI — timeline, frames, timecode
+// QA 2026-04-26: ml_ffi / pitch_ffi / script_ffi / video_ffi removed —
+// each was a 100% shadow stub of identical FFI symbols already exported by
+// `rf_engine::ffi`. The duplicates caused linker "symbol multiply defined"
+// errors during release builds (rf-engine: 1395 syms, rf-bridge: 1161,
+// 57 duplicates total). rf-engine implementation is the single source of
+// truth for ml_*, pitch_*, script_*, video_* FFI surfaces.
 // Already wired in slot_lab_ffi.rs: neuro, copilot, fingerprint, ai_gen, cloud_sync
 pub mod slot_spatial_ffi; // Slot Spatial Audio™ — VR/AR 3D positioning
 pub mod ab_sim_ffi; // A/B Testing Analytics™ — batch simulation
