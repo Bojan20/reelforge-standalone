@@ -1,0 +1,66 @@
+{
+  "recorded_at": "2026-04-26T15:49:48.995979+00:00",
+  "threshold": 10,
+  "screens": [
+    {
+      "path": "tools/cortex_e2e/baselines/00_initial.png",
+      "size_bytes": 1820107,
+      "resolution": "3600x2196",
+      "phash": "fddd7ddc04820323",
+      "ahash": "d8d8800666676701",
+      "dhash": "323028c4c4d5cfa3",
+      "key": "00_initial",
+      "description": "App at launch / current state"
+    },
+    {
+      "path": "tools/cortex_e2e/baselines/01_daw_compose.png",
+      "size_bytes": 1793764,
+      "resolution": "3600x2196",
+      "phash": "fd5c7ddc14a203a2",
+      "ahash": "98d8800666676701",
+      "dhash": "323028c4c4d7cfa3",
+      "key": "01_daw_compose",
+      "description": "DAW Composition layout (Cmd+Shift+1)"
+    },
+    {
+      "path": "tools/cortex_e2e/baselines/02_daw_focus.png",
+      "size_bytes": 1824333,
+      "resolution": "3600x2196",
+      "phash": "fdddfddc04820322",
+      "ahash": "d8d8800466670301",
+      "dhash": "323028c4c4d5cfa3",
+      "key": "02_daw_focus",
+      "description": "DAW Focus layout (Cmd+Shift+2)"
+    },
+    {
+      "path": "tools/cortex_e2e/baselines/03_daw_mixing.png",
+      "size_bytes": 1786419,
+      "resolution": "3600x2196",
+      "phash": "fd5c7ddc14a203a2",
+      "ahash": "98d8800666676701",
+      "dhash": "323028c4c4d7cfa3",
+      "key": "03_daw_mixing",
+      "description": "DAW Mixing layout (Cmd+Shift+3)"
+    },
+    {
+      "path": "tools/cortex_e2e/baselines/04_helix_mini.png",
+      "size_bytes": 1820107,
+      "resolution": "3600x2196",
+      "phash": "fddd7ddc04820323",
+      "ahash": "d8d8800666676701",
+      "dhash": "323028c4c4d5cfa3",
+      "key": "04_helix_mini",
+      "description": "HELIX mini-mode toggle (Cmd+Shift+M)"
+    },
+    {
+      "path": "tools/cortex_e2e/baselines/05_helix_full.png",
+      "size_bytes": 1799724,
+      "resolution": "3600x2196",
+      "phash": "fddd7ddc048203a2",
+      "ahash": "98d8800666676701",
+      "dhash": "323028c4c4d7cfa3",
+      "key": "05_helix_full",
+      "description": "HELIX expand back (Cmd+Shift+M again)"
+    }
+  ]
+}
