@@ -55,6 +55,7 @@ import '../widgets/helix/math_hud_overlay.dart';
 import '../widgets/helix/stub_tab_placeholder.dart';
 // ── SPEC-14: Panel Focus ──
 import '../providers/panel_focus_provider.dart';
+import '../widgets/helix/quick_assign_hotbar.dart';
 import '../models/game_flow_models.dart';
 import '../models/slot_audio_events.dart';
 // ── Faza 3 imports ──
@@ -542,6 +543,8 @@ class _HelixScreenState extends State<HelixScreen>
             child: Column(
               children: [
                 _buildOmnibar(),
+                // SPRINT 3 SPEC-13 — Quick Assign Hotbar (visible only in ASSIGN spine)
+                QuickAssignHotbar(visible: _spineOpen == 0),
                 Expanded(
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,

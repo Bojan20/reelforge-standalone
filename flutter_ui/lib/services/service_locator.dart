@@ -146,6 +146,7 @@ import '../providers/recording_provider.dart';
 import '../providers/routing_provider.dart';
 import '../providers/keyboard_focus_provider.dart';
 import '../providers/panel_focus_provider.dart';
+import '../providers/selection_provider.dart';
 import '../providers/edit_mode_pro_provider.dart';
 import '../providers/smart_tool_provider.dart';
 import '../providers/razor_edit_provider.dart';
@@ -980,6 +981,9 @@ class ServiceLocator {
 
     // SPEC-14: Panel Focus Provider — tracks active panel for keyboard routing
     sl.registerLazySingleton<PanelFocusProvider>(() => PanelFocusProvider());
+
+    // SPEC-03/04: Selection Provider — single source of truth for adaptive UI
+    sl.registerLazySingleton<SelectionProvider>(() => SelectionProvider());
 
     // Initialize plugin alternatives registry
     PluginAlternativesRegistry.instance.initBuiltInAlternatives();

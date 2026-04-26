@@ -121,6 +121,42 @@ class SlotLabProjectProvider extends ChangeNotifier {
   String? _audioBrowserDirectory;
 
   // ==========================================================================
+  // SPEC-13: QUICK ASSIGN HOTBAR (5 pinned audio paths for HELIX ASSIGN mode)
+  // ==========================================================================
+
+  /// 5 hotbar slots — each holds an audio asset path or null (empty slot).
+  /// Used by HELIX QuickAssignHotbar widget for one-tap drop targets.
+  List<String?> _hotbarBindings = List<String?>.filled(5, null);
+
+  /// Read-only view of hotbar bindings.
+  List<String?> get hotbarBindings => List.unmodifiable(_hotbarBindings);
+
+  /// Bind audio path to hotbar slot [slotIndex] (0-4). Replaces existing.
+  void bindHotbarSlot(int slotIndex, String audioPath) {
+    if (slotIndex < 0 || slotIndex >= _hotbarBindings.length) return;
+    if (_hotbarBindings[slotIndex] == audioPath) return;
+    _hotbarBindings[slotIndex] = audioPath;
+    _isDirty = true;
+    notifyListeners();
+  }
+
+  /// Clear hotbar slot [slotIndex] (0-4).
+  void unbindHotbarSlot(int slotIndex) {
+    if (slotIndex < 0 || slotIndex >= _hotbarBindings.length) return;
+    if (_hotbarBindings[slotIndex] == null) return;
+    _hotbarBindings[slotIndex] = null;
+    _isDirty = true;
+    notifyListeners();
+  }
+
+  /// Bulk-replace all hotbar bindings (used for project load).
+  void setHotbarBindings(List<String?> bindings) {
+    if (bindings.length != _hotbarBindings.length) return;
+    _hotbarBindings = List<String?>.from(bindings);
+    notifyListeners();
+  }
+
+  // ==========================================================================
   // GDD IMPORT STATE (V8)
   // ==========================================================================
 
