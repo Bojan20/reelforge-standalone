@@ -696,7 +696,7 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
     // so dB values and peak bars stay live even without DSP state changes.
     return ValueListenableBuilder<int>(
       valueListenable: _frame,
-      builder: (_, __, ___) => Padding(
+      builder: (_, _, _) => Padding(
         padding: EdgeInsets.symmetric(horizontal: _cardPadH),
         child: Column(
           mainAxisSize: MainAxisSize.min,

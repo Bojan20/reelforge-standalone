@@ -1964,7 +1964,7 @@ class _FlowPanelState extends State<_FlowPanel> {
     final fc = GetIt.instance<FeatureComposerProvider>();
     return ListenableBuilder(
       listenable: fc,
-      builder: (_, __) {
+      builder: (_, _) {
         final mechanics = fc.mechanicStates;
         final stages = fc.composedStages;
         final coreCount = fc.coreStageCount;
@@ -7518,7 +7518,7 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
       // 3. Build event with trigger stage
       final event = SlotCompositeEvent(
         id: stage != null ? 'audio_${stage}' : 'drop_$ts',
-        name: stage != null ? stage : name,
+        name: stage ?? name,
         category: stage != null
             ? StageConfigurationService.instance.getCategoryLabel(stage)
             : 'custom',

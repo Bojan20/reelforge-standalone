@@ -676,7 +676,7 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
   }
 
   /// Duplicate channel — adds a new layer to the same composite event with
-  /// the same audio path and a "<name> copy" suffix. Used by the radial
+  /// the same audio path and a `<name> copy` suffix. Used by the radial
   /// quick-action menu (long-press). Volume/pan/sends start at defaults
   /// deliberately — deep-copy of all params can be done by the user once
   /// they tweak, or added later if proven necessary.

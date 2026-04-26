@@ -495,7 +495,7 @@ class AutoBindEngine {
     }
 
     // All normalization candidates, de-duplicated
-    final candidates = <String>[
+    final candidates = <String>{
       _stripSfx(stripped),
       if (stripped != _stripSfx(stripped)) stripped,
       _stripSfx(noVariant),
@@ -503,7 +503,7 @@ class AutoBindEngine {
       if (noVariant != _stripSfx(noVariant)) noVariant,
       if (noLevel != _stripSfx(noVariant)) noLevel,
       base,
-    ].toSet().toList();
+    }.toList();
 
     _ScoreResult? best;
 

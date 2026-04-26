@@ -188,7 +188,6 @@ import 'mixer_screen.dart';
 import '../widgets/mixer/floating_mixer_window.dart';
 import '../widgets/toolbar/adaptive_toolbar.dart';
 import '../widgets/inspector/contextual_inspector.dart';
-import '../services/workspace_preset_service.dart';
 import '../providers/selection_memory_provider.dart';
 
 /// PERFORMANCE: Data class for Timeline Selector - only rebuilds when transport values change

@@ -16,7 +16,7 @@
 ///   - ANALYZING: spinning arc, ikona se menja
 ///   - DONE: full green fill, check ikona, X/Y broj
 ///   - ERROR: red flash
-library neural_bind_orb;
+library;
 
 import 'dart:async';
 import 'dart:io';
@@ -323,7 +323,7 @@ class _NeuralBindOrbState extends State<NeuralBindOrb>
       height: _state == _OrbState.dragHover ? s * 1.3 : s,
       child: AnimatedBuilder(
         animation: Listenable.merge([_pulseAnim, _spinCtl, _flashAnim]),
-        builder: (_, __) => CustomPaint(
+        builder: (_, _) => CustomPaint(
           painter: _OrbPainter(
             state: _state,
             pulseValue: _pulseAnim.value,
@@ -847,7 +847,7 @@ class _NeuralBindSheetState extends State<NeuralBindSheet>
       final provider = GetIt.instance<SlotLabProjectProvider>();
       return AnimatedBuilder(
         animation: provider,
-        builder: (_, __) => Padding(
+        builder: (_, _) => Padding(
           padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
           child: GhostStageIndicator(
             audioAssignments: provider.audioAssignments,
@@ -945,7 +945,7 @@ class _NeuralVizState extends State<_NeuralViz> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _waveCtl,
-      builder: (_, __) => CustomPaint(
+      builder: (_, _) => CustomPaint(
         painter: _NeuralVizPainter(
           nodes: widget.nodes,
           waveValue: _waveCtl.value,
