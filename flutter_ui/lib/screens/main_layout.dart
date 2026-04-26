@@ -602,8 +602,6 @@ class _MainLayoutState extends State<MainLayout>
     return Column(
       children: [
         // Control Bar - use custom if provided (for performance isolation)
-        // SPEC-04: Adaptive Toolbar — contextual actions row
-        if (widget.adaptiveToolbar != null) widget.adaptiveToolbar!,
         widget.customControlBar ?? ControlBar(
           editorMode: widget.editorMode,
           onEditorModeChange: widget.onEditorModeChange,
@@ -662,6 +660,9 @@ class _MainLayoutState extends State<MainLayout>
                 )
               : null,
         ),
+
+        // SPEC-04: Adaptive Toolbar — contextual actions below control bar
+        if (widget.adaptiveToolbar != null) widget.adaptiveToolbar!,
 
         // Main Content Area
         Expanded(

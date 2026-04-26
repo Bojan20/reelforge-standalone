@@ -189,6 +189,7 @@ import '../widgets/mixer/floating_mixer_window.dart';
 import '../widgets/toolbar/adaptive_toolbar.dart';
 import '../widgets/inspector/contextual_inspector.dart';
 import '../services/workspace_preset_service.dart';
+import '../providers/selection_memory_provider.dart';
 
 /// PERFORMANCE: Data class for Timeline Selector - only rebuilds when transport values change
 class _TimelineTransportData {
@@ -703,6 +704,18 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
       // Initialize P2 search providers with data callbacks
       _initializeP2SearchProviders();
+
+      // SPEC-15: Wire Selection Memory restore callback
+      sl<SelectionMemoryProvider>().onApply = (slot) {
+        if (!mounted) return;
+        setState(() {
+          _leftVisible = slot.leftVisible;
+          _rightVisible = slot.rightVisible;
+          _lowerVisible = slot.lowerVisible;
+          _timelineZoom = slot.timelineZoom;
+        });
+        _showSnackBar('🔄 ${slot.name} restored');
+      };
 
       // Wire up all keyboard shortcuts
       final shortcuts = context.read<GlobalShortcutsProvider>();
@@ -6352,6 +6365,39 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                   _dawLowerZoneFullscreen) {
                 setState(() => _dawLowerZoneFullscreen = false);
                 return KeyEventResult.handled;
+              }
+              // SPEC-15: Cmd+[1-9] = restore slot, Cmd+Shift+[1-9] = save slot
+              if (event is KeyDownEvent &&
+                  (HardwareKeyboard.instance.isMetaPressed ||
+                   HardwareKeyboard.instance.isControlPressed) &&
+                  _editorMode == EditorMode.daw) {
+                final digitKeys = [
+                  LogicalKeyboardKey.digit1, LogicalKeyboardKey.digit2,
+                  LogicalKeyboardKey.digit3, LogicalKeyboardKey.digit4,
+                  LogicalKeyboardKey.digit5, LogicalKeyboardKey.digit6,
+                  LogicalKeyboardKey.digit7, LogicalKeyboardKey.digit8,
+                  LogicalKeyboardKey.digit9,
+                ];
+                final idx = digitKeys.indexOf(event.logicalKey);
+                if (idx >= 0) {
+                  final mem = sl<SelectionMemoryProvider>();
+                  if (HardwareKeyboard.instance.isShiftPressed) {
+                    // Save slot
+                    mem.saveSlot(
+                      index: idx,
+                      leftVisible: _leftVisible,
+                      rightVisible: _rightVisible,
+                      lowerVisible: _lowerVisible,
+                      timelineZoom: _timelineZoom,
+                      previewLabel: 'DAW • ${_editorMode.name}',
+                    );
+                    _showSnackBar('💾 Slot ${idx + 1} sačuvan');
+                  } else {
+                    // Restore slot
+                    mem.restoreSlot(idx);
+                  }
+                  return KeyEventResult.handled;
+                }
               }
               return KeyEventResult.ignored;
             },

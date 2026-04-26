@@ -85,6 +85,7 @@ import 'providers/ab_sim_provider.dart';
 import 'providers/slot_export_provider.dart';
 import 'providers/sfx_pipeline_provider.dart';
 import 'providers/selection_provider.dart';
+import 'providers/selection_memory_provider.dart';
 import 'utils/path_validator.dart';
 import 'dart:io';
 import 'package:path/path.dart' as p;
@@ -158,6 +159,9 @@ void main() async {
 
   // Initialize Workspace Preset Service (layout presets)
   await WorkspacePresetService.instance.init();
+
+  // Initialize Selection Memory Service (SPEC-15: Cmd+1..9 layout slots)
+  await sl<SelectionMemoryProvider>().init();
 
   // Initialize Localization Service (P3-08)
   await LocalizationService.instance.init();
@@ -449,6 +453,11 @@ class FluxForgeApp extends StatelessWidget {
         // SPEC-03/04: Selection Provider — single source of truth for adaptive UI
         ChangeNotifierProvider<SelectionProvider>.value(
           value: sl<SelectionProvider>(),
+        ),
+
+        // SPEC-15: Selection Memory Provider — layout snapshot slots (Cmd+1..9)
+        ChangeNotifierProvider<SelectionMemoryProvider>.value(
+          value: sl<SelectionMemoryProvider>(),
         ),
       ],
       child: RepaintBoundary(
