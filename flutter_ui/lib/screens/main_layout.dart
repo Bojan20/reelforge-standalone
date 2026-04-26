@@ -37,6 +37,12 @@ class MainLayout extends StatefulWidget {
   // on every transport state change
   final Widget? customControlBar;
 
+  // SPEC-04: Adaptive toolbar rendered below control bar (contextual actions)
+  final Widget? adaptiveToolbar;
+
+  // SPEC-03: Right zone contextual inspector content
+  final Widget? rightInspectorContent;
+
   // Control bar props (used only if customControlBar is null)
   final EditorMode editorMode;
   final ValueChanged<EditorMode>? onEditorModeChange;
@@ -152,6 +158,8 @@ class MainLayout extends StatefulWidget {
     super.key,
     // Custom control bar (replaces default ControlBar for performance)
     this.customControlBar,
+    this.adaptiveToolbar,
+    this.rightInspectorContent,
     // Control bar (used only if customControlBar is null)
     this.editorMode = EditorMode.daw,
     this.onEditorModeChange,
@@ -594,6 +602,8 @@ class _MainLayoutState extends State<MainLayout>
     return Column(
       children: [
         // Control Bar - use custom if provided (for performance isolation)
+        // SPEC-04: Adaptive Toolbar — contextual actions row
+        if (widget.adaptiveToolbar != null) widget.adaptiveToolbar!,
         widget.customControlBar ?? ControlBar(
           editorMode: widget.editorMode,
           onEditorModeChange: widget.onEditorModeChange,
@@ -741,7 +751,19 @@ class _MainLayoutState extends State<MainLayout>
                 ),
               ),
 
-              // Right Zone removed — SlotLab has dedicated panel (EventsPanelWidget)
+              // SPEC-03: Contextual Inspector — right zone adaptive panel
+              if (widget.rightInspectorContent != null && (_rightVisible))
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeInOut,
+                  width: _rightVisible ? 260 : 0,
+                  clipBehavior: Clip.hardEdge,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF0D0D14),
+                    border: Border(left: BorderSide(color: Color(0xFF1E1E28), width: 1)),
+                  ),
+                  child: widget.rightInspectorContent,
+                ),
             ],
           ),
         ),

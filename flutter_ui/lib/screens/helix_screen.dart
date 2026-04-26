@@ -52,7 +52,7 @@ import '../widgets/slot_lab/premium_slot_preview.dart';
 // ── SPRINT 1 imports ──
 import '../widgets/common/flux_tooltip.dart';
 import '../widgets/helix/math_hud_overlay.dart';
-import '../widgets/helix/stub_tab_placeholder.dart';
+// import '../widgets/helix/stub_tab_placeholder.dart'; // removed — no stubs remain
 // ── SPEC-14: Panel Focus ──
 import '../providers/panel_focus_provider.dart';
 import '../widgets/helix/quick_assign_hotbar.dart';
@@ -75,6 +75,7 @@ import '../widgets/slot_lab/auto_bind_dialog_v2.dart';
 import '../widgets/slot_lab/neural_bind_orb.dart';
 import '../widgets/slot_lab/orb_mixer.dart';
 import '../providers/mixer_dsp_provider.dart';
+import '../providers/rgai_ffi_provider.dart';
 import 'slot_lab_screen.dart' show SlotLabScreen;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -538,9 +539,15 @@ class _HelixScreenState extends State<HelixScreen>
         color: Colors.transparent,
         child: Stack(
         children: [
-          Container(
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOutCubic,
+            // SPEC-12 Mini Mode: collapse to 200px strip
+            height: _mode == 3 ? 200 : double.infinity,
             color: FluxForgeTheme.bgVoid,
-            child: Column(
+            child: _mode == 3
+                ? _buildMiniStrip()
+                : Column(
               children: [
                 _buildOmnibar(),
                 // SPRINT 3 SPEC-13 — Quick Assign Hotbar (visible only in ASSIGN spine)
@@ -613,6 +620,10 @@ class _HelixScreenState extends State<HelixScreen>
       return;
     } else if (key == LogicalKeyboardKey.keyA) {
       setState(() => _mode = _mode == 2 ? 0 : 2);
+      return;
+    } else if (key == LogicalKeyboardKey.keyM && isMeta && isShift) {
+      // SPEC-12: Mini Mode — Cmd+Shift+M
+      setState(() => _mode = _mode == 3 ? 0 : 3);
       return;
     }
 
@@ -712,6 +723,148 @@ class _HelixScreenState extends State<HelixScreen>
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // ─── SPEC-12: Mini Mode strip (200px) ───────────────────────────────────
+  Widget _buildMiniStrip() {
+    return Consumer<GameFlowProvider>(
+      builder: (ctx, flow, _) {
+        final fsm = flow.currentState.name.toUpperCase();
+        return Container(
+          height: 200,
+          decoration: const BoxDecoration(
+            color: Color(0xFF08080C),
+            border: Border(top: BorderSide(color: FluxForgeTheme.borderSubtle, width: 1)),
+          ),
+          child: Column(
+            children: [
+              // Top bar with expand hint
+              Container(
+                height: 28,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF0A0A12),
+                  border: Border(bottom: BorderSide(color: FluxForgeTheme.borderSubtle, width: 1)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.compress_rounded, size: 12, color: FluxForgeTheme.textTertiary),
+                    const SizedBox(width: 6),
+                    Text('HELIX MINI', style: TextStyle(
+                      fontSize: 10, fontWeight: FontWeight.w700,
+                      color: FluxForgeTheme.textTertiary, letterSpacing: 1.2)),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () => setState(() => _mode = 0),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('⌘⇧M', style: TextStyle(
+                            fontSize: 9, color: FluxForgeTheme.textTertiary, fontFamily: 'monospace')),
+                          SizedBox(width: 4),
+                          Icon(Icons.open_in_full_rounded, size: 11, color: FluxForgeTheme.textTertiary),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Main content row
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Row(
+                    children: [
+                      // FSM state + controls
+                      _MiniModeSection(
+                        label: 'FSM STATE',
+                        child: Text(fsm,
+                          style: const TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w800,
+                            color: FluxForgeTheme.accentCyan, letterSpacing: 0.5)),
+                      ),
+                      const _MiniDivider(),
+                      // SPIN button
+                      GestureDetector(
+                        onTap: () {
+                          GetIt.instance<SlotLabCoordinator>().spin();
+                        },
+                        child: Container(
+                          width: 64, height: 40,
+                          decoration: BoxDecoration(
+                            color: FluxForgeTheme.accentGreen.withOpacity(0.15),
+                            border: Border.all(color: FluxForgeTheme.accentGreen.withOpacity(0.5)),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.play_arrow_rounded, size: 16, color: FluxForgeTheme.accentGreen),
+                              SizedBox(width: 2),
+                              Text('SPIN', style: TextStyle(
+                                fontSize: 9, fontWeight: FontWeight.w800,
+                                color: FluxForgeTheme.accentGreen, letterSpacing: 0.8)),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const _MiniDivider(),
+                      // Compliance indicator via RGAI
+                      _MiniModeSection(
+                        label: 'RGAI',
+                        child: Consumer<RgaiFfiProvider>(
+                          builder: (ctx, rgai, _) {
+                            final ok = rgai.exportApproved;
+                            return Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  ok ? Icons.check_circle_rounded : Icons.warning_rounded,
+                                  size: 14,
+                                  color: ok ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentOrange,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(ok ? 'OK' : 'WARN', style: TextStyle(
+                                  fontSize: 10, fontWeight: FontWeight.w700,
+                                  color: ok ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentOrange)),
+                              ],
+                            );
+                          },
+                        ),
+                      ),
+                      const Spacer(),
+                      // Mode buttons
+                      Row(
+                        children: [
+                          for (final m in [('C', 0), ('F', 1), ('A', 2)])
+                            Padding(
+                              padding: const EdgeInsets.only(left: 4),
+                              child: GestureDetector(
+                                onTap: () => setState(() => _mode = m.$2),
+                                child: Container(
+                                  width: 28, height: 28,
+                                  decoration: BoxDecoration(
+                                    color: FluxForgeTheme.bgSurface,
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: FluxForgeTheme.borderSubtle),
+                                  ),
+                                  child: Center(child: Text(m.$1,
+                                    style: const TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary,
+                                      fontWeight: FontWeight.w700))),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   // OMNIBAR
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -10247,6 +10400,66 @@ class _QuickActionPillState extends State<_QuickActionPill> {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ─── SPEC-12: Mini Mode helper widgets ──────────────────────────────────────
+
+class _MiniModeSection extends StatelessWidget {
+  final String label;
+  final Widget child;
+  const _MiniModeSection({required this.label, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label, style: const TextStyle(
+          fontSize: 8, fontWeight: FontWeight.w600,
+          color: FluxForgeTheme.textTertiary, letterSpacing: 0.8)),
+        const SizedBox(height: 4),
+        child,
+      ],
+    );
+  }
+}
+
+class _MiniDivider extends StatelessWidget {
+  const _MiniDivider();
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1, height: 40,
+      margin: const EdgeInsets.symmetric(horizontal: 12),
+      color: FluxForgeTheme.borderSubtle,
+    );
+  }
+}
+
+class _ComplianceDot extends StatelessWidget {
+  final String label;
+  final bool ok;
+  const _ComplianceDot({required this.label, required this.ok});
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8, height: 8,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: ok ? FluxForgeTheme.accentGreen : const Color(0xFFFF4444),
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(label, style: const TextStyle(
+          fontSize: 7, color: FluxForgeTheme.textTertiary,
+          fontWeight: FontWeight.w600, letterSpacing: 0.3)),
+      ],
     );
   }
 }

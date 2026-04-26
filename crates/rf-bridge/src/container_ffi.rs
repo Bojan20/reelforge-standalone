@@ -93,6 +93,8 @@ fn set_error(msg: &str) {
 /// Returns container ID on success, 0 on failure
 #[unsafe(no_mangle)]
 pub extern "C" fn container_create_blend(json_ptr: *const c_char) -> u32 {
+    if json_ptr.is_null() { return 0; }
+
     let json_str = match unsafe { CStr::from_ptr(json_ptr) }.to_str() {
         Ok(s) => s,
         Err(_) => {
@@ -120,6 +122,8 @@ pub extern "C" fn container_create_blend(json_ptr: *const c_char) -> u32 {
 /// Returns 1 on success, 0 on failure
 #[unsafe(no_mangle)]
 pub extern "C" fn container_update_blend(json_ptr: *const c_char) -> i32 {
+    if json_ptr.is_null() { return 0; }
+
     let json_str = match unsafe { CStr::from_ptr(json_ptr) }.to_str() {
         Ok(s) => s,
         Err(_) => {
@@ -251,6 +255,8 @@ pub extern "C" fn container_get_blend_child_audio_path(
 /// Returns container ID on success, 0 on failure
 #[unsafe(no_mangle)]
 pub extern "C" fn container_create_random(json_ptr: *const c_char) -> u32 {
+    if json_ptr.is_null() { return 0; }
+
     let json_str = match unsafe { CStr::from_ptr(json_ptr) }.to_str() {
         Ok(s) => s,
         Err(_) => {
@@ -277,6 +283,8 @@ pub extern "C" fn container_create_random(json_ptr: *const c_char) -> u32 {
 /// Update a random container from JSON
 #[unsafe(no_mangle)]
 pub extern "C" fn container_update_random(json_ptr: *const c_char) -> i32 {
+    if json_ptr.is_null() { return 0; }
+
     let json_str = match unsafe { CStr::from_ptr(json_ptr) }.to_str() {
         Ok(s) => s,
         Err(_) => {
@@ -376,6 +384,8 @@ pub extern "C" fn container_get_random_child_audio_path(
 /// Returns container ID on success, 0 on failure
 #[unsafe(no_mangle)]
 pub extern "C" fn container_create_sequence(json_ptr: *const c_char) -> u32 {
+    if json_ptr.is_null() { return 0; }
+
     let json_str = match unsafe { CStr::from_ptr(json_ptr) }.to_str() {
         Ok(s) => s,
         Err(_) => {
@@ -402,6 +412,8 @@ pub extern "C" fn container_create_sequence(json_ptr: *const c_char) -> u32 {
 /// Update a sequence container from JSON
 #[unsafe(no_mangle)]
 pub extern "C" fn container_update_sequence(json_ptr: *const c_char) -> i32 {
+    if json_ptr.is_null() { return 0; }
+
     let json_str = match unsafe { CStr::from_ptr(json_ptr) }.to_str() {
         Ok(s) => s,
         Err(_) => {
@@ -535,6 +547,8 @@ pub extern "C" fn container_get_sequence_step_audio_path(
 /// Returns container ID on success, 0 on error
 #[unsafe(no_mangle)]
 pub extern "C" fn container_create_group(json: *const c_char) -> u32 {
+    if json.is_null() { return 0; }
+
     let json_str = match unsafe { CStr::from_ptr(json) }.to_str() {
         Ok(s) => s,
         Err(_) => {
@@ -623,6 +637,8 @@ pub extern "C" fn container_group_add_child(
     name: *const c_char,
     order: u32,
 ) -> i32 {
+    if name.is_null() { return 0; }
+
     let name_str = match unsafe { CStr::from_ptr(name) }.to_str() {
         Ok(s) => s.to_string(),
         Err(_) => "Unnamed".to_string(),

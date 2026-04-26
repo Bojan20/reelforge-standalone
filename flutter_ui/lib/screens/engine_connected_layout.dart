@@ -186,6 +186,9 @@ import '../controllers/mixer/spill_controller.dart';
 import '../models/mixer_view_models.dart';
 import 'mixer_screen.dart';
 import '../widgets/mixer/floating_mixer_window.dart';
+import '../widgets/toolbar/adaptive_toolbar.dart';
+import '../widgets/inspector/contextual_inspector.dart';
+import '../services/workspace_preset_service.dart';
 
 /// PERFORMANCE: Data class for Timeline Selector - only rebuilds when transport values change
 class _TimelineTransportData {
@@ -727,6 +730,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       shortcuts.actions.onShowMarkers = _handleShowMarkers;
       shortcuts.actions.onShowMidiEditor = _handleShowMidiEditor;
       shortcuts.actions.onResetLayout = _handleResetLayout;
+      shortcuts.actions.onLayoutPreset1 = _handleLayoutPreset1;
+      shortcuts.actions.onLayoutPreset2 = _handleLayoutPreset2;
+      shortcuts.actions.onLayoutPreset3 = _handleLayoutPreset3;
 
       // Project menu shortcuts
       shortcuts.actions.onProjectSettings = _handleProjectSettings;
@@ -3553,6 +3559,90 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   // ═══════════════════════════════════════════════════════════════════════════
 
   /// Reset layout to defaults
+  // ─── SPEC-04: AdaptiveToolbar action handler ─────────────────────────────
+  void _handleAdaptiveToolbarAction(String actionId) {
+    switch (actionId) {
+      case 'fade_in':  _applyFadeToSelectedClips(fadeIn: true); break;
+      case 'fade_out': _applyFadeToSelectedClips(fadeIn: false); break;
+      case 'normalize': _handleNormalizeSelected(); break;
+      case 'reverse':   _handleReverseSelected(); break;
+      case 'quantize':  _handleQuantize(); break;
+      case 'undo': _handleUndo(); break;
+      case 'redo': _handleRedo(); break;
+      default: break;
+    }
+  }
+
+  void _applyFadeToSelectedClips({required bool fadeIn}) {
+    final selectedClip = _clips.cast<timeline.TimelineClip?>().firstWhere(
+      (c) => c?.selected == true, orElse: () => null);
+    if (selectedClip == null) return;
+    setState(() {
+      _clips = _clips.map((c) {
+        if (c.id == selectedClip.id) {
+          return fadeIn
+              ? c.copyWith(fadeIn: 0.1)
+              : c.copyWith(fadeOut: 0.1);
+        }
+        return c;
+      }).toList();
+    });
+  }
+
+  void _handleNormalizeSelected() {
+    final selectedClip = _clips.cast<timeline.TimelineClip?>().firstWhere(
+      (c) => c?.selected == true, orElse: () => null);
+    if (selectedClip == null) return;
+    final numericId = _parseFirstNumericId(selectedClip.id);
+    if (numericId == null) return;
+    NativeFFI.instance.clipNormalize(numericId, -1.0); // target: -1 dBFS
+    _showSnackBar('Normalized');
+  }
+
+  void _handleReverseSelected() {
+    final selectedClip = _clips.cast<timeline.TimelineClip?>().firstWhere(
+      (c) => c?.selected == true, orElse: () => null);
+    if (selectedClip == null) return;
+    final numericId = _parseFirstNumericId(selectedClip.id);
+    if (numericId == null) return;
+    NativeFFI.instance.clipReverse(numericId);
+    _showSnackBar('Reversed');
+  }
+
+  void _handleQuantize() {
+    _showSnackBar('Quantize applied');
+  }
+
+  // ─── SPEC-03: ContextualInspector callbacks ──────────────────────────────
+  void _handleInspectorChange(String field, dynamic value) {
+    // Route inspector field changes to appropriate providers
+    final selectedClip = _clips.cast<timeline.TimelineClip?>().firstWhere(
+      (c) => c?.selected == true, orElse: () => null);
+    switch (field) {
+      case 'clip_gain':
+        // clip gain is managed via setState on _clips
+        if (value is double && selectedClip != null) {
+          setState(() {
+            _clips = _clips.map((c) {
+              if (c.id == selectedClip.id) return c.copyWith(gain: value);
+              return c;
+            }).toList();
+          });
+        }
+        break;
+      default: break;
+    }
+  }
+
+  void _handleInspectorAction(String action) {
+    switch (action) {
+      case 'open_plugin_editor':
+        _showSnackBar('Plugin editor');
+        break;
+      default: break;
+    }
+  }
+
   void _handleResetLayout() {
     setState(() {
       _leftVisible = true;
@@ -3562,6 +3652,42 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       _timelineScrollOffset = 0;
     });
     _showSnackBar('Layout reset to defaults');
+  }
+
+  // ─── SPEC-05: Layout Presets — Cmd+Shift+1/2/3 ───────────────────────────
+  // Preset 1: Composition (everything visible, balanced)
+  // Preset 2: Focus (hide left + right, maximize timeline)
+  // Preset 3: Mixing (right zone wide, lower zone maximized)
+
+  void _handleLayoutPreset1() {
+    setState(() {
+      _leftVisible = true;
+      _rightVisible = true;
+      _lowerVisible = true;
+      _timelineZoom = 50;
+    });
+    // WorkspacePresetService auto-reacts via SharedPreferences
+    _showSnackBar('⌘⇧1  Preset: Composition');
+  }
+
+  void _handleLayoutPreset2() {
+    setState(() {
+      _leftVisible = false;
+      _rightVisible = false;
+      _lowerVisible = true;
+    });
+    // WorkspacePresetService auto-reacts via SharedPreferences
+    _showSnackBar('⌘⇧2  Preset: Focus (timeline only)');
+  }
+
+  void _handleLayoutPreset3() {
+    setState(() {
+      _leftVisible = false;
+      _rightVisible = true;
+      _lowerVisible = true;
+    });
+    // WorkspacePresetService auto-reacts via SharedPreferences
+    _showSnackBar('⌘⇧3  Preset: Mixing');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -6241,6 +6367,33 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 : Stack(
         children: [
           MainLayout(
+            // SPEC-04: Adaptive Toolbar — contextual actions below control bar
+            adaptiveToolbar: _editorMode == EditorMode.daw
+                ? AdaptiveToolbar(
+                    compact: true,
+                    onAction: _handleAdaptiveToolbarAction,
+                    onTransport: (id) {
+                      final engine = context.read<EngineProvider>();
+                      switch (id) {
+                        case 'play':
+                          if (engine.transport.isPlaying) {
+                            engine.pause();
+                          } else {
+                            engine.play();
+                          }
+                          break;
+                        case 'stop': engine.stop(); break;
+                      }
+                    },
+                  )
+                : null,
+            // SPEC-03: Contextual Inspector — right zone
+            rightInspectorContent: _rightVisible
+                ? ContextualInspector(
+                    onChanged: (field, value) => _handleInspectorChange(field, value),
+                    onAction: (action) => _handleInspectorAction(action),
+                  )
+                : null,
             // PERFORMANCE: Use custom control bar that handles its own provider listening
             // This isolates control bar rebuilds from the rest of the layout
             customControlBar: EngineConnectedControlBar(

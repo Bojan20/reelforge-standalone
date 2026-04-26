@@ -132,6 +132,11 @@ class ShortcutAction {
   void Function()? onPluginManager;
   void Function()? onKeyboardShortcuts;
 
+  // Layout Preset shortcuts (SPEC-05) — Cmd+Shift+1/2/3
+  void Function()? onLayoutPreset1;
+  void Function()? onLayoutPreset2;
+  void Function()? onLayoutPreset3;
+
   bool Function(String key, ShortcutModifiers modifiers)? onCustom;
 
   ShortcutAction();
@@ -225,6 +230,11 @@ const kShortcuts = <String, ShortcutDef>{
   'preferences': ShortcutDef(key: ',', mod: ShortcutModifiers(cmd: true), display: '⌘,'),
   'fullscreen': ShortcutDef(key: 'F11', display: 'F11'),
   'escape': ShortcutDef(key: 'Escape', display: 'Esc'),
+
+  // Layout Presets (SPEC-05) — Cmd+Shift+1/2/3
+  'layoutPreset1': ShortcutDef(key: '1', mod: ShortcutModifiers(cmd: true, shift: true), display: '⇧⌘1'),
+  'layoutPreset2': ShortcutDef(key: '2', mod: ShortcutModifiers(cmd: true, shift: true), display: '⇧⌘2'),
+  'layoutPreset3': ShortcutDef(key: '3', mod: ShortcutModifiers(cmd: true, shift: true), display: '⇧⌘3'),
 
   // Advanced panels (Cubase-style Shift+Cmd shortcuts)
   'logicalEditor': ShortcutDef(key: 'L', mod: ShortcutModifiers(cmd: true, shift: true), display: '⇧⌘L'),
@@ -453,6 +463,9 @@ class GlobalShortcutsProvider extends ChangeNotifier {
       'showMarkers' => actions.onShowMarkers,
       'showMidiEditor' => actions.onShowMidiEditor,
       'resetLayout' => actions.onResetLayout,
+      'layoutPreset1' => actions.onLayoutPreset1,
+      'layoutPreset2' => actions.onLayoutPreset2,
+      'layoutPreset3' => actions.onLayoutPreset3,
       'importJSON' => actions.onImportJSON,
       'exportJSON' => actions.onExportJSON,
       'importAudioFolder' => actions.onImportAudioFolder,
