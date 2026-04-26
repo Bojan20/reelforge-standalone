@@ -23,6 +23,7 @@
 | 0.1 | CortexEye snap MIX tab sa double-tap verifikacija VoiceDetailEditor | — | ⏳ BuildContext zavisno, CortexHands verify |
 | 0.2 | CortexEye snap MIX tab sa long-press verifikacija Radial Action Menu | — | ⏳ BuildContext zavisno, CortexHands verify |
 | 0.3 | Posle verifikacije 0.1/0.2 → ako padne, fix; ako radi, commitovano je `830d9cb1` | — | ⏳ |
+| 0.4 | CortexEye E2E visual regression baseline | `tools/cortex_e2e/baseline.py` | ✅ a56cf5db — record/verify/list/clean, 6 screens, phash+dhash |
 
 ---
 
@@ -32,13 +33,13 @@
 
 ### 1.1 FFI sigurnost (Rust)
 
-| # | Problem | Lokacija | Effort |
-|---|---|---|---|
-| 1.1.1 | 8× `CStr::from_ptr` bez null check — crash sa Dart strane | `crates/rf-bridge/src/slot_lab_ffi.rs:916` + `pbse_ffi.rs:849` + 6 sites | 30 min |
-| 1.1.2 | BUG #63 scenario validation — dimenzije outcome-a nisu provereno sa aktivnim GameModel | `crates/rf-bridge/src/slot_lab_ffi.rs:1635-1640` | 1 h |
-| 1.1.3 | BUG #32 LV2 Mutex poison — `.unwrap_or_else(\|e\| e.into_inner())` može vratiti corrupted URID map | `crates/rf-engine/src/plugin/lv2.rs:120-136` → prebaci na `parking_lot::Mutex` | 30 min |
-| 1.1.4 | TOCTOU u voice_id array iteration | `crates/rf-bridge/src/dpm_ffi.rs:94-100` | 1 h |
-| 1.1.5 | Audit svih 47 `unsafe` blokova u rf-engine + 23 u rf-bridge | — | 2 h |
+| # | Problem | Lokacija | Effort | Status |
+|---|---|---|---|---|
+| 1.1.1 | ~~8× `CStr::from_ptr` bez null check — crash sa Dart strane~~ | ~~rf-bridge `slot_lab_ffi/container_ffi/slot_lab_export`, rf-engine `render_selection_to_new_clip`, rf-plugin `vst3.rs` ObjC callbacks, rf-plugin-host `scan_callback`~~ | 30 min | ✅ ce2a90a9 + 604ce478 |
+| 1.1.2 | BUG #63 scenario validation — dimenzije outcome-a nisu provereno sa aktivnim GameModel | `crates/rf-bridge/src/slot_lab_ffi.rs:1635-1640` | 1 h | ⏳ |
+| 1.1.3 | ~~BUG #32 LV2 Mutex poison~~ | ~~`crates/rf-plugin/src/lv2.rs` URID_MAP → parking_lot::Mutex~~ | 30 min | ✅ 604ce478 |
+| 1.1.4 | TOCTOU u voice_id array iteration | `crates/rf-bridge/src/dpm_ffi.rs:94-100` | 1 h | ⏳ |
+| 1.1.5 | Audit svih 47 `unsafe` blokova u rf-engine + 23 u rf-bridge | — | 2 h | ⏳ |
 
 ### 1.2 Event flow (Flutter)
 
@@ -930,33 +931,36 @@ case LogicalKeyboardKey.digit1..8 when isShift:
 ### SESIJA REDOSLED (preporučen za implementaciju)
 
 ```
-Sprint 1 (kompaktnost, visok impact, niski rizik):
-  SPEC-06  Spine labele          [2h]
-  SPEC-07  Stub tab placeholders [2h]
-  SPEC-16  Tooltips              [3h]
-  SPEC-17  Stage shortcuts       [2h]
-  SPEC-11  Reel Context Lens     [4h]
-  SPEC-10  Math HUD              [3h]
+Sprint 1 (kompaktnost, visok impact, niski rizik):     ✅ DONE
+  SPEC-06  Spine labele          [2h]                  ✅
+  SPEC-07  Stub tab placeholders [2h]                  ✅
+  SPEC-16  Tooltips              [3h]                  ✅
+  SPEC-17  Stage shortcuts       [2h]                  ✅
+  SPEC-11  Reel Context Lens     [4h]                  ✅
+  SPEC-10  Math HUD              [3h]                  ✅
 
-Sprint 2 (navigacija, srednji kompleksitet):
-  SPEC-01  Cmd+K Palette         [1 ned]
-  SPEC-02  EDIT tab grupe        [3h]
-  SPEC-08  MONITOR grupe         [3h]
-  SPEC-09  Quick Actions Strip   [4h]
-  SPEC-14  Panel Focus           [3h]
+Sprint 2 (navigacija, srednji kompleksitet):           ✅ DONE (3ef5afff)
+  SPEC-01  Cmd+K Palette         [1 ned]               ✅
+  SPEC-02  EDIT tab grupe        [3h]                  ✅
+  SPEC-08  MONITOR grupe         [3h]                  ✅
+  SPEC-09  Quick Actions Strip   [4h]                  ✅
+  SPEC-14  Panel Focus           [3h]                  ✅
 
-Sprint 3 (power features):
-  SPEC-03  Smart Inspector       [1 ned]
-  SPEC-04  Adaptive Toolbar      [3h]
-  SPEC-13  Quick Assign Hotbar   [3h]
+Sprint 3 (power features):                             ✅ DONE (8b83940b)
+  SPEC-03  Smart Inspector       [1 ned]               ✅ ContextualInspector + 8 sub-inspectors
+  SPEC-04  Adaptive Toolbar      [3h]                  ✅ Transport+Context modes
+  SPEC-13  Quick Assign Hotbar   [3h]                  ✅ 5 pinned slots in HELIX ASSIGN
+  +        SelectionProvider foundation                ✅ 8 SelectionType variants
 
-Sprint 4 (layout memory, power users):
-  SPEC-05  Layout Presets        [4h]
-  SPEC-15  Selection Memory      [4h]
-  SPEC-12  HELIX Mini Mode       [1 ned]
+Sprint 4 (layout memory, power users):                 ✅ DONE (ce2a90a9 + c58c7d04)
+  SPEC-05  Layout Presets        [4h]                  ✅ Cmd+Shift+1/2/3 Compose/Focus/Mix
+  SPEC-15  Selection Memory      [4h]                  ✅ Cmd+1..9 restore / Cmd+Shift+1..9 save
+  SPEC-12  HELIX Mini Mode       [1 ned]               ✅ Cmd+Shift+M, 200px strip
+  +        FFI null safety (16 *const c_char)          ✅
+  +        SlotLab→SelectionProvider wire (604ce478)   ✅
 ```
 
-**Ukupan effort: ~6 nedelja fulltime. Impact: produktivnost ×3-5.**
+**Sprint 1-4 = COMPLETE. SPEC-01..17 svi implementirani. Sve ostalo: maintenance, FAZA 1 (P0), FAZA 2 (perf), FAZA 3+ (diferencijatori).**
 
 ---
 
