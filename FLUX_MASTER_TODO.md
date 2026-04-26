@@ -24,6 +24,7 @@
 | 0.2 | CortexEye snap MIX tab sa long-press verifikacija Radial Action Menu | — | ⏳ BuildContext zavisno, CortexHands verify |
 | 0.3 | Posle verifikacije 0.1/0.2 → ako padne, fix; ako radi, commitovano je `830d9cb1` | — | ⏳ |
 | 0.4 | CortexEye E2E visual regression baseline | `tools/cortex_e2e/baseline.py` | ✅ a56cf5db — record/verify/list/clean, 6 screens, phash+dhash |
+| 0.5 | CortexHands modifier propagation bug — `cmd+shift+M` ne hvata `HardwareKeyboard.isMetaPressed/isShiftPressed`. Synthesized `KeyData` ide u `platformDispatcher.onKeyData` ali ne updateuje globalni HardwareKeyboard state. Single-key shortcuts kao "f" rade. | `flutter_ui/lib/services/cortex_hands_service.dart:212` `_injectKey()` | ⏳ Treba dodati `HardwareKeyboard.instance.handleKeyEvent(...)` ili koristi `ServicesBinding.instance.keyboard.handleKeyEvent` da modifier state bude vidljiv |
 
 ---
 
