@@ -77,6 +77,7 @@ import 'services/crdt_sync_service.dart';
 import 'services/cortex_vision_service.dart';
 import 'services/cortex_eye_server.dart';
 import 'services/cortex_intelligence_loop.dart';
+import 'services/cortex_log_buffer.dart';
 import 'providers/cortex_provider.dart';
 import 'providers/rgai_ffi_provider.dart';
 import 'providers/slot_spatial_provider.dart';
@@ -108,6 +109,11 @@ import 'providers/warp_state_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // ══════════════════════════════════════════════════════════════════════
+  // CORTEX Log Buffer — mora biti prvi, hvata SVE što dolazi posle
+  // ══════════════════════════════════════════════════════════════════════
+  CortexLogBuffer.instance.init();
 
   // Kill orphan afplay child processes on app exit (SIGTERM/SIGINT from Cmd+Q)
   // Uses -P to only kill afplay processes that are children of this process
