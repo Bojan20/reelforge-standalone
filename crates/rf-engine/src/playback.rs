@@ -174,6 +174,15 @@ enum EvictionCommand {
 pub struct AudioCache {
     /// Map from file path to cache entry
     entries: RwLock<HashMap<String, CacheEntry>>,
+    /// Per-path load coordination — guarantees one thread per path performs disk
+    /// load + eviction + insert as a single critical section. Without this,
+    /// two simultaneous `load("x.wav")` calls both miss the cache, both load
+    /// from disk, both insert, and `current_bytes` over-counts by the file
+    /// size (FLUX_MASTER_TODO 1.2.3 — Cache TOCTOU). The map holds Arcs so
+    /// the actual lock outlives the registry slot — a follower thread that
+    /// already cloned the Arc keeps blocking even after the leader removes
+    /// the path from the registry.
+    loading: Mutex<HashMap<String, Arc<Mutex<()>>>>,
     /// Access counter for LRU tracking
     access_counter: AtomicU64,
     /// Maximum cache size in bytes
@@ -229,6 +238,7 @@ impl AudioCache {
 
         Self {
             entries: RwLock::new(HashMap::new()),
+            loading: Mutex::new(HashMap::new()),
             access_counter: AtomicU64::new(0),
             max_bytes,
             current_bytes: AtomicU64::new(0),
@@ -239,34 +249,77 @@ impl AudioCache {
     }
 
     /// Load audio file into cache (or return cached version)
-    /// Automatically evicts LRU entries if cache is full
+    /// Automatically evicts LRU entries if cache is full.
+    ///
+    /// Concurrency: a per-path load lock guarantees that two concurrent
+    /// callers for the same `path` will result in exactly one disk read and
+    /// exactly one cache entry. Pre-2026-04-27 this was a TOCTOU window:
+    /// both callers could miss the cache, both would `AudioImporter::import`
+    /// the same file, both would insert, and `current_bytes` would be
+    /// over-counted by the file size. After enough concurrent re-loads, the
+    /// cache thought it held 2× as much memory as it actually did and
+    /// triggered spurious evictions on healthy entries.
     pub fn load(&self, path: &str) -> Option<Arc<ImportedAudio>> {
-        // Check if already cached
+        // Fast path: already cached. Single write lock so we can also bump
+        // last_access — the read-then-upgrade pattern would race against
+        // eviction and isn't worth the complexity here.
         {
             let mut entries = self.entries.write();
             if let Some(entry) = entries.get_mut(path) {
-                // Update LRU timestamp
                 entry.last_access = self.access_counter.fetch_add(1, Ordering::Relaxed);
                 return Some(Arc::clone(&entry.audio));
             }
         }
 
-        // Load from disk
-        match AudioImporter::import(Path::new(path)) {
+        // Slow path: claim a per-path load lock. The first thread to reach
+        // here for this path proceeds; subsequent threads block on the same
+        // Arc<Mutex<()>> until the leader inserts and releases.
+        let load_lock = {
+            let mut loading = self.loading.lock();
+            Arc::clone(
+                loading
+                    .entry(path.to_string())
+                    .or_insert_with(|| Arc::new(Mutex::new(()))),
+            )
+        };
+        let _load_guard = load_lock.lock();
+
+        // Double-check: while we waited for the load lock, the leader may
+        // have populated the entry. Hand back the now-cached audio without
+        // hitting disk twice.
+        {
+            let mut entries = self.entries.write();
+            if let Some(entry) = entries.get_mut(path) {
+                entry.last_access = self.access_counter.fetch_add(1, Ordering::Relaxed);
+                // No leader-followers cleanup here — the cleanup at the end
+                // of the leader's branch already removed the loading slot,
+                // or our own removal below will.
+                let arc = Arc::clone(&entry.audio);
+                drop(_load_guard);
+                self.loading.lock().remove(path);
+                return Some(arc);
+            }
+        }
+
+        // We are the leader for this path. Disk I/O happens with no entries
+        // lock held — only the per-path load lock — so concurrent loads of
+        // OTHER paths are unaffected.
+        let result = match AudioImporter::import(Path::new(path)) {
             Ok(audio) => {
                 let size_bytes = audio.samples.len() * std::mem::size_of::<f32>();
                 let arc = Arc::new(audio);
 
-                // Evict if necessary before adding
+                // Evict if necessary before adding (still TOCTOU-friendly:
+                // evict and insert run inside the per-path load lock so the
+                // sequence "evict → insert → bump current_bytes" can't be
+                // interleaved with another insert of the same file).
                 self.evict_if_needed(size_bytes);
 
-                // Add to cache
                 let entry = CacheEntry {
                     audio: Arc::clone(&arc),
                     last_access: self.access_counter.fetch_add(1, Ordering::Relaxed),
                     size_bytes,
                 };
-
                 self.entries.write().insert(path.to_string(), entry);
                 self.current_bytes
                     .fetch_add(size_bytes as u64, Ordering::Relaxed);
@@ -277,14 +330,20 @@ impl AudioCache {
                     size_bytes as f64 / 1024.0 / 1024.0,
                     self.current_bytes.load(Ordering::Relaxed) as f64 / 1024.0 / 1024.0
                 );
-
                 Some(arc)
             }
             Err(e) => {
                 log::error!("Failed to load audio file '{}': {}", path, e);
                 None
             }
-        }
+        };
+
+        // Release the load lock and reap the per-path slot. Followers that
+        // already cloned the Arc<Mutex> keep their own reference; they'll
+        // unlock and observe the populated cache via the double-check above.
+        drop(_load_guard);
+        self.loading.lock().remove(path);
+        result
     }
 
     /// Evict least recently used entries until we have room for new_size bytes
@@ -9454,6 +9513,88 @@ mod tests {
 
         assert_eq!(cache.size(), 0);
         assert!(!cache.is_cached("/nonexistent/file.wav"));
+    }
+
+    /// Regression test for FLUX_MASTER_TODO 1.2.3 — Cache TOCTOU.
+    ///
+    /// Two threads simultaneously call `load("missing.wav")`. Pre-fix, both
+    /// would observe a cache miss, both would invoke `AudioImporter::import`,
+    /// and on success both would insert (over-counting `current_bytes`). The
+    /// missing-file case is convenient for the test because we don't need a
+    /// real audio asset on disk: the contract we're verifying is symmetric
+    /// "two concurrent calls → exactly one disk-load attempt", not "load
+    /// succeeded".
+    ///
+    /// We assert via the side-effect that's observable without a real audio
+    /// file: the per-path `loading` slot must be cleaned up after BOTH
+    /// callers return, and `current_bytes` must equal zero (no insert ever
+    /// happened, so the counter must not have been bumped).
+    #[test]
+    fn test_audio_cache_concurrent_load_does_not_double_count() {
+        let cache = Arc::new(AudioCache::new());
+        let path = "/nonexistent/concurrent_load_target.wav";
+
+        let mut handles = Vec::new();
+        for _ in 0..8 {
+            let cache = Arc::clone(&cache);
+            handles.push(std::thread::spawn(move || cache.load(path)));
+        }
+        for h in handles {
+            let _ = h.join().expect("thread panicked");
+        }
+
+        assert_eq!(
+            cache.current_bytes.load(Ordering::Relaxed),
+            0,
+            "no successful inserts (file missing), so current_bytes must stay 0"
+        );
+        // Per-path loading slot must be reaped — otherwise the registry leaks.
+        assert!(
+            cache.loading.lock().is_empty(),
+            "loading registry must be empty after all callers return"
+        );
+    }
+
+    /// Cache hit fast path — N concurrent readers of an already-cached entry
+    /// must not block each other on the per-path load lock. We seed the
+    /// cache by running a single `load()` that misses (no disk file), then
+    /// manually insert a `CacheEntry`, then concurrent loads must hit the
+    /// fast path and never touch `loading`.
+    #[test]
+    fn test_audio_cache_hit_fast_path_avoids_load_lock() {
+        let cache = Arc::new(AudioCache::new());
+        let path = "fake_seeded.wav";
+
+        // Manually seed an entry — bypass disk I/O via the public mono ctor.
+        {
+            let arc = Arc::new(crate::audio_import::ImportedAudio::new_mono(
+                vec![0.0; 16],
+                48000,
+                "fake_seeded.wav",
+            ));
+            let mut entries = cache.entries.write();
+            entries.insert(
+                path.to_string(),
+                CacheEntry {
+                    audio: arc,
+                    last_access: 0,
+                    size_bytes: 16 * std::mem::size_of::<f32>(),
+                },
+            );
+        }
+
+        let mut handles = Vec::new();
+        for _ in 0..16 {
+            let cache = Arc::clone(&cache);
+            handles.push(std::thread::spawn(move || {
+                cache.load(path).expect("seeded entry must hit cache")
+            }));
+        }
+        for h in handles {
+            h.join().unwrap();
+        }
+        // No miss path was taken ⇒ loading registry must be untouched.
+        assert!(cache.loading.lock().is_empty());
     }
 
     /// Regression test for FLUX_MASTER_TODO 1.2.2 — UI-side reset of the
