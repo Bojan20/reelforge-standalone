@@ -116,10 +116,10 @@
 | 2.2.1 | 60fps pod 130-voice live mix | Phase 10 orchestra fazom 10e-2 |
 | 2.2.2 | OrbMixer Phase 10e-2 — 5s master ring buffer + WAV export | Problems Inbox replay <200ms |
 | 2.2.3 | OrbMixer per-bus FFT isolate za ghost buffer >100 voices | zero frame drop |
-| 2.2.4 | Lazy loading za 11 super-tabs × sub-tabs (memo + IndexedStack sa keepAlive=false za neaktivne) | <50ms tab switch |
+| 2.2.4 | ✅ 60584e2e — `RepaintBoundary(key: ValueKey(superTab))` u `DawLowerZoneWidget._buildContentPanel`. Transport/context bar repaints više ne kaskadiraju u panel. Tab switch invalidate ValueKey → prior layer drop na sledeći frame (deferred load contract). |
 | 2.2.5 | ✅ 4c65f7cd — Byte-budget LRU u `WaveformCache` umesto count-only (256 MB cap, ~32 long tracks). `_multiResTotalBytes` + `_estimateBytes` + `_evictMultiResUntilWithinBudget` na svaki insert. Sve remove/clear/invalidate path-ovi održavaju counter sa `>= 0` clamp. 3 testa: insert→remove byte tracking, churn negativa-prevention, clear() reset. |
 | 2.2.6 | Timeline virtualization — samo visible clips render | 10000+ clips project |
-| 2.2.7 | Impeller GPU compositing enable za macOS (Flutter 3.30+) | smoother scroll/pan |
+| 2.2.7 | ✅ 60584e2e — `FLTEnableImpeller=true` u `macos/Runner/Info.plist`. Eksplicitno pinned (default je Flutter 3.30+, ali ne-drift). |
 
 ### 2.3 Monolith refactor (održivost)
 
