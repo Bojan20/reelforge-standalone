@@ -89,7 +89,7 @@
 | 1.6.1 | ✅ 6455ca15 — `cargo build --release --workspace` 0 real warnings (7 inherent "output filename collision" su informativni od dual `[lib]`+`[cdylib]` deklaracije, ne code issues). Skinuti unused `Processor` import-i (sidechain, device_preview), unused test variables (slot_builder integration_tests), 15 `unused_unsafe` u rf-bridge test mod-ovima sa `#[allow(unused_unsafe)]` (samo na test mod, ne na production). | clean |
 | 1.6.2 | `xcodebuild ... -configuration Release build` | success |
 | 1.6.3 | `flutter analyze` — 0 errors | clean |
-| 1.6.4 | `cargo test --workspace` — sve pass | 1873+ tests green |
+| 1.6.4 | ✅ 943714cb — `cargo test --workspace --release --no-fail-fast` rezultat: **109 test runs, 109 ok, 0 FAILED, 0 non-collision warnings**. Skinuti final 4 test-only warning-a: tautology assertion (intent_ffi), unused `switched` flag (loop_tests), unused Processor import (rf-dsp), unused GameInfo import (rf-ab-sim). | 109/109 |
 | 1.6.5 | Full Build CI checkpoint (GitHub Action) | green badge |
 
 ---
