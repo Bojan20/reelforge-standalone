@@ -1943,6 +1943,15 @@ pub struct PlaybackEngine {
     pub rms_r: AtomicU64,
     /// LUFS metering (ITU-R BS.1770-4)
     lufs_meter: RwLock<LufsMeter>,
+    /// Pending integrated-LUFS reset request from the UI.
+    ///
+    /// UI thread sets this with a single atomic store; the audio thread checks
+    /// + clears it the next time it already holds `lufs_meter` write lock for
+    /// the regular `process_block`. Pre-2026-04-27 the UI took its own
+    /// `try_write()` to call `meter.reset_integrated()`, which raced the
+    /// audio thread's `try_write()` and caused silent metering gaps when a
+    /// user clicked "Reset" (FLUX_MASTER_TODO 1.2.2).
+    lufs_integrated_reset_pending: AtomicBool,
     /// LUFS values (atomic for lock-free UI reads)
     pub lufs_momentary: AtomicU64,
     pub lufs_short: AtomicU64,
@@ -2209,6 +2218,7 @@ impl PlaybackEngine {
             rms_l: AtomicU64::new(0.0_f64.to_bits()),
             rms_r: AtomicU64::new(0.0_f64.to_bits()),
             lufs_meter: RwLock::new(LufsMeter::new(sample_rate as f64)),
+            lufs_integrated_reset_pending: AtomicBool::new(false),
             lufs_momentary: AtomicU64::new((-70.0_f64).to_bits()),
             lufs_short: AtomicU64::new((-70.0_f64).to_bits()),
             lufs_integrated: AtomicU64::new((-70.0_f64).to_bits()),
@@ -3764,11 +3774,21 @@ impl PlaybackEngine {
         )
     }
 
-    /// Reset integrated LUFS meter (keeps momentary/short-term running)
+    /// Reset integrated LUFS meter (keeps momentary/short-term running).
+    ///
+    /// Lock-free path: we set a `lufs_integrated_reset_pending` flag and let
+    /// the audio thread perform the actual `meter.reset_integrated()` the
+    /// next time it already holds the write lock. Pre-2026-04-27 this method
+    /// took `lufs_meter.try_write()` itself, which races the audio thread's
+    /// `try_write()` in `process_master_post_fx` — when the UI won, audio's
+    /// metering write was silently skipped, producing a meter gap. By
+    /// queueing the reset instead, the UI never blocks audio (FLUX_MASTER_TODO 1.2.2).
+    ///
+    /// We optimistically reset the published atomic value to -70 dB so the
+    /// UI sees the reset reflected on the next read; the canonical state
+    /// in `LufsMeter` catches up on the next audio block.
     pub fn reset_lufs_integrated(&self) {
-        if let Some(mut meter) = self.lufs_meter.try_write() {
-            meter.reset_integrated();
-        }
+        self.lufs_integrated_reset_pending.store(true, Ordering::Release);
         self.lufs_integrated.store((-70.0_f64).to_bits(), Ordering::Relaxed);
     }
 
@@ -7319,8 +7339,17 @@ impl PlaybackEngine {
         self.balance
             .store(smoothed_bal.to_bits(), Ordering::Relaxed);
 
-        // LUFS metering (ITU-R BS.1770-4) — try_write to avoid blocking audio thread
+        // LUFS metering (ITU-R BS.1770-4) — try_write to avoid blocking audio thread.
+        // Note: with the pending-reset pattern (see reset_lufs_integrated), the UI
+        // never holds this write lock, so try_write should succeed barring a stuck
+        // worker. Reset requests are drained inline before processing the block.
         if let Some(mut lufs) = self.lufs_meter.try_write() {
+            // Drain queued integrated-reset request (UI clicked "Reset"). Doing it
+            // here means the UI never had to take its own write lock to fulfill
+            // the request — that was the source of the metering-dropout race.
+            if self.lufs_integrated_reset_pending.swap(false, Ordering::AcqRel) {
+                lufs.reset_integrated();
+            }
             lufs.process_block(output_l, output_r);
             let m = lufs.momentary_loudness();
             let s = lufs.shortterm_loudness();
@@ -9425,5 +9454,48 @@ mod tests {
 
         assert_eq!(cache.size(), 0);
         assert!(!cache.is_cached("/nonexistent/file.wav"));
+    }
+
+    /// Regression test for FLUX_MASTER_TODO 1.2.2 — UI-side reset of the
+    /// integrated LUFS meter must NOT take the meter's write lock, because
+    /// that races the audio thread's `try_write()` and produces silent
+    /// metering gaps. This test asserts the new contract: calling
+    /// `reset_lufs_integrated()` only flips an atomic flag + zeroes the
+    /// public value, even while a separate writer is holding the lock.
+    #[test]
+    fn test_reset_lufs_integrated_is_lock_free() {
+        let engine = PlaybackEngine::new(Arc::new(crate::track_manager::TrackManager::new()), 48000);
+
+        // Hold a read guard on lufs_meter for the duration — if reset took
+        // a write lock, this would deadlock the test. (RwLock::read +
+        // try_write coexist as long as nobody holds write.)
+        let _read_guard = engine.lufs_meter.read();
+
+        // Reset must complete immediately without taking the lock.
+        engine.reset_lufs_integrated();
+
+        // Public value reflects reset.
+        let integrated = f64::from_bits(engine.lufs_integrated.load(Ordering::Relaxed));
+        assert!((integrated - (-70.0)).abs() < 1e-9,
+            "reset must publish -70.0 dB to the atomic, got {integrated}");
+
+        // Pending flag was set so the audio thread will drain it.
+        assert!(engine.lufs_integrated_reset_pending.load(Ordering::Acquire),
+            "reset must queue a pending request for the audio thread to drain");
+    }
+
+    /// Calling reset twice without an audio block in between coalesces into
+    /// a single drain — the flag is sticky-true, not a counter.
+    #[test]
+    fn test_reset_lufs_integrated_coalesces() {
+        let engine = PlaybackEngine::new(Arc::new(crate::track_manager::TrackManager::new()), 48000);
+        engine.reset_lufs_integrated();
+        engine.reset_lufs_integrated();
+        engine.reset_lufs_integrated();
+
+        // First swap clears it; second swap returns false (only one drain needed).
+        assert!(engine.lufs_integrated_reset_pending.swap(false, Ordering::AcqRel));
+        assert!(!engine.lufs_integrated_reset_pending.swap(false, Ordering::AcqRel),
+            "second drain must observe a clean flag");
     }
 }
