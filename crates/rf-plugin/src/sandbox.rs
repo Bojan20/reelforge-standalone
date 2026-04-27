@@ -778,3 +778,196 @@ mod tests {
         assert!(manager.check_health().is_empty());
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FLUX_MASTER_TODO 1.5.2 phase 2 — PluginInstance adapter
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// `SandboxedPluginAdapter` wraps a `SandboxedPlugin` so the rest of the
+// engine — `ChainSlot`, `ZeroCopyChain`, the plugin host's instance
+// registry — can talk to a sandboxed plugin through the same
+// `PluginInstance` trait it uses for in-process plugins. The chain code
+// stays unchanged; the sandbox is opt-in per-instance.
+//
+// Status today (2026-04-28):
+//   * Adapter is fully wired and compiles.
+//   * `SandboxedPlugin::spawn_process` still uses `Command::new("true")`
+//     as a placeholder (see line 362 above) — there is no separate
+//     `flux-plugin-host` binary yet, so real subprocess isolation is not
+//     active. Phase 1 (commit 45b471d7) `catch_unwind` remains the
+//     primary defense.
+//   * The follow-up work to make subprocess isolation REAL is:
+//       1. New binary crate `crates/rf-plugin-host` (the existing
+//          `crates/rf-plugin-host` is the AU host stub; needs extending
+//          to a generic plugin-process target).
+//       2. Replace `Command::new("true")` with that binary's path,
+//          plus a real IPC layer (currently the bounded channels
+//          between parent and child are not connected — `_cmd_rx` and
+//          `_resp_tx` in spawn_process are dropped).
+//       3. Real shared-memory audio buffer (currently `SharedAudioBuffer`
+//          is in-process; needs `mmap` on POSIX / `CreateFileMapping`
+//          on Windows).
+//       4. Crash detection via `WaitId::WSTOPPED` / `Process.alive()`
+//          tied to the audio thread's sentinel ping.
+//
+// The adapter ships now so chain wiring is reviewable + the trait
+// signature is locked. Switching from "in-process" to "subprocess" then
+// becomes a single-line change at the construction site.
+
+use crate::PluginInstance;
+
+/// `PluginInstance` impl that delegates to a `SandboxedPlugin`.
+///
+/// MIDI in/out is currently unsupported through the sandbox boundary —
+/// the IPC `SandboxCommand` enum carries only audio buffers. For
+/// instrument plugins this adapter passes silence on `midi_in` and
+/// produces no `midi_out`. Effect plugins (the dominant use case for
+/// crash isolation) ignore MIDI anyway.
+pub struct SandboxedPluginAdapter {
+    inner: SandboxedPlugin,
+    info: crate::scanner::PluginInfo,
+}
+
+impl SandboxedPluginAdapter {
+    pub fn new(inner: SandboxedPlugin, info: crate::scanner::PluginInfo) -> Self {
+        Self { inner, info }
+    }
+
+    /// Borrow the underlying SandboxedPlugin (for diagnostics, e.g.
+    /// crash-recovery counters not exposed via PluginInstance).
+    pub fn sandboxed(&self) -> &SandboxedPlugin {
+        &self.inner
+    }
+}
+
+impl PluginInstance for SandboxedPluginAdapter {
+    fn info(&self) -> &crate::scanner::PluginInfo {
+        &self.info
+    }
+
+    fn initialize(&mut self, context: &ProcessContext) -> crate::PluginResult<()> {
+        self.inner
+            .initialize(context)
+            .map_err(|e| crate::PluginError::InitFailed(e.to_string()))
+    }
+
+    fn activate(&mut self) -> crate::PluginResult<()> {
+        self.inner
+            .activate()
+            .map_err(|e| crate::PluginError::InitFailed(e.to_string()))
+    }
+
+    fn deactivate(&mut self) -> crate::PluginResult<()> {
+        self.inner
+            .deactivate()
+            .map_err(|e| crate::PluginError::InitFailed(e.to_string()))
+    }
+
+    fn process(
+        &mut self,
+        input: &AudioBuffer,
+        output: &mut AudioBuffer,
+        _midi_in: &rf_core::MidiBuffer,
+        _midi_out: &mut rf_core::MidiBuffer,
+        context: &ProcessContext,
+    ) -> crate::PluginResult<()> {
+        self.inner
+            .process(input, output, context)
+            .map_err(|e| crate::PluginError::ProcessingError(e.to_string()))
+    }
+
+    fn parameter_count(&self) -> usize {
+        self.inner.parameters().len()
+    }
+
+    fn parameter_info(&self, index: usize) -> Option<ParameterInfo> {
+        self.inner.parameters().get(index).cloned()
+    }
+
+    fn get_parameter(&self, id: u32) -> Option<f64> {
+        self.inner.get_parameter(id)
+    }
+
+    fn set_parameter(&mut self, id: u32, value: f64) -> crate::PluginResult<()> {
+        self.inner
+            .set_parameter(id, value)
+            .map_err(|e| crate::PluginError::ParameterError(e.to_string()))
+    }
+
+    fn get_state(&self) -> crate::PluginResult<Vec<u8>> {
+        // Sandboxed state retrieval is a future IPC command; today the
+        // plugin's `get_state` doesn't round-trip through the boundary.
+        Ok(vec![])
+    }
+
+    fn set_state(&mut self, _state: &[u8]) -> crate::PluginResult<()> {
+        // See get_state — symmetric stub.
+        Ok(())
+    }
+
+    fn latency(&self) -> usize {
+        self.inner.latency()
+    }
+
+    fn has_editor(&self) -> bool {
+        // Editor windows can't cross a process boundary cheaply; the
+        // sandbox always reports no editor. The host UI falls back to
+        // the generic parameter view.
+        false
+    }
+
+    fn open_editor(&mut self, _parent: *mut std::ffi::c_void) -> crate::PluginResult<()> {
+        Err(crate::PluginError::ProcessingError(
+            "Sandboxed plugins do not expose a native editor".into(),
+        ))
+    }
+
+    fn close_editor(&mut self) -> crate::PluginResult<()> {
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod adapter_tests {
+    use super::*;
+
+    fn dummy_info() -> crate::scanner::PluginInfo {
+        crate::scanner::PluginInfo {
+            id: "test.sandboxed".into(),
+            name: "Sandboxed Test".into(),
+            vendor: "test".into(),
+            version: "0".into(),
+            plugin_type: crate::scanner::PluginType::Vst3,
+            category: crate::scanner::PluginCategory::Effect,
+            path: "<test>".into(),
+            audio_inputs: 2,
+            audio_outputs: 2,
+            has_midi_input: false,
+            has_midi_output: false,
+            has_editor: false,
+            latency: 0,
+            is_shell: false,
+            sub_plugins: vec![],
+        }
+    }
+
+    #[test]
+    fn adapter_passes_through_info() {
+        let inner = SandboxedPlugin::new("/nonexistent.vst3", "vst3", SandboxConfig::default());
+        let adapter = SandboxedPluginAdapter::new(inner, dummy_info());
+        assert_eq!(adapter.info().name, "Sandboxed Test");
+        // PluginInstance trait says no editor for sandboxed plugins.
+        assert!(!adapter.has_editor());
+        assert_eq!(adapter.parameter_count(), 0);
+    }
+
+    #[test]
+    fn adapter_object_safe_for_box_dyn() {
+        // Compile-time check — SandboxedPluginAdapter satisfies
+        // `Box<dyn PluginInstance>`, so ChainSlot::new(plugin, ...) can
+        // hold one.
+        let inner = SandboxedPlugin::new("/nonexistent.vst3", "vst3", SandboxConfig::default());
+        let adapter = SandboxedPluginAdapter::new(inner, dummy_info());
+        let _boxed: Box<dyn PluginInstance> = Box::new(adapter);
+    }
+}

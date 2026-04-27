@@ -97,7 +97,7 @@ pub use ara2::{
     AraPlaybackRegionId, AraPlaybackTransformation, AraPluginExtension, AraPluginType,
     AraRegionSequenceId, AraTransformationFlags,
 };
-pub use sandbox::{SandboxConfig, SandboxError, SandboxManager, SandboxedPlugin};
+pub use sandbox::{SandboxConfig, SandboxError, SandboxManager, SandboxedPlugin, SandboxedPluginAdapter};
 pub use scanner::{PluginCategory, PluginInfo, PluginScanner, PluginType};
 pub use vst3::Vst3Host;
 
