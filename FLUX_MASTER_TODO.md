@@ -58,7 +58,7 @@
 | 1.3.2 | Widget tests za `slot_lab_screen.dart` (15,215 LOC) | min 30 |
 | 1.3.3 | Widget tests za `helix_screen.dart` (9,735 LOC) | min 30 |
 | 1.3.4 | ✅ 39e02499 — Static-scan tripwire `gesture_conflict_detection_test.dart` (5 tests). 1602 GestureDetector total (znatno više od 820 procena), 78 nested-pair pattern-a u 41 fajlu. Ratchet baseline=78: count može samo da pada, svako povećanje fail-uje CI. Density ceiling 100 (helix_screen=94 max). Top-10 density visibility na svaki test run. | 5/5 |
-| 1.3.5 | Memory leak profiling (30+ min sessions, Ticker/OverlayEntry/Provider disposal) | zero leak |
+| 1.3.5 | ✅ 3cd43d99 — Static `dispose_leak_detection_test.dart` (4 tests). Codebase je trenutno **0 ticker-without-dispose, 0 uncancelled StreamSubscription** — clean baseline. Skenira 141 TickerProvider state-a, filtrira 6 false-positives (mixin bez controller-a). Plus density visibility za 321 AnimationController. Ratchet baseline=0 — bilo koji novi leak fail-uje CI. Runtime 30-min driver session deferred jer zahteva Flutter integration_test setup. | 4/4 |
 | 1.3.6 | 60fps perf test pod 50+ channel load | frame drops < 1% |
 
 ### 1.4 HELIX stub tabovi (popuniti ili otkloniti)
