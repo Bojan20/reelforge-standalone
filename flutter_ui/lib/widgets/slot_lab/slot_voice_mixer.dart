@@ -61,6 +61,24 @@ class _SlotVoiceMixerState extends State<SlotVoiceMixer>
   // Filter text controller — survives rebuilds, syncs with provider on init
   late final TextEditingController _filterController;
 
+  /// FLUX_MASTER_TODO 2.1.2 — per-bus collapse state.
+  /// Bus IDs in this set are folded; their channels are hidden, only the
+  /// separator chip stays visible (now with a +N badge for the channel
+  /// count). Tapping the separator chip toggles it. State is intentionally
+  /// per-widget-instance (UI affordance, not persisted) — Boki may want
+  /// the same project re-opened in another session to start fully expanded.
+  final Set<int> _collapsedBuses = <int>{};
+
+  void _toggleBusCollapsed(int busId) {
+    setState(() {
+      if (_collapsedBuses.contains(busId)) {
+        _collapsedBuses.remove(busId);
+      } else {
+        _collapsedBuses.add(busId);
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -228,12 +246,26 @@ class _SlotVoiceMixerState extends State<SlotVoiceMixer>
       final channels = channelsByBus[busId];
       if (channels == null || channels.isEmpty) continue;
 
-      // Bus separator (except before first group)
-      if (!first) {
-        final color = _busColor(busId);
-        widgets.add(_BusSeparator(busName: busIdToName(busId), color: color));
-      }
+      final isCollapsed = _collapsedBuses.contains(busId);
+      final color = _busColor(busId);
+      // Bus separator (always render — it's the toggle target). The
+      // first group used to skip its separator on the assumption that
+      // a leading divider looks redundant, but with collapse-toggle
+      // we want every group reachable, so first-group also gets one.
+      widgets.add(_BusSeparator(
+        busName: busIdToName(busId),
+        color: color,
+        channelCount: channels.length,
+        isCollapsed: isCollapsed,
+        onTap: () => _toggleBusCollapsed(busId),
+        isLeading: first,
+      ));
       first = false;
+
+      // Skip channel strips when bus is collapsed.
+      if (isCollapsed) {
+        continue;
+      }
 
       // Channel strips with drag-drop reorder
       for (final ch in channels) {
@@ -372,50 +404,115 @@ class _SlotVoiceMixerState extends State<SlotVoiceMixer>
 class _BusSeparator extends StatelessWidget {
   final String busName;
   final Color color;
+  final int channelCount;
+  final bool isCollapsed;
+  final VoidCallback onTap;
+  final bool isLeading;
 
-  const _BusSeparator({required this.busName, required this.color});
+  const _BusSeparator({
+    required this.busName,
+    required this.color,
+    required this.channelCount,
+    required this.isCollapsed,
+    required this.onTap,
+    required this.isLeading,
+  });
 
   @override
   Widget build(BuildContext context) {
+    // FLUX_MASTER_TODO 2.1.2 — collapsed bus folds its channels but
+    // keeps the separator label visible as the toggle target. Width
+    // grows from 8 → ~24 in collapsed state so the +N count badge is
+    // legible without overlapping neighbouring separators.
+    final width = isCollapsed ? 24.0 : 8.0;
     return SizedBox(
-      width: 8,
+      width: width,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          // Gradient line (centered)
-          Positioned(
-            left: 3, width: 2, top: 0, bottom: 0,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [color.withValues(alpha: 0.4), Colors.transparent],
+          // Gradient line (centered) — drawn unless this is the leading
+          // separator before the first group (a left edge looks
+          // redundant).
+          if (!isLeading)
+            Positioned(
+              left: isCollapsed ? 11 : 3,
+              width: 2,
+              top: 0,
+              bottom: 0,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [color.withValues(alpha: 0.4), Colors.transparent],
+                  ),
+                  borderRadius: BorderRadius.circular(1),
                 ),
-                borderRadius: BorderRadius.circular(1),
               ),
             ),
-          ),
-          // Label (centered horizontally with overflow allowed)
+          // Label + count badge — clickable, toggles collapsed state.
           Positioned(
             top: 3,
             left: -16,
             right: -16,
             child: Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                decoration: BoxDecoration(
-                  color: FluxForgeTheme.bgMid,
-                  borderRadius: BorderRadius.circular(2),
-                  border: Border.all(color: FluxForgeTheme.borderSubtle),
-                ),
-                child: Text(
-                  busName.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 7,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.8,
-                    color: color,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: onTap,
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: Tooltip(
+                    message: isCollapsed
+                        ? 'Expand $busName ($channelCount channels)'
+                        : 'Collapse $busName',
+                    waitDuration: const Duration(milliseconds: 400),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: isCollapsed
+                            ? color.withValues(alpha: 0.15)
+                            : FluxForgeTheme.bgMid,
+                        borderRadius: BorderRadius.circular(2),
+                        border: Border.all(
+                          color: isCollapsed
+                              ? color.withValues(alpha: 0.6)
+                              : FluxForgeTheme.borderSubtle,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isCollapsed
+                                ? Icons.chevron_right_rounded
+                                : Icons.expand_more_rounded,
+                            size: 9,
+                            color: color,
+                          ),
+                          const SizedBox(width: 1),
+                          Text(
+                            busName.toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 7,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.8,
+                              color: color,
+                            ),
+                          ),
+                          if (isCollapsed) ...[
+                            const SizedBox(width: 3),
+                            Text(
+                              '$channelCount',
+                              style: TextStyle(
+                                fontSize: 7,
+                                fontWeight: FontWeight.w800,
+                                color: color,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
