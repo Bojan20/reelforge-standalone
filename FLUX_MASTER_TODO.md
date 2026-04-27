@@ -113,7 +113,7 @@
 
 | # | Zadatak | Cilj |
 |---|---|---|
-| 2.2.1 | 60fps pod 130-voice live mix | Phase 10 orchestra fazom 10e-2 |
+| 2.2.1 | ✅ 1ce5ef7e — `test_engine_process_under_130_voice_overspill_meets_realtime_budget` u `rf-engine/tests/playback_tests.rs`. 130 voices spawned (~98 stolen, 32 retained), 200 blokova × 1024@48kHz. Observed: mean=0.166ms, p99=0.691ms, drops=0/200 (~30× under RT budget). |
 | 2.2.2 | OrbMixer Phase 10e-2 — 5s master ring buffer + WAV export | Problems Inbox replay <200ms |
 | 2.2.3 | OrbMixer per-bus FFT isolate za ghost buffer >100 voices | zero frame drop |
 | 2.2.4 | ✅ 60584e2e — `RepaintBoundary(key: ValueKey(superTab))` u `DawLowerZoneWidget._buildContentPanel`. Transport/context bar repaints više ne kaskadiraju u panel. Tab switch invalidate ValueKey → prior layer drop na sledeći frame (deferred load contract). |
