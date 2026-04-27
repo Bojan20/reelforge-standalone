@@ -86,7 +86,7 @@
 
 | # | Zadatak | Cilj |
 |---|---|---|
-| 1.6.1 | `cargo build --release --all` — 0 warnings | clean |
+| 1.6.1 | ✅ 6455ca15 — `cargo build --release --workspace` 0 real warnings (7 inherent "output filename collision" su informativni od dual `[lib]`+`[cdylib]` deklaracije, ne code issues). Skinuti unused `Processor` import-i (sidechain, device_preview), unused test variables (slot_builder integration_tests), 15 `unused_unsafe` u rf-bridge test mod-ovima sa `#[allow(unused_unsafe)]` (samo na test mod, ne na production). | clean |
 | 1.6.2 | `xcodebuild ... -configuration Release build` | success |
 | 1.6.3 | `flutter analyze` — 0 errors | clean |
 | 1.6.4 | `cargo test --workspace` — sve pass | 1873+ tests green |
