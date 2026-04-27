@@ -46,7 +46,7 @@
 
 | # | Problem | Lokacija |
 |---|---|---|
-| 1.2.1 | **Event Registry race** — dva paralelna sistema registracije (`EventRegistry` + `CompositeEventSystemProvider`) — silent audio dropout. CLAUDE.md warning line 40. | `lib/services/event_registry.dart` + `lib/providers/subsystems/composite_event_system_provider.dart` — konsolidovati na JEDAN path kroz `_syncEventToRegistry()` |
+| 1.2.1 | ✅ 5fe9b089 — Event Registry race fixed by extracting `EventRegistrationService` (singleton). SlotLab + HELIX sada oba delegiraju kroz isti put; idempotent registracija; 11 widget testova zelena, regression test specifično za "SlotLab + HELIX isti event = 1 entry, ne eviction". `EventAutoRegistrar` ostao nedirnut (drugi namespace `evt_<stage>`). | — | — |
 | 1.2.2 | Metering lock contention — `lufs_meter.try_write()` / `true_peak_meter.try_write()` silent skip tokom UI interakcije → metering gaps | `crates/rf-engine/src/playback.rs:7322-7335` — decouple metering od audio thread, separate readers |
 | 1.2.3 | Cache TOCTOU — check→evict bez atomic CAS | `crates/rf-engine/src/playback.rs:1044-1055` — dedicated RwLock u background eviction thread |
 
