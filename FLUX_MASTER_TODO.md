@@ -57,7 +57,7 @@
 | 1.3.1 | Widget tests za `engine_connected_layout.dart` (17,292 LOC) | min 30 integration interactions |
 | 1.3.2 | Widget tests za `slot_lab_screen.dart` (15,215 LOC) | min 30 |
 | 1.3.3 | Widget tests za `helix_screen.dart` (9,735 LOC) | min 30 |
-| 1.3.4 | Gesture conflict detection test (820 GestureDetector instances — automatska detekcija arena collision-a) | pass under stress |
+| 1.3.4 | ✅ 39e02499 — Static-scan tripwire `gesture_conflict_detection_test.dart` (5 tests). 1602 GestureDetector total (znatno više od 820 procena), 78 nested-pair pattern-a u 41 fajlu. Ratchet baseline=78: count može samo da pada, svako povećanje fail-uje CI. Density ceiling 100 (helix_screen=94 max). Top-10 density visibility na svaki test run. | 5/5 |
 | 1.3.5 | Memory leak profiling (30+ min sessions, Ticker/OverlayEntry/Provider disposal) | zero leak |
 | 1.3.6 | 60fps perf test pod 50+ channel load | frame drops < 1% |
 
