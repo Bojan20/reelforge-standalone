@@ -96,18 +96,18 @@
 
 ## FAZA 2 — UX / Performance (kompaktnost + brzina imperativi)
 
-### 2.1 Kompaktnost
+### 2.1 Kompaktnost (auditovano 2026-04-28)
 
-| # | Zadatak | Zašto |
+| # | Zadatak | Status |
 |---|---|---|
-| 2.1.1 | HELIX dock jump-to: Cmd+K palette za skok na bilo koji od 110+ sub-tab statesa | sada 2-3 klika za sub-tab |
-| 2.1.2 | SlotVoiceMixer — collapse-by-bus button (6 buseva, svaki collapsible) | 100+ channels trenutno linear scroll |
-| 2.1.3 | Engine_connected_layout — 3-panel raspored collapsible (left/right toggle tabovi) | trenutno 3 monitora potrebna |
-| 2.1.4 | Keyboard shortcut map overlay (`?` ili `Cmd+/`) | discoverability |
-| 2.1.5 | Sub-tab nav shortcuts (1-0 + Q-U) | missing |
-| 2.1.6 | Status bar height smanjiti na 22px (trenutno 28px) | više prostora za rad |
-| 2.1.7 | HELIX Omnibar inline edit-in-place everywhere (project name, BPM, RTP, tier thresholds) | manje klikova |
-| 2.1.8 | Slot preview: toggle fullscreen / 80% / 50% size (Escape cycles) | instant fokus |
+| 2.1.1 | HELIX dock jump-to: Cmd+K palette | ✅ already done — `CommandPalette.showUltimate` + DAW Quick Switcher u `engine_connected_layout.dart:7336-7372` (110+ sub-tab states wired). |
+| 2.1.2 | SlotVoiceMixer collapse-by-bus | ⏳ open |
+| 2.1.3 | Engine_connected_layout 3-panel collapsible | ⏳ open |
+| 2.1.4 | Keyboard shortcut map overlay (`?` / `Cmd+/`) | ✅ already done — `KeyboardShortcutsOverlay.show` u `main_layout.dart:521-523` (P3.1). |
+| 2.1.5 | Sub-tab nav shortcuts (1-0 + Q-U) | ⏳ open (predlažem sledeće) |
+| 2.1.6 | Status bar height 28→22px | ✅ obsolete — `mixer_status_bar.dart` već je 24px (close to target). |
+| 2.1.7 | HELIX Omnibar inline edit-in-place | ⏳ open |
+| 2.1.8 | Slot preview fullscreen/80%/50% (Escape cycles) | ⏳ open |
 
 ### 2.2 Brzina
 
@@ -131,15 +131,17 @@
 | 2.3.4 | Split `helix_screen.dart` | 9,735 LOC | Omnibar + NeuralCanvas + Dock widgets |
 | 2.3.5 | Extract lower zone sub-tab widgets u `widgets/lower_zone/slotlab/` | — | reuse |
 
-### 2.4 Dead code eliminacija
+### 2.4 Dead code eliminacija (auditovano 2026-04-28)
 
-| # | Zadatak | Lokacija |
+| # | Zadatak | Status |
 |---|---|---|
-| 2.4.1 | `ValidationErrorCategory.deprecated` ukloniti | `lib/models/validation_error.dart:67` |
-| 2.4.2 | `_deprecated_slot_events` v4→v5 migration (posle >6 meseci na v5) | `lib/services/project_migrator.dart:594-604` |
-| 2.4.3 | 3 obsolete DAW sub-tabs (video, cyc, ...) | placeholderi 20+ |
-| 2.4.4 | `gdd_import_*` legacy format ~800 LOC | ako niko ne importuje GDD više |
-| 2.4.5 | Old behavior tree format pre-v11 ~400 LOC | `providers/slot_lab/behavior_tree*` |
+| 2.4.1 | `ValidationErrorCategory.deprecated` | ❌ NOT dead — koristi se u 3 call sites u `services/project_schema_validator.dart:661,670,678`. Spec outdated. |
+| 2.4.2 | `_deprecated_slot_events` v4→v5 | ❌ NOT dead — namerno preserved kao migration safeguard u `project_migrator.dart:594-604`. Brisanje kvari load-uvanje starih projekata. |
+| 2.4.3 | 3 obsolete DAW sub-tabs | ⏳ specifikuj koje (spec ne nabraja) |
+| 2.4.4 | `gdd_import_*` legacy ~800 LOC | ❌ NOT dead — `GddImportWizard.show` + `GddImportPanel` + `GddImportService.createSampleGddJson` aktivni u `slot_lab_screen.dart` i `helix_screen.dart`. |
+| 2.4.5 | Old BT format pre-v11 | ❌ NOT dead — `behavior_tree_provider.dart` nema legacy format references; spec ghost. |
+
+> Audit: 4/5 stavki nisu dead code. Spec za 2.4 je stale, niti jedna legitimna eliminacija nije identifikovana ovim sweep-om. Pre realnog cleanup-a treba detaljan profiling kome šta zaista treba.
 
 ---
 

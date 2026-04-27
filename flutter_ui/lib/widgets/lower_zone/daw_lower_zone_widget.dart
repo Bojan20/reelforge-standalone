@@ -11,6 +11,7 @@
 import 'dart:io' show Directory, Platform, Process;
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'daw_lower_zone_controller.dart';
@@ -227,6 +228,41 @@ class DawLowerZoneWidget extends StatefulWidget {
   State<DawLowerZoneWidget> createState() => _DawLowerZoneWidgetState();
 }
 
+/// FLUX_MASTER_TODO 2.1.5 — Intent fired by the keyboard shortcuts that
+/// jump between sub-tabs by index. The controller's `setSubTabIndex`
+/// clamps to the active super-tab's actual sub-tab count.
+class _SubTabIndexIntent extends Intent {
+  final int index;
+  const _SubTabIndexIntent(this.index);
+}
+
+/// 17 key bindings: digits 1-9 + 0 for indices 0-9, then Q-U for 10-16.
+/// Intentionally NOT modifier-gated — these mirror Reaper / Pro Tools
+/// "press a number to jump to that view" idiom inside an audio app's
+/// editor zone, where typing modifier-free letters/digits is reserved
+/// for navigation by long-standing convention. Text fields nested in
+/// the zone consume key events first, so this doesn't interfere with
+/// typing into a clip name / search box.
+final Map<ShortcutActivator, Intent> _kSubTabKeyMap = {
+  const SingleActivator(LogicalKeyboardKey.digit1): const _SubTabIndexIntent(0),
+  const SingleActivator(LogicalKeyboardKey.digit2): const _SubTabIndexIntent(1),
+  const SingleActivator(LogicalKeyboardKey.digit3): const _SubTabIndexIntent(2),
+  const SingleActivator(LogicalKeyboardKey.digit4): const _SubTabIndexIntent(3),
+  const SingleActivator(LogicalKeyboardKey.digit5): const _SubTabIndexIntent(4),
+  const SingleActivator(LogicalKeyboardKey.digit6): const _SubTabIndexIntent(5),
+  const SingleActivator(LogicalKeyboardKey.digit7): const _SubTabIndexIntent(6),
+  const SingleActivator(LogicalKeyboardKey.digit8): const _SubTabIndexIntent(7),
+  const SingleActivator(LogicalKeyboardKey.digit9): const _SubTabIndexIntent(8),
+  const SingleActivator(LogicalKeyboardKey.digit0): const _SubTabIndexIntent(9),
+  const SingleActivator(LogicalKeyboardKey.keyQ): const _SubTabIndexIntent(10),
+  const SingleActivator(LogicalKeyboardKey.keyW): const _SubTabIndexIntent(11),
+  const SingleActivator(LogicalKeyboardKey.keyE): const _SubTabIndexIntent(12),
+  const SingleActivator(LogicalKeyboardKey.keyR): const _SubTabIndexIntent(13),
+  const SingleActivator(LogicalKeyboardKey.keyT): const _SubTabIndexIntent(14),
+  const SingleActivator(LogicalKeyboardKey.keyY): const _SubTabIndexIntent(15),
+  const SingleActivator(LogicalKeyboardKey.keyU): const _SubTabIndexIntent(16),
+};
+
 class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
   /// All sub-tab labels per super-tab (for minimap rich hover preview)
   static final _allDawSuperTabSubLabels = [
@@ -343,14 +379,46 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
 
     // In fullscreen mode, fill all available space
     if (widget.isFullScreen) {
-      return content;
+      return _wrapWithSubTabShortcuts(content);
     }
 
     // Normal mode: fixed height with animation
-    return AnimatedContainer(
+    return _wrapWithSubTabShortcuts(AnimatedContainer(
       duration: kLowerZoneAnimationDuration,
       height: widget.controller.totalHeight,
       child: content,
+    ));
+  }
+
+  /// FLUX_MASTER_TODO 2.1.5 — sub-tab nav shortcuts.
+  ///
+  /// Wraps the lower zone in `Focus` + `Shortcuts` so that pressing
+  /// digit keys 1–9 + 0 jumps to sub-tab index 0–9, and Q–U jumps to
+  /// 10–16. The controller's `setSubTabIndex` already clamps to the
+  /// active super-tab's actual sub-tab count, so a key press on a
+  /// super-tab with fewer sub-tabs (e.g. CORTEX has 5) is a safe
+  /// no-op for keys ≥ 5.
+  ///
+  /// Activation rule: the shortcuts only fire when the lower zone has
+  /// keyboard focus. Typing into a TextField nested inside the zone
+  /// does not trigger them — Flutter's focus traversal hands the key
+  /// event to the inner field first, and the field's `onKey`
+  /// (or default text-input handling) consumes it. The zone's
+  /// `Focus(canRequestFocus: false)` keeps it as a host node only.
+  Widget _wrapWithSubTabShortcuts(Widget child) {
+    return Shortcuts(
+      shortcuts: _kSubTabKeyMap,
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          _SubTabIndexIntent: CallbackAction<_SubTabIndexIntent>(
+            onInvoke: (intent) {
+              widget.controller.setSubTabIndex(intent.index);
+              return null;
+            },
+          ),
+        },
+        child: Focus(canRequestFocus: false, child: child),
+      ),
     );
   }
 
