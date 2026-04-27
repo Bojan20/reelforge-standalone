@@ -101,7 +101,7 @@
 | # | Zadatak | Status |
 |---|---|---|
 | 2.1.1 | HELIX dock jump-to: Cmd+K palette | ✅ already done — `CommandPalette.showUltimate` + DAW Quick Switcher u `engine_connected_layout.dart:7336-7372` (110+ sub-tab states wired). |
-| 2.1.2 | SlotVoiceMixer collapse-by-bus | ⏳ open |
+| 2.1.2 | ✅ d86ec30b — `_collapsedBuses Set<int>` + clickable `_BusSeparator` sa channel count badge + chevron icon. Tap → toggle. 8→24px width u collapsed state. |
 | 2.1.3 | Engine_connected_layout 3-panel collapsible | ⏳ open |
 | 2.1.4 | Keyboard shortcut map overlay (`?` / `Cmd+/`) | ✅ already done — `KeyboardShortcutsOverlay.show` u `main_layout.dart:521-523` (P3.1). |
 | 2.1.5 | ✅ 3e0e2a1b — `_SubTabIndexIntent` + 17-entry `_kSubTabKeyMap` u `daw_lower_zone_widget.dart`. Digit 1-9 → idx 0-8, 0 → 9, Q-U → 10-16. CallbackAction → `controller.setSubTabIndex` (clamped). Focus(canRequestFocus: false) ne krade input iz text fields. |
@@ -117,7 +117,7 @@
 | 2.2.2 | OrbMixer Phase 10e-2 — 5s master ring buffer + WAV export | Problems Inbox replay <200ms |
 | 2.2.3 | OrbMixer per-bus FFT isolate za ghost buffer >100 voices | zero frame drop |
 | 2.2.4 | Lazy loading za 11 super-tabs × sub-tabs (memo + IndexedStack sa keepAlive=false za neaktivne) | <50ms tab switch |
-| 2.2.5 | Waveform cache LRU invalidation (trenutno oversized images BUG #46) | stale waveforms |
+| 2.2.5 | ✅ 4c65f7cd — Byte-budget LRU u `WaveformCache` umesto count-only (256 MB cap, ~32 long tracks). `_multiResTotalBytes` + `_estimateBytes` + `_evictMultiResUntilWithinBudget` na svaki insert. Sve remove/clear/invalidate path-ovi održavaju counter sa `>= 0` clamp. 3 testa: insert→remove byte tracking, churn negativa-prevention, clear() reset. |
 | 2.2.6 | Timeline virtualization — samo visible clips render | 10000+ clips project |
 | 2.2.7 | Impeller GPU compositing enable za macOS (Flutter 3.30+) | smoother scroll/pan |
 
