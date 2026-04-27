@@ -16,7 +16,7 @@
 use rf_core::Sample;
 use rf_dsp::biquad::{BiquadCoeffs, BiquadTDF2};
 use rf_dsp::smoothing::{SmoothedParam, SmoothingType};
-use rf_dsp::{MonoProcessor, Processor};
+use rf_dsp::MonoProcessor;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
 // ═══════════════════════════════════════════════════════════════════════════════

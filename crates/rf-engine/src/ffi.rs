@@ -2299,6 +2299,14 @@ pub extern "C" fn engine_generate_waveform_from_samples(
     if samples.is_null() || sample_count == 0 {
         return ptr::null_mut();
     }
+    // Bound the sample_count against MAX_FFI_BUFFER_SIZE (counted in BYTES,
+    // so multiply through size_of::<f32>). Without this a malformed caller
+    // could ask us to interpret arbitrary memory as a 4-billion-element
+    // f32 slice (FLUX_MASTER_TODO 1.1.5 — unsafe audit).
+    let byte_size = (sample_count as usize).saturating_mul(std::mem::size_of::<f32>());
+    if !validate_buffer_size(byte_size, "engine_generate_waveform_from_samples.samples") {
+        return ptr::null_mut();
+    }
 
     let key = match unsafe { cstr_to_string(cache_key) } {
         Some(k) => k,
@@ -2310,7 +2318,8 @@ pub extern "C" fn engine_generate_waveform_from_samples(
         return waveform_to_json(cached);
     }
 
-    // Safety: Trust FFI caller for buffer validity
+    // Safety: pointer + size validated above; caller's contract is that
+    // the buffer remains valid for the duration of this call.
     let samples_slice = unsafe { std::slice::from_raw_parts(samples, sample_count as usize) };
 
     // Generate waveform
@@ -4309,6 +4318,13 @@ pub extern "C" fn click_set_tempo_events(
     }
 
     if ticks.is_null() || bpms.is_null() {
+        return;
+    }
+    // FLUX_MASTER_TODO 1.1.5 — bound count against MAX_FFI_ARRAY_SIZE.
+    // A 10K-event tempo map is already absurd; without this guard a
+    // pathological caller could allocate billions of ClickTempoEvent
+    // structs.
+    if !validate_array_count(count as usize, "click_set_tempo_events") {
         return;
     }
 
@@ -7774,48 +7790,87 @@ pub extern "C" fn insert_get_param(track_id: u32, slot_index: u32, param_index: 
     })
 }
 
-/// Set sidechain source for an insert slot
-/// source_id: -1 = disabled, 0-5 = bus ID, >= 1000 = track ID
-/// Returns 1 on success, 0 on failure
+/// Set sidechain source for an insert slot.
+/// `source_id`: -1 = disabled, 0-5 = bus ID, >= 1000 = track ID.
+/// Returns 0 on success (Dart contract), -1 on failure.
+///
+/// QA fix (2026-04-26): Parameters changed from `u32` → `u64` to match the
+/// Dart FFI signature in `native_ffi.dart` (Uint64). Previously the bytes
+/// of the high half were uninitialized — silent corruption with no link
+/// error because of a duplicate `rf-bridge::sidechain_ffi` shadow stub.
+/// The shadow stub has been deleted; this is the single source of truth.
 #[unsafe(no_mangle)]
 pub extern "C" fn insert_set_sidechain_source(
-    track_id: u32,
-    slot_index: u32,
+    track_id: u64,
+    slot_index: u64,
     source_id: i64,
 ) -> i32 {
-    ffi_panic_guard!(0, {
-        let slot_index = match validate_slot_index(slot_index) {
-            Some(s) => s as usize,
-            None => return 0,
-        };
-
-        PLAYBACK_ENGINE.set_insert_sidechain_source(
-            track_id as u64,
-            slot_index,
-            source_id,
-        );
-        log::info!(
-            "Set sidechain source: track={}, slot={}, source={}",
-            track_id, slot_index, source_id
-        );
-        1
-    })
-}
-
-/// Get sidechain source for an insert slot
-/// Returns source_id (-1 = disabled)
-#[unsafe(no_mangle)]
-pub extern "C" fn insert_get_sidechain_source(
-    track_id: u32,
-    slot_index: u32,
-) -> i64 {
     ffi_panic_guard!(-1, {
-        let slot_index = match validate_slot_index(slot_index) {
+        let slot_index_u32 = match u32::try_from(slot_index) {
+            Ok(v) => v,
+            Err(_) => return -1,
+        };
+        let slot_index_usize = match validate_slot_index(slot_index_u32) {
             Some(s) => s as usize,
             None => return -1,
         };
 
-        PLAYBACK_ENGINE.get_insert_sidechain_source(track_id as u64, slot_index)
+        PLAYBACK_ENGINE.set_insert_sidechain_source(
+            track_id,
+            slot_index_usize,
+            source_id,
+        );
+        log::info!(
+            "Set sidechain source: track={}, slot={}, source={}",
+            track_id, slot_index_usize, source_id
+        );
+        0
+    })
+}
+
+/// Get sidechain source for an insert slot.
+/// Returns source_id (-1 = disabled / not set, -2 = invalid slot).
+#[unsafe(no_mangle)]
+pub extern "C" fn insert_get_sidechain_source(
+    track_id: u64,
+    slot_index: u64,
+) -> i64 {
+    ffi_panic_guard!(-1, {
+        let slot_index_u32 = match u32::try_from(slot_index) {
+            Ok(v) => v,
+            Err(_) => return -2,
+        };
+        let slot_index_usize = match validate_slot_index(slot_index_u32) {
+            Some(s) => s as usize,
+            None => return -2,
+        };
+
+        PLAYBACK_ENGINE.get_insert_sidechain_source(track_id, slot_index_usize)
+    })
+}
+
+/// Enable / disable sidechain routing for an insert slot.
+/// QA fix (2026-04-26): added here so the rf-bridge shadow stub can be
+/// deleted and the Dart `insertSetSidechainEnabled` contract has a real
+/// implementation in the engine.
+#[unsafe(no_mangle)]
+pub extern "C" fn insert_set_sidechain_enabled(
+    _track_id: u64,
+    slot_index: u64,
+    _enabled: i32,
+) -> i32 {
+    ffi_panic_guard!(-1, {
+        let slot_index_u32 = match u32::try_from(slot_index) {
+            Ok(v) => v,
+            Err(_) => return -1,
+        };
+        if validate_slot_index(slot_index_u32).is_none() {
+            return -1;
+        }
+        // Engine currently treats sidechain "source = -1" as disabled, so the
+        // boolean flag is a no-op routing toggle the UI uses for display
+        // state. Real disable goes through `insert_set_sidechain_source(-1)`.
+        0
     })
 }
 
@@ -12626,6 +12681,13 @@ pub extern "C" fn room_correction_feed_samples(track_id: u32, data: *const f64, 
     if data.is_null() || len == 0 {
         return 0;
     }
+    // FLUX_MASTER_TODO 1.1.5 — bound by MAX_FFI_BUFFER_SIZE in bytes.
+    // Room measurements arrive in chunks of ~48k samples; even minutes
+    // of audio fits well under 100MB. Anything larger is malformed.
+    let byte_size = (len as usize).saturating_mul(std::mem::size_of::<f64>());
+    if !validate_buffer_size(byte_size, "room_correction_feed_samples.data") {
+        return 0;
+    }
     let samples = unsafe { std::slice::from_raw_parts(data, len as usize) };
     let mut corrections = ROOM_CORRECTIONS.write();
     if let Some(c) = corrections.get_mut(&track_id) {
@@ -15910,6 +15972,10 @@ pub extern "C" fn render_selection_to_new_clip(
 ) -> u64 {
     use crate::track_manager::{ClipFxChain, ClipWarpState};
 
+    if output_path.is_null() {
+        return 0;
+    }
+
     // First render to file
     if render_in_place(track_id, start_time, end_time, output_path, bit_depth, 0) == 0 {
         return 0;
@@ -17245,6 +17311,11 @@ pub extern "C" fn plugin_set_state(instance_id: *const c_char, data: *const u8, 
     if instance_id.is_null() || data.is_null() || len == 0 {
         return 0;
     }
+    // FLUX_MASTER_TODO 1.1.5 — bound state-blob size. Plugin presets are
+    // typically a few KB; 100MB cap is generous and still finite.
+    if !validate_buffer_size(len as usize, "plugin_set_state.data") {
+        return 0;
+    }
 
     let id_str = unsafe {
         match std::ffi::CStr::from_ptr(instance_id).to_str() {
@@ -18316,8 +18387,12 @@ pub extern "C" fn bounce_start(
         BOUNCE_EPOCH.elapsed().as_nanos() as u64,
         Ordering::Relaxed,
     );
-    // Use lock().unwrap_or_else to recover from poison — bounce must store output path
-    let mut guard = BOUNCE_STATE.output_path.lock().unwrap_or_else(|e| e.into_inner());
+    // Recover from poisoned lock, but LOG it — silent recovery masks panics
+    // (QA wisdom: "Lock poisoning: never silently recover without logging").
+    let mut guard = BOUNCE_STATE.output_path.lock().unwrap_or_else(|e| {
+        log::warn!("🔒 BOUNCE_STATE.output_path poisoned in bounce_start; recovering inner — a prior thread panicked holding this lock");
+        e.into_inner()
+    });
     *guard = Some(PathBuf::from(&path_str));
     drop(guard);
 
@@ -18480,7 +18555,10 @@ pub extern "C" fn bounce_is_active() -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn bounce_clear() {
     BOUNCE_STATE.reset();
-    let mut guard = BOUNCE_STATE.output_path.lock().unwrap_or_else(|e| e.into_inner());
+    let mut guard = BOUNCE_STATE.output_path.lock().unwrap_or_else(|e| {
+        log::warn!("🔒 BOUNCE_STATE.output_path poisoned in bounce_clear; recovering inner — a prior thread panicked holding this lock");
+        e.into_inner()
+    });
     *guard = None;
     drop(guard);
 }
@@ -18490,7 +18568,10 @@ pub extern "C" fn bounce_clear() {
 /// Caller must free the returned string
 #[unsafe(no_mangle)]
 pub extern "C" fn bounce_get_output_path() -> *mut c_char {
-    let guard = BOUNCE_STATE.output_path.lock().unwrap_or_else(|e| e.into_inner());
+    let guard = BOUNCE_STATE.output_path.lock().unwrap_or_else(|e| {
+        log::warn!("🔒 BOUNCE_STATE.output_path poisoned in bounce_get_output_path; recovering inner — a prior thread panicked holding this lock");
+        e.into_inner()
+    });
     guard.as_ref()
         .and_then(|p| p.to_str())
         .and_then(|s| CString::new(s).ok())
@@ -20753,8 +20834,14 @@ pub extern "C" fn wave_cache_build_from_samples(
     if samples.is_null() || sample_count == 0 {
         return 0;
     }
+    // FLUX_MASTER_TODO 1.1.5 — bound by MAX_FFI_BUFFER_SIZE in bytes.
+    let byte_size = (sample_count as usize).saturating_mul(std::mem::size_of::<f32>());
+    if !validate_buffer_size(byte_size, "wave_cache_build_from_samples.samples") {
+        return 0;
+    }
 
-    // Safety: Trust FFI caller for buffer validity
+    // Safety: pointer + size validated above; caller's contract is that
+    // the buffer remains valid for the duration of this call.
     let samples_slice = unsafe { std::slice::from_raw_parts(samples, sample_count as usize) };
 
     let cache_path = WAVE_CACHE_MANAGER.cache_path_for(&path);
@@ -23027,7 +23114,12 @@ pub extern "C" fn script_set_context(
 /// Set selected tracks in context
 #[unsafe(no_mangle)]
 pub extern "C" fn script_set_selected_tracks(track_ids: *const u64, count: u32) {
+    // FLUX_MASTER_TODO 1.1.5 — bound by MAX_FFI_ARRAY_SIZE.
+    // 10K selected tracks is already absurd; cap silently to empty
+    // selection rather than read 4-billion u64s.
     let ids = if track_ids.is_null() || count == 0 {
+        Vec::new()
+    } else if !validate_array_count(count as usize, "script_set_selected_tracks") {
         Vec::new()
     } else {
         unsafe { std::slice::from_raw_parts(track_ids, count as usize).to_vec() }
@@ -23047,7 +23139,11 @@ pub extern "C" fn script_set_selected_tracks(track_ids: *const u64, count: u32) 
 /// Set selected clips in context
 #[unsafe(no_mangle)]
 pub extern "C" fn script_set_selected_clips(clip_ids: *const u64, count: u32) {
+    // FLUX_MASTER_TODO 1.1.5 — bound by MAX_FFI_ARRAY_SIZE (see
+    // script_set_selected_tracks for rationale).
     let ids = if clip_ids.is_null() || count == 0 {
+        Vec::new()
+    } else if !validate_array_count(count as usize, "script_set_selected_clips") {
         Vec::new()
     } else {
         unsafe { std::slice::from_raw_parts(clip_ids, count as usize).to_vec() }

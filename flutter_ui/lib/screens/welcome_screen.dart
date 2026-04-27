@@ -291,13 +291,16 @@ class _WelcomeScreenState extends State<WelcomeScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ShaderMask(
-              shaderCallback: (bounds) => LinearGradient(
+              shaderCallback: (bounds) => const LinearGradient(
                 colors: [
-                  FluxForgeTheme.accentBlue,
-                  FluxForgeTheme.accentCyan,
+                  FluxForgeTheme.brandGoldDark,
+                  FluxForgeTheme.brandGold,
+                  FluxForgeTheme.brandGoldBright,
+                  FluxForgeTheme.brandIvory,
                 ],
+                stops: [0.0, 0.4, 0.75, 1.0],
               ).createShader(bounds),
-              child: Text(
+              child: const Text(
                 'FluxForge Studio',
                 style: TextStyle(
                   fontSize: 40,

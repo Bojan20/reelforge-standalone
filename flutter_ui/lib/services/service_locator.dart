@@ -145,6 +145,9 @@ import '../providers/input_bus_provider.dart';
 import '../providers/recording_provider.dart';
 import '../providers/routing_provider.dart';
 import '../providers/keyboard_focus_provider.dart';
+import '../providers/panel_focus_provider.dart';
+import '../providers/selection_provider.dart';
+import '../providers/selection_memory_provider.dart';
 import '../providers/edit_mode_pro_provider.dart';
 import '../providers/smart_tool_provider.dart';
 import '../providers/razor_edit_provider.dart';
@@ -976,6 +979,15 @@ class ServiceLocator {
 
     // Warp Markers State (Phase 4-5)
     sl.registerLazySingleton<WarpStateProvider>(() => WarpStateProvider());
+
+    // SPEC-14: Panel Focus Provider — tracks active panel for keyboard routing
+    sl.registerLazySingleton<PanelFocusProvider>(() => PanelFocusProvider());
+
+    // SPEC-03/04: Selection Provider — single source of truth for adaptive UI
+    sl.registerLazySingleton<SelectionProvider>(() => SelectionProvider());
+
+    // SPEC-15: Selection Memory Provider — layout snapshot slots (Cmd+1..9)
+    sl.registerLazySingleton<SelectionMemoryProvider>(() => SelectionMemoryProvider());
 
     // Initialize plugin alternatives registry
     PluginAlternativesRegistry.instance.initBuiltInAlternatives();

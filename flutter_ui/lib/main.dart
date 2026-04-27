@@ -77,12 +77,15 @@ import 'services/crdt_sync_service.dart';
 import 'services/cortex_vision_service.dart';
 import 'services/cortex_eye_server.dart';
 import 'services/cortex_intelligence_loop.dart';
+import 'services/cortex_log_buffer.dart';
 import 'providers/cortex_provider.dart';
 import 'providers/rgai_ffi_provider.dart';
 import 'providers/slot_spatial_provider.dart';
 import 'providers/ab_sim_provider.dart';
 import 'providers/slot_export_provider.dart';
 import 'providers/sfx_pipeline_provider.dart';
+import 'providers/selection_provider.dart';
+import 'providers/selection_memory_provider.dart';
 import 'utils/path_validator.dart';
 import 'dart:io';
 import 'package:path/path.dart' as p;
@@ -108,6 +111,11 @@ import 'providers/warp_state_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // ══════════════════════════════════════════════════════════════════════
+  // CORTEX Log Buffer — mora biti prvi, hvata SVE što dolazi posle
+  // ══════════════════════════════════════════════════════════════════════
+  CortexLogBuffer.instance.init();
 
   // Kill orphan afplay child processes on app exit (SIGTERM/SIGINT from Cmd+Q)
   // Uses -P to only kill afplay processes that are children of this process
@@ -151,6 +159,9 @@ void main() async {
 
   // Initialize Workspace Preset Service (layout presets)
   await WorkspacePresetService.instance.init();
+
+  // Initialize Selection Memory Service (SPEC-15: Cmd+1..9 layout slots)
+  await sl<SelectionMemoryProvider>().init();
 
   // Initialize Localization Service (P3-08)
   await LocalizationService.instance.init();
@@ -438,6 +449,16 @@ class FluxForgeApp extends StatelessWidget {
         ChangeNotifierProvider<SfxPipelineProvider>.value(
           value: sl<SfxPipelineProvider>(),
         ),
+
+        // SPEC-03/04: Selection Provider — single source of truth for adaptive UI
+        ChangeNotifierProvider<SelectionProvider>.value(
+          value: sl<SelectionProvider>(),
+        ),
+
+        // SPEC-15: Selection Memory Provider — layout snapshot slots (Cmd+1..9)
+        ChangeNotifierProvider<SelectionMemoryProvider>.value(
+          value: sl<SelectionMemoryProvider>(),
+        ),
       ],
       child: RepaintBoundary(
         key: CortexVisionService.instance.rootBoundaryKey,
@@ -573,6 +594,13 @@ class _AppInitializerState extends State<_AppInitializer> {
             _handleModeSelected(AppMode.slotLab);
           case 'daw':
             _handleModeSelected(AppMode.daw);
+          case 'daw_workspace':
+            // Diagnostic path: enter DAW hub → create ephemeral project → enter workspace.
+            // Allows CORTEX to verify the workspace renders without needing AX click access.
+            _handleModeSelected(AppMode.daw);
+            Future.delayed(const Duration(milliseconds: 300), () {
+              if (mounted) _handleNewProject('_CortexEyeProbe');
+            });
           case 'launcher':
             _handleBackToLauncher();
           case 'helix':

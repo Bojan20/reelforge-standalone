@@ -981,3 +981,191 @@ fn test_voice_pool_stats_struct_default() {
     assert_eq!(stats.middleware_voices, 0);
     assert_eq!(stats.browser_voices, 0);
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// REAL-TIME PERFORMANCE — FLUX_MASTER_TODO 1.3.6
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// FLUX_MASTER_TODO 2.2.1 — 60fps under 130 simultaneous voices.
+///
+/// `MAX_ONE_SHOT_VOICES = 32`, but the engine accepts and steals voices
+/// past the cap (LRU eviction); spawning 130 exercises the steal path
+/// plus the active-set scan that runs even when the pool is saturated.
+/// Same RT contract as 1.3.6: mean < 5 ms, p99 < 16.67 ms, drop rate
+/// < 1%. If the pool's active scan ever goes O(n²) on a refactor this
+/// test fails fast.
+#[test]
+fn test_engine_process_under_130_voice_overspill_meets_realtime_budget() {
+    use std::time::Instant;
+    const NUM_TRACKS: usize = 16;
+    const NUM_VOICES_REQUESTED: usize = 130;
+    const NUM_BLOCKS: usize = 200;
+    const BLOCK_SIZE: usize = 1024;
+    const RT_BUDGET_MS: f64 = (BLOCK_SIZE as f64 / TEST_SAMPLE_RATE as f64) * 1000.0;
+    const MEAN_BUDGET_MS: f64 = 5.0;
+    const P99_BUDGET_MS: f64 = 16.67;
+    const MAX_DROP_RATE: f64 = 0.01;
+
+    let track_manager = Arc::new(TrackManager::new());
+    use rf_engine::track_manager::OutputBus;
+    for i in 0..NUM_TRACKS {
+        track_manager.create_track(
+            &format!("orch_track_{i}"),
+            0xFFFFFFFF,
+            if i % 2 == 0 { OutputBus::Music } else { OutputBus::Sfx },
+        );
+    }
+    let engine = PlaybackEngine::new(track_manager, TEST_SAMPLE_RATE);
+    let path = insert_test_audio(&engine, "orch_voice");
+
+    // Spawn 130; the pool will steal/discard anything past its cap.
+    for _ in 0..NUM_VOICES_REQUESTED {
+        engine.play_one_shot_to_bus(&path, 0.5, 0.0, 1, PlaybackSource::Daw);
+    }
+
+    let mut out_l = vec![0.0_f64; BLOCK_SIZE];
+    let mut out_r = vec![0.0_f64; BLOCK_SIZE];
+    engine.process(&mut out_l, &mut out_r); // warm-up
+
+    let mut us: Vec<u128> = Vec::with_capacity(NUM_BLOCKS);
+    for _ in 0..NUM_BLOCKS {
+        let s = Instant::now();
+        engine.process(&mut out_l, &mut out_r);
+        us.push(s.elapsed().as_micros());
+    }
+    us.sort_unstable();
+
+    let mean_ms = (us.iter().sum::<u128>() as f64 / NUM_BLOCKS as f64) / 1000.0;
+    let p99_idx = ((NUM_BLOCKS as f64) * 0.99) as usize;
+    let p99_ms = us[p99_idx.min(NUM_BLOCKS - 1)] as f64 / 1000.0;
+    let max_ms = *us.last().unwrap() as f64 / 1000.0;
+    let drops = us.iter()
+        .filter(|&&u| (u as f64 / 1000.0) > RT_BUDGET_MS).count();
+    let drop_rate = drops as f64 / NUM_BLOCKS as f64;
+
+    eprintln!(
+        "[2.2.1 perf] {NUM_TRACKS}t × {NUM_VOICES_REQUESTED}v-requested × {NUM_BLOCKS}b: \
+         mean={mean_ms:.3}ms p99={p99_ms:.3}ms max={max_ms:.3}ms \
+         drops={drops}/{NUM_BLOCKS} ({:.2}%, RT={RT_BUDGET_MS:.2}ms)",
+        drop_rate * 100.0
+    );
+
+    assert!(mean_ms < MEAN_BUDGET_MS,
+        "mean {mean_ms:.3}ms > {MEAN_BUDGET_MS}ms");
+    assert!(p99_ms < P99_BUDGET_MS,
+        "p99 {p99_ms:.3}ms > {P99_BUDGET_MS}ms");
+    assert!(drop_rate < MAX_DROP_RATE,
+        "drop rate {:.2}% > {:.2}% ({drops}/{NUM_BLOCKS})",
+        drop_rate * 100.0, MAX_DROP_RATE * 100.0);
+}
+
+/// 60fps under 50+ track / 32-voice load, with frame-drop tolerance < 1%.
+///
+/// Methodology:
+///   1. Spin up 50 tracks across all 6 buses.
+///   2. Spawn `MAX_ONE_SHOT_VOICES` (32) one-shot voices.
+///   3. Render 200 audio blocks of 1024 samples @ 48kHz. (200 × 1024/48000 ≈
+///      4.27 seconds of audio.)
+///   4. Measure each `process()` call. The real-time budget per block is
+///      1024 / 48000 = 21.33 ms — exceeding it means a buffer underrun on
+///      the audio device.
+///
+/// Pass criteria (all three must hold):
+///   * **mean** < 5 ms — generous headroom, surfaces inefficiency.
+///   * **p99**  < 16.67 ms — strict 60fps frame budget.
+///   * **drop rate** < 1% — frames over the RT budget (21.33 ms) must be
+///     fewer than `1% × 200 = 2`.
+///
+/// Notes:
+///   * Test runs on the calling thread, not on a dedicated audio thread.
+///     CPU contention from the test runner adds noise — that's why the
+///     drop tolerance is non-zero. A clean ARM64 / x86_64 dev box should
+///     still see ~0 drops.
+///   * Synthetic audio is silence (zeros). Real audio content can hit
+///     different code paths in the resampler / FFT analyzer; this test
+///     covers the dispatch overhead, not codec / DSP worst case. A future
+///     enhancement could feed signed sine into a known-busy clip path.
+#[test]
+fn test_engine_process_under_load_meets_realtime_budget() {
+    use std::time::Instant;
+
+    const NUM_TRACKS: usize = 50;
+    const NUM_VOICES: usize = 32;
+    const NUM_BLOCKS: usize = 200;
+    const BLOCK_SIZE: usize = 1024;
+    const RT_BUDGET_MS: f64 = (BLOCK_SIZE as f64 / TEST_SAMPLE_RATE as f64) * 1000.0; // 21.33ms
+    const MEAN_BUDGET_MS: f64 = 5.0;
+    const P99_BUDGET_MS: f64 = 16.67;
+    const MAX_DROP_RATE: f64 = 0.01;
+
+    let track_manager = Arc::new(TrackManager::new());
+    use rf_engine::track_manager::OutputBus;
+    let buses = [
+        OutputBus::Master,
+        OutputBus::Music,
+        OutputBus::Sfx,
+        OutputBus::Voice,
+        OutputBus::Ambience,
+        OutputBus::Aux,
+    ];
+    for i in 0..NUM_TRACKS {
+        track_manager.create_track(
+            &format!("perf_track_{i}"),
+            0xFFFFFFFF,
+            buses[i % buses.len()],
+        );
+    }
+    let engine = PlaybackEngine::new(track_manager, TEST_SAMPLE_RATE);
+
+    let path = insert_test_audio(&engine, "perf_test");
+    for _ in 0..NUM_VOICES {
+        engine.play_one_shot_to_bus(&path, 1.0, 0.0, 2, PlaybackSource::Daw);
+    }
+
+    let mut out_l = vec![0.0_f64; BLOCK_SIZE];
+    let mut out_r = vec![0.0_f64; BLOCK_SIZE];
+
+    // Warm-up: first call may pay one-time costs (cache fill, lazy init).
+    engine.process(&mut out_l, &mut out_r);
+
+    let mut timings_us: Vec<u128> = Vec::with_capacity(NUM_BLOCKS);
+    for _ in 0..NUM_BLOCKS {
+        let start = Instant::now();
+        engine.process(&mut out_l, &mut out_r);
+        timings_us.push(start.elapsed().as_micros());
+    }
+    timings_us.sort_unstable();
+
+    let total_us: u128 = timings_us.iter().sum();
+    let mean_ms = (total_us as f64 / NUM_BLOCKS as f64) / 1000.0;
+    let p99_idx = ((NUM_BLOCKS as f64) * 0.99) as usize;
+    let p99_ms = timings_us[p99_idx.min(NUM_BLOCKS - 1)] as f64 / 1000.0;
+    let max_ms = *timings_us.last().unwrap() as f64 / 1000.0;
+    let drops: usize = timings_us
+        .iter()
+        .filter(|&&us| (us as f64 / 1000.0) > RT_BUDGET_MS)
+        .count();
+    let drop_rate = drops as f64 / NUM_BLOCKS as f64;
+
+    eprintln!(
+        "[1.3.6 perf] {NUM_TRACKS}t × {NUM_VOICES}v × {NUM_BLOCKS}b: \
+         mean={mean_ms:.3}ms p99={p99_ms:.3}ms max={max_ms:.3}ms \
+         drops={drops}/{NUM_BLOCKS} ({:.2}%, RT_budget={RT_BUDGET_MS:.2}ms)",
+        drop_rate * 100.0
+    );
+
+    assert!(
+        mean_ms < MEAN_BUDGET_MS,
+        "Mean process() time {mean_ms:.3}ms exceeds {MEAN_BUDGET_MS}ms budget"
+    );
+    assert!(
+        p99_ms < P99_BUDGET_MS,
+        "p99 process() time {p99_ms:.3}ms exceeds 60fps frame budget {P99_BUDGET_MS}ms"
+    );
+    assert!(
+        drop_rate < MAX_DROP_RATE,
+        "Frame drop rate {:.2}% exceeds {:.2}% tolerance ({drops}/{NUM_BLOCKS} blocks over RT budget {RT_BUDGET_MS:.2}ms)",
+        drop_rate * 100.0,
+        MAX_DROP_RATE * 100.0
+    );
+}

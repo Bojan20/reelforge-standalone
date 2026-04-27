@@ -192,11 +192,26 @@ class _SplashScreenState extends State<SplashScreen>
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             boxShadow: [
+                              // Inner shimmer — bright gold core
                               BoxShadow(
-                                color: FluxForgeTheme.accentBlue
+                                color: FluxForgeTheme.brandGoldBright
+                                    .withAlpha((255 * _glowIntensity.value * 0.75).round()),
+                                blurRadius: 60 * _glowIntensity.value,
+                                spreadRadius: 8 * _glowIntensity.value,
+                              ),
+                              // Rich royal gold mid halo
+                              BoxShadow(
+                                color: FluxForgeTheme.brandGold
                                     .withAlpha((255 * _glowIntensity.value * 0.6).round()),
-                                blurRadius: 80 * _glowIntensity.value,
-                                spreadRadius: 20 * _glowIntensity.value,
+                                blurRadius: 100 * _glowIntensity.value,
+                                spreadRadius: 24 * _glowIntensity.value,
+                              ),
+                              // Outer burgundy drama rim
+                              BoxShadow(
+                                color: FluxForgeTheme.brandBurgundy
+                                    .withAlpha((255 * _glowIntensity.value * 0.4).round()),
+                                blurRadius: 120 * _glowIntensity.value,
+                                spreadRadius: 36 * _glowIntensity.value,
                               ),
                             ],
                           ),
@@ -225,13 +240,16 @@ class _SplashScreenState extends State<SplashScreen>
                   child: Column(
                     children: [
                       ShaderMask(
-                        shaderCallback: (bounds) => LinearGradient(
+                        shaderCallback: (bounds) => const LinearGradient(
                           colors: [
-                            FluxForgeTheme.accentBlue,
-                            FluxForgeTheme.accentCyan,
+                            FluxForgeTheme.brandGoldDark,
+                            FluxForgeTheme.brandGold,
+                            FluxForgeTheme.brandGoldBright,
+                            FluxForgeTheme.brandIvory,
                           ],
+                          stops: [0.0, 0.4, 0.75, 1.0],
                         ).createShader(bounds),
-                        child: Text(
+                        child: const Text(
                           'FluxForge Studio',
                           style: TextStyle(
                             fontSize: 48,
@@ -344,10 +362,11 @@ class _SplashScreenState extends State<SplashScreen>
                     widthFactor: widget.progress!.clamp(0.0, 1.0),
                     child: Container(
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
+                        gradient: const LinearGradient(
                           colors: [
-                            FluxForgeTheme.accentBlue,
-                            FluxForgeTheme.accentCyan,
+                            FluxForgeTheme.brandGoldDeep,
+                            FluxForgeTheme.brandGold,
+                            FluxForgeTheme.brandGoldBright,
                           ],
                         ),
                         borderRadius: BorderRadius.circular(1.5),
@@ -407,7 +426,7 @@ class _SplashScreenState extends State<SplashScreen>
           TextButton(
             onPressed: widget.onRetry,
             style: TextButton.styleFrom(
-              foregroundColor: FluxForgeTheme.accentBlue,
+              foregroundColor: FluxForgeTheme.brandGold,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
             child: const Text('Retry'),
@@ -454,10 +473,11 @@ class _IndeterminateProgressState extends State<_IndeterminateProgress>
           alignment: Alignment(-1.0 + 2.0 * _controller.value, 0),
           child: Container(
             decoration: BoxDecoration(
-              gradient: LinearGradient(
+              gradient: const LinearGradient(
                 colors: [
-                  FluxForgeTheme.accentBlue,
-                  FluxForgeTheme.accentCyan,
+                  FluxForgeTheme.brandGoldDeep,
+                  FluxForgeTheme.brandGold,
+                  FluxForgeTheme.brandGoldBright,
                 ],
               ),
               borderRadius: BorderRadius.circular(1.5),

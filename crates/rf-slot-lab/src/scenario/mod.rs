@@ -27,8 +27,13 @@ use crate::model::GameModel;
 
 /// Errors produced when validating a scenario against a game model.
 ///
-/// BUG#63 — Symbol arrays in `SpecificGrid` outcomes must match the game's
-/// configured grid dimensions (reels × rows).
+/// BUG#63 — A scripted scenario must be self-consistent against the active
+/// `GameModel` before being handed to playback. Pre-fix the FFI layer only
+/// rejected `SpecificGrid` outcomes whose REEL/ROW count diverged. Anything
+/// else — invalid symbol IDs, NaN win ratios, billion-spin free spin
+/// triggers — slipped through and corrupted downstream win evaluation,
+/// session economy, and (in the symbol-id case) caused out-of-bounds reads
+/// in payline matchers that index into the symbol table by id.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum ScenarioValidationError {
     /// A `SpecificGrid` outcome has the wrong number of reels.
@@ -51,7 +56,79 @@ pub enum ScenarioValidationError {
         expected: usize,
         got: usize,
     },
+
+    /// A `SpecificGrid` cell references a symbol id that doesn't exist in the
+    /// active model's symbol set. Without this check, downstream payline
+    /// matching would either silently mis-evaluate the win or, for some
+    /// matchers that index a fixed-size table, read past its end.
+    #[error(
+        "spin #{spin_index} SpecificGrid cell ({reel_index},{row_index}) references unknown symbol id {symbol_id}"
+    )]
+    UnknownSymbolId {
+        spin_index: usize,
+        reel_index: usize,
+        row_index: usize,
+        symbol_id: u32,
+    },
+
+    /// A scripted win ratio is non-finite (NaN/±Inf) or negative.
+    #[error(
+        "spin #{spin_index} {variant} has invalid ratio {ratio}: must be finite and ≥ 0"
+    )]
+    InvalidWinRatio {
+        spin_index: usize,
+        variant: &'static str,
+        ratio: f64,
+    },
+
+    /// A scripted free-spin count is unreasonably large (would never end the
+    /// session) or zero (semantic bug — `TriggerFreeSpins { count: 0 }` is a
+    /// no-op masquerading as a trigger).
+    #[error(
+        "spin #{spin_index} TriggerFreeSpins.count={count} out of allowed range [1, {max}]"
+    )]
+    InvalidFreeSpinCount {
+        spin_index: usize,
+        count: u32,
+        max: u32,
+    },
+
+    /// A multiplier value is non-finite or negative.
+    #[error(
+        "spin #{spin_index} {variant} has invalid multiplier {value}: must be finite and ≥ 0"
+    )]
+    InvalidMultiplier {
+        spin_index: usize,
+        variant: &'static str,
+        value: f64,
+    },
+
+    /// A cascade chain win count is unreasonably large.
+    #[error(
+        "spin #{spin_index} CascadeChain.wins={wins} out of allowed range [1, {max}]"
+    )]
+    InvalidCascadeWinCount {
+        spin_index: usize,
+        wins: u32,
+        max: u32,
+    },
+
+    /// The scenario has zero spins. Combined with `LoopMode::Forever` /
+    /// `LoopMode::Count(_)` / `LoopMode::PingPong` this would spin without
+    /// producing any outcome — playback would silently advance forever.
+    #[error("scenario has empty sequence; at least one spin is required")]
+    EmptySequence,
 }
+
+/// Maximum free-spin trigger count — a single scenario step asking for more
+/// than this would never complete in a normal session, almost certainly a
+/// data error rather than a real intent.
+pub const SCENARIO_MAX_FREE_SPINS: u32 = 10_000;
+
+/// Maximum cascade chain length — same reasoning as above. Real cascade
+/// games top out around 20–30 sequential cascades for showcase purposes;
+/// 1000 is generous slack against unexpected configs.
+pub const SCENARIO_MAX_CASCADE_WINS: u32 = 1_000;
 
 /// Demo scenario — a sequence of scripted outcomes
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -161,41 +238,121 @@ impl DemoScenario {
 
     /// Validate this scenario against a game model.
     ///
-    /// Checks that every `SpecificGrid` outcome in the sequence has exactly
-    /// `model.grid.reels` reels and exactly `model.grid.rows` rows per reel.
-    ///
     /// Returns the first validation error found, or `Ok(())` if all spins are
-    /// compatible with the model.  Call this after constructing a scenario from
-    /// user input or deserialised data before handing it to `ScenarioPlayback`.
+    /// compatible. Call this after constructing a scenario from user input
+    /// or deserialised data, BEFORE handing it to `ScenarioPlayback`.
     ///
-    /// # BUG#63
-    /// Without this check a `SpecificGrid` with the wrong dimensions would be
-    /// silently accepted and could cause out-of-bounds access or incorrect win
-    /// evaluation downstream.
+    /// # BUG#63 — coverage
+    ///
+    /// Pre-fix this only verified `SpecificGrid` reel/row counts. Now it
+    /// checks every variant of [`ScriptedOutcome`]:
+    ///
+    /// * `SpecificGrid` — reel count, row-per-reel count, and EVERY symbol
+    ///   id is resolvable through the active symbol set (catches the
+    ///   classic "scenario authored against a different game" failure).
+    /// * `SmallWin/MediumWin/BigWin/MegaWin/EpicWin/UltraWin` — `ratio`
+    ///   must be finite and non-negative. NaN/±Inf would otherwise leak
+    ///   into the win-tier comparator and propagate to the session bank.
+    /// * `TriggerFreeSpins` — `count` is in `[1, SCENARIO_MAX_FREE_SPINS]`
+    ///   (zero is a no-op masquerading as a trigger; huge values would
+    ///   never let the session conclude). `multiplier` must be finite ≥ 0.
+    /// * `TriggerJackpot` — no extra check; the tier string is validated
+    ///   downstream by the jackpot manager.
+    /// * `CascadeChain` — `wins` is in `[1, SCENARIO_MAX_CASCADE_WINS]`.
+    /// * Sequence — must contain at least one spin (looping forever over
+    ///   an empty sequence would silently advance with no outcomes).
     pub fn validate_against(&self, model: &GameModel) -> Result<(), ScenarioValidationError> {
+        if self.sequence.is_empty() {
+            return Err(ScenarioValidationError::EmptySequence);
+        }
+
         let expected_reels = model.grid.reels as usize;
         let expected_rows = model.grid.rows as usize;
+        // Snapshot the symbol set once — the conversion is non-trivial for
+        // Custom sets and would otherwise rerun for every cell in every spin.
+        let symbol_set = model.symbols.to_symbol_set();
 
         for (spin_index, spin) in self.sequence.iter().enumerate() {
-            if let ScriptedOutcome::SpecificGrid { grid } = &spin.outcome {
-                // Check reel count
-                if grid.len() != expected_reels {
-                    return Err(ScenarioValidationError::WrongReelCount {
-                        spin_index,
-                        expected: expected_reels,
-                        got: grid.len(),
-                    });
+            match &spin.outcome {
+                ScriptedOutcome::Lose | ScriptedOutcome::TriggerHoldAndWin
+                | ScriptedOutcome::NearMiss { .. }
+                | ScriptedOutcome::TriggerJackpot { .. } => {
+                    // No numeric payload to validate.
                 }
 
-                // Check row count per reel
-                for (reel_index, reel) in grid.iter().enumerate() {
-                    if reel.len() != expected_rows {
-                        return Err(ScenarioValidationError::WrongRowCount {
+                ScriptedOutcome::SmallWin { ratio } => {
+                    check_ratio(spin_index, "SmallWin", *ratio)?;
+                }
+                ScriptedOutcome::MediumWin { ratio } => {
+                    check_ratio(spin_index, "MediumWin", *ratio)?;
+                }
+                ScriptedOutcome::BigWin { ratio } => {
+                    check_ratio(spin_index, "BigWin", *ratio)?;
+                }
+                ScriptedOutcome::MegaWin { ratio } => {
+                    check_ratio(spin_index, "MegaWin", *ratio)?;
+                }
+                ScriptedOutcome::EpicWin { ratio } => {
+                    check_ratio(spin_index, "EpicWin", *ratio)?;
+                }
+                ScriptedOutcome::UltraWin { ratio } => {
+                    check_ratio(spin_index, "UltraWin", *ratio)?;
+                }
+
+                ScriptedOutcome::TriggerFreeSpins { count, multiplier } => {
+                    if *count == 0 || *count > SCENARIO_MAX_FREE_SPINS {
+                        return Err(ScenarioValidationError::InvalidFreeSpinCount {
                             spin_index,
-                            reel_index,
-                            expected: expected_rows,
-                            got: reel.len(),
+                            count: *count,
+                            max: SCENARIO_MAX_FREE_SPINS,
                         });
+                    }
+                    if !multiplier.is_finite() || *multiplier < 0.0 {
+                        return Err(ScenarioValidationError::InvalidMultiplier {
+                            spin_index,
+                            variant: "TriggerFreeSpins",
+                            value: *multiplier,
+                        });
+                    }
+                }
+
+                ScriptedOutcome::CascadeChain { wins } => {
+                    if *wins == 0 || *wins > SCENARIO_MAX_CASCADE_WINS {
+                        return Err(ScenarioValidationError::InvalidCascadeWinCount {
+                            spin_index,
+                            wins: *wins,
+                            max: SCENARIO_MAX_CASCADE_WINS,
+                        });
+                    }
+                }
+
+                ScriptedOutcome::SpecificGrid { grid } => {
+                    if grid.len() != expected_reels {
+                        return Err(ScenarioValidationError::WrongReelCount {
+                            spin_index,
+                            expected: expected_reels,
+                            got: grid.len(),
+                        });
+                    }
+                    for (reel_index, reel) in grid.iter().enumerate() {
+                        if reel.len() != expected_rows {
+                            return Err(ScenarioValidationError::WrongRowCount {
+                                spin_index,
+                                reel_index,
+                                expected: expected_rows,
+                                got: reel.len(),
+                            });
+                        }
+                        for (row_index, &symbol_id) in reel.iter().enumerate() {
+                            if symbol_set.get(symbol_id).is_none() {
+                                return Err(ScenarioValidationError::UnknownSymbolId {
+                                    spin_index,
+                                    reel_index,
+                                    row_index,
+                                    symbol_id,
+                                });
+                            }
+                        }
                     }
                 }
             }
@@ -203,6 +360,23 @@ impl DemoScenario {
 
         Ok(())
     }
+}
+
+/// Helper: validate that a scripted win ratio is a finite, non-negative number.
+#[inline]
+fn check_ratio(
+    spin_index: usize,
+    variant: &'static str,
+    ratio: f64,
+) -> Result<(), ScenarioValidationError> {
+    if !ratio.is_finite() || ratio < 0.0 {
+        return Err(ScenarioValidationError::InvalidWinRatio {
+            spin_index,
+            variant,
+            ratio,
+        });
+    }
+    Ok(())
 }
 
 /// Scenario playback state
@@ -578,5 +752,170 @@ mod tests {
             ),
             "unexpected error variant: {err}"
         );
+    }
+
+    // =========================================================================
+    // BUG#63 EXTENSION — coverage for non-grid outcomes (commit follows)
+    // =========================================================================
+
+    #[test]
+    fn test_validate_empty_sequence_err() {
+        let model = model_with_grid(5, 3);
+        let scenario = DemoScenario::new("empty", "Empty");
+        let err = scenario.validate_against(&model).unwrap_err();
+        assert!(matches!(err, ScenarioValidationError::EmptySequence),
+            "unexpected error: {err}");
+    }
+
+    #[test]
+    fn test_validate_unknown_symbol_id_err() {
+        // StandardSymbolSet has ids 1..=13 — id 99 should not resolve.
+        let model = model_with_grid(5, 3);
+        // Reels of 3 cells, with one cell holding an unknown id.
+        let mut grid: Vec<Vec<u32>> = (0..5).map(|_| vec![1, 2, 3]).collect();
+        grid[2][1] = 99;
+        let mut scenario = DemoScenario::new("unknown_sym", "Unknown Symbol");
+        scenario.add_spin(specific_grid_outcome(grid));
+
+        let err = scenario.validate_against(&model).unwrap_err();
+        assert!(
+            matches!(err,
+                ScenarioValidationError::UnknownSymbolId {
+                    spin_index: 0, reel_index: 2, row_index: 1, symbol_id: 99
+                }
+            ),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn test_validate_nan_win_ratio_err() {
+        let model = model_with_grid(5, 3);
+        let mut scenario = DemoScenario::new("nan", "NaN Win");
+        scenario.add_spin(ScriptedOutcome::BigWin { ratio: f64::NAN });
+
+        let err = scenario.validate_against(&model).unwrap_err();
+        assert!(
+            matches!(err, ScenarioValidationError::InvalidWinRatio { spin_index: 0, variant: "BigWin", .. }),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn test_validate_negative_win_ratio_err() {
+        let model = model_with_grid(5, 3);
+        let mut scenario = DemoScenario::new("neg", "Negative Win");
+        scenario.add_spin(ScriptedOutcome::SmallWin { ratio: -1.0 });
+
+        let err = scenario.validate_against(&model).unwrap_err();
+        assert!(
+            matches!(err, ScenarioValidationError::InvalidWinRatio { spin_index: 0, variant: "SmallWin", .. }),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn test_validate_infinite_win_ratio_err() {
+        let model = model_with_grid(5, 3);
+        let mut scenario = DemoScenario::new("inf", "Infinite Win");
+        scenario.add_spin(ScriptedOutcome::MegaWin { ratio: f64::INFINITY });
+
+        let err = scenario.validate_against(&model).unwrap_err();
+        assert!(matches!(err, ScenarioValidationError::InvalidWinRatio { variant: "MegaWin", .. }),
+            "unexpected error: {err}");
+    }
+
+    #[test]
+    fn test_validate_zero_free_spin_count_err() {
+        let model = model_with_grid(5, 3);
+        let mut scenario = DemoScenario::new("zero_fs", "Zero Free Spins");
+        scenario.add_spin(ScriptedOutcome::TriggerFreeSpins { count: 0, multiplier: 1.0 });
+
+        let err = scenario.validate_against(&model).unwrap_err();
+        assert!(matches!(err,
+            ScenarioValidationError::InvalidFreeSpinCount { count: 0, .. }),
+            "unexpected: {err}");
+    }
+
+    #[test]
+    fn test_validate_huge_free_spin_count_err() {
+        let model = model_with_grid(5, 3);
+        let mut scenario = DemoScenario::new("huge_fs", "Huge Free Spins");
+        scenario.add_spin(ScriptedOutcome::TriggerFreeSpins {
+            count: SCENARIO_MAX_FREE_SPINS + 1,
+            multiplier: 1.0,
+        });
+
+        let err = scenario.validate_against(&model).unwrap_err();
+        assert!(matches!(err, ScenarioValidationError::InvalidFreeSpinCount { .. }),
+            "unexpected: {err}");
+    }
+
+    #[test]
+    fn test_validate_invalid_multiplier_err() {
+        let model = model_with_grid(5, 3);
+        let mut scenario = DemoScenario::new("bad_mult", "Bad Multiplier");
+        scenario.add_spin(ScriptedOutcome::TriggerFreeSpins {
+            count: 10,
+            multiplier: f64::NEG_INFINITY,
+        });
+
+        let err = scenario.validate_against(&model).unwrap_err();
+        assert!(matches!(err,
+            ScenarioValidationError::InvalidMultiplier { variant: "TriggerFreeSpins", .. }),
+            "unexpected: {err}");
+    }
+
+    #[test]
+    fn test_validate_huge_cascade_chain_err() {
+        let model = model_with_grid(5, 3);
+        let mut scenario = DemoScenario::new("huge_cas", "Huge Cascade");
+        scenario.add_spin(ScriptedOutcome::CascadeChain {
+            wins: SCENARIO_MAX_CASCADE_WINS + 1,
+        });
+
+        let err = scenario.validate_against(&model).unwrap_err();
+        assert!(matches!(err, ScenarioValidationError::InvalidCascadeWinCount { .. }),
+            "unexpected: {err}");
+    }
+
+    #[test]
+    fn test_validate_zero_cascade_chain_err() {
+        let model = model_with_grid(5, 3);
+        let mut scenario = DemoScenario::new("zero_cas", "Zero Cascade");
+        scenario.add_spin(ScriptedOutcome::CascadeChain { wins: 0 });
+
+        let err = scenario.validate_against(&model).unwrap_err();
+        assert!(matches!(err, ScenarioValidationError::InvalidCascadeWinCount { wins: 0, .. }),
+            "unexpected: {err}");
+    }
+
+    #[test]
+    fn test_validate_lose_and_near_miss_pass_through() {
+        // Outcomes with no numeric payload should always pass.
+        let model = model_with_grid(5, 3);
+        let mut scenario = DemoScenario::new("misc", "Misc");
+        scenario.add_spin(ScriptedOutcome::Lose);
+        scenario.add_spin(ScriptedOutcome::TriggerHoldAndWin);
+        scenario.add_spin(ScriptedOutcome::NearMiss { feature: "free_spins".into() });
+        scenario.add_spin(ScriptedOutcome::TriggerJackpot { tier: "MINOR".into() });
+        assert!(scenario.validate_against(&model).is_ok());
+    }
+
+    #[test]
+    fn test_validate_valid_full_payload_ok() {
+        // Sanity: a fully-loaded scenario with valid values for every numeric
+        // payload passes. Catches regressions where the new validators reject
+        // healthy data.
+        let model = model_with_grid(5, 3);
+        let mut scenario = DemoScenario::new("happy", "Happy Path");
+        scenario.add_spin(ScriptedOutcome::Lose);
+        scenario.add_spin(ScriptedOutcome::SmallWin { ratio: 5.0 });
+        scenario.add_spin(ScriptedOutcome::TriggerFreeSpins { count: 10, multiplier: 2.0 });
+        scenario.add_spin(ScriptedOutcome::CascadeChain { wins: 5 });
+        // 5x3 grid using only standard symbols (1..=10 are regular)
+        let grid: Vec<Vec<u32>> = (0..5).map(|i| vec![1 + i % 10, 2 + i % 10, 3 + i % 10]).collect();
+        scenario.add_spin(specific_grid_outcome(grid));
+        assert!(scenario.validate_against(&model).is_ok());
     }
 }

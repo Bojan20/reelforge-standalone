@@ -496,39 +496,24 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
     });
   }
 
-  // ─── Card (glass panel with title + orb + busses + footer) ─────────────────
+  // ─── Standalone orb (no card chrome — just orb + floating strips) ──────────
+  // Boki req: "ne volim što je u kartici" — removed solid bg, border, shadow.
+  // Title + buses + footer remain as floating glass strips, visually detached.
   // Resize handle has been moved to the outer Stack — do NOT add it here.
   Widget _buildCard(double orbPx, double cardW, double cardH, Size vp) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xF0070710),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.14), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.55),
-            blurRadius: 18, spreadRadius: 2,
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildTitleBar(cardW, cardH, vp),
-            SizedBox(height: _vGap),
-            _buildOrbSection(orbPx),
-            SizedBox(height: _vGap),
-            _buildBussesSection(),
-            SizedBox(height: _vGap),
-            _buildFooter(),
-            SizedBox(height: _cardPadH),
-          ],
-        ),
-      ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildTitleBar(cardW, cardH, vp),
+        SizedBox(height: _vGap),
+        _buildOrbSection(orbPx),
+        SizedBox(height: _vGap),
+        _buildBussesSection(),
+        SizedBox(height: _vGap),
+        _buildFooter(),
+        SizedBox(height: _cardPadH),
+      ],
     );
   }
 
@@ -711,7 +696,7 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
     // so dB values and peak bars stay live even without DSP state changes.
     return ValueListenableBuilder<int>(
       valueListenable: _frame,
-      builder: (_, __, ___) => Padding(
+      builder: (_, _, _) => Padding(
         padding: EdgeInsets.symmetric(horizontal: _cardPadH),
         child: Column(
           mainAxisSize: MainAxisSize.min,

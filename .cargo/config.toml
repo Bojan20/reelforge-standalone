@@ -1,12 +1,15 @@
 [build]
 jobs = -1
 
+# Linux x86_64: use default linker (works on any runner/box without setup).
+# To enable the mold linker locally for faster link times, install mold
+# (`sudo apt-get install mold`) and set in your shell profile:
+#   export RUSTFLAGS="-C link-arg=-fuse-ld=mold $RUSTFLAGS"
+# Or create `.cargo/config.toml.local` (gitignored) with the mold override.
 [target.x86_64-unknown-linux-gnu]
-linker = "clang"
 rustflags = [
     "-C", "target-cpu=native",
     "-C", "target-feature=+avx2,+fma",
-    "-C", "link-arg=-fuse-ld=mold",
 ]
 
 [target.x86_64-apple-darwin]

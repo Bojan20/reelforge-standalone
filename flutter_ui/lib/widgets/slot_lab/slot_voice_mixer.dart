@@ -61,6 +61,24 @@ class _SlotVoiceMixerState extends State<SlotVoiceMixer>
   // Filter text controller — survives rebuilds, syncs with provider on init
   late final TextEditingController _filterController;
 
+  /// FLUX_MASTER_TODO 2.1.2 — per-bus collapse state.
+  /// Bus IDs in this set are folded; their channels are hidden, only the
+  /// separator chip stays visible (now with a +N badge for the channel
+  /// count). Tapping the separator chip toggles it. State is intentionally
+  /// per-widget-instance (UI affordance, not persisted) — Boki may want
+  /// the same project re-opened in another session to start fully expanded.
+  final Set<int> _collapsedBuses = <int>{};
+
+  void _toggleBusCollapsed(int busId) {
+    setState(() {
+      if (_collapsedBuses.contains(busId)) {
+        _collapsedBuses.remove(busId);
+      } else {
+        _collapsedBuses.add(busId);
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -228,12 +246,26 @@ class _SlotVoiceMixerState extends State<SlotVoiceMixer>
       final channels = channelsByBus[busId];
       if (channels == null || channels.isEmpty) continue;
 
-      // Bus separator (except before first group)
-      if (!first) {
-        final color = _busColor(busId);
-        widgets.add(_BusSeparator(busName: busIdToName(busId), color: color));
-      }
+      final isCollapsed = _collapsedBuses.contains(busId);
+      final color = _busColor(busId);
+      // Bus separator (always render — it's the toggle target). The
+      // first group used to skip its separator on the assumption that
+      // a leading divider looks redundant, but with collapse-toggle
+      // we want every group reachable, so first-group also gets one.
+      widgets.add(_BusSeparator(
+        busName: busIdToName(busId),
+        color: color,
+        channelCount: channels.length,
+        isCollapsed: isCollapsed,
+        onTap: () => _toggleBusCollapsed(busId),
+        isLeading: first,
+      ));
       first = false;
+
+      // Skip channel strips when bus is collapsed.
+      if (isCollapsed) {
+        continue;
+      }
 
       // Channel strips with drag-drop reorder
       for (final ch in channels) {
@@ -372,50 +404,115 @@ class _SlotVoiceMixerState extends State<SlotVoiceMixer>
 class _BusSeparator extends StatelessWidget {
   final String busName;
   final Color color;
+  final int channelCount;
+  final bool isCollapsed;
+  final VoidCallback onTap;
+  final bool isLeading;
 
-  const _BusSeparator({required this.busName, required this.color});
+  const _BusSeparator({
+    required this.busName,
+    required this.color,
+    required this.channelCount,
+    required this.isCollapsed,
+    required this.onTap,
+    required this.isLeading,
+  });
 
   @override
   Widget build(BuildContext context) {
+    // FLUX_MASTER_TODO 2.1.2 — collapsed bus folds its channels but
+    // keeps the separator label visible as the toggle target. Width
+    // grows from 8 → ~24 in collapsed state so the +N count badge is
+    // legible without overlapping neighbouring separators.
+    final width = isCollapsed ? 24.0 : 8.0;
     return SizedBox(
-      width: 8,
+      width: width,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          // Gradient line (centered)
-          Positioned(
-            left: 3, width: 2, top: 0, bottom: 0,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [color.withValues(alpha: 0.4), Colors.transparent],
+          // Gradient line (centered) — drawn unless this is the leading
+          // separator before the first group (a left edge looks
+          // redundant).
+          if (!isLeading)
+            Positioned(
+              left: isCollapsed ? 11 : 3,
+              width: 2,
+              top: 0,
+              bottom: 0,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [color.withValues(alpha: 0.4), Colors.transparent],
+                  ),
+                  borderRadius: BorderRadius.circular(1),
                 ),
-                borderRadius: BorderRadius.circular(1),
               ),
             ),
-          ),
-          // Label (centered horizontally with overflow allowed)
+          // Label + count badge — clickable, toggles collapsed state.
           Positioned(
             top: 3,
             left: -16,
             right: -16,
             child: Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                decoration: BoxDecoration(
-                  color: FluxForgeTheme.bgMid,
-                  borderRadius: BorderRadius.circular(2),
-                  border: Border.all(color: FluxForgeTheme.borderSubtle),
-                ),
-                child: Text(
-                  busName.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 7,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.8,
-                    color: color,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: onTap,
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: Tooltip(
+                    message: isCollapsed
+                        ? 'Expand $busName ($channelCount channels)'
+                        : 'Collapse $busName',
+                    waitDuration: const Duration(milliseconds: 400),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: isCollapsed
+                            ? color.withValues(alpha: 0.15)
+                            : FluxForgeTheme.bgMid,
+                        borderRadius: BorderRadius.circular(2),
+                        border: Border.all(
+                          color: isCollapsed
+                              ? color.withValues(alpha: 0.6)
+                              : FluxForgeTheme.borderSubtle,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isCollapsed
+                                ? Icons.chevron_right_rounded
+                                : Icons.expand_more_rounded,
+                            size: 9,
+                            color: color,
+                          ),
+                          const SizedBox(width: 1),
+                          Text(
+                            busName.toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 7,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.8,
+                              color: color,
+                            ),
+                          ),
+                          if (isCollapsed) ...[
+                            const SizedBox(width: 3),
+                            Text(
+                              '$channelCount',
+                              style: TextStyle(
+                                fontSize: 7,
+                                fontWeight: FontWeight.w800,
+                                color: color,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -465,19 +562,32 @@ class _VoiceStripState extends State<_VoiceStrip> {
 
     // BUG#17 FIX: modifier keys via Listener.onPointerDown (CLAUDE.md rule)
     // GestureDetector.onTap + HardwareKeyboard.instance.isMetaPressed is unreliable
+    //
+    // Interaction contract (Boki spec):
+    //   • Single click       → focus + auto-solo (master-fader behavior)
+    //   • Cmd/Ctrl+click     → multi-select (batch ops, no solo hijack)
+    //   • Double-click       → open Voice Detail Editor for this channel
+    //   • Long-press (≥500ms) → radial quick-action menu
+    //   • Right-click        → legacy context menu (kept for discoverability)
+    //
+    // Listener handles modifier-aware single-click.
+    // GestureDetector handles double-tap + long-press + right-click in parallel.
     return Listener(
       onPointerDown: (event) {
         if (event.buttons == 1) {
           // Primary button only
           if (HardwareKeyboard.instance.isMetaPressed) {
-            // Cmd/Ctrl+Click = multi-select
+            // Cmd/Ctrl+Click = multi-select — DO NOT hijack solo state.
             widget.provider.toggleMultiSelect(ch.layerId);
           } else {
-            widget.provider.selectChannel(ch.layerId);
+            // Plain click = focus + auto-solo (master-fader behavior).
+            widget.provider.focusAndSoloChannel(ch.layerId);
           }
         }
       },
       child: GestureDetector(
+      onDoubleTap: () => _openVoiceDetailEditor(context),
+      onLongPressStart: (d) => _openRadialActionMenu(context, d.globalPosition),
       onSecondaryTapDown: (details) => _showContextMenu(context, details.globalPosition),
       child: AnimatedOpacity(
         duration: const Duration(milliseconds: 120),
@@ -573,6 +683,60 @@ class _VoiceStripState extends State<_VoiceStrip> {
           widget.provider.removeChannel(ch.layerId);
       }
     });
+  }
+
+  // ─── Voice Detail Editor (double-tap) ────────────────────────────────────
+
+  /// Opens a floating, compact Voice Detail Editor for this channel.
+  /// Shows every parameter at once (volume, pan, width, phase, bus, input gain,
+  /// mute, solo, audio path), each editable inline, with quick actions.
+  void _openVoiceDetailEditor(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.55),
+      builder: (_) => _VoiceDetailEditor(
+        provider: widget.provider,
+        layerId: ch.layerId,
+      ),
+    );
+  }
+
+  // ─── Radial Quick-Action Menu (long-press) ───────────────────────────────
+
+  /// Compact radial dial that floats over the channel on long-press.
+  /// Four cardinal actions + center "open editor" — fast muscle-memory UX.
+  void _openRadialActionMenu(BuildContext context, Offset globalPos) {
+    final overlay = Overlay.of(context);
+    OverlayEntry? entry;
+    entry = OverlayEntry(
+      builder: (ctx) => _RadialActionMenu(
+        center: globalPos,
+        busColor: busColor,
+        channelName: ch.displayName,
+        onDismiss: () => entry?.remove(),
+        onMuteToggle: () {
+          entry?.remove();
+          widget.provider.toggleMute(ch.layerId);
+        },
+        onAudition: () {
+          entry?.remove();
+          widget.provider.auditionChannel(ch.layerId);
+        },
+        onDuplicate: () {
+          entry?.remove();
+          widget.provider.duplicateChannel(ch.layerId);
+        },
+        onRemove: () {
+          entry?.remove();
+          widget.provider.removeChannel(ch.layerId);
+        },
+        onOpenEditor: () {
+          entry?.remove();
+          _openVoiceDetailEditor(context);
+        },
+      ),
+    );
+    overlay.insert(entry);
   }
 
   // ─── Header ─────────────────────────────────────────────────────────────
@@ -2098,6 +2262,421 @@ class _MasterStripState extends State<_MasterStrip>
           ),
         );
       },
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VOICE DETAIL EDITOR — floating dialog opened on channel double-tap
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// Shows every voice parameter in one compact panel: audio path preview,
+// volume/pan/width/phase/input gain sliders, bus dropdown, quick actions
+// (Audition, Duplicate, Reset, Remove).
+
+class _VoiceDetailEditor extends StatelessWidget {
+  const _VoiceDetailEditor({
+    required this.provider,
+    required this.layerId,
+  });
+
+  final SlotVoiceMixerProvider provider;
+  final String layerId;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: provider,
+      builder: (ctx, _) {
+        // Rebuild on provider change — channel params are live.
+        final channels = provider.channels;
+        SlotMixerChannel? ch;
+        for (final c in channels) {
+          if (c.layerId == layerId) { ch = c; break; }
+        }
+        if (ch == null) {
+          // Channel was removed while editor was open — close.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (ctx.mounted) Navigator.of(ctx).maybePop();
+          });
+          return const SizedBox.shrink();
+        }
+        final color = _busColor(ch.busId);
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(24),
+          child: Container(
+            width: 560,
+            decoration: BoxDecoration(
+              color: FluxForgeTheme.bgDeep,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: color.withValues(alpha: 0.45), width: 1),
+              boxShadow: FluxForgeTheme.deepShadow,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildHeader(ctx, ch, color),
+                  _buildBody(ch, color),
+                  _buildFooter(ctx, ch, color),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildHeader(BuildContext ctx, SlotMixerChannel ch, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [color.withValues(alpha: 0.18), color.withValues(alpha: 0.04)],
+        ),
+        border: Border(bottom: BorderSide(color: color.withValues(alpha: 0.30))),
+      ),
+      child: Row(
+        children: [
+          Container(width: 4, height: 18, color: color),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(ch.displayName,
+                  style: const TextStyle(
+                    color: FluxForgeTheme.textPrimary,
+                    fontSize: 14, fontWeight: FontWeight.w600,
+                    letterSpacing: 0.3)),
+                Text('Bus ${ch.busId} • ${ch.audioPath.split('/').last}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: FluxForgeTheme.textTertiary,
+                    fontSize: 10, letterSpacing: 0.2)),
+              ],
+            ),
+          ),
+          IconButton(
+            iconSize: 16,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints.tightFor(width: 28, height: 28),
+            onPressed: () => Navigator.of(ctx).maybePop(),
+            icon: const Icon(Icons.close, color: FluxForgeTheme.textSecondary),
+            tooltip: 'Close',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBody(SlotMixerChannel ch, Color color) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _slider('VOLUME', ch.volume, 0.0, 2.0, color,
+            format: (v) => v <= 0.0001 ? '-∞ dB'
+                : '${(20 * math.log(v) / math.ln10).toStringAsFixed(1)} dB',
+            onChangedFinal: (v) => provider.setChannelVolumeFinal(ch.layerId, v)),
+          _slider('PAN L', ch.pan, -1.0, 1.0, color,
+            format: (v) => v.toStringAsFixed(2),
+            onChangedFinal: (v) => provider.setChannelPanFinal(ch.layerId, v)),
+          _slider('PAN R', ch.panRight, -1.0, 1.0, color,
+            format: (v) => v.toStringAsFixed(2),
+            onChangedFinal: (v) => provider.setChannelPanRightFinal(ch.layerId, v)),
+          _slider('WIDTH', ch.stereoWidth, 0.0, 2.0, color,
+            format: (v) => v.toStringAsFixed(2),
+            onChangedFinal: (v) => provider.setChannelWidthFinal(ch.layerId, v)),
+          _slider('INPUT GAIN', ch.inputGain, -20.0, 20.0, color,
+            format: (v) => '${v.toStringAsFixed(1)} dB',
+            onChangedFinal: (v) => provider.setChannelInputGainFinal(ch.layerId, v)),
+        ],
+      ),
+    );
+  }
+
+  Widget _slider(
+    String label,
+    double value,
+    double min,
+    double max,
+    Color color, {
+    required String Function(double) format,
+    required ValueChanged<double> onChangedFinal,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 72,
+            child: Text(label,
+              style: const TextStyle(
+                color: FluxForgeTheme.textTertiary,
+                fontSize: 9, fontWeight: FontWeight.w700,
+                letterSpacing: 1.2)),
+          ),
+          Expanded(
+            child: SliderTheme(
+              data: SliderThemeData(
+                activeTrackColor: color,
+                inactiveTrackColor: color.withValues(alpha: 0.18),
+                thumbColor: color,
+                overlayColor: color.withValues(alpha: 0.18),
+                trackHeight: 3,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+              ),
+              child: Slider(
+                value: value.clamp(min, max),
+                min: min,
+                max: max,
+                onChanged: (_) {},
+                onChangeEnd: onChangedFinal,
+              ),
+            ),
+          ),
+          SizedBox(
+            width: 72,
+            child: Text(format(value),
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                color: FluxForgeTheme.textSecondary,
+                fontSize: 10, fontFamily: 'JetBrainsMono')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFooter(BuildContext ctx, SlotMixerChannel ch, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: const BoxDecoration(
+        color: FluxForgeTheme.bgVoid,
+        border: Border(top: BorderSide(color: FluxForgeTheme.borderSubtle)),
+      ),
+      child: Row(
+        children: [
+          _footerBtn('AUDITION', FluxForgeTheme.accentGreen, Icons.play_arrow,
+            () => provider.auditionChannel(ch.layerId)),
+          const SizedBox(width: 8),
+          _footerBtn('DUPLICATE', color, Icons.content_copy,
+            () => provider.duplicateChannel(ch.layerId)),
+          const SizedBox(width: 8),
+          _footerBtn(ch.phaseInvert ? 'Ø ON' : 'Ø', FluxForgeTheme.accentOrange,
+            Icons.swap_vert,
+            () => provider.togglePhaseInvert(ch.layerId)),
+          const Spacer(),
+          _footerBtn('RESET', FluxForgeTheme.textTertiary, Icons.restart_alt,
+            () {
+              provider.setChannelVolumeFinal(ch.layerId, 1.0);
+              provider.setChannelPanFinal(ch.layerId, -1.0);
+              provider.setChannelPanRightFinal(ch.layerId, 1.0);
+              provider.setChannelWidthFinal(ch.layerId, 1.0);
+              provider.setChannelInputGainFinal(ch.layerId, 0.0);
+            }),
+          const SizedBox(width: 8),
+          _footerBtn('DELETE', FluxForgeTheme.accentRed, Icons.delete_outline,
+            () {
+              provider.removeChannel(ch.layerId);
+              Navigator.of(ctx).maybePop();
+            }),
+        ],
+      ),
+    );
+  }
+
+  Widget _footerBtn(String label, Color color, IconData icon, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: color.withValues(alpha: 0.40)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 13, color: color),
+              const SizedBox(width: 4),
+              Text(label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 9, fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// RADIAL ACTION MENU — compact long-press quick-action dial
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// Appears as a small cluster of pills around the long-press point.
+// Four cardinal actions (N/E/S/W) + a central "Open Editor" target.
+// Dismisses on outside tap, Esc, or any action tap.
+
+class _RadialActionMenu extends StatelessWidget {
+  const _RadialActionMenu({
+    required this.center,
+    required this.busColor,
+    required this.channelName,
+    required this.onDismiss,
+    required this.onMuteToggle,
+    required this.onAudition,
+    required this.onDuplicate,
+    required this.onRemove,
+    required this.onOpenEditor,
+  });
+
+  final Offset center;
+  final Color busColor;
+  final String channelName;
+  final VoidCallback onDismiss;
+  final VoidCallback onMuteToggle;
+  final VoidCallback onAudition;
+  final VoidCallback onDuplicate;
+  final VoidCallback onRemove;
+  final VoidCallback onOpenEditor;
+
+  static const double _radius = 64.0;
+  static const double _pillSize = 44.0;
+  static const double _centerSize = 56.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final screen = MediaQuery.of(context).size;
+    // Clamp menu origin so pills stay on-screen.
+    final cx = center.dx.clamp(_radius + 12, screen.width  - _radius - 12);
+    final cy = center.dy.clamp(_radius + 12, screen.height - _radius - 12);
+
+    return Stack(
+      children: [
+        // Dismiss barrier
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onDismiss,
+            child: Container(color: Colors.black.withValues(alpha: 0.35)),
+          ),
+        ),
+        // Center target — open full detail editor
+        Positioned(
+          left: cx - _centerSize / 2,
+          top:  cy - _centerSize / 2,
+          width:  _centerSize,
+          height: _centerSize,
+          child: _actionPill(
+            icon: Icons.tune,
+            color: busColor,
+            size: _centerSize,
+            onTap: onOpenEditor,
+            tooltip: 'Detail editor',
+          ),
+        ),
+        // North — Audition (preview)
+        _positionedPill(cx, cy - _radius, Icons.play_arrow,
+          FluxForgeTheme.accentGreen, 'Audition', onAudition),
+        // East — Duplicate
+        _positionedPill(cx + _radius, cy, Icons.content_copy,
+          busColor, 'Duplicate', onDuplicate),
+        // South — Remove
+        _positionedPill(cx, cy + _radius, Icons.delete_outline,
+          FluxForgeTheme.accentRed, 'Remove', onRemove),
+        // West — Mute toggle
+        _positionedPill(cx - _radius, cy, Icons.volume_off,
+          FluxForgeTheme.accentOrange, 'Mute', onMuteToggle),
+        // Label above center (channel name)
+        Positioned(
+          left: cx - 100,
+          top:  cy - _radius - 32,
+          width: 200,
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: FluxForgeTheme.bgVoid.withValues(alpha: 0.92),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: busColor.withValues(alpha: 0.45)),
+              ),
+              child: Text(channelName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: FluxForgeTheme.textPrimary,
+                  fontSize: 10, fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _positionedPill(double cx, double cy, IconData icon, Color color,
+      String tooltip, VoidCallback onTap) {
+    return Positioned(
+      left: cx - _pillSize / 2,
+      top:  cy - _pillSize / 2,
+      width:  _pillSize,
+      height: _pillSize,
+      child: _actionPill(
+        icon: icon,
+        color: color,
+        size: _pillSize,
+        onTap: onTap,
+        tooltip: tooltip,
+      ),
+    );
+  }
+
+  Widget _actionPill({
+    required IconData icon,
+    required Color color,
+    required double size,
+    required VoidCallback onTap,
+    required String tooltip,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      waitDuration: const Duration(milliseconds: 300),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: FluxForgeTheme.bgDeep,
+              border: Border.all(color: color.withValues(alpha: 0.70), width: 1.4),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.35),
+                  blurRadius: 12,
+                  spreadRadius: 0,
+                ),
+              ],
+            ),
+            child: Icon(icon, size: size * 0.45, color: color),
+          ),
+        ),
+      ),
     );
   }
 }

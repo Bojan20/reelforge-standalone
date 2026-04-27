@@ -68,11 +68,11 @@ fn register_plugin_window_classes() {
                             let cls: *mut AnyObject = msg_send![hit, class];
                             let name: *mut AnyObject = msg_send![cls, className];
                             let cstr: *const i8 = msg_send![name, UTF8String];
-                            let n = std::ffi::CStr::from_ptr(cstr).to_str().unwrap_or("?");
+                            let n = if cstr.is_null() { "?" } else { std::ffi::CStr::from_ptr(cstr).to_str().unwrap_or("?") };
                             let super_cls: *mut AnyObject = msg_send![cls, superclass];
                             let super_name: *mut AnyObject = msg_send![super_cls, className];
                             let scstr: *const i8 = msg_send![super_name, UTF8String];
-                            let sn = std::ffi::CStr::from_ptr(scstr).to_str().unwrap_or("?");
+                            let sn = if scstr.is_null() { "?" } else { std::ffi::CStr::from_ptr(scstr).to_str().unwrap_or("?") };
                             eprintln!("[FFPluginWindow] mouseDown at ({:.0},{:.0}) hit={} super={}", local.x, local.y, n, sn);
                             // Check view hierarchy depth
                             let mut v: *mut AnyObject = hit;
@@ -146,7 +146,7 @@ fn register_plugin_window_classes() {
                     if !hit.is_null() && hit != this {
                         let class_name: *mut AnyObject = msg_send![hit, className];
                         let cstr: *const i8 = msg_send![class_name, UTF8String];
-                        let name = std::ffi::CStr::from_ptr(cstr).to_str().unwrap_or("?");
+                        let name = if cstr.is_null() { "?" } else { std::ffi::CStr::from_ptr(cstr).to_str().unwrap_or("?") };
                         eprintln!("[FFContainer] hitTest found: {} — forwarding mouseDown", name);
                         let _: () = msg_send![hit, mouseDown: event];
                     } else {
@@ -1468,6 +1468,9 @@ extern "C" fn au_scan_callback(
     subtype: u32,
     mfr_code: u32,
 ) {
+    if name.is_null() {
+        return;
+    }
     let name_str = unsafe { std::ffi::CStr::from_ptr(name) }
         .to_string_lossy()
         .to_string();

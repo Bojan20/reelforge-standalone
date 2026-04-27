@@ -266,9 +266,6 @@ fn test_validator_classic_5x3_certifiable() {
 
 #[test]
 fn test_validator_catches_invalid_rtp() {
-    use blueprint::{BlueprintMeta, MathConfig};
-    use flow::StageFlow;
-
     let mut bp = SlotTemplate::Classic5x3.build();
     bp.math.rtp_target = 0.70; // Below minimum
 
@@ -324,8 +321,10 @@ fn test_blueprint_json_round_trip() {
 #[test]
 fn test_blueprint_fingerprint_stable() {
     let bp1 = SlotTemplate::Classic5x3.build();
-    let bp2 = SlotTemplate::Classic5x3.build();
-
+    let _bp2 = SlotTemplate::Classic5x3.build();
+    // Build a second blueprint to assert the constructor isn't single-call
+    // dependent (deferred future work: actually compare bp1.fingerprint() ==
+    // bp2.fingerprint() once timestamps are excluded from the hash).
     // Same template, same content → same fingerprint structure
     // (fingerprint includes timestamps from meta, so just check format)
     let fp = bp1.fingerprint();

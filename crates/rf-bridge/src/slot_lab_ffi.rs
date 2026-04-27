@@ -3402,6 +3402,8 @@ pub extern "C" fn slot_lab_par_to_game_model(par_json_ptr: *const c_char) -> *mu
 /// `json_ptr` must be a valid null-terminated UTF-8 C string.
 #[unsafe(no_mangle)]
 pub extern "C" fn slot_lab_par_plus_parse(json_ptr: *const c_char) -> *mut c_char {
+    if json_ptr.is_null() { return ptr::null_mut(); }
+
     use rf_slot_lab::ParPlusParser;
 
     let json = unsafe {
@@ -3431,6 +3433,8 @@ pub extern "C" fn slot_lab_par_plus_parse(json_ptr: *const c_char) -> *mut c_cha
 /// `par_plus_json_ptr` must be a valid null-terminated UTF-8 C string.
 #[unsafe(no_mangle)]
 pub extern "C" fn slot_lab_par_plus_validate(par_plus_json_ptr: *const c_char) -> *mut c_char {
+    if par_plus_json_ptr.is_null() { return ptr::null_mut(); }
+
     use rf_slot_lab::ParPlusDocument;
 
     let json = unsafe {
@@ -3467,6 +3471,9 @@ pub extern "C" fn slot_lab_par_plus_template(
     game_id_ptr: *const c_char,
     rtp: f64,
 ) -> *mut c_char {
+    if game_name_ptr.is_null() { return ptr::null_mut(); }
+    if game_id_ptr.is_null() { return ptr::null_mut(); }
+
     use rf_slot_lab::ParPlusParser;
 
     let game_name = unsafe {
@@ -3500,6 +3507,8 @@ pub extern "C" fn slot_lab_export(
     project_json_ptr: *const c_char,
     format_ptr: *const c_char,
 ) -> *mut c_char {
+    if project_json_ptr.is_null() || format_ptr.is_null() { return ptr::null_mut(); }
+
     use rf_slot_export::{
         FluxForgeExportProject, ExportTarget,
         HowlerAudioSpriteExporter, WwiseBankExporter, FModBankExporter, GenericJsonExporter,
@@ -3556,6 +3565,8 @@ pub extern "C" fn slot_lab_export(
 /// `project_json_ptr` must be a valid null-terminated UTF-8 C string.
 #[unsafe(no_mangle)]
 pub extern "C" fn slot_lab_export_all(project_json_ptr: *const c_char) -> *mut c_char {
+    if project_json_ptr.is_null() { return ptr::null_mut(); }
+
     use rf_slot_export::{FluxForgeExportProject, export_all};
 
     let project_json = unsafe {
@@ -3651,6 +3662,8 @@ pub extern "C" fn neuro_engine_create(config_json_ptr: *const c_char) -> i64 {
 /// Returns null on error or invalid engine_id.
 #[unsafe(no_mangle)]
 pub extern "C" fn neuro_engine_process(engine_id: i64, event_json_ptr: *const c_char) -> *mut c_char {
+    if event_json_ptr.is_null() { return ptr::null_mut(); }
+
     let json_str = match unsafe { CStr::from_ptr(event_json_ptr) }.to_str() {
         Ok(s) => s,
         Err(_) => return ptr::null_mut(),
@@ -3695,6 +3708,8 @@ pub extern "C" fn neuro_engine_adaptation(engine_id: i64) -> *mut c_char {
 /// Returns null on error.
 #[unsafe(no_mangle)]
 pub extern "C" fn neuro_engine_simulate(sim_json_ptr: *const c_char) -> *mut c_char {
+    if sim_json_ptr.is_null() { return ptr::null_mut(); }
+
     let json_str = match unsafe { CStr::from_ptr(sim_json_ptr) }.to_str() {
         Ok(s) => s,
         Err(_) => return ptr::null_mut(),
@@ -3756,6 +3771,8 @@ use rf_copilot::{SuggestionEngine, AudioProjectSpec};
 /// Returns CopilotReport JSON, or null on error.
 #[unsafe(no_mangle)]
 pub extern "C" fn copilot_analyze(project_json_ptr: *const c_char) -> *mut c_char {
+    if project_json_ptr.is_null() { return ptr::null_mut(); }
+
     let json_str = match unsafe { CStr::from_ptr(project_json_ptr) }.to_str() {
         Ok(s) => s,
         Err(_) => return ptr::null_mut(),

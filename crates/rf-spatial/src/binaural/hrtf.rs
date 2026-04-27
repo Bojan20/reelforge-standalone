@@ -63,9 +63,15 @@ impl HrtfDatabase {
         self.interpolation = method;
     }
 
-    /// Add HRIR measurement
+    /// Add HRIR measurement.
+    ///
+    /// Azimuth is wrapped into the canonical [0, az_steps) bucket so that
+    /// callers passing -90° and +270° land in the same slot — the lookup
+    /// helpers all wrap, and inserts that don't would create dead keys
+    /// the lookups can't find. (FLUX_MASTER_TODO 1.5.1.)
     pub fn add_hrir(&mut self, azimuth: f32, elevation: f32, hrir: HrirPair) {
-        let az_idx = (azimuth / self.azimuth_resolution).round() as i32;
+        let az_idx_raw = (azimuth / self.azimuth_resolution).round() as i32;
+        let az_idx = self.wrap_az_idx(az_idx_raw);
         let el_idx = (elevation / self.elevation_resolution).round() as i32;
         let length = hrir.length();
         self.hrirs.insert((az_idx, el_idx), hrir);
@@ -82,47 +88,148 @@ impl HrtfDatabase {
         }
     }
 
+    /// Wrap an azimuth bin index into the periodic [0, az_steps) range so
+    /// that azimuth = 179° and azimuth = -181° resolve to the same grid
+    /// point (they're physically the same direction). Pre-2026-04-27 the
+    /// bilinear path indexed `(azimuth / resolution).floor() as i32` directly
+    /// — `179.5° / 5° = 35.9 → floor=35, ceil=36`, but on a 5° grid index 36
+    /// (= 180°) is the same as index −36 (= -180°). Without the wrap, the
+    /// `ceil` corner missed half the time and the `unwrap_or(ll)` fallback
+    /// silently degraded the bilinear to a 1-D (azimuth-only) lerp,
+    /// introducing ITD discontinuities every time a moving source crossed
+    /// ±180° (FLUX_MASTER_TODO 1.5.1 / BUG #35).
+    #[inline]
+    fn wrap_az_idx(&self, idx: i32) -> i32 {
+        let steps = (360.0 / self.azimuth_resolution).round() as i32;
+        if steps <= 0 {
+            return idx;
+        }
+        ((idx % steps) + steps) % steps
+    }
+
     /// Get nearest HRIR
     fn get_nearest(&self, azimuth: f32, elevation: f32) -> Option<HrirPair> {
-        let az_idx = (azimuth / self.azimuth_resolution).round() as i32;
+        let az_idx = self.wrap_az_idx((azimuth / self.azimuth_resolution).round() as i32);
         let el_idx = (elevation / self.elevation_resolution).round() as i32;
         self.hrirs.get(&(az_idx, el_idx)).cloned()
     }
 
-    /// Get bilinearly interpolated HRIR
+    /// Get bilinearly interpolated HRIR.
+    ///
+    /// Performs proper bilinear interpolation in (azimuth, elevation)
+    /// parameter space, with azimuth wrapped modulo 360° so that azimuth
+    /// values near ±180° still find both bracketing corners.
     fn get_bilinear(&self, azimuth: f32, elevation: f32) -> Option<HrirPair> {
         let az_frac = azimuth / self.azimuth_resolution;
         let el_frac = elevation / self.elevation_resolution;
 
-        let az_lo = az_frac.floor() as i32;
-        let az_hi = az_frac.ceil() as i32;
+        let az_lo_raw = az_frac.floor() as i32;
+        let az_hi_raw = az_lo_raw + 1; // always lo+1 — ceil() is wrong on integer-aligned values
         let el_lo = el_frac.floor() as i32;
-        let el_hi = el_frac.ceil() as i32;
+        let el_hi = el_lo + 1;
+
+        let az_lo = self.wrap_az_idx(az_lo_raw);
+        let az_hi = self.wrap_az_idx(az_hi_raw);
 
         let az_t = az_frac - az_frac.floor();
         let el_t = el_frac - el_frac.floor();
 
-        // Get four corners
+        // Get four corners. We require ll (the principal anchor); if any of
+        // the other three are missing the database is sparse near the poles
+        // — falling back to ll preserves the previous "graceful degradation"
+        // behavior rather than dropping the whole sample.
         let ll = self.hrirs.get(&(az_lo, el_lo))?;
         let lh = self.hrirs.get(&(az_lo, el_hi)).unwrap_or(ll);
         let hl = self.hrirs.get(&(az_hi, el_lo)).unwrap_or(ll);
         let hh = self.hrirs.get(&(az_hi, el_hi)).unwrap_or(ll);
 
-        // Bilinear interpolation
+        // Bilinear: lerp along azimuth at both elevations, then along elevation.
         let low = ll.lerp(hl, az_t);
         let high = lh.lerp(hh, az_t);
         Some(low.lerp(&high, el_t))
     }
 
-    /// Get spherically interpolated HRIR (higher quality).
+    /// Get spherically interpolated HRIR (highest quality on a regular
+    /// azimuth/elevation grid).
     ///
-    /// BUG#35 FIX: Uses inverse-distance-weighted blending of the 3 nearest
-    /// HRTF grid points (same as get_vbap below) rather than bilinear interpolation
-    /// on the flat az/el grid.  This avoids the ITD/ILD artefacts that bilinear
-    /// interpolation introduces for off-grid directions near the poles, where
-    /// the equi-angular grid becomes very dense.
+    /// Uses the same 4 bracketing corners as bilinear but weights them by
+    /// **angular** (great-circle) distance from the target direction
+    /// rather than by parameter-space distance. Near the poles, where the
+    /// equi-angular grid bunches up, two grid points that are 5° apart in
+    /// azimuth might be only fractions of a degree apart on the sphere —
+    /// bilinear over-counts that bunching, spherical does not.
+    ///
+    /// Pre-fix this method delegated to `get_vbap` (inverse-distance-weighted
+    /// blend of the 3 nearest grid points across the whole HRTF database),
+    /// which produced visible ITD/ILD smearing for off-grid directions
+    /// because the 3 nearest points often weren't on the same local "patch"
+    /// (FLUX_MASTER_TODO 1.5.1 / BUG #35).
     fn get_spherical(&self, azimuth: f32, elevation: f32) -> Option<HrirPair> {
-        self.get_vbap(azimuth, elevation)
+        let az_frac = azimuth / self.azimuth_resolution;
+        let el_frac = elevation / self.elevation_resolution;
+
+        let az_lo_raw = az_frac.floor() as i32;
+        let az_hi_raw = az_lo_raw + 1;
+        let el_lo = el_frac.floor() as i32;
+        let el_hi = el_lo + 1;
+
+        let az_lo_w = self.wrap_az_idx(az_lo_raw);
+        let az_hi_w = self.wrap_az_idx(az_hi_raw);
+
+        let target = Position3D::from_spherical(azimuth, elevation, 1.0);
+
+        // Compute great-circle (arc) distance from target to each corner.
+        // Two grid points that bracket the target in parameter space might
+        // be the same physical point on the sphere (poles); this naturally
+        // collapses one of the weights to zero distance ⇒ huge weight ⇒
+        // that corner dominates, which is what we want.
+        let mut weighted: Vec<(HrirPair, f32)> = Vec::with_capacity(4);
+        let corners = [
+            (az_lo_w, el_lo, az_lo_raw),
+            (az_hi_w, el_lo, az_hi_raw),
+            (az_lo_w, el_hi, az_lo_raw),
+            (az_hi_w, el_hi, az_hi_raw),
+        ];
+        for &(az_idx, el_idx, az_for_pos) in &corners {
+            if let Some(hrir) = self.hrirs.get(&(az_idx, el_idx)) {
+                let pos = Position3D::from_spherical(
+                    az_for_pos as f32 * self.azimuth_resolution,
+                    el_idx as f32 * self.elevation_resolution,
+                    1.0,
+                );
+                let arc = target.distance_to(&pos);
+                weighted.push((hrir.clone(), arc));
+            }
+        }
+        if weighted.is_empty() {
+            return None;
+        }
+
+        // Spherical inverse-arc-distance weighting on the 4-point patch.
+        // Epsilon avoids div-by-zero when target lands exactly on a corner.
+        let mut total_w = 0.0f32;
+        let mut weights: Vec<f32> = Vec::with_capacity(weighted.len());
+        for (_, arc) in &weighted {
+            let w = if *arc < 1e-6 { 1.0e6 } else { 1.0 / *arc };
+            total_w += w;
+            weights.push(w);
+        }
+
+        let len = self.filter_length;
+        let mut left = vec![0.0f32; len];
+        let mut right = vec![0.0f32; len];
+        let mut itd_acc = 0.0f32;
+        for ((hrir, _), w) in weighted.iter().zip(weights.iter()) {
+            let scale = *w / total_w;
+            for (i, &s) in hrir.left.iter().enumerate().take(len) {
+                left[i] += s * scale;
+            }
+            for (i, &s) in hrir.right.iter().enumerate().take(len) {
+                right[i] += s * scale;
+            }
+            itd_acc += hrir.itd_samples * scale;
+        }
+        Some(HrirPair { left, right, itd_samples: itd_acc })
     }
 
     /// Get VBAP-style interpolated HRIR
@@ -389,5 +496,97 @@ mod tests {
 
         // Should be similar (not exact due to numeric precision)
         assert!(diff < 1.0);
+    }
+
+    // ── BUG #35 / FLUX_MASTER_TODO 1.5.1 — interpolation regression tests ──
+
+    /// `wrap_az_idx` must map negative or over-range indices into the
+    /// canonical [0, az_steps) range. With the default 5° resolution the
+    /// step count is 72; index 72 must collapse to 0, and -1 to 71.
+    #[test]
+    fn test_wrap_az_idx_modular() {
+        let db = HrtfDatabase::default_synthetic(48000);
+        // 5° resolution ⇒ 72 azimuth bins.
+        assert_eq!(db.wrap_az_idx(0), 0);
+        assert_eq!(db.wrap_az_idx(72), 0);
+        assert_eq!(db.wrap_az_idx(73), 1);
+        assert_eq!(db.wrap_az_idx(-1), 71);
+        assert_eq!(db.wrap_az_idx(-73), 71);
+    }
+
+    /// Pre-fix, querying just below ±180° (179.5° here) had `az_lo` = 35
+    /// but `az_hi` = 36 (a non-existent bin) ⇒ the high-az corner was
+    /// silently replaced by the low-az corner, degrading bilinear to a
+    /// 1-D azimuth-only blend. Post-fix, az_hi wraps to 0 and proper
+    /// 4-corner bilinear runs.
+    #[test]
+    fn test_bilinear_wraps_around_180() {
+        let mut db = HrtfDatabase::default_synthetic(48000);
+        db.set_interpolation(HrtfInterpolation::Bilinear);
+
+        // 179° is between bin 35 (175°) and bin 36 ≡ bin 0 (180°/-180°).
+        let near_180 = db.get_hrir(179.0, 0.0);
+        assert!(near_180.is_some(),
+            "bilinear must succeed near ±180° once azimuth wraps");
+
+        // -179° is the same physical direction; HRIR must be very close
+        // to +179°. Pre-fix the two values produced different bilinear
+        // outputs because the `unwrap_or(ll)` fallback at 179° mirrored
+        // the wrong corner.
+        let pos = db.get_hrir(179.0, 0.0).unwrap();
+        let neg = db.get_hrir(-181.0, 0.0).unwrap();
+        let max_diff = pos.left.iter().zip(neg.left.iter())
+            .map(|(a, b)| (a - b).abs())
+            .fold(0.0_f32, f32::max);
+        // Synthetic HRTF doesn't have measurement noise, so the two should
+        // be exactly equal once the wrap is correct.
+        assert!(max_diff < 1e-3,
+            "+179° and -181° must produce ~identical HRIR after azimuth wrap; max_diff={max_diff}");
+    }
+
+    /// Spherical interpolation must NOT delegate to global IDW any more.
+    /// At an off-grid direction, spherical and bilinear should agree to
+    /// within a small tolerance (both are smooth blends of the same 4
+    /// corners) — pre-fix spherical was IDW over 3 GLOBAL nearest points
+    /// and could disagree wildly because it pulled weight from across
+    /// the head.
+    #[test]
+    fn test_spherical_uses_local_patch_not_global_idw() {
+        let mut db = HrtfDatabase::default_synthetic(48000);
+        db.set_interpolation(HrtfInterpolation::Bilinear);
+        let bilinear = db.get_hrir(2.5, 2.5).unwrap();
+
+        db.set_interpolation(HrtfInterpolation::Spherical);
+        let spherical = db.get_hrir(2.5, 2.5).unwrap();
+
+        let max_diff = bilinear.left.iter().zip(spherical.left.iter())
+            .map(|(a, b)| (a - b).abs())
+            .fold(0.0_f32, f32::max);
+        // Pre-fix: spherical called get_vbap which blended global 3 nearest
+        // and could differ from bilinear by 0.1+ on a normalized impulse.
+        // Post-fix: same 4 corners, just slightly different weights ⇒
+        // small bounded difference.
+        assert!(max_diff < 0.1,
+            "spherical must operate on the local 4-corner patch; max_diff vs bilinear={max_diff}");
+    }
+
+    /// Spherical must reproduce a corner exactly when the query lands on
+    /// it (the 1/arc weight goes to its safety-net 1e6 and dominates).
+    #[test]
+    fn test_spherical_lands_on_grid_point() {
+        let mut db = HrtfDatabase::default_synthetic(48000);
+        db.set_interpolation(HrtfInterpolation::Spherical);
+
+        let exact = db.get_hrir(0.0, 0.0).unwrap();
+        // Anchor: same angle via Nearest must give a similar (synthetic)
+        // result; spherical at the exact grid point must collapse to it.
+        db.set_interpolation(HrtfInterpolation::Nearest);
+        let nearest = db.get_hrir(0.0, 0.0).unwrap();
+
+        let max_diff = exact.left.iter().zip(nearest.left.iter())
+            .map(|(a, b)| (a - b).abs())
+            .fold(0.0_f32, f32::max);
+        assert!(max_diff < 1e-4,
+            "spherical at grid point must equal nearest; max_diff={max_diff}");
     }
 }

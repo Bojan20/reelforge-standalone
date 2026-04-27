@@ -178,15 +178,15 @@ fn t03_region_switch() {
     // Process more
     run_manager_frames(&mut manager, 200000, &audio);
 
-    // Check for RegionSwitched callback
-    let mut switched = false;
+    // Check for RegionSwitched callback. Note: immediate switch with 0
+    // crossfade applies pending_region directly, which may or may not emit
+    // a RegionSwitched depending on the implementation path — so we drain
+    // the queue but don't assert on the flag value (kept here as `_` since
+    // the original test author left the loop in place for potential future
+    // tightening once the contract is decided).
     while let Ok(cb) = cb_rx.pop() {
-        if let LoopCallback::RegionSwitched { .. } = cb {
-            switched = true;
-        }
+        let _ = matches!(cb, LoopCallback::RegionSwitched { .. });
     }
-    // Note: immediate switch with 0 crossfade applies pending_region
-    // which may or may not emit a RegionSwitched depending on implementation path
 }
 
 // ─── T-04: ExitLoop with post-exit ─────────────────────────

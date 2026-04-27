@@ -373,7 +373,7 @@ fn roll_win_tier(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rf_slot_lab::{GameModel, model::GameInfo};
+    use rf_slot_lab::GameModel;
 
     fn test_config(spins: u64) -> BatchSimConfig {
         let mut config = BatchSimConfig {

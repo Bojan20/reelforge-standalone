@@ -109,7 +109,22 @@ pub struct ChainSlot {
     latency: AtomicU32,
     /// Slot enabled
     enabled: AtomicBool,
+    /// Cumulative panic count for this plugin's `process()` calls.
+    /// Once it exceeds [`MAX_PLUGIN_PANICS_BEFORE_DISABLE`], the slot is
+    /// permanently auto-bypassed. (FLUX_MASTER_TODO 1.5.2 phase 1 —
+    /// in-process safety net before full subprocess sandbox.)
+    panic_count: AtomicU32,
+    /// Set to true once the slot has been auto-disabled because of
+    /// too many panics. The audio thread checks this with
+    /// `Ordering::Relaxed` and short-circuits to bypass.
+    auto_disabled_after_panic: AtomicBool,
 }
+
+/// How many panics from one plugin instance we tolerate before
+/// permanently auto-bypassing the slot. Three is enough to ride out
+/// transient causes (one-off race in initialisation, GC pressure)
+/// while still capping the damage from a chronically-broken plugin.
+pub const MAX_PLUGIN_PANICS_BEFORE_DISABLE: u32 = 3;
 
 impl ChainSlot {
     pub fn new(plugin: Box<dyn PluginInstance>, input_buffer: usize, output_buffer: usize) -> Self {
@@ -122,7 +137,35 @@ impl ChainSlot {
             output_buffer,
             latency: AtomicU32::new(latency),
             enabled: AtomicBool::new(true),
+            panic_count: AtomicU32::new(0),
+            auto_disabled_after_panic: AtomicBool::new(false),
         }
+    }
+
+    /// Number of panics observed during this slot's `process()` calls.
+    /// Survives bypass / re-enable; only zeroed when the plugin is
+    /// replaced.
+    pub fn panic_count(&self) -> u32 {
+        self.panic_count.load(Ordering::Relaxed)
+    }
+
+    /// True once the slot was auto-bypassed due to a chronically-panicking
+    /// plugin. Visible to the UI so the user sees "this plugin was
+    /// disabled because it kept crashing".
+    pub fn is_auto_disabled_after_panic(&self) -> bool {
+        self.auto_disabled_after_panic.load(Ordering::Relaxed)
+    }
+
+    /// Increment the panic counter and, if it exceeds the threshold,
+    /// flip the auto-disable flag. Returns the new count.
+    /// Internal — called only from the chain's process() panic-recovery
+    /// path.
+    pub(crate) fn record_panic(&self) -> u32 {
+        let n = self.panic_count.fetch_add(1, Ordering::Relaxed) + 1;
+        if n >= MAX_PLUGIN_PANICS_BEFORE_DISABLE {
+            self.auto_disabled_after_panic.store(true, Ordering::Relaxed);
+        }
+        n
     }
 
     pub fn is_bypassed(&self) -> bool {
@@ -443,7 +486,11 @@ impl ZeroCopyChain {
             }
 
             let out_idx = slot.output_buffer;
-            let bypassed = slot.is_bypassed();
+            // Treat slots auto-disabled by repeated panics as bypassed —
+            // their plugin keeps crashing the process() call, so we
+            // pass the signal through untouched until the user replaces
+            // or removes the plugin.
+            let bypassed = slot.is_bypassed() || slot.is_auto_disabled_after_panic();
             let mix = slot.mix();
             let plugin = Arc::clone(&slot.plugin);
 
@@ -475,15 +522,77 @@ impl ZeroCopyChain {
                     self.dry_buffer.copy_from(&self.input_staging);
                 }
 
-                // Step 3: Process through plugin (empty MIDI for effect chain)
+                // Step 3: Process through plugin (empty MIDI for effect chain).
+                //
+                // FLUX_MASTER_TODO 1.5.2 phase 1 — wrap the plugin call in
+                // `catch_unwind`. Third-party plugins (especially LV2 / VST3
+                // wrappers around C++ code) can panic for reasons we don't
+                // control: division by zero on a config edge, internal
+                // assertions, allocator failures during preset load.
+                // Pre-fix the panic propagated up the audio thread and took
+                // the whole DAW process with it. Now:
+                //   1. Plugin panic is caught + reported.
+                //   2. The slot's panic_count is incremented; after
+                //      MAX_PLUGIN_PANICS_BEFORE_DISABLE it auto-bypasses
+                //      so a chronically-broken plugin can't keep tanking
+                //      every audio block.
+                //   3. The current block falls through to passthrough
+                //      (input copied to output) so the user hears the dry
+                //      signal instead of silence + glitch.
+                //
+                // Caveat: `catch_unwind` will allocate the panic payload
+                // (Box<dyn Any>) on the heap — a real-time violation. That's
+                // accepted: choosing a one-time alloc on the panic edge over
+                // a process abort. Phase 2 (full subprocess sandbox via
+                // crates/rf-plugin/src/sandbox.rs) eliminates the alloc by
+                // moving the plugin out of our address space entirely.
                 if let Some(out_buf) = self.buffer_pool.get_mut(out_idx) {
-                    let mut plugin_lock = plugin.write();
                     self.midi_out_scratch.clear();
-                    plugin_lock.process(&self.input_staging, out_buf, &self.empty_midi_in, &mut self.midi_out_scratch, &self.context)?;
+                    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        let mut plugin_lock = plugin.write();
+                        plugin_lock.process(
+                            &self.input_staging,
+                            out_buf,
+                            &self.empty_midi_in,
+                            &mut self.midi_out_scratch,
+                            &self.context,
+                        )
+                    }));
 
-                    // Step 4: Apply wet/dry mix if needed
-                    if needs_mix {
-                        out_buf.apply_mix(&self.dry_buffer, mix);
+                    match result {
+                        Ok(Ok(())) => {
+                            // Step 4: Apply wet/dry mix if needed
+                            if needs_mix {
+                                out_buf.apply_mix(&self.dry_buffer, mix);
+                            }
+                        }
+                        Ok(Err(plugin_err)) => {
+                            // Plugin returned an error (clean failure mode).
+                            // Fall through to passthrough for this block;
+                            // don't escalate the chain — one slot's failure
+                            // shouldn't blank every downstream slot.
+                            out_buf.copy_from(&self.input_staging);
+                            log::warn!(
+                                "[chain] slot {slot_i} plugin returned error, passthrough: {plugin_err}"
+                            );
+                        }
+                        Err(_payload) => {
+                            // Plugin panicked. Count it; auto-disable the
+                            // slot if it keeps misbehaving; passthrough
+                            // this block.
+                            let n = slot.record_panic();
+                            out_buf.copy_from(&self.input_staging);
+                            log::error!(
+                                "[chain] slot {slot_i} plugin PANICKED ({n}/{}). \
+                                 {}",
+                                MAX_PLUGIN_PANICS_BEFORE_DISABLE,
+                                if n >= MAX_PLUGIN_PANICS_BEFORE_DISABLE {
+                                    "Auto-disabling — replace or remove the plugin."
+                                } else {
+                                    "Passing through this block."
+                                }
+                            );
+                        }
                     }
                 }
             }
@@ -563,5 +672,192 @@ mod tests {
         let chain = ZeroCopyChain::new(8, 2, 512);
         assert!(chain.is_empty());
         assert_eq!(chain.latency(), 0);
+    }
+
+    // ─── FLUX_MASTER_TODO 1.5.2 phase 1: panic-survival tests ───
+
+    use crate::scanner::PluginInfo;
+    use crate::{ParameterInfo, PluginError, PluginInstance, PluginResult, ProcessContext};
+    use std::sync::atomic::AtomicU32;
+    use std::sync::atomic::Ordering as AtomicOrdering;
+
+    /// Test plugin that panics on every Nth process() call.
+    struct PanickyPlugin {
+        info: PluginInfo,
+        calls: AtomicU32,
+        panic_every: u32,
+    }
+
+    impl PanickyPlugin {
+        fn new(panic_every: u32) -> Box<dyn PluginInstance> {
+            Box::new(Self {
+                info: PluginInfo {
+                    id: "test.panicky".into(),
+                    name: "Panicky Test Plugin".into(),
+                    vendor: "test".into(),
+                    version: "0".into(),
+                    plugin_type: crate::scanner::PluginType::Internal,
+                    category: crate::scanner::PluginCategory::Effect,
+                    path: "<test>".into(),
+                    audio_inputs: 2,
+                    audio_outputs: 2,
+                    has_midi_input: false,
+                    has_midi_output: false,
+                    has_editor: false,
+                    latency: 0,
+                    is_shell: false,
+                    sub_plugins: vec![],
+                },
+                calls: AtomicU32::new(0),
+                panic_every,
+            })
+        }
+    }
+
+    impl PluginInstance for PanickyPlugin {
+        fn info(&self) -> &PluginInfo { &self.info }
+        fn initialize(&mut self, _: &ProcessContext) -> PluginResult<()> { Ok(()) }
+        fn activate(&mut self) -> PluginResult<()> { Ok(()) }
+        fn deactivate(&mut self) -> PluginResult<()> { Ok(()) }
+        fn process(
+            &mut self,
+            input: &AudioBuffer,
+            output: &mut AudioBuffer,
+            _midi_in: &rf_core::MidiBuffer,
+            _midi_out: &mut rf_core::MidiBuffer,
+            _ctx: &ProcessContext,
+        ) -> PluginResult<()> {
+            let n = self.calls.fetch_add(1, AtomicOrdering::Relaxed) + 1;
+            if self.panic_every > 0 && n % self.panic_every == 0 {
+                panic!("PanickyPlugin scheduled panic at call {n}");
+            }
+            output.copy_from(input);
+            Ok(())
+        }
+        fn parameter_count(&self) -> usize { 0 }
+        fn parameter_info(&self, _: usize) -> Option<ParameterInfo> { None }
+        fn get_parameter(&self, _: u32) -> Option<f64> { None }
+        fn set_parameter(&mut self, _: u32, _: f64) -> PluginResult<()> {
+            Err(PluginError::ProcessingError("no params".into()))
+        }
+        fn get_state(&self) -> PluginResult<Vec<u8>> { Ok(vec![]) }
+        fn set_state(&mut self, _: &[u8]) -> PluginResult<()> { Ok(()) }
+        fn latency(&self) -> usize { 0 }
+        fn has_editor(&self) -> bool { false }
+        fn open_editor(&mut self, _: *mut std::ffi::c_void) -> PluginResult<()> { Ok(()) }
+        fn close_editor(&mut self) -> PluginResult<()> { Ok(()) }
+    }
+
+    fn one_buffer(channels: usize, frames: usize, fill: f32) -> AudioBuffer {
+        let mut b = AudioBuffer::new(channels, frames);
+        for ch in &mut b.data {
+            for s in ch.iter_mut() { *s = fill; }
+        }
+        b
+    }
+
+    #[test]
+    fn test_chain_survives_plugin_panic() {
+        let mut chain = ZeroCopyChain::new(4, 2, 64);
+        chain.add(PanickyPlugin::new(1)).unwrap(); // panics every call
+
+        let input = one_buffer(2, 64, 0.5);
+        let mut output = AudioBuffer::new(2, 64);
+
+        // First call: plugin panics. Chain must NOT propagate the panic
+        // and must instead pass-through the input. This was the
+        // pre-1.5.2-phase-1 crash mode.
+        let result = chain.process(&input, &mut output);
+        assert!(result.is_ok(),
+            "chain.process() must return Ok even when plugin panics");
+        assert_eq!(output.data[0][0], 0.5,
+            "panicked-slot output must be passthrough of input");
+        assert_eq!(chain.get(0).unwrap().panic_count(), 1);
+        assert!(!chain.get(0).unwrap().is_auto_disabled_after_panic(),
+            "first panic does not yet trip auto-disable");
+    }
+
+    #[test]
+    fn test_chain_auto_disables_after_repeated_panics() {
+        let mut chain = ZeroCopyChain::new(4, 2, 64);
+        chain.add(PanickyPlugin::new(1)).unwrap();
+
+        let input = one_buffer(2, 64, 0.25);
+        let mut output = AudioBuffer::new(2, 64);
+
+        // Drive the slot through the panic threshold.
+        for _ in 0..MAX_PLUGIN_PANICS_BEFORE_DISABLE {
+            let _ = chain.process(&input, &mut output);
+        }
+        let slot = chain.get(0).unwrap();
+        assert_eq!(slot.panic_count(), MAX_PLUGIN_PANICS_BEFORE_DISABLE);
+        assert!(slot.is_auto_disabled_after_panic(),
+            "slot must auto-disable after {MAX_PLUGIN_PANICS_BEFORE_DISABLE} panics");
+
+        // Subsequent process() must NOT call the plugin (it would panic
+        // again) — it should short-circuit through the bypass branch.
+        // We can't directly observe "did we call the plugin" without a
+        // counter, but we CAN observe that no further panic_count
+        // increments happen after auto-disable engaged.
+        let baseline = slot.panic_count();
+        for _ in 0..5 {
+            let _ = chain.process(&input, &mut output);
+        }
+        assert_eq!(chain.get(0).unwrap().panic_count(), baseline,
+            "auto-disabled slot must not invoke the plugin again");
+    }
+
+    #[test]
+    fn test_chain_survives_plugin_returning_error() {
+        // A clean error return (Err(PluginError::...)) is a different code
+        // path than a panic — but the chain must also not propagate it,
+        // since an error in slot N shouldn't blank slots N+1..end.
+        struct ErroringPlugin {
+            info: PluginInfo,
+        }
+        impl PluginInstance for ErroringPlugin {
+            fn info(&self) -> &PluginInfo { &self.info }
+            fn initialize(&mut self, _: &ProcessContext) -> PluginResult<()> { Ok(()) }
+            fn activate(&mut self) -> PluginResult<()> { Ok(()) }
+            fn deactivate(&mut self) -> PluginResult<()> { Ok(()) }
+            fn process(&mut self, _: &AudioBuffer, _: &mut AudioBuffer,
+                _: &rf_core::MidiBuffer, _: &mut rf_core::MidiBuffer,
+                _: &ProcessContext) -> PluginResult<()> {
+                Err(PluginError::ProcessingError("simulated error".into()))
+            }
+            fn parameter_count(&self) -> usize { 0 }
+            fn parameter_info(&self, _: usize) -> Option<ParameterInfo> { None }
+            fn get_parameter(&self, _: u32) -> Option<f64> { None }
+            fn set_parameter(&mut self, _: u32, _: f64) -> PluginResult<()> {
+                Err(PluginError::ProcessingError("no params".into()))
+            }
+            fn get_state(&self) -> PluginResult<Vec<u8>> { Ok(vec![]) }
+            fn set_state(&mut self, _: &[u8]) -> PluginResult<()> { Ok(()) }
+            fn latency(&self) -> usize { 0 }
+            fn has_editor(&self) -> bool { false }
+            fn open_editor(&mut self, _: *mut std::ffi::c_void) -> PluginResult<()> { Ok(()) }
+            fn close_editor(&mut self) -> PluginResult<()> { Ok(()) }
+        }
+        let info = PluginInfo {
+            id: "test.erroring".into(), name: "Erroring".into(), vendor: "test".into(),
+            version: "0".into(), plugin_type: crate::scanner::PluginType::Internal,
+            category: crate::scanner::PluginCategory::Effect, path: "<test>".into(),
+            audio_inputs: 2, audio_outputs: 2,
+            has_midi_input: false, has_midi_output: false,
+            has_editor: false, latency: 0, is_shell: false, sub_plugins: vec![],
+        };
+        let plugin: Box<dyn PluginInstance> = Box::new(ErroringPlugin { info });
+
+        let mut chain = ZeroCopyChain::new(4, 2, 64);
+        chain.add(plugin).unwrap();
+
+        let input = one_buffer(2, 64, 0.75);
+        let mut output = AudioBuffer::new(2, 64);
+        let r = chain.process(&input, &mut output);
+        assert!(r.is_ok());
+        // Output is passthrough — error path in the chain copies input.
+        assert_eq!(output.data[0][0], 0.75);
+        assert_eq!(chain.get(0).unwrap().panic_count(), 0,
+            "Err return must NOT increment panic_count");
     }
 }

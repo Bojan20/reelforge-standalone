@@ -141,23 +141,26 @@ impl SimdDcBlocker {
     #[cfg(target_arch = "x86_64")]
     #[target_feature(enable = "avx2")]
     pub unsafe fn process_4ch(&mut self, inputs: [f64; 4]) -> [f64; 4] {
-        let r_vec = _mm256_set1_pd(self.r);
-        let input_vec = _mm256_loadu_pd(inputs.as_ptr());
-        let x1_vec = _mm256_loadu_pd(self.x1.as_ptr());
-        let y1_vec = _mm256_loadu_pd(self.y1.as_ptr());
+        // edition 2024: explicit `unsafe {}` inside `unsafe fn`
+        unsafe {
+            let r_vec = _mm256_set1_pd(self.r);
+            let input_vec = _mm256_loadu_pd(inputs.as_ptr());
+            let x1_vec = _mm256_loadu_pd(self.x1.as_ptr());
+            let y1_vec = _mm256_loadu_pd(self.y1.as_ptr());
 
-        // y[n] = x[n] - x[n-1] + R * y[n-1]
-        let diff = _mm256_sub_pd(input_vec, x1_vec);
-        let ry1 = _mm256_mul_pd(r_vec, y1_vec);
-        let output = _mm256_add_pd(diff, ry1);
+            // y[n] = x[n] - x[n-1] + R * y[n-1]
+            let diff = _mm256_sub_pd(input_vec, x1_vec);
+            let ry1 = _mm256_mul_pd(r_vec, y1_vec);
+            let output = _mm256_add_pd(diff, ry1);
 
-        // Update state
-        _mm256_storeu_pd(self.x1.as_mut_ptr(), input_vec);
-        _mm256_storeu_pd(self.y1.as_mut_ptr(), output);
+            // Update state
+            _mm256_storeu_pd(self.x1.as_mut_ptr(), input_vec);
+            _mm256_storeu_pd(self.y1.as_mut_ptr(), output);
 
-        let mut result = [0.0; 4];
-        _mm256_storeu_pd(result.as_mut_ptr(), output);
-        result
+            let mut result = [0.0; 4];
+            _mm256_storeu_pd(result.as_mut_ptr(), output);
+            result
+        }
     }
 
     /// Process block of interleaved stereo (L,R,L,R,...)
@@ -173,35 +176,38 @@ impl SimdDcBlocker {
     #[cfg(target_arch = "x86_64")]
     #[target_feature(enable = "avx2")]
     unsafe fn process_block_stereo_avx2(&mut self, samples: &mut [f64]) {
-        let r_vec = _mm256_set1_pd(self.r);
+        // edition 2024: explicit `unsafe {}` inside `unsafe fn`
+        unsafe {
+            let r_vec = _mm256_set1_pd(self.r);
 
-        // Process 4 samples at a time (2 stereo pairs)
-        let chunks = samples.len() / 4;
-        for i in 0..chunks {
-            let ptr = samples.as_mut_ptr().add(i * 4);
-            let input_vec = _mm256_loadu_pd(ptr);
-            let x1_vec = _mm256_loadu_pd(self.x1.as_ptr());
-            let y1_vec = _mm256_loadu_pd(self.y1.as_ptr());
+            // Process 4 samples at a time (2 stereo pairs)
+            let chunks = samples.len() / 4;
+            for i in 0..chunks {
+                let ptr = samples.as_mut_ptr().add(i * 4);
+                let input_vec = _mm256_loadu_pd(ptr);
+                let x1_vec = _mm256_loadu_pd(self.x1.as_ptr());
+                let y1_vec = _mm256_loadu_pd(self.y1.as_ptr());
 
-            let diff = _mm256_sub_pd(input_vec, x1_vec);
-            let ry1 = _mm256_mul_pd(r_vec, y1_vec);
-            let output = _mm256_add_pd(diff, ry1);
+                let diff = _mm256_sub_pd(input_vec, x1_vec);
+                let ry1 = _mm256_mul_pd(r_vec, y1_vec);
+                let output = _mm256_add_pd(diff, ry1);
 
-            _mm256_storeu_pd(self.x1.as_mut_ptr(), input_vec);
-            _mm256_storeu_pd(self.y1.as_mut_ptr(), output);
-            _mm256_storeu_pd(ptr, output);
-        }
+                _mm256_storeu_pd(self.x1.as_mut_ptr(), input_vec);
+                _mm256_storeu_pd(self.y1.as_mut_ptr(), output);
+                _mm256_storeu_pd(ptr, output);
+            }
 
-        // Handle remaining samples
-        let remaining = samples.len() % 4;
-        if remaining > 0 {
-            let start = chunks * 4;
-            for i in start..samples.len() {
-                let lane = i % 4;
-                let output = samples[i] - self.x1[lane] + self.r * self.y1[lane];
-                self.x1[lane] = samples[i];
-                self.y1[lane] = output;
-                samples[i] = output;
+            // Handle remaining samples
+            let remaining = samples.len() % 4;
+            if remaining > 0 {
+                let start = chunks * 4;
+                for i in start..samples.len() {
+                    let lane = i % 4;
+                    let output = samples[i] - self.x1[lane] + self.r * self.y1[lane];
+                    self.x1[lane] = samples[i];
+                    self.y1[lane] = output;
+                    samples[i] = output;
+                }
             }
         }
     }
@@ -665,28 +671,31 @@ impl AntiDenormal {
     #[cfg(target_arch = "x86_64")]
     #[target_feature(enable = "avx2")]
     unsafe fn flush_block_avx2(samples: &mut [f64]) {
-        let threshold = _mm256_set1_pd(DENORMAL_THRESHOLD);
-        let neg_threshold = _mm256_set1_pd(-DENORMAL_THRESHOLD);
-        let zero = _mm256_setzero_pd();
+        // edition 2024: explicit `unsafe {}` inside `unsafe fn`
+        unsafe {
+            let threshold = _mm256_set1_pd(DENORMAL_THRESHOLD);
+            let neg_threshold = _mm256_set1_pd(-DENORMAL_THRESHOLD);
+            let _zero = _mm256_setzero_pd();
 
-        let chunks = samples.len() / 4;
-        for i in 0..chunks {
-            let ptr = samples.as_mut_ptr().add(i * 4);
-            let val = _mm256_loadu_pd(ptr);
+            let chunks = samples.len() / 4;
+            for i in 0..chunks {
+                let ptr = samples.as_mut_ptr().add(i * 4);
+                let val = _mm256_loadu_pd(ptr);
 
-            // Check if |val| < threshold
-            let above = _mm256_cmp_pd(val, threshold, _CMP_GE_OQ);
-            let below = _mm256_cmp_pd(val, neg_threshold, _CMP_LE_OQ);
-            let outside = _mm256_or_pd(above, below);
+                // Check if |val| < threshold
+                let above = _mm256_cmp_pd(val, threshold, _CMP_GE_OQ);
+                let below = _mm256_cmp_pd(val, neg_threshold, _CMP_LE_OQ);
+                let outside = _mm256_or_pd(above, below);
 
-            // Keep value if outside range, else zero
-            let result = _mm256_and_pd(val, outside);
-            _mm256_storeu_pd(ptr, result);
-        }
+                // Keep value if outside range, else zero
+                let result = _mm256_and_pd(val, outside);
+                _mm256_storeu_pd(ptr, result);
+            }
 
-        // Scalar remainder
-        for i in (chunks * 4)..samples.len() {
-            samples[i] = flush_denormal(samples[i]);
+            // Scalar remainder
+            for i in (chunks * 4)..samples.len() {
+                samples[i] = flush_denormal(samples[i]);
+            }
         }
     }
 

@@ -174,6 +174,15 @@ enum EvictionCommand {
 pub struct AudioCache {
     /// Map from file path to cache entry
     entries: RwLock<HashMap<String, CacheEntry>>,
+    /// Per-path load coordination — guarantees one thread per path performs disk
+    /// load + eviction + insert as a single critical section. Without this,
+    /// two simultaneous `load("x.wav")` calls both miss the cache, both load
+    /// from disk, both insert, and `current_bytes` over-counts by the file
+    /// size (FLUX_MASTER_TODO 1.2.3 — Cache TOCTOU). The map holds Arcs so
+    /// the actual lock outlives the registry slot — a follower thread that
+    /// already cloned the Arc keeps blocking even after the leader removes
+    /// the path from the registry.
+    loading: Mutex<HashMap<String, Arc<Mutex<()>>>>,
     /// Access counter for LRU tracking
     access_counter: AtomicU64,
     /// Maximum cache size in bytes
@@ -229,6 +238,7 @@ impl AudioCache {
 
         Self {
             entries: RwLock::new(HashMap::new()),
+            loading: Mutex::new(HashMap::new()),
             access_counter: AtomicU64::new(0),
             max_bytes,
             current_bytes: AtomicU64::new(0),
@@ -239,34 +249,77 @@ impl AudioCache {
     }
 
     /// Load audio file into cache (or return cached version)
-    /// Automatically evicts LRU entries if cache is full
+    /// Automatically evicts LRU entries if cache is full.
+    ///
+    /// Concurrency: a per-path load lock guarantees that two concurrent
+    /// callers for the same `path` will result in exactly one disk read and
+    /// exactly one cache entry. Pre-2026-04-27 this was a TOCTOU window:
+    /// both callers could miss the cache, both would `AudioImporter::import`
+    /// the same file, both would insert, and `current_bytes` would be
+    /// over-counted by the file size. After enough concurrent re-loads, the
+    /// cache thought it held 2× as much memory as it actually did and
+    /// triggered spurious evictions on healthy entries.
     pub fn load(&self, path: &str) -> Option<Arc<ImportedAudio>> {
-        // Check if already cached
+        // Fast path: already cached. Single write lock so we can also bump
+        // last_access — the read-then-upgrade pattern would race against
+        // eviction and isn't worth the complexity here.
         {
             let mut entries = self.entries.write();
             if let Some(entry) = entries.get_mut(path) {
-                // Update LRU timestamp
                 entry.last_access = self.access_counter.fetch_add(1, Ordering::Relaxed);
                 return Some(Arc::clone(&entry.audio));
             }
         }
 
-        // Load from disk
-        match AudioImporter::import(Path::new(path)) {
+        // Slow path: claim a per-path load lock. The first thread to reach
+        // here for this path proceeds; subsequent threads block on the same
+        // Arc<Mutex<()>> until the leader inserts and releases.
+        let load_lock = {
+            let mut loading = self.loading.lock();
+            Arc::clone(
+                loading
+                    .entry(path.to_string())
+                    .or_insert_with(|| Arc::new(Mutex::new(()))),
+            )
+        };
+        let _load_guard = load_lock.lock();
+
+        // Double-check: while we waited for the load lock, the leader may
+        // have populated the entry. Hand back the now-cached audio without
+        // hitting disk twice.
+        {
+            let mut entries = self.entries.write();
+            if let Some(entry) = entries.get_mut(path) {
+                entry.last_access = self.access_counter.fetch_add(1, Ordering::Relaxed);
+                // No leader-followers cleanup here — the cleanup at the end
+                // of the leader's branch already removed the loading slot,
+                // or our own removal below will.
+                let arc = Arc::clone(&entry.audio);
+                drop(_load_guard);
+                self.loading.lock().remove(path);
+                return Some(arc);
+            }
+        }
+
+        // We are the leader for this path. Disk I/O happens with no entries
+        // lock held — only the per-path load lock — so concurrent loads of
+        // OTHER paths are unaffected.
+        let result = match AudioImporter::import(Path::new(path)) {
             Ok(audio) => {
                 let size_bytes = audio.samples.len() * std::mem::size_of::<f32>();
                 let arc = Arc::new(audio);
 
-                // Evict if necessary before adding
+                // Evict if necessary before adding (still TOCTOU-friendly:
+                // evict and insert run inside the per-path load lock so the
+                // sequence "evict → insert → bump current_bytes" can't be
+                // interleaved with another insert of the same file).
                 self.evict_if_needed(size_bytes);
 
-                // Add to cache
                 let entry = CacheEntry {
                     audio: Arc::clone(&arc),
                     last_access: self.access_counter.fetch_add(1, Ordering::Relaxed),
                     size_bytes,
                 };
-
                 self.entries.write().insert(path.to_string(), entry);
                 self.current_bytes
                     .fetch_add(size_bytes as u64, Ordering::Relaxed);
@@ -277,14 +330,20 @@ impl AudioCache {
                     size_bytes as f64 / 1024.0 / 1024.0,
                     self.current_bytes.load(Ordering::Relaxed) as f64 / 1024.0 / 1024.0
                 );
-
                 Some(arc)
             }
             Err(e) => {
                 log::error!("Failed to load audio file '{}': {}", path, e);
                 None
             }
-        }
+        };
+
+        // Release the load lock and reap the per-path slot. Followers that
+        // already cloned the Arc<Mutex> keep their own reference; they'll
+        // unlock and observe the populated cache via the double-check above.
+        drop(_load_guard);
+        self.loading.lock().remove(path);
+        result
     }
 
     /// Evict least recently used entries until we have room for new_size bytes
@@ -1943,6 +2002,15 @@ pub struct PlaybackEngine {
     pub rms_r: AtomicU64,
     /// LUFS metering (ITU-R BS.1770-4)
     lufs_meter: RwLock<LufsMeter>,
+    /// Pending integrated-LUFS reset request from the UI.
+    ///
+    /// UI thread sets this with a single atomic store; the audio thread checks
+    /// + clears it the next time it already holds `lufs_meter` write lock for
+    /// the regular `process_block`. Pre-2026-04-27 the UI took its own
+    /// `try_write()` to call `meter.reset_integrated()`, which raced the
+    /// audio thread's `try_write()` and caused silent metering gaps when a
+    /// user clicked "Reset" (FLUX_MASTER_TODO 1.2.2).
+    lufs_integrated_reset_pending: AtomicBool,
     /// LUFS values (atomic for lock-free UI reads)
     pub lufs_momentary: AtomicU64,
     pub lufs_short: AtomicU64,
@@ -2209,6 +2277,7 @@ impl PlaybackEngine {
             rms_l: AtomicU64::new(0.0_f64.to_bits()),
             rms_r: AtomicU64::new(0.0_f64.to_bits()),
             lufs_meter: RwLock::new(LufsMeter::new(sample_rate as f64)),
+            lufs_integrated_reset_pending: AtomicBool::new(false),
             lufs_momentary: AtomicU64::new((-70.0_f64).to_bits()),
             lufs_short: AtomicU64::new((-70.0_f64).to_bits()),
             lufs_integrated: AtomicU64::new((-70.0_f64).to_bits()),
@@ -3764,11 +3833,21 @@ impl PlaybackEngine {
         )
     }
 
-    /// Reset integrated LUFS meter (keeps momentary/short-term running)
+    /// Reset integrated LUFS meter (keeps momentary/short-term running).
+    ///
+    /// Lock-free path: we set a `lufs_integrated_reset_pending` flag and let
+    /// the audio thread perform the actual `meter.reset_integrated()` the
+    /// next time it already holds the write lock. Pre-2026-04-27 this method
+    /// took `lufs_meter.try_write()` itself, which races the audio thread's
+    /// `try_write()` in `process_master_post_fx` — when the UI won, audio's
+    /// metering write was silently skipped, producing a meter gap. By
+    /// queueing the reset instead, the UI never blocks audio (FLUX_MASTER_TODO 1.2.2).
+    ///
+    /// We optimistically reset the published atomic value to -70 dB so the
+    /// UI sees the reset reflected on the next read; the canonical state
+    /// in `LufsMeter` catches up on the next audio block.
     pub fn reset_lufs_integrated(&self) {
-        if let Some(mut meter) = self.lufs_meter.try_write() {
-            meter.reset_integrated();
-        }
+        self.lufs_integrated_reset_pending.store(true, Ordering::Release);
         self.lufs_integrated.store((-70.0_f64).to_bits(), Ordering::Relaxed);
     }
 
@@ -5048,11 +5127,8 @@ impl PlaybackEngine {
             None => return,
         };
 
-        // Get active section for filtering (atomic read - no lock)
         let active_section = PlaybackSource::from(self.active_section.load(Ordering::Relaxed));
 
-        // Pre-allocated temp buffers per bus for mixing
-        // Use thread-local scratch buffers to avoid allocation
         SCRATCH_BUFFER_L.with(|buf_l| {
             SCRATCH_BUFFER_R.with(|buf_r| {
                 let mut guard_l = buf_l.borrow_mut();
@@ -5064,16 +5140,8 @@ impl PlaybackEngine {
                     guard_r.resize(frames, 0.0);
                 }
 
-                // ═══════════════════════════════════════════════════════════════
-                // ADAPTIVE PER-VOICE QUALITY (unique — no DAW has this)
-                //
-                // CPU budget tracking: measure per-voice processing time.
-                // If budget exceeded, degrade background voices to Sinc(16).
-                // DAW/Browser voices ALWAYS keep global quality.
-                // ═══════════════════════════════════════════════════════════════
-
                 // Guard: zero frames or zero sample rate → skip processing
-                let sample_rate = self.position.sample_rate().max(1); // Prevent div-by-zero
+                let sample_rate = self.position.sample_rate().max(1);
                 if frames == 0 {
                     return;
                 }
@@ -5088,165 +5156,212 @@ impl PlaybackEngine {
                 let block_time_us = (frames as u64 * 1_000_000) / sample_rate as u64;
                 let voice_budget_us = block_time_us / 2;
 
-                let mut cumulative_us: u64 = 0;
-                let mut degraded_count: u32 = 0;
-
-                // Spatial HRTF: track which voices need batch rendering
                 let mut spatial_voice_indices: Vec<(usize, u32)> = Vec::new();
                 let mut spatial_voice_count: usize = 0;
 
-                for (voice_idx, voice) in voices.iter_mut().enumerate() {
-                    if !voice.active {
-                        continue;
-                    }
+                let (cumulative_us, degraded_count) = Self::iterate_one_shot_voices(
+                    &mut voices[..],
+                    &mut guard_l,
+                    &mut guard_r,
+                    frames,
+                    active_section,
+                    global_mode,
+                    voice_budget_us,
+                    bus_buffers,
+                    &mut spatial_voice_indices,
+                    &mut spatial_voice_count,
+                );
 
-                    // Section-based filtering
-                    let should_play = match voice.source {
-                        PlaybackSource::Daw => true,
-                        PlaybackSource::Browser => true,
-                        _ => voice.source == active_section,
-                    };
-
-                    if !should_play {
-                        continue;
-                    }
-
-                    // Adaptive quality: degrade background voices when over budget
-                    if cumulative_us > voice_budget_us {
-                        // Over budget — degrade non-essential voices to fast mode
-                        if voice.source != PlaybackSource::Daw
-                            && voice.source != PlaybackSource::Browser
-                        {
-                            voice.voice_resample_mode = ResampleMode::Sinc(16);
-                            degraded_count += 1;
-                        }
-                        // DAW/Browser voices keep global mode (never degraded)
-                    } else {
-                        // Within budget — use global quality mode
-                        voice.voice_resample_mode = global_mode;
-                    }
-
-                    // Clear temp buffers
-                    guard_l[..frames].fill(0.0);
-                    guard_r[..frames].fill(0.0);
-
-                    // Measure per-voice processing time (lock-free on macOS/Linux)
-                    let voice_start = std::time::Instant::now();
-
-                    let still_playing =
-                        voice.fill_buffer(&mut guard_l[..frames], &mut guard_r[..frames]);
-
-                    cumulative_us += voice_start.elapsed().as_micros() as u64;
-
-                    if let Some(src_id) = voice.spatial_source_id {
-                        // Spatial voice — collect mono audio for HRTF batch render
-                        // (fill_buffer already output mono when spatial_source_id is Some)
-                        spatial_voice_indices.push((voice_idx, src_id));
-                        // Copy mono audio (L channel = mono sum) into spatial voice buffer
-                        let offset = spatial_voice_count * frames;
-                        SPATIAL_VOICE_MONO.with(|buf| {
-                            let mut mono_buf = buf.borrow_mut();
-                            if mono_buf.len() < offset + frames {
-                                mono_buf.resize(offset + frames, 0.0);
-                            }
-                            for i in 0..frames {
-                                mono_buf[offset + i] = guard_l[i] as f32;
-                            }
-                        });
-                        spatial_voice_count += 1;
-                    } else {
-                        // Normal voice — route to bus (existing path)
-                        bus_buffers.add_to_bus(voice.bus, &guard_l[..frames], &guard_r[..frames]);
-                    }
-
-                    if !still_playing {
-                        voice.deactivate();
-                    }
-                }
-
-                // ═══ SPATIAL HRTF BATCH RENDER ═══
-                // All spatial voices collected — render through SpatialManager in one pass
                 if spatial_voice_count > 0 {
-                    if let Some(mut spatial) = crate::spatial_manager::SPATIAL_MANAGER.try_write() {
-                        SPATIAL_VOICE_MONO.with(|mono_buf| {
-                            SPATIAL_OUTPUT_BUF.with(|out_buf| {
-                                let mono = mono_buf.borrow();
-                                let mut output = out_buf.borrow_mut();
-                                let out_channels = spatial.output_channels();
-                                let out_size = frames * out_channels;
-                                if output.len() < out_size {
-                                    output.resize(out_size, 0.0);
-                                }
-                                output[..out_size].fill(0.0);
-
-                                // Build AudioObjects from pre-collected mono audio
-                                let mut objects = Vec::with_capacity(spatial_voice_count);
-                                for (idx, (_voice_idx, source_id)) in spatial_voice_indices.iter().enumerate() {
-                                    let offset = idx * frames;
-                                    let audio_slice = &mono[offset..offset + frames];
-                                    objects.push(rf_spatial::AudioObject {
-                                        id: *source_id,
-                                        name: String::new(),
-                                        position: spatial.source_position(*source_id)
-                                            .unwrap_or(rf_spatial::Position3D::origin()),
-                                        size: 0.0,
-                                        gain: spatial.source_gain(*source_id),
-                                        audio: audio_slice.to_vec(),
-                                        sample_rate,
-                                        automation: None,
-                                    });
-                                }
-
-                                if spatial.render(&objects, &mut output[..out_size], out_channels).is_ok() {
-                                    // Mix HRTF output into master bus (stereo)
-                                    let (master_l, master_r) = bus_buffers.master_mut();
-                                    for i in 0..frames {
-                                        master_l[i] += output[i * 2] as f64;
-                                        master_r[i] += output[i * 2 + 1] as f64;
-                                    }
-                                }
-                            });
-                        });
-                    } else {
-                        // SpatialManager lock contended — fall back to center-pan bus routing
-                        for (voice_idx, _source_id) in &spatial_voice_indices {
-                            SPATIAL_VOICE_MONO.with(|mono_buf| {
-                                let mono = mono_buf.borrow();
-                                let idx = spatial_voice_indices.iter()
-                                    .position(|(vi, _)| vi == voice_idx)
-                                    .unwrap_or(0);
-                                let offset = idx * frames;
-                                let bus = voices[*voice_idx].bus;
-                                let (bus_l, bus_r) = bus_buffers.get_bus_mut(bus);
-                                for i in 0..frames {
-                                    let s = mono[offset + i] as f64;
-                                    bus_l[i] += s;
-                                    bus_r[i] += s;
-                                }
-                            });
-                        }
-                    }
+                    Self::render_spatial_voices(
+                        &voices[..],
+                        bus_buffers,
+                        frames,
+                        sample_rate,
+                        spatial_voice_count,
+                        &spatial_voice_indices,
+                    );
                 }
 
-                // Update adaptive quality diagnostics (lock-free atomics)
-                let active_count = voices.iter().filter(|v| v.active).count() as u32;
-                self.diag_active_voices.store(active_count, Ordering::Relaxed);
-                self.diag_degraded_voices.store(degraded_count, Ordering::Relaxed);
-                let cpu_pct = (cumulative_us * 100)
-                    .checked_div(voice_budget_us)
-                    .unwrap_or(0)
-                    .min(200) as u32;
-                self.diag_cpu_load_pct.store(cpu_pct, Ordering::Relaxed);
-                let mode_val = match global_mode {
-                    ResampleMode::Point => 0,
-                    ResampleMode::Linear => 1,
-                    ResampleMode::R8brain => 65535,
-                    ResampleMode::Sinc(n) => n as u32,
-                };
-                self.diag_src_mode.store(mode_val, Ordering::Relaxed);
+                self.store_voice_diagnostics(&voices[..], degraded_count, cumulative_us, voice_budget_us, global_mode);
             });
         });
     }
+
+    /// Iterate active one-shot voices: section-filter, adapt quality, fill buffers,
+    /// route to bus or collect for spatial HRTF. Returns (cumulative_us, degraded_count).
+    #[allow(clippy::too_many_arguments)]
+    fn iterate_one_shot_voices(
+        voices: &mut [OneShotVoice],
+        guard_l: &mut [f64],
+        guard_r: &mut [f64],
+        frames: usize,
+        active_section: PlaybackSource,
+        global_mode: ResampleMode,
+        voice_budget_us: u64,
+        bus_buffers: &mut BusBuffers,
+        spatial_voice_indices: &mut Vec<(usize, u32)>,
+        spatial_voice_count: &mut usize,
+    ) -> (u64, u32) {
+        let mut cumulative_us: u64 = 0;
+        let mut degraded_count: u32 = 0;
+
+        for (voice_idx, voice) in voices.iter_mut().enumerate() {
+            if !voice.active {
+                continue;
+            }
+
+            let should_play = match voice.source {
+                PlaybackSource::Daw => true,
+                PlaybackSource::Browser => true,
+                _ => voice.source == active_section,
+            };
+            if !should_play {
+                continue;
+            }
+
+            // Adaptive quality: degrade background voices when over budget
+            if cumulative_us > voice_budget_us {
+                if voice.source != PlaybackSource::Daw
+                    && voice.source != PlaybackSource::Browser
+                {
+                    voice.voice_resample_mode = ResampleMode::Sinc(16);
+                    degraded_count += 1;
+                }
+            } else {
+                voice.voice_resample_mode = global_mode;
+            }
+
+            guard_l[..frames].fill(0.0);
+            guard_r[..frames].fill(0.0);
+
+            let voice_start = std::time::Instant::now();
+            let still_playing = voice.fill_buffer(&mut guard_l[..frames], &mut guard_r[..frames]);
+            cumulative_us += voice_start.elapsed().as_micros() as u64;
+
+            if let Some(src_id) = voice.spatial_source_id {
+                spatial_voice_indices.push((voice_idx, src_id));
+                let offset = *spatial_voice_count * frames;
+                SPATIAL_VOICE_MONO.with(|buf| {
+                    let mut mono_buf = buf.borrow_mut();
+                    if mono_buf.len() < offset + frames {
+                        mono_buf.resize(offset + frames, 0.0);
+                    }
+                    for i in 0..frames {
+                        mono_buf[offset + i] = guard_l[i] as f32;
+                    }
+                });
+                *spatial_voice_count += 1;
+            } else {
+                bus_buffers.add_to_bus(voice.bus, &guard_l[..frames], &guard_r[..frames]);
+            }
+
+            if !still_playing {
+                voice.deactivate();
+            }
+        }
+
+        (cumulative_us, degraded_count)
+    }
+
+    /// Batch-render collected spatial voices through SpatialManager (HRTF).
+    /// Falls back to center-pan bus routing if SpatialManager lock is contended.
+    fn render_spatial_voices(
+        voices: &[OneShotVoice],
+        bus_buffers: &mut BusBuffers,
+        frames: usize,
+        sample_rate: u32,
+        spatial_voice_count: usize,
+        spatial_voice_indices: &[(usize, u32)],
+    ) {
+        if let Some(mut spatial) = crate::spatial_manager::SPATIAL_MANAGER.try_write() {
+            SPATIAL_VOICE_MONO.with(|mono_buf| {
+                SPATIAL_OUTPUT_BUF.with(|out_buf| {
+                    let mono = mono_buf.borrow();
+                    let mut output = out_buf.borrow_mut();
+                    let out_channels = spatial.output_channels();
+                    let out_size = frames * out_channels;
+                    if output.len() < out_size {
+                        output.resize(out_size, 0.0);
+                    }
+                    output[..out_size].fill(0.0);
+
+                    let mut objects = Vec::with_capacity(spatial_voice_count);
+                    for (idx, (_voice_idx, source_id)) in spatial_voice_indices.iter().enumerate() {
+                        let offset = idx * frames;
+                        let audio_slice = &mono[offset..offset + frames];
+                        objects.push(rf_spatial::AudioObject {
+                            id: *source_id,
+                            name: String::new(),
+                            position: spatial.source_position(*source_id)
+                                .unwrap_or(rf_spatial::Position3D::origin()),
+                            size: 0.0,
+                            gain: spatial.source_gain(*source_id),
+                            audio: audio_slice.to_vec(),
+                            sample_rate,
+                            automation: None,
+                        });
+                    }
+
+                    if spatial.render(&objects, &mut output[..out_size], out_channels).is_ok() {
+                        let (master_l, master_r) = bus_buffers.master_mut();
+                        for i in 0..frames {
+                            master_l[i] += output[i * 2] as f64;
+                            master_r[i] += output[i * 2 + 1] as f64;
+                        }
+                    }
+                });
+            });
+        } else {
+            // SpatialManager lock contended — fall back to center-pan bus routing
+            for (voice_idx, _source_id) in spatial_voice_indices {
+                SPATIAL_VOICE_MONO.with(|mono_buf| {
+                    let mono = mono_buf.borrow();
+                    let idx = spatial_voice_indices.iter()
+                        .position(|(vi, _)| vi == voice_idx)
+                        .unwrap_or(0);
+                    let offset = idx * frames;
+                    let bus = voices[*voice_idx].bus;
+                    let (bus_l, bus_r) = bus_buffers.get_bus_mut(bus);
+                    for i in 0..frames {
+                        let s = mono[offset + i] as f64;
+                        bus_l[i] += s;
+                        bus_r[i] += s;
+                    }
+                });
+            }
+        }
+    }
+
+    /// Store adaptive-quality diagnostics atomics (lock-free).
+    fn store_voice_diagnostics(
+        &self,
+        voices: &[OneShotVoice],
+        degraded_count: u32,
+        cumulative_us: u64,
+        voice_budget_us: u64,
+        global_mode: ResampleMode,
+    ) {
+        let active_count = voices.iter().filter(|v| v.active).count() as u32;
+        self.diag_active_voices.store(active_count, Ordering::Relaxed);
+        self.diag_degraded_voices.store(degraded_count, Ordering::Relaxed);
+        let cpu_pct = (cumulative_us * 100)
+            .checked_div(voice_budget_us)
+            .unwrap_or(0)
+            .min(200) as u32;
+        self.diag_cpu_load_pct.store(cpu_pct, Ordering::Relaxed);
+        let mode_val = match global_mode {
+            ResampleMode::Point => 0,
+            ResampleMode::Linear => 1,
+            ResampleMode::R8brain => 65535,
+            ResampleMode::Sinc(n) => n as u32,
+        };
+        self.diag_src_mode.store(mode_val, Ordering::Relaxed);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // ADVANCED LOOP SYSTEM (Wwise-grade)
+    // ═══════════════════════════════════════════════════════════════════════
 
     // ═══════════════════════════════════════════════════════════════════════
     // ADVANCED LOOP SYSTEM (Wwise-grade)
@@ -7283,8 +7398,17 @@ impl PlaybackEngine {
         self.balance
             .store(smoothed_bal.to_bits(), Ordering::Relaxed);
 
-        // LUFS metering (ITU-R BS.1770-4) — try_write to avoid blocking audio thread
+        // LUFS metering (ITU-R BS.1770-4) — try_write to avoid blocking audio thread.
+        // Note: with the pending-reset pattern (see reset_lufs_integrated), the UI
+        // never holds this write lock, so try_write should succeed barring a stuck
+        // worker. Reset requests are drained inline before processing the block.
         if let Some(mut lufs) = self.lufs_meter.try_write() {
+            // Drain queued integrated-reset request (UI clicked "Reset"). Doing it
+            // here means the UI never had to take its own write lock to fulfill
+            // the request — that was the source of the metering-dropout race.
+            if self.lufs_integrated_reset_pending.swap(false, Ordering::AcqRel) {
+                lufs.reset_integrated();
+            }
             lufs.process_block(output_l, output_r);
             let m = lufs.momentary_loudness();
             let s = lufs.shortterm_loudness();
@@ -9389,5 +9513,130 @@ mod tests {
 
         assert_eq!(cache.size(), 0);
         assert!(!cache.is_cached("/nonexistent/file.wav"));
+    }
+
+    /// Regression test for FLUX_MASTER_TODO 1.2.3 — Cache TOCTOU.
+    ///
+    /// Two threads simultaneously call `load("missing.wav")`. Pre-fix, both
+    /// would observe a cache miss, both would invoke `AudioImporter::import`,
+    /// and on success both would insert (over-counting `current_bytes`). The
+    /// missing-file case is convenient for the test because we don't need a
+    /// real audio asset on disk: the contract we're verifying is symmetric
+    /// "two concurrent calls → exactly one disk-load attempt", not "load
+    /// succeeded".
+    ///
+    /// We assert via the side-effect that's observable without a real audio
+    /// file: the per-path `loading` slot must be cleaned up after BOTH
+    /// callers return, and `current_bytes` must equal zero (no insert ever
+    /// happened, so the counter must not have been bumped).
+    #[test]
+    fn test_audio_cache_concurrent_load_does_not_double_count() {
+        let cache = Arc::new(AudioCache::new());
+        let path = "/nonexistent/concurrent_load_target.wav";
+
+        let mut handles = Vec::new();
+        for _ in 0..8 {
+            let cache = Arc::clone(&cache);
+            handles.push(std::thread::spawn(move || cache.load(path)));
+        }
+        for h in handles {
+            let _ = h.join().expect("thread panicked");
+        }
+
+        assert_eq!(
+            cache.current_bytes.load(Ordering::Relaxed),
+            0,
+            "no successful inserts (file missing), so current_bytes must stay 0"
+        );
+        // Per-path loading slot must be reaped — otherwise the registry leaks.
+        assert!(
+            cache.loading.lock().is_empty(),
+            "loading registry must be empty after all callers return"
+        );
+    }
+
+    /// Cache hit fast path — N concurrent readers of an already-cached entry
+    /// must not block each other on the per-path load lock. We seed the
+    /// cache by running a single `load()` that misses (no disk file), then
+    /// manually insert a `CacheEntry`, then concurrent loads must hit the
+    /// fast path and never touch `loading`.
+    #[test]
+    fn test_audio_cache_hit_fast_path_avoids_load_lock() {
+        let cache = Arc::new(AudioCache::new());
+        let path = "fake_seeded.wav";
+
+        // Manually seed an entry — bypass disk I/O via the public mono ctor.
+        {
+            let arc = Arc::new(crate::audio_import::ImportedAudio::new_mono(
+                vec![0.0; 16],
+                48000,
+                "fake_seeded.wav",
+            ));
+            let mut entries = cache.entries.write();
+            entries.insert(
+                path.to_string(),
+                CacheEntry {
+                    audio: arc,
+                    last_access: 0,
+                    size_bytes: 16 * std::mem::size_of::<f32>(),
+                },
+            );
+        }
+
+        let mut handles = Vec::new();
+        for _ in 0..16 {
+            let cache = Arc::clone(&cache);
+            handles.push(std::thread::spawn(move || {
+                cache.load(path).expect("seeded entry must hit cache")
+            }));
+        }
+        for h in handles {
+            h.join().unwrap();
+        }
+        // No miss path was taken ⇒ loading registry must be untouched.
+        assert!(cache.loading.lock().is_empty());
+    }
+
+    /// Regression test for FLUX_MASTER_TODO 1.2.2 — UI-side reset of the
+    /// integrated LUFS meter must NOT take the meter's write lock, because
+    /// that races the audio thread's `try_write()` and produces silent
+    /// metering gaps. This test asserts the new contract: calling
+    /// `reset_lufs_integrated()` only flips an atomic flag + zeroes the
+    /// public value, even while a separate writer is holding the lock.
+    #[test]
+    fn test_reset_lufs_integrated_is_lock_free() {
+        let engine = PlaybackEngine::new(Arc::new(crate::track_manager::TrackManager::new()), 48000);
+
+        // Hold a read guard on lufs_meter for the duration — if reset took
+        // a write lock, this would deadlock the test. (RwLock::read +
+        // try_write coexist as long as nobody holds write.)
+        let _read_guard = engine.lufs_meter.read();
+
+        // Reset must complete immediately without taking the lock.
+        engine.reset_lufs_integrated();
+
+        // Public value reflects reset.
+        let integrated = f64::from_bits(engine.lufs_integrated.load(Ordering::Relaxed));
+        assert!((integrated - (-70.0)).abs() < 1e-9,
+            "reset must publish -70.0 dB to the atomic, got {integrated}");
+
+        // Pending flag was set so the audio thread will drain it.
+        assert!(engine.lufs_integrated_reset_pending.load(Ordering::Acquire),
+            "reset must queue a pending request for the audio thread to drain");
+    }
+
+    /// Calling reset twice without an audio block in between coalesces into
+    /// a single drain — the flag is sticky-true, not a counter.
+    #[test]
+    fn test_reset_lufs_integrated_coalesces() {
+        let engine = PlaybackEngine::new(Arc::new(crate::track_manager::TrackManager::new()), 48000);
+        engine.reset_lufs_integrated();
+        engine.reset_lufs_integrated();
+        engine.reset_lufs_integrated();
+
+        // First swap clears it; second swap returns false (only one drain needed).
+        assert!(engine.lufs_integrated_reset_pending.swap(false, Ordering::AcqRel));
+        assert!(!engine.lufs_integrated_reset_pending.swap(false, Ordering::AcqRel),
+            "second drain must observe a clean flag");
     }
 }

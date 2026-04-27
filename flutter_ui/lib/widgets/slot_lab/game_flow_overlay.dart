@@ -63,7 +63,10 @@ class GameFlowOverlay extends StatelessWidget {
               Positioned.fill(
                 child: _SceneTransitionOverlay(
                   transition: flow.activeTransition!,
-                  onDismiss: () => flow.dismissTransition(),
+                  // Use dismissTransitionEarly() — respects dismissMode:
+                  // clickToContinue + timedOrClick = user can dismiss early
+                  // timed = only auto-dismiss fires, tap/key are no-ops
+                  onDismiss: () => flow.dismissTransitionEarly(),
                 ),
               ),
           ],

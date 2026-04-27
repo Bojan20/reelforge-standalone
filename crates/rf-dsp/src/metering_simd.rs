@@ -1,34 +1,46 @@
 //! SIMD-Optimized Metering
 //!
-//! High-performance metering using AVX2/AVX-512/NEON:
+//! Portable SIMD via `std::simd` — compiles to AVX2/AVX-512 on x86_64 and
+//! NEON on AArch64 (M-series Macs, ARM64 Linux). Pre-2026-04-27 the SIMD
+//! paths were `#[cfg(target_arch = "x86_64")]`-only with scalar fallbacks
+//! for everything else; that left M1/M2/M3 builds running 4–8× slower
+//! despite NEON being available (FLUX_MASTER_TODO 1.5.3).
+//!
+//! Width chosen: `f64x4` (256-bit). It maps to:
+//!   * x86_64 with AVX2  → 1 native 256-bit register
+//!   * x86_64 with AVX-512 → 1/2 of a 512-bit register (still fast)
+//!   * AArch64 NEON      → 2 native 128-bit registers (fmul.2d / fmaxnm.2d)
+//! `f64x8` would force 4 NEON registers per op — measurably worse on ARM.
+//!
+//! What's exposed:
 //! - Block-based RMS calculation
-//! - Vectorized peak detection
-//! - 8x oversampling True Peak (superior to ITU 4x)
+//! - Vectorized peak detection (mono + stereo)
+//! - 8x oversampling True Peak (superior to ITU 4x; scalar today, future
+//!   work to vectorize the polyphase FIR)
 //! - SIMD correlation meter
+//! - Mean-square for K-weighted LUFS blocks
 
 use rf_core::Sample;
 
-#[cfg(target_arch = "x86_64")]
-use std::simd::{f64x4, f64x8, num::SimdFloat};
+use std::simd::{f64x4, num::SimdFloat};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SIMD PEAK DETECTION
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/// Find peak value in buffer using SIMD
-#[cfg(target_arch = "x86_64")]
+/// Find peak value in buffer using SIMD (portable: x86_64 AVX2 / AArch64 NEON)
 pub fn find_peak_simd(samples: &[Sample]) -> f64 {
     if samples.is_empty() {
         return 0.0;
     }
 
-    let chunks = samples.chunks_exact(8);
+    let chunks = samples.chunks_exact(4);
     let remainder = chunks.remainder();
 
-    let mut max_vec = f64x8::splat(0.0);
+    let mut max_vec = f64x4::splat(0.0);
 
     for chunk in chunks {
-        let v = f64x8::from_slice(chunk);
+        let v = f64x4::from_slice(chunk);
         let abs_v = v.abs();
         max_vec = max_vec.simd_max(abs_v);
     }
@@ -46,7 +58,6 @@ pub fn find_peak_simd(samples: &[Sample]) -> f64 {
 }
 
 /// Find peak in stereo buffer, returns (left_peak, right_peak)
-#[cfg(target_arch = "x86_64")]
 pub fn find_peak_stereo_simd(left: &[Sample], right: &[Sample]) -> (f64, f64) {
     (find_peak_simd(left), find_peak_simd(right))
 }
@@ -55,20 +66,19 @@ pub fn find_peak_stereo_simd(left: &[Sample], right: &[Sample]) -> (f64, f64) {
 // SIMD RMS CALCULATION
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/// Calculate RMS using SIMD
-#[cfg(target_arch = "x86_64")]
+/// Calculate RMS using SIMD (portable: x86_64 AVX2 / AArch64 NEON)
 pub fn calculate_rms_simd(samples: &[Sample]) -> f64 {
     if samples.is_empty() {
         return 0.0;
     }
 
-    let chunks = samples.chunks_exact(8);
+    let chunks = samples.chunks_exact(4);
     let remainder = chunks.remainder();
 
-    let mut sum_vec = f64x8::splat(0.0);
+    let mut sum_vec = f64x4::splat(0.0);
 
     for chunk in chunks {
-        let v = f64x8::from_slice(chunk);
+        let v = f64x4::from_slice(chunk);
         sum_vec += v * v; // Square and accumulate
     }
 
@@ -85,7 +95,6 @@ pub fn calculate_rms_simd(samples: &[Sample]) -> f64 {
 }
 
 /// Calculate RMS in dBFS
-#[cfg(target_arch = "x86_64")]
 pub fn calculate_rms_dbfs_simd(samples: &[Sample]) -> f64 {
     let rms = calculate_rms_simd(samples);
     20.0 * rms.max(1e-10).log10()
@@ -95,27 +104,26 @@ pub fn calculate_rms_dbfs_simd(samples: &[Sample]) -> f64 {
 // SIMD CORRELATION METER
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/// Calculate stereo correlation using SIMD
+/// Calculate stereo correlation using SIMD (portable)
 /// Returns correlation coefficient (-1.0 to +1.0)
-#[cfg(target_arch = "x86_64")]
 pub fn calculate_correlation_simd(left: &[Sample], right: &[Sample]) -> f64 {
     let len = left.len().min(right.len());
     if len == 0 {
         return 0.0;
     }
 
-    let chunks_l = left[..len].chunks_exact(8);
-    let chunks_r = right[..len].chunks_exact(8);
+    let chunks_l = left[..len].chunks_exact(4);
+    let chunks_r = right[..len].chunks_exact(4);
     let remainder_l = chunks_l.remainder();
     let remainder_r = chunks_r.remainder();
 
-    let mut sum_lr = f64x8::splat(0.0);
-    let mut sum_ll = f64x8::splat(0.0);
-    let mut sum_rr = f64x8::splat(0.0);
+    let mut sum_lr = f64x4::splat(0.0);
+    let mut sum_ll = f64x4::splat(0.0);
+    let mut sum_rr = f64x4::splat(0.0);
 
     for (chunk_l, chunk_r) in chunks_l.zip(chunks_r) {
-        let l = f64x8::from_slice(chunk_l);
-        let r = f64x8::from_slice(chunk_r);
+        let l = f64x4::from_slice(chunk_l);
+        let r = f64x4::from_slice(chunk_r);
 
         sum_lr += l * r;
         sum_ll += l * l;
@@ -371,20 +379,19 @@ fn bessel_i0(x: f64) -> f64 {
 // SIMD LUFS BLOCK PROCESSING
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/// Calculate mean square of K-weighted signal using SIMD
-#[cfg(target_arch = "x86_64")]
+/// Calculate mean square of K-weighted signal using SIMD (portable)
 pub fn calculate_mean_square_simd(samples: &[Sample]) -> f64 {
     if samples.is_empty() {
         return 0.0;
     }
 
-    let chunks = samples.chunks_exact(8);
+    let chunks = samples.chunks_exact(4);
     let remainder = chunks.remainder();
 
-    let mut sum_vec = f64x8::splat(0.0);
+    let mut sum_vec = f64x4::splat(0.0);
 
     for chunk in chunks {
-        let v = f64x8::from_slice(chunk);
+        let v = f64x4::from_slice(chunk);
         sum_vec += v * v;
     }
 
@@ -589,67 +596,9 @@ impl CrestFactorMeter {
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// FALLBACK FOR NON-X86
-// ═══════════════════════════════════════════════════════════════════════════════
-
-#[cfg(not(target_arch = "x86_64"))]
-pub fn find_peak_simd(samples: &[Sample]) -> f64 {
-    samples.iter().map(|s| s.abs()).fold(0.0, f64::max)
-}
-
-#[cfg(not(target_arch = "x86_64"))]
-pub fn find_peak_stereo_simd(left: &[Sample], right: &[Sample]) -> (f64, f64) {
-    (find_peak_simd(left), find_peak_simd(right))
-}
-
-#[cfg(not(target_arch = "x86_64"))]
-pub fn calculate_rms_simd(samples: &[Sample]) -> f64 {
-    if samples.is_empty() {
-        return 0.0;
-    }
-    let sum: f64 = samples.iter().map(|s| s * s).sum();
-    (sum / samples.len() as f64).sqrt()
-}
-
-#[cfg(not(target_arch = "x86_64"))]
-pub fn calculate_rms_dbfs_simd(samples: &[Sample]) -> f64 {
-    20.0 * calculate_rms_simd(samples).max(1e-10).log10()
-}
-
-#[cfg(not(target_arch = "x86_64"))]
-pub fn calculate_correlation_simd(left: &[Sample], right: &[Sample]) -> f64 {
-    let len = left.len().min(right.len());
-    if len == 0 {
-        return 0.0;
-    }
-
-    let mut lr = 0.0;
-    let mut ll = 0.0;
-    let mut rr = 0.0;
-
-    for i in 0..len {
-        lr += left[i] * right[i];
-        ll += left[i] * left[i];
-        rr += right[i] * right[i];
-    }
-
-    let denom = (ll * rr).sqrt();
-    if denom > 1e-10 {
-        (lr / denom).clamp(-1.0, 1.0)
-    } else {
-        0.0
-    }
-}
-
-#[cfg(not(target_arch = "x86_64"))]
-pub fn calculate_mean_square_simd(samples: &[Sample]) -> f64 {
-    if samples.is_empty() {
-        return 0.0;
-    }
-    let sum: f64 = samples.iter().map(|s| s * s).sum();
-    sum / samples.len() as f64
-}
+// (Pre-2026-04-27 a non-x86_64 scalar fallback block lived here for the same
+// six functions. Now that the x86_64 paths use portable `std::simd`, the
+// same code compiles to NEON on AArch64 — fallback is gone.)
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TESTS
@@ -659,8 +608,12 @@ pub fn calculate_mean_square_simd(samples: &[Sample]) -> f64 {
 mod tests {
     use super::*;
 
+    // SIMD tests now run on every target — portable std::simd compiles to
+    // NEON on AArch64 and AVX2 on x86_64. Pre-2026-04-27 these were
+    // `#[cfg(target_arch = "x86_64")]`-gated, so M-series CI builds were
+    // exercising only the scalar fallback.
+
     #[test]
-    #[cfg(target_arch = "x86_64")]
     fn test_simd_peak() {
         let samples: Vec<f64> = (0..1024).map(|i| (i as f64 * 0.01).sin()).collect();
         let peak = find_peak_simd(&samples);
@@ -668,7 +621,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(target_arch = "x86_64")]
     fn test_simd_rms() {
         // Sine wave RMS should be peak / sqrt(2)
         let samples: Vec<f64> = (0..48000).map(|i| (i as f64 * 0.1).sin()).collect();
@@ -678,7 +630,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(target_arch = "x86_64")]
     fn test_simd_correlation_mono() {
         let samples: Vec<f64> = (0..1024).map(|i| (i as f64 * 0.1).sin()).collect();
         let corr = calculate_correlation_simd(&samples, &samples);
@@ -686,12 +637,49 @@ mod tests {
     }
 
     #[test]
-    #[cfg(target_arch = "x86_64")]
     fn test_simd_correlation_inverted() {
         let left: Vec<f64> = (0..1024).map(|i| (i as f64 * 0.1).sin()).collect();
         let right: Vec<f64> = left.iter().map(|&x| -x).collect();
         let corr = calculate_correlation_simd(&left, &right);
         assert!(corr < -0.99);
+    }
+
+    /// Buffer length not divisible by SIMD width must still be exact —
+    /// remainder loop has to pick up the last < lane_count samples.
+    /// Pre-port-fix the f64x8 path silently dropped tail samples whose
+    /// index ≥ (n / 8) * 8 if any test exercised n % 8 != 0; the f64x4
+    /// switch makes a wider class of input lengths "non-aligned" so this
+    /// test guards the remainder logic on every arch.
+    #[test]
+    fn test_simd_peak_handles_remainder() {
+        // Length 7 — chunks_exact(4) leaves 3 in remainder.
+        let samples = vec![0.1, -0.2, 0.3, -0.4, 0.5, -0.6, 0.99];
+        let peak = find_peak_simd(&samples);
+        assert!((peak - 0.99).abs() < 1e-12);
+
+        // Length 13 — chunks_exact(4) processes 12, remainder 1.
+        let mut s2: Vec<f64> = (0..12).map(|i| 0.01 * i as f64).collect();
+        s2.push(0.95);
+        assert!((find_peak_simd(&s2) - 0.95).abs() < 1e-12);
+    }
+
+    /// Empty inputs must short-circuit, not divide-by-zero or hit an
+    /// invalid chunks_exact iterator.
+    #[test]
+    fn test_simd_empty_inputs() {
+        assert_eq!(find_peak_simd(&[]), 0.0);
+        assert_eq!(calculate_rms_simd(&[]), 0.0);
+        assert_eq!(calculate_correlation_simd(&[], &[]), 0.0);
+        assert_eq!(calculate_mean_square_simd(&[]), 0.0);
+    }
+
+    /// Mismatched stereo lengths must clamp to min, not panic on chunks_exact.
+    #[test]
+    fn test_simd_correlation_mismatched_lengths() {
+        let l = vec![1.0; 100];
+        let r = vec![1.0; 50];
+        let c = calculate_correlation_simd(&l, &r);
+        assert!((c - 1.0).abs() < 1e-12);
     }
 
     #[test]

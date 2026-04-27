@@ -112,11 +112,67 @@ class WaveformCache {
   /// Multi-res cache: clipId -> multi-resolution peaks
   final LinkedHashMap<String, MultiResWaveform> _multiResCache = LinkedHashMap();
 
-  /// Maximum cache size (number of clips)
+  /// Maximum cache size (number of clips). Kept as a coarse upper
+  /// bound; the byte budget below is the real constraint.
   static const int _maxCacheSize = 100;
 
   /// Maximum samples to store per clip for legacy cache
   static const int _maxSamplesPerClip = 2000;
+
+  /// FLUX_MASTER_TODO 2.2.5 — byte budget for the multi-res cache.
+  /// The previous count-only LRU (100 clips) was the wrong unit: 100
+  /// short SFX clips and 100 6-minute music tracks both fit in "100
+  /// entries", but the second case can pin ~1.5 GB of waveform peaks
+  /// in memory and trigger Flutter's image-asset OOM (BUG #46
+  /// "oversized images"). Now we track an estimated byte cost per
+  /// entry and evict whichever LRU oldest until total drops below
+  /// budget, regardless of count.
+  ///
+  /// 256 MB is comfortable for a typical session: a 6-minute stereo
+  /// 48 kHz track at 11 LOD levels generates roughly 8 MB of f32
+  /// peaks; the budget therefore holds ~32 long tracks plus dozens
+  /// of short SFX, well above any realistic project working set.
+  static const int _maxMultiResBytes = 256 * 1024 * 1024;
+
+  /// Estimated total bytes in `_multiResCache`. Updated incrementally
+  /// on insert/evict so we don't have to walk every entry per check.
+  int _multiResTotalBytes = 0;
+
+  /// Estimate the heap footprint of a `MultiResWaveform`. Each PeakLevel
+  /// holds two `Float32List`s (min + max) per channel; size = sum of
+  /// `length * 4` across all levels and channels, plus a tiny per-level
+  /// overhead absorbed into the constant 32.
+  static int _estimateBytes(MultiResWaveform w) {
+    int bytes = 0;
+    for (final level in w.leftLevels) {
+      bytes += level.minPeaks.lengthInBytes + level.maxPeaks.lengthInBytes + 32;
+    }
+    final right = w.rightLevels;
+    if (right != null) {
+      for (final level in right) {
+        bytes += level.minPeaks.lengthInBytes + level.maxPeaks.lengthInBytes + 32;
+      }
+    }
+    return bytes;
+  }
+
+  /// Evict LRU entries until both byte budget AND count cap are
+  /// satisfied. Caller is expected to have already accounted for the
+  /// incoming entry's bytes so the post-condition holds.
+  void _evictMultiResUntilWithinBudget() {
+    while (_multiResCache.isNotEmpty &&
+        (_multiResTotalBytes > _maxMultiResBytes ||
+            _multiResCache.length > _maxCacheSize)) {
+      final oldestKey = _multiResCache.keys.first;
+      final removed = _multiResCache.remove(oldestKey);
+      if (removed != null) {
+        _multiResTotalBytes -= _estimateBytes(removed);
+        if (_multiResTotalBytes < 0) _multiResTotalBytes = 0;
+      } else {
+        break;
+      }
+    }
+  }
 
   /// LOD level configurations: samples per peak
   static const List<int> _lodSamplesPerPeak = [256, 512, 1024, 2048, 4096, 8192];
@@ -146,12 +202,11 @@ class WaveformCache {
     final data = _parseRustWaveformJson(json);
     if (data == null) return null;
 
-    // Evict oldest if at capacity
-    while (_multiResCache.length >= _maxCacheSize) {
-      _multiResCache.remove(_multiResCache.keys.first);
-    }
-
+    // Track byte cost of incoming entry, then evict LRU until both
+    // byte and count budgets hold. (FLUX_MASTER_TODO 2.2.5 / BUG #46.)
+    _multiResTotalBytes += _estimateBytes(data);
     _multiResCache[clipId] = data;
+    _evictMultiResUntilWithinBudget();
     return data;
   }
 
@@ -237,7 +292,11 @@ class WaveformCache {
   /// Invalidate Rust-side waveform cache for a clip
   void invalidateRustCache(String clipId) {
     NativeFFI.instance.invalidateWaveformCache(clipId);
-    _multiResCache.remove(clipId);
+    final removed = _multiResCache.remove(clipId);
+    if (removed != null) {
+      _multiResTotalBytes -= _estimateBytes(removed);
+      if (_multiResTotalBytes < 0) _multiResTotalBytes = 0;
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -263,12 +322,10 @@ class WaveformCache {
     // Compute all LOD levels (Dart fallback — slower than Rust)
     final data = _computeMultiResPeaks(waveform, waveformRight, sampleRate);
 
-    // Evict oldest if at capacity
-    while (_multiResCache.length >= _maxCacheSize) {
-      _multiResCache.remove(_multiResCache.keys.first);
-    }
-
+    // Track byte cost + LRU evict (BUG #46).
+    _multiResTotalBytes += _estimateBytes(data);
     _multiResCache[clipId] = data;
+    _evictMultiResUntilWithinBudget();
     return data;
   }
 
@@ -289,13 +346,22 @@ class WaveformCache {
 
   /// Remove multi-res data from cache
   void removeMultiRes(String clipId) {
-    _multiResCache.remove(clipId);
+    final removed = _multiResCache.remove(clipId);
+    if (removed != null) {
+      _multiResTotalBytes -= _estimateBytes(removed);
+      if (_multiResTotalBytes < 0) _multiResTotalBytes = 0;
+    }
   }
 
   /// Clear multi-res cache
   void clearMultiRes() {
     _multiResCache.clear();
+    _multiResTotalBytes = 0;
   }
+
+  /// Total estimated bytes currently held by the multi-res cache.
+  /// Exposed for diagnostics + the regression test.
+  int get multiResTotalBytes => _multiResTotalBytes;
 
   /// Compute all LOD levels for audio data
   MultiResWaveform _computeMultiResPeaks(
@@ -395,13 +461,18 @@ class WaveformCache {
   /// Remove specific clip from cache
   void remove(String clipId) {
     _cache.remove(clipId);
-    _multiResCache.remove(clipId);
+    final removed = _multiResCache.remove(clipId);
+    if (removed != null) {
+      _multiResTotalBytes -= _estimateBytes(removed);
+      if (_multiResTotalBytes < 0) _multiResTotalBytes = 0;
+    }
   }
 
   /// Clear entire cache
   void clear() {
     _cache.clear();
     _multiResCache.clear();
+    _multiResTotalBytes = 0;
   }
 
   /// Compute and cache waveform data from raw samples

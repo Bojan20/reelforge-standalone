@@ -49,6 +49,13 @@ import '../services/gdd_import_service.dart';
 import '../src/rust/native_ffi.dart' show ForcedOutcome;
 import '../widgets/slot_lab/live_play_orb_overlay.dart';
 import '../widgets/slot_lab/premium_slot_preview.dart';
+// ── SPRINT 1 imports ──
+import '../widgets/common/flux_tooltip.dart';
+import '../widgets/helix/math_hud_overlay.dart';
+// import '../widgets/helix/stub_tab_placeholder.dart'; // removed — no stubs remain
+// ── SPEC-14: Panel Focus ──
+import '../providers/panel_focus_provider.dart';
+import '../widgets/helix/quick_assign_hotbar.dart';
 import '../models/game_flow_models.dart';
 import '../models/slot_audio_events.dart';
 // ── Faza 3 imports ──
@@ -59,6 +66,7 @@ import '../services/ai_generation_service.dart';
 import '../services/cortex_vision_service.dart';
 import '../services/cortex_eye_server.dart';
 import '../services/event_registry.dart';
+import '../services/event_registration_service.dart';
 import '../services/stage_configuration_service.dart';
 import '../services/gdd_import_service.dart' show GddGridConfig;
 import '../models/slot_lab_models.dart' show SymbolDefinition, SymbolType;
@@ -68,6 +76,7 @@ import '../widgets/slot_lab/auto_bind_dialog_v2.dart';
 import '../widgets/slot_lab/neural_bind_orb.dart';
 import '../widgets/slot_lab/orb_mixer.dart';
 import '../providers/mixer_dsp_provider.dart';
+import '../providers/rgai_ffi_provider.dart';
 import 'slot_lab_screen.dart' show SlotLabScreen;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -97,6 +106,8 @@ class _HelixScreenState extends State<HelixScreen>
 
   // ── Spine overlay ─────────────────────────────────────────────────────────
   int? _spineOpen; // null=closed  0=audio 1=game 2=ai 3=settings 4=analytics
+  // SPRINT 1 SPEC-06 — Spine compact/expanded state.
+  bool _spineExpanded = false;
 
   // ── Stage glow ────────────────────────────────────────────────────────────
   late AnimationController _glowCtrl;
@@ -529,17 +540,33 @@ class _HelixScreenState extends State<HelixScreen>
         color: Colors.transparent,
         child: Stack(
         children: [
-          Container(
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOutCubic,
+            // SPEC-12 Mini Mode: collapse to 200px strip
+            height: _mode == 3 ? 200 : double.infinity,
             color: FluxForgeTheme.bgVoid,
-            child: Column(
+            child: _mode == 3
+                ? _buildMiniStrip()
+                : Column(
               children: [
                 _buildOmnibar(),
+                // SPRINT 3 SPEC-13 — Quick Assign Hotbar (visible only in ASSIGN spine)
+                QuickAssignHotbar(visible: _spineOpen == 0),
                 Expanded(
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _buildSpine(),
-                      Expanded(child: _buildCanvas()),
+                      FocusablePanel(
+                        id: FocusPanelId.helixSpine,
+                        child: _buildSpine(),
+                      ),
+                      Expanded(
+                        child: FocusablePanel(
+                          id: FocusPanelId.helixCanvas,
+                          child: _buildCanvas(),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -548,7 +575,10 @@ class _HelixScreenState extends State<HelixScreen>
                 Consumer<GameFlowProvider>(
                   builder: (ctx, flow, _) => _buildStageRow(flow),
                 ),
-                if (_mode != 1) _buildDock(),
+                if (_mode != 1) FocusablePanel(
+                  id: FocusPanelId.helixDock,
+                  child: _buildDock(),
+                ),
               ],
             ),
           ),
@@ -580,13 +610,67 @@ class _HelixScreenState extends State<HelixScreen>
   void _onKey(KeyEvent e) {
     if (e is! KeyDownEvent) return;
     final key = e.logicalKey;
+    final isShift = HardwareKeyboard.instance.isShiftPressed;
+    final isMeta  = HardwareKeyboard.instance.isMetaPressed;
+
     if (key == LogicalKeyboardKey.escape) {
       setState(() { _spineOpen = null; _mode = 0; _contextLensEvent = null; });
+      return;
     } else if (key == LogicalKeyboardKey.keyF) {
       setState(() => _mode = _mode == 1 ? 0 : 1);
+      return;
     } else if (key == LogicalKeyboardKey.keyA) {
       setState(() => _mode = _mode == 2 ? 0 : 2);
+      return;
+    } else if (key == LogicalKeyboardKey.keyM && isMeta && isShift) {
+      // SPEC-12: Mini Mode — Cmd+Shift+M
+      setState(() => _mode = _mode == 3 ? 0 : 3);
+      return;
     }
+
+    // SPRINT 1 SPEC-06 — Shift+Cmd+\\ toggles spine compact/expanded.
+    if (isShift && isMeta && key == LogicalKeyboardKey.backslash) {
+      setState(() => _spineExpanded = !_spineExpanded);
+      return;
+    }
+
+    // SPRINT 1 SPEC-17 — Stage trigger keyboard shortcuts in HELIX FLOW tab.
+    // Active only when FLOW dock tab (index 0) is selected; falls through
+    // to dock-tab nav otherwise so existing 1-9 behavior is preserved.
+    if (_dockTab == 0 && !isMeta) {
+      try {
+        final flow = context.read<GameFlowProvider>();
+        // Shift+letter triggers — manual feature triggers via existing API
+        if (isShift) {
+          if (key == LogicalKeyboardKey.keyS) {
+            flow.triggerManual(TransitionTrigger.featureBuy);
+            _showStageToast('FEATURE BUY');
+            return;
+          }
+          if (key == LogicalKeyboardKey.keyG) {
+            flow.triggerManual(TransitionTrigger.playerGamble);
+            _showStageToast('GAMBLE');
+            return;
+          }
+          if (key == LogicalKeyboardKey.keyC) {
+            flow.triggerManual(TransitionTrigger.playerCollect);
+            _showStageToast('COLLECT');
+            return;
+          }
+          if (key == LogicalKeyboardKey.keyJ) {
+            flow.triggerManual(TransitionTrigger.jackpotTriggered);
+            _showStageToast('JACKPOT');
+            return;
+          }
+          if (key == LogicalKeyboardKey.keyR) {
+            flow.triggerManual(TransitionTrigger.retrigger);
+            _showStageToast('RETRIGGER');
+            return;
+          }
+        }
+      } catch (_) {/* GameFlowProvider not available in this context */}
+    }
+
     // 1-9,0 → dock tabs (0 = tab 10), -/= → tabs 11/12
     final digit = int.tryParse(e.character ?? '');
     if (digit != null && digit >= 1 && digit <= 9) {
@@ -600,7 +684,188 @@ class _HelixScreenState extends State<HelixScreen>
     }
   }
 
+  /// SPRINT 1 SPEC-17 — toast shown 1.5s bottom-center after a stage shortcut.
+  void _showStageToast(String stage) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.bolt_rounded, size: 16, color: FluxForgeTheme.brandGoldBright),
+            const SizedBox(width: 8),
+            Text(
+              'STAGE: $stage',
+              style: const TextStyle(
+                fontFamily: 'JetBrainsMono',
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: FluxForgeTheme.brandGoldBright,
+                letterSpacing: 1.4,
+              ),
+            ),
+          ],
+        ),
+        duration: const Duration(milliseconds: 1500),
+        backgroundColor: const Color(0xF20D0D12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(6),
+          side: BorderSide(
+            color: FluxForgeTheme.brandGold.withValues(alpha: 0.45),
+            width: 0.6,
+          ),
+        ),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.only(bottom: 32),
+        width: 200,
+      ),
+    );
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
+  // ─── SPEC-12: Mini Mode strip (200px) ───────────────────────────────────
+  Widget _buildMiniStrip() {
+    return Consumer<GameFlowProvider>(
+      builder: (ctx, flow, _) {
+        final fsm = flow.currentState.name.toUpperCase();
+        return Container(
+          height: 200,
+          decoration: const BoxDecoration(
+            color: Color(0xFF08080C),
+            border: Border(top: BorderSide(color: FluxForgeTheme.borderSubtle, width: 1)),
+          ),
+          child: Column(
+            children: [
+              // Top bar with expand hint
+              Container(
+                height: 28,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF0A0A12),
+                  border: Border(bottom: BorderSide(color: FluxForgeTheme.borderSubtle, width: 1)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.compress_rounded, size: 12, color: FluxForgeTheme.textTertiary),
+                    const SizedBox(width: 6),
+                    Text('HELIX MINI', style: TextStyle(
+                      fontSize: 10, fontWeight: FontWeight.w700,
+                      color: FluxForgeTheme.textTertiary, letterSpacing: 1.2)),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () => setState(() => _mode = 0),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('⌘⇧M', style: TextStyle(
+                            fontSize: 9, color: FluxForgeTheme.textTertiary, fontFamily: 'monospace')),
+                          SizedBox(width: 4),
+                          Icon(Icons.open_in_full_rounded, size: 11, color: FluxForgeTheme.textTertiary),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Main content row
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Row(
+                    children: [
+                      // FSM state + controls
+                      _MiniModeSection(
+                        label: 'FSM STATE',
+                        child: Text(fsm,
+                          style: const TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w800,
+                            color: FluxForgeTheme.accentCyan, letterSpacing: 0.5)),
+                      ),
+                      const _MiniDivider(),
+                      // SPIN button
+                      GestureDetector(
+                        onTap: () {
+                          GetIt.instance<SlotLabCoordinator>().spin();
+                        },
+                        child: Container(
+                          width: 64, height: 40,
+                          decoration: BoxDecoration(
+                            color: FluxForgeTheme.accentGreen.withOpacity(0.15),
+                            border: Border.all(color: FluxForgeTheme.accentGreen.withOpacity(0.5)),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.play_arrow_rounded, size: 16, color: FluxForgeTheme.accentGreen),
+                              SizedBox(width: 2),
+                              Text('SPIN', style: TextStyle(
+                                fontSize: 9, fontWeight: FontWeight.w800,
+                                color: FluxForgeTheme.accentGreen, letterSpacing: 0.8)),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const _MiniDivider(),
+                      // Compliance indicator via RGAI
+                      _MiniModeSection(
+                        label: 'RGAI',
+                        child: Consumer<RgaiFfiProvider>(
+                          builder: (ctx, rgai, _) {
+                            final ok = rgai.exportApproved;
+                            return Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  ok ? Icons.check_circle_rounded : Icons.warning_rounded,
+                                  size: 14,
+                                  color: ok ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentOrange,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(ok ? 'OK' : 'WARN', style: TextStyle(
+                                  fontSize: 10, fontWeight: FontWeight.w700,
+                                  color: ok ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentOrange)),
+                              ],
+                            );
+                          },
+                        ),
+                      ),
+                      const Spacer(),
+                      // Mode buttons
+                      Row(
+                        children: [
+                          for (final m in [('C', 0), ('F', 1), ('A', 2)])
+                            Padding(
+                              padding: const EdgeInsets.only(left: 4),
+                              child: GestureDetector(
+                                onTap: () => setState(() => _mode = m.$2),
+                                child: Container(
+                                  width: 28, height: 28,
+                                  decoration: BoxDecoration(
+                                    color: FluxForgeTheme.bgSurface,
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: FluxForgeTheme.borderSubtle),
+                                  ),
+                                  child: Center(child: Text(m.$1,
+                                    style: const TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary,
+                                      fontWeight: FontWeight.w700))),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   // OMNIBAR
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -835,11 +1100,16 @@ class _HelixScreenState extends State<HelixScreen>
   Widget _buildSpine() {
     final icons = _spineIcons;
 
-    // Spine is just the icon column — overlay is rendered in the main Stack
-    return Container(
-      width: 48,
+    // SPRINT 1 SPEC-06 — Spine width animates between collapsed/expanded.
+    // Collapsed: 48px (icons only). Expanded: 112px (icons + labels under).
+    final spineWidth = _spineExpanded ? 112.0 : 48.0;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      width: spineWidth,
       decoration: const BoxDecoration(
-        color: FluxForgeTheme.bgDeepest, // #08080C = --abyss (matches mockup)
+        color: FluxForgeTheme.bgDeepest, // #08080C = --abyss
         border: Border(right: BorderSide(color: FluxForgeTheme.borderSubtle)),
       ),
       child: Column(
@@ -850,13 +1120,48 @@ class _HelixScreenState extends State<HelixScreen>
             child: _SpineItem(
               icon: e.value.$1,
               label: e.value.$2,
+              shortcutHint: '⌘${e.key + 1}',
+              expanded: _spineExpanded,
               active: _spineOpen == e.key,
               onTap: () => setState(() =>
                 _spineOpen = _spineOpen == e.key ? null : e.key),
             ),
           )),
           const Spacer(),
-          const SizedBox(height: 12),
+          // SPRINT 1 SPEC-06 — collapse/expand toggle at the bottom.
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: FluxTooltip(
+              message: _spineExpanded ? 'Collapse spine' : 'Expand spine',
+              shortcutHint: '⇧⌘\\',
+              child: GestureDetector(
+                onTap: () => setState(() => _spineExpanded = !_spineExpanded),
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: FluxForgeTheme.bgVoid.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: FluxForgeTheme.borderSubtle,
+                        width: 0.6,
+                      ),
+                    ),
+                    child: Icon(
+                      _spineExpanded
+                        ? Icons.chevron_left_rounded
+                        : Icons.chevron_right_rounded,
+                      size: 18,
+                      color: FluxForgeTheme.textTertiary,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -953,6 +1258,14 @@ class _HelixScreenState extends State<HelixScreen>
               Positioned(
                 top: 56, right: 14,
                 child: IgnorePointer(child: _buildInfoChips()),
+              ),
+
+              // SPRINT 1 SPEC-10 — Floating Math HUD overlay (RTP / VOL / HIT / MAX).
+              // Always visible while user works in any HELIX dock tab.
+              // Positioned top-left so it doesn't clash with info chips top-right.
+              const Positioned(
+                top: 12, left: 12,
+                child: MathHudOverlay(),
               ),
 
               // Win line overlay — shows active paylines after spin
@@ -1210,6 +1523,8 @@ class _HelixScreenState extends State<HelixScreen>
         children: [
           // Tab bar
           _buildDockTabBar(),
+          // SPEC-09: Quick Actions Strip — contextual per dock tab
+          _buildQuickActionsStrip(),
           // Panel content
           Expanded(child: Padding(
             padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
@@ -1218,6 +1533,241 @@ class _HelixScreenState extends State<HelixScreen>
         ],
       ),
     );
+  }
+
+  // ── SPEC-09: Quick Actions Strip ─────────────────────────────────────────
+  // 32px contextual strip beneath the dock tab bar.
+  // Each dock tab exposes its most-used actions inline, no digging into panels.
+  Widget _buildQuickActionsStrip() {
+    final actions = _quickActionsForTab(_dockTab);
+    if (actions.isEmpty) return const SizedBox.shrink();
+    return Container(
+      height: 32,
+      decoration: const BoxDecoration(
+        color: Color(0xFF0A0A10),
+        border: Border(
+          bottom: BorderSide(color: FluxForgeTheme.borderSubtle, width: 1),
+        ),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Row(
+          children: actions.map((a) => Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: _QuickActionPill(action: a),
+          )).toList(),
+        ),
+      ),
+    );
+  }
+
+  List<_QuickAction> _quickActionsForTab(int tab) {
+    switch (tab) {
+      case 0: // FLOW
+        return [
+          _QuickAction(
+            icon: Icons.play_arrow_rounded, label: 'SPIN',
+            color: FluxForgeTheme.accentBlue,
+            onTap: () {
+              try {
+                GetIt.instance<GameFlowProvider>().forceTransition(GameFlowState.baseGame);
+              } catch (_) {}
+            },
+          ),
+          _QuickAction(
+            icon: Icons.star_rounded, label: 'FREE',
+            color: FluxForgeTheme.accentYellow,
+            onTap: () {
+              try {
+                GetIt.instance<GameFlowProvider>().forceTransition(GameFlowState.freeSpins);
+              } catch (_) {}
+            },
+          ),
+          _QuickAction(
+            icon: Icons.emoji_events_rounded, label: 'JACKPOT',
+            color: FluxForgeTheme.accentOrange,
+            onTap: () {
+              try {
+                GetIt.instance<GameFlowProvider>().forceTransition(GameFlowState.jackpotPresentation);
+              } catch (_) {}
+            },
+          ),
+          _QuickAction(
+            icon: Icons.casino_rounded, label: 'BONUS',
+            color: FluxForgeTheme.accentPurple,
+            onTap: () {
+              try {
+                GetIt.instance<GameFlowProvider>().forceTransition(GameFlowState.bonusGame);
+              } catch (_) {}
+            },
+          ),
+          _QuickAction(
+            icon: Icons.restart_alt_rounded, label: 'RESET',
+            color: FluxForgeTheme.textTertiary,
+            onTap: () {
+              try {
+                GetIt.instance<GameFlowProvider>().forceTransition(GameFlowState.idle);
+              } catch (_) {}
+            },
+          ),
+        ];
+      case 1: // AUDIO
+        return [
+          _QuickAction(
+            icon: Icons.volume_off_rounded, label: 'MUTE ALL',
+            color: FluxForgeTheme.accentCyan,
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('AUDIO_MUTE_ALL'); } catch (_) {}
+            },
+          ),
+          _QuickAction(
+            icon: Icons.volume_up_rounded, label: 'UNMUTE',
+            color: FluxForgeTheme.accentCyan,
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('AUDIO_UNMUTE_ALL'); } catch (_) {}
+            },
+          ),
+          _QuickAction(
+            icon: Icons.stop_rounded, label: 'STOP ALL',
+            color: FluxForgeTheme.accentOrange,
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('AUDIO_STOP_ALL'); } catch (_) {}
+            },
+          ),
+          _QuickAction(
+            icon: Icons.refresh_rounded, label: 'RELOAD',
+            color: FluxForgeTheme.textTertiary,
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('AUDIO_RELOAD'); } catch (_) {}
+            },
+          ),
+        ];
+      case 2: // MATH
+        return [
+          _QuickAction(
+            icon: Icons.check_circle_outline_rounded, label: 'VERIFY RTP',
+            color: FluxForgeTheme.accentGreen,
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('MATH_VERIFY_RTP'); } catch (_) {}
+            },
+          ),
+          _QuickAction(
+            icon: Icons.calculate_rounded, label: 'RECALC',
+            color: FluxForgeTheme.accentCyan,
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('MATH_RECALCULATE'); } catch (_) {}
+            },
+          ),
+          _QuickAction(
+            icon: Icons.compare_rounded, label: 'COMPARE',
+            color: FluxForgeTheme.accentPurple,
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('MATH_COMPARE_BLUEPRINT'); } catch (_) {}
+            },
+          ),
+        ];
+      case 3: // TIMELINE
+        return [
+          _QuickAction(
+            icon: Icons.skip_previous_rounded, label: 'START',
+            color: FluxForgeTheme.textTertiary,
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('TIMELINE_GOTO_START'); } catch (_) {}
+            },
+          ),
+          _QuickAction(
+            icon: Icons.play_arrow_rounded, label: 'PLAY',
+            color: FluxForgeTheme.accentOrange,
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('TIMELINE_PLAY'); } catch (_) {}
+            },
+          ),
+          _QuickAction(
+            icon: Icons.stop_rounded, label: 'STOP',
+            color: FluxForgeTheme.accentOrange,
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('TIMELINE_STOP'); } catch (_) {}
+            },
+          ),
+          _QuickAction(
+            icon: Icons.fiber_manual_record_rounded, label: 'REC',
+            color: const Color(0xFFFF4060),
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('TIMELINE_RECORD'); } catch (_) {}
+            },
+          ),
+          _QuickAction(
+            icon: Icons.loop_rounded, label: 'LOOP',
+            color: FluxForgeTheme.accentCyan,
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('TIMELINE_TOGGLE_LOOP'); } catch (_) {}
+            },
+          ),
+        ];
+      case 4: // INTEL
+        return [
+          _QuickAction(
+            icon: Icons.analytics_rounded, label: 'ANALYZE',
+            color: FluxForgeTheme.accentPurple,
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('INTEL_ANALYZE'); } catch (_) {}
+            },
+          ),
+          _QuickAction(
+            icon: Icons.summarize_rounded, label: 'REPORT',
+            color: FluxForgeTheme.accentCyan,
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('INTEL_GENERATE_REPORT'); } catch (_) {}
+            },
+          ),
+          _QuickAction(
+            icon: Icons.delete_sweep_rounded, label: 'CLEAR',
+            color: FluxForgeTheme.textTertiary,
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('INTEL_CLEAR'); } catch (_) {}
+            },
+          ),
+        ];
+      case 5: // EXPORT
+        return [
+          _QuickAction(
+            icon: Icons.upload_file_rounded, label: 'EXPORT',
+            color: FluxForgeTheme.accentYellow,
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('EXPORT_QUICK'); } catch (_) {}
+            },
+          ),
+          _QuickAction(
+            icon: Icons.queue_music_rounded, label: 'STEMS',
+            color: FluxForgeTheme.accentCyan,
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('EXPORT_STEMS'); } catch (_) {}
+            },
+          ),
+          _QuickAction(
+            icon: Icons.preview_rounded, label: 'PREVIEW',
+            color: FluxForgeTheme.textTertiary,
+            onTap: () {
+              try { EventRegistry.instance.triggerStage('EXPORT_PREVIEW'); } catch (_) {}
+            },
+          ),
+        ];
+      default:
+        // Faza 3 stubs — minimal actions
+        return [
+          _QuickAction(
+            icon: Icons.play_arrow_rounded, label: 'RUN',
+            color: FluxForgeTheme.textSecondary,
+            onTap: () {},
+          ),
+          _QuickAction(
+            icon: Icons.refresh_rounded, label: 'RESET',
+            color: FluxForgeTheme.textTertiary,
+            onTap: () {},
+          ),
+        ];
+    }
   }
 
   Widget _buildDockTabBar() {
@@ -1415,7 +1965,7 @@ class _FlowPanelState extends State<_FlowPanel> {
     final fc = GetIt.instance<FeatureComposerProvider>();
     return ListenableBuilder(
       listenable: fc,
-      builder: (_, __) {
+      builder: (_, _) {
         final mechanics = fc.mechanicStates;
         final stages = fc.composedStages;
         final coreCount = fc.coreStageCount;
@@ -6574,20 +7124,27 @@ class _TransportBtnState extends State<_TransportBtn> {
 class _SpineItem extends StatefulWidget {
   final IconData icon;
   final String label;
+  final String? shortcutHint;   // SPRINT 1 SPEC-06
+  final bool expanded;          // SPRINT 1 SPEC-06
   final bool active;
   final VoidCallback onTap;
-  const _SpineItem({required this.icon, required this.label,
-    required this.active, required this.onTap});
+  const _SpineItem({
+    required this.icon,
+    required this.label,
+    required this.active,
+    required this.onTap,
+    this.shortcutHint,
+    this.expanded = false,
+  });
   @override
   State<_SpineItem> createState() => _SpineItemState();
 }
 class _SpineItemState extends State<_SpineItem> {
   bool _hovered = false;
   @override
-  Widget build(BuildContext context) => Tooltip(
-    message: widget.label,
-    preferBelow: false,
-    child: MouseRegion(
+  Widget build(BuildContext context) {
+    // SPRINT 1 SPEC-16 — FluxTooltip with shortcut hint.
+    final iconButton = MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
@@ -6616,8 +7173,42 @@ class _SpineItemState extends State<_SpineItem> {
               : _hovered ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary),
         ),
       ),
-    ),
-  );
+    );
+
+    // Wrap in FluxTooltip — only when collapsed (in expanded mode the label
+    // is already visible underneath, so a tooltip is redundant noise).
+    final tooltipped = widget.expanded
+        ? iconButton
+        : FluxTooltip(
+            message: widget.label,
+            shortcutHint: widget.shortcutHint,
+            preferBelow: false,
+            child: iconButton,
+          );
+
+    if (!widget.expanded) return tooltipped;
+
+    // SPRINT 1 SPEC-06 — expanded mode: icon + label centered below.
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        tooltipped,
+        const SizedBox(height: 4),
+        Text(
+          widget.label,
+          style: TextStyle(
+            fontSize: 8.5,
+            fontWeight: FontWeight.w700,
+            color: widget.active
+                ? FluxForgeTheme.accentBlue
+                : FluxForgeTheme.textTertiary,
+            letterSpacing: 1.0,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
 }
 
 class _SpineOverlay extends StatelessWidget {
@@ -6728,39 +7319,12 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
   }
 
   // ─── Register event to EventRegistry for actual audio playback ─────────────
+  // Delegates to the shared EventRegistrationService so SlotLab + HELIX use
+  // ONE registration path. Pre-2026-04-27 this was a hand-rolled duplicate
+  // of slot_lab_screen's _syncEventToRegistry — both wrote into the same
+  // _stageToEvent map and silently evicted each other (FLUX_MASTER_TODO 1.2.1).
   void _registerToEventRegistry(SlotCompositeEvent event) {
-    if (event.layers.isEmpty) return;
-    final stages = event.triggerStages.isNotEmpty
-        ? event.triggerStages.map((s) => s.toUpperCase()).toList()
-        : <String>[];
-    if (stages.isEmpty) return; // Unassigned — skip
-
-    final registry = EventRegistry.instance;
-    for (int i = 0; i < stages.length; i++) {
-      final stage = stages[i];
-      final eventId = i == 0 ? event.id : '${event.id}_stage_$i';
-      final cfg = StageConfigurationService.instance.getStage(stage);
-      registry.registerEvent(AudioEvent(
-        id: eventId,
-        name: event.name,
-        stage: stage,
-        layers: event.layers.map((l) => AudioLayer(
-          id: l.id,
-          audioPath: l.audioPath,
-          name: l.name,
-          volume: l.volume,
-          pan: l.pan,
-          busId: l.busId ?? (cfg?.bus.index ?? 2),
-          actionType: l.actionType,
-          loop: l.loop,
-          fadeInMs: l.fadeInMs,
-          fadeOutMs: l.fadeOutMs,
-        )).toList(),
-        loop: event.looping,
-        overlap: event.overlap,
-        crossfadeMs: event.crossfadeMs,
-      ));
-    }
+    EventRegistrationService.instance.registerComposite(event);
   }
 
   // ─── Stage picker dialog ────────────────────────────────────────────────────
@@ -6928,7 +7492,7 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
       // 3. Build event with trigger stage
       final event = SlotCompositeEvent(
         id: stage != null ? 'audio_${stage}' : 'drop_$ts',
-        name: stage != null ? stage : name,
+        name: stage ?? name,
         category: stage != null
             ? StageConfigurationService.instance.getCategoryLabel(stage)
             : 'custom',
@@ -9730,6 +10294,146 @@ class _ReelContextLensState extends State<_ReelContextLens> {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SPEC-09: Quick Action pill data + widget
+// ─────────────────────────────────────────────────────────────────────────────
+
+@immutable
+class _QuickAction {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+  const _QuickAction({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+}
+
+class _QuickActionPill extends StatefulWidget {
+  final _QuickAction action;
+  const _QuickActionPill({required this.action});
+  @override
+  State<_QuickActionPill> createState() => _QuickActionPillState();
+}
+
+class _QuickActionPillState extends State<_QuickActionPill> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: widget.action.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: _hovered
+                ? widget.action.color.withOpacity(0.12)
+                : const Color(0xFF14141E),
+            border: Border.all(
+              color: _hovered
+                  ? widget.action.color.withOpacity(0.5)
+                  : const Color(0xFF2A2A38),
+              width: 1,
+            ),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(widget.action.icon,
+                size: 11,
+                color: _hovered
+                    ? widget.action.color
+                    : widget.action.color.withOpacity(0.65),
+              ),
+              const SizedBox(width: 4),
+              Text(widget.action.label,
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 9,
+                  letterSpacing: 0.5,
+                  fontWeight: FontWeight.w600,
+                  color: _hovered
+                      ? widget.action.color
+                      : widget.action.color.withOpacity(0.65),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── SPEC-12: Mini Mode helper widgets ──────────────────────────────────────
+
+class _MiniModeSection extends StatelessWidget {
+  final String label;
+  final Widget child;
+  const _MiniModeSection({required this.label, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label, style: const TextStyle(
+          fontSize: 8, fontWeight: FontWeight.w600,
+          color: FluxForgeTheme.textTertiary, letterSpacing: 0.8)),
+        const SizedBox(height: 4),
+        child,
+      ],
+    );
+  }
+}
+
+class _MiniDivider extends StatelessWidget {
+  const _MiniDivider();
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1, height: 40,
+      margin: const EdgeInsets.symmetric(horizontal: 12),
+      color: FluxForgeTheme.borderSubtle,
+    );
+  }
+}
+
+class _ComplianceDot extends StatelessWidget {
+  final String label;
+  final bool ok;
+  const _ComplianceDot({required this.label, required this.ok});
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8, height: 8,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: ok ? FluxForgeTheme.accentGreen : const Color(0xFFFF4444),
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(label, style: const TextStyle(
+          fontSize: 7, color: FluxForgeTheme.textTertiary,
+          fontWeight: FontWeight.w600, letterSpacing: 0.3)),
+      ],
     );
   }
 }

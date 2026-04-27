@@ -11,12 +11,14 @@
 pub mod decimation;
 pub mod dop;
 pub mod file_reader;
+pub mod polyphase;
 pub mod rates;
 pub mod sdm;
 
 pub use decimation::*;
 pub use dop::*;
 pub use file_reader::*;
+pub use polyphase::PolyphaseUpsampler;
 pub use rates::*;
 pub use sdm::*;
 
@@ -120,6 +122,14 @@ pub struct DsdConverter {
     config: DsdConfig,
     /// Intermediate buffer for DXD (352.8kHz)
     dxd_buffer: Vec<Sample>,
+    /// Input PCM sample rate, captured at construction. The polyphase
+    /// upsampler is rebuilt lazily when the requested DSD target rate
+    /// changes (rate / pcm_sample_rate ratio).
+    pcm_sample_rate: f64,
+    /// Cached polyphase upsampler for the most-recently-requested DSD
+    /// target. `None` until the first `pcm_to_dsd` call. (FLUX_MASTER_TODO
+    /// 1.5.4 — replaces the linear-interpolation placeholder.)
+    upsampler: Option<(usize, PolyphaseUpsampler)>,
 }
 
 impl DsdConverter {
@@ -134,6 +144,8 @@ impl DsdConverter {
             modulator,
             config,
             dxd_buffer: Vec::with_capacity(4096),
+            pcm_sample_rate,
+            upsampler: None,
         }
     }
 
@@ -191,27 +203,54 @@ impl DsdConverter {
         }
     }
 
-    /// Interpolate PCM to DSD rate
-    fn interpolate_to_dsd_rate(&self, pcm: &[Sample], dsd_rate: f64) -> Vec<Sample> {
-        // Simple linear interpolation for now
-        // TODO: Polyphase interpolation for better quality
-        let pcm_rate = 44100.0; // Assume 44.1kHz input
-        let ratio = dsd_rate / pcm_rate;
-        let output_len = (pcm.len() as f64 * ratio) as usize;
+    /// Interpolate PCM to DSD rate using polyphase windowed-sinc filter.
+    ///
+    /// FLUX_MASTER_TODO 1.5.4 — replaces the previous linear-interpolation
+    /// placeholder. Linear interpolation creates alias images at every
+    /// multiple of the input Nyquist; the SDM downstream then folds those
+    /// images back into the audible band as correlated noise. A proper
+    /// polyphase low-pass FIR (Kaiser β=8.6, ~85 dB stopband, 16 taps per
+    /// phase) suppresses them before modulation.
+    ///
+    /// Falls back to nearest-neighbour replication if the requested
+    /// `dsd_rate / pcm_sample_rate` ratio isn't an integer (DSD64/128/
+    /// 256/512 against the standard 44.1- or 48-kHz PCM family always
+    /// yields integer factors, so this branch is rarely hit in practice).
+    fn interpolate_to_dsd_rate(&mut self, pcm: &[Sample], dsd_rate: f64) -> Vec<Sample> {
+        let ratio = dsd_rate / self.pcm_sample_rate;
+        let factor = ratio.round() as usize;
+        // Reject non-integer ratios with > 0.1% error — those want a true
+        // fractional resampler, not this integer-only polyphase.
+        let int_ratio_ok = factor >= 1 && (ratio - factor as f64).abs() / ratio.max(1.0) < 1e-3;
 
-        let mut output = Vec::with_capacity(output_len);
-        for i in 0..output_len {
-            let src_pos = i as f64 / ratio;
-            let src_idx = src_pos as usize;
-            let frac = src_pos - src_idx as f64;
-
-            let s0 = pcm.get(src_idx).copied().unwrap_or(0.0);
-            let s1 = pcm.get(src_idx + 1).copied().unwrap_or(s0);
-
-            output.push(s0 + frac * (s1 - s0));
+        if !int_ratio_ok {
+            // Defensive fallback: zero-stuff + nearest. Better than the
+            // old linear path because at least the output length is
+            // exact, but a real fractional resampler should be used here.
+            let output_len = (pcm.len() as f64 * ratio) as usize;
+            let mut out = Vec::with_capacity(output_len);
+            for i in 0..output_len {
+                let idx = ((i as f64) / ratio) as usize;
+                out.push(pcm.get(idx).copied().unwrap_or(0.0));
+            }
+            return out;
         }
 
-        output
+        // Rebuild the upsampler if the factor changed (different target).
+        let need_rebuild = match &self.upsampler {
+            Some((cached_factor, _)) => *cached_factor != factor,
+            None => true,
+        };
+        if need_rebuild {
+            self.upsampler = Some((factor, PolyphaseUpsampler::new(factor)));
+        }
+
+        let up = &mut self
+            .upsampler
+            .as_mut()
+            .expect("upsampler initialised above")
+            .1;
+        up.process(pcm)
     }
 
     /// Pack bits into bytes (MSB first)

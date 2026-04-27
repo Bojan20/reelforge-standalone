@@ -513,10 +513,17 @@ impl SlotEngineV2 {
     // STAGE GENERATION
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /// Generate stage events for a spin result
+    /// Generate stage events for a spin result.
+    ///
+    /// Uses `AnticipationConfig::default()` (sequential_stop = true, industry-
+    /// standard IGT flow). When `GameModel` gets a dedicated anticipation
+    /// section, thread it in here; until then the default matches Tip A games
+    /// which is the correct baseline for every modern slot.
     pub fn generate_stages(&mut self, result: &SpinResult) -> Vec<StageEvent> {
         self.timestamp_gen.reset();
-        let mut stages = result.generate_stages(&mut self.timestamp_gen);
+        let antic_config = crate::config::AnticipationConfig::default();
+        let mut stages =
+            result.generate_stages_with_config(&mut self.timestamp_gen, &antic_config);
 
         // Add feature stages
         for (_, feature) in self.features.iter() {

@@ -7,7 +7,7 @@
 /// - Virtual scrolling za 5000+ fajlova
 /// - Manual override sa search + Levenshtein sugestijama
 /// - Undo-safe: snapshot → apply, ne clearAll+loop
-library auto_bind_dialog_v2;
+library;
 
 import 'dart:async';
 import 'dart:io';

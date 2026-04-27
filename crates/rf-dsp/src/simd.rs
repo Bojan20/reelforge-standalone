@@ -322,6 +322,8 @@ mod x86_impl {
 
     #[target_feature(enable = "sse4.2")]
     pub unsafe fn gain_sse42_impl(buffer: &mut [Sample], gain: Sample) {
+        // edition 2024: explicit `unsafe {}` inside `unsafe fn`
+        unsafe {
         let gain_vec = _mm_set1_pd(gain);
         let len = buffer.len();
         let simd_len = len - (len % 2);
@@ -339,7 +341,7 @@ mod x86_impl {
         for sample in &mut buffer[simd_len..len] {
             *sample *= gain;
         }
-    }
+    }}
 
     #[target_feature(enable = "sse4.2")]
     pub unsafe fn biquad_sse42_impl(
@@ -347,6 +349,8 @@ mod x86_impl {
         coeffs: &BiquadCoeffsSimd,
         state: &mut BiquadStateSimd,
     ) {
+        // edition 2024: explicit `unsafe {}` inside `unsafe fn`
+        unsafe {
         // Biquad is inherently serial due to state dependency
         // SIMD benefit comes from processing multiple filters in parallel
         // For single filter, use scalar with potential auto-vectorization
@@ -357,10 +361,12 @@ mod x86_impl {
             state.z2 = coeffs.b2 * input - coeffs.a2 * output;
             *sample = output;
         }
-    }
+    }}
 
     #[target_feature(enable = "sse4.2")]
     pub unsafe fn mix_add_sse42_impl(dest: &mut [Sample], src: &[Sample], gain: Sample) {
+        // edition 2024: explicit `unsafe {}` inside `unsafe fn`
+        unsafe {
         let gain_vec = _mm_set1_pd(gain);
         let len = dest.len().min(src.len());
         let simd_len = len - (len % 2);
@@ -382,18 +388,22 @@ mod x86_impl {
         for i in simd_len..len {
             dest[i] += src[i] * gain;
         }
-    }
+    }}
 
     #[target_feature(enable = "sse4.2")]
     pub unsafe fn stereo_gain_sse42_impl(left: &mut [Sample], right: &mut [Sample], gain: Sample) {
+        // edition 2024: explicit `unsafe {}` inside `unsafe fn`
+        unsafe {
         gain_sse42_impl(left, gain);
         gain_sse42_impl(right, gain);
-    }
+    }}
 
     // --- AVX2 (256-bit, 4 f64s) ---
 
     #[target_feature(enable = "avx2", enable = "fma")]
     pub unsafe fn gain_avx2_impl(buffer: &mut [Sample], gain: Sample) {
+        // edition 2024: explicit `unsafe {}` inside `unsafe fn`
+        unsafe {
         let gain_vec = _mm256_set1_pd(gain);
         let len = buffer.len();
         let simd_len = len - (len % 4);
@@ -410,7 +420,7 @@ mod x86_impl {
         for sample in &mut buffer[simd_len..len] {
             *sample *= gain;
         }
-    }
+    }}
 
     #[target_feature(enable = "avx2", enable = "fma")]
     pub unsafe fn biquad_avx2_impl(
@@ -418,12 +428,16 @@ mod x86_impl {
         coeffs: &BiquadCoeffsSimd,
         state: &mut BiquadStateSimd,
     ) {
+        // edition 2024: explicit `unsafe {}` inside `unsafe fn`
+        unsafe {
         // Same as SSE - biquad is serial
         biquad_sse42_impl(buffer, coeffs, state);
-    }
+    }}
 
     #[target_feature(enable = "avx2", enable = "fma")]
     pub unsafe fn mix_add_avx2_impl(dest: &mut [Sample], src: &[Sample], gain: Sample) {
+        // edition 2024: explicit `unsafe {}` inside `unsafe fn`
+        unsafe {
         let gain_vec = _mm256_set1_pd(gain);
         let len = dest.len().min(src.len());
         let simd_len = len - (len % 4);
@@ -446,19 +460,23 @@ mod x86_impl {
         for i in simd_len..len {
             dest[i] += src[i] * gain;
         }
-    }
+    }}
 
     #[target_feature(enable = "avx2", enable = "fma")]
     pub unsafe fn stereo_gain_avx2_impl(left: &mut [Sample], right: &mut [Sample], gain: Sample) {
+        // edition 2024: explicit `unsafe {}` inside `unsafe fn`
+        unsafe {
         gain_avx2_impl(left, gain);
         gain_avx2_impl(right, gain);
-    }
+    }}
 
     // --- AVX-512 (512-bit, 8 f64s) ---
 
     #[cfg(feature = "avx512")]
     #[target_feature(enable = "avx512f", enable = "avx512dq")]
     pub unsafe fn gain_avx512_impl(buffer: &mut [Sample], gain: Sample) {
+        // edition 2024: explicit `unsafe {}` inside `unsafe fn`
+        unsafe {
         let gain_vec = _mm512_set1_pd(gain);
         let len = buffer.len();
         let simd_len = len - (len % 8);
@@ -474,12 +492,14 @@ mod x86_impl {
         if simd_len < len {
             gain_avx2_impl(&mut buffer[simd_len..], gain);
         }
-    }
+    }}
 
     #[cfg(not(feature = "avx512"))]
     pub unsafe fn gain_avx512_impl(buffer: &mut [Sample], gain: Sample) {
+        // edition 2024: explicit `unsafe {}` inside `unsafe fn`
+        unsafe {
         gain_avx2_impl(buffer, gain);
-    }
+    }}
 
     #[cfg(feature = "avx512")]
     #[target_feature(enable = "avx512f", enable = "avx512dq")]
@@ -488,9 +508,11 @@ mod x86_impl {
         coeffs: &BiquadCoeffsSimd,
         state: &mut BiquadStateSimd,
     ) {
+        // edition 2024: explicit `unsafe {}` inside `unsafe fn`
+        unsafe {
         // Biquad still serial
         biquad_sse42_impl(buffer, coeffs, state);
-    }
+    }}
 
     #[cfg(not(feature = "avx512"))]
     pub unsafe fn biquad_avx512_impl(
@@ -498,12 +520,16 @@ mod x86_impl {
         coeffs: &BiquadCoeffsSimd,
         state: &mut BiquadStateSimd,
     ) {
+        // edition 2024: explicit `unsafe {}` inside `unsafe fn`
+        unsafe {
         biquad_avx2_impl(buffer, coeffs, state);
-    }
+    }}
 
     #[cfg(feature = "avx512")]
     #[target_feature(enable = "avx512f", enable = "avx512dq")]
     pub unsafe fn mix_add_avx512_impl(dest: &mut [Sample], src: &[Sample], gain: Sample) {
+        // edition 2024: explicit `unsafe {}` inside `unsafe fn`
+        unsafe {
         let gain_vec = _mm512_set1_pd(gain);
         let len = dest.len().min(src.len());
         let simd_len = len - (len % 8);
@@ -520,24 +546,30 @@ mod x86_impl {
         if simd_len < len {
             mix_add_avx2_impl(&mut dest[simd_len..], &src[simd_len..], gain);
         }
-    }
+    }}
 
     #[cfg(not(feature = "avx512"))]
     pub unsafe fn mix_add_avx512_impl(dest: &mut [Sample], src: &[Sample], gain: Sample) {
+        // edition 2024: explicit `unsafe {}` inside `unsafe fn`
+        unsafe {
         mix_add_avx2_impl(dest, src, gain);
-    }
+    }}
 
     #[cfg(feature = "avx512")]
     #[target_feature(enable = "avx512f", enable = "avx512dq")]
     pub unsafe fn stereo_gain_avx512_impl(left: &mut [Sample], right: &mut [Sample], gain: Sample) {
+        // edition 2024: explicit `unsafe {}` inside `unsafe fn`
+        unsafe {
         gain_avx512_impl(left, gain);
         gain_avx512_impl(right, gain);
-    }
+    }}
 
     #[cfg(not(feature = "avx512"))]
     pub unsafe fn stereo_gain_avx512_impl(left: &mut [Sample], right: &mut [Sample], gain: Sample) {
+        // edition 2024: explicit `unsafe {}` inside `unsafe fn`
+        unsafe {
         stereo_gain_avx2_impl(left, right, gain);
-    }
+    }}
 }
 
 // ============ ARM NEON Implementations ============
@@ -573,7 +605,7 @@ mod arm_impl {
         coeffs: &BiquadCoeffsSimd,
         state: &mut BiquadStateSimd,
     ) {
-        // Biquad is serial - no SIMD intrinsics needed
+        // Biquad is serial - no SIMD intrinsics needed, body is fully safe.
         for sample in buffer.iter_mut() {
             let input = *sample;
             let output = coeffs.b0 * input + state.z1;

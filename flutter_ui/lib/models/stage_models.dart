@@ -412,6 +412,16 @@ sealed class Stage {
         newTotal: json['new_total'] as int?,
       ),
       'feature_exit' => FeatureExit(totalWin: (json['total_win'] as num?)?.toDouble() ?? 0.0),
+      'fs_summary' => FsSummaryStage(
+        totalWin: (json['total_win'] as num?)?.toDouble() ?? 0.0,
+        spinsPlayed: json['spins_played'] as int? ?? 0,
+        retriggeredCount: json['retriggered_count'] as int? ?? 0,
+        featureType: FeatureType.fromJson(json['feature_type']),
+      ),
+      'ui_skip_press' => UiSkipPressStage(
+        winTier: json['win_tier'] as String?,
+        wasBigWin: json['was_big_win'] as bool? ?? false,
+      ),
 
       // Cascade
       'cascade_start' => const CascadeStart(),
@@ -705,6 +715,44 @@ class FeatureExit extends Stage {
   @override String get typeName => 'feature_exit';
   @override StageDomainCategory get category => StageDomainCategory.feature;
   @override Map<String, dynamic> toJson() => {'type': 'feature_exit', 'total_win': totalWin};
+}
+
+class FsSummaryStage extends Stage {
+  final double totalWin;
+  final int spinsPlayed;
+  final int retriggeredCount;
+  final FeatureType? featureType;
+  const FsSummaryStage({
+    required this.totalWin,
+    required this.spinsPlayed,
+    this.retriggeredCount = 0,
+    this.featureType,
+  });
+
+  @override String get typeName => 'fs_summary';
+  @override StageDomainCategory get category => StageDomainCategory.feature;
+  @override bool get shouldDuckMusic => true;
+  @override Map<String, dynamic> toJson() => {
+    'type': 'fs_summary',
+    'total_win': totalWin,
+    'spins_played': spinsPlayed,
+    'retriggered_count': retriggeredCount,
+    if (featureType != null) 'feature_type': featureType!.toJson(),
+  };
+}
+
+class UiSkipPressStage extends Stage {
+  final String? winTier;
+  final bool wasBigWin;
+  const UiSkipPressStage({this.winTier, this.wasBigWin = false});
+
+  @override String get typeName => 'ui_skip_press';
+  @override StageDomainCategory get category => StageDomainCategory.feature;
+  @override Map<String, dynamic> toJson() => {
+    'type': 'ui_skip_press',
+    if (winTier != null) 'win_tier': winTier,
+    'was_big_win': wasBigWin,
+  };
 }
 
 // ─── CASCADE ────────────────────────────────────────────────────────────────
