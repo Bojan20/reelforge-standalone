@@ -39,7 +39,7 @@
 | 1.1.1 | ~~8× `CStr::from_ptr` bez null check — crash sa Dart strane~~ | ~~rf-bridge `slot_lab_ffi/container_ffi/slot_lab_export`, rf-engine `render_selection_to_new_clip`, rf-plugin `vst3.rs` ObjC callbacks, rf-plugin-host `scan_callback`~~ | 30 min | ✅ ce2a90a9 + 604ce478 |
 | 1.1.2 | BUG #63 scenario validation — dimenzije outcome-a nisu provereno sa aktivnim GameModel | `crates/rf-bridge/src/slot_lab_ffi.rs:1635-1640` | 1 h | ⏳ |
 | 1.1.3 | ~~BUG #32 LV2 Mutex poison~~ | ~~`crates/rf-plugin/src/lv2.rs` URID_MAP → parking_lot::Mutex~~ | 30 min | ✅ 604ce478 |
-| 1.1.4 | TOCTOU u voice_id array iteration | `crates/rf-bridge/src/dpm_ffi.rs:94-100` | 1 h | ⏳ |
+| 1.1.4 | ✅ 0ca7ee9c — Tri layer-a: (1) `DPM_MAX_VOICES_PER_BATCH=4096` cap rejects pathological count, (2) `debug_assert_eq!` alignment provera za sva 3 pointer-a, (3) Bulk `slice::from_raw_parts → to_vec` memcpy snapshot pre engine rada — Dart strana može da realocuje buffere bez UAF rizika. 4 unit testa (null reject, zero count, over-cap reject, boundary 4096 accept). | `crates/rf-bridge/src/dpm_ffi.rs:94-100` | 1 h | ✅ |
 | 1.1.5 | Audit svih 47 `unsafe` blokova u rf-engine + 23 u rf-bridge | — | 2 h | ⏳ |
 
 ### 1.2 Event flow (Flutter)
