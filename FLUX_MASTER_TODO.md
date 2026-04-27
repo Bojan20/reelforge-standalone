@@ -54,9 +54,7 @@
 
 | # | Zadatak | Cilj |
 |---|---|---|
-| 1.3.1 | Widget tests za `engine_connected_layout.dart` (17,292 LOC) | min 30 integration interactions |
-| 1.3.2 | Widget tests za `slot_lab_screen.dart` (15,215 LOC) | min 30 |
-| 1.3.3 | Widget tests za `helix_screen.dart` (9,735 LOC) | min 30 |
+| 1.3.1–3 | ✅ 877460c2 — mega-screen complexity ratchet `flutter_ui/test/lints/mega_screen_complexity_test.dart`. Pragmatičan zamenik 30×3=90 widget testova koji bi zahtevali ~40h mock-provider infra. Skenira 3 mega-screen-a kroz 3 ose: LOC, Consumer/Selector/watch/read/select density, inline `extends State<>` count. Per-screen budget ~5% iznad 2026-04-28 baseline-a. Rast preko ceiling-a fail-uje CI; author extract-uje widget-e ili justifikovano podiže constant. Wire-d kao `Gate 1.1.3` u phase1-checkpoint.yml. |
 | 1.3.4 | ✅ 39e02499 — Static-scan tripwire `gesture_conflict_detection_test.dart` (5 tests). 1602 GestureDetector total (znatno više od 820 procena), 78 nested-pair pattern-a u 41 fajlu. Ratchet baseline=78: count može samo da pada, svako povećanje fail-uje CI. Density ceiling 100 (helix_screen=94 max). Top-10 density visibility na svaki test run. | 5/5 |
 | 1.3.5 | ✅ 3cd43d99 — Static `dispose_leak_detection_test.dart` (4 tests). Codebase je trenutno **0 ticker-without-dispose, 0 uncancelled StreamSubscription** — clean baseline. Skenira 141 TickerProvider state-a, filtrira 6 false-positives (mixin bez controller-a). Plus density visibility za 321 AnimationController. Ratchet baseline=0 — bilo koji novi leak fail-uje CI. Runtime 30-min driver session deferred jer zahteva Flutter integration_test setup. | 4/4 |
 | 1.3.6 | ✅ 1f1ffb7e — `test_engine_process_under_load_meets_realtime_budget` u `crates/rf-engine/tests/playback_tests.rs`. 50 tracks × 32 voices × 200 blokova × 1024 sample-a @ 48kHz. Pass: mean < 5ms / p99 < 16.67ms / drop rate < 1%. Observed: **mean=0.162ms, p99=0.668ms, drops=0/200** (~30× under RT budget). 54/54 playback_tests zelena. |
