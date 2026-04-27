@@ -1,0 +1,136 @@
+# FluxForge Phase 1 Checkpoint
+#
+# Single required-status-check that verifies the green gate for every
+# task closed under FLUX_MASTER_TODO Phase 1 (P0/P1 fixes 0.5, 1.1.2,
+# 1.1.4, 1.1.5, 1.2.1–1.2.3, 1.3.4–1.3.6, 1.5.1–1.5.4, 1.6.1, 1.6.4).
+#
+# Why a separate workflow: the existing ci.yml runs the full matrix
+# (4 OSes × 2 archs + Flutter + WASM + benchmarks). It's slow (~30 min
+# wall) and noisy when only a Phase-1 regression is what we care about
+# pre-merge. This file is fast (≤ 4 min), runs only the regression
+# tripwires, and produces ONE pass/fail signal that branch protection
+# can require for merge to main.
+#
+# To make this a required check on GitHub:
+#   Settings → Branches → main → "Require status checks" →
+#   add "Phase 1 Checkpoint / phase1-gate"
+
+name: Phase 1 Checkpoint
+
+on:
+  push:
+    branches: [main, develop, 'fix/**', 'feature/**']
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  FLUTTER_VERSION: '3.41.2'
+
+jobs:
+  phase1-gate:
+    name: phase1-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install audio libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libjack-jackd2-dev
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-phase1-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      # ── Gate 1.6.1 — clean release build ────────────────────────────
+      - name: Gate 1.6.1 — release build, 0 real warnings
+        run: |
+          set -e
+          out=$(cargo build --release --workspace 2>&1)
+          echo "$out"
+          # Filter out the inherent "output filename collision" warnings
+          # that come from rf-bridge / rf-engine declaring [lib]+[cdylib].
+          unexpected=$(echo "$out" | grep -E '^warning:' | grep -v 'output filename collision' || true)
+          if [ -n "$unexpected" ]; then
+            echo "::error::Unexpected warnings in release build:"
+            echo "$unexpected"
+            exit 1
+          fi
+
+      # ── Gate 1.6.4 — workspace tests pass ───────────────────────────
+      - name: Gate 1.6.4 — cargo test --workspace --release
+        run: cargo test --workspace --release --no-fail-fast
+
+      # ── Gates 1.1.4, 1.1.5, 1.2.x, 1.3.6, 1.5.x, 1.5.2-p1 are all
+      #    inside the workspace test suite above. The lint-tripwires
+      #    below are Flutter-side and need their own runner.
+
+      - name: Flutter pub get
+        working-directory: flutter_ui
+        run: flutter pub get
+
+      # ── Gate 1.6.3 — flutter analyze ────────────────────────────────
+      - name: Gate 1.6.3 — flutter analyze (0 errors)
+        working-directory: flutter_ui
+        run: flutter analyze --no-fatal-infos
+
+      # ── Gates 1.3.4 + 1.3.5 — static lint tripwires ─────────────────
+      - name: Gate 1.3.4 — gesture conflict ratchet
+        working-directory: flutter_ui
+        run: flutter test test/lints/gesture_conflict_detection_test.dart
+
+      - name: Gate 1.3.5 — dispose / leak ratchet
+        working-directory: flutter_ui
+        run: flutter test test/lints/dispose_leak_detection_test.dart
+
+      # ── Gate 0.5 — CortexHands modifier propagation ─────────────────
+      - name: Gate 0.5 — CortexHands modifier state
+        working-directory: flutter_ui
+        run: flutter test test/services/cortex_hands_modifier_state_test.dart
+
+      # ── Gate 1.2.1 — EventRegistrationService ───────────────────────
+      - name: Gate 1.2.1 — Event Registry race regression
+        working-directory: flutter_ui
+        run: flutter test test/services/event_registration_service_test.dart
+
+      - name: Phase 1 — green
+        run: |
+          echo "════════════════════════════════════════════════════════"
+          echo "✅ Phase 1 (16 tasks) green"
+          echo "  0.5  CortexHands modifier"
+          echo "  1.1.2 BUG#63 scenario validation"
+          echo "  1.1.4 DPM voice_id TOCTOU"
+          echo "  1.1.5 unsafe audit (1st sweep)"
+          echo "  1.2.1 Event Registry race"
+          echo "  1.2.2 Metering lock contention"
+          echo "  1.2.3 Cache TOCTOU"
+          echo "  1.3.4 gesture conflict tripwire"
+          echo "  1.3.5 dispose/leak tripwire"
+          echo "  1.3.6 RT perf budget"
+          echo "  1.5.1 HRTF interpolation (BUG#35)"
+          echo "  1.5.2 plugin panic firewall (phase 1)"
+          echo "  1.5.3 portable SIMD metering"
+          echo "  1.5.4 DSD polyphase upsampler"
+          echo "  1.6.1 clean release build"
+          echo "  1.6.4 workspace tests green"
+          echo "════════════════════════════════════════════════════════"
