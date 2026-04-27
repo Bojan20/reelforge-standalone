@@ -20,7 +20,7 @@ use rf_dsp::dynamics::{
 use rf_dsp::eq::{EqFilterType, ParametricEq};
 use rf_dsp::reverb::{AlgorithmicReverb, ReverbType};
 use rf_dsp::spatial::{MsProcessor, StereoPanner, StereoWidth};
-use rf_dsp::{MonoProcessor, Processor, StereoProcessor};
+use rf_dsp::{MonoProcessor, StereoProcessor};
 
 const SAMPLE_RATE: f64 = 48000.0;
 const BLOCK_SIZE: usize = 256;

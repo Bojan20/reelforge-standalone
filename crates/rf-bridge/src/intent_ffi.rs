@@ -352,8 +352,10 @@ mod tests {
     fn test_drain_events_empty() {
         let result = intent_drain_events(100);
         let events: Vec<serde_json::Value> = serde_json::from_str(&result).unwrap();
-        // Might be empty or have events from other tests — just check it's valid JSON array
-        assert!(events.len() >= 0);
+        // Might be empty or have events from other tests — `from_str` already
+        // proved the result is a valid JSON array; the previous
+        // `assert!(events.len() >= 0)` was a tautology on `usize`.
+        let _ = events;
     }
 
     #[test]
