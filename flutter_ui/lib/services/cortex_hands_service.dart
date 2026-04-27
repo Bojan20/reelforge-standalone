@@ -218,41 +218,82 @@ class CortexHandsService {
     // Modifier keys DOWN (before main key)
     if (isDown) {
       for (final mod in modifiers) {
-        final modPhys = _physicalFor(mod);
-        WidgetsBinding.instance.platformDispatcher.onKeyData?.call(KeyData(
-          type: KeyEventType.down,
-          timeStamp: Duration(milliseconds: DateTime.now().millisecondsSinceEpoch),
-          logical: mod.keyId,
-          physical: modPhys,
-          character: null,
-          synthesized: true,
-        ));
+        _dispatchKey(mod, _physicalFor(mod), KeyEventType.down, character: null);
       }
     }
 
     // Main key event
-    WidgetsBinding.instance.platformDispatcher.onKeyData?.call(KeyData(
-      type: isDown ? KeyEventType.down : KeyEventType.up,
-      timeStamp: Duration(milliseconds: DateTime.now().millisecondsSinceEpoch),
-      logical: logical.keyId,
-      physical: physical,
+    _dispatchKey(
+      logical,
+      physical,
+      isDown ? KeyEventType.down : KeyEventType.up,
       character: isDown && modifiers.isEmpty ? _charFor(logical) : null,
-      synthesized: true,
-    ));
+    );
 
     // Modifier keys UP (after main key)
     if (!isDown) {
       for (final mod in modifiers) {
-        final modPhys = _physicalFor(mod);
-        WidgetsBinding.instance.platformDispatcher.onKeyData?.call(KeyData(
-          type: KeyEventType.up,
-          timeStamp: Duration(milliseconds: DateTime.now().millisecondsSinceEpoch),
-          logical: mod.keyId,
-          physical: modPhys,
-          character: null,
-          synthesized: true,
-        ));
+        _dispatchKey(mod, _physicalFor(mod), KeyEventType.up, character: null);
       }
+    }
+  }
+
+  /// Dispatch ONE key event through BOTH paths:
+  ///
+  ///   1. `platformDispatcher.onKeyData?.call(...)` — legacy/engine path that
+  ///      still routes to widgets that rely on `RawKeyboardListener` and
+  ///      embedder-level intent dispatch.
+  ///   2. `HardwareKeyboard.instance.handleKeyEvent(...)` — framework path
+  ///      that **mutates the global modifier state**.
+  ///
+  /// Without (2), `HardwareKeyboard.instance.isMetaPressed` /
+  /// `isShiftPressed` (and `HardwareKeyboard.instance.physicalKeysPressed`)
+  /// stay false during a synthesized chord. Single-key shortcuts like "f"
+  /// worked because no modifier query happens; chords like `cmd+shift+M`
+  /// went through `Shortcuts` which checks `isMetaPressed` and silently
+  /// rejected them. (FLUX_MASTER_TODO 0.5 — "CortexHands modifier
+  /// propagation bug".)
+  void _dispatchKey(
+    LogicalKeyboardKey logical,
+    int physical,
+    KeyEventType type, {
+    required String? character,
+  }) {
+    final stamp = Duration(milliseconds: DateTime.now().millisecondsSinceEpoch);
+
+    // Path 1: engine pipeline (existing behavior — preserved unchanged).
+    WidgetsBinding.instance.platformDispatcher.onKeyData?.call(KeyData(
+      type: type,
+      timeStamp: stamp,
+      logical: logical.keyId,
+      physical: physical,
+      character: character,
+      synthesized: true,
+    ));
+
+    // Path 2: framework state mutation. Catches the same event at the
+    // HardwareKeyboard level so `isMetaPressed` etc. flip correctly. Any
+    // exception (e.g. duplicate-down assertion when a real key is also
+    // held) is swallowed — this is best-effort state correction, not the
+    // primary delivery path.
+    try {
+      final KeyEvent event = type == KeyEventType.down
+          ? KeyDownEvent(
+              physicalKey: PhysicalKeyboardKey(physical),
+              logicalKey: logical,
+              timeStamp: stamp,
+              character: character,
+              synthesized: true,
+            )
+          : KeyUpEvent(
+              physicalKey: PhysicalKeyboardKey(physical),
+              logicalKey: logical,
+              timeStamp: stamp,
+              synthesized: true,
+            );
+      HardwareKeyboard.instance.handleKeyEvent(event);
+    } catch (_) {
+      // best-effort — engine path already delivered the event
     }
   }
 
