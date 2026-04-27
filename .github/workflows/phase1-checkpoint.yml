@@ -113,10 +113,14 @@ jobs:
         working-directory: flutter_ui
         run: flutter test test/services/event_registration_service_test.dart
 
+      # ── Gate 1.1.5b/c — unsafe-impl SAFETY audit ────────────────────
+      - name: Gate 1.1.5b/c — unsafe Send/Sync SAFETY ratchet
+        run: cargo test -p rf-bridge --test unsafe_safety_audit
+
       - name: Phase 1 — green
         run: |
           echo "════════════════════════════════════════════════════════"
-          echo "✅ Phase 1 (16 tasks) green"
+          echo "✅ Phase 1 (18 tasks) green"
           echo "  0.5  CortexHands modifier"
           echo "  1.1.2 BUG#63 scenario validation"
           echo "  1.1.4 DPM voice_id TOCTOU"
@@ -133,4 +137,68 @@ jobs:
           echo "  1.5.4 DSD polyphase upsampler"
           echo "  1.6.1 clean release build"
           echo "  1.6.4 workspace tests green"
+          echo "  1.1.5b/c unsafe Send/Sync SAFETY audit"
           echo "════════════════════════════════════════════════════════"
+
+  # ── Gate 1.6.2 — xcodebuild Release (macOS-only sibling job) ─────────
+  # Runs in parallel with phase1-gate; both must be green.
+  xcodebuild-release:
+    name: phase1-gate (xcodebuild Release)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: macos-phase1-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: cargo build --release (rf-bridge / rf-engine dylibs)
+        run: cargo build --release -p rf-bridge -p rf-engine
+
+      - name: Stage dylibs into Flutter Frameworks
+        run: |
+          mkdir -p flutter_ui/macos/Frameworks
+          cp target/release/librf_bridge.dylib flutter_ui/macos/Frameworks/
+          cp target/release/librf_engine.dylib flutter_ui/macos/Frameworks/
+
+      - name: Flutter pub get
+        working-directory: flutter_ui
+        run: flutter pub get
+
+      - name: xcodebuild Release
+        working-directory: flutter_ui/macos
+        run: |
+          # Strip ExFAT-only dotfiles before signing (CLAUDE.md note).
+          find Pods -name '._*' -type f -delete 2>/dev/null || true
+          xcodebuild \
+            -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -derivedDataPath ${RUNNER_TEMP}/DerivedData \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Verify .app bundle produced
+        run: |
+          app="${RUNNER_TEMP}/DerivedData/Build/Products/Release/FluxForge Studio.app"
+          test -d "$app" || { echo "::error::missing $app"; ls -la "${RUNNER_TEMP}/DerivedData/Build/Products/Release/" || true; exit 1; }
+          echo "✓ FluxForge Studio.app built ($(du -sh "$app" | cut -f1))"
