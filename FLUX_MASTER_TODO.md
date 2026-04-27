@@ -40,7 +40,7 @@
 | 1.1.2 | ✅ 4d465b05 — Exhaustive validation za sve `ScriptedOutcome` variants: SpecificGrid (reels, rows, every symbol id resolvable), Win{ratio} (finite, ≥0), TriggerFreeSpins {count [1,10000], multiplier finite}, CascadeChain {wins [1,1000]}, EmptySequence (toplevel). 6 novih error varijanti, +12 testova (27/27 zelena). FFI layer već zove validate_against — bez FFI-side promena. | `crates/rf-slot-lab/src/scenario/mod.rs::validate_against` | 1 h | ✅ |
 | 1.1.3 | ~~BUG #32 LV2 Mutex poison~~ | ~~`crates/rf-plugin/src/lv2.rs` URID_MAP → parking_lot::Mutex~~ | 30 min | ✅ 604ce478 |
 | 1.1.4 | ✅ 0ca7ee9c — Tri layer-a: (1) `DPM_MAX_VOICES_PER_BATCH=4096` cap rejects pathological count, (2) `debug_assert_eq!` alignment provera za sva 3 pointer-a, (3) Bulk `slice::from_raw_parts → to_vec` memcpy snapshot pre engine rada — Dart strana može da realocuje buffere bez UAF rizika. 4 unit testa (null reject, zero count, over-cap reject, boundary 4096 accept). | `crates/rf-bridge/src/dpm_ffi.rs:94-100` | 1 h | ✅ |
-| 1.1.5 | Audit svih 47 `unsafe` blokova u rf-engine + 23 u rf-bridge | — | 2 h | ⏳ |
+| 1.1.5 | ⏳ → 🟡 d7708000 — **First sweep** (7 funkcija): primenjen `MAX_FFI_ARRAY_SIZE`/`MAX_FFI_BUFFER_SIZE` cap na 7 unbounded `slice::from_raw_parts(ptr, count)` u rf-engine/ffi.rs (`engine_generate_waveform_from_samples`, `click_set_tempo_events`, `room_correction_feed_samples`, `plugin_set_state`, `wave_cache_build_from_samples`, `script_set_selected_tracks`, `script_set_selected_clips`). Realnost je 272 unsafe blokova ukupno (47+23 procena bila netačna). Sledeći sweep-evi: transmute, raw mut pointer, Send/Sync impl. | — | 2 h+ | 🟡 partial |
 
 ### 1.2 Event flow (Flutter)
 
