@@ -564,9 +564,18 @@ class _ClipWidgetState extends State<ClipWidget> {
       _isDraggingGain = false;
     }
 
-    // Skip if not visible
-    // Cull clips outside visible viewport — use large fallback (context.size not available during build)
-    const viewportWidth = 4096.0;
+    // Skip if not visible.
+    // FLUX_MASTER_TODO 2.2.6 — timeline virtualization. Clips outside the
+    // viewport are short-circuited to `SizedBox.shrink()` so a project
+    // with 10,000 clips doesn't pay paint + hit-test cost on the
+    // off-screen 9,950. Pre-fix this used a hardcoded 4096 px fallback,
+    // which was both wrong (5K displays + multi-monitor setups exceed it,
+    // leaving real off-screen clips falsely "visible") and too generous
+    // for laptop displays (paint cost paid for clips far past the actual
+    // window). `MediaQuery.sizeOf` gives the actual logical-pixel width
+    // of the screen this widget mounts in, with a 200-px overdraw buffer
+    // so a clip mid-drag at the edge doesn't pop in/out.
+    final viewportWidth = MediaQuery.sizeOf(context).width;
     if (x + width < 0 || x > viewportWidth + 200) {
       if (_isDraggingGain) _isDraggingGain = false;
       return const SizedBox.shrink();

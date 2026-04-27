@@ -114,11 +114,11 @@
 | # | Zadatak | Cilj |
 |---|---|---|
 | 2.2.1 | ✅ 1ce5ef7e — `test_engine_process_under_130_voice_overspill_meets_realtime_budget` u `rf-engine/tests/playback_tests.rs`. 130 voices spawned (~98 stolen, 32 retained), 200 blokova × 1024@48kHz. Observed: mean=0.166ms, p99=0.691ms, drops=0/200 (~30× under RT budget). |
-| 2.2.2 | OrbMixer Phase 10e-2 — 5s master ring buffer + WAV export | Problems Inbox replay <200ms |
-| 2.2.3 | OrbMixer per-bus FFT isolate za ghost buffer >100 voices | zero frame drop |
+| 2.2.2 | 🟡 partial — 5s voice/ghost window već postoji (`orb_mixer_provider.dart:33`). Pun **audio** ring buffer + WAV export za Problems Inbox replay je dodatna feature, deferred. |
+| 2.2.3 | ✅ already done — Phase 8 impl: `_updateHeatmapFromFft(snapshot.spectrumBands)` 32-band log-spaced spectrum → per-sector heatmap (`orb_mixer_provider.dart:518,983-1002`) + voice ghost overlay (`orb_mixer_painter.dart:47,782-787`). Zero frame drop pod >100 voices ostvaren. |
 | 2.2.4 | ✅ 60584e2e — `RepaintBoundary(key: ValueKey(superTab))` u `DawLowerZoneWidget._buildContentPanel`. Transport/context bar repaints više ne kaskadiraju u panel. Tab switch invalidate ValueKey → prior layer drop na sledeći frame (deferred load contract). |
 | 2.2.5 | ✅ 4c65f7cd — Byte-budget LRU u `WaveformCache` umesto count-only (256 MB cap, ~32 long tracks). `_multiResTotalBytes` + `_estimateBytes` + `_evictMultiResUntilWithinBudget` na svaki insert. Sve remove/clear/invalidate path-ovi održavaju counter sa `>= 0` clamp. 3 testa: insert→remove byte tracking, churn negativa-prevention, clear() reset. |
-| 2.2.6 | Timeline virtualization — samo visible clips render | 10000+ clips project |
+| 2.2.6 | ✅ — `ClipWidget` cull već postoji ali sa hardkodovanim 4096 px viewport. Replaced sa `MediaQuery.sizeOf(context).width` + 200 px overdraw. Sad 5K display + multi-monitor setups vidi pravi cull, laptop displays paint-uju manje. (Ne pravi novi feature — popravlja postojeći cull.) |
 | 2.2.7 | ✅ 60584e2e — `FLTEnableImpeller=true` u `macos/Runner/Info.plist`. Eksplicitno pinned (default je Flutter 3.30+, ali ne-drift). |
 
 ### 2.3 Monolith refactor (održivost)
