@@ -104,7 +104,7 @@
 | 2.1.2 | SlotVoiceMixer collapse-by-bus | ⏳ open |
 | 2.1.3 | Engine_connected_layout 3-panel collapsible | ⏳ open |
 | 2.1.4 | Keyboard shortcut map overlay (`?` / `Cmd+/`) | ✅ already done — `KeyboardShortcutsOverlay.show` u `main_layout.dart:521-523` (P3.1). |
-| 2.1.5 | Sub-tab nav shortcuts (1-0 + Q-U) | ⏳ open (predlažem sledeće) |
+| 2.1.5 | ✅ 3e0e2a1b — `_SubTabIndexIntent` + 17-entry `_kSubTabKeyMap` u `daw_lower_zone_widget.dart`. Digit 1-9 → idx 0-8, 0 → 9, Q-U → 10-16. CallbackAction → `controller.setSubTabIndex` (clamped). Focus(canRequestFocus: false) ne krade input iz text fields. |
 | 2.1.6 | Status bar height 28→22px | ✅ obsolete — `mixer_status_bar.dart` već je 24px (close to target). |
 | 2.1.7 | HELIX Omnibar inline edit-in-place | ⏳ open |
 | 2.1.8 | Slot preview fullscreen/80%/50% (Escape cycles) | ⏳ open |
