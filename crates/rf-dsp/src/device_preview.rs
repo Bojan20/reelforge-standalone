@@ -7,7 +7,7 @@
 //! UI thread: loads profiles + computes coefficients + atomic flag.
 
 use crate::biquad::{BiquadCoeffs, BiquadTDF2};
-use crate::{MonoProcessor, Processor};
+use crate::MonoProcessor;
 use rf_core::Sample;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 

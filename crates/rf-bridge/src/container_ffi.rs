@@ -1153,6 +1153,8 @@ pub extern "C" fn seed_log_get_rng_state(container_id: u32) -> u64 {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 #[cfg(test)]
+#[allow(unused_unsafe)]
+// See connector_ffi.rs::tests for the rationale (FLUX_MASTER_TODO 1.6.1).
 mod tests {
     use super::*;
     use std::ffi::CString;

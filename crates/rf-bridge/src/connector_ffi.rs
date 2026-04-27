@@ -835,6 +835,12 @@ pub extern "C" fn connector_get_stats(connector_id: u64) -> *mut c_char {
 }
 
 #[cfg(test)]
+#[allow(unused_unsafe)]
+// Tests historically wrapped FFI calls in `unsafe { ... }` even when the
+// callee was a plain (safe) `extern "C" fn`. Rust 2024 surfaces those as
+// `unused_unsafe` warnings; they're stylistic noise in the test layer
+// (FLUX_MASTER_TODO 1.6.1 — clean release build). The lint stays on for
+// the production code in this file.
 mod tests {
     use super::*;
 

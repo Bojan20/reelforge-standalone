@@ -1032,6 +1032,8 @@ pub extern "C" fn stage_list_timing_profiles() -> *mut c_char {
 }
 
 #[cfg(test)]
+#[allow(unused_unsafe)]
+// See connector_ffi.rs::tests for the rationale (FLUX_MASTER_TODO 1.6.1).
 mod tests {
     use super::*;
 
