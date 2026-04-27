@@ -77,7 +77,7 @@
 
 | # | Zadatak | Lokacija | Effort |
 |---|---|---|---|
-| 1.5.1 | HRTF bilinear interpolation upgrade (BUG #35 trenutno IDW) | `crates/rf-dsp/src/spatial.rs:118-120` | 2 h |
+| 1.5.1 | ✅ 1bf5ffe4 — Stvarna HRTF interpolacija u `rf-spatial/src/binaural/hrtf.rs`. Pravi bug: (a) bilinear nije wrap-ovao azimuth oko ±180° → 1-D fallback + ITD diskontinuiteti; (b) `add_hrir` insertovao bez wrap-a → dead keys; (c) `get_spherical` delegirao na `get_vbap` (globalni IDW kroz 3 najbliža) umesto pravu sphericalnu lokalnu interpolaciju. Fix: `wrap_az_idx()` helper, primenjen u `add_hrir/get_nearest/get_bilinear/get_spherical`. `get_spherical` sada koristi 4 lokalna corner-a sa great-circle distance weights. +4 testova (7/7 zelena). | — | 2 h |
 | 1.5.2 | Plugin crash sandbox — VST3/AU/CLAP/LV2 izolovan u subprocess | `crates/rf-engine/src/plugin/` | 4 h |
 | 1.5.3 | True Peak NEON implementacija (trenutno samo AVX2) | `crates/rf-dsp/src/metering_simd.rs` | 2 h |
 | 1.5.4 | DSD polyphase resampling (TODO u `dsd/mod.rs:197`) | | 1 dan |
