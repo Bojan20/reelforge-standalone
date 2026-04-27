@@ -104,6 +104,7 @@ import '../widgets/browser/audio_pool_panel.dart' show triggerAudioPoolRefresh;
 import '../src/rust/native_ffi.dart';
 import '../services/cortex_vision_service.dart';
 import '../services/event_registry.dart';
+import '../services/event_registration_service.dart';
 import '../services/slotlab_track_bridge.dart';
 import '../services/waveform_cache.dart';
 import '../services/waveform_cache_service.dart';
@@ -13100,63 +13101,16 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   }
 
   void _syncEventToRegistry(SlotCompositeEvent? event, {bool skipNotify = false}) {
-    if (event == null) return;
-
-    // Get all trigger stages (or derive from category if empty)
-    // CRITICAL: Normalize to UPPERCASE — SlotLabProvider triggers with .toUpperCase()
-    final stages = event.triggerStages.isNotEmpty
-        ? event.triggerStages.map((s) => s.toUpperCase()).toList()
-        : [_getEventStage(event).toUpperCase()];
-
-    // Skip if no layers (nothing to play)
-    if (event.layers.isEmpty) {
-      return;
-    }
-
-    // Build base layers list once (including fadeIn/fadeOut/trim parameters)
-    final layers = event.layers.map((l) => AudioLayer(
-      id: l.id,
-      audioPath: l.audioPath,
-      name: l.name,
-      volume: l.volume,
-      pan: l.pan,
-      panRight: l.panRight,
-      stereoWidth: l.stereoWidth,
-      inputGain: l.inputGain,
-      phaseInvert: l.phaseInvert,
-      delay: l.offsetMs,
-      busId: l.busId ?? 2,
-      fadeInMs: l.fadeInMs,
-      fadeOutMs: l.fadeOutMs,
-      trimStartMs: l.trimStartMs,
-      trimEndMs: l.trimEndMs,
-      actionType: l.actionType,
-      loop: l.loop,
-      targetAudioPath: l.targetAudioPath,
-    )).toList();
-
-    // Register event under EACH trigger stage
-    for (int i = 0; i < stages.length; i++) {
-      final stage = stages[i];
-      final eventId = i == 0 ? event.id : '${event.id}_stage_$i';
-
-      // Use composite event's targetBusId (set in middleware), fallback to first layer
-      final targetBus = event.targetBusId ?? (layers.isNotEmpty ? layers.first.busId : 2);
-
-      final audioEvent = AudioEvent(
-        id: eventId,
-        name: event.name,
-        stage: stage,
-        layers: layers,
-        loop: event.looping,
-        overlap: event.overlap,
-        crossfadeMs: event.crossfadeMs,
-        targetBusId: targetBus,
-      );
-
-      eventRegistry.registerEvent(audioEvent, skipNotify: skipNotify);
-    }
-
+    // Single source of truth for composite-event → AudioEvent registration.
+    // See `EventRegistrationService` doc comment for why this delegates
+    // instead of inlining the translation: it lets HELIX (and any future
+    // surface) register through the same path so the `_stageToEvent` map
+    // can't be silently overwritten by a competing code path.
+    EventRegistrationService.instance.registerComposite(
+      event,
+      fallbackStage: event == null ? null : _getEventStage(event),
+      skipNotify: skipNotify,
+    );
   }
 
   // NOTE: _syncEventToMiddleware removed - MiddlewareProvider is now the single source of truth

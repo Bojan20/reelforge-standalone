@@ -66,6 +66,7 @@ import '../services/ai_generation_service.dart';
 import '../services/cortex_vision_service.dart';
 import '../services/cortex_eye_server.dart';
 import '../services/event_registry.dart';
+import '../services/event_registration_service.dart';
 import '../services/stage_configuration_service.dart';
 import '../services/gdd_import_service.dart' show GddGridConfig;
 import '../models/slot_lab_models.dart' show SymbolDefinition, SymbolType;
@@ -7318,39 +7319,12 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
   }
 
   // ─── Register event to EventRegistry for actual audio playback ─────────────
+  // Delegates to the shared EventRegistrationService so SlotLab + HELIX use
+  // ONE registration path. Pre-2026-04-27 this was a hand-rolled duplicate
+  // of slot_lab_screen's _syncEventToRegistry — both wrote into the same
+  // _stageToEvent map and silently evicted each other (FLUX_MASTER_TODO 1.2.1).
   void _registerToEventRegistry(SlotCompositeEvent event) {
-    if (event.layers.isEmpty) return;
-    final stages = event.triggerStages.isNotEmpty
-        ? event.triggerStages.map((s) => s.toUpperCase()).toList()
-        : <String>[];
-    if (stages.isEmpty) return; // Unassigned — skip
-
-    final registry = EventRegistry.instance;
-    for (int i = 0; i < stages.length; i++) {
-      final stage = stages[i];
-      final eventId = i == 0 ? event.id : '${event.id}_stage_$i';
-      final cfg = StageConfigurationService.instance.getStage(stage);
-      registry.registerEvent(AudioEvent(
-        id: eventId,
-        name: event.name,
-        stage: stage,
-        layers: event.layers.map((l) => AudioLayer(
-          id: l.id,
-          audioPath: l.audioPath,
-          name: l.name,
-          volume: l.volume,
-          pan: l.pan,
-          busId: l.busId ?? (cfg?.bus.index ?? 2),
-          actionType: l.actionType,
-          loop: l.loop,
-          fadeInMs: l.fadeInMs,
-          fadeOutMs: l.fadeOutMs,
-        )).toList(),
-        loop: event.looping,
-        overlap: event.overlap,
-        crossfadeMs: event.crossfadeMs,
-      ));
-    }
+    EventRegistrationService.instance.registerComposite(event);
   }
 
   // ─── Stage picker dialog ────────────────────────────────────────────────────
