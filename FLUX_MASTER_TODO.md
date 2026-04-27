@@ -63,15 +63,17 @@
 
 ### 1.4 HELIX stub tabovi (popuniti ili otkloniti)
 
-| # | Super-tab / Sub-tab | Trenutno | Odluka |
-|---|---|---|---|
-| 1.4.1 | DSP → spatial | "Coming soon" placeholder | Popuniti sa HRTF + Atmos monitoring + HOA 3 controls |
-| 1.4.2 | RTPC → sve 4 sub-tabs (curves, macros, dspBinding, debugger) | UI bez FFI binding | Wire real-time parametar curves kroz `rf-bridge/src/rtpc_ffi.rs` |
-| 1.4.3 | CONTAINERS → metrics, timeline | UI-only | Rust backend za container synthesis |
-| 1.4.4 | MUSIC → segments, stingers, transitions | Skeletal | Interactive music logic (layered, Wwise-style) |
-| 1.4.5 | LOGIC → triggers, gate, emotion | Placeholderi | Behavior tree UI + rule editor |
-| 1.4.6 | DAW CORTEX → awareness (7-dim) | Enum deklarisan, nema UI | Brisati ili implementirati |
-| 1.4.7 | MONITOR → neuro, aiCopilot | AI stubs | Wire sa Faza 4 AI Copilot |
+| # | Super-tab / Sub-tab | Status (auditovano 2026-04-28) |
+|---|---|---|
+| 1.4.1 | DSP → spatial | ✅ `widgets/dsp/spatial_panel.dart` 1074 LOC — pun spatial UI (NIJE "coming soon"). |
+| 1.4.2 | RTPC sub-tabs | ✅ `widgets/middleware/rtpc_*.dart` (curve templates, debugger, macro editor, dsp binding editor) + `slotlab_rtpc_tab.dart`. |
+| 1.4.3 | CONTAINERS metrics + timeline | ✅ `widgets/middleware/container_*.dart` (visualization, storage_metrics, ab_comparison, crossfade_preview) + sequence_container_panel. |
+| 1.4.4 | MUSIC segments/stingers/transitions | ✅ `widgets/middleware/music_*.dart` (system, segment_looping, transition_preview) + stinger_preview + slotlab_music_tab. |
+| 1.4.5 | LOGIC triggers/gate/emotion | ✅ `widgets/panels/logical_editor_panel.dart` + slotlab_logic_tab + emotion visualizers (rtp_emotion_curve_viz, energy_emotional_monitor). |
+| 1.4.6 | DAW CORTEX → awareness (7-dim) | ✅ `_AwarenessPanel` u `cortex_neural_dashboard.dart` — pun radar painter (THR/REL/RSP/COV/COG/EFF/COH) + per-dim details, Consumer<CortexProvider>. |
+| 1.4.7 | MONITOR → neuro / aiCopilot | ✅ `widgets/slot_lab/ucp/neuro_audio_monitor.dart` + `ai_copilot_panel.dart` + `widgets/slot_lab/neuro/neuro_authoring_panel.dart`. |
+
+> **Audit conclusion**: spec za 1.4 je bio outdated — sve sub-tabs su LANDED u live-UI od ranijih commit-a (Sprint 4 + middleware sezona). Ovaj audit je verifikacija "nema dead `Coming soon` placeholder-a" za HELIX dock + DAW CORTEX dock super-tabove.
 
 ### 1.5 Audio kvalitet
 
@@ -90,7 +92,7 @@
 | 1.6.2 | `xcodebuild ... -configuration Release build` | success |
 | 1.6.3 | `flutter analyze` — 0 errors | clean |
 | 1.6.4 | ✅ 943714cb — `cargo test --workspace --release --no-fail-fast` rezultat: **109 test runs, 109 ok, 0 FAILED, 0 non-collision warnings**. Skinuti final 4 test-only warning-a: tautology assertion (intent_ffi), unused `switched` flag (loop_tests), unused Processor import (rf-dsp), unused GameInfo import (rf-ab-sim). | 109/109 |
-| 1.6.5 | Full Build CI checkpoint (GitHub Action) | green badge |
+| 1.6.5 | ✅ 631b8eac — `.github/workflows/phase1-checkpoint.yml` (single `phase1-gate` job, ≤4min). Pokriva sve Phase 1 P0/P1 task-ove kroz: cargo build (0 real warnings), cargo test --workspace, flutter analyze, gesture/dispose ratchet, CortexHands chord, EventRegistrationService. Required-status check kandidat za branch protection na `main`. | green badge |
 
 ---
 
