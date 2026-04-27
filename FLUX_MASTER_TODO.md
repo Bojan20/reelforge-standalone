@@ -78,7 +78,7 @@
 | # | Zadatak | Lokacija | Effort |
 |---|---|---|---|
 | 1.5.1 | ✅ 1bf5ffe4 — Stvarna HRTF interpolacija u `rf-spatial/src/binaural/hrtf.rs`. Pravi bug: (a) bilinear nije wrap-ovao azimuth oko ±180° → 1-D fallback + ITD diskontinuiteti; (b) `add_hrir` insertovao bez wrap-a → dead keys; (c) `get_spherical` delegirao na `get_vbap` (globalni IDW kroz 3 najbliža) umesto pravu sphericalnu lokalnu interpolaciju. Fix: `wrap_az_idx()` helper, primenjen u `add_hrir/get_nearest/get_bilinear/get_spherical`. `get_spherical` sada koristi 4 lokalna corner-a sa great-circle distance weights. +4 testova (7/7 zelena). | — | 2 h |
-| 1.5.2 | Plugin crash sandbox — VST3/AU/CLAP/LV2 izolovan u subprocess | `crates/rf-engine/src/plugin/` | 4 h |
+| 1.5.2 | 🟡 45b471d7 — **Phase 1 in-process safety net** (full subprocess sandbox `crates/rf-plugin/src/sandbox.rs` 780 LOC postoji ali nije wire-d). `ZeroCopyChain::process()` sad wrapuje plugin call u `catch_unwind`. ChainSlot ima `panic_count` + `is_auto_disabled_after_panic`; posle 3 panika slot se trajno auto-bypass. `Err(PluginError::...)` je drugačiji path (passthrough bez panic_count++). 3 nova testa (panic survival, auto-disable threshold, error return). **Phase 2 (subprocess wire)** ostaje za sledeći commit. | `crates/rf-plugin/src/chain.rs` | 4 h | 🟡 partial |
 | 1.5.3 | ✅ 4d3fc9c4 — Portable SIMD: skinut `#[cfg(target_arch="x86_64")]` gate sa 6 funkcija, suženo `f64x8 → f64x4` za bolji NEON match (2× 128-bit q-reg umesto 4×). Skinut redundant scalar fallback blok. M1/M2/M3 sad rade native NEON umesto scalar — ~3-4× speedup na metering hot path. +4 testa (9/9 zelena, ranije 5 ih je bilo skipovano na AArch64 CI). | — | 2 h |
 | 1.5.4 | DSD polyphase resampling (TODO u `dsd/mod.rs:197`) | | 1 dan |
 
