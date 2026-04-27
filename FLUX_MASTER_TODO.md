@@ -48,7 +48,7 @@
 |---|---|---|
 | 1.2.1 | ✅ 5fe9b089 — Event Registry race fixed by extracting `EventRegistrationService` (singleton). SlotLab + HELIX sada oba delegiraju kroz isti put; idempotent registracija; 11 widget testova zelena, regression test specifično za "SlotLab + HELIX isti event = 1 entry, ne eviction". `EventAutoRegistrar` ostao nedirnut (drugi namespace `evt_<stage>`). | — | — |
 | 1.2.2 | ✅ 0a38b1d6 — Lock-free reset preko `lufs_integrated_reset_pending: AtomicBool`. UI samo store flag + publish -70dB; audio thread drainuje flag i poziva `reset_integrated()` inline u već postojećem `try_write()` blok-u. Coalesces multiple resets. 2 unit testa (lock-free, coalesce). True peak / spectrum nemaju UI mutacije → ne treba im tretman. |
-| 1.2.3 | Cache TOCTOU — check→evict bez atomic CAS | `crates/rf-engine/src/playback.rs:1044-1055` — dedicated RwLock u background eviction thread |
+| 1.2.3 | ✅ d196bc7d — Per-path load lock kroz `loading: Mutex<HashMap<String, Arc<Mutex<()>>>>`. Leader radi import+evict+insert+fetch_add kao single critical section; followers wake-uju, double-check cache, vrate keširani entry bez disk I/O. Sprečava `current_bytes` drift od duplikata. 2 unit testa (concurrent miss, hit fast-path bypass). |
 
 ### 1.3 Test pokrivenost UI
 
