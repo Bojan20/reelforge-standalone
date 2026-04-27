@@ -2299,6 +2299,14 @@ pub extern "C" fn engine_generate_waveform_from_samples(
     if samples.is_null() || sample_count == 0 {
         return ptr::null_mut();
     }
+    // Bound the sample_count against MAX_FFI_BUFFER_SIZE (counted in BYTES,
+    // so multiply through size_of::<f32>). Without this a malformed caller
+    // could ask us to interpret arbitrary memory as a 4-billion-element
+    // f32 slice (FLUX_MASTER_TODO 1.1.5 — unsafe audit).
+    let byte_size = (sample_count as usize).saturating_mul(std::mem::size_of::<f32>());
+    if !validate_buffer_size(byte_size, "engine_generate_waveform_from_samples.samples") {
+        return ptr::null_mut();
+    }
 
     let key = match unsafe { cstr_to_string(cache_key) } {
         Some(k) => k,
@@ -2310,7 +2318,8 @@ pub extern "C" fn engine_generate_waveform_from_samples(
         return waveform_to_json(cached);
     }
 
-    // Safety: Trust FFI caller for buffer validity
+    // Safety: pointer + size validated above; caller's contract is that
+    // the buffer remains valid for the duration of this call.
     let samples_slice = unsafe { std::slice::from_raw_parts(samples, sample_count as usize) };
 
     // Generate waveform
@@ -4309,6 +4318,13 @@ pub extern "C" fn click_set_tempo_events(
     }
 
     if ticks.is_null() || bpms.is_null() {
+        return;
+    }
+    // FLUX_MASTER_TODO 1.1.5 — bound count against MAX_FFI_ARRAY_SIZE.
+    // A 10K-event tempo map is already absurd; without this guard a
+    // pathological caller could allocate billions of ClickTempoEvent
+    // structs.
+    if !validate_array_count(count as usize, "click_set_tempo_events") {
         return;
     }
 
@@ -12665,6 +12681,13 @@ pub extern "C" fn room_correction_feed_samples(track_id: u32, data: *const f64, 
     if data.is_null() || len == 0 {
         return 0;
     }
+    // FLUX_MASTER_TODO 1.1.5 — bound by MAX_FFI_BUFFER_SIZE in bytes.
+    // Room measurements arrive in chunks of ~48k samples; even minutes
+    // of audio fits well under 100MB. Anything larger is malformed.
+    let byte_size = (len as usize).saturating_mul(std::mem::size_of::<f64>());
+    if !validate_buffer_size(byte_size, "room_correction_feed_samples.data") {
+        return 0;
+    }
     let samples = unsafe { std::slice::from_raw_parts(data, len as usize) };
     let mut corrections = ROOM_CORRECTIONS.write();
     if let Some(c) = corrections.get_mut(&track_id) {
@@ -17288,6 +17311,11 @@ pub extern "C" fn plugin_set_state(instance_id: *const c_char, data: *const u8, 
     if instance_id.is_null() || data.is_null() || len == 0 {
         return 0;
     }
+    // FLUX_MASTER_TODO 1.1.5 — bound state-blob size. Plugin presets are
+    // typically a few KB; 100MB cap is generous and still finite.
+    if !validate_buffer_size(len as usize, "plugin_set_state.data") {
+        return 0;
+    }
 
     let id_str = unsafe {
         match std::ffi::CStr::from_ptr(instance_id).to_str() {
@@ -20806,8 +20834,14 @@ pub extern "C" fn wave_cache_build_from_samples(
     if samples.is_null() || sample_count == 0 {
         return 0;
     }
+    // FLUX_MASTER_TODO 1.1.5 — bound by MAX_FFI_BUFFER_SIZE in bytes.
+    let byte_size = (sample_count as usize).saturating_mul(std::mem::size_of::<f32>());
+    if !validate_buffer_size(byte_size, "wave_cache_build_from_samples.samples") {
+        return 0;
+    }
 
-    // Safety: Trust FFI caller for buffer validity
+    // Safety: pointer + size validated above; caller's contract is that
+    // the buffer remains valid for the duration of this call.
     let samples_slice = unsafe { std::slice::from_raw_parts(samples, sample_count as usize) };
 
     let cache_path = WAVE_CACHE_MANAGER.cache_path_for(&path);
@@ -23080,7 +23114,12 @@ pub extern "C" fn script_set_context(
 /// Set selected tracks in context
 #[unsafe(no_mangle)]
 pub extern "C" fn script_set_selected_tracks(track_ids: *const u64, count: u32) {
+    // FLUX_MASTER_TODO 1.1.5 — bound by MAX_FFI_ARRAY_SIZE.
+    // 10K selected tracks is already absurd; cap silently to empty
+    // selection rather than read 4-billion u64s.
     let ids = if track_ids.is_null() || count == 0 {
+        Vec::new()
+    } else if !validate_array_count(count as usize, "script_set_selected_tracks") {
         Vec::new()
     } else {
         unsafe { std::slice::from_raw_parts(track_ids, count as usize).to_vec() }
@@ -23100,7 +23139,11 @@ pub extern "C" fn script_set_selected_tracks(track_ids: *const u64, count: u32) 
 /// Set selected clips in context
 #[unsafe(no_mangle)]
 pub extern "C" fn script_set_selected_clips(clip_ids: *const u64, count: u32) {
+    // FLUX_MASTER_TODO 1.1.5 — bound by MAX_FFI_ARRAY_SIZE (see
+    // script_set_selected_tracks for rationale).
     let ids = if clip_ids.is_null() || count == 0 {
+        Vec::new()
+    } else if !validate_array_count(count as usize, "script_set_selected_clips") {
         Vec::new()
     } else {
         unsafe { std::slice::from_raw_parts(clip_ids, count as usize).to_vec() }
