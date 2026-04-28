@@ -107,7 +107,7 @@
 | 2.1.5 | ✅ 3e0e2a1b — `_SubTabIndexIntent` + 17-entry `_kSubTabKeyMap` u `daw_lower_zone_widget.dart`. Digit 1-9 → idx 0-8, 0 → 9, Q-U → 10-16. CallbackAction → `controller.setSubTabIndex` (clamped). Focus(canRequestFocus: false) ne krade input iz text fields. |
 | 2.1.6 | Status bar height 28→22px | ✅ obsolete — `mixer_status_bar.dart` već je 24px (close to target). |
 | 2.1.7 | HELIX Omnibar inline edit-in-place | ⏳ open |
-| 2.1.8 | Slot preview fullscreen/80%/50% (Escape cycles) | ⏳ open |
+| 2.1.8 | ✅ — `enum _SlotPreviewSize { off, full, large, medium }` + cycle helpers `_enterPreviewFull` / `_cyclePreviewDown`. F11 → full; Escape (or PiP backdrop tap, or PremiumSlotPreview close button) → full → 80% → 50% → off. LARGE/MEDIUM render as picture-in-picture overlay on top of live slot_lab UI (mixer + lower zone visible behind a `0x99` black backdrop). Existing `_isPreviewMode` getter preserved so all 4 legacy call sites continue to work. `slot_lab_screen.dart`. |
 
 ### 2.2 Brzina
 
