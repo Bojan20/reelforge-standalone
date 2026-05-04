@@ -455,7 +455,9 @@ pub struct HxRingBuffer {
 
 // Safety: HxRingBuffer is SPSC — single producer (router) and single consumer (subscriber).
 // The UnsafeCell slots are protected by atomic read_pos/write_pos fences.
-unsafe impl Send for HxRingBuffer {}
+// Sync is required because HxSubscriber (containing HxRingBuffer) is shared across threads
+// via Arc; the SPSC invariant is upheld by design (single router thread writes, single
+// subscriber thread reads).
 unsafe impl Sync for HxRingBuffer {}
 
 impl HxRingBuffer {
@@ -627,7 +629,9 @@ pub struct HxStagingArea {
 // Safety: HxStagingArea is MPSC — multiple producers (atomic CAS for slot claiming)
 // and single consumer (router thread drains). UnsafeCell slots are protected by
 // write_cursor CAS + committed counter + read_fence.
-unsafe impl Send for HxStagingArea {}
+// Sync is required because HxStagingArea is referenced by multiple threads concurrently
+// (producers publish via Arc<HxStagingArea>); correctness is ensured by the lock-free CAS
+// protocol rather than by the type system.
 unsafe impl Sync for HxStagingArea {}
 
 impl HxStagingArea {
@@ -769,15 +773,15 @@ pub struct HxBus {
     /// All subscribers
     subscribers: Vec<Arc<HxSubscriber>>,
     /// Monotonic sequence counter
-    sequence: AtomicU64,
+    sequence: Arc<AtomicU64>,
     /// Configuration
     config: HxBusConfig,
     /// Total published count
-    total_published: AtomicU64,
+    total_published: Arc<AtomicU64>,
     /// Total routed count
     total_routed: AtomicU64,
     /// Staging overflow count
-    staging_overflows: AtomicU64,
+    staging_overflows: Arc<AtomicU64>,
     /// Scratch buffer for draining (avoid allocation per cycle)
     drain_scratch: Vec<HxMessage>,
     /// Per-channel message count for last cycle
@@ -794,11 +798,11 @@ impl HxBus {
         Self {
             staging: Arc::new(HxStagingArea::new(config.staging_capacity)),
             subscribers: Vec::with_capacity(config.max_subscribers),
-            sequence: AtomicU64::new(0),
+            sequence: Arc::new(AtomicU64::new(0)),
             config,
-            total_published: AtomicU64::new(0),
+            total_published: Arc::new(AtomicU64::new(0)),
             total_routed: AtomicU64::new(0),
-            staging_overflows: AtomicU64::new(0),
+            staging_overflows: Arc::new(AtomicU64::new(0)),
             drain_scratch: Vec::with_capacity(4096),
             channel_counts: std::array::from_fn(|_| AtomicU32::new(0)),
             last_drain_us: AtomicU64::new(0),
@@ -811,9 +815,9 @@ impl HxBus {
     pub fn publisher(&self) -> HxPublisher {
         HxPublisher {
             staging: Arc::clone(&self.staging),
-            sequence: &self.sequence as *const AtomicU64,
-            total_published: &self.total_published as *const AtomicU64,
-            staging_overflows: &self.staging_overflows as *const AtomicU64,
+            sequence: Arc::clone(&self.sequence),
+            total_published: Arc::clone(&self.total_published),
+            staging_overflows: Arc::clone(&self.staging_overflows),
         }
     }
 
@@ -938,20 +942,14 @@ impl HxBus {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// A publisher handle that can be cloned and sent to any thread.
-/// Lightweight — contains only an Arc to shared staging and raw pointers
-/// to bus-level atomics.
+/// Lightweight — contains only Arc references to shared staging and bus-level
+/// atomics, so it is fully safe to send across threads and may outlive the bus.
 pub struct HxPublisher {
     staging: Arc<HxStagingArea>,
-    // Raw pointers to bus-level atomics (bus outlives all publishers)
-    sequence: *const AtomicU64,
-    total_published: *const AtomicU64,
-    staging_overflows: *const AtomicU64,
+    sequence: Arc<AtomicU64>,
+    total_published: Arc<AtomicU64>,
+    staging_overflows: Arc<AtomicU64>,
 }
-
-// Safety: HxPublisher only accesses atomics through raw pointers.
-// The bus guarantees these pointers remain valid for the publisher's lifetime.
-unsafe impl Send for HxPublisher {}
-unsafe impl Sync for HxPublisher {}
 
 impl HxPublisher {
     /// Publish a message to the bus.
@@ -962,15 +960,15 @@ impl HxPublisher {
     /// Returns false if staging area is full (message dropped).
     pub fn publish(&self, mut msg: HxMessage) -> bool {
         // Assign monotonic sequence number
-        let seq = unsafe { &*self.sequence }.fetch_add(1, Ordering::Relaxed);
+        let seq = self.sequence.fetch_add(1, Ordering::Relaxed);
         msg.sequence = seq as u32;
 
         let ok = self.staging.publish(msg);
 
-        unsafe { &*self.total_published }.fetch_add(1, Ordering::Relaxed);
+        self.total_published.fetch_add(1, Ordering::Relaxed);
 
         if !ok {
-            unsafe { &*self.staging_overflows }.fetch_add(1, Ordering::Relaxed);
+            self.staging_overflows.fetch_add(1, Ordering::Relaxed);
         }
 
         ok
@@ -1598,5 +1596,27 @@ mod tests {
         let count = ring.drain_max(5, |m| received.push(m.sequence));
         assert_eq!(count, 5);
         assert_eq!(ring.len(), 15); // 20 - 5 = 15 remaining
+    }
+
+    /// Regression for f_27290_91_92: HxPublisher must be Send+Sync without manual
+    /// unsafe impls, and must safely outlive the bus (no raw pointers to dropped
+    /// bus fields).
+    #[test]
+    fn regression_f_27290_publisher_arc_atomics() {
+        fn assert_send<T: Send>() {}
+        fn assert_sync<T: Sync>() {}
+        assert_send::<HxRingBuffer>();
+        assert_send::<HxStagingArea>();
+        assert_send::<HxPublisher>();
+        assert_sync::<HxPublisher>();
+
+        // Publisher should survive after bus is dropped (Arc keeps atomics alive)
+        let pub_handle = {
+            let mut bus = HxBus::new(HxBusConfig::default());
+            bus.publisher()
+        };
+        let mut msg = HxMessage::default();
+        msg.channel = HxChannel::System;
+        pub_handle.publish(msg);
     }
 }
