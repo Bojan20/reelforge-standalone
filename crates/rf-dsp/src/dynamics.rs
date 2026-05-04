@@ -34,6 +34,9 @@ const CONST_LN_10: f64 = std::f64::consts::LN_10;
 /// Const-friendly LN_2 (for use in const fn)
 const CONST_LN_2: f64 = std::f64::consts::LN_2;
 
+/// Default host BPM for tempo-synced dynamics parameters.
+const DEFAULT_HOST_BPM: f64 = 120.0;
+
 /// Lookup table size for linear to dB conversion
 const LINEAR_TO_DB_TABLE_SIZE: usize = 4096;
 /// Linear range: 1e-6 to 10.0 (covers -120dB to +20dB)
@@ -599,7 +602,7 @@ impl Compressor {
             detection_mode: DetectionMode::Peak,
             adaptive_release: false,
             host_sync: false,
-            host_bpm: 120.0,
+            host_bpm: DEFAULT_HOST_BPM,
             mid_side: false,
 
             // State
@@ -3627,6 +3630,12 @@ impl ProcessorConfig for DeEsser {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn regression_f_25271_default_bpm_is_named_constant() {
+        let comp = Compressor::new(44100.0);
+        assert!((comp.host_bpm() - DEFAULT_HOST_BPM).abs() < 0.01);
+    }
 
     #[test]
     fn test_compressor_types() {
