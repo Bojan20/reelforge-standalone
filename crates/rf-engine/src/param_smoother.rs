@@ -296,7 +296,6 @@ pub struct ParamSmootherManager {
 
 // SAFETY: atomic_state is accessed via atomics only
 // smoother_state is only accessed from audio thread
-unsafe impl Send for ParamSmootherManager {}
 unsafe impl Sync for ParamSmootherManager {}
 
 impl ParamSmootherManager {
@@ -706,5 +705,23 @@ mod tests {
         assert_eq!(state.get_target_volume(), 0.75);
         assert_eq!(state.get_target_pan(), -0.5);
         assert!(state.is_active());
+    }
+
+    /// Regression test for f_27430: ParamSmootherManager must be Send
+    /// without an explicit unsafe impl. This is a compile-time assertion:
+    /// if a non-Send field is ever added to ParamSmootherManager this
+    /// test will fail to compile.
+    #[test]
+    fn regression_f_27430_param_smoother_manager_auto_send() {
+        fn assert_send<T: Send>() {}
+        assert_send::<ParamSmootherManager>();
+
+        // Also verify it can actually be sent across threads
+        let manager = ParamSmootherManager::new(SAMPLE_RATE);
+        std::thread::spawn(move || {
+            manager.set_track_volume(1, 0.5);
+        })
+        .join()
+        .unwrap();
     }
 }
