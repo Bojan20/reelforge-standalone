@@ -37,11 +37,9 @@ macro_rules! ffi_panic_guard {
 // GLOBAL CONTROL ROOM POINTER
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Wrapper for raw pointer to make it Send+Sync
-/// SAFETY: ControlRoom is managed by PlaybackEngine and lives for entire program
-struct ControlRoomPtr(*mut ControlRoom);
-unsafe impl Send for ControlRoomPtr {}
-unsafe impl Sync for ControlRoomPtr {}
+/// Wrapper for a static reference to ControlRoom.
+/// Automatically Send + Sync because `&'static ControlRoom` is.
+struct ControlRoomPtr(&'static ControlRoom);
 
 use std::sync::LazyLock;
 
@@ -55,13 +53,8 @@ macro_rules! with_control_room {
     ($cr:ident, $body:block, $default:expr) => {{
         let guard = CONTROL_ROOM_PTR.read();
         if let Some(ref wrapper) = *guard {
-            let ptr = wrapper.0;
-            if !ptr.is_null() {
-                let $cr = unsafe { &*ptr };
-                $body
-            } else {
-                $default
-            }
+            let $cr = wrapper.0;
+            $body
         } else {
             $default
         }
@@ -92,7 +85,7 @@ pub extern "C" fn control_room_init(control_room_ptr: *mut ControlRoom) -> i32 {
             return 0;
         }
 
-        *CONTROL_ROOM_PTR.write() = Some(ControlRoomPtr(control_room_ptr));
+        *CONTROL_ROOM_PTR.write() = Some(ControlRoomPtr(unsafe { &*control_room_ptr }));
 
         log::info!("Control Room FFI initialized");
         1
@@ -166,7 +159,7 @@ pub extern "C" fn control_room_set_monitor_level(level_db: f64) -> i32 {
 pub extern "C" fn control_room_get_monitor_level() -> f64 {
     let guard = CONTROL_ROOM_PTR.read();
     if let Some(ref wrapper) = *guard {
-        let control_room = unsafe { &*wrapper.0 };
+        let control_room = wrapper.0;
         control_room.monitor_level_db()
     } else {
         0.0
@@ -179,7 +172,7 @@ pub extern "C" fn control_room_get_monitor_level() -> f64 {
 pub extern "C" fn control_room_set_dim(enabled: i32) -> i32 {
     let guard = CONTROL_ROOM_PTR.read();
     if let Some(ref wrapper) = *guard {
-        let control_room = unsafe { &*wrapper.0 };
+        let control_room = wrapper.0;
         control_room
             .dim_enabled
             .store(enabled != 0, Ordering::Relaxed);
@@ -194,7 +187,7 @@ pub extern "C" fn control_room_set_dim(enabled: i32) -> i32 {
 pub extern "C" fn control_room_get_dim() -> i32 {
     let guard = CONTROL_ROOM_PTR.read();
     if let Some(ref wrapper) = *guard {
-        let control_room = unsafe { &*wrapper.0 };
+        let control_room = wrapper.0;
         if control_room.dim_enabled.load(Ordering::Relaxed) {
             1
         } else {
@@ -211,7 +204,7 @@ pub extern "C" fn control_room_get_dim() -> i32 {
 pub extern "C" fn control_room_set_mono(enabled: i32) -> i32 {
     let guard = CONTROL_ROOM_PTR.read();
     if let Some(ref wrapper) = *guard {
-        let control_room = unsafe { &*wrapper.0 };
+        let control_room = wrapper.0;
         control_room
             .mono_enabled
             .store(enabled != 0, Ordering::Relaxed);
@@ -226,7 +219,7 @@ pub extern "C" fn control_room_set_mono(enabled: i32) -> i32 {
 pub extern "C" fn control_room_get_mono() -> i32 {
     let guard = CONTROL_ROOM_PTR.read();
     if let Some(ref wrapper) = *guard {
-        let control_room = unsafe { &*wrapper.0 };
+        let control_room = wrapper.0;
         if control_room.mono_enabled.load(Ordering::Relaxed) {
             1
         } else {
@@ -274,7 +267,7 @@ pub extern "C" fn control_room_set_speaker_set(index: u8) -> i32 {
 
     let guard = CONTROL_ROOM_PTR.read();
     if let Some(ref wrapper) = *guard {
-        let control_room = unsafe { &*wrapper.0 };
+        let control_room = wrapper.0;
         control_room.set_active_speaker_set(index);
         1
     } else {
@@ -287,7 +280,7 @@ pub extern "C" fn control_room_set_speaker_set(index: u8) -> i32 {
 pub extern "C" fn control_room_get_speaker_set() -> u8 {
     let guard = CONTROL_ROOM_PTR.read();
     if let Some(ref wrapper) = *guard {
-        let control_room = unsafe { &*wrapper.0 };
+        let control_room = wrapper.0;
         control_room.active_speakers.load(Ordering::Relaxed)
     } else {
         0
@@ -304,7 +297,7 @@ pub extern "C" fn control_room_set_speaker_level(index: u8, level_db: f64) -> i3
 
     let guard = CONTROL_ROOM_PTR.read();
     if let Some(ref wrapper) = *guard {
-        let control_room = unsafe { &*wrapper.0 };
+        let control_room = wrapper.0;
         control_room.speaker_sets[index as usize].set_calibration_db(level_db);
         1
     } else {
@@ -344,7 +337,7 @@ pub extern "C" fn control_room_set_solo_mode(mode: u8) -> i32 {
 
     let guard = CONTROL_ROOM_PTR.read();
     if let Some(ref wrapper) = *guard {
-        let control_room = unsafe { &*wrapper.0 };
+        let control_room = wrapper.0;
         control_room.set_solo_mode(solo_mode);
         1
     } else {
@@ -358,7 +351,7 @@ pub extern "C" fn control_room_set_solo_mode(mode: u8) -> i32 {
 pub extern "C" fn control_room_get_solo_mode() -> u8 {
     let guard = CONTROL_ROOM_PTR.read();
     if let Some(ref wrapper) = *guard {
-        let control_room = unsafe { &*wrapper.0 };
+        let control_room = wrapper.0;
         control_room.solo_mode() as u8
     } else {
         0
@@ -371,7 +364,7 @@ pub extern "C" fn control_room_get_solo_mode() -> u8 {
 pub extern "C" fn control_room_solo_channel(channel_id: u32) -> i32 {
     let guard = CONTROL_ROOM_PTR.read();
     if let Some(ref wrapper) = *guard {
-        let control_room = unsafe { &*wrapper.0 };
+        let control_room = wrapper.0;
         control_room.set_solo(ChannelId(channel_id), true);
         1
     } else {
@@ -385,7 +378,7 @@ pub extern "C" fn control_room_solo_channel(channel_id: u32) -> i32 {
 pub extern "C" fn control_room_unsolo_channel(channel_id: u32) -> i32 {
     let guard = CONTROL_ROOM_PTR.read();
     if let Some(ref wrapper) = *guard {
-        let control_room = unsafe { &*wrapper.0 };
+        let control_room = wrapper.0;
         control_room.set_solo(ChannelId(channel_id), false);
         1
     } else {
@@ -399,7 +392,7 @@ pub extern "C" fn control_room_unsolo_channel(channel_id: u32) -> i32 {
 pub extern "C" fn control_room_clear_solo() -> i32 {
     let guard = CONTROL_ROOM_PTR.read();
     if let Some(ref wrapper) = *guard {
-        let control_room = unsafe { &*wrapper.0 };
+        let control_room = wrapper.0;
         control_room.clear_all_solos();
         1
     } else {
@@ -412,7 +405,7 @@ pub extern "C" fn control_room_clear_solo() -> i32 {
 pub extern "C" fn control_room_is_soloed(channel_id: u32) -> i32 {
     let guard = CONTROL_ROOM_PTR.read();
     if let Some(ref wrapper) = *guard {
-        let control_room = unsafe { &*wrapper.0 };
+        let control_room = wrapper.0;
         if control_room.is_soloed(ChannelId(channel_id)) {
             1
         } else {
@@ -438,7 +431,7 @@ pub extern "C" fn control_room_set_cue_enabled(cue_index: u8, enabled: i32) -> i
 
     let guard = CONTROL_ROOM_PTR.read();
     if let Some(ref wrapper) = *guard {
-        let control_room = unsafe { &*wrapper.0 };
+        let control_room = wrapper.0;
         control_room.cue_mixes[cue_index as usize]
             .enabled
             .store(enabled != 0, Ordering::Relaxed);
@@ -458,7 +451,7 @@ pub extern "C" fn control_room_set_cue_level(cue_index: u8, level_db: f64) -> i3
 
     let guard = CONTROL_ROOM_PTR.read();
     if let Some(ref wrapper) = *guard {
-        let control_room = unsafe { &*wrapper.0 };
+        let control_room = wrapper.0;
         control_room.cue_mixes[cue_index as usize].set_level_db(level_db);
         1
     } else {
@@ -476,7 +469,7 @@ pub extern "C" fn control_room_set_cue_pan(cue_index: u8, pan: f64) -> i32 {
 
     let guard = CONTROL_ROOM_PTR.read();
     if let Some(ref wrapper) = *guard {
-        let control_room = unsafe { &*wrapper.0 };
+        let control_room = wrapper.0;
         control_room.cue_mixes[cue_index as usize].set_pan(pan);
         1
     } else {
@@ -608,7 +601,7 @@ pub extern "C" fn control_room_add_cue_send(
 
     let guard = CONTROL_ROOM_PTR.read();
     if let Some(ref wrapper) = *guard {
-        let control_room = unsafe { &*wrapper.0 };
+        let control_room = wrapper.0;
         // Add send to cue mix channel_sends map
         let send = crate::control_room::CueSend {
             level,
@@ -636,7 +629,7 @@ pub extern "C" fn control_room_remove_cue_send(cue_index: u8, channel_id: u32) -
 
     let guard = CONTROL_ROOM_PTR.read();
     if let Some(ref wrapper) = *guard {
-        let control_room = unsafe { &*wrapper.0 };
+        let control_room = wrapper.0;
         control_room.cue_mixes[cue_index as usize]
             .channel_sends
             .write()
@@ -657,7 +650,7 @@ pub extern "C" fn control_room_remove_cue_send(cue_index: u8, channel_id: u32) -
 pub extern "C" fn control_room_set_talkback(enabled: i32) -> i32 {
     let guard = CONTROL_ROOM_PTR.read();
     if let Some(ref wrapper) = *guard {
-        let control_room = unsafe { &*wrapper.0 };
+        let control_room = wrapper.0;
         control_room.set_talkback_enabled(enabled != 0);
         1
     } else {
@@ -671,7 +664,7 @@ pub extern "C" fn control_room_set_talkback(enabled: i32) -> i32 {
 pub extern "C" fn control_room_set_talkback_level(level_db: f64) -> i32 {
     let guard = CONTROL_ROOM_PTR.read();
     if let Some(ref wrapper) = *guard {
-        let control_room = unsafe { &*wrapper.0 };
+        let control_room = wrapper.0;
         control_room.set_talkback_level_db(level_db);
         1
     } else {
@@ -685,7 +678,7 @@ pub extern "C" fn control_room_set_talkback_level(level_db: f64) -> i32 {
 pub extern "C" fn control_room_set_talkback_destinations(destinations: u8) -> i32 {
     let guard = CONTROL_ROOM_PTR.read();
     if let Some(ref wrapper) = *guard {
-        let control_room = unsafe { &*wrapper.0 };
+        let control_room = wrapper.0;
         control_room.set_talkback_destinations(destinations);
         1
     } else {
@@ -764,7 +757,7 @@ pub extern "C" fn control_room_set_talkback_dim_main(enabled: i32) -> i32 {
 pub extern "C" fn control_room_get_monitor_peak_l() -> f64 {
     let guard = CONTROL_ROOM_PTR.read();
     if let Some(ref wrapper) = *guard {
-        let control_room = unsafe { &*wrapper.0 };
+        let control_room = wrapper.0;
         f64::from_bits(control_room.monitor_peak_l.load(Ordering::Relaxed))
     } else {
         0.0
@@ -776,7 +769,7 @@ pub extern "C" fn control_room_get_monitor_peak_l() -> f64 {
 pub extern "C" fn control_room_get_monitor_peak_r() -> f64 {
     let guard = CONTROL_ROOM_PTR.read();
     if let Some(ref wrapper) = *guard {
-        let control_room = unsafe { &*wrapper.0 };
+        let control_room = wrapper.0;
         f64::from_bits(control_room.monitor_peak_r.load(Ordering::Relaxed))
     } else {
         0.0
