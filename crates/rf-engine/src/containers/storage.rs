@@ -448,9 +448,6 @@ impl Default for ContainerStorage {
     }
 }
 
-// Safety: DashMap is thread-safe, atomics are thread-safe
-unsafe impl Send for ContainerStorage {}
-unsafe impl Sync for ContainerStorage {}
 
 #[cfg(test)]
 mod tests {
@@ -520,6 +517,14 @@ mod tests {
         // Stop
         storage.stop_sequence(1);
         assert!(!storage.is_sequence_playing(1));
+    }
+
+    #[test]
+    fn regression_f_27210_container_storage_auto_send_sync() {
+        fn assert_send<T: Send>() {}
+        fn assert_sync<T: Sync>() {}
+        assert_send::<ContainerStorage>();
+        assert_sync::<ContainerStorage>();
     }
 
     #[test]
