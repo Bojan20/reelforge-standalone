@@ -299,7 +299,7 @@
 
 | # | Problem | Rešenje | Effort |
 |---|---|---|---|
-| 2B.3.1 | **Panel Focus indikator** — ne znaš koji panel prima keyboard evente | Aktivni panel dobija 1px gold border; focus chain: Tab prebacuje fokus između panela | 2 h |
+| 2B.3.1 | ✅ Panel Focus indikator — `PanelFocusProvider` + `FocusablePanel` (1px brandGold border) wrapped oko Spine/Canvas/Dock u HELIX. **2026-05-05 (commit 98414105 follow-up):** dodato keyboard cycling `Cmd+]` / `Cmd+[` (forward / back) sa skip-on-invisible (FOCUS mode dock). Mirrors Logic Pro / Final Cut / Photoshop bindings — Tab namerno NIJE hijack-ovan jer Tab unutar TextField (BPM, GRID, project name) mora da zadrži native traversal. Toast `FOCUS: SPINE/CANVAS/DOCK` 1.5s. **14 unit testova** za PanelFocusProvider — pin anti-spam invariant (identical focus() mora ne-notify, sprečava AnimatedContainer repaint storm na pointer drag). |
 | 2B.3.2 | **Smart Panel Memory** — layout se ne pamti po projektu | `PanelLayoutProvider` pamti active tab/sub-tab + panel visibility per `projectId` u SQLite | 4 h |
 | 2B.3.3 | **Layout Snapshots** (`Cmd+Opt+1..9`) | Photoshop Layer Comps za panele — sačuvaj i vrati kompletan panel state jednim tasterom | 1 nedelja |
 | 2B.3.4 | **Hover tooltips** uniformni — 150ms delay, kompaktni, sa shortcut hintom | Sve ikone, sve dugmadi, svi slajderi. Format: `"Solo Bus (Cmd+S)"` | 3 h |

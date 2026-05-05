@@ -686,6 +686,20 @@ class _HelixScreenState extends State<HelixScreen>
       return;
     }
 
+    // SPEC-14 — Cmd+] / Cmd+[ cycle panel focus forward / back.
+    // Mirrors Logic Pro / Final Cut / Photoshop panel-cycle bindings.
+    // Tab is NOT hijacked because Tab inside a TextField (BPM, GRID,
+    // project name) must keep its native traversal semantics — losing
+    // focus mid-edit because of a global cycle would be a regression.
+    if (isMeta && key == LogicalKeyboardKey.bracketRight) {
+      _cyclePanelFocus(reverse: false);
+      return;
+    }
+    if (isMeta && key == LogicalKeyboardKey.bracketLeft) {
+      _cyclePanelFocus(reverse: true);
+      return;
+    }
+
     // SPRINT 1 SPEC-17 — Stage trigger keyboard shortcuts in HELIX FLOW tab.
     // Active only when FLOW dock tab (index 0) is selected; falls through
     // to dock-tab nav otherwise so existing 1-9 behavior is preserved.
@@ -735,6 +749,44 @@ class _HelixScreenState extends State<HelixScreen>
       setState(() => _dockTab = 11);
     }
   }
+
+  /// SPEC-14 — Panel focus cycle (Cmd+] forward, Cmd+[ back).
+  ///
+  /// Cycles through the three HELIX panels in visual reading order
+  /// (Spine → Canvas → Dock). When no panel is currently focused the
+  /// forward cycle lands on Spine and the reverse cycle lands on Dock,
+  /// so the very first Cmd+] always lands somewhere predictable.
+  ///
+  /// The Dock panel is suppressed in FOCUS mode (`_mode == 1`) where
+  /// the dock is hidden — cycling skips it so Cmd+] doesn't appear to
+  /// "do nothing" when it lands on an invisible target.
+  void _cyclePanelFocus({required bool reverse}) {
+    final order = <FocusPanelId>[
+      FocusPanelId.helixSpine,
+      FocusPanelId.helixCanvas,
+      if (_mode != 1) FocusPanelId.helixDock,
+    ];
+    final pf = GetIt.instance<PanelFocusProvider>();
+    final current = pf.focused;
+    final currentIdx = current == null ? -1 : order.indexOf(current);
+    final next = reverse
+        ? (currentIdx <= 0 ? order.length - 1 : currentIdx - 1)
+        : (currentIdx + 1) % order.length;
+    pf.focus(order[next]);
+    // Brief toast so the user sees which panel just took focus —
+    // otherwise a 1px gold border on the dock can be missed at a glance.
+    _showStageToast('FOCUS: ${_panelLabel(order[next])}');
+  }
+
+  String _panelLabel(FocusPanelId id) => switch (id) {
+        FocusPanelId.helixSpine => 'SPINE',
+        FocusPanelId.helixCanvas => 'CANVAS',
+        FocusPanelId.helixDock => 'DOCK',
+        FocusPanelId.dawTimeline => 'DAW TIMELINE',
+        FocusPanelId.dawLowerZone => 'DAW LOWER',
+        FocusPanelId.slotLabCanvas => 'SLOTLAB',
+        FocusPanelId.slotLabLowerZone => 'SLOTLAB LOWER',
+      };
 
   /// SPRINT 1 SPEC-17 — toast shown 1.5s bottom-center after a stage shortcut.
   void _showStageToast(String stage) {
