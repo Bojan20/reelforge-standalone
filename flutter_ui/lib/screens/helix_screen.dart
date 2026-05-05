@@ -42,7 +42,9 @@ import '../providers/slot_export_provider.dart';
 import '../providers/middleware_provider.dart';
 import '../providers/slot_lab/feature_composer_provider.dart';
 import '../providers/slot_lab/slot_lab_coordinator.dart';
-import '../providers/ale_provider.dart';
+// AleProvider import removed — wiring moved into `GridResizePipeline`
+// (FLUX_MASTER_TODO 2.1.7); helix_screen.dart no longer references the
+// type directly. CortexEye + ServiceLocator still register it.
 import '../providers/slot_lab/helix_bt_canvas_provider.dart';
 import '../services/native_file_picker.dart';
 import '../services/gdd_import_service.dart';
@@ -68,7 +70,11 @@ import '../services/cortex_eye_server.dart';
 import '../services/event_registry.dart';
 import '../services/event_registration_service.dart';
 import '../services/stage_configuration_service.dart';
-import '../services/gdd_import_service.dart' show GddGridConfig;
+// `GddGridConfig` ushtow-import removed — direct usage moved into
+// `GridResizePipeline` (FLUX_MASTER_TODO 2.1.7); the unqualified
+// `gdd_import_service.dart` import above still resolves
+// `GddImportService` for the CortexEye `slot_load_sample` path.
+import '../services/grid_resize_pipeline.dart';
 import '../models/slot_lab_models.dart' show SymbolDefinition, SymbolType;
 import '../providers/recording_provider.dart';
 import '../src/rust/native_ffi.dart';
@@ -133,6 +139,16 @@ class _HelixScreenState extends State<HelixScreen>
   bool _projectNameEditing = false;
   late final TextEditingController _projectNameController;
 
+  // ── Grid (REELS×ROWS) inline edit (FLUX_MASTER_TODO 2.1.7) ─────────────────
+  // Closes the Definition of Done metric "klika do promene reel count-a:
+  // 4 → 1". Tap the pill, type `5x3`, hit Enter — the resize routes
+  // through `GridResizePipeline.apply` so engine + composer + stages
+  // all stay in sync. Status string flashes for 2.5s then clears.
+  bool _gridEditing = false;
+  late final TextEditingController _gridController;
+  String? _gridFlash; // transient toast text (✓/✗) shown after submit
+  Timer? _gridFlashTimer;
+
   // ── Record toggle (O4) ────────────────────────────────────────────────────
 
   // ── Audio Context Lens (A3) ───────────────────────────────────────────────
@@ -187,6 +203,14 @@ class _HelixScreenState extends State<HelixScreen>
     _bpmController = TextEditingController(text: '128.0');
     _projectNameController = TextEditingController(
       text: GetIt.instance<SlotLabProjectProvider>().projectName);
+
+    // Grid pill — seed from current project grid (5×3 fallback). The
+    // controller is only repopulated on tap so user-typed-but-not-
+    // submitted values aren't overwritten by a provider notify.
+    final initGrid = GetIt.instance<SlotLabProjectProvider>().gridConfig;
+    _gridController = TextEditingController(
+      text: '${initGrid?.columns ?? 5}x${initGrid?.rows ?? 3}',
+    );
     _glowCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 4))
       ..repeat(reverse: true);
     _glowAnim = Tween<double>(begin: 0.06, end: 0.12).animate(
@@ -421,11 +445,39 @@ class _HelixScreenState extends State<HelixScreen>
     _focusNode.dispose();
     _bpmController.dispose();
     _projectNameController.dispose();
+    _gridController.dispose();
+    _gridFlashTimer?.cancel();
     _glowCtrl.dispose();
     _waveTimer.cancel();
     _bpmTimer.cancel();
     _playheadTimer.cancel();
     super.dispose();
+  }
+
+  /// Submit handler for the inline REELS×ROWS pill (FLUX_MASTER_TODO 2.1.7).
+  /// Parses `5x3` / `5×3` (case-insensitive), runs the resize through
+  /// `GridResizePipeline`, flashes the result for 2.5s. The pill exits
+  /// edit mode immediately on submit so the user sees the new value
+  /// settle even while the engine init runs in the background.
+  Future<void> _submitGridPill(String raw) async {
+    final parsed = GridResizePipeline.parseGridInput(raw);
+    setState(() => _gridEditing = false);
+    if (parsed == null) {
+      _flashGrid('✗ format: REELSxROWS (e.g. 5x3)');
+      return;
+    }
+    final result = await GridResizePipeline.apply(
+      reels: parsed.$1, rows: parsed.$2,
+    );
+    if (mounted) _flashGrid(result.shortStatus);
+  }
+
+  void _flashGrid(String text) {
+    _gridFlashTimer?.cancel();
+    setState(() => _gridFlash = text);
+    _gridFlashTimer = Timer(const Duration(milliseconds: 2500), () {
+      if (mounted) setState(() => _gridFlash = null);
+    });
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -1020,6 +1072,10 @@ class _HelixScreenState extends State<HelixScreen>
             ),
           ),
           const SizedBox(width: 12),
+          // FLUX_MASTER_TODO 2.1.7 — REELS×ROWS inline edit (was 4 clicks
+          // through the GAME CONFIG spine overlay; now 1 click + Enter).
+          _buildGridPill(),
+          const SizedBox(width: 12),
           // Transport
           _buildTransport(),
           const SizedBox(width: 12),
@@ -1044,6 +1100,105 @@ class _HelixScreenState extends State<HelixScreen>
           const SizedBox(width: 8),
         ],
       ),
+    );
+  }
+
+  /// FLUX_MASTER_TODO 2.1.7 — Inline REELS×ROWS pill in the Omnibar.
+  ///
+  /// Two states:
+  ///   * Display: shows current grid as `5×3` with a flash overlay
+  ///     when the most recent submit produced a `✓` / `✗` result.
+  ///   * Edit:    shows a 64px-wide TextField pre-filled with the
+  ///     current `5x3`, autofocused, submitting on Enter or
+  ///     onTapOutside. The format hint (✗ format) lands as a flash.
+  ///
+  /// Mirrors the BPM pill pattern (autofocus + onSubmitted +
+  /// onTapOutside) so the muscle memory is consistent across all
+  /// inline-edit affordances in the Omnibar.
+  Widget _buildGridPill() {
+    return ListenableBuilder(
+      listenable: GetIt.instance<SlotLabProjectProvider>(),
+      builder: (context, _) {
+        final cfg = GetIt.instance<SlotLabProjectProvider>().gridConfig;
+        final reels = cfg?.columns ?? 5;
+        final rows = cfg?.rows ?? 3;
+        final accent = FluxForgeTheme.accentPurple;
+        final flashIsErr = (_gridFlash ?? '').startsWith('✗');
+        final flashColor = flashIsErr
+            ? FluxForgeTheme.accentRed
+            : FluxForgeTheme.accentGreen;
+
+        return FluxTooltip(
+          message: 'Grid (REELS × ROWS)',
+          shortcutHint: 'click to edit · 5x3',
+          child: GestureDetector(
+            onTap: () {
+              // Re-seed the controller from the *current* provider value
+              // so the user always edits against the latest grid, not a
+              // stale value from the last edit attempt.
+              _gridController.text = '${reels}x$rows';
+              setState(() => _gridEditing = true);
+            },
+            child: _OmniPill(
+              color: accent.withOpacity(0.08),
+              border: _gridEditing
+                  ? accent.withOpacity(0.7)
+                  : accent.withOpacity(0.35),
+              child: Row(children: [
+                Text('GRID',
+                    style: TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 11,
+                        color: accent,
+                        letterSpacing: 0.5,
+                        fontWeight: FontWeight.w700)),
+                const SizedBox(width: 8),
+                if (_gridEditing)
+                  SizedBox(
+                    width: 56,
+                    child: TextField(
+                      controller: _gridController,
+                      autofocus: true,
+                      style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 13,
+                          color: accent,
+                          fontWeight: FontWeight.w700),
+                      decoration: const InputDecoration(
+                        isDense: true,
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                      onSubmitted: _submitGridPill,
+                      onTapOutside: (_) {
+                        // Esc-equivalent — exit edit without applying.
+                        // Submitting empty / unchanged is a no-op below
+                        // because we set _gridEditing = false here.
+                        if (_gridEditing) {
+                          setState(() => _gridEditing = false);
+                        }
+                      },
+                    ),
+                  )
+                else if (_gridFlash != null)
+                  Text(_gridFlash!,
+                      style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 11,
+                          color: flashColor,
+                          fontWeight: FontWeight.w700))
+                else
+                  Text('${reels}×$rows',
+                      style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 13,
+                          color: accent,
+                          fontWeight: FontWeight.w700)),
+              ]),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -7794,103 +7949,13 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
     _rows = gridCfg?.rows ?? 3;
   }
 
-  void _applyConfig() {
-    try {
-      final proj = GetIt.instance<SlotLabProjectProvider>();
-      final coordinator = GetIt.instance<SlotLabCoordinator>();
-
-      // 1. Initialize engine FIRST if needed — must happen before grid resize
-      //    (setGridConfig calls updateGridSize which only sends FFI if initialized)
-      if (!coordinator.initialized) {
-        final success = coordinator.initialize(audioTestMode: true);
-        if (success) {
-          final mw = GetIt.instance<MiddlewareProvider>();
-          coordinator.connectMiddleware(mw);
-          try {
-            final ale = GetIt.instance<AleProvider>();
-            coordinator.connectAle(ale);
-          } catch (_) {}
-        } else {
-          setState(() => _configStatus = '✗ Engine init failed');
-          return;
-        }
-      }
-
-      // 2. Save grid config → provider → Rust FFI engine
-      //    Now that engine is initialized, updateGridSize will call _reinitializeEngine
-      proj.setGridConfig(GddGridConfig(
-        rows: _rows,
-        columns: _reels,
-        mechanic: 'lines',
-      ));
-
-      // 3. Configure FeatureComposerProvider → removes "NO CONFIGURATION" overlay
-      final composer = GetIt.instance<FeatureComposerProvider>();
-      if (!composer.isConfigured) {
-        composer.applyConfig(SlotMachineConfig(
-          name: proj.projectName,
-          reelCount: _reels,
-          rowCount: _rows,
-          paylineCount: 20,
-          paylineType: PaylineType.lines,
-          winTierCount: 5,
-          volatilityProfile: 'medium',
-        ));
-      } else {
-        composer.applyConfig(composer.config!.copyWith(
-          reelCount: _reels,
-          rowCount: _rows,
-        ));
-      }
-
-      // 4. Stage auto-setup: create default CompositeEvents for all critical stages
-      _autoSetupStageEvents(_reels);
-      setState(() => _configStatus = '✓ ${_reels}×${_rows} ready');
-    } catch (e) {
-      setState(() => _configStatus = '✗ $e');
-    }
-  }
-
-  /// Auto-create default CompositeEvents for standard slot stages.
-  /// Idempotent: skips stages that already have a matching triggerStage entry.
-  void _autoSetupStageEvents(int reelCount) {
-    try {
-      final mw = GetIt.instance<MiddlewareProvider>();
-      final existingIds = mw.compositeEvents.map((e) => e.id).toSet();
-      final now = DateTime.now();
-
-      // Standard stages: one per reel + shared stages
-      final defaultStages = <(String id, String name, String stage, Color color)>[
-        ('auto_spin_loop',       'Reel Spin Loop',    'REEL_SPIN_LOOP',   FluxForgeTheme.accentCyan),
-        ...List.generate(reelCount, (i) => (
-          'auto_reel_stop_$i',  'Reel Stop ${i + 1}', 'REEL_STOP_$i',    FluxForgeTheme.accentBlue)),
-        ('auto_win_1',           'Small Win',          'WIN_PRESENT_1',    FluxForgeTheme.accentGreen),
-        ('auto_win_2',           'Medium Win',         'WIN_PRESENT_2',    FluxForgeTheme.accentYellow),
-        ('auto_win_3',           'Big Win',            'WIN_PRESENT_3',    FluxForgeTheme.accentOrange),
-        ('auto_bonus_trigger',   'Bonus Trigger',      'BONUS_TRIGGER',    FluxForgeTheme.accentPurple),
-        ('auto_free_spins',      'Free Spins Start',   'FREE_SPINS_START', FluxForgeTheme.accentPink),
-      ];
-
-      for (int i = 0; i < defaultStages.length; i++) {
-        final (id, name, stage, color) = defaultStages[i];
-        if (!existingIds.contains(id)) {
-          mw.addCompositeEvent(SlotCompositeEvent(
-            id: id,
-            name: name,
-            category: stage.toLowerCase().contains('win') ? 'win'
-                    : stage.toLowerCase().contains('reel') ? 'spin'
-                    : 'feature',
-            color: color,
-            layers: const [],
-            triggerStages: [stage],
-            timelinePositionMs: i * 2200.0,
-            trackIndex: 0,
-            createdAt: now,
-            modifiedAt: now,
-          ));
-        }
-      }
-    } catch (_) {}
+  /// FLUX_MASTER_TODO 2.1.7 — both this button and the HELIX Omnibar
+  /// inline pill route through the same `GridResizePipeline.apply` so
+  /// the four-step sequence (engine init → setGridConfig → composer
+  /// applyConfig → auto-stage seeding) lives in exactly one place.
+  Future<void> _applyConfig() async {
+    final result = await GridResizePipeline.apply(reels: _reels, rows: _rows);
+    if (mounted) setState(() => _configStatus = result.shortStatus);
   }
 
   Widget _spinnerRow(String label, int value, int min, int max, ValueChanged<int> onChanged) {
