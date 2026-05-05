@@ -64,6 +64,38 @@ class DawLowerZoneController extends ChangeNotifier {
     _instance = DawLowerZoneController._();
   }
 
+  // Singleton lifecycle guard.
+  // The controller is shared via `instance` and through the legacy factory
+  // constructor. When the screen that created it (EngineConnectedLayout) is
+  // disposed (back-to-launcher), it calls `controller.dispose()`. Without the
+  // guard below, the next entry into the DAW workspace would receive the SAME
+  // already-disposed singleton and the first async `loadFromStorage()` call
+  // would invoke `notifyListeners()` on a disposed ChangeNotifier — that
+  // assertion throws → Flutter renders the red ErrorWidget on top of the DAW.
+  bool _isDisposed = false;
+  bool get isDisposed => _isDisposed;
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    // Allow the next consumer to receive a fresh instance instead of the
+    // disposed one cached in `_instance`.
+    if (identical(_instance, this)) {
+      _instance = null;
+    }
+    super.dispose();
+  }
+
+  @override
+  void notifyListeners() {
+    // After dispose the underlying ChangeNotifier asserts on debug; an async
+    // continuation racing past dispose would crash the build with a red
+    // ErrorWidget. Drop the notification silently — the controller is gone
+    // and a fresh singleton is already in place for the next mount.
+    if (_isDisposed) return;
+    super.notifyListeners();
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // GETTERS
   // ═══════════════════════════════════════════════════════════════════════════
