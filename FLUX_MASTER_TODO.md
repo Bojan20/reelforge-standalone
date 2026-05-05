@@ -102,12 +102,12 @@
 |---|---|---|
 | 2.1.1 | HELIX dock jump-to: Cmd+K palette | ✅ already done — `CommandPalette.showUltimate` + DAW Quick Switcher u `engine_connected_layout.dart:7336-7372` (110+ sub-tab states wired). |
 | 2.1.2 | ✅ d86ec30b — `_collapsedBuses Set<int>` + clickable `_BusSeparator` sa channel count badge + chevron icon. Tap → toggle. 8→24px width u collapsed state. |
-| 2.1.3 | Engine_connected_layout 3-panel collapsible | ⏳ open |
+| 2.1.3 | ✅ 35fe07aa — `CollapsedRail` widget (24px clickable rail) renders in place of `SizedBox.shrink()` u LeftZone/RightZone/LowerZone. Vertical (left/right) sa rotated label + side-aware chevron, horizontal (lower) sa "CLICK TO EXPAND" hint. Hover state lifts accent border. Tooltip pokazuje canonical shortcut (Cmd+L / Cmd+R / Cmd+B) — affordance bez gubitka prostora. |
 | 2.1.4 | Keyboard shortcut map overlay (`?` / `Cmd+/`) | ✅ already done — `KeyboardShortcutsOverlay.show` u `main_layout.dart:521-523` (P3.1). |
 | 2.1.5 | ✅ 3e0e2a1b — `_SubTabIndexIntent` + 17-entry `_kSubTabKeyMap` u `daw_lower_zone_widget.dart`. Digit 1-9 → idx 0-8, 0 → 9, Q-U → 10-16. CallbackAction → `controller.setSubTabIndex` (clamped). Focus(canRequestFocus: false) ne krade input iz text fields. |
 | 2.1.6 | Status bar height 28→22px | ✅ obsolete — `mixer_status_bar.dart` već je 24px (close to target). |
 | 2.1.7 | HELIX Omnibar inline edit-in-place | ⏳ open |
-| 2.1.8 | ✅ — `enum _SlotPreviewSize { off, full, large, medium }` + cycle helpers `_enterPreviewFull` / `_cyclePreviewDown`. F11 → full; Escape (or PiP backdrop tap, or PremiumSlotPreview close button) → full → 80% → 50% → off. LARGE/MEDIUM render as picture-in-picture overlay on top of live slot_lab UI (mixer + lower zone visible behind a `0x99` black backdrop). Existing `_isPreviewMode` getter preserved so all 4 legacy call sites continue to work. `slot_lab_screen.dart`. |
+| 2.1.8 | ✅ a62b838e + 72ecec04 — `SlotPreviewSize { off, full, large, medium }` cycle (F11 → full; Escape → full → 80% → 50% → off). LARGE/MEDIUM render kao picture-in-picture overlay preko slot_lab UI (mixer + lower zone vidljiv iza `0x99` black backdrop). 72ecec04 izvukao enum iz private state-a u `lib/models/slot_preview_size.dart` (public + `SlotPreviewSizeTransitions` extension) za testabilnost. **35 unit testova** u `test/models/slot_preview_size_test.dart` — convergence (`cycleDown` reaches `off` u ≤ 3 koraka), enterFull invariant, cardinality guard. |
 
 ### 2.2 Brzina
 
