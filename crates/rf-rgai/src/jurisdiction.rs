@@ -6,6 +6,12 @@
 use serde::{Deserialize, Serialize};
 
 /// Supported jurisdictions.
+///
+/// **Compliance gate:** `Default` returns `Ukgc` — the strictest profile —
+/// not `Custom` (which is permissive). A blueprint that arrives over the
+/// wire with a missing/unknown jurisdiction must therefore *fail closed*
+/// (over-restrictive) rather than fail open (unrestricted). Reverting this
+/// to `Custom` requires explicit code review.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Jurisdiction {
     /// UK Gambling Commission — strictest globally
@@ -24,6 +30,15 @@ pub enum Jurisdiction {
     Australia,
     /// Custom jurisdiction with user-defined thresholds
     Custom,
+}
+
+impl Default for Jurisdiction {
+    /// Fail-closed default: pick the strictest jurisdiction so a missing
+    /// or malformed `jurisdiction` field in deserialized config can never
+    /// silently downgrade compliance to `Custom`/permissive.
+    fn default() -> Self {
+        Self::Ukgc
+    }
 }
 
 impl Jurisdiction {
@@ -313,6 +328,19 @@ impl JurisdictionProfile {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn default_jurisdiction_is_ukgc_fail_closed() {
+        // Compliance gate: a missing/unknown jurisdiction must default to
+        // the *strictest* profile, not `Custom` (which is permissive).
+        // If you change this, also check every Deserialize path that may
+        // accept a config without an explicit `jurisdiction` field.
+        assert_eq!(Jurisdiction::default(), Jurisdiction::Ukgc);
+        let p = Jurisdiction::default().profile();
+        // UKGC has the strictest LDW threshold (0.20) — Custom/permissive
+        // would be ≥ 0.40. Sanity check that we did not regress to Custom.
+        assert!(p.max_loss_disguise <= 0.20 + 1e-10);
+    }
 
     #[test]
     fn all_builtin_jurisdictions_have_profiles() {
