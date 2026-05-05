@@ -14,6 +14,7 @@ import 'dart:math' as math;
 import '../../services/cortex_vision_service.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../../models/layout_models.dart';
+import 'collapsed_rail.dart';
 
 /// Lower zone widget
 class LowerZone extends StatefulWidget {
@@ -94,7 +95,13 @@ class _LowerZoneState extends State<LowerZone> {
   @override
   Widget build(BuildContext context) {
     if (widget.collapsed) {
-      return const SizedBox.shrink();
+      return CollapsedRail(
+        side: RailSide.lower,
+        label: 'Lower Zone',
+        icon: Icons.tune,
+        accentColor: FluxForgeTheme.accentBlue,
+        onExpand: widget.onToggleCollapse,
+      );
     }
 
     final activeTab = widget.tabs.firstWhere(

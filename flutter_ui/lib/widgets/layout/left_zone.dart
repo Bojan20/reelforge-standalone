@@ -15,6 +15,7 @@ import '../../providers/event_folder_provider.dart';
 import '../../services/service_locator.dart';
 import 'project_tree.dart';
 import 'channel_inspector_panel.dart';
+import 'collapsed_rail.dart';
 import 'event_folder_panel.dart';
 
 /// Left zone tabs (matches React: 'project' | 'channel')
@@ -155,7 +156,16 @@ class _LeftZoneState extends State<LeftZone> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.collapsed) return const SizedBox.shrink();
+    // 2.1.3: Collapsed rail (24px) instead of full hide — affordance for re-expansion.
+    if (widget.collapsed) {
+      return CollapsedRail(
+        side: RailSide.left,
+        label: _projectTabLabel,
+        icon: _projectTabIcon,
+        accentColor: _modeAccentColor,
+        onExpand: widget.onToggleCollapse,
+      );
+    }
 
     // P2-11: Responsive width constraints (220-400px)
     return LayoutBuilder(

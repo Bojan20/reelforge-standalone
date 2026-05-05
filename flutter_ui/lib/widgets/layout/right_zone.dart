@@ -13,6 +13,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../../models/layout_models.dart';
+import 'collapsed_rail.dart';
 
 /// Inspected object types
 enum InspectedObjectType {
@@ -87,7 +88,13 @@ class _RightZoneState extends State<RightZone> {
   @override
   Widget build(BuildContext context) {
     if (widget.collapsed) {
-      return const SizedBox.shrink();
+      return CollapsedRail(
+        side: RailSide.right,
+        label: 'Inspector',
+        icon: Icons.info_outline,
+        accentColor: FluxForgeTheme.accentBlue,
+        onExpand: widget.onToggleCollapse,
+      );
     }
 
     // Completely empty when nothing selected
