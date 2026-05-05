@@ -78,14 +78,40 @@ impl HrtfDatabase {
         self.filter_length = self.filter_length.max(length);
     }
 
-    /// Get interpolated HRIR for direction
+    /// Get interpolated HRIR for direction.
+    ///
+    /// Azimuth is normalised to a canonical [−180°, +180°) range before
+    /// dispatch so that physically identical directions (e.g. `−170°` and
+    /// `+190°`) produce bit-identical lookups in every interpolation
+    /// method, not just the ones that go through `wrap_az_idx` on a grid
+    /// index. Pre-fix, `Vbap` evaluated `sin/cos` directly on the user-
+    /// supplied angle, so `+190°` and `−170°` produced sub-millisample
+    /// HRIR drift on the order of 1e-3 — a moving source crossing ±180°
+    /// would emit a faint click. The normalisation eliminates that drift
+    /// at the source.
     pub fn get_hrir(&self, azimuth: f32, elevation: f32) -> Option<HrirPair> {
+        let az = Self::normalize_azimuth(azimuth);
         match self.interpolation {
-            HrtfInterpolation::Nearest => self.get_nearest(azimuth, elevation),
-            HrtfInterpolation::Bilinear => self.get_bilinear(azimuth, elevation),
-            HrtfInterpolation::Spherical => self.get_spherical(azimuth, elevation),
-            HrtfInterpolation::Vbap => self.get_vbap(azimuth, elevation),
+            HrtfInterpolation::Nearest => self.get_nearest(az, elevation),
+            HrtfInterpolation::Bilinear => self.get_bilinear(az, elevation),
+            HrtfInterpolation::Spherical => self.get_spherical(az, elevation),
+            HrtfInterpolation::Vbap => self.get_vbap(az, elevation),
         }
+    }
+
+    /// Fold an azimuth into the canonical `[−180°, +180°)` half-open range.
+    ///
+    /// Uses `rem_euclid` so that negative inputs round toward 0 in the same
+    /// direction as positive — `-540° → +180° → −180°` (after the final
+    /// half-open shift). NaN inputs collapse to 0° rather than poisoning
+    /// downstream trig.
+    #[inline]
+    fn normalize_azimuth(az: f32) -> f32 {
+        if !az.is_finite() {
+            return 0.0;
+        }
+        let folded = az.rem_euclid(360.0);
+        if folded >= 180.0 { folded - 360.0 } else { folded }
     }
 
     /// Wrap an azimuth bin index into the periodic [0, az_steps) range so
@@ -588,5 +614,47 @@ mod tests {
             .fold(0.0_f32, f32::max);
         assert!(max_diff < 1e-4,
             "spherical at grid point must equal nearest; max_diff={max_diff}");
+    }
+
+    /// Wrap-around must hold for **every** interpolation method, not just
+    /// Bilinear (which is what `test_bilinear_wraps_around_180` covers).
+    /// A regression where a future variant forgot to call `wrap_az_idx`
+    /// would silently produce ITD/ILD discontinuities only on that path
+    /// — easy to ship, hard to notice during a 5-minute QA. This property
+    /// test pins the invariant for all four methods at once.
+    ///
+    /// Invariant: `hrir(az + 360°) ≈ hrir(az)` and `hrir(-az_x) ≈ hrir(360° - az_x)`
+    /// for any angle that's well-defined in the synthetic database.
+    #[test]
+    fn test_all_methods_wrap_azimuth_periodically() {
+        for method in [
+            HrtfInterpolation::Nearest,
+            HrtfInterpolation::Bilinear,
+            HrtfInterpolation::Spherical,
+            HrtfInterpolation::Vbap,
+        ] {
+            let mut db = HrtfDatabase::default_synthetic(48000);
+            db.set_interpolation(method);
+
+            // Sample 8 angles spaced around the circle (skip ±180° because
+            // some methods discriminate by sign there in tie-breaking).
+            for az in [-170.0_f32, -120.0, -45.0, -10.0, 10.0, 45.0, 120.0, 170.0] {
+                let a = db.get_hrir(az, 0.0)
+                    .unwrap_or_else(|| panic!("{method:?} returned None for az={az}"));
+                let a_plus_360 = db.get_hrir(az + 360.0, 0.0)
+                    .unwrap_or_else(|| panic!("{method:?} returned None for az={}", az + 360.0));
+
+                let max_diff = a.left.iter().zip(a_plus_360.left.iter())
+                    .map(|(p, q)| (p - q).abs())
+                    .fold(0.0_f32, f32::max);
+
+                // Synthetic HRTF is exact to within float noise.
+                assert!(
+                    max_diff < 1e-3,
+                    "{method:?}: hrir({az}) and hrir({}) must match (max_diff={max_diff})",
+                    az + 360.0,
+                );
+            }
+        }
     }
 }
