@@ -17,6 +17,7 @@ import 'package:provider/provider.dart';
 import '../../services/cortex_vision_service.dart';
 import '../../services/cortex_intelligence_loop.dart';
 import '../../theme/fluxforge_theme.dart';
+import '../common/flux_tooltip.dart';
 import '../../models/layout_models.dart';
 import '../../models/editor_mode_config.dart';
 import '../../providers/keyboard_focus_provider.dart';
@@ -768,7 +769,10 @@ class _TransportBtnState extends State<_TransportBtn> {
         ? (widget.activeColor ?? FluxForgeTheme.accentBlue)
         : (_isHovered ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary);
 
-    return Tooltip(
+    // SPEC-16 — uniform tooltip surface (150ms delay, brand-gold border,
+    // optional shortcut hint). Pre-migration this was a raw `Tooltip(
+    // message: ...)` with platform-default delay and styling.
+    return FluxTooltip(
       message: widget.tooltip,
       child: MouseRegion(
         onEnter: (_) => setState(() => _isHovered = true),

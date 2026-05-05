@@ -35,7 +35,11 @@ class FluxTooltip extends StatelessWidget {
   final bool preferBelow;
 
   /// Wait duration before showing — uniform 150ms across the app.
-  static const Duration _waitDuration = Duration(milliseconds: 150);
+  ///
+  /// Public so tests and other tooltip surfaces (e.g. a future custom
+  /// overlay that doesn't go through `Tooltip`) can pin the same delay
+  /// without re-deriving the magic constant.
+  static const Duration kWaitDuration = Duration(milliseconds: 150);
 
   const FluxTooltip({
     super.key,
@@ -45,7 +49,22 @@ class FluxTooltip extends StatelessWidget {
     this.preferBelow = true,
   });
 
-  String _formatShortcut(String raw) {
+  /// Pure shortcut-formatter, exposed as a public static so the
+  /// `Cmd+ → ⌘` / `Shift+ → ⇧` mapping is testable without pumping a
+  /// widget tree. Order of replacements matters — modifiers that share
+  /// a glyph (Alt+ and Option+ both → ⌥) collapse to the same output.
+  ///
+  /// Mirrors the macOS keyboard symbol set:
+  ///   * `Cmd+`     → `⌘`
+  ///   * `Ctrl+`    → `⌃`
+  ///   * `Shift+`   → `⇧`
+  ///   * `Alt+`     → `⌥`
+  ///   * `Option+`  → `⌥`
+  ///
+  /// Anything not matching one of those prefixes passes through verbatim
+  /// so callers can write `'⌘K'` or `'Space'` literally and still get
+  /// rendered correctly.
+  static String formatShortcut(String raw) {
     return raw
         .replaceAll('Cmd+', '⌘')
         .replaceAll('Ctrl+', '⌃')
@@ -78,7 +97,7 @@ class FluxTooltip extends StatelessWidget {
               if (hasHint) ...[
                 const SizedBox(height: 2),
                 Text(
-                  _formatShortcut(shortcutHint!),
+                  formatShortcut(shortcutHint!),
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w500,
@@ -92,7 +111,7 @@ class FluxTooltip extends StatelessWidget {
           ),
         ),
       ),
-      waitDuration: _waitDuration,
+      waitDuration: kWaitDuration,
       preferBelow: preferBelow,
       decoration: BoxDecoration(
         color: const Color(0xF20A0A10),

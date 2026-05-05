@@ -2014,8 +2014,13 @@ class _HelixScreenState extends State<HelixScreen>
             onVerticalDragUpdate: (d) => setState(() {
               _dockHeight = (_dockHeight - d.delta.dy).clamp(180.0, 600.0);
             }),
-            child: Tooltip(
+            // SPEC-16 — uniform tooltip surface (150ms delay, brand-gold
+            // border, optional shortcut hint). Pre-migration this was a
+            // raw `Tooltip(message: ...)` with the platform default
+            // long-press / 1500ms hover delay and dark grey background.
+            child: FluxTooltip(
               message: 'Drag to resize',
+              shortcutHint: 'drag · vertical',
               child: SizedBox(
                 width: 44, height: 44,
                 child: Column(
