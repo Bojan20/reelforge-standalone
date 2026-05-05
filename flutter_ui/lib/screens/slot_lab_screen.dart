@@ -82,6 +82,7 @@ import '../services/stage_audio_mapper.dart';
 import '../models/game_flow_models.dart';
 import '../models/stage_models.dart';
 import '../models/middleware_models.dart';
+import '../models/slot_preview_size.dart';
 import '../models/slot_audio_events.dart';
 import '../models/auto_event_builder_models.dart' show AudioAsset;
 import '../models/win_tier_config.dart';
@@ -382,17 +383,10 @@ enum _LeftPanelTab { audio, events, aurexis }
 /// Right panel tab modes — CONFIG (scene config) + POOL (audio file browser)
 enum _RightPanelTab { config, pool }
 
-/// FLUX_MASTER_TODO 2.1.8 — Slot preview size cycle.
-/// `Escape` cycles down: full → large (80%) → medium (50%) → off.
-/// `F11` enters at full from off; harmless when already in preview.
-/// Picture-in-picture: large/medium float over the live slot_lab UI so
-/// the author can keep mixer + lower zone visible while previewing.
-enum _SlotPreviewSize {
-  off,
-  full,    // 100% — covers entire screen (PremiumSlotPreview fullscreen)
-  large,   // 80%  — picture-in-picture, slotlab visible behind dim
-  medium,  // 50%  — picture-in-picture, slotlab visible behind dim
-}
+// FLUX_MASTER_TODO 2.1.8 — `SlotPreviewSize` was extracted to
+// `lib/models/slot_preview_size.dart` as the public `SlotPreviewSize`
+// enum + `SlotPreviewSizeTransitions` extension so the cycle behavior is
+// unit-testable in isolation (see `test/models/slot_preview_size_test.dart`).
 
 class _SlotLabScreenState extends State<SlotLabScreen>
     with TickerProviderStateMixin, AutomaticKeepAliveClientMixin, InlineToastMixin, WidgetsBindingObserver {
@@ -1359,30 +1353,28 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   late final SlotLabLowerZoneController _lowerZoneController;
 
   // FLUX_MASTER_TODO 2.1.8 — preview size cycle (off / full / 80% / 50%).
-  // `_isPreviewMode` getter preserves all existing call sites that ask
-  // "is the preview visible at all?" without caring which size.
-  _SlotPreviewSize _previewSize = _SlotPreviewSize.off;
-  bool get _isPreviewMode => _previewSize != _SlotPreviewSize.off;
+  // Transition logic lives in `SlotPreviewSizeTransitions` extension so it's
+  // unit-testable in isolation. `_isPreviewMode` getter preserves all
+  // existing call sites that ask "is the preview visible at all?" without
+  // caring which size.
+  SlotPreviewSize _previewSize = SlotPreviewSize.off;
+  bool get _isPreviewMode => _previewSize.isPreviewMode;
   bool _showSplashOnPreview = false; // Splash after CREATE, auto-bind complete, or manual reload
 
   /// F11 — enter preview at full screen if currently off; otherwise no-op
   /// (the dedicated cycle-down lives on Escape, mirrored from `onExit`).
   void _enterPreviewFull() {
-    if (_previewSize == _SlotPreviewSize.full) return;
-    setState(() => _previewSize = _SlotPreviewSize.full);
+    final next = _previewSize.enterFull();
+    if (next == _previewSize) return;
+    setState(() => _previewSize = next);
   }
 
   /// Escape / overlay close — cycle one step down: full → 80% → 50% → off.
   /// Splash flag is cleared on full exit so the next entry doesn't replay it.
   void _cyclePreviewDown() {
     setState(() {
-      _previewSize = switch (_previewSize) {
-        _SlotPreviewSize.full   => _SlotPreviewSize.large,
-        _SlotPreviewSize.large  => _SlotPreviewSize.medium,
-        _SlotPreviewSize.medium => _SlotPreviewSize.off,
-        _SlotPreviewSize.off    => _SlotPreviewSize.off,
-      };
-      if (_previewSize == _SlotPreviewSize.off) {
+      _previewSize = _previewSize.cycleDown();
+      if (_previewSize == SlotPreviewSize.off) {
         _showSplashOnPreview = false;
       }
     });
@@ -3582,7 +3574,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // FLUX_MASTER_TODO 2.1.8 — only the FULL stage takes over the screen.
     // LARGE/MEDIUM render as picture-in-picture overlay below (after the
     // slot_lab content is composed) so mixer + lower zone stay visible.
-    if (_previewSize == _SlotPreviewSize.full) {
+    if (_previewSize == SlotPreviewSize.full) {
       return PremiumSlotPreview(
         key: ValueKey('fullscreen_slot_${_reelCount}x${_rowCount}_splash$_showSplashOnPreview'),
         // ESC inside full preview cycles down to 80% (PiP), not all the way out.
@@ -4005,8 +3997,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // lower zone behind it. FULL mode short-circuits earlier and replaces
     // the screen entirely; OFF skips the overlay altogether.
     final hasPip =
-        _previewSize == _SlotPreviewSize.large ||
-        _previewSize == _SlotPreviewSize.medium;
+        _previewSize == SlotPreviewSize.large ||
+        _previewSize == SlotPreviewSize.medium;
     if (hasPip) {
       slotLabContent = Stack(
         children: [
@@ -4022,8 +4014,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           // Centered preview at the requested fraction of the screen.
           Center(
             child: FractionallySizedBox(
-              widthFactor: _previewSize == _SlotPreviewSize.large ? 0.80 : 0.50,
-              heightFactor: _previewSize == _SlotPreviewSize.large ? 0.80 : 0.50,
+              widthFactor: _previewSize == SlotPreviewSize.large ? 0.80 : 0.50,
+              heightFactor: _previewSize == SlotPreviewSize.large ? 0.80 : 0.50,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: PremiumSlotPreview(
@@ -4555,7 +4547,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       // FLUX_MASTER_TODO 2.1.8 — Picture-in-picture preview cycle down.
       // Full mode is handled by PremiumSlotPreview's own onExit, so by the
       // time we get here the preview is at most LARGE.
-      if (_previewSize != _SlotPreviewSize.off) {
+      if (_previewSize != SlotPreviewSize.off) {
         _cyclePreviewDown();
         return KeyEventResult.handled;
       }
@@ -5720,7 +5712,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             rows: newRows,
             volatility: _volatilityFromGdd(result.gdd.math.volatility),
           );
-          _previewSize = _SlotPreviewSize.full;  // Open fullscreen slot machine
+          _previewSize = SlotPreviewSize.full;  // Open fullscreen slot machine
           _showSplashOnPreview = true; // Show splash for new game
         });
 
