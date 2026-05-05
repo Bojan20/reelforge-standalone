@@ -41,6 +41,19 @@ perf.data*
 *.tmp
 *.temp
 
+# Stray test binaries — never let an unintended Mach-O / ELF slip into
+# the repo via `git add .`. Real test runners are cargo test / flutter
+# test, not standalone harnesses checked into the tree.
+test_send
+
+# Nested Flutter / Xcode build pyramids. flutter_ui/.gitignore only
+# covers `/build/` relative to its own dir, which leaves
+# `flutter_ui/macos/build/` (Xcode DerivedData mirror) untracked-but-
+# noisy in `git status`. `**/build/` from root catches every nested
+# build dir under flutter_ui/* without touching crates/*/target (which
+# is already covered by /target above).
+**/build/
+
 # Environment
 .env
 .env.local
