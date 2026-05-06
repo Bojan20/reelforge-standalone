@@ -9,3 +9,7 @@ license.workspace = true
 serde = { workspace = true }
 thiserror = { workspace = true }
 log = { workspace = true }
+
+[dev-dependencies]
+# FLUX_MASTER_TODO 2.2.2 — wav_writer disk round-trip tests need temp files.
+tempfile = "3"

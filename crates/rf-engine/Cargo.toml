@@ -64,6 +64,8 @@ symphonia = { version = "0.5", default-features = false, features = [
 
 [dev-dependencies]
 serial_test = "3.1"
+# FLUX_MASTER_TODO 2.2.2 — WAV writer disk round-trip tests need temp files.
+tempfile = "3"
 
 [features]
 default = ["unified_routing"]

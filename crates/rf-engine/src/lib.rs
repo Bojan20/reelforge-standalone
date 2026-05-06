@@ -126,6 +126,11 @@ pub mod helix_bus;
 // Phase 10e-2: Master-output ring buffer for Problems Inbox WAV export.
 pub mod master_ring;
 
+// FLUX_MASTER_TODO 2.2.2 — WAV writer was moved to rf-core (zero heavy
+// deps) so it can be tested in isolation while ffmpeg-next dep build is
+// blocked. Re-export here for backward-compat call sites.
+pub use rf_core::wav_writer;
+
 // Phase 10e-3: Per-bus 4-band energy analyzer for precise masking detection.
 pub mod per_bus_band_energy;
 

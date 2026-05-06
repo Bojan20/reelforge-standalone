@@ -21,6 +21,14 @@ mod time;
 mod track;
 mod widgets;
 
+// FLUX_MASTER_TODO 2.2.2 — RIFF/WAVE 16-bit PCM stereo writer.
+// Pairs sa `rf-engine::master_ring::MasterRingBuffer` (Phase 10e-2) da
+// Problems Inbox snima audio replay pored screenshot-a. Public modul jer
+// `rf-engine` (snapshot WAV export) i `rf-bridge` FFI (UI capture command)
+// trebaju isti writer. Živi u rf-core jer rf-engine trenutno ne build-uje
+// testove (pre-existing ffmpeg-next dep break) — rf-core je zero-heavy-dep.
+pub mod wav_writer;
+
 pub use channel_strip::*;
 pub use comping::*;
 pub use edit_mode::*;
