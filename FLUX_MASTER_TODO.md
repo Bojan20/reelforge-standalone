@@ -137,7 +137,7 @@
 |---|---|---|
 | 2.4.1 | `ValidationErrorCategory.deprecated` | ❌ NOT dead — koristi se u 3 call sites u `services/project_schema_validator.dart:661,670,678`. Spec outdated. |
 | 2.4.2 | `_deprecated_slot_events` v4→v5 | ❌ NOT dead — namerno preserved kao migration safeguard u `project_migrator.dart:594-604`. Brisanje kvari load-uvanje starih projekata. |
-| 2.4.3 | 3 obsolete DAW sub-tabs | ⏳ specifikuj koje (spec ne nabraja) |
+| 2.4.3 | 3 obsolete DAW sub-tabs | ❌ NOT DEAD — duboki audit: svih 31 DawEditSubTab sub-tabova ima realan sadržaj (pun widget, nema "Coming Soon", nema SizedBox.shrink()), uključujući CycleActionsPanel, RegionPlaylistPanel, GranularSynthPanel, DspScriptPanel, ExtensionSdkPanel itd. Spec ghost — nikada nije specifikovano koje 3. |
 | 2.4.4 | `gdd_import_*` legacy ~800 LOC | ❌ NOT dead — `GddImportWizard.show` + `GddImportPanel` + `GddImportService.createSampleGddJson` aktivni u `slot_lab_screen.dart` i `helix_screen.dart`. |
 | 2.4.5 | Old BT format pre-v11 | ❌ NOT dead — `behavior_tree_provider.dart` nema legacy format references; spec ghost. |
 
