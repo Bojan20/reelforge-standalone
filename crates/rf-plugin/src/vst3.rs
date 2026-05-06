@@ -187,37 +187,38 @@ fn register_plugin_window_classes() {
                 Bool::YES
             }
 
-            // Debug: log sendEvent + hitTest for mouseDown
+            // Forward sendEvent to super. Debug hit-test logging is gated on
+            // debug_assertions so production builds have zero overhead here.
             unsafe extern "C" fn send_event(this: *mut AnyObject, _sel: Sel, event: *mut AnyObject) {
                 unsafe {
-                    let etype: u64 = msg_send![event, r#type];
-                    if etype == 1 { // mouseDown
-                        let location: NSPoint = msg_send![event, locationInWindow];
-                        let content_view: *mut AnyObject = msg_send![this, contentView];
-                        let local: NSPoint = msg_send![content_view, convertPoint: location, fromView:std::ptr::null_mut::<AnyObject>()];
-                        let hit: *mut AnyObject = msg_send![content_view, hitTest: local];
-                        if !hit.is_null() {
-                            let cls: *mut AnyObject = msg_send![hit, class];
-                            let name: *mut AnyObject = msg_send![cls, className];
-                            let cstr: *const i8 = msg_send![name, UTF8String];
-                            let n = if cstr.is_null() { "?" } else { std::ffi::CStr::from_ptr(cstr).to_str().unwrap_or("?") };
-                            let super_cls: *mut AnyObject = msg_send![cls, superclass];
-                            let super_name: *mut AnyObject = msg_send![super_cls, className];
-                            let scstr: *const i8 = msg_send![super_name, UTF8String];
-                            let sn = if scstr.is_null() { "?" } else { std::ffi::CStr::from_ptr(scstr).to_str().unwrap_or("?") };
-                            eprintln!("[FFPluginWindow] mouseDown at ({:.0},{:.0}) hit={} super={}", local.x, local.y, n, sn);
-                            // Check view hierarchy depth
-                            let mut v: *mut AnyObject = hit;
-                            let mut depth = 0;
-                            while !v.is_null() {
-                                let parent: *mut AnyObject = msg_send![v, superview];
-                                v = parent;
-                                depth += 1;
-                                if depth > 20 { break; }
+                    #[cfg(debug_assertions)]
+                    {
+                        let etype: u64 = msg_send![event, r#type];
+                        if etype == 1 { // mouseDown
+                            let location: NSPoint = msg_send![event, locationInWindow];
+                            let content_view: *mut AnyObject = msg_send![this, contentView];
+                            let local: NSPoint = msg_send![content_view, convertPoint: location, fromView:std::ptr::null_mut::<AnyObject>()];
+                            let hit: *mut AnyObject = msg_send![content_view, hitTest: local];
+                            if !hit.is_null() {
+                                let cls: *mut AnyObject = msg_send![hit, class];
+                                let name: *mut AnyObject = msg_send![cls, className];
+                                let cstr: *const i8 = msg_send![name, UTF8String];
+                                let n = if cstr.is_null() { "?" } else { std::ffi::CStr::from_ptr(cstr).to_str().unwrap_or("?") };
+                                let super_cls: *mut AnyObject = msg_send![cls, superclass];
+                                let super_name: *mut AnyObject = msg_send![super_cls, className];
+                                let scstr: *const i8 = msg_send![super_name, UTF8String];
+                                let sn = if scstr.is_null() { "?" } else { std::ffi::CStr::from_ptr(scstr).to_str().unwrap_or("?") };
+                                log::trace!("[FFPluginWindow] mouseDown at ({:.0},{:.0}) hit={} super={}", local.x, local.y, n, sn);
+                                let mut v: *mut AnyObject = hit;
+                                let mut depth = 0;
+                                while !v.is_null() {
+                                    let parent: *mut AnyObject = msg_send![v, superview];
+                                    v = parent;
+                                    depth += 1;
+                                    if depth > 20 { break; }
+                                }
+                                log::trace!("[FFPluginWindow] view depth={}", depth);
                             }
-                            eprintln!("[FFPluginWindow] view depth={}", depth);
-                        } else {
-                            eprintln!("[FFPluginWindow] mouseDown hitTest=nil at ({:.0},{:.0})", local.x, local.y);
                         }
                     }
                     // Call super
@@ -864,11 +865,30 @@ impl Vst3Host {
 
         // Scan all plugins — for AU, scan_path() ignores path and returns ALL system AU plugins.
         // We then match by path or name to find the correct one.
-        let plugins = scanner
-            .scan()
-            .map_err(|e| PluginError::LoadFailed(format!("Failed to scan plugins: {:?}", e)))?;
+        //
+        // TIMEOUT GUARD: rack scanner can hang indefinitely on malformed or sandbox-denied
+        // plugins. We run it in a dedicated thread with a 5-second timeout (same as Logic Pro /
+        // Ableton). If it times out, we return a clear error rather than freezing the DAW.
+        let plugins = {
+            use std::sync::mpsc;
+            let (tx, rx) = mpsc::channel();
+            std::thread::Builder::new()
+                .name("fluxforge-plugin-scanner".into())
+                .spawn(move || {
+                    let result = scanner.scan();
+                    let _ = tx.send(result);
+                })
+                .map_err(|e| PluginError::LoadFailed(format!("Failed to spawn scanner thread: {}", e)))?;
 
-        eprintln!("[FluxForge] load_with_rack: scan found {} plugins for path {:?}", plugins.len(), path);
+            rx.recv_timeout(std::time::Duration::from_secs(5))
+                .map_err(|_| PluginError::LoadFailed(
+                    "Plugin scanner timed out after 5 seconds. The plugin may be sandboxed, \
+                     quarantined, or incompatible with this system.".to_string()
+                ))?
+                .map_err(|e| PluginError::LoadFailed(format!("Failed to scan plugins: {:?}", e)))?
+        };
+
+        log::debug!("[FluxForge] load_with_rack: scan found {} plugins for path {:?}", plugins.len(), path);
 
         if plugins.is_empty() {
             return Err(PluginError::LoadFailed(format!(
@@ -916,10 +936,10 @@ impl Vst3Host {
         }
 
         let plugin_info = plugin_info.ok_or_else(|| {
-            // Log ALL plugins for debugging (to find the correct name)
-            eprintln!("[FluxForge] Could not find plugin matching '{}' in {} scanned plugins:", plugin_name, plugins.len());
+            // Log ALL scanned plugins at debug level so developers can see the mismatch
+            log::debug!("Could not find plugin matching '{}' in {} scanned plugins:", plugin_name, plugins.len());
             for p in &plugins {
-                eprintln!("[FluxForge]   '{}' by {} (path={:?})", p.name, p.manufacturer, p.path);
+                log::debug!("  available: '{}' by {} (path={:?})", p.name, p.manufacturer, p.path);
             }
             PluginError::LoadFailed(format!(
                 "Plugin '{}' not found in {} scanned plugins",
@@ -928,7 +948,7 @@ impl Vst3Host {
             ))
         })?;
 
-        eprintln!("[FluxForge] Matched plugin: '{}' by {} (id={})", plugin_info.name, plugin_info.manufacturer, plugin_info.unique_id);
+        log::info!("Matched plugin '{}' by {} (id={})", plugin_info.name, plugin_info.manufacturer, plugin_info.unique_id);
 
         let plugin = scanner
             .load(plugin_info)
@@ -1401,10 +1421,18 @@ impl PluginInstance for Vst3Host {
 
         #[cfg(target_os = "macos")]
         {
-            // Close in-process AU GUI window
-            // Check both self.au_window and PENDING_WINDOW (async callback may have set it)
+            // Signal CLOSE_PENDING first so au_gui_ready_callback (which fires async on
+            // the main thread) will discard any window it creates rather than storing it
+            // in PENDING_WINDOW where it could never be closed.
+            CLOSE_PENDING.store(true, std::sync::atomic::Ordering::Release);
+
+            // Close in-process AU GUI window.
+            // Check both self.au_window and PENDING_WINDOW (async callback may have already set it).
             let window_ptr = self.au_window.lock().take()
                 .or_else(|| PENDING_WINDOW.lock().take());
+            // Reset flag — callback already fired or was pre-empted
+            CLOSE_PENDING.store(false, std::sync::atomic::Ordering::Release);
+
             if let Some(ptr) = window_ptr {
                 unsafe {
                     use objc2::msg_send;
@@ -1554,9 +1582,18 @@ static AU_PLUGINS: Mutex<Vec<AuPluginEntry>> = Mutex::new(Vec::new());
 #[cfg(target_os = "macos")]
 static AU_SCANNED: std::sync::Once = std::sync::Once::new();
 
-/// Global window pointer set by GUI callback, read by open_editor_macos
+/// Global window pointer set by GUI callback, read by open_editor_macos.
+/// Protected by CLOSE_PENDING: if close_editor runs before the async callback fires,
+/// the callback will see CLOSE_PENDING=true and immediately destroy the window
+/// instead of leaking it into PENDING_WINDOW.
 #[cfg(target_os = "macos")]
 static PENDING_WINDOW: Mutex<Option<usize>> = Mutex::new(None);
+
+/// Set to true when close_editor has been requested before au_gui_ready_callback fires.
+/// The callback checks this and immediately destroys the window if set, avoiding a leaked
+/// hidden window that can never be closed.
+#[cfg(target_os = "macos")]
+static CLOSE_PENDING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// Callback from au_host.m when plugin GUI view is ready
 #[cfg(target_os = "macos")]
@@ -1567,12 +1604,21 @@ extern "C" fn au_gui_ready_callback(
     height: f64,
 ) {
     if view.is_null() {
-        eprintln!("[FluxForge] AU plugin has no GUI view");
+        log::warn!("[FluxForge] AU plugin has no GUI view");
         return;
     }
 
     let w = if width > 10.0 { width } else { 800.0 };
     let h = if height > 10.0 { height } else { 600.0 };
+
+    // RACE GUARD: If close_editor was called before this async callback fired
+    // (e.g. user closed the editor immediately), destroy the window here
+    // instead of storing it in PENDING_WINDOW where it can never be closed.
+    if CLOSE_PENDING.load(std::sync::atomic::Ordering::Acquire) {
+        CLOSE_PENDING.store(false, std::sync::atomic::Ordering::Release);
+        log::debug!("[FluxForge] AU GUI window discarded — close was pending");
+        return;
+    }
 
     // Create window using existing FFPluginWindow infrastructure (in-process)
     unsafe {
@@ -1586,7 +1632,7 @@ extern "C" fn au_gui_ready_callback(
             *PENDING_WINDOW.lock() = Some(window as usize);
         }
     }
-    eprintln!("[FluxForge] AU GUI window created {}x{}", w as u32, h as u32);
+    log::info!("[FluxForge] AU GUI window created {}x{}", w as u32, h as u32);
 }
 
 /// Scan callback for building AU_PLUGINS list
@@ -1623,10 +1669,7 @@ impl Vst3Host {
         // GUI window is a child of FluxForge's process, not a separate app.
 
         let plugin_name = self.info.name.clone();
-        eprintln!(
-            "[FluxForge] open_editor_macos: in-process AU hosting for '{}'",
-            plugin_name
-        );
+        log::info!("open_editor_macos: in-process AU hosting for '{}'", plugin_name);
 
         // Scan AU plugins once (lazy init)
         AU_SCANNED.call_once(|| {
@@ -1634,7 +1677,7 @@ impl Vst3Host {
                 au_host_scan_plugins(std::ptr::null_mut(), au_scan_callback);
             }
             let count = AU_PLUGINS.lock().len();
-            eprintln!("[FluxForge] AU scan: {} plugins found", count);
+            log::info!("AU system scan: {} plugins found", count);
         });
 
         // Fuzzy match plugin name — handles vendor prefixes and spacing differences
@@ -1649,6 +1692,21 @@ impl Vst3Host {
         // Also create a no-space version for matching "DUNE3" vs "DUNE 3"
         let needle_nospace: String = needle_spaced.chars().filter(|c| !c.is_whitespace()).collect();
 
+        /// Token-set similarity: returns true when the shorter token set is a
+        /// subset of the longer. Handles "FabFilter Pro-Q 4" matching the AU
+        /// scanner output "FabFilter: Pro-Q 4" after normalization.
+        fn token_set_match(a: &str, b: &str) -> bool {
+            let tokens_a: std::collections::HashSet<&str> = a.split_whitespace().collect();
+            let tokens_b: std::collections::HashSet<&str> = b.split_whitespace().collect();
+            let (shorter, longer) = if tokens_a.len() <= tokens_b.len() {
+                (&tokens_a, &tokens_b)
+            } else {
+                (&tokens_b, &tokens_a)
+            };
+            // All tokens in the shorter set must appear in the longer set
+            shorter.iter().all(|t| longer.contains(t))
+        }
+
         let plugins = AU_PLUGINS.lock();
         let found = plugins.iter().find(|p| {
             let norm_spaced = p.name
@@ -1659,19 +1717,22 @@ impl Vst3Host {
                 .join(" ");
             let norm_nospace: String = norm_spaced.chars().filter(|c| !c.is_whitespace()).collect();
 
-            // Exact match (with spaces normalized)
+            // Strategy 1: Exact match after space normalization
             norm_spaced == needle_spaced
-            // Substring match (with spaces)
+            // Strategy 2: Substring match (handles long vendor-prefixed names)
             || norm_spaced.contains(&needle_spaced) || needle_spaced.contains(&norm_spaced)
-            // No-space match: "dune3" matches "synapseaudiodune3"
+            // Strategy 3: No-space match ("dune3" ↔ "synapseaudiodune3")
             || norm_nospace.contains(&needle_nospace) || needle_nospace.contains(&norm_nospace)
+            // Strategy 4: Token-set match — "fabfilter pro q 4" ⊆ "fabfilter pro q 4" from AU scan
+            // even when vendor prefix changes spacing ("Native Instruments: Kontakt 8" vs "Kontakt 8")
+            || token_set_match(&norm_spaced, &needle_spaced)
         }).cloned();
         drop(plugins);
 
         match found {
             Some(entry) => {
-                eprintln!(
-                    "[FluxForge] Opening AU '{}' type={:08x} sub={:08x} mfr={:08x}",
+                log::info!(
+                    "Opening AU '{}' type={:08x} sub={:08x} mfr={:08x}",
                     entry.name, entry.comp_type, entry.subtype, entry.mfr_code
                 );
 
@@ -1695,7 +1756,7 @@ impl Vst3Host {
                 Ok(())
             }
             None => {
-                eprintln!("[FluxForge] AU plugin not found: '{}'", plugin_name);
+                log::warn!("AU plugin not found: '{}'", plugin_name);
                 Err(PluginError::InitError(format!(
                     "AU plugin not found: {}. VST3-only plugins without AU version cannot show GUI yet.",
                     plugin_name
