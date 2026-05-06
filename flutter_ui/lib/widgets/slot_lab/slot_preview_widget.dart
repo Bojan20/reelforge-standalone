@@ -3211,7 +3211,18 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       return;
     }
 
-    final duration = _rollupDurationByTier[tier] ?? _defaultRollupDuration;
+    // FLUX_MASTER_TODO 3.4.3 — LDW (Loss-Disguised-Win) guard.
+    // Kada `win == bet` (player vraća tačno isto što je uložio — to NIJE
+    // "win", to je return-to-zero), regulatori (UKGC, MGA) zahtevaju da
+    // celebration audio NE simulira pravi win signal. Cap rollup duration
+    // na 500ms (od standardnih 1500-3000ms) tako da audio engine fade-uje
+    // brzo i NE okida win celebration sound. ε guard 0.001 protiv float
+    // artefakata pri sumiranju line wins-a.
+    final bet = widget.provider.betAmount;
+    final isLdw = bet > 0 && (_targetWinAmount - bet).abs() < 0.001;
+    final rawDuration =
+        _rollupDurationByTier[tier] ?? _defaultRollupDuration;
+    final duration = isLdw ? math.min(rawDuration, 500) : rawDuration;
     final tickRate = _rollupTickRateByTier[tier] ?? _defaultRollupTickRate;
     final tickIntervalMs = (1000 / tickRate).round();
     final totalTicks = (duration / tickIntervalMs).round();

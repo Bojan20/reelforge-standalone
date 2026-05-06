@@ -33,6 +33,7 @@ import 'context_layer_provider.dart';
 import 'slotlab_notification_provider.dart';
 import 'game_flow_provider.dart';
 import 'game_flow_integration.dart';
+import 'live_compliance_provider.dart';
 import 'neuro_audio_provider.dart';
 import '../../services/service_locator.dart';
 import '../../services/hook_graph/hook_graph_service.dart';
@@ -141,6 +142,11 @@ class SlotLabCoordinator extends ChangeNotifier {
       // NeuroAudio™ — feed behavioral signals from spin result
       _feedNeuroAudio(result);
 
+      // FLUX_MASTER_TODO 3.4.1/3.4.3/3.4.4 — Live compliance counters.
+      // Audio-thread safe atomic increment u Rust-u (lock-free); UI
+      // poll loop (200ms) odmah pokupi promenu u traffic lights badge-u.
+      _feedLiveCompliance(result);
+
       // L3 Game Flow — DEFERRED: Don't evaluate triggers until reels stop
       // and scatter animation completes. slot_preview_widget calls
       // flushGameFlowResult() from _finalizeSpin() at the right time.
@@ -190,6 +196,34 @@ class SlotLabCoordinator extends ChangeNotifier {
       _writeNeuroRtpc(neuro);
     } catch (_) {
       // NeuroAudioProvider not registered yet — silent
+    }
+  }
+
+  /// FLUX_MASTER_TODO 3.4.1/3.4.3/3.4.4 — Feed spin into live compliance.
+  /// Lock-free atomic increment in Rust; UI traffic lights pickup u 200ms.
+  /// Arousal koeficijent dolazi iz NeuroAudio output-a (već-izračunata
+  /// behavioral metrika); fallback 0.3 neutral ako neuro nije registrovan.
+  void _feedLiveCompliance(SlotLabSpinResult result) {
+    try {
+      final compliance = sl<LiveComplianceProvider>();
+      double arousal = 0.3;
+      try {
+        arousal = sl<NeuroAudioProvider>().output.arousal;
+      } catch (_) {
+        // NeuroAudio nije registrovan — koristimo neutral default.
+        // Ne preventira compliance counter (LDW + near-miss su čista
+        // win/bet/flag matematika; samo arousal threshold gubi
+        // accuracy ovde).
+      }
+      compliance.recordSpin(
+        win: result.totalWin,
+        bet: result.bet,
+        nearMiss: result.nearMiss,
+        arousal: arousal,
+      );
+    } catch (_) {
+      // Provider nije registrovan ili FFI lookup pao — silent. Spin
+      // pipeline ne sme da se zaglavi zbog telemetry sink-a.
     }
   }
 
