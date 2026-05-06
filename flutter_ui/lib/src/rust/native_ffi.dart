@@ -30003,6 +30003,97 @@ extension HookGraphAPI on NativeFFI {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
+  // RGAI Live Compliance — FLUX_MASTER_TODO 3.4.1 / 3.4.3 / 3.4.4
+  // ═══════════════════════════════════════════════════════════════════════
+  //
+  // Live counters za UI traffic lights u HELIX Omnibar-u. Audio thread
+  // poziva `rgaiLiveRecordSpin` po svakom spinu (lock-free atomic counters
+  // u Rust-u); UI thread `rgaiLiveSnapshotJson()` 5×/sec.
+
+  /// Re-initialize live compliance state. `null` = inherit from `rgai_init`
+  /// jurisdictions; non-null JSON array of codes (e.g. `["UKGC","MGA"]`)
+  /// resets sa eksplicitnim setom. Returns 1 on success, 0 on parse fail.
+  int rgaiLiveInit({String? jurisdictionsJson}) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)
+      >('rgai_live_init');
+      if (jurisdictionsJson != null) {
+        final ptr = jurisdictionsJson.toNativeUtf8();
+        try {
+          return fn(ptr);
+        } finally {
+          malloc.free(ptr);
+        }
+      } else {
+        return fn(nullptr);
+      }
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// Record one spin event from audio/game thread (lock-free atomic).
+  /// [near_miss_flag] je 0 ili 1 (FFI nema bool). [arousal] je 0..1.
+  /// `bet ≤ 0` se silently ignoriše (validation u Rust-u — sprečava
+  /// "100% LDW posle prvog spina" lažni signal).
+  void rgaiLiveRecordSpin({
+    required double win,
+    required double bet,
+    required bool nearMiss,
+    required double arousal,
+  }) {
+    try {
+      final fn = _lib.lookupFunction<
+          Void Function(Double, Double, Int32, Double),
+          void Function(double, double, int, double)
+      >('rgai_live_record_spin');
+      fn(win, bet, nearMiss ? 1 : 0, arousal);
+    } catch (_) {
+      // Best-effort — record failures ne smeju da blokiraju spin pipeline.
+    }
+  }
+
+  /// UI poll — vrati current snapshot kao JSON. Klient parsuje u
+  /// `LiveComplianceSnapshot` model (lib/models/live_compliance.dart).
+  /// Returns `null` ako lookup ili ABI call fail.
+  String? rgaiLiveSnapshotJson() {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()
+      >('rgai_live_snapshot_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('rgai_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Clear all live counters (zadržava jurisdiction set). Tipično se
+  /// zove na session boundary (npr. korisnik klikne "Reset session"
+  /// ili posle config-a novog game model-a).
+  void rgaiLiveReset() {
+    try {
+      final fn = _lib.lookupFunction<
+          Void Function(),
+          void Function()
+      >('rgai_live_reset');
+      fn();
+    } catch (_) {
+      // Best-effort.
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
   // Slot Spatial Audio™ — 3D Positional Audio for Slot Games
   // ═══════════════════════════════════════════════════════════════════════
 

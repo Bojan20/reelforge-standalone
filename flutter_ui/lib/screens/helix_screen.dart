@@ -81,8 +81,10 @@ import '../src/rust/native_ffi.dart';
 import '../widgets/slot_lab/auto_bind_dialog_v2.dart';
 import '../widgets/slot_lab/neural_bind_orb.dart';
 import '../widgets/slot_lab/orb_mixer.dart';
+import '../widgets/helix/compliance_lights_badge.dart';
 import '../providers/mixer_dsp_provider.dart';
 import '../providers/rgai_ffi_provider.dart';
+import '../providers/slot_lab/live_compliance_provider.dart';
 import 'slot_lab_screen.dart' show SlotLabScreen;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -237,6 +239,12 @@ class _HelixScreenState extends State<HelixScreen>
 
     // Seed demo composite events so panels show real data on first open
     _seedDemoEvents();
+
+    // FLUX_MASTER_TODO 3.4.1 — Pokreni live compliance poll loop.
+    // Idempotent — drugi `start()` poziv je no-op. Provider se sam
+    // gasi u dispose-u; lazy singleton tako da multiple HELIX mount-a
+    // ne pokreće 5 paralelnih poll-ova.
+    GetIt.instance<LiveComplianceProvider>().start();
 
     // Cortex Vision auto-capture — takes screenshot of HELIX on startup
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -1127,6 +1135,14 @@ class _HelixScreenState extends State<HelixScreen>
           // FLUX_MASTER_TODO 2.1.7 — REELS×ROWS inline edit (was 4 clicks
           // through the GAME CONFIG spine overlay; now 1 click + Enter).
           _buildGridPill(),
+          const SizedBox(width: 12),
+          // FLUX_MASTER_TODO 3.4.1 — Live compliance traffic lights.
+          // Per-jurisdiction status (UKGC/MGA/...) + spin counter +
+          // tooltip sa worst metric utilization%. Reaguje na
+          // LiveComplianceProvider notify (200ms poll loop).
+          ComplianceLightsBadge(
+            provider: GetIt.instance<LiveComplianceProvider>(),
+          ),
           const SizedBox(width: 12),
           // Transport
           _buildTransport(),

@@ -28,6 +28,7 @@ import 'package:get_it/get_it.dart';
 
 import '../src/rust/native_ffi.dart';
 import '../providers/loop_provider.dart';
+import '../providers/slot_lab/live_compliance_provider.dart';
 import '../providers/subsystems/state_groups_provider.dart';
 import '../providers/subsystems/switch_groups_provider.dart';
 import '../providers/subsystems/rtpc_system_provider.dart';
@@ -259,6 +260,14 @@ class ServiceLocator {
     // LAYER 5: Middleware subsystem providers (extracted from MiddlewareProvider)
     // These are ChangeNotifiers that manage specific middleware domains.
     // ═══════════════════════════════════════════════════════════════════════════
+    // FLUX_MASTER_TODO 3.4.1/3.4.3/3.4.4 — Live compliance traffic lights.
+    // Lazy singleton; `start()` se zove kad SlotLab postane vidljiv
+    // (helix_screen initState wire). Audio/spin pipeline poziva
+    // `recordSpin()` direktno iz spin executor-a.
+    sl.registerLazySingleton<LiveComplianceProvider>(
+      () => LiveComplianceProvider(),
+    );
+
     sl.registerLazySingleton<StateGroupsProvider>(
       () => StateGroupsProvider(ffi: sl<NativeFFI>()),
     );
