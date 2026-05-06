@@ -188,6 +188,45 @@ class PluginProvider extends ChangeNotifier {
   /// real reason instead of a silent crash.
   String? _lastLoadError;
 
+  // ── Blacklist ────────────────────────────────────────────────────────────
+  // Plugin IDs that have crashed or failed a pre-flight check. Persisted in
+  // memory for the session; in a future release backed by SharedPreferences.
+  // Blacklisted plugins are still shown in the browser (so users can see they
+  // exist and remove them from the blacklist) but cannot be loaded.
+
+  final Set<String> _blacklistedIds = {};
+
+  /// Plugin IDs currently on the crash/failure blacklist
+  Set<String> get blacklistedIds => Set.unmodifiable(_blacklistedIds);
+
+  /// True if [pluginId] is blacklisted and will be refused on next load attempt
+  bool isBlacklisted(String pluginId) => _blacklistedIds.contains(pluginId);
+
+  /// Manually add a plugin to the blacklist (e.g. after repeated failures)
+  void addToBlacklist(String pluginId) {
+    _blacklistedIds.add(pluginId);
+    notifyListeners();
+  }
+
+  /// Remove a plugin from the blacklist (user manually re-enables it)
+  void removeFromBlacklist(String pluginId) {
+    _blacklistedIds.remove(pluginId);
+    notifyListeners();
+  }
+
+  /// Keywords that indicate a caught panic / hard crash (not a clean user error).
+  /// When [lastLoadError] contains any of these, loadPlugin auto-blacklists.
+  static const _crashKeywords = [
+    'panic', 'crash', 'segfault', 'sigsegv', 'sigill', 'abort',
+    'plugin_ffi_guard', 'unknown panic',
+  ];
+
+  bool _errorLooksCrash(String? error) {
+    if (error == null) return false;
+    final lower = error.toLowerCase();
+    return _crashKeywords.any(lower.contains);
+  }
+
   // Instance management
   final Map<String, PluginInstance> _instances = {};
 
@@ -196,6 +235,11 @@ class PluginProvider extends ChangeNotifier {
   PluginFormat? _formatFilter;
   PluginCategory? _categoryFilter;
   bool _showFavoritesOnly = false;
+  /// When true, show blacklisted plugins in the browser (with a ⚠ badge).
+  /// Default false — blacklisted plugins are hidden from normal workflow.
+  bool _showBlacklisted = false;
+  bool get showBlacklisted => _showBlacklisted;
+  void setShowBlacklisted(bool show) { _showBlacklisted = show; notifyListeners(); }
 
   // Getters
   List<PluginInfo> get allPlugins => _plugins;
@@ -225,12 +269,14 @@ class PluginProvider extends ChangeNotifier {
   /// Get filtered plugins based on current filters
   /// Returns copies with up-to-date isFavorite status
   List<PluginInfo> get filteredPlugins {
-    // Merge favorite status into plugin list
-    var result = _plugins.map((p) =>
-      _favorites.contains(p.id) != p.isFavorite
-          ? p.copyWith(isFavorite: _favorites.contains(p.id))
-          : p
-    ).toList();
+    // Merge favorite status into plugin list; hide blacklisted unless opted-in
+    var result = _plugins
+        .where((p) => _showBlacklisted || !_blacklistedIds.contains(p.id))
+        .map((p) =>
+            _favorites.contains(p.id) != p.isFavorite
+                ? p.copyWith(isFavorite: _favorites.contains(p.id))
+                : p)
+        .toList();
 
     // Apply favorites filter
     if (_showFavoritesOnly) {
@@ -526,10 +572,25 @@ class PluginProvider extends ChangeNotifier {
   /// caught panic, etc.) so the UI can show a SnackBar instead of a silent
   /// null return.
   Future<String?> loadPlugin(String pluginId, int trackId, int slotIndex) async {
+    // Refuse if already blacklisted — user must explicitly un-blacklist first
+    if (_blacklistedIds.contains(pluginId)) {
+      _lastLoadError =
+          'Plugin is blacklisted due to a previous crash. Remove from blacklist in the plugin browser to try again.';
+      notifyListeners();
+      return null;
+    }
+
     _lastLoadError = null;
     final instanceId = _ffi.pluginLoad(pluginId);
     if (instanceId == null) {
       _lastLoadError = _ffi.pluginLastLoadError() ?? 'Plugin failed to load (no detail)';
+      // Auto-blacklist if the error looks like a caught panic / hard crash.
+      // Pre-flight failures (quarantine, Mach-O, path not found) are NOT
+      // blacklisted — user may fix the issue (remove quarantine, re-install)
+      // and try again without needing to clear the blacklist manually.
+      if (_errorLooksCrash(_lastLoadError)) {
+        _blacklistedIds.add(pluginId);
+      }
       notifyListeners();
       return null;
     }

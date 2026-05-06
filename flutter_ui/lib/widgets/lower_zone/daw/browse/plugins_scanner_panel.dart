@@ -484,6 +484,43 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
           const SizedBox(width: 4),
           _buildFormatChip('Internal', PluginFormat.internal, provider),
           const SizedBox(width: 8),
+          // Blacklisted toggle — shows only blacklisted plugins
+          if (provider.blacklistedIds.isNotEmpty) ...[
+            GestureDetector(
+              onTap: () => provider.setShowBlacklisted(!provider.showBlacklisted),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                decoration: BoxDecoration(
+                  color: provider.showBlacklisted
+                      ? LowerZoneColors.error.withValues(alpha: 0.2)
+                      : LowerZoneColors.bgSurface,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: provider.showBlacklisted ? LowerZoneColors.error : LowerZoneColors.border,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      size: 12,
+                      color: provider.showBlacklisted ? LowerZoneColors.error : LowerZoneColors.textMuted,
+                    ),
+                    const SizedBox(width: 2),
+                    Text(
+                      'Blocked (${provider.blacklistedIds.length})',
+                      style: TextStyle(
+                        fontSize: 9,
+                        color: provider.showBlacklisted ? LowerZoneColors.error : LowerZoneColors.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
           // Favorites toggle
           GestureDetector(
             onTap: () => provider.setShowFavoritesOnly(!provider.showFavoritesOnly),
@@ -646,41 +683,80 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
   Widget _buildPluginItem(BuildContext context, PluginInfo plugin, PluginProvider provider) {
     final isSelected = _selectedPluginId == plugin.id;
     final isLoading = _loadingPlugins.contains(plugin.id);
-    // Check if this plugin has any loaded instances
     final isLoaded = provider.instances.values.any((i) => i.pluginId == plugin.id);
-    final fmtColor = _formatColor(plugin.format);
+    final isBlacklisted = provider.isBlacklisted(plugin.id);
+    final fmtColor = isBlacklisted ? LowerZoneColors.error : _formatColor(plugin.format);
+
+    // Rich hover tooltip: name / vendor / format / path / blacklist reason
+    final tooltipLines = [
+      plugin.name,
+      if (plugin.vendor.isNotEmpty) 'By: ${plugin.vendor}',
+      'Format: ${plugin.formatName}  •  ${plugin.categoryName}',
+      if (plugin.path.isNotEmpty) plugin.path,
+      if (isBlacklisted) '⚠ BLACKLISTED — double-tap to remove from blacklist',
+    ];
 
     return GestureDetector(
       onTap: () {
+        if (isBlacklisted) return; // single-tap blocked for blacklisted
         setState(() => _selectedPluginId = plugin.id);
         provider.addToRecent(plugin.id);
         _insertPlugin(context, plugin, provider);
       },
       onDoubleTap: () {
+        if (isBlacklisted) {
+          provider.removeFromBlacklist(plugin.id);
+          _setStatus('${plugin.name} removed from blacklist — retry to load');
+          return;
+        }
         _loadAndOpenEditor(context, plugin, provider);
       },
+      // Right-click context menu
+      onSecondaryTapUp: (details) => _showPluginContextMenu(context, details.globalPosition, plugin, provider),
+      child: Tooltip(
+        message: tooltipLines.join('\n'),
+        waitDuration: const Duration(milliseconds: 600),
+        preferBelow: false,
+        textStyle: const TextStyle(fontSize: 10, color: Color(0xFFCCCCCC)),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E1E2A),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: const Color(0xFF3A3A4A)),
+        ),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected
-              ? LowerZoneColors.dawAccent.withValues(alpha: 0.08)
-              : isLoaded
-                  ? const Color(0xFF40FF90).withValues(alpha: 0.05)
-                  : null,
-          border: Border(bottom: BorderSide(color: LowerZoneColors.border.withValues(alpha: 0.3))),
+          color: isBlacklisted
+              ? LowerZoneColors.error.withValues(alpha: 0.06)
+              : isSelected
+                  ? LowerZoneColors.dawAccent.withValues(alpha: 0.08)
+                  : isLoaded
+                      ? const Color(0xFF40FF90).withValues(alpha: 0.05)
+                      : null,
+          border: Border(
+            bottom: BorderSide(color: LowerZoneColors.border.withValues(alpha: 0.3)),
+            left: isBlacklisted
+                ? const BorderSide(color: LowerZoneColors.error, width: 2)
+                : BorderSide.none,
+          ),
         ),
-        child: Row(
+          child: Opacity(
+          opacity: isBlacklisted ? 0.6 : 1.0,
+          child: Row(
           children: [
-            // Plugin icon based on category
-            Icon(
-              plugin.category == PluginCategory.instrument
-                  ? Icons.piano
-                  : plugin.category == PluginCategory.analyzer
-                      ? Icons.analytics
-                      : Icons.tune,
-              size: 14,
-              color: isLoaded ? const Color(0xFF40FF90) : LowerZoneColors.dawAccent,
-            ),
+            // Blacklist warning icon (replaces category icon)
+            if (isBlacklisted)
+              const Icon(Icons.warning_amber_rounded, size: 14, color: LowerZoneColors.error)
+            else
+              Icon(
+                plugin.category == PluginCategory.instrument
+                    ? Icons.piano
+                    : plugin.category == PluginCategory.analyzer
+                        ? Icons.analytics
+                        : Icons.tune,
+                size: 14,
+                color: isLoaded ? const Color(0xFF40FF90) : LowerZoneColors.dawAccent,
+              ),
             const SizedBox(width: 8),
             // Format badge
             Container(
@@ -704,8 +780,13 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
                     plugin.name,
                     style: TextStyle(
                       fontSize: 10,
-                      color: isLoaded ? const Color(0xFF40FF90) : LowerZoneColors.textPrimary,
+                      color: isBlacklisted
+                          ? LowerZoneColors.error
+                          : isLoaded
+                              ? const Color(0xFF40FF90)
+                              : LowerZoneColors.textPrimary,
                       fontWeight: isLoaded ? FontWeight.bold : FontWeight.normal,
+                      decoration: isBlacklisted ? TextDecoration.lineThrough : null,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -729,53 +810,156 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
               ),
               const SizedBox(width: 4),
             ],
-            // Loaded indicator
-            if (isLoaded && !isLoading)
+            // Blacklisted: show unblock hint
+            if (isBlacklisted && !isLoading)
               const Padding(
                 padding: EdgeInsets.only(right: 4),
-                child: Icon(Icons.check_circle, size: 12, color: Color(0xFF40FF90)),
-              ),
-            // Editor button (if loaded + has editor)
-            if (isLoaded && plugin.hasEditor)
-              GestureDetector(
-                onTap: () {
-                  final instance = provider.instances.values
-                      .where((i) => i.pluginId == plugin.id)
-                      .firstOrNull;
-                  if (instance != null) {
-                    if (instance.isEditorOpen) {
-                      provider.closeEditor(instance.instanceId);
-                    } else {
-                      provider.openEditor(instance.instanceId);
+                child: Tooltip(
+                  message: 'Double-tap to remove from blacklist',
+                  child: Icon(Icons.block, size: 12, color: LowerZoneColors.error),
+                ),
+              )
+            else ...[
+              // Loaded indicator
+              if (isLoaded && !isLoading)
+                const Padding(
+                  padding: EdgeInsets.only(right: 4),
+                  child: Icon(Icons.check_circle, size: 12, color: Color(0xFF40FF90)),
+                ),
+              // Editor button (if loaded + has editor)
+              if (isLoaded && plugin.hasEditor)
+                GestureDetector(
+                  onTap: () {
+                    final instance = provider.instances.values
+                        .where((i) => i.pluginId == plugin.id)
+                        .firstOrNull;
+                    if (instance != null) {
+                      if (instance.isEditorOpen) {
+                        provider.closeEditor(instance.instanceId);
+                      } else {
+                        provider.openEditor(instance.instanceId);
+                      }
                     }
-                  }
-                },
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 4),
-                  child: Icon(
-                    Icons.open_in_new,
-                    size: 12,
-                    color: provider.instances.values
-                            .where((i) => i.pluginId == plugin.id)
-                            .any((i) => i.isEditorOpen)
-                        ? LowerZoneColors.dawAccent
-                        : LowerZoneColors.textMuted,
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Icon(
+                      Icons.open_in_new,
+                      size: 12,
+                      color: provider.instances.values
+                              .where((i) => i.pluginId == plugin.id)
+                              .any((i) => i.isEditorOpen)
+                          ? LowerZoneColors.dawAccent
+                          : LowerZoneColors.textMuted,
+                    ),
                   ),
                 ),
+              // Favorite toggle
+              GestureDetector(
+                onTap: () => provider.toggleFavorite(plugin.id),
+                child: Icon(
+                  plugin.isFavorite ? Icons.star : Icons.star_border,
+                  size: 14,
+                  color: plugin.isFavorite ? LowerZoneColors.warning : LowerZoneColors.textMuted,
+                ),
               ),
-            // Favorite toggle
-            GestureDetector(
-              onTap: () => provider.toggleFavorite(plugin.id),
-              child: Icon(
-                plugin.isFavorite ? Icons.star : Icons.star_border,
-                size: 14,
-                color: plugin.isFavorite ? LowerZoneColors.warning : LowerZoneColors.textMuted,
-              ),
-            ),
+            ],
           ],
         ),
+        ),
       ),
-    );
+    ));  // closes Tooltip + GestureDetector
+  }
+
+  /// Right-click context menu for a plugin item
+  void _showPluginContextMenu(
+    BuildContext context,
+    Offset position,
+    PluginInfo plugin,
+    PluginProvider provider,
+  ) {
+    final isBlacklisted = provider.isBlacklisted(plugin.id);
+    showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(position.dx, position.dy, position.dx + 1, position.dy + 1),
+      color: const Color(0xFF1E1E2A),
+      items: [
+        PopupMenuItem(
+          value: 'info',
+          child: Row(children: [
+            const Icon(Icons.info_outline, size: 14, color: Color(0xFF888888)),
+            const SizedBox(width: 8),
+            Text(plugin.formatName, style: const TextStyle(fontSize: 11, color: Color(0xFFCCCCCC))),
+            const SizedBox(width: 4),
+            Text('•', style: const TextStyle(color: Color(0xFF555555))),
+            const SizedBox(width: 4),
+            Flexible(child: Text(plugin.path.split('/').last,
+                style: const TextStyle(fontSize: 10, color: Color(0xFF888888)),
+                overflow: TextOverflow.ellipsis)),
+          ]),
+          enabled: false,
+        ),
+        const PopupMenuDivider(),
+        if (!isBlacklisted)
+          PopupMenuItem(
+            value: 'insert',
+            child: const Row(children: [
+              Icon(Icons.add, size: 14, color: Color(0xFF40FF90)),
+              SizedBox(width: 8),
+              Text('Insert on track', style: TextStyle(fontSize: 11)),
+            ]),
+          ),
+        if (!isBlacklisted)
+          PopupMenuItem(
+            value: 'editor',
+            child: const Row(children: [
+              Icon(Icons.open_in_new, size: 14, color: Color(0xFF4A9EFF)),
+              SizedBox(width: 8),
+              Text('Open editor', style: TextStyle(fontSize: 11)),
+            ]),
+          ),
+        if (!isBlacklisted)
+          PopupMenuItem(
+            value: 'favorite',
+            child: Row(children: [
+              Icon(plugin.isFavorite ? Icons.star : Icons.star_border, size: 14,
+                  color: const Color(0xFFFFAA00)),
+              const SizedBox(width: 8),
+              Text(plugin.isFavorite ? 'Remove from favorites' : 'Add to favorites',
+                  style: const TextStyle(fontSize: 11)),
+            ]),
+          ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: isBlacklisted ? 'unblacklist' : 'blacklist',
+          child: Row(children: [
+            Icon(isBlacklisted ? Icons.check_circle_outline : Icons.block,
+                size: 14, color: isBlacklisted ? const Color(0xFF40FF90) : LowerZoneColors.error),
+            const SizedBox(width: 8),
+            Text(isBlacklisted ? 'Remove from blacklist' : 'Add to blacklist',
+                style: TextStyle(fontSize: 11,
+                    color: isBlacklisted ? const Color(0xFF40FF90) : LowerZoneColors.error)),
+          ]),
+        ),
+      ],
+    ).then((value) {
+      if (value == null || !mounted) return;
+      switch (value) {
+        case 'insert':
+          setState(() => _selectedPluginId = plugin.id);
+          _insertPlugin(context, plugin, provider);
+        case 'editor':
+          _loadAndOpenEditor(context, plugin, provider);
+        case 'favorite':
+          provider.toggleFavorite(plugin.id);
+        case 'blacklist':
+          provider.addToBlacklist(plugin.id);
+          _setStatus('${plugin.name} blacklisted', isError: true);
+        case 'unblacklist':
+          provider.removeFromBlacklist(plugin.id);
+          _setStatus('${plugin.name} removed from blacklist');
+      }
+    });
   }
 
   Widget _buildPluginList(
