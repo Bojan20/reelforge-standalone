@@ -978,15 +978,15 @@ Sprint 4 (layout memory, power users):                 ✅ DONE (ce2a90a9 + c58c
 | 3.1.1 | **S1 Feature Wins završni momenti** — FsSummary UI overlay + skip telemetrija | ✅ 2b539a0e — `_FsSummaryOverlay` u `premium_slot_preview.dart`, `Stage::FsSummary` audio naming, 4s auto-dismiss | `lib/models/stage_models.dart`, `lib/services/stage_audio_mapper.dart` |
 | 3.1.2 | **S2 Splash → Slot animacija** (profi, kinematska, reel spin-up intro, zlatni sjaj, simboli padaju) | ✅ f45e45bb — `SlotEntryAnimation` kinematska tranzicija implementirana | `lib/screens/splash_screen.dart` |
 | 3.1.3 | **S3 Reel Loop + Reel Stop audio** — `sfx_reel_spin_r0..r5` + `sfx_reel_stop_r0..r5` engine wire-up | ✅ fully landed — `ReelSpinLoop`/`ReelStop` u `audio_naming.rs`, `_handleReelSpinning/_handleReelStop` u `stage_audio_mapper.dart`, 5 reel indices tested | `crates/rf-stage/src/audio_naming.rs` |
-| 3.1.4 | **S4 Audio tab Helix lower zone** — ranije prijavljeno "ništa se ne prikazuje" | ⏳ audit: lower zone ima Music/RTPC/Bus sub-tabs ali nema dedicated "Audio" sub-tab; medium effort | helix lower zone widgets |
+| 3.1.4 | **S4 Audio tab Helix lower zone** — ranije prijavljeno "ništa se ne prikazuje" | ✅ SHIPPED — `_AudioPanel` (helix_screen.dart:5180) ima master fader (A6), OrbMixer, 6-bus channel strips, NeuroAudio metrics, AutoBind. Prethodni bug bio u GetIt lifecycle — popravljen u ranijim sessionima. | `lib/screens/helix_screen.dart:5180` |
 | 3.1.5 | Podnaslovi podtabova razlikuju se od naslova | ✅ NOT AN ISSUE — `lower_zone_types.dart` ima centralizovane label extension-e (single source of truth), svi sub-tab label-i konzistentni | `lib/widgets/lower_zone/lower_zone_types.dart` |
 
 ### 3.2 OrbMixer
 
 | # | Zadatak | Status | Fajl(ovi) |
 |---|---|---|---|
-| 3.2.1 | **O1** Phase 10e-2 Rust FFI 5s ring buffer + WAV export | ⏳ heavyweight — zahteva novi Rust FFI endpoint + Dart WAV encoder | `crates/rf-bridge/src/orb_mixer_ffi.rs`, `lib/providers/orb_mixer_provider.dart` |
-| 3.2.2 | **O2** Per-bus FFT za precizniji masking + performance isolate >100 voices | ⏳ heavyweight — per-bus FFT u engine-u | `crates/rf-bridge/src/orb_mixer_ffi.rs`, `lib/widgets/slot_lab/orb_mixer_painter.dart` |
+| 3.2.1 | **O1** Phase 10e-2 Rust FFI 5s ring buffer + WAV export | ✅ SHIPPED — `orb_capture_last_n_seconds` FFI u `rf-engine/src/ffi.rs:4592`, `MasterRingBuffer` piše iz audio threada (`playback.rs:7577`), `orbCaptureLastNSeconds` u `native_ffi.dart:8060`, `ProblemsInboxService.capture()` koristi ga, `ProblemsInboxPanel` + `live_play_orb_overlay.dart` wired UI | `crates/rf-engine/src/master_ring.rs` |
+| 3.2.2 | **O2** Per-bus FFT za precizniju masking detekciju + performance isolate >100 voices | ✅ SHIPPED — `PerBusBandAnalyzer` (4-band biquad po busu, `per_bus_band_energy.rs`), `SharedMeterBuffer.bus_band_rms` (24 atomics), `OrbMixerAlerts.checkMaskingAlerts()` čita `perBusRms` za masking pair detekciju sa band-level granularity | `crates/rf-engine/src/per_bus_band_energy.rs` |
 | 3.2.3 | **O3** Orb stabilnost — nestaje kada se menja kanal (fix state pop) | ✅ NOT REPRODUCIBLE — kod audit: provider lifecycle clean, `didUpdateWidget` samo update-uje size, nema state pop bug u kodu | `lib/widgets/slot_lab/orb_mixer.dart` |
 | 3.2.4 | Orb ghost trails 2s → ekspanzija na 10s + dupli-tap = revert (Part V.3 time travel seed) | ✅ implementirano — `_trailLength: 120→600` (10s@60fps), `_trailSnapshot` svakih 10s, `revertToTrailSnapshot()`, double-tap na praznom prostoru triggera revert | `lib/widgets/slot_lab/orb_mixer.dart`, `lib/providers/orb_mixer_provider.dart` |
 
