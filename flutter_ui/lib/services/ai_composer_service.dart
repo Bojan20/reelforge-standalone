@@ -192,4 +192,193 @@ class AiComposerService extends ChangeNotifier {
     await Future<void>.delayed(Duration.zero);
     return fn();
   }
+
+  // ── Audio production batch ────────────────────────────────────────────
+
+  AudioRoutingTable _routing = AudioRoutingTable.defaults();
+  AudioBatchProgress _audioProgress = AudioBatchProgress.idle();
+  AudioBatchOutput? _audioResult;
+  bool _elevenlabsKeyPresent = false;
+  bool _sunoKeyPresent = false;
+  Timer? _audioPollTimer;
+
+  AudioRoutingTable get routing => _routing;
+  AudioBatchProgress get audioProgress => _audioProgress;
+  AudioBatchOutput? get audioResult => _audioResult;
+  bool get elevenlabsKeyPresent => _elevenlabsKeyPresent;
+  bool get sunoKeyPresent => _sunoKeyPresent;
+
+  Future<void> refreshRouting() async {
+    final raw = _ffi.composerAudioRoutingGetJson();
+    if (raw == null) return;
+    try {
+      _routing = AudioRoutingTable.fromJson(json.decode(raw) as Map<String, dynamic>);
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<bool> setRouting(AudioRoutingTable next) async {
+    final ok = _ffi.composerAudioRoutingSetJson(json.encode(next.toJson()));
+    if (ok) {
+      _routing = next;
+      notifyListeners();
+    }
+    return ok;
+  }
+
+  Future<bool> switchToAirGapped() async {
+    final ok = _ffi.composerAudioAirGapped();
+    if (ok) {
+      _routing = AudioRoutingTable.airGapped();
+      notifyListeners();
+    }
+    return ok;
+  }
+
+  Future<void> refreshAudioCredentialsPresence() async {
+    _elevenlabsKeyPresent = _ffi.composerAudioCredentialExists('elevenlabs');
+    _sunoKeyPresent = _ffi.composerAudioCredentialExists('suno');
+    notifyListeners();
+  }
+
+  Future<bool> putElevenlabsKey(String key) async {
+    final ok = _ffi.composerAudioCredentialPut('elevenlabs', key);
+    if (ok) {
+      _elevenlabsKeyPresent = true;
+      notifyListeners();
+    }
+    return ok;
+  }
+
+  Future<bool> deleteElevenlabsKey() async {
+    final ok = _ffi.composerAudioCredentialDelete('elevenlabs');
+    if (ok) {
+      _elevenlabsKeyPresent = false;
+      notifyListeners();
+    }
+    return ok;
+  }
+
+  Future<bool> putSunoKey(String key) async {
+    final ok = _ffi.composerAudioCredentialPut('suno', key);
+    if (ok) {
+      _sunoKeyPresent = true;
+      notifyListeners();
+    }
+    return ok;
+  }
+
+  Future<bool> deleteSunoKey() async {
+    final ok = _ffi.composerAudioCredentialDelete('suno');
+    if (ok) {
+      _sunoKeyPresent = false;
+      notifyListeners();
+    }
+    return ok;
+  }
+
+  /// Start a batch generation. Spawns a 200ms polling timer that drives the
+  /// UI until the batch completes; final result lands in [audioResult].
+  Future<bool> startAudioBatch({
+    required String outDir,
+    required ComposerOutput composerOutput,
+    String? defaultVoiceId,
+    int concurrency = 4,
+  }) async {
+    final payload = json.encode({
+      'out_dir': outDir,
+      'composer_output': {
+        'asset_map': {
+          'theme': composerOutput.assetMap.theme,
+          'mood': composerOutput.assetMap.mood,
+          'target_bpm': composerOutput.assetMap.targetBpm,
+          'compliance_hints': {
+            'target_jurisdictions':
+                composerOutput.assetMap.complianceHints.targetJurisdictions,
+            'ldw_audio_suppressed':
+                composerOutput.assetMap.complianceHints.ldwAudioSuppressed,
+            'proportional_celebrations':
+                composerOutput.assetMap.complianceHints.proportionalCelebrations,
+            'near_miss_neutralized':
+                composerOutput.assetMap.complianceHints.nearMissNeutralized,
+            'reviewer_notes':
+                composerOutput.assetMap.complianceHints.reviewerNotes,
+          },
+          'self_quality_score': composerOutput.assetMap.selfQualityScore,
+          'self_critique': composerOutput.assetMap.selfCritique,
+          'stages': [
+            for (final s in composerOutput.assetMap.stages)
+              {
+                'stage_id': s.stageId,
+                'assets': [
+                  for (final a in s.assets)
+                    {
+                      'kind': a.kind,
+                      'suggested_name': a.suggestedName,
+                      'mood': a.mood,
+                      'dynamic_level': a.dynamicLevel,
+                      if (a.lengthMs != null) 'length_ms': a.lengthMs,
+                      'bus': a.bus,
+                      'generation_prompt': a.generationPrompt,
+                    },
+                ],
+              },
+          ],
+        },
+      },
+      if (defaultVoiceId != null) 'default_voice_id': defaultVoiceId,
+      'concurrency': concurrency,
+    });
+
+    final raw = _ffi.composerAudioGenerateJson(payload);
+    if (raw == null) {
+      _captureError();
+      return false;
+    }
+    _audioResult = null;
+    _audioProgress = AudioBatchProgress.idle();
+    notifyListeners();
+    _startAudioPolling();
+    return true;
+  }
+
+  void cancelAudioBatch() {
+    _ffi.composerAudioCancel();
+  }
+
+  void _startAudioPolling() {
+    _audioPollTimer?.cancel();
+    _audioPollTimer =
+        Timer.periodic(const Duration(milliseconds: 200), (timer) async {
+      final raw = _ffi.composerAudioProgressJson();
+      if (raw == null) return;
+      try {
+        final progress = AudioBatchProgress.fromJson(
+            json.decode(raw) as Map<String, dynamic>);
+        _audioProgress = progress;
+        if (!progress.active && progress.total > 0) {
+          // Pull final result
+          final rawRes = _ffi.composerAudioLastResultJson();
+          if (rawRes != null) {
+            try {
+              final parsed = json.decode(rawRes) as Map<String, dynamic>;
+              if (parsed.containsKey('job_id')) {
+                _audioResult = AudioBatchOutput.fromJson(parsed);
+              }
+            } catch (_) {}
+          }
+          timer.cancel();
+        }
+        notifyListeners();
+      } catch (_) {
+        // Best effort.
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _audioPollTimer?.cancel();
+    super.dispose();
+  }
 }

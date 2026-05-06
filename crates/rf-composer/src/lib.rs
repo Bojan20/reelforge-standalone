@@ -20,6 +20,7 @@
 #![warn(missing_docs)]
 #![warn(clippy::all)]
 
+pub mod audio;
 pub mod composer;
 pub mod credentials;
 pub mod prompts;
@@ -28,6 +29,12 @@ pub mod providers;
 pub mod registry;
 pub mod schema;
 
+pub use audio::{
+    classify, run_batch, sanitize_filename, AssetResult, AudioBackendId, AudioError,
+    AudioGenerator, AudioKind, AudioOutput, AudioPrompt, AudioResult, AudioRoutingTable,
+    BackendMap, BatchJob, BatchOutput, BatchProgress, ElevenLabsBackend, LocalBackend,
+    ProgressHandle, SunoBackend,
+};
 pub use composer::{ComposerError, ComposerJob, ComposerOutput, FluxComposer};
 pub use credentials::{CredentialError, CredentialStore, KeychainStore};
 pub use provider::{

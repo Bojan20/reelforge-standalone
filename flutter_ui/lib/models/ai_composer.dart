@@ -351,6 +351,201 @@ class AssetIntent {
       );
 }
 
+// ── Audio production batch ──────────────────────────────────────────────────
+
+enum AudioBackendId { elevenlabs, suno, local }
+
+extension AudioBackendIdX on AudioBackendId {
+  String get wireName => switch (this) {
+        AudioBackendId.elevenlabs => 'elevenlabs',
+        AudioBackendId.suno => 'suno',
+        AudioBackendId.local => 'local',
+      };
+  String get displayLabel => switch (this) {
+        AudioBackendId.elevenlabs => 'ElevenLabs (SFX + TTS)',
+        AudioBackendId.suno => 'Suno (Music)',
+        AudioBackendId.local => 'Local (Offline)',
+      };
+  static AudioBackendId fromWire(String s) => switch (s) {
+        'elevenlabs' => AudioBackendId.elevenlabs,
+        'suno' => AudioBackendId.suno,
+        'local' => AudioBackendId.local,
+        _ => AudioBackendId.local,
+      };
+}
+
+enum AudioKind { sfx, tts, music }
+
+extension AudioKindX on AudioKind {
+  String get wireName => switch (this) {
+        AudioKind.sfx => 'sfx',
+        AudioKind.tts => 'tts',
+        AudioKind.music => 'music',
+      };
+  String get displayLabel => switch (this) {
+        AudioKind.sfx => 'SFX',
+        AudioKind.tts => 'Voice (TTS)',
+        AudioKind.music => 'Music',
+      };
+  static AudioKind fromWire(String s) => switch (s) {
+        'sfx' => AudioKind.sfx,
+        'tts' => AudioKind.tts,
+        'music' => AudioKind.music,
+        _ => AudioKind.sfx,
+      };
+}
+
+class AudioRoutingTable {
+  final Map<AudioKind, AudioBackendId> map;
+  const AudioRoutingTable(this.map);
+
+  factory AudioRoutingTable.defaults() => const AudioRoutingTable({
+        AudioKind.sfx: AudioBackendId.elevenlabs,
+        AudioKind.tts: AudioBackendId.elevenlabs,
+        AudioKind.music: AudioBackendId.suno,
+      });
+
+  factory AudioRoutingTable.airGapped() => const AudioRoutingTable({
+        AudioKind.sfx: AudioBackendId.local,
+        AudioKind.tts: AudioBackendId.local,
+        AudioKind.music: AudioBackendId.local,
+      });
+
+  factory AudioRoutingTable.fromJson(Map<String, dynamic> j) {
+    final raw = (j['map'] as Map?)?.cast<String, dynamic>() ?? const {};
+    final out = <AudioKind, AudioBackendId>{};
+    raw.forEach((k, v) {
+      out[AudioKindX.fromWire(k)] = AudioBackendIdX.fromWire(v as String);
+    });
+    return AudioRoutingTable(out);
+  }
+
+  Map<String, dynamic> toJson() => {
+        'map': {
+          for (final e in map.entries) e.key.wireName: e.value.wireName,
+        },
+      };
+
+  AudioRoutingTable copyWithKind(AudioKind k, AudioBackendId b) {
+    final m = Map<AudioKind, AudioBackendId>.from(map);
+    m[k] = b;
+    return AudioRoutingTable(m);
+  }
+}
+
+class AudioAssetResult {
+  final String stageId;
+  final String assetName;
+  final AudioBackendId backend;
+  final String? path;
+  final String? format;
+  final int bytes;
+  final int durationMs;
+  final String? error;
+
+  const AudioAssetResult({
+    required this.stageId,
+    required this.assetName,
+    required this.backend,
+    required this.path,
+    required this.format,
+    required this.bytes,
+    required this.durationMs,
+    required this.error,
+  });
+
+  bool get ok => error == null && path != null;
+
+  factory AudioAssetResult.fromJson(Map<String, dynamic> j) => AudioAssetResult(
+        stageId: j['stage_id'] as String? ?? '',
+        assetName: j['asset_name'] as String? ?? '',
+        backend: AudioBackendIdX.fromWire(j['backend'] as String? ?? 'local'),
+        path: j['path'] as String?,
+        format: j['format'] as String?,
+        bytes: (j['bytes'] as num?)?.toInt() ?? 0,
+        durationMs: (j['duration_ms'] as num?)?.toInt() ?? 0,
+        error: j['error'] as String?,
+      );
+}
+
+class AudioBatchProgress {
+  final bool active;
+  final int total;
+  final int completed;
+  final int succeeded;
+  final int failed;
+  final String? current;
+  final bool cancelRequested;
+  final List<AudioAssetResult> partialResults;
+
+  const AudioBatchProgress({
+    required this.active,
+    required this.total,
+    required this.completed,
+    required this.succeeded,
+    required this.failed,
+    required this.current,
+    required this.cancelRequested,
+    required this.partialResults,
+  });
+
+  factory AudioBatchProgress.idle() => const AudioBatchProgress(
+        active: false,
+        total: 0,
+        completed: 0,
+        succeeded: 0,
+        failed: 0,
+        current: null,
+        cancelRequested: false,
+        partialResults: [],
+      );
+
+  factory AudioBatchProgress.fromJson(Map<String, dynamic> j) =>
+      AudioBatchProgress(
+        active: j['active'] as bool? ?? false,
+        total: (j['total'] as num?)?.toInt() ?? 0,
+        completed: (j['completed'] as num?)?.toInt() ?? 0,
+        succeeded: (j['succeeded'] as num?)?.toInt() ?? 0,
+        failed: (j['failed'] as num?)?.toInt() ?? 0,
+        current: j['current'] as String?,
+        cancelRequested: j['cancel_requested'] as bool? ?? false,
+        partialResults: ((j['partial_results'] as List?) ?? const [])
+            .map((e) =>
+                AudioAssetResult.fromJson((e as Map).cast<String, dynamic>()))
+            .toList(),
+      );
+}
+
+class AudioBatchOutput {
+  final String jobId;
+  final List<AudioAssetResult> results;
+  final int total;
+  final int succeeded;
+  final int failed;
+  final int elapsedMs;
+
+  const AudioBatchOutput({
+    required this.jobId,
+    required this.results,
+    required this.total,
+    required this.succeeded,
+    required this.failed,
+    required this.elapsedMs,
+  });
+
+  factory AudioBatchOutput.fromJson(Map<String, dynamic> j) => AudioBatchOutput(
+        jobId: j['job_id'] as String? ?? '',
+        results: ((j['results'] as List?) ?? const [])
+            .map((e) =>
+                AudioAssetResult.fromJson((e as Map).cast<String, dynamic>()))
+            .toList(),
+        total: (j['total'] as num?)?.toInt() ?? 0,
+        succeeded: (j['succeeded'] as num?)?.toInt() ?? 0,
+        failed: (j['failed'] as num?)?.toInt() ?? 0,
+        elapsedMs: (j['elapsed_ms'] as num?)?.toInt() ?? 0,
+      );
+}
+
 class ComplianceHints {
   final List<String> targetJurisdictions;
   final bool ldwAudioSuppressed;

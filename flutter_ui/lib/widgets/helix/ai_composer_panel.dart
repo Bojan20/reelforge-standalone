@@ -5,12 +5,17 @@
 //   2. Composer input (description + jurisdictions + run)
 //   3. Output (asset map + brief + voice direction + grade)
 
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 
 import '../../models/ai_composer.dart';
 import '../../services/ai_composer_service.dart';
 import 'ai_provider_settings_dialog.dart';
+import 'ai_audio_settings_dialog.dart';
+import 'ai_audio_progress_dialog.dart';
 
 class AiComposerPanel extends StatefulWidget {
   const AiComposerPanel({super.key});
@@ -64,6 +69,45 @@ class _AiComposerPanelState extends State<AiComposerPanel> {
     await showDialog<void>(
       context: context,
       builder: (_) => AiProviderSettingsDialog(service: _service),
+    );
+  }
+
+  Future<void> _openAudioSettings() async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => AiAudioSettingsDialog(service: _service),
+    );
+  }
+
+  Future<void> _generateAllAudio() async {
+    final out = _service.lastOutput;
+    if (out == null) return;
+
+    // Ask user for output directory.
+    final dir = await FilePicker.platform.getDirectoryPath(
+      dialogTitle: 'Choose folder for generated audio',
+    );
+    if (dir == null || dir.isEmpty) return;
+
+    // Add a project subfolder named after the theme so multiple compositions
+    // don't collide.
+    final themeFolder = out.assetMap.theme.replaceAll(RegExp(r'[^a-z0-9_]'), '_');
+    final projectDir = Directory('$dir${Platform.pathSeparator}$themeFolder');
+    if (!await projectDir.exists()) {
+      await projectDir.create(recursive: true);
+    }
+
+    final ok = await _service.startAudioBatch(
+      outDir: projectDir.path,
+      composerOutput: out,
+    );
+    if (!ok || !mounted) return;
+
+    // Open progress dialog (it will close itself when batch completes).
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AiAudioProgressDialog(service: _service),
     );
   }
 
@@ -367,6 +411,26 @@ class _AiComposerPanelState extends State<AiComposerPanel> {
             '${out.totalTokensInput + out.totalTokensOutput}'),
         _statChip('Time',
             '${(out.totalElapsedMs / 1000).toStringAsFixed(1)}s'),
+        const Spacer(),
+        TextButton.icon(
+          icon: const Icon(Icons.tune, size: 14),
+          label: const Text('Audio Settings', style: TextStyle(fontSize: 11)),
+          onPressed: _openAudioSettings,
+          style: TextButton.styleFrom(foregroundColor: Colors.white60),
+        ),
+        const SizedBox(width: 6),
+        ElevatedButton.icon(
+          icon: const Icon(Icons.audiotrack, size: 14),
+          label: const Text('GENERATE ALL AUDIO',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+          onPressed: _service.audioProgress.active ? null : _generateAllAudio,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFFFAA33),
+            foregroundColor: Colors.black,
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          ),
+        ),
       ],
     );
   }

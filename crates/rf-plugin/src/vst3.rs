@@ -858,24 +858,32 @@ impl Vst3Host {
             .and_then(|e| e.to_str())
             .is_some_and(|e| e.eq_ignore_ascii_case("component"));
 
-        // Create scanner
-        let scanner = Scanner::new().map_err(|e| {
-            PluginError::LoadFailed(format!("Failed to create rack scanner: {:?}", e))
-        })?;
-
         // Scan all plugins — for AU, scan_path() ignores path and returns ALL system AU plugins.
         // We then match by path or name to find the correct one.
         //
         // TIMEOUT GUARD: rack scanner can hang indefinitely on malformed or sandbox-denied
         // plugins. We run it in a dedicated thread with a 5-second timeout (same as Logic Pro /
         // Ableton). If it times out, we return a clear error rather than freezing the DAW.
+        //
+        // NOTE: AudioUnitScanner is not Send/Sync (contains PhantomData<*const ()>), so we
+        // CANNOT share one scanner between the timeout thread and the post-scan load step.
+        // We construct a separate scanner inside the thread for the scan, and a fresh one
+        // outside for the load. Scanner::load() is stateless against scan results — it
+        // re-opens the plugin bundle by path/id from `plugin_info`.
         let plugins = {
             use std::sync::mpsc;
             let (tx, rx) = mpsc::channel();
             std::thread::Builder::new()
                 .name("fluxforge-plugin-scanner".into())
                 .spawn(move || {
-                    let result = scanner.scan();
+                    let scanner = match Scanner::new() {
+                        Ok(s) => s,
+                        Err(e) => {
+                            let _ = tx.send(Err(format!("scanner init: {:?}", e)));
+                            return;
+                        }
+                    };
+                    let result = scanner.scan().map_err(|e| format!("scan: {:?}", e));
                     let _ = tx.send(result);
                 })
                 .map_err(|e| PluginError::LoadFailed(format!("Failed to spawn scanner thread: {}", e)))?;
@@ -885,8 +893,13 @@ impl Vst3Host {
                     "Plugin scanner timed out after 5 seconds. The plugin may be sandboxed, \
                      quarantined, or incompatible with this system.".to_string()
                 ))?
-                .map_err(|e| PluginError::LoadFailed(format!("Failed to scan plugins: {:?}", e)))?
+                .map_err(|e| PluginError::LoadFailed(format!("Failed to scan plugins: {}", e)))?
         };
+
+        // Fresh scanner for load (scan results above carry their own paths/ids).
+        let scanner = Scanner::new().map_err(|e| {
+            PluginError::LoadFailed(format!("Failed to create rack scanner for load: {:?}", e))
+        })?;
 
         log::debug!("[FluxForge] load_with_rack: scan found {} plugins for path {:?}", plugins.len(), path);
 

@@ -12,7 +12,7 @@ description = "FluxForge AI Composer — multi-provider audio design intelligenc
 rf-rgai = { path = "../rf-rgai" }
 
 # Async runtime
-tokio = { workspace = true, features = ["rt-multi-thread", "sync", "macros", "time"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "sync", "macros", "time", "fs", "io-util"] }
 async-trait = "0.1"
 futures-util.workspace = true
 

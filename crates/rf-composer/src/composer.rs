@@ -411,7 +411,7 @@ fn truncate(s: &str, n: usize) -> String {
         s.to_string()
     } else {
         let mut out: String = s.chars().take(n).collect();
-        out.push_str("…");
+        out.push('…');
         out
     }
 }

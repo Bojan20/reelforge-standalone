@@ -31073,5 +31073,219 @@ extension ClipEnvelopeFFI on NativeFFI {
       return null;
     }
   }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // AI Composer — Audio production batch (ElevenLabs / Suno / Local)
+  // ═══════════════════════════════════════════════════════════════════════
+  //
+  // Once Composer produces a StageAssetMap (JSON), this layer turns each
+  // asset's `generation_prompt` into a real audio file on disk.
+  // Routing maps SFX → ElevenLabs, MUSIC → Suno, TTS → ElevenLabs by default
+  // (overridable in Settings; air-gapped mode pins everything to Local).
+
+  String? composerAudioRoutingGetJson() {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()
+      >('composer_audio_routing_get_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('composer_audio_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool composerAudioRoutingSetJson(String json) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)
+      >('composer_audio_routing_set_json');
+      final ptr = json.toNativeUtf8();
+      try {
+        return fn(ptr) == 0;
+      } finally {
+        malloc.free(ptr);
+      }
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool composerAudioAirGapped() {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(),
+          int Function()
+      >('composer_audio_air_gapped');
+      return fn() == 0;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool composerAudioCredentialPut(String account, String secret) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>, Pointer<Utf8>),
+          int Function(Pointer<Utf8>, Pointer<Utf8>)
+      >('composer_audio_credential_put');
+      final aPtr = account.toNativeUtf8();
+      final sPtr = secret.toNativeUtf8();
+      try {
+        return fn(aPtr, sPtr) == 0;
+      } finally {
+        malloc.free(aPtr);
+        malloc.free(sPtr);
+      }
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool composerAudioCredentialDelete(String account) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)
+      >('composer_audio_credential_delete');
+      final aPtr = account.toNativeUtf8();
+      try {
+        return fn(aPtr) == 0;
+      } finally {
+        malloc.free(aPtr);
+      }
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool composerAudioCredentialExists(String account) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)
+      >('composer_audio_credential_exists');
+      final aPtr = account.toNativeUtf8();
+      try {
+        return fn(aPtr) == 1;
+      } finally {
+        malloc.free(aPtr);
+      }
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Start a batch generation. Payload schema:
+  /// `{ out_dir, composer_output | asset_map, default_voice_id?, concurrency? }`
+  /// Non-blocking — returns `{accepted, total}` immediately. Poll progress.
+  String? composerAudioGenerateJson(String payload) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('composer_audio_generate_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('composer_audio_free_string');
+      final pPtr = payload.toNativeUtf8();
+      try {
+        final ptr = fn(pPtr);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(pPtr);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Snapshot of current batch progress (BatchProgress JSON).
+  String? composerAudioProgressJson() {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()
+      >('composer_audio_progress_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('composer_audio_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool composerAudioCancel() {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(),
+          int Function()
+      >('composer_audio_cancel');
+      return fn() == 0;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Final BatchOutput JSON once `progress.active == false`. Returns `{}` if
+  /// no result is ready yet.
+  String? composerAudioLastResultJson() {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()
+      >('composer_audio_last_result_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('composer_audio_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String? composerAudioLastErrorJson() {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()
+      >('composer_audio_last_error_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('composer_audio_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
 }
 
