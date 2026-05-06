@@ -23,6 +23,7 @@
 
 mod analyzer;
 mod chain_advisor;
+mod chain_applier;
 mod classifier;
 mod config;
 mod suggestions;
@@ -31,6 +32,10 @@ pub use analyzer::AudioAnalyzer;
 pub use chain_advisor::{
     AdvisorConfig, AvailablePlugin, ChainAdvisor, ChainSlotSuggestion, ChainSuggestion,
     PluginCandidate, SlotKind, TrackType,
+};
+pub use chain_applier::{
+    ApplyPlan, ApplyPolicy, ApplyStep, ChainApplier, CurrentChainState, CurrentSlotState,
+    PluginPickStrategy, processor_name_to_slot_kind, slot_kind_to_processor_name,
 };
 pub use classifier::{Genre, GenreClassifier, Mood};
 pub use config::AssistantConfig;

@@ -447,6 +447,13 @@ impl InsertSlot {
         self.processor.as_ref().map(|p| p.name()).unwrap_or("Empty")
     }
 
+    /// Borrow the loaded processor (read-only). Used by introspection
+    /// helpers (param-name lookups, parameter counts) that want to
+    /// inspect what's loaded without mutating.
+    pub fn processor(&self) -> Option<&dyn InsertProcessor> {
+        self.processor.as_deref()
+    }
+
     /// Set processor parameter (lock-free if processor supports it)
     pub fn set_processor_param(&mut self, index: usize, value: f64) {
         if let Some(ref mut processor) = self.processor {

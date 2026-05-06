@@ -25,6 +25,25 @@ use rayon::prelude::*;
 
 use crate::sinc_table::{self, ResampleMode, SincTable};
 
+/// Normalise a parameter display name for fuzzy matching: lowercase,
+/// strip non-alphanumeric, collapse whitespace.
+/// Used by `track_insert_param_index_by_name` so user-friendly names
+/// like "Cutoff (Hz)" and "Cutoff Hz" both match "Cutoff".
+fn normalize_param_name(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for ch in s.chars() {
+        if ch.is_alphanumeric() {
+            for lc in ch.to_lowercase() {
+                out.push(lc);
+            }
+        } else if ch.is_whitespace() && !out.ends_with(' ') {
+            out.push(' ');
+        }
+        // Punctuation dropped entirely.
+    }
+    out.trim().to_string()
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // PLAYBACK SOURCE — For section-based voice filtering
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3611,6 +3630,68 @@ impl PlaybackEngine {
             .get(&track_id)
             .map(|chain| chain.get_slot_param(slot_index, param_index))
             .unwrap_or(0.0)
+    }
+
+    /// Number of parameters on the processor in `(track_id, slot_index)`,
+    /// or 0 if the slot is empty / track is unknown.
+    /// Read-only; safe to call from non-audio threads.
+    pub fn track_insert_param_count(&self, track_id: u64, slot_index: usize) -> usize {
+        self.insert_chains
+            .read()
+            .get(&track_id)
+            .and_then(|chain| chain.slot(slot_index))
+            .and_then(|slot| slot.processor())
+            .map(|p| p.num_params())
+            .unwrap_or(0)
+    }
+
+    /// Look up a parameter index by its display name on the processor in
+    /// `(track_id, slot_index)`. Returns `None` if the slot is empty or
+    /// no parameter name matches.
+    ///
+    /// Matching is case-insensitive and tolerant of whitespace/punctuation:
+    /// "Cutoff" ↔ "Cutoff (Hz)" both match.
+    /// Read-only; safe to call from non-audio threads.
+    pub fn track_insert_param_index_by_name(
+        &self,
+        track_id: u64,
+        slot_index: usize,
+        target: &str,
+    ) -> Option<usize> {
+        let target_norm = normalize_param_name(target);
+        let chains = self.insert_chains.read();
+        let chain = chains.get(&track_id)?;
+        let slot = chain.slot(slot_index)?;
+        let proc = slot.processor()?;
+        let n = proc.num_params();
+        for i in 0..n {
+            let name = proc.param_name(i);
+            if normalize_param_name(name) == target_norm
+                || normalize_param_name(name).contains(&target_norm)
+                || target_norm.contains(&normalize_param_name(name))
+            {
+                return Some(i);
+            }
+        }
+        None
+    }
+
+    /// Get the human name of parameter `param_index` on the processor in
+    /// `(track_id, slot_index)`, or empty string if absent. Useful for UI
+    /// previews of the apply plan.
+    pub fn track_insert_param_name(
+        &self,
+        track_id: u64,
+        slot_index: usize,
+        param_index: usize,
+    ) -> String {
+        self.insert_chains
+            .read()
+            .get(&track_id)
+            .and_then(|chain| chain.slot(slot_index))
+            .and_then(|slot| slot.processor())
+            .map(|p| p.param_name(param_index).to_string())
+            .unwrap_or_default()
     }
 
     /// Set sidechain source for a track insert slot
