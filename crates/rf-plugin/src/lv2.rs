@@ -398,25 +398,44 @@ pub struct Lv2Descriptor {
 // LV2 UI C ABI DEFINITIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
+/// LV2 UI write_function callback signature.
+/// FFI-compat C ABI: notifies host when UI changes a control port value.
+type Lv2UiWriteFn = unsafe extern "C" fn(
+    controller: *mut c_void,
+    port_index: u32,
+    buffer_size: u32,
+    format: u32,
+    buffer: *const c_void,
+);
+
+/// LV2 UI instantiate callback signature.
+/// Factored out into named type alias da clippy `very_complex_type` ne pluje.
+type Lv2UiInstantiateFn = unsafe extern "C" fn(
+    descriptor: *const Lv2UiDescriptor,
+    plugin_uri: *const c_char,
+    bundle_path: *const c_char,
+    write_function: Option<Lv2UiWriteFn>,
+    controller: *mut c_void,
+    widget: *mut *mut c_void, // out: native widget handle
+    features: *const *const Lv2Feature,
+) -> *mut c_void; // LV2UI_Handle
+
+/// LV2 UI port_event callback signature.
+type Lv2UiPortEventFn = unsafe extern "C" fn(
+    handle: *mut c_void,
+    port_index: u32,
+    buffer_size: u32,
+    format: u32,
+    buffer: *const c_void,
+);
+
 /// LV2 UI Descriptor (returned by lv2ui_descriptor())
 #[repr(C)]
 struct Lv2UiDescriptor {
     uri: *const c_char,
-    instantiate: Option<
-        unsafe extern "C" fn(
-            descriptor: *const Lv2UiDescriptor,
-            plugin_uri: *const c_char,
-            bundle_path: *const c_char,
-            write_function: Option<unsafe extern "C" fn(*mut c_void, u32, u32, u32, *const c_void)>,
-            controller: *mut c_void,
-            widget: *mut *mut c_void, // out: native widget handle
-            features: *const *const Lv2Feature,
-        ) -> *mut c_void, // LV2UI_Handle
-    >,
+    instantiate: Option<Lv2UiInstantiateFn>,
     cleanup: Option<unsafe extern "C" fn(handle: *mut c_void)>,
-    port_event: Option<
-        unsafe extern "C" fn(handle: *mut c_void, port_index: u32, buffer_size: u32, format: u32, buffer: *const c_void)
-    >,
+    port_event: Option<Lv2UiPortEventFn>,
     extension_data: Option<unsafe extern "C" fn(uri: *const c_char) -> *const c_void>,
 }
 

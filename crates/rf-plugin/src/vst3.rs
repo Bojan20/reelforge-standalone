@@ -1595,7 +1595,6 @@ impl Vst3Host {
 /// We implement the minimal vtable layout here to call IPlugView directly.
 ///
 /// VST3 SDK COM calling convention: *mut *const VTable, where VTable is function pointer array.
-
 // ── VST3 GUID helpers ─────────────────────────────────────────────────────
 type Vst3Guid = [u8; 16];
 

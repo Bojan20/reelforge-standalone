@@ -727,11 +727,13 @@ pub fn hungarian_assignment(score_matrix: &[Vec<f32>]) -> Vec<usize> {
         }
     }
 
-    // Step 2: column reduction
+    // Step 2: column reduction.
+    // `j` se koristi za column-major indeksiranje gde row-by-row
+    // iter_mut nije primenjiv (čitamo dva indeks-a paralelno).
+    // Clippy `needless_range_loop` mora da bude allow-ovano lokalno.
+    #[allow(clippy::needless_range_loop)]
     for j in 0..size {
-        let min = (0..size)
-            .map(|i| cost[i][j])
-            .fold(f32::MAX, f32::min);
+        let min = (0..size).map(|i| cost[i][j]).fold(f32::MAX, f32::min);
         for i in 0..size {
             cost[i][j] -= min;
         }

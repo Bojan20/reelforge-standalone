@@ -10,6 +10,7 @@
 //!   * x86_64 with AVX2  → 1 native 256-bit register
 //!   * x86_64 with AVX-512 → 1/2 of a 512-bit register (still fast)
 //!   * AArch64 NEON      → 2 native 128-bit registers (fmul.2d / fmaxnm.2d)
+//!
 //! `f64x8` would force 4 NEON registers per op — measurably worse on ARM.
 //!
 //! What's exposed:
