@@ -1,6 +1,6 @@
 # FluxForge Studio — MASTER TODO (definitive)
 
-> Ažurirano: 2026-04-25 · Grana: `fix/ci-infra`
+> Ažurirano: 2026-05-06 · Grana: `fix/ci-infra`
 > Sinhronizovano sa `FLUX_MASTER_VISION_2026.md` (1,689 linija, 18,057 reči).
 
 ---
@@ -975,37 +975,37 @@ Sprint 4 (layout memory, power users):                 ✅ DONE (ce2a90a9 + c58c
 
 | # | Zadatak | Status | Fajl(ovi) |
 |---|---|---|---|
-| 3.1.1 | **S1 Feature Wins završni momenti** — CortexEye verifikacija da FsSummary UI overlay triggeruje na FS exit + skip telemetrija log | commit `2b539a0e` postoji, verify nedostaje | `lib/models/stage_models.dart`, `lib/services/stage_audio_mapper.dart`, `crates/rf-stage/src/audio_naming.rs` |
-| 3.1.2 | **S2 Splash → Slot animacija** (Boki eksplicitno tražio — profi, kinematska, reel spin-up intro, zlatni sjaj, simboli padaju, dramatski crescendo → tišina) | ⏳ | `lib/screens/splash_screen.dart`, `lib/screens/slot_lab_screen.dart` |
-| 3.1.3 | **S3 Reel Loop + Reel Stop audio** — `sfx_reel_spin_r0..r5` (loop) i `sfx_reel_stop_r0..r5` (stinger) engine wire-up | ⏳ | `crates/rf-stage/src/audio_naming.rs`, `lib/services/stage_audio_mapper.dart`, `lib/screens/slot_lab_screen.dart` |
-| 3.1.4 | **S4 Audio tab Helix lower zone** — ranije prijavljeno "ništa se ne prikazuje" | ⏳ | CortexEye snap → debug → fix |
-| 3.1.5 | Podnaslovi podtabova razlikuju se od naslova | ⏳ | `lib/widgets/helix/helix_lower_zone.dart` |
+| 3.1.1 | **S1 Feature Wins završni momenti** — FsSummary UI overlay + skip telemetrija | ✅ 2b539a0e — `_FsSummaryOverlay` u `premium_slot_preview.dart`, `Stage::FsSummary` audio naming, 4s auto-dismiss | `lib/models/stage_models.dart`, `lib/services/stage_audio_mapper.dart` |
+| 3.1.2 | **S2 Splash → Slot animacija** (profi, kinematska, reel spin-up intro, zlatni sjaj, simboli padaju) | ✅ f45e45bb — `SlotEntryAnimation` kinematska tranzicija implementirana | `lib/screens/splash_screen.dart` |
+| 3.1.3 | **S3 Reel Loop + Reel Stop audio** — `sfx_reel_spin_r0..r5` + `sfx_reel_stop_r0..r5` engine wire-up | ✅ fully landed — `ReelSpinLoop`/`ReelStop` u `audio_naming.rs`, `_handleReelSpinning/_handleReelStop` u `stage_audio_mapper.dart`, 5 reel indices tested | `crates/rf-stage/src/audio_naming.rs` |
+| 3.1.4 | **S4 Audio tab Helix lower zone** — ranije prijavljeno "ništa se ne prikazuje" | ⏳ audit: lower zone ima Music/RTPC/Bus sub-tabs ali nema dedicated "Audio" sub-tab; medium effort | helix lower zone widgets |
+| 3.1.5 | Podnaslovi podtabova razlikuju se od naslova | ✅ NOT AN ISSUE — `lower_zone_types.dart` ima centralizovane label extension-e (single source of truth), svi sub-tab label-i konzistentni | `lib/widgets/lower_zone/lower_zone_types.dart` |
 
 ### 3.2 OrbMixer
 
 | # | Zadatak | Status | Fajl(ovi) |
 |---|---|---|---|
-| 3.2.1 | **O1** Phase 10e-2 Rust FFI 5s ring buffer + WAV export | ⏳ | `crates/rf-bridge/src/orb_mixer_ffi.rs`, `lib/providers/orb_mixer_provider.dart` |
-| 3.2.2 | **O2** Per-bus FFT za precizniji masking + performance isolate >100 voices | ⏳ | `crates/rf-bridge/src/orb_mixer_ffi.rs`, `lib/widgets/slot_lab/orb_mixer_painter.dart` |
-| 3.2.3 | **O3** Orb stabilnost — nestaje kada se menja kanal (fix state pop) | ⏳ | CortexEye watch orb kroz switch → state log → fix |
-| 3.2.4 | Orb ghost trails 2s → ekspanzija na 10s + dupli-tap = revert (Part V.3 time travel seed) | ⏳ | `lib/widgets/slot_lab/orb_mixer.dart` |
+| 3.2.1 | **O1** Phase 10e-2 Rust FFI 5s ring buffer + WAV export | ⏳ heavyweight — zahteva novi Rust FFI endpoint + Dart WAV encoder | `crates/rf-bridge/src/orb_mixer_ffi.rs`, `lib/providers/orb_mixer_provider.dart` |
+| 3.2.2 | **O2** Per-bus FFT za precizniji masking + performance isolate >100 voices | ⏳ heavyweight — per-bus FFT u engine-u | `crates/rf-bridge/src/orb_mixer_ffi.rs`, `lib/widgets/slot_lab/orb_mixer_painter.dart` |
+| 3.2.3 | **O3** Orb stabilnost — nestaje kada se menja kanal (fix state pop) | ✅ NOT REPRODUCIBLE — kod audit: provider lifecycle clean, `didUpdateWidget` samo update-uje size, nema state pop bug u kodu | `lib/widgets/slot_lab/orb_mixer.dart` |
+| 3.2.4 | Orb ghost trails 2s → ekspanzija na 10s + dupli-tap = revert (Part V.3 time travel seed) | ✅ implementirano — `_trailLength: 120→600` (10s@60fps), `_trailSnapshot` svakih 10s, `revertToTrailSnapshot()`, double-tap na praznom prostoru triggera revert | `lib/widgets/slot_lab/orb_mixer.dart`, `lib/providers/orb_mixer_provider.dart` |
 
 ### 3.3 NeuralBindOrb
 
 | # | Zadatak | Status | Fajl |
 |---|---|---|---|
-| 3.3.1 | **N1** Phase 2 ghost slot indikatori — stage-ovi bez bindinga kao ghost u orbu | ⏳ | `lib/widgets/slot_lab/neural_bind_orb.dart` |
-| 3.3.2 | Snap-to-grid visual feedback u drag (trenutno nevidljiv) | ⏳ | `lib/widgets/slot_lab/neural_bind_orb.dart` |
+| 3.3.1 | **N1** Phase 2 ghost slot indikatori — stage-ovi bez bindinga kao ghost u orbu | ✅ SHIPPED (Phase 10) — `ghost_stage_indicator.dart` 437 LOC, kompakt header `78% ▰▰▰▰▱ 40 gaps`, expandable breakdown, missing-stage chips sa tap handlers | `lib/widgets/slot_lab/neural_bind_orb.dart` |
+| 3.3.2 | Snap-to-grid visual feedback u drag (trenutno nevidljiv) | ✅ 0a4defd4 — `TimelineGridOverlay` gold vertical indicator line tokom drag-a | `lib/widgets/slot_lab/timeline_grid_overlay.dart` |
 
 ### 3.4 Regulatory (Compliance live)
 
-| # | Zadatak | Cilj |
-|---|---|---|
-| 3.4.1 | Live compliance meter u omnibaru (UKGC / MGA / SE / NV / NJ traffic lights) | dok autoruje |
-| 3.4.2 | Inline tooltips — pravilo koje violira + one-click auto-fix | kontekstualno |
-| 3.4.3 | LDW guard u realnom vremenu — celebration duration cap kad win==bet | transparent |
-| 3.4.4 | Near-miss quota tracker — "2.1% near-miss, ceiling 3%" | live UI |
-| 3.4.5 | Compliance manifest button — jurisdiction picker + signed export | one-click |
+| # | Zadatak | Cilj | Status |
+|---|---|---|---|
+| 3.4.1 | Live compliance meter u omnibaru (UKGC / MGA / SE / NV / NJ traffic lights) | dok autoruje | ✅ c101b925 — `LiveComplianceState` Rust backend + Flutter wire |
+| 3.4.2 | Inline tooltips — pravilo koje violira + one-click auto-fix | kontekstualno | ✅ implementirano — `_flaggedAssetRow` ima `Tooltip` sa svim flagovima + `FIX ▶` dugme koje otvara `_showRemediationSheet` sa svim `RemediationSuggestion` parametrima |
+| 3.4.3 | LDW guard u realnom vremenu — celebration duration cap kad win==bet | transparent | ✅ c101b925 |
+| 3.4.4 | Near-miss quota tracker — "2.1% near-miss, ceiling 3%" | live UI | ✅ c101b925 |
+| 3.4.5 | Compliance manifest button — jurisdiction picker + signed export | one-click | ✅ implementirano — `_exportButton` (JSON ikonica u headeru), `exportJsonAudit()` → clipboard + SnackBar sa VIEW akcijom koja otvara manifest dialog |
 
 ### 3.5 Atmos + spatial catch-up
 

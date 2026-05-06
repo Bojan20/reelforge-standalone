@@ -916,16 +916,29 @@ class OrbMixerProvider extends ChangeNotifier {
   // ── Phase 5: Visual Layers ──
 
   // ─── Ghost Trails ───
-  // Ring buffer of recent bus positions (last N frames, ~2 seconds at 60fps)
-  static const int _trailLength = 120; // 2s at 60fps
+  // Ring buffer of recent bus positions (last N frames, ~10 seconds at 60fps)
+  static const int _trailLength = 600; // 10s at 60fps (was 2s=120)
   final Map<OrbBusId, List<Offset>> _ghostTrails = {};
   int _trailWriteIndex = 0;
+
+  // Time-travel snapshot: volume+pan recorded every full trail cycle (~10s ago)
+  final Map<OrbBusId, ({double volume, double pan})> _trailSnapshot = {};
+  bool _snapshotReady = false;
 
   /// Get ghost trail positions for a bus (newest first, fading)
   List<Offset> getGhostTrail(OrbBusId busId) =>
       _ghostTrails[busId] ?? const [];
 
   void _recordGhostPositions() {
+    // On each full cycle (~10s) save a volume+pan snapshot for time-travel revert
+    if (_trailWriteIndex > 0 && _trailWriteIndex % _trailLength == 0) {
+      for (final state in _busStates.values) {
+        if (state.isMaster) continue;
+        _trailSnapshot[state.id] = (volume: state.volume, pan: state.pan);
+      }
+      _snapshotReady = true;
+    }
+
     for (final state in _busStates.values) {
       if (state.isMaster) continue;
       final trail = _ghostTrails.putIfAbsent(
@@ -935,6 +948,23 @@ class OrbMixerProvider extends ChangeNotifier {
       trail[_trailWriteIndex % _trailLength] = state.position;
     }
     _trailWriteIndex++;
+  }
+
+  /// Revert all bus volume+pan to 10s-ago snapshot (time travel). No-op if no
+  /// snapshot yet (< 10s of trail data accumulated).
+  void revertToTrailSnapshot() {
+    if (!_snapshotReady) return;
+    for (final entry in _trailSnapshot.entries) {
+      final state = _busStates[entry.key];
+      if (state == null) continue;
+      state.volume = entry.value.volume.clamp(0.0, 1.5);
+      state.pan = entry.value.pan.clamp(-1.0, 1.0);
+    }
+    // Clear trails so ghost doesn't show stale historical path
+    _ghostTrails.clear();
+    _trailWriteIndex = 0;
+    _snapshotReady = false;
+    notifyListeners();
   }
 
   /// Number of valid trail samples

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
 import '../../../providers/slot_lab/rgai_provider.dart';
 import '../../../models/aurexis_jurisdiction.dart';
@@ -66,6 +67,9 @@ class _RgaiCompliancePanelState extends State<RgaiCompliancePanel> {
               _jurisdictionChip(p),
               const SizedBox(width: 6),
               _safeModeToggle(p),
+              const SizedBox(width: 6),
+              // 3.4.5 — Manifest export button
+              if (p.hasReport) _exportButton(p),
             ],
           ),
           const SizedBox(height: 8),
@@ -343,36 +347,265 @@ class _RgaiCompliancePanelState extends State<RgaiCompliancePanel> {
     );
   }
 
+  // ── 3.4.2: Enhanced flagged asset row with inline violation tooltip + remediation ──
   Widget _flaggedAssetRow(RgarAssetAnalysis asset) {
+    final ratingColor = Color(asset.riskRating.colorValue);
+    // Build tooltip text: all flags + remediation suggestions
+    final tooltipLines = <String>[];
+    if (asset.flags.isNotEmpty) {
+      tooltipLines.add('Violations:');
+      for (final f in asset.flags) {
+        tooltipLines.add('  • $f');
+      }
+    }
+    if (asset.remediations.isNotEmpty) {
+      tooltipLines.add('');
+      tooltipLines.add('Remediation:');
+      for (final r in asset.remediations) {
+        tooltipLines.add('  ${r.parameter}: ${r.currentValue} → ${r.suggestedValue}');
+        tooltipLines.add('  (${r.reason})');
+      }
+    }
+    final tooltipText = tooltipLines.join('\n');
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        children: [
-          Icon(
-            asset.riskRating == AddictionRiskRating.prohibited
-                ? Icons.dangerous
-                : Icons.warning_amber,
-            color: Color(asset.riskRating.colorValue),
-            size: 12,
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(asset.assetName,
-                    style: const TextStyle(color: Colors.white70, fontSize: 10),
-                    overflow: TextOverflow.ellipsis),
-                if (asset.flags.isNotEmpty)
-                  Text(asset.flags.first,
-                      style: const TextStyle(color: Colors.white38, fontSize: 9),
+      child: Tooltip(
+        message: tooltipText.isNotEmpty ? tooltipText : asset.assetName,
+        preferBelow: false,
+        textStyle: const TextStyle(color: Colors.white70, fontSize: 9),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E1E2E),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: Colors.white12),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              asset.riskRating == AddictionRiskRating.prohibited
+                  ? Icons.dangerous
+                  : Icons.warning_amber,
+              color: ratingColor,
+              size: 12,
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(asset.assetName,
+                      style: const TextStyle(color: Colors.white70, fontSize: 10),
                       overflow: TextOverflow.ellipsis),
+                  if (asset.flags.isNotEmpty)
+                    Text(
+                      asset.flags.join(', '),
+                      style: const TextStyle(color: Colors.white38, fontSize: 9),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                ],
+              ),
+            ),
+            // Risk score
+            Text(
+              asset.compositeRisk.toStringAsFixed(2),
+              style: TextStyle(color: ratingColor, fontSize: 9),
+            ),
+            // 3.4.2 one-click auto-fix: show if remediations available
+            if (asset.remediations.isNotEmpty) ...[
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: () => _showRemediationSheet(asset),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: ratingColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(3),
+                    border: Border.all(color: ratingColor.withValues(alpha: 0.4)),
+                  ),
+                  child: Text(
+                    'FIX ▶',
+                    style: TextStyle(color: ratingColor, fontSize: 8, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showRemediationSheet(RgarAssetAnalysis asset) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A2A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.auto_fix_high, color: Color(asset.riskRating.colorValue), size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Remediation — ${asset.assetName}',
+                    style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
             ),
+            const SizedBox(height: 4),
+            Text(
+              '${asset.flags.length} violation${asset.flags.length != 1 ? 's' : ''} · ${asset.remediations.length} suggestion${asset.remediations.length != 1 ? 's' : ''}',
+              style: const TextStyle(color: Colors.white54, fontSize: 10),
+            ),
+            const SizedBox(height: 12),
+            // Violations list
+            if (asset.flags.isNotEmpty) ...[
+              const Text('VIOLATIONS', style: TextStyle(color: Colors.white38, fontSize: 10, letterSpacing: 0.5)),
+              const SizedBox(height: 4),
+              ...asset.flags.map((f) => Padding(
+                    padding: const EdgeInsets.only(bottom: 3),
+                    child: Row(children: [
+                      const Icon(Icons.error_outline, color: Color(0xFFCC4444), size: 11),
+                      const SizedBox(width: 6),
+                      Expanded(child: Text(f, style: const TextStyle(color: Colors.white70, fontSize: 10))),
+                    ]),
+                  )),
+              const SizedBox(height: 10),
+            ],
+            // Remediation suggestions
+            const Text('SUGGESTIONS', style: TextStyle(color: Colors.white38, fontSize: 10, letterSpacing: 0.5)),
+            const SizedBox(height: 4),
+            ...asset.remediations.map((r) => Container(
+                  margin: const EdgeInsets.only(bottom: 6),
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.white10),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(children: [
+                        Text(r.parameter, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
+                        const Spacer(),
+                        Text(r.currentValue, style: const TextStyle(color: Colors.white38, fontSize: 9, decoration: TextDecoration.lineThrough)),
+                        const Icon(Icons.arrow_forward, color: Colors.white24, size: 10),
+                        Text(r.suggestedValue, style: const TextStyle(color: Color(0xFF44CC88), fontSize: 9, fontWeight: FontWeight.w600)),
+                      ]),
+                      const SizedBox(height: 2),
+                      Text(r.reason, style: const TextStyle(color: Colors.white54, fontSize: 9)),
+                    ],
+                  ),
+                )),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('CLOSE', style: TextStyle(color: Colors.white54, fontSize: 10)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── 3.4.5: Export compliance manifest ──
+  Widget _exportButton(RgaiProvider p) {
+    return GestureDetector(
+      onTap: () => _exportManifest(p),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: Colors.white10,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Icon(Icons.download, color: Colors.white38, size: 10),
+            SizedBox(width: 2),
+            Text('JSON', style: TextStyle(color: Colors.white38, fontSize: 9, fontWeight: FontWeight.w500)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _exportManifest(RgaiProvider p) {
+    final json = p.exportJsonAudit();
+    // Copy to clipboard + show confirmation snackbar
+    Clipboard.setData(ClipboardData(text: json));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: const Color(0xFF1E2A1E),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 3),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(6),
+          side: const BorderSide(color: Color(0xFF44CC44), width: 0.5),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('RGAR Manifest Copied',
+                style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 2),
+            Text(
+              '${p.jurisdiction.label} · ${json.length} chars · ${DateTime.now().toIso8601String().substring(0, 16)}',
+              style: const TextStyle(color: Colors.white54, fontSize: 9),
+            ),
+          ],
+        ),
+        action: SnackBarAction(
+          label: 'VIEW',
+          textColor: const Color(0xFF44CC44),
+          onPressed: () => _showManifestDialog(json),
+        ),
+      ),
+    );
+  }
+
+  void _showManifestDialog(String json) {
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF12121E),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        title: const Text('RGAR Manifest', style: TextStyle(color: Colors.white, fontSize: 13)),
+        content: SizedBox(
+          width: 480,
+          height: 400,
+          child: SingleChildScrollView(
+            child: SelectableText(
+              json,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 9,
+                fontFamily: 'monospace',
+              ),
+            ),
           ),
-          Text(
-            asset.compositeRisk.toStringAsFixed(2),
-            style: TextStyle(color: Color(asset.riskRating.colorValue), fontSize: 9),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CLOSE', style: TextStyle(color: Colors.white38, fontSize: 10)),
           ),
         ],
       ),

@@ -143,6 +143,12 @@ class _OrbMixerState extends State<OrbMixer>
   bool _isArcDragging = false;
   static const _longPressDuration = Duration(milliseconds: 400);
 
+  // Double-tap detection for time-travel revert (3.2.4)
+  DateTime? _lastTapTime;
+  Offset? _lastTapPos;
+  static const _doubleTapWindow = Duration(milliseconds: 350);
+  static const _doubleTapRadius = 20.0;
+
   void _onPointerDown(PointerDownEvent event) {
     final localPos = event.localPosition;
     _dragStartPos = localPos;
@@ -306,6 +312,30 @@ class _OrbMixerState extends State<OrbMixer>
       _dragStartPos = null;
       setState(() {});
       return;
+    }
+
+    // Double-tap detection: time-travel revert (3.2.4)
+    // Only trigger on empty-space taps (no bus hit) to avoid conflicting with
+    // single-tap expand. Uses _lastTapTime / _lastTapPos from previous cycle.
+    final hitBus = _provider.hitTest(event.localPosition);
+    if (hitBus == null) {
+      final now = DateTime.now();
+      final lastTime = _lastTapTime;
+      final lastPos = _lastTapPos;
+      if (lastTime != null &&
+          lastPos != null &&
+          now.difference(lastTime) <= _doubleTapWindow &&
+          (event.localPosition - lastPos).distance <= _doubleTapRadius) {
+        // Double-tap on empty space → revert to 10s snapshot
+        _provider.revertToTrailSnapshot();
+        HapticFeedback.mediumImpact();
+        _lastTapTime = null;
+        _lastTapPos = null;
+        setState(() {});
+        return;
+      }
+      _lastTapTime = now;
+      _lastTapPos = event.localPosition;
     }
 
     _dragStartPos = null;
