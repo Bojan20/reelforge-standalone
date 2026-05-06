@@ -81,13 +81,21 @@ enum OrbBusId {
         aux => 'AUX',
       };
 
-  /// Fixed angle on the orbit (radians, 0=right, counter-clockwise)
+  /// Fixed angle on the orbit (radians, 0=right, counter-clockwise).
+  ///
+  /// Layout follows "Foreground/Background × Stereo Field" matrix:
+  ///   Vertical axis  → foreground (top) vs background (bottom)
+  ///   Horizontal axis → stereo position in final mix (left vs right)
+  ///
+  ///        VO  (12h / 90°)   — center-mono dialog, always foreground
+  ///   Music  (11h / 150°)    SFX  (1h / 30°)   — mid-ground, left/right
+  ///   Amb    (7h  / 210°)    Aux  (5h / 330°)   — background, left/right
   double get baseAngle => switch (this) {
-        music => math.pi / 2, // 90° top
-        sfx => 0.0, // 0° right
-        ambience => math.pi, // 180° left
-        voice => 3 * math.pi / 2, // 270° bottom
-        aux => math.pi / 4, // 45° top-right
+        voice => math.pi / 2, // 90°  = 12h — VO: center-mono foreground
+        sfx => math.pi / 6, // 30°  =  1h — SFX: slightly right, foreground
+        music => 5 * math.pi / 6, // 150° = 11h — Music: slightly left, foreground
+        ambience => 7 * math.pi / 6, // 210° =  7h — Ambience: left background
+        aux => 11 * math.pi / 6, // 330° =  5h — Aux: right background
         master => 0.0, // center (angle unused)
       };
 
@@ -113,6 +121,11 @@ class OrbBusState {
   /// Pan: -1.0 left, 0.0 center, 1.0 right
   double pan;
 
+  /// Gang Pan: uniform offset applied to ALL voices on this bus.
+  /// Individual voice.pan is a relative fine-tune on top of this offset.
+  /// Effective voice pan = (voice.pan + gangPan).clamp(-1, 1).
+  double gangPan;
+
   /// Solo state
   bool solo;
 
@@ -133,6 +146,7 @@ class OrbBusState {
     required this.id,
     this.volume = 0.85,
     this.pan = 0.0,
+    this.gangPan = 0.0,
     this.solo = false,
     this.muted = false,
     this.peakL = 0.0,
@@ -590,11 +604,19 @@ class OrbMixerProvider extends ChangeNotifier {
     final parentPos = parentState.position;
     final voiceOrbitRadius = size * 0.12; // smaller orbit for voices
 
+    // Gang Pan offset: maps -1..+1 to ±45° angular shift so all voices
+    // visually rotate together when gang pan is applied.
+    final gangPanRotation = parentState.gangPan * (math.pi / 4); // ±45°
+
     for (int i = 0; i < voices.length; i++) {
       final voice = voices[i];
-      // Distribute evenly around parent position
-      final angle = (2 * math.pi * i / voices.length) - math.pi / 2;
-      // Offset by voice volume (quieter = closer to parent)
+      // Evenly distributed base angle, starting from top (-π/2)
+      // then offset by per-voice pan fine-tune (±15°) and gang pan rotation
+      final baseVoiceAngle = (2 * math.pi * i / voices.length) - math.pi / 2;
+      final panFineOffset = voice.pan * (math.pi / 12); // ±15°
+      final angle = baseVoiceAngle + panFineOffset + gangPanRotation;
+
+      // Distance from parent: volume-proportional
       final dist = voiceOrbitRadius * voice.volume.clamp(0.3, 1.0);
 
       voice.position = Offset(
@@ -625,9 +647,10 @@ class OrbMixerProvider extends ChangeNotifier {
       } else {
         // Volume → distance: 0=center (-inf), volume=orbitRadius (0dB), >1=beyond orbit
         final distance = _volumeToRadius(state.volume, orbitRadius);
-        // Pan offsets the base angle slightly (±15° max)
-        final panOffset = state.pan * (math.pi / 12); // ±15°
-        final angle = state.id.baseAngle + panOffset;
+        // Gang Pan offsets the bus dot angle (±15° max) — visual feedback
+        // showing the current gang pan position of this bus.
+        final gangPanOffset = state.gangPan * (math.pi / 12); // ±15°
+        final angle = state.id.baseAngle + gangPanOffset;
 
         state.position = Offset(
           center.dx + distance * math.cos(angle),
@@ -715,12 +738,14 @@ class OrbMixerProvider extends ChangeNotifier {
     final newVolume = _radiusToVolume(distance, orbitRadius);
     _dsp.setBusVolume(bus.dspId, newVolume);
 
-    // Angle → pan (relative to base angle)
+    // Angle → Gang Pan: angular deviation from baseAngle shifts ALL voices uniformly.
+    // Individual voice.pan remains a relative fine-tune on top of this offset.
     final angle = math.atan2(-delta.dy, delta.dx); // flip Y for screen coords
     final angleDiff = _normalizeAngle(angle - bus.baseAngle);
-    // Map ±15° to pan -1..+1
-    final newPan = (angleDiff / (math.pi / 12)).clamp(-1.0, 1.0);
-    _dsp.setBusPan(bus.dspId, newPan);
+    // Map ±15° → gangPan -1..+1
+    final newGangPan = (angleDiff / (math.pi / 12)).clamp(-1.0, 1.0);
+    state.gangPan = newGangPan;
+    _applyGangPan(bus);
   }
 
   /// End drag
@@ -786,6 +811,30 @@ class OrbMixerProvider extends ChangeNotifier {
       }
     }
     return closest;
+  }
+
+  // ── Gang Pan ──
+
+  /// Set gang pan for a bus: shifts ALL voices on that bus uniformly.
+  /// Effective voice pan = (voice.pan + gangPan).clamp(-1, 1).
+  void setGangPan(OrbBusId busId, double gangPan) {
+    final state = _busStates[busId];
+    if (state == null) return;
+    state.gangPan = gangPan.clamp(-1.0, 1.0);
+    _applyGangPan(busId);
+    notifyListeners();
+  }
+
+  /// Propagate gang pan to all voice DSP params for this bus.
+  void _applyGangPan(OrbBusId busId) {
+    final state = _busStates[busId];
+    if (state == null) return;
+    final voices = _activeVoices[busId];
+    if (voices == null) return;
+    for (final voice in voices) {
+      final effectivePan = (voice.pan + state.gangPan).clamp(-1.0, 1.0);
+      _ffi.orbSetVoiceParam(voice.voiceId, 1, effectivePan);
+    }
   }
 
   // ── Per-voice control (Nivo 2) ──
@@ -921,8 +970,8 @@ class OrbMixerProvider extends ChangeNotifier {
   final Map<OrbBusId, List<Offset>> _ghostTrails = {};
   int _trailWriteIndex = 0;
 
-  // Time-travel snapshot: volume+pan recorded every full trail cycle (~10s ago)
-  final Map<OrbBusId, ({double volume, double pan})> _trailSnapshot = {};
+  // Time-travel snapshot: volume+pan+gangPan recorded every full trail cycle (~10s ago)
+  final Map<OrbBusId, ({double volume, double pan, double gangPan})> _trailSnapshot = {};
   bool _snapshotReady = false;
 
   /// Get ghost trail positions for a bus (newest first, fading)
@@ -934,7 +983,11 @@ class OrbMixerProvider extends ChangeNotifier {
     if (_trailWriteIndex > 0 && _trailWriteIndex % _trailLength == 0) {
       for (final state in _busStates.values) {
         if (state.isMaster) continue;
-        _trailSnapshot[state.id] = (volume: state.volume, pan: state.pan);
+        _trailSnapshot[state.id] = (
+          volume: state.volume,
+          pan: state.pan,
+          gangPan: state.gangPan,
+        );
       }
       _snapshotReady = true;
     }
@@ -959,6 +1012,9 @@ class OrbMixerProvider extends ChangeNotifier {
       if (state == null) continue;
       state.volume = entry.value.volume.clamp(0.0, 1.5);
       state.pan = entry.value.pan.clamp(-1.0, 1.0);
+      state.gangPan = entry.value.gangPan.clamp(-1.0, 1.0);
+      // Re-apply gang pan to all voices on this bus
+      _applyGangPan(entry.key);
     }
     // Clear trails so ghost doesn't show stale historical path
     _ghostTrails.clear();
