@@ -183,6 +183,11 @@ class PluginProvider extends ChangeNotifier {
   double _scanProgress = 0.0;
   String? _scanError;
 
+  /// Last plugin load / open-editor / activate failure reason. UI watches
+  /// this via [lastLoadError] and surfaces a SnackBar so the user gets a
+  /// real reason instead of a silent crash.
+  String? _lastLoadError;
+
   // Instance management
   final Map<String, PluginInstance> _instances = {};
 
@@ -197,6 +202,19 @@ class PluginProvider extends ChangeNotifier {
   ScanState get scanState => _scanState;
   double get scanProgress => _scanProgress;
   String? get scanError => _scanError;
+
+  /// Last plugin load / open-editor / activate failure reason from native FFI,
+  /// or null if no error is pending.
+  String? get lastLoadError => _lastLoadError;
+
+  /// Clear the cached load error after surfacing it to the user.
+  void clearLastLoadError() {
+    if (_lastLoadError != null) {
+      _lastLoadError = null;
+      _ffi.pluginClearLastLoadError();
+      notifyListeners();
+    }
+  }
   String get searchQuery => _searchQuery;
   Map<String, PluginInstance> get instances => Map.unmodifiable(_instances);
   int get instanceCount => _instances.length;
@@ -501,46 +519,64 @@ class PluginProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Load plugin into slot
+  /// Load plugin into slot.
+  ///
+  /// On failure, [lastLoadError] is populated with the human-readable reason
+  /// from native FFI (Mach-O magic mismatch, quarantine, dlopen failure,
+  /// caught panic, etc.) so the UI can show a SnackBar instead of a silent
+  /// null return.
   Future<String?> loadPlugin(String pluginId, int trackId, int slotIndex) async {
+    _lastLoadError = null;
     final instanceId = _ffi.pluginLoad(pluginId);
-    if (instanceId != null) {
-      addToRecent(pluginId);
-
-      // Find plugin info
-      final pluginInfo = _plugins.firstWhere(
-        (p) => p.id == pluginId,
-        orElse: () => PluginInfo(
-          id: pluginId,
-          name: 'Unknown Plugin',
-          vendor: '',
-          format: PluginFormat.internal,
-          category: PluginCategory.effect,
-          path: '',
-        ),
-      );
-
-      // Create instance
-      final instance = PluginInstance(
-        instanceId: instanceId,
-        pluginId: pluginId,
-        name: pluginInfo.name,
-        format: pluginInfo.format,
-        trackId: trackId,
-        slotIndex: slotIndex,
-        hasEditor: pluginInfo.hasEditor,
-      );
-
-      _instances[instanceId] = instance;
-
-      // Activate plugin
-      _ffi.pluginActivate(instanceId);
-
-      // Connect plugin to audio insert chain so signal flows through it
-      _ffi.pluginInsertLoad(trackId, pluginId);
-
+    if (instanceId == null) {
+      _lastLoadError = _ffi.pluginLastLoadError() ?? 'Plugin failed to load (no detail)';
       notifyListeners();
+      return null;
     }
+
+    addToRecent(pluginId);
+
+    // Find plugin info
+    final pluginInfo = _plugins.firstWhere(
+      (p) => p.id == pluginId,
+      orElse: () => PluginInfo(
+        id: pluginId,
+        name: 'Unknown Plugin',
+        vendor: '',
+        format: PluginFormat.internal,
+        category: PluginCategory.effect,
+        path: '',
+      ),
+    );
+
+    // Create instance
+    final instance = PluginInstance(
+      instanceId: instanceId,
+      pluginId: pluginId,
+      name: pluginInfo.name,
+      format: pluginInfo.format,
+      trackId: trackId,
+      slotIndex: slotIndex,
+      hasEditor: pluginInfo.hasEditor,
+    );
+
+    _instances[instanceId] = instance;
+
+    // Activate plugin — captures any error reason for the UI on failure.
+    final activated = _ffi.pluginActivate(instanceId);
+    if (!activated) {
+      _lastLoadError =
+          _ffi.pluginLastLoadError() ?? 'Plugin loaded but failed to activate';
+    }
+
+    // Connect plugin to audio insert chain so signal flows through it.
+    final inserted = _ffi.pluginInsertLoad(trackId, pluginId);
+    if (inserted < 0 && _lastLoadError == null) {
+      _lastLoadError =
+          _ffi.pluginLastLoadError() ?? 'Plugin loaded but insert chain refused it';
+    }
+
+    notifyListeners();
     return instanceId;
   }
 

@@ -9,7 +9,7 @@
 //! - Editor hosting (platform-specific)
 
 use std::ffi::c_void;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
@@ -23,6 +23,138 @@ use crate::{
 
 /// Maximum parameter changes per audio block
 const MAX_PARAM_CHANGES: usize = 128;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PRE-FLIGHT BUNDLE VALIDATION
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Pro DAWs reject malformed / quarantined / wrong-arch plugins BEFORE handing
+// them to the loader (rack/dlopen). That avoids opaque dlopen panics, AU
+// component-not-found segfaults, and Gatekeeper kills inside third-party
+// plugin code. We do the same here for VST3 + AudioUnit bundles.
+
+/// Locate the actual executable inside a `.vst3` / `.component` bundle.
+/// On non-macOS, just returns the path itself if it's a file.
+fn locate_bundle_executable(path: &Path) -> Option<PathBuf> {
+    if path.is_file() {
+        return Some(path.to_path_buf());
+    }
+    if path.is_dir() {
+        // Standard CFBundle layout: Contents/MacOS/<binary>
+        let macos_dir = path.join("Contents").join("MacOS");
+        if macos_dir.is_dir() {
+            if let Ok(entries) = std::fs::read_dir(&macos_dir) {
+                for entry in entries.flatten() {
+                    let p = entry.path();
+                    if p.is_file() {
+                        return Some(p);
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Verify the file starts with a Mach-O magic number. Catches dragged
+/// shortcuts, zero-byte stubs, broken downloads, and accidentally-installed
+/// Windows .dll plugins long before dlopen would crash on them.
+fn check_mach_o_magic(path: &Path) -> Result<(), String> {
+    use std::io::Read;
+    let mut file = std::fs::File::open(path)
+        .map_err(|e| format!("cannot open binary {:?}: {}", path, e))?;
+    let mut magic = [0u8; 4];
+    if file.read_exact(&mut magic).is_err() {
+        return Err(format!("binary too short: {:?}", path));
+    }
+    let m_be = u32::from_be_bytes(magic);
+    let m_le = u32::from_le_bytes(magic);
+    // Mach-O thin (FE ED FA CE / CF) and fat (CA FE BA BE / BF)
+    const VALID: [u32; 4] = [0xCAFE_BABE, 0xCAFE_BABF, 0xFEED_FACE, 0xFEED_FACF];
+    if VALID.contains(&m_be) || VALID.contains(&m_le) {
+        Ok(())
+    } else {
+        Err(format!(
+            "not a Mach-O binary ({}: magic={:08X})",
+            path.display(),
+            m_be
+        ))
+    }
+}
+
+/// macOS Gatekeeper sets `com.apple.quarantine` xattr on downloaded files.
+/// AudioUnit / VST3 bundles with this attribute will be rejected by the
+/// kernel during init or load partway through, sometimes silently. Reject
+/// upfront with an actionable error message.
+#[cfg(target_os = "macos")]
+fn check_quarantine(path: &Path) -> Result<(), String> {
+    use std::ffi::CString;
+    use std::os::raw::{c_char, c_int};
+
+    unsafe extern "C" {
+        fn getxattr(
+            path: *const c_char,
+            name: *const c_char,
+            value: *mut c_void,
+            size: usize,
+            position: u32,
+            options: c_int,
+        ) -> isize;
+    }
+
+    let path_str = path.to_string_lossy();
+    let Ok(c_path) = CString::new(path_str.as_bytes()) else {
+        return Ok(());
+    };
+    let c_name = CString::new("com.apple.quarantine").expect("static literal has no NUL");
+
+    let res = unsafe {
+        getxattr(
+            c_path.as_ptr(),
+            c_name.as_ptr(),
+            std::ptr::null_mut(),
+            0,
+            0,
+            0,
+        )
+    };
+
+    if res >= 0 {
+        Err(format!(
+            "plugin is quarantined by Gatekeeper. Run in Terminal:  xattr -dr com.apple.quarantine \"{}\"",
+            path.display()
+        ))
+    } else {
+        Ok(())
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn check_quarantine(_path: &Path) -> Result<(), String> {
+    Ok(())
+}
+
+/// Run all pre-flight checks. Returns Ok(()) if the bundle looks safe to load,
+/// or Err with a human-readable reason that's safe to surface in the UI.
+fn pre_flight_validate(bundle_path: &Path) -> Result<(), String> {
+    if !bundle_path.exists() {
+        return Err(format!("plugin bundle not found: {}", bundle_path.display()));
+    }
+
+    // Quarantine check applies to the bundle itself.
+    check_quarantine(bundle_path)?;
+
+    // Mach-O check applies to the actual executable inside the bundle.
+    let exe = locate_bundle_executable(bundle_path).ok_or_else(|| {
+        format!(
+            "could not locate executable inside bundle: {}",
+            bundle_path.display()
+        )
+    })?;
+    check_mach_o_magic(&exe)?;
+
+    Ok(())
+}
 
 /// Register ObjC runtime subclasses for plugin GUI hosting.
 /// Called once — creates FFPluginWindow (NSWindow subclass) and
@@ -634,15 +766,14 @@ impl Vst3Host {
             path
         );
 
-        // Check if bundle exists
-        let bundle_exists = path.exists();
-        if !bundle_exists {
-            log::warn!("VST3 bundle not found at {:?}", path);
-            return Err(PluginError::LoadFailed(format!(
-                "VST3 bundle not found: {:?}",
-                path
-            )));
+        // Pre-flight: bundle existence + Mach-O magic + quarantine xattr.
+        // Reject malformed / quarantined / wrong-arch plugins BEFORE handing
+        // them to rack — that avoids opaque panics inside third-party loader code.
+        if let Err(reason) = pre_flight_validate(path) {
+            log::warn!("Plugin pre-flight failed for {:?}: {}", path, reason);
+            return Err(PluginError::LoadFailed(reason));
         }
+        let bundle_exists = true;
 
         // Try to load with rack crate
         let (rack_plugin, parameters, audio_inputs, audio_outputs, plugin_latency, has_midi_input) =

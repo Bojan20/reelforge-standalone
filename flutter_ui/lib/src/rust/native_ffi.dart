@@ -1797,6 +1797,12 @@ typedef PluginGetAllJsonDart = Pointer<Utf8> Function();
 typedef PluginGetInfoJsonNative = Pointer<Utf8> Function(Uint32 index);
 typedef PluginGetInfoJsonDart = Pointer<Utf8> Function(int index);
 
+typedef PluginLastLoadErrorNative = Pointer<Utf8> Function();
+typedef PluginLastLoadErrorDart = Pointer<Utf8> Function();
+
+typedef PluginClearLastLoadErrorNative = Void Function();
+typedef PluginClearLastLoadErrorDart = void Function();
+
 typedef PluginLoadNative = Int32 Function(Pointer<Utf8> pluginId, Pointer<Uint8> outInstanceId, Uint32 maxLen);
 typedef PluginLoadDart = int Function(Pointer<Utf8> pluginId, Pointer<Uint8> outInstanceId, int maxLen);
 
@@ -3118,6 +3124,8 @@ class NativeFFI {
   late final PluginGetAllJsonDart _pluginGetAllJson;
   late final PluginGetInfoJsonDart _pluginGetInfoJson;
   late final PluginLoadDart _pluginLoad;
+  late final PluginLastLoadErrorDart _pluginLastLoadError;
+  late final PluginClearLastLoadErrorDart _pluginClearLastLoadError;
   late final PluginUnloadDart _pluginUnload;
   late final PluginActivateDart _pluginActivate;
   late final PluginDeactivateDart _pluginDeactivate;
@@ -3991,6 +3999,8 @@ class NativeFFI {
     _pluginGetAllJson = _lib.lookupFunction<PluginGetAllJsonNative, PluginGetAllJsonDart>('plugin_get_all_json');
     _pluginGetInfoJson = _lib.lookupFunction<PluginGetInfoJsonNative, PluginGetInfoJsonDart>('plugin_get_info_json');
     _pluginLoad = _lib.lookupFunction<PluginLoadNative, PluginLoadDart>('plugin_load');
+    _pluginLastLoadError = _lib.lookupFunction<PluginLastLoadErrorNative, PluginLastLoadErrorDart>('plugin_last_load_error');
+    _pluginClearLastLoadError = _lib.lookupFunction<PluginClearLastLoadErrorNative, PluginClearLastLoadErrorDart>('plugin_clear_last_load_error');
     _pluginUnload = _lib.lookupFunction<PluginUnloadNative, PluginUnloadDart>('plugin_unload');
     _pluginActivate = _lib.lookupFunction<PluginActivateNative, PluginActivateDart>('plugin_activate');
     _pluginDeactivate = _lib.lookupFunction<PluginDeactivateNative, PluginDeactivateDart>('plugin_deactivate');
@@ -14974,7 +14984,8 @@ extension ControlRoomAPI on NativeFFI {
   }
 
   /// Load a plugin instance
-  /// Returns instance ID string, or null on failure
+  /// Returns instance ID string, or null on failure.
+  /// On failure, call [pluginLastLoadError] to get a human-readable reason.
   String? pluginLoad(String pluginId) {
     if (!_loaded) return null;
     final idPtr = pluginId.toNativeUtf8();
@@ -14989,6 +15000,27 @@ extension ControlRoomAPI on NativeFFI {
       calloc.free(idPtr);
       calloc.free(outBuffer);
     }
+  }
+
+  /// Returns the latest plugin failure reason (load / open editor / activate),
+  /// or null if no error is pending. Reading does NOT clear the slot — call
+  /// [pluginClearLastLoadError] after surfacing it to the user.
+  String? pluginLastLoadError() {
+    if (!_loaded) return null;
+    final ptr = _pluginLastLoadError();
+    if (ptr.address == 0) return null;
+    try {
+      return ptr.toDartString();
+    } finally {
+      _freeString(ptr);
+    }
+  }
+
+  /// Clears the last plugin error string. Call after surfacing the error
+  /// to the user so the next failure isn't masked by a stale message.
+  void pluginClearLastLoadError() {
+    if (!_loaded) return;
+    _pluginClearLastLoadError();
   }
 
   /// Unload a plugin instance

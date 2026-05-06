@@ -471,6 +471,79 @@ macro_rules! ffi_panic_guard {
     };
 }
 
+/// Same as `ffi_panic_guard!` but also captures the panic message into the
+/// thread-local plugin error slot so Dart can read it via `plugin_last_load_error()`.
+/// Use for plugin entry points (load, open_editor, activate, ...) where the user
+/// needs to see WHY a third-party plugin refused to load.
+macro_rules! plugin_ffi_guard {
+    ($default:expr, $context:expr, $body:expr) => {
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| $body)) {
+            Ok(result) => result,
+            Err(e) => {
+                let msg = if let Some(s) = e.downcast_ref::<&str>() {
+                    (*s).to_string()
+                } else if let Some(s) = e.downcast_ref::<String>() {
+                    s.clone()
+                } else {
+                    "unknown panic".to_string()
+                };
+                log::error!("Plugin FFI panic in {}: {}", $context, msg);
+                eprintln!("[FluxForge] Plugin FFI panic in {}: {}", $context, msg);
+                set_plugin_last_load_error(format!("{}: {}", $context, msg));
+                $default
+            }
+        }
+    };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PLUGIN ERROR REPORTING (cross-FFI)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Plugin FFI returns coarse status codes (0/1/-1) which lose the *reason* a
+// third-party plugin failed to load (quarantine, wrong arch, missing entry
+// point, init panic, etc.). We stash the latest message in a thread-local and
+// expose a `plugin_last_load_error()` getter for Dart to read on failure.
+//
+// Why thread_local: all FFI calls from a Dart isolate hit Rust on a single
+// thread, so per-thread storage is correct without locking. UI isolate sets
+// and reads the slot on the same thread within one user action.
+
+thread_local! {
+    static LAST_PLUGIN_ERROR: std::cell::RefCell<Option<String>> = const { std::cell::RefCell::new(None) };
+}
+
+#[inline]
+fn set_plugin_last_load_error(msg: impl Into<String>) {
+    let s = msg.into();
+    LAST_PLUGIN_ERROR.with(|cell| {
+        *cell.borrow_mut() = Some(s);
+    });
+}
+
+#[inline]
+fn clear_plugin_last_load_error() {
+    LAST_PLUGIN_ERROR.with(|cell| {
+        *cell.borrow_mut() = None;
+    });
+}
+
+/// Returns the last plugin error message as an owned C string (caller must
+/// free with `string_free`), or null if no error is pending.
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_last_load_error() -> *mut c_char {
+    LAST_PLUGIN_ERROR.with(|cell| match cell.borrow().as_deref() {
+        Some(s) if !s.is_empty() => CString::new(s).map(|c| c.into_raw()).unwrap_or(ptr::null_mut()),
+        _ => ptr::null_mut(),
+    })
+}
+
+/// Clears the last plugin error message (Dart calls this after surfacing it).
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_clear_last_load_error() {
+    clear_plugin_last_load_error();
+}
+
 /// Validate bus_id parameter (0-5 valid, others fallback to Master)
 #[inline]
 fn validate_bus_id(bus_id: u32) -> u32 {
@@ -16962,57 +17035,80 @@ pub extern "C" fn plugin_search(
 /// Load a plugin instance
 /// Returns instance ID length on success, 0 on failure
 /// Instance ID is written to out_instance_id
+///
+/// Wrapped in `plugin_ffi_guard!` — panics in third-party plugin code (rack,
+/// dlopen, AU init) are caught and reported via `plugin_last_load_error()`
+/// instead of unwinding across the FFI boundary and crashing the app.
 #[unsafe(no_mangle)]
 pub extern "C" fn plugin_load(
     plugin_id: *const c_char,
     out_instance_id: *mut u8,
     max_len: u32,
 ) -> i32 {
+    clear_plugin_last_load_error();
+
     if plugin_id.is_null() {
+        set_plugin_last_load_error("plugin_load: null plugin_id pointer");
         return 0;
     }
 
     let id_str = unsafe {
         match std::ffi::CStr::from_ptr(plugin_id).to_str() {
-            Ok(s) => s,
-            Err(_) => return 0,
+            Ok(s) => s.to_string(),
+            Err(_) => {
+                set_plugin_last_load_error("plugin_load: plugin_id is not valid UTF-8");
+                return 0;
+            }
         }
     };
 
-    eprintln!("[FluxForge] plugin_load called with id: '{}'", id_str);
+    plugin_ffi_guard!(0, format!("plugin_load({})", id_str), {
+        eprintln!("[FluxForge] plugin_load called with id: '{}'", id_str);
 
-    // Debug: list available plugins in PLUGIN_HOST scanner
-    {
-        let host = PLUGIN_HOST.read();
-        let available = host.available_plugins();
-        eprintln!("[FluxForge] PLUGIN_HOST has {} plugins available", available.len());
-        for p in available.iter().take(10) {
-            eprintln!("[FluxForge]   available: '{}' (type={:?})", p.id, p.plugin_type);
-        }
-        if available.len() > 10 {
-            eprintln!("[FluxForge]   ... and {} more", available.len() - 10);
-        }
-    }
-
-    match PLUGIN_HOST.write().load_plugin(id_str) {
-        Ok(instance_id) => {
-            eprintln!("[FluxForge] plugin_load SUCCESS: instance_id='{}'", instance_id);
-            if !out_instance_id.is_null() && max_len > 0 {
-                let bytes = instance_id.as_bytes();
-                let copy_len = bytes.len().min((max_len - 1) as usize);
-                unsafe {
-                    std::ptr::copy_nonoverlapping(bytes.as_ptr(), out_instance_id, copy_len);
-                    *out_instance_id.add(copy_len) = 0;
-                }
+        // Debug: list available plugins in PLUGIN_HOST scanner
+        {
+            let host = PLUGIN_HOST.read();
+            let available = host.available_plugins();
+            eprintln!(
+                "[FluxForge] PLUGIN_HOST has {} plugins available",
+                available.len()
+            );
+            for p in available.iter().take(10) {
+                eprintln!(
+                    "[FluxForge]   available: '{}' (type={:?})",
+                    p.id, p.plugin_type
+                );
             }
-            instance_id.len() as i32
+            if available.len() > 10 {
+                eprintln!("[FluxForge]   ... and {} more", available.len() - 10);
+            }
         }
-        Err(e) => {
-            eprintln!("[FluxForge] plugin_load FAILED for '{}': {:?}", id_str, e);
-            log::error!("Failed to load plugin {}: {}", id_str, e);
-            0
+
+        match PLUGIN_HOST.write().load_plugin(&id_str) {
+            Ok(instance_id) => {
+                eprintln!(
+                    "[FluxForge] plugin_load SUCCESS: instance_id='{}'",
+                    instance_id
+                );
+                if !out_instance_id.is_null() && max_len > 0 {
+                    let bytes = instance_id.as_bytes();
+                    let copy_len = bytes.len().min((max_len - 1) as usize);
+                    unsafe {
+                        std::ptr::copy_nonoverlapping(bytes.as_ptr(), out_instance_id, copy_len);
+                        *out_instance_id.add(copy_len) = 0;
+                    }
+                }
+                instance_id.len() as i32
+            }
+            Err(e) => {
+                let msg = format!("Failed to load '{}': {}", id_str, e);
+                eprintln!("[FluxForge] plugin_load FAILED: {}", msg);
+                log::error!("{}", msg);
+                set_plugin_last_load_error(msg);
+                0
+            }
         }
-    }
+    })
 }
 
 /// Unload a plugin instance
@@ -17164,6 +17260,9 @@ pub extern "C" fn plugin_get_param_info(
 }
 
 /// Activate plugin for processing
+///
+/// Wrapped in `plugin_ffi_guard!` — third-party plugin's `activate()`
+/// can allocate, set up DSP state, and panic on incompatible sample rate.
 #[unsafe(no_mangle)]
 pub extern "C" fn plugin_activate(instance_id: *const c_char) -> i32 {
     if instance_id.is_null() {
@@ -17172,19 +17271,25 @@ pub extern "C" fn plugin_activate(instance_id: *const c_char) -> i32 {
 
     let id_str = unsafe {
         match std::ffi::CStr::from_ptr(instance_id).to_str() {
-            Ok(s) => s,
+            Ok(s) => s.to_string(),
             Err(_) => return 0,
         }
     };
 
-    if let Some(instance) = PLUGIN_HOST.read().get_instance(id_str) {
-        match instance.write().activate() {
-            Ok(_) => 1,
-            Err(_) => 0,
+    plugin_ffi_guard!(0, format!("plugin_activate({})", id_str), {
+        if let Some(instance) = PLUGIN_HOST.read().get_instance(&id_str) {
+            match instance.write().activate() {
+                Ok(_) => 1,
+                Err(e) => {
+                    set_plugin_last_load_error(format!("activate failed for {}: {}", id_str, e));
+                    0
+                }
+            }
+        } else {
+            set_plugin_last_load_error(format!("plugin_activate: instance not found: {}", id_str));
+            0
         }
-    } else {
-        0
-    }
+    })
 }
 
 /// Deactivate plugin
@@ -17494,12 +17599,18 @@ fn hex_decode(s: &str) -> Result<Vec<u8>, String> {
 /// Open plugin editor window
 /// parent_window: platform-specific window handle (HWND on Windows, NSView* on macOS)
 /// Returns 1 on success, 0 on failure
+///
+/// Wrapped in `plugin_ffi_guard!` — Cocoa/AU GUI initialization can panic
+/// inside third-party code; we surface the error to Dart instead of crashing.
 #[unsafe(no_mangle)]
 pub extern "C" fn plugin_open_editor(
     instance_id: *const c_char,
     parent_window: *mut std::ffi::c_void,
 ) -> i32 {
+    clear_plugin_last_load_error();
+
     if instance_id.is_null() {
+        set_plugin_last_load_error("plugin_open_editor: null instance_id pointer");
         return 0;
     }
 
@@ -17510,38 +17621,50 @@ pub extern "C" fn plugin_open_editor(
 
     let id_str = unsafe {
         match std::ffi::CStr::from_ptr(instance_id).to_str() {
-            Ok(s) => s,
-            Err(_) => return 0,
-        }
-    };
-
-    eprintln!("[FluxForge] plugin_open_editor called for: '{}'", id_str);
-
-    if let Some(instance) = PLUGIN_HOST.read().get_instance(id_str) {
-        // Use provided parent_window, or null (macOS standalone window)
-        let effective_parent = if parent_window.is_null() {
-            std::ptr::null_mut()
-        } else {
-            parent_window
-        };
-
-        #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
-        match instance.write().open_editor(effective_parent) {
-            Ok(_) => {
-                eprintln!("[FluxForge] plugin_open_editor SUCCESS: {}", id_str);
-                return 1;
-            }
-            Err(e) => {
-                eprintln!("[FluxForge] plugin_open_editor FAILED for {}: {:?}", id_str, e);
+            Ok(s) => s.to_string(),
+            Err(_) => {
+                set_plugin_last_load_error("plugin_open_editor: instance_id is not valid UTF-8");
                 return 0;
             }
         }
-        #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
-        return 0;
-    } else {
-        log::error!("Plugin instance not found: {}", id_str);
-    }
-    0
+    };
+
+    plugin_ffi_guard!(0, format!("plugin_open_editor({})", id_str), {
+        eprintln!("[FluxForge] plugin_open_editor called for: '{}'", id_str);
+
+        if let Some(instance) = PLUGIN_HOST.read().get_instance(&id_str) {
+            // Use provided parent_window, or null (macOS standalone window)
+            let effective_parent = if parent_window.is_null() {
+                std::ptr::null_mut()
+            } else {
+                parent_window
+            };
+
+            #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+            match instance.write().open_editor(effective_parent) {
+                Ok(_) => {
+                    eprintln!("[FluxForge] plugin_open_editor SUCCESS: {}", id_str);
+                    1
+                }
+                Err(e) => {
+                    let msg = format!("open_editor failed for {}: {}", id_str, e);
+                    eprintln!("[FluxForge] {}", msg);
+                    set_plugin_last_load_error(msg);
+                    0
+                }
+            }
+            #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
+            {
+                set_plugin_last_load_error("plugin_open_editor: unsupported platform");
+                0
+            }
+        } else {
+            let msg = format!("Plugin instance not found: {}", id_str);
+            log::error!("{}", msg);
+            set_plugin_last_load_error(msg);
+            0
+        }
+    })
 }
 
 /// Close plugin editor window
@@ -19209,34 +19332,48 @@ pub extern "C" fn export_stems(
 
 /// Load plugin instance into a channel's insert chain
 /// Returns 1 on success (command sent), -1 on failure
+///
+/// Wrapped in `plugin_ffi_guard!` — routing graph mutation through a panic
+/// path could otherwise unwind across the FFI boundary.
 #[unsafe(no_mangle)]
 pub extern "C" fn plugin_insert_load(channel_id: u64, plugin_id: *const c_char) -> i32 {
     let plugin_id_str = match unsafe { cstr_to_string(plugin_id) } {
         Some(s) if s.len() <= MAX_FFI_STRING_LEN => s,
-        _ => return -1,
+        _ => {
+            set_plugin_last_load_error("plugin_insert_load: invalid plugin_id");
+            return -1;
+        }
     };
 
-    // Send command to routing graph via PlaybackEngine
-    let cmd = crate::routing::RoutingCommand::AddInsert {
-        id: crate::routing::ChannelId(channel_id as u32),
-        plugin_id: plugin_id_str.clone(),
-        slot_index: None, // Add at end
-    };
+    plugin_ffi_guard!(
+        -1,
+        format!("plugin_insert_load(ch={}, id={})", channel_id, plugin_id_str),
+        {
+            // Send command to routing graph via PlaybackEngine
+            let cmd = crate::routing::RoutingCommand::AddInsert {
+                id: crate::routing::ChannelId(channel_id as u32),
+                plugin_id: plugin_id_str.clone(),
+                slot_index: None, // Add at end
+            };
 
-    if PLAYBACK_ENGINE.send_routing_command(cmd) {
-        log::info!(
-            "Plugin insert {} queued for channel {}",
-            plugin_id_str,
-            channel_id
-        );
-        1
-    } else {
-        log::error!(
-            "Failed to queue plugin insert {} - routing not initialized",
-            plugin_id_str
-        );
-        -1
-    }
+            if PLAYBACK_ENGINE.send_routing_command(cmd) {
+                log::info!(
+                    "Plugin insert {} queued for channel {}",
+                    plugin_id_str,
+                    channel_id
+                );
+                1
+            } else {
+                let msg = format!(
+                    "Failed to queue plugin insert {} on channel {} — routing not initialized",
+                    plugin_id_str, channel_id
+                );
+                log::error!("{}", msg);
+                set_plugin_last_load_error(msg);
+                -1
+            }
+        }
+    )
 }
 
 /// Remove plugin from insert chain

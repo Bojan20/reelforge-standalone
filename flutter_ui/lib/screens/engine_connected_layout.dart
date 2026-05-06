@@ -13253,13 +13253,32 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             _showGenericEditorFallback(plugin.name, instanceId, trackId, slotIndex);
           }
         } else if (mounted) {
+          final reason = pluginProvider.lastLoadError ?? 'unknown reason';
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Failed to load plugin: ${plugin.name}'),
               backgroundColor: const Color(0xFFFF4060),
-              duration: const Duration(seconds: 3),
+              duration: const Duration(seconds: 8),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Failed to load plugin: ${plugin.name}',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(reason, style: const TextStyle(fontSize: 12)),
+                ],
+              ),
+              action: SnackBarAction(
+                label: 'Dismiss',
+                textColor: Colors.white,
+                onPressed: () =>
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar(),
+              ),
             ),
           );
+          pluginProvider.clearLastLoadError();
         }
       }
     }

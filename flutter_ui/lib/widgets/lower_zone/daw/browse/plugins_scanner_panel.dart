@@ -247,7 +247,10 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
     final instanceId = await provider.loadPlugin(plugin.id, trackId, 0);
     if (!mounted) return;
     if (instanceId == null) {
-      _setStatus('Failed to load ${plugin.name}', isError: true);
+      final reason = provider.lastLoadError ?? 'unknown reason';
+      _setStatus('Failed to load ${plugin.name}: $reason', isError: true);
+      _showPluginLoadErrorSnackbar(context, plugin.name, reason);
+      provider.clearLastLoadError();
       return;
     }
 
@@ -256,6 +259,38 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
       widget.onPluginInserted?.call(plugin.id, trackId);
       _setStatus('${plugin.name} → ${isInstrument ? "instrument" : "audio"} track #$trackId');
     }
+  }
+
+  /// Surfaces a descriptive SnackBar with the native FFI failure reason so
+  /// users can act on it (e.g., remove quarantine xattr, install correct arch).
+  void _showPluginLoadErrorSnackbar(BuildContext context, String pluginName, String reason) {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        backgroundColor: Colors.red.shade900,
+        duration: const Duration(seconds: 8),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Plugin failed: $pluginName',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            Text(reason, style: const TextStyle(fontSize: 12)),
+          ],
+        ),
+        action: SnackBarAction(
+          label: 'Dismiss',
+          textColor: Colors.white,
+          onPressed: () => messenger.hideCurrentSnackBar(),
+        ),
+      ),
+    );
   }
 
   void _setStatus(String msg, {bool isError = false}) {
@@ -313,7 +348,12 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
       _setStatus('FFI pluginLoad("${plugin.id}") on track $trackId...');
       final instanceId = await provider.loadPlugin(plugin.id, trackId, 0);
       if (instanceId == null) {
-        _setStatus('pluginLoad FAILED for ${plugin.id} — Rust returned null', isError: true);
+        final reason = provider.lastLoadError ?? 'Rust returned null';
+        _setStatus('pluginLoad FAILED for ${plugin.id}: $reason', isError: true);
+        if (mounted) {
+          _showPluginLoadErrorSnackbar(context, plugin.name, reason);
+          provider.clearLastLoadError();
+        }
         return;
       }
       _setStatus('Loaded: instanceId=$instanceId');
