@@ -30,6 +30,7 @@ import '../../theme/fluxforge_theme.dart';
 import 'forced_outcome_panel.dart';
 import 'game_flow_overlay.dart';
 import 'live_play_orb_overlay.dart';
+import '../splash/slot_entry_animation.dart';
 import '../../providers/mixer_dsp_provider.dart';
 import '../../models/game_flow_models.dart';
 import '../../providers/slot_lab/game_flow_provider.dart';
@@ -4816,6 +4817,11 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   // Intro transition: splash fadeout → black → base game fade-in
   bool _isIntroTransition = false;
   double _introOpacity = 0.0; // 0.0 = fully hidden (black), 1.0 = fully visible (base game)
+  // FLUX_MASTER_TODO 3.1.2 — kinematska Splash → Slot animacija (zlatni
+  // bloom + reels padaju + settle pulse). Aktivira se odmah pri ulasku
+  // u intro fazu i traje 1.6s. Dolazi u Stack PRE black-veil-a tako da
+  // korisnik vidi animaciju, ne samo "LOADING GAME..." text.
+  bool _showEntryAnimation = false;
 
   // Session
   double _balance = 1000.0;
@@ -5072,11 +5078,14 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   /// Intro transition: splash → black hold (GAME_INTRO plays) → base game fade-in → GAME_START
   /// Total duration: ~4s (industry standard slot machine intro)
   void _startIntroTransition(EventRegistry eventRegistry) {
-    // Phase 1 (T+0): Remove splash, show black overlay
+    // Phase 1 (T+0): Remove splash, show black overlay + kinematska entry
+    // animacija (FLUX_MASTER_TODO 3.1.2). Animacija traje 1.6s pa završi
+    // pre Phase 3 fade-in (T+3000ms) — vidljiv je sav reels-drop ciklus.
     setState(() {
       _isIntroTransition = true;
       _showSplashScreen = false;
       _introOpacity = 0.0; // Base game hidden behind black overlay
+      _showEntryAnimation = true;
     });
 
     // Phase 2 (T+300ms): GAME_INTRO sound fires during black hold
@@ -7155,6 +7164,24 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                       ),
                     ),
                   ),
+                ),
+              ),
+
+            // ═══════════════════════════════════════════════════════════════
+            // FLUX_MASTER_TODO 3.1.2 — Kinematska Splash → Slot animacija
+            // Sjedi IZNAD intro veil-a (last in Stack = top) tako da
+            // korisnik vidi zlatni bloom + reels drop + settle pulse pre
+            // nego što base game fadeuje in. Auto-removes on completion.
+            // ═══════════════════════════════════════════════════════════════
+            if (_showEntryAnimation)
+              Positioned.fill(
+                child: SlotEntryAnimation(
+                  reelCount: widget.reels,
+                  rowCount: widget.rows,
+                  onComplete: () {
+                    if (!mounted) return;
+                    setState(() => _showEntryAnimation = false);
+                  },
                 ),
               ),
 
