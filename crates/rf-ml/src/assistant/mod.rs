@@ -22,11 +22,16 @@
 //! ```
 
 mod analyzer;
+mod chain_advisor;
 mod classifier;
 mod config;
 mod suggestions;
 
 pub use analyzer::AudioAnalyzer;
+pub use chain_advisor::{
+    AdvisorConfig, AvailablePlugin, ChainAdvisor, ChainSlotSuggestion, ChainSuggestion,
+    PluginCandidate, SlotKind, TrackType,
+};
 pub use classifier::{Genre, GenreClassifier, Mood};
 pub use config::AssistantConfig;
 pub use suggestions::{Suggestion, SuggestionPriority, SuggestionType};

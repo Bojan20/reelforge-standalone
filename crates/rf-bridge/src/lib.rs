@@ -33,6 +33,7 @@
 pub mod advanced_metering;
 pub mod ail_ffi;
 pub mod ale_ffi;
+pub mod chain_advisor_ffi;
 mod api;
 mod api_engine;
 mod api_metering;
