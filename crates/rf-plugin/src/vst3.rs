@@ -559,70 +559,31 @@ impl<P: rack::PluginInstance + Send + 'static> RackPluginTrait for RackPluginWra
             );
         }
 
-        // Spawn out-of-process plugin GUI host.
-        // Flutter's Metal rendering pipeline conflicts with plugin GUI rendering
-        // in the same process (CALayer/_createLayer crash, or renders but controls
-        // are frozen). The rf-plugin-host binary runs in a clean process with its
-        // own NSApplication event loop — no Flutter interference.
+        // Out-of-process plugin GUI hosting via centralized GuiSession.
+        // Flutter's Metal rendering pipeline conflicts with plugin GUI in
+        // the same process; rf-plugin-host runs in a clean process with
+        // its own NSApplication event loop.
+        //
+        // NOTE: This RackPluginTrait method is currently unused — the live
+        // path goes through `Vst3Host::open_editor_macos` (in-process AU
+        // hosting). Kept here as a reference path that uses the polished
+        // GuiSession layer in case dispatch reroutes through it later.
         let plugin_name = title.to_string();
-        eprintln!("[FluxForge] Spawning rf-plugin-host for '{}'", plugin_name);
+        let helper_path = crate::find_plugin_host_binary()
+            .ok_or_else(|| "rf-plugin-host binary not found".to_string())?;
 
-        // Find the helper binary next to the main app binary
-        let helper_path = crate::find_plugin_host_binary();
+        let session = crate::gui_host::GuiSession::spawn(helper_path, plugin_name.clone())
+            .map_err(|e| format!("rf-plugin-host spawn failed: {}", e))?;
 
-        match helper_path {
-            Some(path) => {
-                use std::process::{Command, Stdio};
-                use std::io::Write as IoWrite;
+        // We don't have a place on RackPluginWrapper to stash the session
+        // (the type is generic over P and adding a field per-format is
+        // awkward). For now we leak the session deliberately so the child
+        // outlives this stack frame; the dead-code path will be replaced
+        // once dispatch routes through it.
+        std::mem::forget(session);
 
-                let mut child = Command::new(&path)
-                    .stdin(Stdio::piped())
-                    .stdout(Stdio::piped())
-                    .stderr(Stdio::inherit()) // share stderr for debugging
-                    .spawn()
-                    .map_err(|e| format!("Failed to spawn rf-plugin-host: {}", e))?;
-
-                // Read "ready" response
-                if let Some(ref mut stdout) = child.stdout {
-                    use std::io::BufRead;
-                    let mut reader = std::io::BufReader::new(stdout);
-                    let mut line = String::new();
-                    if reader.read_line(&mut line).is_ok() {
-                        eprintln!("[FluxForge] plugin-host: {}", line.trim());
-                    }
-                }
-
-                // Send open command
-                if let Some(ref mut stdin) = child.stdin {
-                    let cmd = format!("{{\"cmd\":\"open\",\"plugin_name\":\"{}\"}}\n", plugin_name);
-                    let _ = stdin.write_all(cmd.as_bytes());
-                    let _ = stdin.flush();
-                }
-
-                // Store child process handle for cleanup
-                // Detach stdin so the process keeps running
-                let stdin_handle = child.stdin.take();
-                std::thread::spawn(move || {
-                    // Keep child alive, read stdout for responses
-                    if let Some(stdout) = child.stdout.take() {
-                        use std::io::BufRead;
-                        let reader = std::io::BufReader::new(stdout);
-                        for line in reader.lines().map_while(Result::ok) {
-                            eprintln!("[FluxForge] plugin-host: {}", line);
-                        }
-                    }
-                    let _ = child.wait();
-                    eprintln!("[FluxForge] plugin-host process ended");
-                    drop(stdin_handle); // drop stdin when done
-                });
-
-                eprintln!("[FluxForge] rf-plugin-host spawned for '{}'", plugin_name);
-                Ok((800.0, 600.0))
-            }
-            None => {
-                Err("rf-plugin-host binary not found".into())
-            }
-        }
+        log::info!("rf-plugin-host (rack path) spawned for '{}'", plugin_name);
+        Ok((800.0, 600.0))
     }
 
     #[cfg(target_os = "macos")]

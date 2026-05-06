@@ -492,6 +492,11 @@ pub struct AudioUnitInstance {
     max_block_size: usize,
     /// Editor is open (rf-plugin-host subprocess)
     editor_open: AtomicBool,
+    /// Live GUI session (only Some while editor is open).
+    /// Owned per-instance so close_editor can actually shut down the
+    /// child process — pre-Front-2 the child was orphaned via
+    /// `drop(stdin_handle)` and only died when the DAW did.
+    gui_session: Mutex<Option<crate::gui_host::GuiSession>>,
     /// Opaque handle to AURenderCtx* (0 = not created yet / failed)
     /// Stored as usize so AtomicUsize can hold it safely.
     /// Only written during initialize() / drop() (non-audio thread).
@@ -565,6 +570,7 @@ impl AudioUnitInstance {
             sample_rate: AtomicU64::new((48000.0_f64).to_bits()),
             max_block_size: 4096,
             editor_open: AtomicBool::new(false),
+            gui_session: Mutex::new(None),
             au_render_handle: AtomicUsize::new(0),
         })
     }
@@ -868,76 +874,32 @@ impl PluginInstance for AudioUnitInstance {
 
         #[cfg(target_os = "macos")]
         {
-            // Spawn rf-plugin-host as separate process for native GUI.
-            // Flutter's Metal pipeline conflicts with plugin GUI in same process.
+            // Out-of-process GUI: Flutter's Metal pipeline conflicts with
+            // plugin GUI rendering in the same process. The `GuiSession`
+            // owns the rf-plugin-host child handle for the editor's
+            // lifetime so close_editor can actually shut it down.
             let plugin_name = self.info.name.clone();
-            eprintln!("[FluxForge] AU open_editor: spawning rf-plugin-host for '{}'", plugin_name);
+            let helper_path = crate::find_plugin_host_binary()
+                .ok_or_else(|| PluginError::InitError(
+                    "rf-plugin-host binary not found".into(),
+                ))?;
 
-            let helper_path = crate::find_plugin_host_binary();
-            match helper_path {
-                Some(path) => {
-                    use std::process::{Command, Stdio};
-                    use std::io::{BufRead, Write as IoWrite};
+            let session = crate::gui_host::GuiSession::spawn(helper_path, plugin_name.clone())
+                .map_err(|e| PluginError::InitError(format!(
+                    "rf-plugin-host spawn failed: {}", e
+                )))?;
 
-                    let mut child = Command::new(&path)
-                        .stdin(Stdio::piped())
-                        .stdout(Stdio::piped())
-                        .stderr(Stdio::inherit())
-                        .spawn()
-                        .map_err(|e| PluginError::InitError(
-                            format!("Failed to spawn rf-plugin-host: {}", e)
-                        ))?;
-
-                    // Read "ready" response
-                    if let Some(ref mut stdout) = child.stdout {
-                        let mut reader = std::io::BufReader::new(stdout);
-                        let mut line = String::new();
-                        if reader.read_line(&mut line).is_ok() {
-                            eprintln!("[FluxForge] plugin-host ready: {}", line.trim());
-                        }
-                    }
-
-                    // Send open command
-                    if let Some(ref mut stdin) = child.stdin {
-                        let cmd = format!(
-                            "{{\"cmd\":\"open\",\"plugin_name\":\"{}\"}}\n",
-                            plugin_name
-                        );
-                        let _ = stdin.write_all(cmd.as_bytes());
-                        let _ = stdin.flush();
-                    }
-
-                    // Keep child alive in background thread
-                    let stdin_handle = child.stdin.take();
-                    std::thread::spawn(move || {
-                        if let Some(stdout) = child.stdout.take() {
-                            let reader = std::io::BufReader::new(stdout);
-                            for line in reader.lines().map_while(Result::ok) {
-                                eprintln!("[FluxForge] plugin-host: {}", line);
-                            }
-                        }
-                        let _ = child.wait();
-                        eprintln!("[FluxForge] plugin-host process ended");
-                        drop(stdin_handle);
-                    });
-
-                    self.editor_open.store(true, Ordering::SeqCst);
-                    eprintln!("[FluxForge] rf-plugin-host spawned for '{}'", plugin_name);
-                    Ok(())
-                }
-                None => {
-                    Err(PluginError::InitError(
-                        "rf-plugin-host binary not found".into(),
-                    ))
-                }
-            }
+            *self.gui_session.lock() = Some(session);
+            self.editor_open.store(true, Ordering::SeqCst);
+            log::info!("AU editor opened for '{}'", plugin_name);
+            Ok(())
         }
 
         #[cfg(not(target_os = "macos"))]
         {
-            return Err(PluginError::UnsupportedFormat(
+            Err(PluginError::UnsupportedFormat(
                 "AudioUnit only supported on macOS".into(),
-            ));
+            ))
         }
     }
 
@@ -946,7 +908,11 @@ impl PluginInstance for AudioUnitInstance {
             return Ok(());
         }
 
-        // Cleanup would go here
+        // Drop the session — its `Drop` impl sends graceful close, waits
+        // 200 ms, then kills. No more zombie host processes.
+        let session = self.gui_session.lock().take();
+        drop(session);
+
         self.editor_open.store(false, Ordering::SeqCst);
         log::info!("Closed AU editor for {}", self.info.name);
         Ok(())

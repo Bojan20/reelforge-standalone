@@ -3,10 +3,32 @@
 //! Uses native AUv3 API (AVAudioUnit + requestViewController) for fully
 //! interactive plugin GUIs. Uses [NSApp run] for proper macOS event loop.
 //!
-//! Protocol (JSON over stdin/stdout):
-//!   → {"cmd":"open","plugin_name":"FabFilter Pro-Q 4"}
-//!   ← {"status":"ok","msg":"GUI opened"}
-//!   → {"cmd":"close"}
+//! # Protocol (JSON, line-delimited, over stdin/stdout)
+//!
+//! ## Commands (parent → child)
+//!
+//! | cmd         | extra fields                  | effect                               |
+//! |-------------|-------------------------------|--------------------------------------|
+//! | `open`      | `plugin_name: String`         | Open plugin GUI by fuzzy name match  |
+//! | `close`     | —                             | Close window + terminate process      |
+//! | `ping`      | —                             | Health check; replies with pong       |
+//! | `list`      | —                             | Stream `{plugin: "name"}` lines       |
+//! | `set_size`  | `width: f64`, `height: f64`   | Resize the live plugin window         |
+//!
+//! ## Responses (child → parent)
+//!
+//!   `{"status":"ok","msg":"ready, N plugins"}`     (on launch)
+//!   `{"status":"ok","msg":"GUI opened"}`           (after open)
+//!   `{"status":"ok","msg":"pong"}`                  (after ping)
+//!   `{"status":"ok","msg":"closed"}`               (after close)
+//!   `{"status":"error","msg":"<reason>"}`          (any error)
+//!
+//! # Parent-death detection
+//!
+//! On launch, env var `RF_PARENT_PID` (set by `GuiSession::spawn`) names
+//! the parent's PID. A 1 Hz NSTimer polls `kill(pid, 0)`; when the parent
+//! is gone (kill returns ESRCH), the host calls `[NSApp terminate]` to
+//! avoid orphaned plugin windows after a DAW crash.
 
 use std::ffi::CStr;
 use std::io::{self, BufRead, Write as IoWrite};
@@ -58,6 +80,10 @@ struct Command {
     cmd: String,
     #[serde(default)]
     plugin_name: String,
+    #[serde(default)]
+    width: f64,
+    #[serde(default)]
+    height: f64,
 }
 
 #[derive(serde::Serialize)]
@@ -98,6 +124,9 @@ unsafe impl Sync for SendPtr {}
 static COMMANDS: Mutex<Vec<Command>> = Mutex::new(Vec::new());
 static PLUGINS: Mutex<Vec<PluginEntry>> = Mutex::new(Vec::new());
 static WINDOW: Mutex<Option<SendPtr>> = Mutex::new(None);
+/// Parent process PID, set from RF_PARENT_PID env var on launch.
+/// 0 = not set / disabled.
+static PARENT_PID: Mutex<u32> = Mutex::new(0);
 
 extern "C" fn scan_callback(
     _user_data: *mut std::ffi::c_void,
@@ -295,6 +324,60 @@ unsafe extern "C" fn timer_fired(_this: *mut AnyObject, _sel: Sel, _timer: *mut 
                 let app = NSApplication::sharedApplication(mtm);
                 app.terminate(None);
             }
+            "ping" => {
+                send_response("ok", "pong");
+            }
+            "list" => {
+                let plugins = match PLUGINS.lock() {
+                    Ok(p) => p,
+                    Err(e) => {
+                        eprintln!("[rf-plugin-host] PLUGINS lock poisoned in list");
+                        e.into_inner()
+                    }
+                };
+                let count = plugins.len();
+                for entry in plugins.iter() {
+                    // One JSON line per plugin so the parent can stream-parse.
+                    let line = format!(
+                        "{{\"status\":\"ok\",\"msg\":\"plugin: {}\"}}",
+                        entry.name.replace('"', "\\\"")
+                    );
+                    let stdout = io::stdout();
+                    let mut out = stdout.lock();
+                    let _ = writeln!(out, "{}", line);
+                    let _ = out.flush();
+                }
+                drop(plugins);
+                send_response("ok", &format!("listed {} plugins", count));
+            }
+            "set_size" => {
+                let win_ptr_opt = match WINDOW.lock() {
+                    Ok(w) => w.as_ref().map(|SendPtr(p)| *p),
+                    Err(e) => {
+                        eprintln!("[rf-plugin-host] WINDOW lock poisoned in set_size");
+                        e.into_inner().as_ref().map(|SendPtr(p)| *p)
+                    }
+                };
+                match win_ptr_opt {
+                    Some(raw) if !raw.is_null() => {
+                        let w = if cmd.width > 50.0 { cmd.width } else { 800.0 };
+                        let h = if cmd.height > 50.0 { cmd.height } else { 600.0 };
+                        unsafe {
+                            // Get current frame, replace size, keep origin.
+                            let frame: NSRect = msg_send![raw, frame];
+                            let new_frame = NSRect::new(
+                                frame.origin,
+                                NSSize::new(w, h),
+                            );
+                            let _: () = msg_send![raw, setFrame: new_frame, display: true, animate: true];
+                        }
+                        send_response("ok", &format!("resized to {}x{}", w as u32, h as u32));
+                    }
+                    _ => {
+                        send_response("error", "no window open");
+                    }
+                }
+            }
             _ => {
                 send_response("error", &format!("Unknown command: {}", cmd.cmd));
             }
@@ -302,10 +385,56 @@ unsafe extern "C" fn timer_fired(_this: *mut AnyObject, _sel: Sel, _timer: *mut 
     }
 }
 
+/// Parent-pid watcher — fires once per second. If the parent process is
+/// gone (DAW crashed), terminate ourselves so the plugin window doesn't
+/// linger as a zombie after the user expected the DAW to take it.
+unsafe extern "C" fn parent_watch_fired(_this: *mut AnyObject, _sel: Sel, _timer: *mut AnyObject) {
+    let parent_pid = match PARENT_PID.lock() {
+        Ok(p) => *p,
+        Err(e) => *e.into_inner(),
+    };
+    if parent_pid == 0 {
+        return; // Not configured.
+    }
+    // SAFETY: kill(pid, 0) is the standard "is this PID alive" probe;
+    // returns 0 if alive (we have permission to signal), -1/ESRCH if gone.
+    unsafe {
+        let result = libc_kill(parent_pid as i32, 0);
+        if result != 0 {
+            let errno = *libc_errno();
+            // ESRCH = 3 on macOS; parent is gone.
+            if errno == 3 {
+                eprintln!("[rf-plugin-host] parent PID {} gone — terminating", parent_pid);
+                let mtm = MainThreadMarker::new_unchecked();
+                let app = NSApplication::sharedApplication(mtm);
+                app.terminate(None);
+            }
+        }
+    }
+}
+
+unsafe extern "C" {
+    #[link_name = "kill"]
+    fn libc_kill(pid: i32, sig: i32) -> i32;
+    #[link_name = "__error"]
+    fn libc_errno() -> *mut i32;
+}
+
 fn main() {
     let mtm = MainThreadMarker::new().expect("must run on main thread");
     let app = NSApplication::sharedApplication(mtm);
     app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
+
+    // Read parent PID from env so we can self-terminate if DAW crashes.
+    if let Ok(pid_str) = std::env::var("RF_PARENT_PID")
+        && let Ok(pid) = pid_str.parse::<u32>()
+    {
+        match PARENT_PID.lock() {
+            Ok(mut g) => *g = pid,
+            Err(e) => *e.into_inner() = pid,
+        }
+        eprintln!("[rf-plugin-host] parent PID = {}", pid);
+    }
 
     // Scan all AU plugins
     unsafe {
@@ -343,17 +472,17 @@ fn main() {
             }
         }
         eprintln!("[rf-plugin-host] stdin closed");
+        let close_cmd = Command {
+            cmd: "close".to_string(),
+            plugin_name: String::new(),
+            width: 0.0,
+            height: 0.0,
+        };
         match COMMANDS.lock() {
-            Ok(mut cmds) => cmds.push(Command {
-                cmd: "close".to_string(),
-                plugin_name: String::new(),
-            }),
+            Ok(mut cmds) => cmds.push(close_cmd),
             Err(e) => {
                 eprintln!("[rf-plugin-host] COMMANDS lock poisoned on stdin close");
-                e.into_inner().push(Command {
-                    cmd: "close".to_string(),
-                    plugin_name: String::new(),
-                });
+                e.into_inner().push(close_cmd);
             }
         }
     });
@@ -387,6 +516,40 @@ fn main() {
             repeats: Bool::YES
         ];
 
+        // Parent-watch timer: only schedule if RF_PARENT_PID was provided.
+        let parent_pid = match PARENT_PID.lock() {
+            Ok(g) => *g,
+            Err(e) => *e.into_inner(),
+        };
+        if parent_pid != 0 {
+            let Some(parent_superclass) = AnyClass::get(c"NSObject") else {
+                eprintln!("[rf-plugin-host] FATAL: NSObject class not found (parent watch)");
+                return;
+            };
+            let Some(mut parent_builder) = ClassBuilder::new(c"RFParentWatchTarget", parent_superclass) else {
+                eprintln!("[rf-plugin-host] FATAL: Failed to create RFParentWatchTarget class");
+                return;
+            };
+            parent_builder.add_method(
+                sel!(parentWatchFired:),
+                parent_watch_fired as unsafe extern "C" fn(*mut AnyObject, Sel, *mut AnyObject),
+            );
+            let parent_class = parent_builder.register();
+            let parent_target: *mut AnyObject = msg_send![parent_class, alloc];
+            let parent_target: *mut AnyObject = msg_send![parent_target, init];
+
+            let parent_interval: f64 = 1.0; // 1 Hz
+            let _parent_timer: *mut AnyObject = msg_send![
+                class!(NSTimer),
+                scheduledTimerWithTimeInterval: parent_interval,
+                target: parent_target,
+                selector: sel!(parentWatchFired:),
+                userInfo: nil,
+                repeats: Bool::YES
+            ];
+            eprintln!("[rf-plugin-host] parent-watch timer armed (1 Hz)");
+        }
+
         // [NSApp run] — proper macOS event loop
         app.run();
     }
@@ -402,6 +565,8 @@ mod tests {
         let cmd: Command = serde_json::from_str(json).unwrap();
         assert_eq!(cmd.cmd, "open");
         assert_eq!(cmd.plugin_name, "FabFilter Pro-Q 4");
+        assert_eq!(cmd.width, 0.0);
+        assert_eq!(cmd.height, 0.0);
     }
 
     #[test]
@@ -417,6 +582,29 @@ mod tests {
         let json = r#"{"cmd":"unknown_cmd"}"#;
         let cmd: Command = serde_json::from_str(json).unwrap();
         assert_eq!(cmd.cmd, "unknown_cmd");
+    }
+
+    #[test]
+    fn test_command_parse_ping() {
+        let json = r#"{"cmd":"ping"}"#;
+        let cmd: Command = serde_json::from_str(json).unwrap();
+        assert_eq!(cmd.cmd, "ping");
+    }
+
+    #[test]
+    fn test_command_parse_list() {
+        let json = r#"{"cmd":"list"}"#;
+        let cmd: Command = serde_json::from_str(json).unwrap();
+        assert_eq!(cmd.cmd, "list");
+    }
+
+    #[test]
+    fn test_command_parse_set_size() {
+        let json = r#"{"cmd":"set_size","width":1024.0,"height":768.0}"#;
+        let cmd: Command = serde_json::from_str(json).unwrap();
+        assert_eq!(cmd.cmd, "set_size");
+        assert_eq!(cmd.width, 1024.0);
+        assert_eq!(cmd.height, 768.0);
     }
 
     #[test]

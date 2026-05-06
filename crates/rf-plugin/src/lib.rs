@@ -56,8 +56,14 @@ pub mod vst3;
 pub mod audio_unit;
 pub mod chain;
 pub mod clap;
+pub mod gui_host;
 pub mod lv2;
 pub mod ultimate_scanner;
+
+pub use gui_host::{
+    GuiHostError, GuiHostResult, GuiSession, HostCommand, HostResponse, PluginGuiHost,
+    WindowState,
+};
 
 /// Find the rf-plugin-host binary for out-of-process plugin GUI hosting.
 /// Searches: app bundle MacOS dir, Frameworks dir, cargo target/release.
