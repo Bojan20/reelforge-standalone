@@ -6,15 +6,26 @@ authors.workspace = true
 license.workspace = true
 
 [features]
-default = ["ffmpeg"]
-# Enable FFmpeg backend (requires system FFmpeg installation)
+# Default je `[]` (bez ffmpeg) jer:
+#   1. ffmpeg-next 8.0.0 ima upstream non-exhaustive match bug.
+#   2. ffmpeg-sys-next 7.1 zahteva system `libavcodec/avfft.h` koji nije
+#      uvek prisutan (macOS bez `brew install ffmpeg --HEAD`).
+# Workspace-wide build/test radi out-of-box; ffmpeg je opt-in po crate-u
+# kome stvarno treba (rf-bridge ga ne treba za live compliance / wav
+# writer pipeline; samo video import flow ga koristi).
+default = []
+# Enable FFmpeg backend (requires system FFmpeg installation + 8.0.1+).
 ffmpeg = ["dep:ffmpeg-next"]
 
 [dependencies]
 rf-core = { workspace = true }
 
-# Video decoding via FFmpeg (optional - requires system FFmpeg)
-ffmpeg-next = { version = "8.0", optional = true }
+# Video decoding via FFmpeg (optional - requires system FFmpeg).
+# Pinned na 7.1 jer 8.0.0 ima non-exhaustive `match` na
+# `AVPacketSideDataType::AV_PKT_DATA_EXIF` koji blokira workspace
+# kompilaciju (upstream ffmpeg-next bug). Pin na 7.1 dok upstream
+# ne objavi 8.0.1+ sa exhaustive match.
+ffmpeg-next = { version = "7.1", optional = true }
 
 # Pure Rust video container parsing
 mp4 = "0.14"
