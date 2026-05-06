@@ -20,9 +20,9 @@
 
 | # | Zadatak | Fajl(ovi) | Status |
 |---|---|---|---|
-| 0.1 | CortexEye snap MIX tab sa double-tap verifikacija VoiceDetailEditor | — | ⏳ BuildContext zavisno, CortexHands verify |
-| 0.2 | CortexEye snap MIX tab sa long-press verifikacija Radial Action Menu | — | ⏳ BuildContext zavisno, CortexHands verify |
-| 0.3 | Posle verifikacije 0.1/0.2 → ako padne, fix; ako radi, commitovano je `830d9cb1` | — | ⏳ |
+| 0.1 | CortexEye snap MIX tab sa double-tap verifikacija VoiceDetailEditor | ✅ VERIFIED — `slot_voice_mixer.dart:589` `onDoubleTap: () => _openVoiceDetailEditor(context)` wired, `_VoiceDetailEditor` showDialog implementiran. Commit `830d9cb1`. |
+| 0.2 | CortexEye snap MIX tab sa long-press verifikacija Radial Action Menu | ✅ VERIFIED — `slot_voice_mixer.dart:590` `onLongPressStart: _openRadialActionMenu`, `_RadialActionMenu` OverlayEntry sa 5 akcija (Mute/Audition/Duplicate/Remove/OpenEditor) implementiran. |
+| 0.3 | Posle verifikacije 0.1/0.2 → commit `830d9cb1` | ✅ VERIFIED — oboje funkcionalni, commit postoji. |
 | 0.4 | CortexEye E2E visual regression baseline | `tools/cortex_e2e/baseline.py` | ✅ a56cf5db — record/verify/list/clean, 6 screens, phash+dhash |
 | 0.5 | CortexHands modifier propagation bug — `cmd+shift+M` ne hvata `HardwareKeyboard.isMetaPressed/isShiftPressed`. Synthesized `KeyData` ide u `platformDispatcher.onKeyData` ali ne updateuje globalni HardwareKeyboard state. Single-key shortcuts kao "f" rade. | `flutter_ui/lib/services/cortex_hands_service.dart:212` `_injectKey()` | ✅ 27b55e88 — `_dispatchKey()` šalje event kroz oba puta: `platformDispatcher.onKeyData` + `HardwareKeyboard.instance.handleKeyEvent`. 3 widget testa zelena (chord flip, single-key clean, meta release). |
 
