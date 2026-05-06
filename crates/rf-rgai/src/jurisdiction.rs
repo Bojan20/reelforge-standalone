@@ -81,6 +81,25 @@ impl Jurisdiction {
         }
     }
 
+    /// Inverse of `code()` — parse short string back to enum.
+    /// Case-insensitive (`"ukgc"` i `"UKGC"` se podjednako prepoznaju).
+    /// Returns `None` za nepoznat code (caller treba da reaguje, ne da
+    /// silently mapuje na default — fail-loud bolji od fail-quiet u
+    /// compliance domenu).
+    pub fn from_code(code: &str) -> Option<Self> {
+        match code.to_ascii_uppercase().as_str() {
+            "UKGC" => Some(Self::Ukgc),
+            "MGA" => Some(Self::Mga),
+            "AGCO" | "ONTARIO" => Some(Self::Ontario),
+            "SE" | "SWEDEN" => Some(Self::Sweden),
+            "DK" | "DENMARK" => Some(Self::Denmark),
+            "NL" | "NETHERLANDS" => Some(Self::Netherlands),
+            "AU" | "AUSTRALIA" => Some(Self::Australia),
+            "CUSTOM" => Some(Self::Custom),
+            _ => None,
+        }
+    }
+
     /// Get the default profile for this jurisdiction.
     pub fn profile(&self) -> JurisdictionProfile {
         match self {
@@ -328,6 +347,38 @@ impl JurisdictionProfile {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn from_code_round_trips_for_all_builtin() {
+        // Pin: code() → from_code() je identity za sve aktivne jurisdictions.
+        // Ako neko doda novu jurisdiction, mora da ažurira oba match-a.
+        for &j in Jurisdiction::all_builtin() {
+            let code = j.code();
+            let parsed = Jurisdiction::from_code(code)
+                .unwrap_or_else(|| panic!("{j:?}.code() = {code:?} ne mapuje nazad"));
+            assert_eq!(parsed, j);
+        }
+    }
+
+    #[test]
+    fn from_code_is_case_insensitive() {
+        assert_eq!(Jurisdiction::from_code("ukgc"), Some(Jurisdiction::Ukgc));
+        assert_eq!(Jurisdiction::from_code("UKGC"), Some(Jurisdiction::Ukgc));
+        assert_eq!(Jurisdiction::from_code("UkGc"), Some(Jurisdiction::Ukgc));
+    }
+
+    #[test]
+    fn from_code_unknown_returns_none() {
+        // Fail-loud: regulatory shouldn't silently default unknown codes.
+        assert_eq!(Jurisdiction::from_code("XYZ"), None);
+        assert_eq!(Jurisdiction::from_code(""), None);
+    }
+
+    #[test]
+    fn from_code_accepts_long_form_aliases() {
+        assert_eq!(Jurisdiction::from_code("Sweden"), Some(Jurisdiction::Sweden));
+        assert_eq!(Jurisdiction::from_code("ontario"), Some(Jurisdiction::Ontario));
+    }
 
     #[test]
     fn default_jurisdiction_is_ukgc_fail_closed() {

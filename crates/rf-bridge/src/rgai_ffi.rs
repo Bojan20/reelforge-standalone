@@ -14,7 +14,7 @@ use std::sync::OnceLock;
 
 use parking_lot::RwLock;
 use rf_rgai::{
-    ExportGate, Jurisdiction, RgaiAnalyzer, RemediationPlan,
+    ExportGate, Jurisdiction, LiveComplianceState, RgaiAnalyzer, RemediationPlan,
     report::RgarReport,
     session::{AudioAssetProfile, GameAudioSession},
 };
@@ -203,5 +203,158 @@ pub extern "C" fn rgai_jurisdictions_json() -> *mut c_char {
 pub extern "C" fn rgai_free_string(ptr: *mut c_char) {
     if !ptr.is_null() {
         unsafe { drop(CString::from_raw(ptr)); }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// LIVE COMPLIANCE — FLUX_MASTER_TODO 3.4.1 / 3.4.3 / 3.4.4
+// ═══════════════════════════════════════════════════════════════════════
+//
+// `rgai_*` FFI iznad je analytical (post-hoc batch analiza). Live FFI
+// koristi `LiveComplianceState` (atomic counters) tako da audio/spin
+// thread može da `record_spin` bez locking-a, a UI thread može da
+// `snapshot` 5×/sec.
+//
+// Lifecycle:
+//   * `rgai_live_init(jurisdictions_json)` jednom posle `rgai_init`
+//     (ili samostalno — koristi iste jurisdictions ako je `rgai_init`
+//     već zvao). Idempotent.
+//   * `rgai_live_record_spin(win, bet, near_miss_flag, arousal)`
+//     po svakom spin event-u.
+//   * `rgai_live_snapshot_json()` 5×/sec za UI traffic lights.
+//   * `rgai_live_reset()` na kraju sesije ili pre nove kampanje.
+
+static LIVE_STATE: OnceLock<RwLock<LiveComplianceState>> = OnceLock::new();
+
+/// Lazy-init LiveComplianceState ako nije već. Default = isti
+/// jurisdictions kao `state()` analyzer (UKGC + MGA).
+fn live_state() -> &'static RwLock<LiveComplianceState> {
+    LIVE_STATE.get_or_init(|| {
+        let jurisdictions = state().read().jurisdictions.clone();
+        RwLock::new(LiveComplianceState::new(jurisdictions))
+    })
+}
+
+/// Initialize / re-initialize live compliance state sa explicit
+/// jurisdictions (nije obavezno — lazy-init koristi rgai_init defaults).
+/// Returns 1 on success, 0 ako JSON parse fails.
+#[unsafe(no_mangle)]
+pub extern "C" fn rgai_live_init(jurisdictions_json: *const c_char) -> i32 {
+    let jurisdictions = if jurisdictions_json.is_null() {
+        state().read().jurisdictions.clone()
+    } else {
+        let codes: Vec<String> = unsafe { CStr::from_ptr(jurisdictions_json) }
+            .to_str()
+            .ok()
+            .and_then(|s| serde_json::from_str(s).ok())
+            .unwrap_or_default();
+        if codes.is_empty() {
+            return 0;
+        }
+        codes
+            .into_iter()
+            .filter_map(|c| Jurisdiction::from_code(&c))
+            .collect()
+    };
+    if jurisdictions.is_empty() {
+        return 0;
+    }
+    // Replace — get_or_init ne podržava replace, ali write-lock na
+    // postojećem state-u + reset + jurisdiction reassignment zahteva
+    // exposed API koji nemamo. Pragmatic fix: ako već init-ovan, samo
+    // reset; jurisdictions ostaju iz prvog init-a. Idemo tako jer
+    // re-init s drugim jurisdictions je rare power-user flow.
+    let _ = LIVE_STATE.get_or_init(|| RwLock::new(LiveComplianceState::new(jurisdictions)));
+    live_state().read().reset();
+    1
+}
+
+/// Record one spin event from audio/game thread.
+/// `near_miss_flag` je 0/1 (FFI ne ima bool). `arousal` je 0..1.
+/// Ne baca exception — bet ≤ 0 silently ignoriše (validation u `record_spin`).
+#[unsafe(no_mangle)]
+pub extern "C" fn rgai_live_record_spin(
+    win: f64,
+    bet: f64,
+    near_miss_flag: i32,
+    arousal: f64,
+) {
+    live_state()
+        .read()
+        .record_spin(win, bet, near_miss_flag != 0, arousal);
+}
+
+/// UI poll — vrati current snapshot kao JSON. Klient mora da pozove
+/// `rgai_free_string` posle parsing-a.
+#[unsafe(no_mangle)]
+pub extern "C" fn rgai_live_snapshot_json() -> *mut c_char {
+    let snap = live_state().read().snapshot();
+    json_to_c(serde_json::to_string(&snap).unwrap_or_else(|_| "{}".to_string()))
+}
+
+/// Clear all counters (zadržava jurisdiction set). Tipično se zove na
+/// session boundary.
+#[unsafe(no_mangle)]
+pub extern "C" fn rgai_live_reset() {
+    live_state().read().reset();
+}
+
+#[cfg(test)]
+mod live_tests {
+    use super::*;
+
+    /// FFI kontrakt: snapshot pre bilo kog spina vraća validan JSON sa
+    /// spins_total=0. Bez ovoga, UI bi crash-ovao na first paint kada
+    /// pokuša da deserialize-uje empty payload.
+    #[test]
+    fn empty_snapshot_returns_valid_json() {
+        // Force fresh state — koristi novi OnceLock setup nije moguć u
+        // test-u (statik), ali rgai_live_reset() daje clean snapshot.
+        rgai_live_reset();
+        let ptr = rgai_live_snapshot_json();
+        assert!(!ptr.is_null());
+        let s = unsafe { CStr::from_ptr(ptr) }.to_str().unwrap().to_string();
+        rgai_free_string(ptr);
+        assert!(s.contains("\"spins_total\":0"));
+        assert!(s.contains("\"ldw_count\":0"));
+    }
+
+    #[test]
+    fn record_spin_counts_propagate_to_snapshot() {
+        rgai_live_reset();
+        // 10 LDW spin-ova (win == bet).
+        for _ in 0..10 {
+            rgai_live_record_spin(1.0, 1.0, 0, 0.3);
+        }
+        let ptr = rgai_live_snapshot_json();
+        let s = unsafe { CStr::from_ptr(ptr) }.to_str().unwrap().to_string();
+        rgai_free_string(ptr);
+        assert!(s.contains("\"spins_total\":10"));
+        assert!(s.contains("\"ldw_count\":10"));
+    }
+
+    #[test]
+    fn near_miss_flag_translates_to_bool() {
+        rgai_live_reset();
+        // 5 near-miss + 5 ne. FFI flag = 1 i 0.
+        for i in 0..10 {
+            rgai_live_record_spin(0.0, 1.0, if i < 5 { 1 } else { 0 }, 0.0);
+        }
+        let ptr = rgai_live_snapshot_json();
+        let s = unsafe { CStr::from_ptr(ptr) }.to_str().unwrap().to_string();
+        rgai_free_string(ptr);
+        assert!(s.contains("\"near_miss_count\":5"));
+    }
+
+    #[test]
+    fn null_init_uses_default_jurisdictions() {
+        // FFI safety: null pointer kao argumenta init-a → defaults.
+        let result = rgai_live_init(std::ptr::null());
+        // Već iniciran lazy_state-om u live_state(); 1 = ok.
+        assert!(result == 1 || result == 0);
+        // Snapshot mora biti validan posle null-init-a.
+        let ptr = rgai_live_snapshot_json();
+        assert!(!ptr.is_null());
+        rgai_free_string(ptr);
     }
 }

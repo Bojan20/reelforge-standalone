@@ -26,6 +26,7 @@
 pub mod analysis;
 pub mod export_gate;
 pub mod jurisdiction;
+pub mod live;
 pub mod metrics;
 pub mod remediation;
 pub mod report;
@@ -34,6 +35,9 @@ pub mod session;
 pub use analysis::RgaiAnalyzer;
 pub use export_gate::ExportGate;
 pub use jurisdiction::{Jurisdiction, JurisdictionProfile};
+pub use live::{
+    JurisdictionLive, JurisdictionStatus, LiveComplianceSnapshot, LiveComplianceState,
+};
 pub use metrics::{
     AddictionRiskRating, ArousalCoefficient, LossDisguiseScore, NearMissDeceptionIndex,
     RgaiMetrics, TemporalDistortionFactor,
