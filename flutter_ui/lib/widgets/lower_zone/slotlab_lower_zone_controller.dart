@@ -64,7 +64,9 @@ class SlotLabLowerZoneController extends ChangeNotifier {
     SlotLabSuperTab.music     => null, // 5 tabs — no grouping needed
     SlotLabSuperTab.logic     => const [4, 7],    // Behavior+Triggers+Gate+Priority+Orch | Emotional+Context+Sim | PriPreset+StateMachine+StateHist
     SlotLabSuperTab.intel     => const [3],       // Build+Flow+Sim+Diag | Templates+Export+Coverage+Inspector
-    SlotLabSuperTab.monitor   => const [3, 5],    // Timeline+Energy+Voice+Spectral | Fatigue+AIL | Debug+Export+Profiler+...
+    // SPEC-08 — MONITOR 20→5 grupa. Source-of-truth je `SlotLabMonitorGroup`
+    // enum; ovaj getter samo prosledjuje da single-place edit drži oba u sync.
+    SlotLabSuperTab.monitor   => SlotLabMonitorGroup.separatorIndices(),
     SlotLabSuperTab.bake      => const [3, 6],    // Export+Stems+Variations+Package | Git+Analytics+Docs | Macro+...
   };
 

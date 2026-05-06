@@ -820,7 +820,81 @@ enum SlotLabLogicSubTab { behavior, triggers, gate, priority, orchestration, emo
 enum SlotLabIntelSubTab { build, flow, sim, diagnostic, templates, export, coverage, inspector }
 
 /// MONITOR sub-tabs — UCP monitoring zones (timeline, energy, spectral, etc.)
-enum SlotLabMonitorSubTab { timeline, energy, voice, spectral, fatigue, ail, neuro, mathBridge, rgai, debug, export, ucpExport, abTest, fingerprint, spatial, aiCopilot, profiler, profilerAdv, evtDebug, resource, voiceStats }
+/// MONITOR sub-tabs reorganized by SPEC-08 (FLUX_MASTER_TODO 2B.2 P3) into
+/// 5 logical groups so user nikad ne mora da skroluje 20 flat tabova:
+///
+///   LIVE   (4): timeline, energy, voice, spectral
+///   AI     (4): fatigue, ail, neuro, aiCopilot
+///   MATH   (3): mathBridge, rgai, abTest
+///   DEBUG  (4): debug, profiler, profilerAdv, evtDebug
+///   EXPORT (6): export, ucpExport, fingerprint, spatial, resource, voiceStats
+///
+/// Reordering jeste **breaking** za persisted index (npr. stari `index=7`
+/// je bio `mathBridge`, sad je `aiCopilot`). Persistencija fall-back-uje
+/// na clamp pa ne pukne; korisnik vidi prvi tab posle restart-a kad je
+/// stari index bio mid-stream. To je acceptable kompromis za drastično
+/// jasniju navigaciju (vidi `SlotLabMonitorGroup`).
+enum SlotLabMonitorSubTab {
+  // ── LIVE (4) ──
+  timeline, energy, voice, spectral,
+  // ── AI (4) ──
+  fatigue, ail, neuro, aiCopilot,
+  // ── MATH (3) ──
+  mathBridge, rgai, abTest,
+  // ── DEBUG (4) ──
+  debug, profiler, profilerAdv, evtDebug,
+  // ── EXPORT (6) ──
+  export, ucpExport, fingerprint, spatial, resource, voiceStats,
+}
+
+/// Logička grupa za jedan MONITOR sub-tab. Renderer koristi za:
+/// (a) `subTabGroupBreaks` separatore u context bar-u,
+/// (b) `subTabGroupLabels` header prefix-e ("LIVE | AI | MATH | DEBUG | EXPORT"),
+/// (c) buduće collapse-toggle (Ph2 SPEC-08 follow-up).
+enum SlotLabMonitorGroup {
+  live, ai, math, debug, export;
+
+  /// Display label za context bar header.
+  String get label => switch (this) {
+    SlotLabMonitorGroup.live => 'LIVE',
+    SlotLabMonitorGroup.ai => 'AI',
+    SlotLabMonitorGroup.math => 'MATH',
+    SlotLabMonitorGroup.debug => 'DEBUG',
+    SlotLabMonitorGroup.export => 'EXPORT',
+  };
+
+  /// Index range u `SlotLabMonitorSubTab.values` koji pripada grupi.
+  /// Inkluzivni interval `[start, end]`. Pin za testove — ako neko
+  /// reorderuje enum bez ažuriranja ove tabele, asertacije pucaju.
+  (int start, int end) get range => switch (this) {
+    SlotLabMonitorGroup.live => (0, 3),
+    SlotLabMonitorGroup.ai => (4, 7),
+    SlotLabMonitorGroup.math => (8, 10),
+    SlotLabMonitorGroup.debug => (11, 14),
+    SlotLabMonitorGroup.export => (15, 20),
+  };
+
+  /// Vraća grupu kojoj pripada dat sub-tab.
+  static SlotLabMonitorGroup forSubTab(SlotLabMonitorSubTab t) {
+    final i = t.index;
+    for (final g in SlotLabMonitorGroup.values) {
+      final (s, e) = g.range;
+      if (i >= s && i <= e) return g;
+    }
+    // Defensive: enum dodat bez ažuriranja `range` — vrati prvi grupu da
+    // UI ostane upotrebljiv. Test `monitor_groups_partition_all_subtabs`
+    // ide upravo tu rupu.
+    return SlotLabMonitorGroup.live;
+  }
+
+  /// Indeksi na kojima context bar treba da renderuje group separator
+  /// (i opciono group label). To je `[start_of_group_1, …]` izuzimajući
+  /// 0 (prva grupa nema separator pre sebe).
+  static List<int> separatorIndices() => SlotLabMonitorGroup.values
+      .map((g) => g.range.$1)
+      .where((i) => i > 0)
+      .toList();
+}
 
 extension SlotLabStagesSubTabX on SlotLabStagesSubTab {
   String get label => ['Trace', 'Timeline', 'Timing', 'Layers'][index];
@@ -933,31 +1007,67 @@ extension SlotLabIntelSubTabX on SlotLabIntelSubTab {
 }
 
 extension SlotLabMonitorSubTabX on SlotLabMonitorSubTab {
-  String get label => ['Timeline', 'Energy', 'Voice', 'Spectral', 'Fatigue', 'AIL', 'Neuro', 'Math', 'RGAI', 'Debug', 'Export', 'UCP', 'A/B', 'FP', '3D', 'AI', 'Profiler', 'Prof Adv', 'Evt Debug', 'Resources', 'Voice Stats'][index];
-  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 'A', 'Z', 'X', 'C', 'V', 'B', 'S', 'D', 'F', 'G', 'H'][index];
-  String get tooltip => [
+  // SPEC-08 reorder — labels/shortcuts/tooltips MUST match the new enum
+  // order group-by-group (LIVE | AI | MATH | DEBUG | EXPORT). The
+  // `monitor_label_array_order_matches_enum` test pins this contract so
+  // a future enum tweak that forgets to update one array fails CI.
+  String get label => const [
+    // LIVE
+    'Timeline', 'Energy', 'Voice', 'Spectral',
+    // AI
+    'Fatigue', 'AIL', 'Neuro', 'AI',
+    // MATH
+    'Math', 'RGAI', 'A/B',
+    // DEBUG
+    'Debug', 'Profiler', 'Prof Adv', 'Evt Debug',
+    // EXPORT
+    'Export', 'UCP', 'FP', '3D', 'Resources', 'Voice Stats',
+  ][index];
+
+  String get shortcut => const [
+    // LIVE
+    'Q', 'W', 'E', 'R',
+    // AI
+    'T', 'Y', 'U', 'I',
+    // MATH
+    'O', 'P', 'A',
+    // DEBUG
+    'S', 'D', 'F', 'G',
+    // EXPORT
+    'Z', 'X', 'C', 'V', 'B', 'H',
+  ][index];
+
+  String get tooltip => const [
+    // LIVE
     'Event timeline — real-time event activity log',
     'Energy — emotional energy arc monitor',
     'Voice — active voice count per priority',
     'Spectral — frequency spectrum heatmap',
+    // AI
     'Fatigue — CPU/memory stability metrics',
     'AIL — adaptive audio intelligence learning',
     'NeuroAudio — AI player behavioral adaptation',
+    'AI Co-Pilot — slot audio AI assistant with context-aware suggestions',
+    // MATH
     'MathAudio Bridge — PAR/CSV import → auto audio map',
     'RGAI — responsible gaming audio compliance',
-    'Debug — raw debug output and FFI trace',
-    'Export — monitoring data export',
-    'UCP Export — universal casino protocol multi-target export',
     'A/B Test — audio package A/B testing analytics with statistical significance',
-    'Fingerprint — neural waveform fingerprinting and anti-piracy watermarking',
-    '3D Spatial — VR/AR casino floor audio spatialization and HRTF',
-    'AI Co-Pilot — slot audio AI assistant with context-aware suggestions',
+    // DEBUG
+    'Debug — raw debug output and FFI trace',
     'Profiler — real-time performance metrics',
     'Advanced profiler — detailed CPU/latency breakdown',
     'Event debugger — event trigger/stop tracing',
+    // EXPORT
+    'Export — monitoring data export',
+    'UCP Export — universal casino protocol multi-target export',
+    'Fingerprint — neural waveform fingerprinting and anti-piracy watermarking',
+    '3D Spatial — VR/AR casino floor audio spatialization and HRTF',
     'Resources — audio asset memory usage',
     'Voice stats — voice pool statistics',
   ][index];
+
+  /// Logical group ovog sub-tab-a (SPEC-08).
+  SlotLabMonitorGroup get group => SlotLabMonitorGroup.forSubTab(this);
 }
 
 extension SlotLabRtpcSubTabX on SlotLabRtpcSubTab {

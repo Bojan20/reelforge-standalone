@@ -627,6 +627,8 @@ EXPORT  ▶
 
 Isti pattern kao SPEC-02 — `SlotLabMonitorGroup` enum + group header widget.
 
+**Status:** ✅ Phase 1 (2026-05-06, commit pending) — `SlotLabMonitorSubTab` reordered tako da grupe budu susedne u nizu (LIVE 0-3 / AI 4-7 / MATH 8-10 / DEBUG 11-14 / EXPORT 15-20). `SlotLabMonitorGroup` enum (5 vrednosti) sa `range`, `label`, `forSubTab(t)`, `separatorIndices()` API. Controller `subTabGroupBreaks` getter sad vraća `SlotLabMonitorGroup.separatorIndices()` umesto hard-koded `[3, 5]` — single source of truth pin za izlaz grupe i separator-a u sync. **10 unit testova** pinuju invariants: 5 grupa partitioniraju svih 21 sub-tabova bez preklapanja/rupa, separator indeksi su `[4, 8, 11, 15]`, label/shortcut/tooltip arrays drže pozicionalnu paritet sa enum-om, shortcuts jedinstveni (no keyboard nav ambiguity), `t.group` getter konvergira sa static helper-om. **Phase 2 (collapse toggle)** ostaje — trenutni context bar renderuje vertical separator liniju ali NEMA group label header iznad svake grupe; kad/ako bude potrebno, `subTabGroupLabels` parameter dolazi u `LowerZoneContextBar`.
+
 ---
 
 ### SPEC-09 · HELIX Command Dock — Quick Actions Strip
