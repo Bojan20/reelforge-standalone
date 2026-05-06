@@ -4621,26 +4621,21 @@ pub extern "C" fn orb_capture_last_n_seconds(
         return 0;
     }
 
-    // Write interleaved stereo 32-bit float WAV.
-    let spec = hound::WavSpec {
-        channels: 2,
-        sample_rate: sr,
-        bits_per_sample: 32,
-        sample_format: hound::SampleFormat::Float,
-    };
-
-    let mut writer = match hound::WavWriter::create(path, spec) {
-        Ok(w) => w,
-        Err(_) => return 0,
-    };
-
+    // FLUX_MASTER_TODO 2.2.2 phase 3 — koristi rf_core::wav_writer
+    // (16-bit PCM stereo) umesto pre-existing hound 32-bit float
+    // pipeline-a. Razlozi:
+    //   * 4× manji file (5s @ 48 kHz: ~960 KB vs ~3.84 MB) — bitno za
+    //     Problems Inbox replay arhive koje se akumuliraju.
+    //   * Univerzalniji decoder support (svaki audio player čita 16-bit
+    //     PCM; 32-bit float ide kroz extensible WAV header koji neki
+    //     starije alate odbacuju).
+    //   * Drop hound transitive dep (manji workspace build).
+    //   * Quantization gubitak je ispod noise floor-a za QA replay
+    //     (covered u rf_core::wav_writer testovima).
     let n = left.len();
-    for i in 0..n {
-        if writer.write_sample(left[i]).is_err() { return 0; }
-        if writer.write_sample(right[i]).is_err() { return 0; }
+    if rf_core::wav_writer::write_wav(path, &left, &right, sr).is_err() {
+        return 0;
     }
-    if writer.finalize().is_err() { return 0; }
-
     n as u64
 }
 

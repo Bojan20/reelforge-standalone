@@ -43,7 +43,9 @@ smallvec = { version = "1.13", features = ["serde"] }
 cpal = { workspace = true }
 memmap2 = "0.9"
 signalsmith-stretch = "0.1"
-hound = { workspace = true }
+# hound dropped — replaced by `rf_core::wav_writer` (16-bit PCM stereo,
+# zero deps). Vidi `ffi.rs::orb_capture_last_n_seconds` koji je bio
+# jedini call site.
 
 # Audio file decoding - ALL supported formats
 # Lossless: wav, flac, aiff, alac (Apple Lossless)
