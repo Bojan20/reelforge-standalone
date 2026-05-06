@@ -102,6 +102,7 @@ pub mod slot_spatial_ffi; // Slot Spatial Audio™ — VR/AR 3D positioning
 pub mod ab_sim_ffi; // A/B Testing Analytics™ — batch simulation
 pub mod slot_export_ffi; // UCP Export™ — multi-platform export
 pub mod rgai_ffi; // RGAI™ — responsible gaming audio intelligence
+pub mod composer_ffi; // AI Composer — multi-provider audio design intelligence
 pub mod neural_bridge; // Ultimate Neural Bridge — unified intent-based communication
 mod transport;
 mod viz;

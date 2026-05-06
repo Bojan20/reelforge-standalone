@@ -30817,5 +30817,229 @@ extension ClipEnvelopeFFI on NativeFFI {
       malloc.free(jsonPtr);
     }
   }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // AI Composer — Multi-provider audio design intelligence
+  // ═══════════════════════════════════════════════════════════════════════
+  //
+  // Three deployment modes — chosen at runtime via Settings:
+  //   Local Ollama (air-gapped) | Anthropic (BYOK) | Azure OpenAI (enterprise).
+  //
+  // All composer_* functions return JSON that the Dart side parses into
+  // typed models in lib/models/ai_composer.dart.
+  //
+  // Memory: every Pointer<Utf8> returned MUST be freed via composer_free_string.
+
+  /// Get the currently active ProviderSelection as JSON.
+  String? composerGetSelectionJson() {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()
+      >('composer_get_selection_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('composer_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Replace the active ProviderSelection. JSON must match `ProviderSelection`
+  /// schema (see rf-composer/src/registry.rs). Returns true on success.
+  bool composerSetSelectionJson(String selectionJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)
+      >('composer_set_selection_json');
+      final ptr = selectionJson.toNativeUtf8();
+      try {
+        return fn(ptr) == 0;
+      } finally {
+        malloc.free(ptr);
+      }
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Hit the active provider's health check and return AiProviderInfo JSON
+  /// (id, model, endpoint, capabilities, healthy).
+  String? composerDescribeActiveJson() {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()
+      >('composer_describe_active_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('composer_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Get the array of [{id,label}] for all selectable providers (for dropdowns).
+  String? composerProviderOptionsJson() {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()
+      >('composer_provider_options_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('composer_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Store a credential in the OS keychain.
+  /// account: "anthropic" | "azure_openai".
+  bool composerCredentialPut(String account, String secret) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>, Pointer<Utf8>),
+          int Function(Pointer<Utf8>, Pointer<Utf8>)
+      >('composer_credential_put');
+      final aPtr = account.toNativeUtf8();
+      final sPtr = secret.toNativeUtf8();
+      try {
+        return fn(aPtr, sPtr) == 0;
+      } finally {
+        malloc.free(aPtr);
+        malloc.free(sPtr);
+      }
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Delete a credential from the OS keychain (idempotent).
+  bool composerCredentialDelete(String account) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)
+      >('composer_credential_delete');
+      final aPtr = account.toNativeUtf8();
+      try {
+        return fn(aPtr) == 0;
+      } finally {
+        malloc.free(aPtr);
+      }
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Returns true if a credential is stored for the given account.
+  bool composerCredentialExists(String account) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)
+      >('composer_credential_exists');
+      final aPtr = account.toNativeUtf8();
+      try {
+        return fn(aPtr) == 1;
+      } finally {
+        malloc.free(aPtr);
+      }
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Run a ComposerJob. Payload schema:
+  /// `{ description, jurisdictions: [..], include_brief, include_voice_direction, include_quality_grade }`.
+  /// Returns ComposerOutput JSON or null on failure (see composerLastErrorJson).
+  String? composerRunJson(String jobJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('composer_run_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('composer_free_string');
+      final pPtr = jobJson.toNativeUtf8();
+      try {
+        final ptr = fn(pPtr);
+        if (ptr == nullptr) return null;
+        final result = ptr.toDartString();
+        freeFn(ptr);
+        return result;
+      } finally {
+        malloc.free(pPtr);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Run a fast smoke test (just a health check on the active provider).
+  /// Returns `{ healthy: bool, info: AiProviderInfo }` JSON.
+  String? composerRunDryJson() {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()
+      >('composer_run_dry_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('composer_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Returns the last error message recorded by any composer_* call.
+  /// Useful when composerRunJson returns null — call this immediately after.
+  String? composerLastErrorJson() {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()
+      >('composer_last_error_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('composer_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final result = ptr.toDartString();
+      freeFn(ptr);
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
 }
 

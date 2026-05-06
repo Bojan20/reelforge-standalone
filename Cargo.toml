@@ -72,6 +72,8 @@ members = [
     "crates/rf-ai-gen",
     # RGAI™ — Responsible Gaming Audio Intelligence (T1.1–T1.7)
     "crates/rf-rgai",
+    # AI Composer — Multi-provider audio design intelligence (Local/BYOK/Azure)
+    "crates/rf-composer",
 ]
 
 [workspace.package]
@@ -114,6 +116,7 @@ rf-cloud-sync = { path = "crates/rf-cloud-sync" }
 rf-slot-spatial = { path = "crates/rf-slot-spatial" }
 rf-ai-gen = { path = "crates/rf-ai-gen" }
 rf-rgai = { path = "crates/rf-rgai" }
+rf-composer = { path = "crates/rf-composer" }
 rf-ale = { path = "crates/rf-ale" }
 rf-aurexis = { path = "crates/rf-aurexis" }
 rf-offline = { path = "crates/rf-offline" }

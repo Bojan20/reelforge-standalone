@@ -1,0 +1,46 @@
+[package]
+name = "rf-composer"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "FluxForge AI Composer — multi-provider audio design intelligence (Local/BYOK/Azure)"
+
+[dependencies]
+# Internal — RGAI for live compliance self-correction
+rf-rgai = { path = "../rf-rgai" }
+
+# Async runtime
+tokio = { workspace = true, features = ["rt-multi-thread", "sync", "macros", "time"] }
+async-trait = "0.1"
+futures-util.workspace = true
+
+# HTTP client (used by Anthropic, Ollama, Azure adapters)
+reqwest.workspace = true
+
+# Serialization
+serde.workspace = true
+serde_json.workspace = true
+
+# Errors
+anyhow.workspace = true
+thiserror.workspace = true
+
+# Concurrency
+parking_lot.workspace = true
+
+# Time
+chrono.workspace = true
+
+# Logging
+log.workspace = true
+
+# Secure credential storage (macOS Keychain, Windows Credential Manager, Secret Service)
+keyring = { version = "3.6", features = ["apple-native", "windows-native", "sync-secret-service"] }
+
+# UUIDs (job correlation)
+uuid.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

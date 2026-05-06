@@ -185,6 +185,7 @@ import 'fingerprint_service.dart'; // T6.1–T6.5
 import 'project_history_service.dart'; // T7.1
 import 'spatial_audio_service.dart'; // T7.2–T7.4
 import 'ai_generation_service.dart'; // T8.1–T8.4
+import 'ai_composer_service.dart'; // Model 3 — multi-provider AI Composer
 
 /// Global service locator instance
 final GetIt sl = GetIt.instance;
@@ -607,6 +608,14 @@ class ServiceLocator {
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<AiGenerationService>(
       () => AiGenerationService(sl<NativeFFI>()),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AI Composer Service — Multi-provider audio design intelligence (Model 3)
+    // Local Ollama (air-gapped) | Anthropic (BYOK) | Azure OpenAI (Enterprise)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<AiComposerService>(
+      () => AiComposerService(sl<NativeFFI>()),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════

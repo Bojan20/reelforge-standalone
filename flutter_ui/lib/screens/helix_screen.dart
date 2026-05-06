@@ -82,6 +82,7 @@ import '../widgets/slot_lab/auto_bind_dialog_v2.dart';
 import '../widgets/slot_lab/neural_bind_orb.dart';
 import '../widgets/slot_lab/orb_mixer.dart';
 import '../widgets/helix/compliance_lights_badge.dart';
+import '../widgets/helix/ai_composer_panel.dart'; // Model 3 — multi-provider AI Composer
 import '../providers/mixer_dsp_provider.dart';
 import '../providers/rgai_ffi_provider.dart';
 import '../providers/slot_lab/live_compliance_provider.dart';
@@ -259,7 +260,7 @@ class _HelixScreenState extends State<HelixScreen>
     final nav = CortexEyeNav.instance;
     nav.onHelixTab = (tab) {
       if (!mounted) return;
-      setState(() => _dockTab = tab.clamp(0, 11));
+      setState(() => _dockTab = tab.clamp(0, 12));
     };
     nav.onHelixSpine = (index) {
       if (!mounted) return;
@@ -755,6 +756,9 @@ class _HelixScreenState extends State<HelixScreen>
       setState(() => _dockTab = 10);
     } else if (key == LogicalKeyboardKey.equal) {
       setState(() => _dockTab = 11);
+    } else if (key == LogicalKeyboardKey.backquote) {
+      // Backtick → AI COMPOSER tab
+      setState(() => _dockTab = 12);
     }
   }
 
@@ -1729,6 +1733,8 @@ class _HelixScreenState extends State<HelixScreen>
     (Icons.auto_awesome_rounded, 'AI GEN',   FluxForgeTheme.accentPurple),
     (Icons.cloud_sync_rounded,   'CLOUD',    FluxForgeTheme.accentBlue),
     (Icons.science_rounded,      'A/B',      FluxForgeTheme.accentGreen),
+    // Model 3 — multi-provider AI Composer (Local / BYOK / Azure)
+    (Icons.smart_toy_rounded,    'COMPOSER', FluxForgeTheme.accentGreen),
   ];
 
   Widget _buildDock() {
@@ -2076,6 +2082,7 @@ class _HelixScreenState extends State<HelixScreen>
       9 => const _AiGenerationPanel(),
       10 => const _CloudSyncPanel(),
       11 => const _AbTestPanel(),
+      12 => const AiComposerPanel(),
       _ => const SizedBox(),
     };
   }
