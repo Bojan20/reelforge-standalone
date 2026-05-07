@@ -2,6 +2,12 @@
 ///
 /// Direct FFI bindings to Rust engine C API.
 /// Uses dart:ffi for low-level native function calls.
+///
+/// FFI parameter names mirror the Rust C ABI (snake_case) — converting to
+/// camelCase here would diverge from `cbindgen` headers and break IDE
+/// jump-to-definition across the FFI boundary. Suppress only the naming lint;
+/// real errors/warnings stay surfaced.
+// ignore_for_file: non_constant_identifier_names
 
 import 'dart:convert';
 import 'dart:developer' as dev;
