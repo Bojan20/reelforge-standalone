@@ -10246,6 +10246,196 @@ class NativeFFI {
       final r = ptr.toDartString(); freeFn(ptr); return r;
     } catch (_) { return null; }
   }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // CHAIN PRESET LIBRARY — user-owned chain snapshots persisted as flat
+  // JSON files in `~/.fluxforge/chains/` (or RF_CHAIN_PRESET_DIR override).
+  //
+  // Wire format: every `*Json` call returns either a JSON success envelope
+  // or `{"error": "..."}`. Service layer (ChainPresetService) parses both.
+  // Returned strings are owned by Rust and freed via `chain_preset_free_string`.
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// Override the active preset directory. Pass empty string to reset to
+  /// env / `$HOME/.fluxforge/chains`. Returns success/error JSON.
+  String? chainPresetSetDir(String path) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('chain_preset_set_dir');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)
+      >('chain_preset_free_string');
+      final p = path.toNativeUtf8();
+      try {
+        final ptr = fn(p);
+        if (ptr == nullptr) return null;
+        final r = ptr.toDartString(); freeFn(ptr); return r;
+      } finally {
+        calloc.free(p);
+      }
+    } catch (_) { return null; }
+  }
+
+  /// Currently-resolved preset directory (success/error JSON).
+  String? chainPresetGetDir() {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(), Pointer<Utf8> Function()
+      >('chain_preset_get_dir');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)
+      >('chain_preset_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final r = ptr.toDartString(); freeFn(ptr); return r;
+    } catch (_) { return null; }
+  }
+
+  /// Save a preset. `requestJson` shape:
+  /// `{"name": "...", "description": "...", "tags": [...], "snapshot": {...}}`.
+  String? chainPresetSaveJson(String requestJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('chain_preset_save_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)
+      >('chain_preset_free_string');
+      final p = requestJson.toNativeUtf8();
+      try {
+        final ptr = fn(p);
+        if (ptr == nullptr) return null;
+        final r = ptr.toDartString(); freeFn(ptr); return r;
+      } finally {
+        calloc.free(p);
+      }
+    } catch (_) { return null; }
+  }
+
+  /// Load a preset by user-visible name. Returns full ChainPreset JSON or
+  /// an error envelope.
+  String? chainPresetLoadJson(String name) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('chain_preset_load_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)
+      >('chain_preset_free_string');
+      final p = name.toNativeUtf8();
+      try {
+        final ptr = fn(p);
+        if (ptr == nullptr) return null;
+        final r = ptr.toDartString(); freeFn(ptr); return r;
+      } finally {
+        calloc.free(p);
+      }
+    } catch (_) { return null; }
+  }
+
+  /// All presets (metadata only). Sorted by `updated_ms` descending.
+  /// Returns `{"presets": [...]}` or an error envelope.
+  String? chainPresetListJson() {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(), Pointer<Utf8> Function()
+      >('chain_preset_list_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)
+      >('chain_preset_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final r = ptr.toDartString(); freeFn(ptr); return r;
+    } catch (_) { return null; }
+  }
+
+  /// Case-insensitive substring filter across name/description/tags.
+  /// Empty query returns the full list.
+  String? chainPresetSearchJson(String query) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('chain_preset_search_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)
+      >('chain_preset_free_string');
+      final p = query.toNativeUtf8();
+      try {
+        final ptr = fn(p);
+        if (ptr == nullptr) return null;
+        final r = ptr.toDartString(); freeFn(ptr); return r;
+      } finally {
+        calloc.free(p);
+      }
+    } catch (_) { return null; }
+  }
+
+  /// Delete a preset. Returns:
+  ///   1  — file removed
+  ///   0  — no file existed (idempotent)
+  ///  -1  — error (name slug, IO, null pointer)
+  int chainPresetDelete(String name) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>), int Function(Pointer<Utf8>)
+      >('chain_preset_delete');
+      final p = name.toNativeUtf8();
+      try {
+        return fn(p);
+      } finally {
+        calloc.free(p);
+      }
+    } catch (_) { return -1; }
+  }
+
+  /// Export a preset to an absolute path. `requestJson` shape:
+  /// `{"name": "...", "dest": "/abs/path/preset.json"}`.
+  String? chainPresetExportJson(String requestJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('chain_preset_export_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)
+      >('chain_preset_free_string');
+      final p = requestJson.toNativeUtf8();
+      try {
+        final ptr = fn(p);
+        if (ptr == nullptr) return null;
+        final r = ptr.toDartString(); freeFn(ptr); return r;
+      } finally {
+        calloc.free(p);
+      }
+    } catch (_) { return null; }
+  }
+
+  /// Import a preset file from an arbitrary path into the active store.
+  /// Returns success envelope with the final on-disk path.
+  String? chainPresetImportPath(String path) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('chain_preset_import_path');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)
+      >('chain_preset_free_string');
+      final p = path.toNativeUtf8();
+      try {
+        final ptr = fn(p);
+        if (ptr == nullptr) return null;
+        final r = ptr.toDartString(); freeFn(ptr); return r;
+      } finally {
+        calloc.free(p);
+      }
+    } catch (_) { return null; }
+  }
 }
 
 /// Pitch segment data from analysis
