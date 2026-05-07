@@ -312,6 +312,14 @@ impl CortexRuntime {
         let mut prev_reflex_actions: u64 = 0;
         let mut prev_commands: u64 = 0;
         let mut prev_milestone: u64 = 0; // signals / 1000
+        // Track per-reflex fire counts to emit ReflexFired only for newly-fired reflexes.
+        let mut prev_reflex_fire_counts: std::collections::HashMap<String, u64> =
+            std::collections::HashMap::new();
+        // Track per-category immune escalation levels to emit ImmuneEscalation only on change.
+        let mut prev_immune_levels: std::collections::HashMap<String, u8> =
+            std::collections::HashMap::new();
+        // Track last AwarenessUpdated health to avoid per-tick spam.
+        let mut prev_awareness_health: f64 = -1.0;
         let mut stream_subscriptions: std::collections::HashMap<u64, crate::bus::Synapse> =
             std::collections::HashMap::new();
 
@@ -383,28 +391,30 @@ impl CortexRuntime {
                 }
             }
 
-            // Reflex fired events (detect new fires)
+            // Reflex fired events — emit only for reflexes whose fire_count actually increased.
             let current_reflex_actions = cortex.total_reflex_actions;
             if current_reflex_actions > prev_reflex_actions {
-                // Get the reflex that fired most recently
                 let stats = cortex.reflex_stats();
                 for stat in &stats {
-                    if stat.fire_count > 0 {
+                    let prev_count = prev_reflex_fire_counts.get(&stat.name).copied().unwrap_or(0);
+                    if stat.fire_count > prev_count {
                         shared.push_event(CortexEvent::ReflexFired {
                             name: stat.name.clone(),
                             fire_count: stat.fire_count,
                         });
                     }
+                    prev_reflex_fire_counts.insert(stat.name.clone(), stat.fire_count);
                 }
                 prev_reflex_actions = current_reflex_actions;
             }
 
-            // Command dispatched events
+            // Command dispatched events — one event per newly-dispatched command batch.
             let current_commands = cortex.total_commands_dispatched;
             if current_commands > prev_commands {
+                let delta = current_commands - prev_commands;
                 shared.push_event(CortexEvent::CommandDispatched {
-                    action_tag: "autonomic".into(),
-                    reason: format!("{} commands total", current_commands),
+                    action_tag: "cortex_autonomic".into(),
+                    reason: format!("+{} command(s) dispatched (total: {})", delta, current_commands),
                 });
                 prev_commands = current_commands;
             }
@@ -418,26 +428,37 @@ impl CortexRuntime {
                 prev_milestone = current_milestone;
             }
 
-            // Awareness update event (when snapshot is taken)
+            // Awareness update event — emit only when health changes significantly (>2%)
+            // to avoid 20 events/second spam filling the ring buffer.
             if let Some(snap) = cortex.awareness() {
-                shared.push_event(CortexEvent::AwarenessUpdated {
-                    health_score: snap.health_score,
-                    signals_per_second: snap.signals_per_second,
-                    drop_rate: snap.drop_rate,
-                });
+                if (snap.health_score - prev_awareness_health).abs() > 0.02 {
+                    shared.push_event(CortexEvent::AwarenessUpdated {
+                        health_score: snap.health_score,
+                        signals_per_second: snap.signals_per_second,
+                        drop_rate: snap.drop_rate,
+                    });
+                    prev_awareness_health = snap.health_score;
+                }
             }
 
-            // Immune escalation events
+            // Immune escalation events — emit only when a category's escalation level CHANGES.
+            // Without this guard, every tick emits events for all chronic anomalies → buffer spam.
             {
                 let immune_snap = cortex.immune_snapshot();
                 for cat in &immune_snap.categories {
-                    if cat.escalation_level > 1 {
+                    let prev_level = prev_immune_levels.get(&cat.category).copied().unwrap_or(0);
+                    if cat.escalation_level != prev_level && cat.escalation_level > 0 {
                         shared.push_event(CortexEvent::ImmuneEscalation {
                             category: cat.category.clone(),
                             escalation_level: cat.escalation_level,
                         });
                     }
+                    prev_immune_levels.insert(cat.category.clone(), cat.escalation_level);
                 }
+                // Remove categories that are no longer in the snapshot (resolved/decayed).
+                prev_immune_levels.retain(|k, _| {
+                    immune_snap.categories.iter().any(|c| &c.category == k)
+                });
             }
 
             // ═══════════════════════════════════════════════════════════════

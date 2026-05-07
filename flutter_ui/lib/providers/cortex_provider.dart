@@ -194,7 +194,7 @@ class CortexProvider extends ChangeNotifier {
   double _healingRate = 1.0;
   int _totalHealed = 0;
 
-  // 7 Awareness dimensions
+  // 9 Awareness dimensions (throughput/reliability/responsiveness/coverage/cognition/efficiency/coherence/code_health/vision)
   double _dimThroughput = 0;
   double _dimReliability = 0;
   double _dimResponsiveness = 0;
@@ -202,6 +202,8 @@ class CortexProvider extends ChangeNotifier {
   double _dimCognition = 0;
   double _dimEfficiency = 0;
   double _dimCoherence = 0;
+  double _dimCodeHealth = 0;
+  double _dimVision = 0;
 
   // Event log (last 100 events for UI display)
   final List<CortexEvent> _recentEvents = [];
@@ -248,6 +250,8 @@ class CortexProvider extends ChangeNotifier {
   double get dimCognition => _dimCognition;
   double get dimEfficiency => _dimEfficiency;
   double get dimCoherence => _dimCoherence;
+  double get dimCodeHealth => _dimCodeHealth;
+  double get dimVision => _dimVision;
 
   List<CortexEvent> get recentEvents => List.unmodifiable(_recentEvents);
 
@@ -379,7 +383,7 @@ class CortexProvider extends ChangeNotifier {
       final newHealingRate = ffi.cortexGetHealingRate();
       final newTotalHealed = ffi.cortexGetTotalHealed();
 
-      // Dimensions
+      // All 9 Awareness dimensions
       final newDimThroughput = ffi.cortexGetDimension(0);
       final newDimReliability = ffi.cortexGetDimension(1);
       final newDimResponsiveness = ffi.cortexGetDimension(2);
@@ -387,6 +391,8 @@ class CortexProvider extends ChangeNotifier {
       final newDimCognition = ffi.cortexGetDimension(4);
       final newDimEfficiency = ffi.cortexGetDimension(5);
       final newDimCoherence = ffi.cortexGetDimension(6);
+      final newDimCodeHealth = ffi.cortexGetDimension(7);
+      final newDimVision = ffi.cortexGetDimension(8);
 
       // Detect changes and set bitmask
       if ((newHealth - _health).abs() > 0.01) {
@@ -429,10 +435,11 @@ class CortexProvider extends ChangeNotifier {
         _pendingChanges |= changeHealing;
       }
 
-      // Awareness dimensions change
+      // Awareness dimensions change (all 9)
       if (_dimensionsChanged(
         newDimThroughput, newDimReliability, newDimResponsiveness,
         newDimCoverage, newDimCognition, newDimEfficiency, newDimCoherence,
+        newDimCodeHealth, newDimVision,
       )) {
         _pendingChanges |= changeAwareness;
       }
@@ -468,6 +475,8 @@ class CortexProvider extends ChangeNotifier {
       _dimCognition = newDimCognition;
       _dimEfficiency = newDimEfficiency;
       _dimCoherence = newDimCoherence;
+      _dimCodeHealth = newDimCodeHealth;
+      _dimVision = newDimVision;
 
       // Fetch detailed lists via JSON FFI
       _pollDetailedLists(ffi);
@@ -553,6 +562,7 @@ class CortexProvider extends ChangeNotifier {
 
   bool _dimensionsChanged(
     double t, double r, double resp, double cov, double cog, double eff, double coh,
+    double codeHealth, double vision,
   ) {
     const threshold = 0.02;
     return (t - _dimThroughput).abs() > threshold ||
@@ -561,7 +571,9 @@ class CortexProvider extends ChangeNotifier {
         (cov - _dimCoverage).abs() > threshold ||
         (cog - _dimCognition).abs() > threshold ||
         (eff - _dimEfficiency).abs() > threshold ||
-        (coh - _dimCoherence).abs() > threshold;
+        (coh - _dimCoherence).abs() > threshold ||
+        (codeHealth - _dimCodeHealth).abs() > threshold ||
+        (vision - _dimVision).abs() > threshold;
   }
 
   void _emitEvent(CortexEvent event) {
@@ -592,22 +604,38 @@ class CortexProvider extends ChangeNotifier {
   // ACTIONS — Flutter → CORTEX signals
   // ═══════════════════════════════════════════════════════════════════════
 
-  /// Report a user interaction to CORTEX.
+  /// Report a user interaction to CORTEX (emits UserInteraction signal).
   void reportUserInteraction(String action) {
     try {
       final ffi = NativeFFI.instance;
       if (!ffi.isLoaded) return;
-      // Use flutter_rust_bridge sync call (already exists)
-      // cortex_emit_user_interaction goes through FRB codegen
+      ffi.cortexEmitUserInteraction(action: action);
     } catch (_) {}
   }
 
-  /// Report system memory to CORTEX for pressure detection.
+  /// Report system memory to CORTEX for MemoryPressure signal detection.
   void reportMemory(int availableMb) {
     try {
       final ffi = NativeFFI.instance;
       if (!ffi.isLoaded) return;
-      // cortex_report_memory goes through FRB codegen
+      ffi.cortexReportMemory(availableMb: availableMb);
+    } catch (_) {}
+  }
+
+  /// Report vision telemetry to CORTEX (anomaly/frozen region counts).
+  void reportVisionTelemetry({
+    required int anomalyCount,
+    required int frozenCount,
+    required int regionCount,
+  }) {
+    try {
+      final ffi = NativeFFI.instance;
+      if (!ffi.isLoaded) return;
+      ffi.cortexReportVisionTelemetry(
+        anomalyCount: anomalyCount,
+        frozenCount: frozenCount,
+        regionCount: regionCount,
+      );
     } catch (_) {}
   }
 }

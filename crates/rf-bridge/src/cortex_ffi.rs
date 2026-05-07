@@ -598,6 +598,42 @@ pub fn cortex_pending_event_count() -> u32 {
 // C FFI (for dart:ffi direct calls)
 // ═══════════════════════════════════════════════════════════════════════════
 
+/// C FFI: Emit a user interaction signal from Flutter (action string, max 256 bytes).
+#[unsafe(no_mangle)]
+pub extern "C" fn cortex_emit_user_interaction_c(action: *const std::os::raw::c_char) {
+    let action = unsafe {
+        if action.is_null() { return; }
+        std::ffi::CStr::from_ptr(action).to_string_lossy().into_owned()
+    };
+    if let Some(handle) = cortex_handle() {
+        handle.signal(
+            SignalOrigin::User,
+            SignalUrgency::Normal,
+            SignalKind::UserInteraction { action },
+        );
+    }
+}
+
+/// C FFI: Report available system memory (in MB). Emits MemoryPressure if < 512 MB.
+#[unsafe(no_mangle)]
+pub extern "C" fn cortex_report_memory_c(available_mb: u64) {
+    if available_mb < 512 {
+        if let Some(handle) = cortex_handle() {
+            handle.signal(
+                SignalOrigin::Bridge,
+                if available_mb < 128 {
+                    SignalUrgency::Emergency
+                } else if available_mb < 256 {
+                    SignalUrgency::Critical
+                } else {
+                    SignalUrgency::Elevated
+                },
+                SignalKind::MemoryPressure { used_mb: 0, available_mb },
+            );
+        }
+    }
+}
+
 /// C FFI: Get cortex health score.
 #[unsafe(no_mangle)]
 pub extern "C" fn cortex_get_health() -> f64 {
@@ -937,8 +973,10 @@ pub unsafe extern "C" fn cortex_free_string(ptr: *mut std::os::raw::c_char) {
 }
 
 fn to_c_json(json: &str) -> *mut std::os::raw::c_char {
+    // If the input contains null bytes (malformed JSON), fall back to empty array "[]"
+    // so Dart's jsonDecode doesn't throw. CString::default() would be "", not valid JSON.
     std::ffi::CString::new(json)
-        .unwrap_or_default()
+        .unwrap_or_else(|_| std::ffi::CString::new("[]").expect("static string"))
         .into_raw()
 }
 

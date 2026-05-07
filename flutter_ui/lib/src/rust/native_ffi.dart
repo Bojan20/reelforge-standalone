@@ -23436,6 +23436,60 @@ extension ProfilerFFI on NativeFFI {
   /// Get the vision awareness dimension score (0.0-1.0).
   double cortexGetVisionScore() => _cortexGetVisionScore();
 
+  // ═══ CORTEX SIGNAL EMISSION FFI ═══
+
+  static final _cortexEmitUserInteractionC = _loadNativeLibrary().lookupFunction<
+      Void Function(Pointer<Utf8>),
+      void Function(Pointer<Utf8>)>('cortex_emit_user_interaction_c');
+
+  static final _cortexReportMemoryC = _loadNativeLibrary().lookupFunction<
+      Void Function(Uint64),
+      void Function(int)>('cortex_report_memory_c');
+
+  static final _cortexEmitVisionAnomaly = _loadNativeLibrary().lookupFunction<
+      Void Function(Pointer<Utf8>, Pointer<Utf8>),
+      void Function(Pointer<Utf8>, Pointer<Utf8>)>('cortex_emit_vision_anomaly');
+
+  /// Emit a user interaction signal to CORTEX.
+  void cortexEmitUserInteraction({required String action}) {
+    if (!_loaded) return;
+    final ptr = action.toNativeUtf8();
+    try {
+      _cortexEmitUserInteractionC(ptr);
+    } finally {
+      calloc.free(ptr);
+    }
+  }
+
+  /// Report available system memory (MB) to CORTEX. Triggers MemoryPressure if < 512 MB.
+  void cortexReportMemory({required int availableMb}) {
+    if (!_loaded) return;
+    _cortexReportMemoryC(availableMb);
+  }
+
+  /// Report vision telemetry (alias for cortexReportVision with named params).
+  void cortexReportVisionTelemetry({
+    required int anomalyCount,
+    required int frozenCount,
+    required int regionCount,
+  }) {
+    if (!_loaded) return;
+    _cortexReportVision(anomalyCount, frozenCount, regionCount);
+  }
+
+  /// Emit a visual anomaly signal to CORTEX (region + description).
+  void cortexEmitVisionAnomaly({required String region, required String description}) {
+    if (!_loaded) return;
+    final rPtr = region.toNativeUtf8();
+    final dPtr = description.toNativeUtf8();
+    try {
+      _cortexEmitVisionAnomaly(rPtr, dPtr);
+    } finally {
+      calloc.free(rPtr);
+      calloc.free(dPtr);
+    }
+  }
+
   // ═══ CORTEX DETAILED JSON FFI ═══
 
   static final _cortexGetReflexStatsJson = _loadNativeLibrary().lookupFunction<
