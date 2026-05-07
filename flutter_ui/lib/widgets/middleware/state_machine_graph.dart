@@ -172,7 +172,7 @@ class _StateMachineGraphState extends State<StateMachineGraph>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
-              color: FluxForgeTheme.accentGreen.withOpacity(0.2),
+              color: FluxForgeTheme.accentGreen.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
@@ -276,7 +276,7 @@ class _StateMachineGraphState extends State<StateMachineGraph>
           height: 50 * _scale,
           decoration: BoxDecoration(
             color: isCurrent
-                ? FluxForgeTheme.accentBlue.withOpacity(0.2)
+                ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
                 : FluxForgeTheme.bgMid,
             borderRadius: BorderRadius.circular(8 * _scale),
             border: Border.all(
@@ -290,7 +290,7 @@ class _StateMachineGraphState extends State<StateMachineGraph>
             boxShadow: isCurrent
                 ? [
                     BoxShadow(
-                      color: FluxForgeTheme.accentBlue.withOpacity(0.3),
+                      color: FluxForgeTheme.accentBlue.withValues(alpha: 0.3),
                       blurRadius: 10,
                       spreadRadius: 2,
                     ),
@@ -412,7 +412,7 @@ class _GraphPainter extends CustomPainter {
 
     // Draw transition arrows between all states (simplified - all states can transition to any other)
     final paint = Paint()
-      ..color = FluxForgeTheme.textSecondary.withOpacity(0.3)
+      ..color = FluxForgeTheme.textSecondary.withValues(alpha: 0.3)
       ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke;
 
@@ -435,7 +435,7 @@ class _GraphPainter extends CustomPainter {
     // Highlight current state transitions
     if (positions.containsKey(currentStateId)) {
       final activePaint = Paint()
-        ..color = FluxForgeTheme.accentBlue.withOpacity(0.5)
+        ..color = FluxForgeTheme.accentBlue.withValues(alpha: 0.5)
         ..strokeWidth = 2
         ..style = PaintingStyle.stroke;
 

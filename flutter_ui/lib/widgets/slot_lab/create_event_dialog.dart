@@ -166,7 +166,7 @@ class _CreateEventDialogState extends State<CreateEventDialog> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: FluxForgeTheme.accentBlue.withOpacity(0.2),
+                      color: FluxForgeTheme.accentBlue.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -243,7 +243,7 @@ class _CreateEventDialogState extends State<CreateEventDialog> {
                     deleteIcon: const Icon(Icons.close, size: 12),
                     deleteIconColor: Colors.white54,
                     onDeleted: () => setState(() => _selectedStages.remove(stage)),
-                    backgroundColor: FluxForgeTheme.accentBlue.withOpacity(0.3),
+                    backgroundColor: FluxForgeTheme.accentBlue.withValues(alpha: 0.3),
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -279,9 +279,9 @@ class _CreateEventDialogState extends State<CreateEventDialog> {
                         height: 28,
                         padding: const EdgeInsets.symmetric(horizontal: 8),
                         decoration: BoxDecoration(
-                          color: isSelected ? FluxForgeTheme.accentBlue.withOpacity(0.1) : null,
+                          color: isSelected ? FluxForgeTheme.accentBlue.withValues(alpha: 0.1) : null,
                           border: Border(
-                            bottom: BorderSide(color: Colors.white.withOpacity(0.05)),
+                            bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
                           ),
                         ),
                         child: Row(
@@ -354,7 +354,7 @@ class _CreateEventDialogState extends State<CreateEventDialog> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
+        color: color.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(2),
       ),
       child: Text(

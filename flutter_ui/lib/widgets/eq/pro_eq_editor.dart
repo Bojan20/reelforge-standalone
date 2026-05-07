@@ -653,7 +653,7 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
           border: Border.all(color: _Colors.bg4, width: 1),
           boxShadow: [
             BoxShadow(
-              color: FluxForgeTheme.bgVoid.withOpacity(0.5),
+              color: FluxForgeTheme.bgVoid.withValues(alpha: 0.5),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
@@ -920,7 +920,7 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
             child: Container(
               width: 36,
               decoration: BoxDecoration(
-                color: active ? _Colors.curveMain.withOpacity(0.2) : null,
+                color: active ? _Colors.curveMain.withValues(alpha: 0.2) : null,
                 borderRadius: BorderRadius.circular(3),
               ),
               child: Center(
@@ -951,10 +951,10 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
             height: 26,
             padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
-              color: _analyzerOn ? _Colors.curveMain.withOpacity(0.15) : _Colors.controlBg,
+              color: _analyzerOn ? _Colors.curveMain.withValues(alpha: 0.15) : _Colors.controlBg,
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
-                color: _analyzerOn ? _Colors.curveMain.withOpacity(0.4) : _Colors.controlBorder,
+                color: _analyzerOn ? _Colors.curveMain.withValues(alpha: 0.4) : _Colors.controlBorder,
               ),
             ),
             child: Row(
@@ -985,10 +985,10 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
               height: 26,
               width: 26,
               decoration: BoxDecoration(
-                color: _useGpuSpectrum ? const Color(0xFF40FF90).withOpacity(0.15) : _Colors.controlBg,
+                color: _useGpuSpectrum ? const Color(0xFF40FF90).withValues(alpha: 0.15) : _Colors.controlBg,
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(
-                  color: _useGpuSpectrum ? const Color(0xFF40FF90).withOpacity(0.4) : _Colors.controlBorder,
+                  color: _useGpuSpectrum ? const Color(0xFF40FF90).withValues(alpha: 0.4) : _Colors.controlBorder,
                 ),
               ),
               child: Center(
@@ -1234,12 +1234,12 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [band.color.withOpacity(0.4), band.color.withOpacity(0.1)],
+          colors: [band.color.withValues(alpha: 0.4), band.color.withValues(alpha: 0.1)],
         ),
         borderRadius: BorderRadius.circular(10),
         boxShadow: [
-          BoxShadow(color: FluxForgeTheme.bgVoid.withOpacity(0.5), blurRadius: 20, offset: const Offset(0, 8)),
-          BoxShadow(color: band.color.withOpacity(0.2), blurRadius: 24, spreadRadius: -8),
+          BoxShadow(color: FluxForgeTheme.bgVoid.withValues(alpha: 0.5), blurRadius: 20, offset: const Offset(0, 8)),
+          BoxShadow(color: band.color.withValues(alpha: 0.2), blurRadius: 24, spreadRadius: -8),
         ],
       ),
       child: Container(
@@ -1364,7 +1364,7 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
 
   Widget _buildDivider() => Padding(
     padding: const EdgeInsets.symmetric(horizontal: 12),
-    child: Container(width: 1, height: 32, color: _Colors.bg5.withOpacity(0.4)),
+    child: Container(width: 1, height: 32, color: _Colors.bg5.withValues(alpha: 0.4)),
   );
 
   Widget _buildMiniIconButton({
@@ -1382,9 +1382,9 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
           width: 26,
           height: 26,
           decoration: BoxDecoration(
-            color: active ? c.withOpacity(0.2) : _Colors.bg3,
+            color: active ? c.withValues(alpha: 0.2) : _Colors.bg3,
             borderRadius: BorderRadius.circular(5),
-            border: Border.all(color: active ? c.withOpacity(0.5) : _Colors.controlBorder),
+            border: Border.all(color: active ? c.withValues(alpha: 0.5) : _Colors.controlBorder),
           ),
           child: Icon(icon, size: 14, color: c),
         ),
@@ -1409,7 +1409,7 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
           decoration: BoxDecoration(
             color: _Colors.bg3,
             borderRadius: BorderRadius.circular(5),
-            border: Border.all(color: band.color.withOpacity(0.3)),
+            border: Border.all(color: band.color.withValues(alpha: 0.3)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -1475,7 +1475,7 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
                 decoration: BoxDecoration(
                   color: _Colors.bg1,
                   borderRadius: BorderRadius.circular(3),
-                  border: Border.all(color: enabled ? color.withOpacity(0.3) : _Colors.controlBorder),
+                  border: Border.all(color: enabled ? color.withValues(alpha: 0.3) : _Colors.controlBorder),
                 ),
                 child: Center(
                   child: Text(value, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, fontFamily: 'monospace', color: enabled ? color : _Colors.textDim)),
@@ -1516,9 +1516,9 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
             height: 26,
             padding: const EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
-              color: isActive ? dynColor.withOpacity(0.15) : _Colors.bg3,
+              color: isActive ? dynColor.withValues(alpha: 0.15) : _Colors.bg3,
               borderRadius: BorderRadius.circular(5),
-              border: Border.all(color: isActive ? dynColor.withOpacity(0.5) : _Colors.controlBorder),
+              border: Border.all(color: isActive ? dynColor.withValues(alpha: 0.5) : _Colors.controlBorder),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -1590,7 +1590,7 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
           decoration: BoxDecoration(
             color: _Colors.bg1,
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: band.color.withOpacity(0.3)),
+            border: Border.all(color: band.color.withValues(alpha: 0.3)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -1681,7 +1681,7 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
                   color: _Colors.bg1,
                   borderRadius: BorderRadius.circular(3),
                   border: Border.all(
-                    color: enabled ? color.withOpacity(0.3) : _Colors.controlBorder,
+                    color: enabled ? color.withValues(alpha: 0.3) : _Colors.controlBorder,
                   ),
                 ),
                 child: Center(
@@ -1719,10 +1719,10 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
           width: 32,
           height: 32,
           decoration: BoxDecoration(
-            color: active ? color.withOpacity(0.2) : _Colors.bg1,
+            color: active ? color.withValues(alpha: 0.2) : _Colors.bg1,
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
-              color: active ? color.withOpacity(0.5) : _Colors.controlBorder,
+              color: active ? color.withValues(alpha: 0.5) : _Colors.controlBorder,
               width: 1,
             ),
           ),
@@ -1748,7 +1748,7 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
           decoration: BoxDecoration(
             color: _Colors.bg1,
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: band.color.withOpacity(0.3)),
+            border: Border.all(color: band.color.withValues(alpha: 0.3)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -1758,7 +1758,7 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
                 width: 20,
                 height: 20,
                 decoration: BoxDecoration(
-                  color: band.color.withOpacity(0.15),
+                  color: band.color.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Center(
@@ -1855,12 +1855,12 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
                   color: _Colors.bg1,
                   borderRadius: BorderRadius.circular(4),
                   border: Border.all(
-                    color: enabled ? color.withOpacity(0.4) : _Colors.controlBorder,
+                    color: enabled ? color.withValues(alpha: 0.4) : _Colors.controlBorder,
                     width: 1,
                   ),
                   boxShadow: enabled ? [
                     BoxShadow(
-                      color: color.withOpacity(0.1),
+                      color: color.withValues(alpha: 0.1),
                       blurRadius: 8,
                       spreadRadius: -2,
                     ),
@@ -1970,10 +1970,10 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
               width: 32,
               height: 24,
               decoration: BoxDecoration(
-                color: _globalBypass ? _Colors.bypass.withOpacity(0.2) : _Colors.controlBg,
+                color: _globalBypass ? _Colors.bypass.withValues(alpha: 0.2) : _Colors.controlBg,
                 borderRadius: BorderRadius.circular(3),
                 border: Border.all(
-                  color: _globalBypass ? _Colors.bypass.withOpacity(0.5) : _Colors.controlBorder,
+                  color: _globalBypass ? _Colors.bypass.withValues(alpha: 0.5) : _Colors.controlBorder,
                 ),
               ),
               child: Icon(
@@ -2008,7 +2008,7 @@ class _ProEqEditorState extends State<ProEqEditor> with TickerProviderStateMixin
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
-                color: active ? _Colors.curveMain.withOpacity(0.2) : null,
+                color: active ? _Colors.curveMain.withValues(alpha: 0.2) : null,
                 borderRadius: BorderRadius.circular(2),
               ),
               child: Center(
@@ -2102,11 +2102,11 @@ class _DynamicEqPanelState extends State<_DynamicEqPanel> {
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [_dynColor.withOpacity(0.4), _dynColor.withOpacity(0.1)],
+              colors: [_dynColor.withValues(alpha: 0.4), _dynColor.withValues(alpha: 0.1)],
             ),
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 30, offset: const Offset(0, 10)),
+              BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 30, offset: const Offset(0, 10)),
             ],
           ),
           child: Container(
@@ -2148,7 +2148,7 @@ class _DynamicEqPanelState extends State<_DynamicEqPanel> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: band.dynamicEnabled ? _dynColor.withOpacity(0.2) : Colors.transparent,
+                            color: band.dynamicEnabled ? _dynColor.withValues(alpha: 0.2) : Colors.transparent,
                             borderRadius: BorderRadius.circular(4),
                             border: Border.all(
                               color: band.dynamicEnabled ? _dynColor : _Colors.controlBorder,
@@ -2348,7 +2348,7 @@ class _DynamicEqPanelState extends State<_DynamicEqPanel> {
                   child: Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [_dynColor.withOpacity(0.3), _dynColor.withOpacity(0.1)],
+                        colors: [_dynColor.withValues(alpha: 0.3), _dynColor.withValues(alpha: 0.1)],
                       ),
                       borderRadius: BorderRadius.circular(3),
                     ),
@@ -2365,7 +2365,7 @@ class _DynamicEqPanelState extends State<_DynamicEqPanel> {
                       color: _dynColor,
                       borderRadius: BorderRadius.circular(2),
                       boxShadow: [
-                        BoxShadow(color: _dynColor.withOpacity(0.5), blurRadius: 4),
+                        BoxShadow(color: _dynColor.withValues(alpha: 0.5), blurRadius: 4),
                       ],
                     ),
                   ),
@@ -2645,8 +2645,8 @@ class _EQDisplayPainter extends CustomPainter {
           Offset(0, 0),
           Offset(0, h),
           [
-            _Colors.spectrumFill.withOpacity(opacity * 0.55),
-            _Colors.spectrumFill.withOpacity(opacity * 0.02),
+            _Colors.spectrumFill.withValues(alpha: opacity * 0.55),
+            _Colors.spectrumFill.withValues(alpha: opacity * 0.02),
           ],
         ),
     );
@@ -2655,7 +2655,7 @@ class _EQDisplayPainter extends CustomPainter {
     canvas.drawPath(
       path,
       Paint()
-        ..color = _Colors.spectrumLine.withOpacity(opacity * 0.25)
+        ..color = _Colors.spectrumLine.withValues(alpha: opacity * 0.25)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 5.0
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
@@ -2665,7 +2665,7 @@ class _EQDisplayPainter extends CustomPainter {
     canvas.drawPath(
       path,
       Paint()
-        ..color = _Colors.spectrumLine.withOpacity(opacity * 0.85)
+        ..color = _Colors.spectrumLine.withValues(alpha: opacity * 0.85)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.2
         ..strokeCap = StrokeCap.round
@@ -2726,7 +2726,7 @@ class _EQDisplayPainter extends CustomPainter {
     canvas.drawPath(
       path,
       Paint()
-        ..color = _Colors.curveGlow.withOpacity(glowOpacity)
+        ..color = _Colors.curveGlow.withValues(alpha: glowOpacity)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 8
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
@@ -2841,7 +2841,7 @@ class _EQDisplayPainter extends CustomPainter {
         Offset(x, y),
         radius + 8,
         Paint()
-          ..color = color.withOpacity(0.25)
+          ..color = color.withValues(alpha: 0.25)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
       );
     }
@@ -2866,7 +2866,7 @@ class _EQDisplayPainter extends CustomPainter {
     canvas.drawCircle(
       Offset(x, y),
       radius - 4,
-      Paint()..color = _Colors.bg1.withOpacity(0.7),
+      Paint()..color = _Colors.bg1.withValues(alpha: 0.7),
     );
 
     // Band number
@@ -2876,7 +2876,7 @@ class _EQDisplayPainter extends CustomPainter {
         style: TextStyle(
           fontSize: 9,
           fontWeight: FontWeight.w700,
-          color: color.withOpacity(opacity),
+          color: color.withValues(alpha: opacity),
         ),
       ),
       textDirection: TextDirection.ltr,

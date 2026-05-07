@@ -172,7 +172,7 @@ class _AdapterWizardPanelState extends State<AdapterWizardPanel> {
           Text(
             'Adapter Wizard',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
+              color: Colors.white.withValues(alpha: 0.9),
               fontSize: 13,
               fontWeight: FontWeight.w500,
             ),
@@ -183,7 +183,7 @@ class _AdapterWizardPanelState extends State<AdapterWizardPanel> {
             onPressed: _clear,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(maxWidth: 24),
-            color: Colors.white.withOpacity(0.5),
+            color: Colors.white.withValues(alpha: 0.5),
             tooltip: 'Clear & restart',
           ),
         ],
@@ -198,7 +198,7 @@ class _AdapterWizardPanelState extends State<AdapterWizardPanel> {
         Text(
           'Paste JSON samples from your slot engine:',
           style: TextStyle(
-            color: Colors.white.withOpacity(0.7),
+            color: Colors.white.withValues(alpha: 0.7),
             fontSize: 12,
           ),
         ),
@@ -224,7 +224,7 @@ class _AdapterWizardPanelState extends State<AdapterWizardPanel> {
             ),
             decoration: InputDecoration(
               hintText: '{"type": "spin_start", "balance": 1000, ...}',
-              hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+              hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
               border: InputBorder.none,
               contentPadding: const EdgeInsets.all(8),
             ),
@@ -258,7 +258,7 @@ class _AdapterWizardPanelState extends State<AdapterWizardPanel> {
             _sampleCount > 0 ? Icons.check_circle : Icons.info_outline,
             color: _sampleCount > 0
                 ? const Color(0xFF40ff90)
-                : Colors.white.withOpacity(0.5),
+                : Colors.white.withValues(alpha: 0.5),
             size: 16,
           ),
           const SizedBox(width: 8),
@@ -267,7 +267,7 @@ class _AdapterWizardPanelState extends State<AdapterWizardPanel> {
                 ? '$_sampleCount sample${_sampleCount > 1 ? 's' : ''} loaded'
                 : 'No samples added yet',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
+              color: Colors.white.withValues(alpha: 0.7),
               fontSize: 12,
             ),
           ),
@@ -275,7 +275,7 @@ class _AdapterWizardPanelState extends State<AdapterWizardPanel> {
           Text(
             'Tip: Add 3-5 diverse samples for best results',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.4),
+              color: Colors.white.withValues(alpha: 0.4),
               fontSize: 10,
             ),
           ),
@@ -363,7 +363,7 @@ class _AdapterWizardPanelState extends State<AdapterWizardPanel> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: _getConfidenceColor(result.confidence).withOpacity(0.2),
+                  color: _getConfidenceColor(result.confidence).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
@@ -381,7 +381,7 @@ class _AdapterWizardPanelState extends State<AdapterWizardPanel> {
             Text(
               'Detected Fields:',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
+                color: Colors.white.withValues(alpha: 0.7),
                 fontSize: 11,
               ),
             ),
@@ -393,7 +393,7 @@ class _AdapterWizardPanelState extends State<AdapterWizardPanel> {
                 return Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF4a9eff).withOpacity(0.2),
+                    color: const Color(0xFF4a9eff).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
@@ -413,7 +413,7 @@ class _AdapterWizardPanelState extends State<AdapterWizardPanel> {
             Text(
               'Recommended layer: ${result.recommendedLayer}',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.6),
+                color: Colors.white.withValues(alpha: 0.6),
                 fontSize: 11,
               ),
             ),
@@ -427,8 +427,8 @@ class _AdapterWizardPanelState extends State<AdapterWizardPanel> {
                     icon: const Icon(Icons.copy, size: 14),
                     label: const Text('Copy Config'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white.withOpacity(0.7),
-                      side: BorderSide(color: Colors.white.withOpacity(0.3)),
+                      foregroundColor: Colors.white.withValues(alpha: 0.7),
+                      side: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
                       padding: const EdgeInsets.symmetric(vertical: 6),
                     ),
                   ),

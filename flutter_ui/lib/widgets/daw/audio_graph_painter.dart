@@ -42,7 +42,7 @@ class AudioGraphPainter extends CustomPainter {
   /// Draw background grid
   void _drawGrid(Canvas canvas, Size size) {
     final gridPaint = Paint()
-      ..color = Colors.white.withOpacity(0.05)
+      ..color = Colors.white.withValues(alpha: 0.05)
       ..strokeWidth = 1.0
       ..style = PaintingStyle.stroke;
 
@@ -106,7 +106,7 @@ class AudioGraphPainter extends CustomPainter {
 
     // Edge paint with glow effect
     final edgePaint = Paint()
-      ..color = edge.color.withOpacity(edge.isSelected ? 1.0 : 0.7)
+      ..color = edge.color.withValues(alpha: edge.isSelected ? 1.0 : 0.7)
       ..strokeWidth = edge.isSelected ? 3.0 : 2.0
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
@@ -114,7 +114,7 @@ class AudioGraphPainter extends CustomPainter {
     // Glow layer for selected edges
     if (edge.isSelected || edge.isHighlighted) {
       final glowPaint = Paint()
-        ..color = edge.color.withOpacity(0.3)
+        ..color = edge.color.withValues(alpha: 0.3)
         ..strokeWidth = 8.0
         ..style = PaintingStyle.stroke
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4.0);
@@ -183,7 +183,7 @@ class AudioGraphPainter extends CustomPainter {
     );
 
     final bgPaint = Paint()
-      ..color = Colors.black.withOpacity(0.7)
+      ..color = Colors.black.withValues(alpha: 0.7)
       ..style = PaintingStyle.fill;
 
     canvas.drawRRect(
@@ -213,7 +213,7 @@ class AudioGraphPainter extends CustomPainter {
 
     // Shadow for depth
     final shadowPaint = Paint()
-      ..color = Colors.black.withOpacity(0.3)
+      ..color = Colors.black.withValues(alpha: 0.3)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4.0);
 
     canvas.drawRRect(
@@ -226,8 +226,8 @@ class AudioGraphPainter extends CustomPainter {
       rect.topCenter,
       rect.bottomCenter,
       [
-        node.color.withOpacity(0.9),
-        node.color.withOpacity(0.7),
+        node.color.withValues(alpha: 0.9),
+        node.color.withValues(alpha: 0.7),
       ],
     );
 
@@ -242,7 +242,7 @@ class AudioGraphPainter extends CustomPainter {
 
     // Border (thicker if selected)
     final borderPaint = Paint()
-      ..color = node.isSelected ? Colors.white : node.color.withOpacity(0.5)
+      ..color = node.isSelected ? Colors.white : node.color.withValues(alpha: 0.5)
       ..strokeWidth = node.isSelected ? 2.5 : 1.5
       ..style = PaintingStyle.stroke;
 
@@ -254,7 +254,7 @@ class AudioGraphPainter extends CustomPainter {
     // Glow effect for selected nodes
     if (node.isSelected) {
       final glowPaint = Paint()
-        ..color = Colors.white.withOpacity(0.3)
+        ..color = Colors.white.withValues(alpha: 0.3)
         ..strokeWidth = 6.0
         ..style = PaintingStyle.stroke
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6.0);
@@ -323,7 +323,7 @@ class AudioGraphPainter extends CustomPainter {
 
       // Badge background
       final bgPaint = Paint()
-        ..color = Colors.red.withOpacity(0.8)
+        ..color = Colors.red.withValues(alpha: 0.8)
         ..style = PaintingStyle.fill;
 
       canvas.drawRRect(
@@ -364,7 +364,7 @@ class AudioGraphPainter extends CustomPainter {
 
     // Background
     final bgPaint = Paint()
-      ..color = Colors.black.withOpacity(0.5)
+      ..color = Colors.black.withValues(alpha: 0.5)
       ..style = PaintingStyle.fill;
 
     canvas.drawRRect(
@@ -382,7 +382,7 @@ class AudioGraphPainter extends CustomPainter {
         ..shader = ui.Gradient.linear(
           meterRect.centerLeft,
           meterRect.centerRight,
-          [levelColor.withOpacity(0.8), levelColor],
+          [levelColor.withValues(alpha: 0.8), levelColor],
         )
         ..style = PaintingStyle.fill;
 
@@ -460,7 +460,7 @@ class AudioGraphPainter extends CustomPainter {
 
     // Border
     final borderPaint = Paint()
-      ..color = Colors.white.withOpacity(0.5)
+      ..color = Colors.white.withValues(alpha: 0.5)
       ..strokeWidth = 1.0
       ..style = PaintingStyle.stroke;
 

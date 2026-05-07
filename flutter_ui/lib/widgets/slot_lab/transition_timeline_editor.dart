@@ -380,7 +380,7 @@ class _TimelineEditorPainter extends CustomPainter {
         text: TextSpan(
           text: track.label,
           style: TextStyle(
-            color: enabled ? track.color.withOpacity(0.8) : const Color(0xFF404048),
+            color: enabled ? track.color.withValues(alpha: 0.8) : const Color(0xFF404048),
             fontSize: 8,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.5,
@@ -420,7 +420,7 @@ class _TimelineEditorPainter extends CustomPainter {
 
       // Duration bar
       final barPaint = Paint()
-        ..color = track.color.withOpacity(0.25 * intensity)
+        ..color = track.color.withValues(alpha: 0.25 * intensity)
         ..style = PaintingStyle.fill;
       final barRect = RRect.fromRectAndRadius(
         Rect.fromLTWH(startX, y + 2, barWidth, trackHeight - 4),
@@ -432,7 +432,7 @@ class _TimelineEditorPainter extends CustomPainter {
       canvas.drawRRect(
         barRect,
         Paint()
-          ..color = track.color.withOpacity(isDragging ? 0.8 : 0.4)
+          ..color = track.color.withValues(alpha: isDragging ? 0.8 : 0.4)
           ..style = PaintingStyle.stroke
           ..strokeWidth = isDragging ? 1.5 : 0.5,
       );
@@ -445,7 +445,7 @@ class _TimelineEditorPainter extends CustomPainter {
             Rect.fromLTWH(startX, y + 2, fillWidth, trackHeight - 4),
             const Radius.circular(2),
           ),
-          Paint()..color = track.color.withOpacity(0.15),
+          Paint()..color = track.color.withValues(alpha: 0.15),
         );
       }
 
@@ -461,7 +461,7 @@ class _TimelineEditorPainter extends CustomPainter {
           text: TextSpan(
             text: '${duration}ms',
             style: TextStyle(
-              color: track.color.withOpacity(0.6),
+              color: track.color.withValues(alpha: 0.6),
               fontSize: 7,
             ),
           ),
@@ -477,7 +477,7 @@ class _TimelineEditorPainter extends CustomPainter {
 
   void _drawHandle(Canvas canvas, double x, double y, double height, Color color, bool active) {
     final paint = Paint()
-      ..color = active ? color : color.withOpacity(0.6)
+      ..color = active ? color : color.withValues(alpha: 0.6)
       ..style = PaintingStyle.fill;
     canvas.drawRRect(
       RRect.fromRectAndRadius(
@@ -491,7 +491,7 @@ class _TimelineEditorPainter extends CustomPainter {
   void _drawAudioMarkers(Canvas canvas, double timelineWidth, double y) {
     // Draw triangular markers at audio trigger points
     final markerPaint = Paint()
-      ..color = const Color(0xFF66BB6A).withOpacity(0.6)
+      ..color = const Color(0xFF66BB6A).withValues(alpha: 0.6)
       ..style = PaintingStyle.fill;
 
     // Markers correspond to burst and plaque audio delays

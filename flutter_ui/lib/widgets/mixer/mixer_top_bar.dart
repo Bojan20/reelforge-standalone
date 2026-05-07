@@ -28,7 +28,7 @@ class MixerTopBar extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF0E0E12),
         border: Border(
-          bottom: BorderSide(color: Colors.white.withOpacity(0.06)),
+          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
         ),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -117,18 +117,18 @@ class MixerTopBar extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.04),
+            color: Colors.white.withValues(alpha: 0.04),
             borderRadius: BorderRadius.circular(3),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.view_column, size: 12, color: Colors.white.withOpacity(0.5)),
+              Icon(Icons.view_column, size: 12, color: Colors.white.withValues(alpha: 0.5)),
               const SizedBox(width: 3),
               Text(
                 'View',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.6),
+                  color: Colors.white.withValues(alpha: 0.6),
                   fontSize: 10,
                   fontWeight: FontWeight.w500,
                 ),
@@ -162,13 +162,13 @@ class MixerTopBar extends StatelessWidget {
               Icon(
                 visible ? Icons.check_box : Icons.check_box_outline_blank,
                 size: 14,
-                color: visible ? const Color(0xFF4A9EFF) : Colors.white.withOpacity(0.3),
+                color: visible ? const Color(0xFF4A9EFF) : Colors.white.withValues(alpha: 0.3),
               ),
               const SizedBox(width: 6),
               Text(
                 section.label,
                 style: TextStyle(
-                  color: Colors.white.withOpacity(visible ? 0.9 : 0.5),
+                  color: Colors.white.withValues(alpha: visible ? 0.9 : 0.5),
                   fontSize: 11,
                 ),
               ),
@@ -195,7 +195,7 @@ class MixerTopBar extends StatelessWidget {
           child: Text(
             preset.name,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
+              color: Colors.white.withValues(alpha: 0.7),
               fontSize: 11,
             ),
           ),
@@ -204,7 +204,7 @@ class MixerTopBar extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.04),
+          color: Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(3),
         ),
         child: Row(
@@ -213,7 +213,7 @@ class MixerTopBar extends StatelessWidget {
             Text(
               'Presets',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.6),
+                color: Colors.white.withValues(alpha: 0.6),
                 fontSize: 10,
                 fontWeight: FontWeight.w500,
               ),
@@ -222,7 +222,7 @@ class MixerTopBar extends StatelessWidget {
             Icon(
               Icons.arrow_drop_down,
               size: 14,
-              color: Colors.white.withOpacity(0.4),
+              color: Colors.white.withValues(alpha: 0.4),
             ),
           ],
         ),
@@ -244,7 +244,7 @@ class MixerTopBar extends StatelessWidget {
             style: TextStyle(
               color: controller.meteringMode == mode
                   ? const Color(0xFF4A9EFF)
-                  : Colors.white.withOpacity(0.7),
+                  : Colors.white.withValues(alpha: 0.7),
               fontSize: 11,
             ),
           ),
@@ -253,7 +253,7 @@ class MixerTopBar extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.04),
+          color: Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(3),
         ),
         child: Row(
@@ -262,7 +262,7 @@ class MixerTopBar extends StatelessWidget {
             Text(
               controller.meteringMode.label,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.6),
+                color: Colors.white.withValues(alpha: 0.6),
                 fontSize: 10,
                 fontWeight: FontWeight.w500,
               ),
@@ -271,7 +271,7 @@ class MixerTopBar extends StatelessWidget {
             Icon(
               Icons.arrow_drop_down,
               size: 14,
-              color: Colors.white.withOpacity(0.4),
+              color: Colors.white.withValues(alpha: 0.4),
             ),
           ],
         ),
@@ -286,13 +286,13 @@ class MixerTopBar extends StatelessWidget {
       child: TextField(
         onChanged: controller.setFilterQuery,
         style: TextStyle(
-          color: Colors.white.withOpacity(0.8),
+          color: Colors.white.withValues(alpha: 0.8),
           fontSize: 11,
         ),
         decoration: InputDecoration(
           hintText: 'Filter...',
           hintStyle: TextStyle(
-            color: Colors.white.withOpacity(0.2),
+            color: Colors.white.withValues(alpha: 0.2),
             fontSize: 11,
           ),
           prefixIcon: Padding(
@@ -300,7 +300,7 @@ class MixerTopBar extends StatelessWidget {
             child: Icon(
               Icons.search,
               size: 14,
-              color: Colors.white.withOpacity(0.3),
+              color: Colors.white.withValues(alpha: 0.3),
             ),
           ),
           prefixIconConstraints: const BoxConstraints(
@@ -315,7 +315,7 @@ class MixerTopBar extends StatelessWidget {
                     child: Icon(
                       Icons.close,
                       size: 12,
-                      color: Colors.white.withOpacity(0.4),
+                      color: Colors.white.withValues(alpha: 0.4),
                     ),
                   ),
                 )
@@ -325,7 +325,7 @@ class MixerTopBar extends StatelessWidget {
             minHeight: 20,
           ),
           filled: true,
-          fillColor: Colors.white.withOpacity(0.04),
+          fillColor: Colors.white.withValues(alpha: 0.04),
           contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(3),
@@ -346,11 +346,11 @@ class MixerTopBar extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
           decoration: BoxDecoration(
             color: isDetached
-                ? const Color(0xFFFF9040).withOpacity(0.15)
-                : Colors.white.withOpacity(0.04),
+                ? const Color(0xFFFF9040).withValues(alpha: 0.15)
+                : Colors.white.withValues(alpha: 0.04),
             borderRadius: BorderRadius.circular(3),
             border: isDetached
-                ? Border.all(color: const Color(0xFFFF9040).withOpacity(0.3))
+                ? Border.all(color: const Color(0xFFFF9040).withValues(alpha: 0.3))
                 : null,
           ),
           child: Icon(
@@ -358,7 +358,7 @@ class MixerTopBar extends StatelessWidget {
             size: 12,
             color: isDetached
                 ? const Color(0xFFFF9040)
-                : Colors.white.withOpacity(0.5),
+                : Colors.white.withValues(alpha: 0.5),
           ),
         ),
       ),
@@ -371,10 +371,10 @@ class MixerTopBar extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: const Color(0xFF4A9EFF).withOpacity(0.15),
+          color: const Color(0xFF4A9EFF).withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(3),
           border: Border.all(
-            color: const Color(0xFF4A9EFF).withOpacity(0.3),
+            color: const Color(0xFF4A9EFF).withValues(alpha: 0.3),
           ),
         ),
         child: const Text(
@@ -397,11 +397,11 @@ class MixerTopBar extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
         decoration: BoxDecoration(
           color: active
-              ? activeColor.withOpacity(0.15)
-              : Colors.white.withOpacity(0.04),
+              ? activeColor.withValues(alpha: 0.15)
+              : Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(3),
           border: active
-              ? Border.all(color: activeColor.withOpacity(0.3))
+              ? Border.all(color: activeColor.withValues(alpha: 0.3))
               : null,
         ),
         child: Text(
@@ -409,7 +409,7 @@ class MixerTopBar extends StatelessWidget {
           style: TextStyle(
             color: active
                 ? activeColor
-                : Colors.white.withOpacity(0.4),
+                : Colors.white.withValues(alpha: 0.4),
             fontSize: 10,
             fontWeight: FontWeight.w600,
           ),
@@ -426,7 +426,7 @@ class MixerTopBar extends StatelessWidget {
     return Container(
       width: 1,
       height: 20,
-      color: Colors.white.withOpacity(0.08),
+      color: Colors.white.withValues(alpha: 0.08),
     );
   }
 

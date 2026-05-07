@@ -73,7 +73,7 @@ class _VoicePriorityMonitorState extends State<VoicePriorityMonitor> {
         Text(
           'Voice / Priority',
           style: TextStyle(
-            color: Colors.white.withOpacity(0.8),
+            color: Colors.white.withValues(alpha: 0.8),
             fontSize: 10,
             fontWeight: FontWeight.w600,
           ),
@@ -97,7 +97,7 @@ class _VoicePriorityMonitorState extends State<VoicePriorityMonitor> {
         _metric('Budget', '$budget', const Color(0xFF42A5F5)),
         const SizedBox(width: 8),
         _metric('Stolen', '$stolen',
-            stolen > 0 ? const Color(0xFFEF5350) : Colors.white.withOpacity(0.3)),
+            stolen > 0 ? const Color(0xFFEF5350) : Colors.white.withValues(alpha: 0.3)),
         const SizedBox(width: 8),
         _metric('Util', '${util.toStringAsFixed(0)}%',
             activeColor),
@@ -110,7 +110,7 @@ class _VoicePriorityMonitorState extends State<VoicePriorityMonitor> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(value, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700)),
-        Text(label, style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 7)),
+        Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 7)),
       ],
     );
   }
@@ -144,13 +144,13 @@ class _VoicePriorityMonitorState extends State<VoicePriorityMonitor> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
+                      color: Colors.white.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(3),
                     ),
                     child: Text(
                       '${e.key}:${e.value}',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.6),
+                        color: Colors.white.withValues(alpha: 0.6),
                         fontSize: 8,
                         fontWeight: FontWeight.w500,
                         fontFamily: 'monospace',
@@ -167,13 +167,13 @@ class _VoicePriorityMonitorState extends State<VoicePriorityMonitor> {
     return Container(
       height: 20,
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.03),
+        color: Colors.white.withValues(alpha: 0.03),
         borderRadius: BorderRadius.circular(3),
       ),
       child: Center(
         child: Text(
           text,
-          style: TextStyle(color: Colors.white.withOpacity(0.2), fontSize: 8),
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 8),
         ),
       ),
     );

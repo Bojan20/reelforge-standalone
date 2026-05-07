@@ -375,9 +375,9 @@ class _PremiumSymbolPainter extends CustomPainter {
     final baseColors = isNearMiss
         ? [const Color(0xFF401020), const Color(0xFF200810), const Color(0xFF100408)]
         : [
-            symbol.gradientColors[0].withOpacity(0.35),
-            symbol.gradientColors[1].withOpacity(0.2),
-            symbol.gradientColors[2].withOpacity(0.12),
+            symbol.gradientColors[0].withValues(alpha: 0.35),
+            symbol.gradientColors[1].withValues(alpha: 0.2),
+            symbol.gradientColors[2].withValues(alpha: 0.12),
           ];
     final basePaint = Paint()
       ..shader = LinearGradient(
@@ -399,8 +399,8 @@ class _PremiumSymbolPainter extends CustomPainter {
         center: const Alignment(0, -0.3),
         radius: 0.9,
         colors: [
-          glowColor.withOpacity(glowOpacity),
-          glowColor.withOpacity(glowOpacity * 0.3),
+          glowColor.withValues(alpha: glowOpacity),
+          glowColor.withValues(alpha: glowOpacity * 0.3),
           Colors.transparent,
         ],
         stops: const [0.0, 0.5, 1.0],
@@ -412,7 +412,7 @@ class _PremiumSymbolPainter extends CustomPainter {
       ..shader = RadialGradient(
         colors: [
           Colors.transparent,
-          Colors.black.withOpacity(0.4),
+          Colors.black.withValues(alpha: 0.4),
         ],
         stops: const [0.6, 1.0],
       ).createShader(rect);
@@ -425,7 +425,7 @@ class _PremiumSymbolPainter extends CustomPainter {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          Colors.white.withOpacity(symbol.isSpecial ? 0.12 : 0.07),
+          Colors.white.withValues(alpha: symbol.isSpecial ? 0.12 : 0.07),
           Colors.transparent,
         ],
       ).createShader(highlightRect);
@@ -439,17 +439,17 @@ class _PremiumSymbolPainter extends CustomPainter {
         end: Alignment.bottomCenter,
         colors: [
           Colors.transparent,
-          symbol.gradientColors.last.withOpacity(0.08),
+          symbol.gradientColors.last.withValues(alpha: 0.08),
         ],
       ).createShader(bottomRect);
     canvas.drawRect(bottomRect, bottomPaint);
 
     // ── Layer 6: Inner border glow (1px soft edge) ──
     final borderColor = isWinning
-        ? symbol.glowColor.withOpacity(0.6 + winPulse * 0.3)
+        ? symbol.glowColor.withValues(alpha: 0.6 + winPulse * 0.3)
         : isNearMiss
-            ? const Color(0xFFFF4060).withOpacity(0.5)
-            : symbol.gradientColors[0].withOpacity(0.15);
+            ? const Color(0xFFFF4060).withValues(alpha: 0.5)
+            : symbol.gradientColors[0].withValues(alpha: 0.15);
     final borderPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = isWinning ? 1.5 : 0.5
@@ -464,7 +464,7 @@ class _PremiumSymbolPainter extends CustomPainter {
 
   void _drawSparkles(Canvas canvas, Size size, double minDim, Color color) {
     final sparklePaint = Paint()
-      ..color = color.withOpacity(isWinning ? 0.6 : 0.25)
+      ..color = color.withValues(alpha: isWinning ? 0.6 : 0.25)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2);
     final r = minDim * 0.015;
 
@@ -4213,7 +4213,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
           final borderColor = _winningReels.isNotEmpty
               ? _getWinBorderColor()
               : _isSpinning
-                  ? FluxForgeTheme.accentBlue.withOpacity(0.4)
+                  ? FluxForgeTheme.accentBlue.withValues(alpha: 0.4)
                   : const Color(0xFF2A2A38);
 
           // ═══════════════════════════════════════════════════════════════════════
@@ -4243,7 +4243,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                   boxShadow: _winningReels.isNotEmpty
                       ? [
                           BoxShadow(
-                            color: _getWinGlowColor().withOpacity(0.3),
+                            color: _getWinGlowColor().withValues(alpha: 0.3),
                             blurRadius: 20,
                             spreadRadius: 2,
                           ),
@@ -4383,8 +4383,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                               center: Alignment.center,
                               radius: 0.8,
                               colors: [
-                                _getWinGlowColor().withOpacity((_screenFlashOpacity.value * 0.7).clamp(0.0, 1.0)),
-                                Colors.white.withOpacity((_screenFlashOpacity.value * 0.3).clamp(0.0, 1.0)),
+                                _getWinGlowColor().withValues(alpha: (_screenFlashOpacity.value * 0.7).clamp(0.0, 1.0)),
+                                Colors.white.withValues(alpha: (_screenFlashOpacity.value * 0.3).clamp(0.0, 1.0)),
                               ],
                             ),
                           ),
@@ -4533,7 +4533,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       'TOTAL' => const Color(0xFFFFD700),  // Gold for TOTAL WIN (outro)
       _ => FluxForgeTheme.accentGreen,
     };
-    return baseColor.withOpacity(_winPulseAnimation.value.clamp(0.0, 1.0));
+    return baseColor.withValues(alpha: _winPulseAnimation.value.clamp(0.0, 1.0));
   }
 
   Color _getWinGlowColor() {
@@ -4714,14 +4714,14 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             boxShadow: [
               // Massive ambient glow
               BoxShadow(
-                color: tierColors.first.withOpacity(shadowIntensity * 0.6),
+                color: tierColors.first.withValues(alpha: shadowIntensity * 0.6),
                 blurRadius: baseGlowRadius * 4,
                 spreadRadius: 30,
               ),
               // Secondary color glow for richness
               if (tierColors.length > 1)
                 BoxShadow(
-                  color: tierColors[1].withOpacity(shadowIntensity * 0.3),
+                  color: tierColors[1].withValues(alpha: shadowIntensity * 0.3),
                   blurRadius: baseGlowRadius * 3,
                   spreadRadius: 20,
                 ),
@@ -4739,39 +4739,39 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
               end: Alignment.bottomCenter,
               colors: [
                 // Top: Lighter for glossy effect
-                tierColors.first.withOpacity(0.35),
+                tierColors.first.withValues(alpha: 0.35),
                 // Upper middle: Rich tier color
-                tierColors.first.withOpacity(0.15),
+                tierColors.first.withValues(alpha: 0.15),
                 // Lower middle: Dark for depth
-                Colors.black.withOpacity(0.85),
+                Colors.black.withValues(alpha: 0.85),
                 // Bottom: Slight tier tint
-                tierColors.first.withOpacity(0.1),
+                tierColors.first.withValues(alpha: 0.1),
               ],
               stops: const [0.0, 0.2, 0.6, 1.0],
             ),
             borderRadius: BorderRadius.circular(24),
             // Double border effect - outer glow + inner metallic
             border: Border.all(
-              color: tierColors.first.withOpacity(borderOpacity),
+              color: tierColors.first.withValues(alpha: borderOpacity),
               width: 3,
             ),
             boxShadow: [
               // Inner shadow for depth (inset effect)
               BoxShadow(
-                color: Colors.black.withOpacity(0.8),
+                color: Colors.black.withValues(alpha: 0.8),
                 blurRadius: 15,
                 spreadRadius: -5,
                 offset: const Offset(0, 5),
               ),
               // Primary tier glow
               BoxShadow(
-                color: tierColors.first.withOpacity(shadowIntensity * 0.9),
+                color: tierColors.first.withValues(alpha: shadowIntensity * 0.9),
                 blurRadius: baseGlowRadius * 1.5,
                 spreadRadius: 5,
               ),
               // Pulsing outer glow
               BoxShadow(
-                color: tierColors.first.withOpacity(shadowIntensity * 0.6 * glowIntensity),
+                color: tierColors.first.withValues(alpha: shadowIntensity * 0.6 * glowIntensity),
                 blurRadius: baseGlowRadius * 2.5 * glowIntensity,
                 spreadRadius: 12 * glowIntensity,
               ),
@@ -4811,7 +4811,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                     shaderCallback: (bounds) => RadialGradient(
                       colors: [
                         tierColors.first,
-                        tierColors.first.withOpacity(0.5),
+                        tierColors.first.withValues(alpha: 0.5),
                         Colors.transparent,
                       ],
                     ).createShader(bounds),
@@ -4820,7 +4820,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                       style: TextStyle(
                         fontSize: tierFontSize + 2,
                         fontWeight: FontWeight.w900,
-                        color: Colors.white.withOpacity(0.3),
+                        color: Colors.white.withValues(alpha: 0.3),
                         letterSpacing: 6,
                       ),
                     ),
@@ -4834,7 +4834,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                         Colors.white,
                         tierColors.first,
                         tierColors.length > 1 ? tierColors[1] : tierColors.first,
-                        Colors.white.withOpacity(0.9),
+                        Colors.white.withValues(alpha: 0.9),
                       ],
                       stops: const [0.0, 0.3, 0.7, 1.0],
                     ).createShader(bounds),
@@ -4848,7 +4848,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                         shadows: [
                           // Sharp inner shadow for emboss effect
                           Shadow(
-                            color: Colors.black.withOpacity(0.8),
+                            color: Colors.black.withValues(alpha: 0.8),
                             blurRadius: 2,
                             offset: const Offset(1, 2),
                           ),
@@ -4859,7 +4859,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                           ),
                           // Outer ambient glow
                           Shadow(
-                            color: tierColors.first.withOpacity(0.7),
+                            color: tierColors.first.withValues(alpha: 0.7),
                             blurRadius: 40,
                           ),
                         ],
@@ -4882,14 +4882,14 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                     // Subtle background for counter area
                     gradient: LinearGradient(
                       colors: [
-                        Colors.black.withOpacity(0.4),
-                        tierColors.first.withOpacity(0.1),
-                        Colors.black.withOpacity(0.4),
+                        Colors.black.withValues(alpha: 0.4),
+                        tierColors.first.withValues(alpha: 0.1),
+                        Colors.black.withValues(alpha: 0.4),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: tierColors.first.withOpacity(0.3),
+                      color: tierColors.first.withValues(alpha: 0.3),
                       width: 1,
                     ),
                   ),
@@ -4927,13 +4927,13 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                           ),
                           // Deep shadow for 3D effect
                           Shadow(
-                            color: Colors.black.withOpacity(0.9),
+                            color: Colors.black.withValues(alpha: 0.9),
                             blurRadius: 3,
                             offset: const Offset(2, 3),
                           ),
                           // Primary glow
                           Shadow(
-                            color: tierColors.first.withOpacity(0.95),
+                            color: tierColors.first.withValues(alpha: 0.95),
                             blurRadius: 35,
                           ),
                           // Gold accent glow
@@ -4943,7 +4943,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                           ),
                           // Pulsing outer glow
                           Shadow(
-                            color: tierColors.first.withOpacity(glowIntensity * 0.9),
+                            color: tierColors.first.withValues(alpha: glowIntensity * 0.9),
                             blurRadius: 60 * glowIntensity,
                           ),
                         ],
@@ -4997,8 +4997,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Colors.white.withOpacity(0.25),
-                  Colors.white.withOpacity(0.05),
+                  Colors.white.withValues(alpha: 0.25),
+                  Colors.white.withValues(alpha: 0.05),
                   Colors.transparent,
                 ],
               ),
@@ -5026,7 +5026,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: color.withOpacity(0.6 * glowIntensity),
+                  color: color.withValues(alpha: 0.6 * glowIntensity),
                   blurRadius: size * 0.5,
                   spreadRadius: size * 0.1,
                 ),
@@ -5040,7 +5040,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             color: color,
             shadows: [
               Shadow(
-                color: Colors.white.withOpacity(0.8),
+                color: Colors.white.withValues(alpha: 0.8),
                 blurRadius: 2,
               ),
               Shadow(
@@ -5074,14 +5074,14 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         height: 8,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(4),
-          color: Colors.black.withOpacity(0.4),
+          color: Colors.black.withValues(alpha: 0.4),
           border: Border.all(
-            color: tierColor.withOpacity(0.3),
+            color: tierColor.withValues(alpha: 0.3),
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: tierColor.withOpacity(0.2 * glowIntensity),
+              color: tierColor.withValues(alpha: 0.2 * glowIntensity),
               blurRadius: 8,
               spreadRadius: 2,
             ),
@@ -5110,7 +5110,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        tierColor.withOpacity(0.8),
+                        tierColor.withValues(alpha: 0.8),
                         tierColor,
                         HSLColor.fromColor(tierColor)
                             .withLightness(
@@ -5122,7 +5122,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: tierColor.withOpacity(0.6 * glowIntensity),
+                        color: tierColor.withValues(alpha: 0.6 * glowIntensity),
                         blurRadius: 4,
                         spreadRadius: 1,
                       ),
@@ -5142,7 +5142,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                       gradient: LinearGradient(
                         colors: [
                           Colors.transparent,
-                          Colors.white.withOpacity(0.6),
+                          Colors.white.withValues(alpha: 0.6),
                           Colors.transparent,
                         ],
                       ),
@@ -5237,15 +5237,15 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.85),
+            color: Colors.black.withValues(alpha: 0.85),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: badgeColor.withOpacity((0.8 + pulseValue * 0.2).clamp(0.0, 1.0)),
+              color: badgeColor.withValues(alpha: (0.8 + pulseValue * 0.2).clamp(0.0, 1.0)),
               width: 2 + pulseValue,
             ),
             boxShadow: [
               BoxShadow(
-                color: badgeColor.withOpacity((0.4 + pulseValue * 0.3).clamp(0.0, 1.0)),
+                color: badgeColor.withValues(alpha: (0.4 + pulseValue * 0.3).clamp(0.0, 1.0)),
                 blurRadius: 15 + pulseValue * 10,
                 spreadRadius: 2 + pulseValue * 3,
               ),
@@ -5269,7 +5269,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                   fontWeight: FontWeight.bold,
                   shadows: [
                     Shadow(
-                      color: badgeColor.withOpacity(0.5),
+                      color: badgeColor.withValues(alpha: 0.5),
                       blurRadius: 8,
                     ),
                   ],
@@ -5280,7 +5280,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
               Text(
                 isComplete ? 'TRIGGERED!' : 'SCATTERS',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.9),
+                  color: Colors.white.withValues(alpha: 0.9),
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 1.2,
@@ -5317,19 +5317,19 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             // Pulsing outer glow - intensity scales with tension level
             boxShadow: [
               BoxShadow(
-                color: color.withOpacity((safePulse * 0.8 * intensityMultiplier).clamp(0.0, 1.0)),
+                color: color.withValues(alpha: (safePulse * 0.8 * intensityMultiplier).clamp(0.0, 1.0)),
                 blurRadius: (20 + (safePulse * 15)) * intensityMultiplier,
                 spreadRadius: (2 + (safePulse * 4)) * intensityMultiplier,
               ),
               BoxShadow(
-                color: color.withOpacity((safePulse * 0.5 * intensityMultiplier).clamp(0.0, 1.0)),
+                color: color.withValues(alpha: (safePulse * 0.5 * intensityMultiplier).clamp(0.0, 1.0)),
                 blurRadius: (40 + (safePulse * 20)) * intensityMultiplier,
                 spreadRadius: (4 + (safePulse * 6)) * intensityMultiplier,
               ),
               // Extra outer glow for high tension levels (L3, L4)
               if (tensionLevel >= 3)
                 BoxShadow(
-                  color: color.withOpacity((safePulse * 0.3).clamp(0.0, 1.0)),
+                  color: color.withValues(alpha: (safePulse * 0.3).clamp(0.0, 1.0)),
                   blurRadius: 60 + (safePulse * 30),
                   spreadRadius: 8 + (safePulse * 8),
                 ),
@@ -5339,13 +5339,13 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                color.withOpacity((safePulse * 0.15 * intensityMultiplier).clamp(0.0, 1.0)),
+                color.withValues(alpha: (safePulse * 0.15 * intensityMultiplier).clamp(0.0, 1.0)),
                 Colors.transparent,
-                color.withOpacity((safePulse * 0.15 * intensityMultiplier).clamp(0.0, 1.0)),
+                color.withValues(alpha: (safePulse * 0.15 * intensityMultiplier).clamp(0.0, 1.0)),
               ],
             ),
             border: Border.all(
-              color: color.withOpacity((0.7 + safePulse * 0.3).clamp(0.0, 1.0)),
+              color: color.withValues(alpha: (0.7 + safePulse * 0.3).clamp(0.0, 1.0)),
               width: (3 + safePulse * 2) * intensityMultiplier,
             ),
           ),
@@ -5363,9 +5363,9 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                     borderRadius: BorderRadius.circular(4),
                     child: LinearProgressIndicator(
                       value: progress,
-                      backgroundColor: Colors.black.withOpacity(0.3),
+                      backgroundColor: Colors.black.withValues(alpha: 0.3),
                       valueColor: AlwaysStoppedAnimation<Color>(
-                        color.withOpacity((0.9 + safePulse * 0.1).clamp(0.0, 1.0)),
+                        color.withValues(alpha: (0.9 + safePulse * 0.1).clamp(0.0, 1.0)),
                       ),
                     ),
                   ),
@@ -5377,11 +5377,11 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                   margin: const EdgeInsets.only(top: 4),
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.9),
+                    color: color.withValues(alpha: 0.9),
                     borderRadius: BorderRadius.circular(8),
                     boxShadow: [
                       BoxShadow(
-                        color: color.withOpacity(0.5),
+                        color: color.withValues(alpha: 0.5),
                         blurRadius: 8,
                         spreadRadius: 2,
                       ),
@@ -5486,16 +5486,16 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         double borderWidth;
 
         if (isWinningPosition) {
-          borderColor = _getWinGlowColor().withOpacity(_winPulseAnimation.value.clamp(0.0, 1.0));
+          borderColor = _getWinGlowColor().withValues(alpha: _winPulseAnimation.value.clamp(0.0, 1.0));
           borderWidth = 2.5;
         } else if (isScatterHighlight) {
-          borderColor = const Color(0xFF40FF90).withOpacity(_scatterPulse.value.clamp(0.0, 1.0));
+          borderColor = const Color(0xFF40FF90).withValues(alpha: _scatterPulse.value.clamp(0.0, 1.0));
           borderWidth = 3.0;
         } else if (isNearMissPosition && _isNearMiss) {
-          borderColor = const Color(0xFFFF4060).withOpacity(0.8);
+          borderColor = const Color(0xFFFF4060).withValues(alpha: 0.8);
           borderWidth = 2.5;
         } else if (isAnticipationReel && _isAnticipation && isReelSpinning) {
-          borderColor = const Color(0xFFFFD700).withOpacity(_anticipationPulse.value.clamp(0.0, 1.0));
+          borderColor = const Color(0xFFFFD700).withValues(alpha: _anticipationPulse.value.clamp(0.0, 1.0));
           borderWidth = 2.0;
         } else {
           // REMOVED: isWinningReel animation on ALL cells of winning reel
@@ -5508,7 +5508,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         if (isWinningPosition && glowIntensity > 0) {
           shadows = [
             BoxShadow(
-              color: _getWinGlowColor().withOpacity((glowIntensity * 0.6).clamp(0.0, 1.0)),
+              color: _getWinGlowColor().withValues(alpha: (glowIntensity * 0.6).clamp(0.0, 1.0)),
               blurRadius: 12,
               spreadRadius: 2,
             ),
@@ -5516,7 +5516,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         } else if (isNearMissPosition && _isNearMiss) {
           shadows = [
             BoxShadow(
-              color: const Color(0xFFFF4060).withOpacity(0.5),
+              color: const Color(0xFFFF4060).withValues(alpha: 0.5),
               blurRadius: 16,
               spreadRadius: 3,
             ),
@@ -5524,7 +5524,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         } else if (isScatterHighlight) {
           shadows = [
             BoxShadow(
-              color: const Color(0xFF40FF90).withOpacity((_scatterPulse.value * 0.6).clamp(0.0, 1.0)),
+              color: const Color(0xFF40FF90).withValues(alpha: (_scatterPulse.value * 0.6).clamp(0.0, 1.0)),
               blurRadius: 18,
               spreadRadius: 4,
             ),
@@ -5532,7 +5532,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         } else if (isAnticipationReel && _isAnticipation && isReelSpinning) {
           shadows = [
             BoxShadow(
-              color: const Color(0xFFFFD700).withOpacity((_anticipationPulse.value * 0.4).clamp(0.0, 1.0)),
+              color: const Color(0xFFFFD700).withValues(alpha: (_anticipationPulse.value * 0.4).clamp(0.0, 1.0)),
               blurRadius: 15,
               spreadRadius: 2,
             ),
@@ -5583,14 +5583,14 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                   borderRadius: _borderRadiusForShape(cellShape),
                   border: Border.all(
                     color: isCascadePopPosition && _isCascading
-                        ? const Color(0xFFFFD700).withOpacity(cascadeOpacity)
+                        ? const Color(0xFFFFD700).withValues(alpha: cascadeOpacity)
                         : borderColor,
                     width: borderWidth,
                   ),
                   boxShadow: isCascadePopPosition && _isCascading
                       ? [
                           BoxShadow(
-                            color: const Color(0xFFFFD700).withOpacity(0.6 * cascadeOpacity),
+                            color: const Color(0xFFFFD700).withValues(alpha: 0.6 * cascadeOpacity),
                             blurRadius: 16 * cascadeScale,
                             spreadRadius: 4 * cascadeScale,
                           ),
@@ -5621,11 +5621,11 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
                           decoration: BoxDecoration(
-                            color: _getWinGlowColor().withOpacity(0.85),
+                            color: _getWinGlowColor().withValues(alpha: 0.85),
                             borderRadius: BorderRadius.circular(3),
                             boxShadow: [
                               BoxShadow(
-                                color: _getWinGlowColor().withOpacity(0.5),
+                                color: _getWinGlowColor().withValues(alpha: 0.5),
                                 blurRadius: 4,
                               ),
                             ],
@@ -5758,9 +5758,9 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Colors.black.withOpacity(blurIntensity * 0.6),
-                        Colors.black.withOpacity(blurIntensity * 0.2),
-                        Colors.black.withOpacity(blurIntensity * 0.6),
+                        Colors.black.withValues(alpha: blurIntensity * 0.6),
+                        Colors.black.withValues(alpha: blurIntensity * 0.2),
+                        Colors.black.withValues(alpha: blurIntensity * 0.6),
                       ],
                     ),
                   ),
@@ -5783,7 +5783,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                   decoration: BoxDecoration(
                     gradient: RadialGradient(
                       colors: [
-                        const Color(0xFFFFD700).withOpacity((_anticipationPulse.value * 0.4).clamp(0.0, 1.0)),
+                        const Color(0xFFFFD700).withValues(alpha: (_anticipationPulse.value * 0.4).clamp(0.0, 1.0)),
                         Colors.transparent,
                       ],
                     ),
@@ -5798,7 +5798,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                     gradient: RadialGradient(
                       colors: [
                         // FIX: Clamp to prevent withOpacity assertion error
-                        FluxForgeTheme.accentBlue.withOpacity((reelState.phaseProgress * 0.3).clamp(0.0, 1.0)),
+                        FluxForgeTheme.accentBlue.withValues(alpha: (reelState.phaseProgress * 0.3).clamp(0.0, 1.0)),
                         Colors.transparent,
                       ],
                     ),
@@ -5854,9 +5854,9 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Colors.black.withOpacity(blurIntensity * 0.5),
+                  Colors.black.withValues(alpha: blurIntensity * 0.5),
                   Colors.transparent,
-                  Colors.black.withOpacity(blurIntensity * 0.5),
+                  Colors.black.withValues(alpha: blurIntensity * 0.5),
                 ],
               ),
             ),
@@ -5867,7 +5867,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             decoration: BoxDecoration(
               gradient: RadialGradient(
                 colors: [
-                  const Color(0xFFFFD700).withOpacity((_anticipationPulse.value * 0.3).clamp(0.0, 1.0)),
+                  const Color(0xFFFFD700).withValues(alpha: (_anticipationPulse.value * 0.3).clamp(0.0, 1.0)),
                   Colors.transparent,
                 ],
               ),
@@ -5879,7 +5879,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             decoration: BoxDecoration(
               gradient: RadialGradient(
                 colors: [
-                  FluxForgeTheme.accentBlue.withOpacity((0.3 - animationValue) * 0.5),
+                  FluxForgeTheme.accentBlue.withValues(alpha: (0.3 - animationValue) * 0.5),
                   Colors.transparent,
                 ],
               ),
@@ -5985,19 +5985,19 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
           shadows: [
             // Deep shadow for 3D depth
             Shadow(
-              color: Colors.black.withOpacity(0.8),
+              color: Colors.black.withValues(alpha: 0.8),
               blurRadius: 4,
               offset: const Offset(1.5, 2),
             ),
             // Symbol glow
             Shadow(
-              color: symbol.glowColor.withOpacity(isWinning ? 0.9 : 0.5),
+              color: symbol.glowColor.withValues(alpha: isWinning ? 0.9 : 0.5),
               blurRadius: isWinning ? 16 : 8,
             ),
             // Secondary glow for specials
             if (symbol.isSpecial)
               Shadow(
-                color: symbol.gradientColors.first.withOpacity(0.4),
+                color: symbol.gradientColors.first.withValues(alpha: 0.4),
                 blurRadius: 20,
               ),
           ],
@@ -6018,9 +6018,9 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                 end: Alignment(-0.5 + _winPulseAnimation.value * 3, 1),
                 colors: [
                   Colors.transparent,
-                  Colors.white.withOpacity(0.08),
-                  Colors.white.withOpacity(0.2),
-                  Colors.white.withOpacity(0.08),
+                  Colors.white.withValues(alpha: 0.08),
+                  Colors.white.withValues(alpha: 0.2),
+                  Colors.white.withValues(alpha: 0.08),
                   Colors.transparent,
                 ],
                 stops: const [0.0, 0.35, 0.5, 0.65, 1.0],
@@ -6041,7 +6041,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
           style: TextStyle(
             fontSize: fontSize * 1.2,
             fontWeight: FontWeight.bold,
-            color: const Color(0xFFFF4060).withOpacity(0.9),
+            color: const Color(0xFFFF4060).withValues(alpha: 0.9),
             shadows: const [
               Shadow(color: Color(0xFFFF4060), blurRadius: 12),
             ],
@@ -6060,10 +6060,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.75),
+            color: Colors.black.withValues(alpha: 0.75),
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
-              color: symbol.labelColor.withOpacity(0.6),
+              color: symbol.labelColor.withValues(alpha: 0.6),
               width: 0.5,
             ),
           ),
@@ -6072,7 +6072,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             style: TextStyle(
               fontSize: (cellSize * 0.15).clamp(7.0, 12.0),
               fontWeight: FontWeight.w800,
-              color: symbol.labelColor.withOpacity(0.9),
+              color: symbol.labelColor.withValues(alpha: 0.9),
               letterSpacing: 0.8,
             ),
           ),
@@ -6194,7 +6194,7 @@ class _SpeedLinesPainter extends CustomPainter {
     if (intensity < 0.1) return;
 
     final paint = Paint()
-      ..color = Colors.white.withOpacity(intensity * 0.15)
+      ..color = Colors.white.withValues(alpha: intensity * 0.15)
       ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke;
 
@@ -6231,7 +6231,7 @@ class _ParticlePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     for (final p in particles) {
       final paint = Paint()
-        ..color = p.color.withOpacity((p.life * 0.8).clamp(0.0, 1.0))
+        ..color = p.color.withValues(alpha: (p.life * 0.8).clamp(0.0, 1.0))
         ..style = PaintingStyle.fill;
 
       final x = p.x * size.width;
@@ -6244,7 +6244,7 @@ class _ParticlePainter extends CustomPainter {
       if (p.type == _ParticleType.coin) {
         // Draw coin shape
         final coinPaint = Paint()
-          ..color = p.color.withOpacity((p.life * 0.9).clamp(0.0, 1.0))
+          ..color = p.color.withValues(alpha: (p.life * 0.9).clamp(0.0, 1.0))
           ..style = PaintingStyle.fill;
 
         // Outer circle
@@ -6252,13 +6252,13 @@ class _ParticlePainter extends CustomPainter {
 
         // Inner highlight
         final highlightPaint = Paint()
-          ..color = Colors.white.withOpacity((p.life * 0.4).clamp(0.0, 1.0))
+          ..color = Colors.white.withValues(alpha: (p.life * 0.4).clamp(0.0, 1.0))
           ..style = PaintingStyle.fill;
         canvas.drawCircle(Offset(-p.size * 0.2, -p.size * 0.2), p.size * 0.3, highlightPaint);
 
         // Edge shadow
         final shadowPaint = Paint()
-          ..color = Colors.black.withOpacity((p.life * 0.3).clamp(0.0, 1.0))
+          ..color = Colors.black.withValues(alpha: (p.life * 0.3).clamp(0.0, 1.0))
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.5;
         canvas.drawCircle(Offset.zero, p.size, shadowPaint);
@@ -6285,7 +6285,7 @@ class _ParticlePainter extends CustomPainter {
 
         // Center glow
         final glowPaint = Paint()
-          ..color = Colors.white.withOpacity((p.life * 0.6).clamp(0.0, 1.0))
+          ..color = Colors.white.withValues(alpha: (p.life * 0.6).clamp(0.0, 1.0))
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
         canvas.drawCircle(Offset.zero, p.size * 0.3, glowPaint);
       }
@@ -6382,7 +6382,7 @@ class _WinLinePainter extends CustomPainter {
 
     // Draw outer glow (thicker, more transparent)
     final glowPaint = Paint()
-      ..color = lineColor.withOpacity(0.3 + pulseValue * 0.2)
+      ..color = lineColor.withValues(alpha: 0.3 + pulseValue * 0.2)
       ..strokeWidth = 14 + pulseValue * 4
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
@@ -6393,7 +6393,7 @@ class _WinLinePainter extends CustomPainter {
 
     // Draw main line (solid, colored)
     final linePaint = Paint()
-      ..color = lineColor.withOpacity(0.8 + pulseValue * 0.2)
+      ..color = lineColor.withValues(alpha: 0.8 + pulseValue * 0.2)
       ..strokeWidth = 5 + pulseValue * 2
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
@@ -6403,7 +6403,7 @@ class _WinLinePainter extends CustomPainter {
 
     // Draw inner highlight (white core)
     final highlightPaint = Paint()
-      ..color = Colors.white.withOpacity(0.4 + pulseValue * 0.3)
+      ..color = Colors.white.withValues(alpha: 0.4 + pulseValue * 0.3)
       ..strokeWidth = 2
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
@@ -6419,7 +6419,7 @@ class _WinLinePainter extends CustomPainter {
 
       // Outer glow dot
       final dotGlowPaint = Paint()
-        ..color = lineColor.withOpacity(0.5 + pulseValue * 0.3)
+        ..color = lineColor.withValues(alpha: 0.5 + pulseValue * 0.3)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
       canvas.drawCircle(point, 12 + pulseValue * 4, dotGlowPaint);
 
@@ -6431,7 +6431,7 @@ class _WinLinePainter extends CustomPainter {
 
       // White center
       final dotCenterPaint = Paint()
-        ..color = Colors.white.withOpacity(0.8)
+        ..color = Colors.white.withValues(alpha: 0.8)
         ..style = PaintingStyle.fill;
       canvas.drawCircle(point, 3 + pulseValue, dotCenterPaint);
     }
@@ -6476,7 +6476,7 @@ class _PlaqueBurstPainter extends CustomPainter {
     final opacity = baseOpacity * (0.6 + pulseValue * 0.4);
 
     final rayPaint = Paint()
-      ..color = tierColor.withOpacity(opacity)
+      ..color = tierColor.withValues(alpha: opacity)
       ..strokeWidth = 3 + pulseValue * 2
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke
@@ -6496,7 +6496,7 @@ class _PlaqueBurstPainter extends CustomPainter {
 
     // Inner glow circle
     final glowPaint = Paint()
-      ..color = tierColor.withOpacity(opacity * 0.5)
+      ..color = tierColor.withValues(alpha: opacity * 0.5)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 20);
     canvas.drawCircle(Offset(centerX, centerY), 40 + pulseValue * 10, glowPaint);
   }
@@ -6541,8 +6541,8 @@ class _AnticipationVignettePainter extends CustomPainter {
         colors: [
           Colors.transparent,
           Colors.transparent,
-          Colors.black.withOpacity((vignetteOpacity * 0.4).clamp(0.0, 1.0)),
-          Colors.black.withOpacity((vignetteOpacity * 0.8).clamp(0.0, 1.0)),
+          Colors.black.withValues(alpha: (vignetteOpacity * 0.4).clamp(0.0, 1.0)),
+          Colors.black.withValues(alpha: (vignetteOpacity * 0.8).clamp(0.0, 1.0)),
         ],
         stops: const [0.0, 0.4, 0.7, 1.0],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
@@ -6559,8 +6559,8 @@ class _AnticipationVignettePainter extends CustomPainter {
         colors: [
           Colors.transparent,
           Colors.transparent,
-          color.withOpacity((glowOpacity * 0.5).clamp(0.0, 1.0)),
-          color.withOpacity(glowOpacity),
+          color.withValues(alpha: (glowOpacity * 0.5).clamp(0.0, 1.0)),
+          color.withValues(alpha: glowOpacity),
         ],
         stops: const [0.0, 0.5, 0.8, 1.0],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
@@ -6687,7 +6687,7 @@ class _AnticipationTrailPainter extends CustomPainter {
 
       // Core particle
       final paint = Paint()
-        ..color = p.color.withOpacity(opacity)
+        ..color = p.color.withValues(alpha: opacity)
         ..style = PaintingStyle.fill;
 
       final x = p.x * size.width;
@@ -6709,7 +6709,7 @@ class _AnticipationTrailPainter extends CustomPainter {
 
       // Glow effect
       final glowPaint = Paint()
-        ..color = p.color.withOpacity((opacity * 0.4).clamp(0.0, 1.0))
+        ..color = p.color.withValues(alpha: (opacity * 0.4).clamp(0.0, 1.0))
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, p.size.abs());
       canvas.drawCircle(Offset.zero, p.size.abs() * 0.8, glowPaint);
 
@@ -6764,8 +6764,8 @@ class _BigWinBackgroundPainter extends CustomPainter {
         colors: [
           Colors.transparent,
           Colors.transparent,
-          Colors.black.withOpacity((vignetteOpacity * 0.3).clamp(0.0, 1.0)),
-          Colors.black.withOpacity(vignetteOpacity.clamp(0.0, 1.0)),
+          Colors.black.withValues(alpha: (vignetteOpacity * 0.3).clamp(0.0, 1.0)),
+          Colors.black.withValues(alpha: vignetteOpacity.clamp(0.0, 1.0)),
         ],
         stops: const [0.0, 0.5, 0.75, 1.0],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
@@ -6791,8 +6791,8 @@ class _BigWinBackgroundPainter extends CustomPainter {
         center: Alignment.center,
         radius: 0.8 + safePulse * 0.2,
         colors: [
-          tierColor.withOpacity(colorWashOpacity),
-          tierColor.withOpacity((colorWashOpacity * 0.5).clamp(0.0, 1.0)),
+          tierColor.withValues(alpha: colorWashOpacity),
+          tierColor.withValues(alpha: (colorWashOpacity * 0.5).clamp(0.0, 1.0)),
           Colors.transparent,
         ],
         stops: const [0.0, 0.4, 1.0],
@@ -6820,7 +6820,7 @@ class _BigWinBackgroundPainter extends CustomPainter {
 
       final rayOpacityFinal = (rayOpacity * (0.5 + safePulse * 0.5)).clamp(0.0, 1.0);
       final rayPaint = Paint()
-        ..color = tierColor.withOpacity(rayOpacityFinal)
+        ..color = tierColor.withValues(alpha: rayOpacityFinal)
         ..strokeWidth = 2 + safePulse * 2
         ..strokeCap = StrokeCap.round
         ..style = PaintingStyle.stroke

@@ -182,7 +182,7 @@ class _ContainerMetricsPanelState extends State<ContainerMetricsPanel> {
           Icon(
             Icons.timer_off,
             size: 64,
-            color: FluxForgeTheme.textSecondary.withOpacity(0.3),
+            color: FluxForgeTheme.textSecondary.withValues(alpha: 0.3),
           ),
           const SizedBox(height: 10),
           Text(
@@ -197,7 +197,7 @@ class _ContainerMetricsPanelState extends State<ContainerMetricsPanel> {
             'Trigger container evaluations to see metrics',
             style: TextStyle(
               fontSize: 10,
-              color: FluxForgeTheme.textSecondary.withOpacity(0.7),
+              color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
             ),
           ),
         ],
@@ -236,7 +236,7 @@ class _ContainerMetricsPanelState extends State<ContainerMetricsPanel> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isSelected ? FluxForgeTheme.accentBlue.withOpacity(0.1) : FluxForgeTheme.bgDeep,
+        color: isSelected ? FluxForgeTheme.accentBlue.withValues(alpha: 0.1) : FluxForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
           color: isSelected ? FluxForgeTheme.accentBlue : FluxForgeTheme.borderSubtle,
@@ -336,7 +336,7 @@ class _ContainerMetricsPanelState extends State<ContainerMetricsPanel> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
+        color: color.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(3),
         border: Border.all(color: color),
       ),

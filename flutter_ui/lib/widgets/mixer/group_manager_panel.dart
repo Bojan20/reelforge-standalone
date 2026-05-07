@@ -226,7 +226,7 @@ class _GroupManagerPanelState extends State<GroupManagerPanel> {
           margin: const EdgeInsets.only(bottom: 4),
           decoration: BoxDecoration(
             color: isDragTarget
-                ? group.color.withOpacity(0.2)
+                ? group.color.withValues(alpha: 0.2)
                 : isSelected
                     ? const Color(0xFF2A2A35)
                     : Colors.transparent,

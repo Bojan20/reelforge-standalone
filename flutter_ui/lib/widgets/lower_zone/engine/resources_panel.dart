@@ -99,9 +99,9 @@ class _EngineResourcesPanelState extends State<EngineResourcesPanel> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.1),
+                color: Colors.red.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: Colors.red.withOpacity(0.3)),
+                border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
               ),
               child: Row(
                 children: [
@@ -202,7 +202,7 @@ class _EngineResourcesPanelState extends State<EngineResourcesPanel> {
       decoration: BoxDecoration(
         color: const Color(0xFF16161C),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -248,7 +248,7 @@ class _EngineResourcesPanelState extends State<EngineResourcesPanel> {
               height: 12,
               margin: const EdgeInsets.only(right: 8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
+                color: Colors.white.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: ClipRRect(

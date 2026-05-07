@@ -601,7 +601,7 @@ class _ScenarioCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: isSelected ? const Color(0xFF4A9EFF).withOpacity(0.2) : FluxForgeTheme.bgMid,
+      color: isSelected ? const Color(0xFF4A9EFF).withValues(alpha: 0.2) : FluxForgeTheme.bgMid,
       child: InkWell(
         onTap: onTap,
         child: Padding(
@@ -744,7 +744,7 @@ class _StepItem extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 4),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: isCurrent ? const Color(0xFF4A9EFF).withOpacity(0.1) : FluxForgeTheme.bgMid,
+        color: isCurrent ? const Color(0xFF4A9EFF).withValues(alpha: 0.1) : FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(4),
         border: isCurrent
             ? Border.all(color: const Color(0xFF4A9EFF))
@@ -863,7 +863,7 @@ class _StatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
+        color: color.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: color),
       ),
@@ -918,7 +918,7 @@ class _CategoryBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
+        color: color.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(3),
       ),
       child: Text(

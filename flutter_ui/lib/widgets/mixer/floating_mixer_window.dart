@@ -273,7 +273,7 @@ class _FloatingMixerWidgetState extends State<_FloatingMixerWidget> {
                   color: const Color(0xFF0A0A0C),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: const Color(0xFF4A9EFF).withOpacity(0.3),
+                    color: const Color(0xFF4A9EFF).withValues(alpha: 0.3),
                     width: 1,
                   ),
                   boxShadow: const [
@@ -392,12 +392,12 @@ class _FloatingMixerWidgetState extends State<_FloatingMixerWidget> {
         child: Row(
           children: [
             // Drag handle
-            Icon(Icons.drag_indicator, size: 14, color: Colors.white.withOpacity(0.25)),
+            Icon(Icons.drag_indicator, size: 14, color: Colors.white.withValues(alpha: 0.25)),
             const SizedBox(width: 6),
             Text(
               'MIX',
               style: TextStyle(
-                color: const Color(0xFF4A9EFF).withOpacity(0.9),
+                color: const Color(0xFF4A9EFF).withValues(alpha: 0.9),
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.2,
@@ -407,7 +407,7 @@ class _FloatingMixerWidgetState extends State<_FloatingMixerWidget> {
             Text(
               'Floating Mixer',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.4),
+                color: Colors.white.withValues(alpha: 0.4),
                 fontSize: 10,
                 fontWeight: FontWeight.w400,
               ),
@@ -448,16 +448,16 @@ class _FloatingMixerWidgetState extends State<_FloatingMixerWidget> {
           height: 20,
           decoration: BoxDecoration(
             color: isClose
-                ? Colors.white.withOpacity(0.04)
-                : Colors.white.withOpacity(0.04),
+                ? Colors.white.withValues(alpha: 0.04)
+                : Colors.white.withValues(alpha: 0.04),
             borderRadius: BorderRadius.circular(3),
           ),
           child: Icon(
             icon,
             size: 12,
             color: isClose
-                ? const Color(0xFFFF4060).withOpacity(0.7)
-                : Colors.white.withOpacity(0.5),
+                ? const Color(0xFFFF4060).withValues(alpha: 0.7)
+                : Colors.white.withValues(alpha: 0.5),
           ),
         ),
       ),
@@ -475,7 +475,7 @@ class _FloatingMixerWidgetState extends State<_FloatingMixerWidget> {
         color: const Color(0xFF0E0E12),
         border: Border(
           left: BorderSide(
-            color: const Color(0xFFFFD700).withOpacity(0.2),
+            color: const Color(0xFFFFD700).withValues(alpha: 0.2),
             width: 1,
           ),
         ),

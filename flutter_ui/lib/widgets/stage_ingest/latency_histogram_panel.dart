@@ -307,7 +307,7 @@ class _LatencyHistogramPanelState extends State<LatencyHistogramPanel> {
         Text(
           '$label: ',
           style: TextStyle(
-            color: Colors.white.withOpacity(0.5),
+            color: Colors.white.withValues(alpha: 0.5),
             fontSize: 10,
           ),
         ),
@@ -335,14 +335,14 @@ class _LatencyHistogramPanelState extends State<LatencyHistogramPanel> {
         children: [
           Icon(
             Icons.bar_chart,
-            color: Colors.white.withOpacity(0.7),
+            color: Colors.white.withValues(alpha: 0.7),
             size: 18,
           ),
           const SizedBox(width: 8),
           Text(
             widget.title,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
+              color: Colors.white.withValues(alpha: 0.9),
               fontSize: 13,
               fontWeight: FontWeight.w500,
             ),
@@ -351,7 +351,7 @@ class _LatencyHistogramPanelState extends State<LatencyHistogramPanel> {
           Text(
             '${_histogram.stats.sampleCount} samples',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.5),
+              color: Colors.white.withValues(alpha: 0.5),
               fontSize: 11,
             ),
           ),
@@ -384,9 +384,9 @@ class _LatencyHistogramPanelState extends State<LatencyHistogramPanel> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -394,7 +394,7 @@ class _LatencyHistogramPanelState extends State<LatencyHistogramPanel> {
           Text(
             label,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.6),
+              color: Colors.white.withValues(alpha: 0.6),
               fontSize: 9,
             ),
           ),
@@ -418,7 +418,7 @@ class _LatencyHistogramPanelState extends State<LatencyHistogramPanel> {
       return Center(
         child: Text(
           'No data',
-          style: TextStyle(color: Colors.white.withOpacity(0.3)),
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
         ),
       );
     }
@@ -503,7 +503,7 @@ class _LatencyHistogramPanelState extends State<LatencyHistogramPanel> {
         Text(
           label,
           style: TextStyle(
-            color: Colors.white.withOpacity(0.6),
+            color: Colors.white.withValues(alpha: 0.6),
             fontSize: 10,
           ),
         ),
@@ -560,7 +560,7 @@ class _HistogramPainter extends CustomPainter {
       );
 
       final paint = Paint()
-        ..color = isHovered ? barColor : barColor.withOpacity(0.7)
+        ..color = isHovered ? barColor : barColor.withValues(alpha: 0.7)
         ..style = PaintingStyle.fill;
 
       canvas.drawRRect(barRect, paint);
@@ -582,7 +582,7 @@ class _HistogramPainter extends CustomPainter {
         text: TextSpan(
           text: bucket.label,
           style: TextStyle(
-            color: Colors.white.withOpacity(0.5),
+            color: Colors.white.withValues(alpha: 0.5),
             fontSize: 9,
           ),
         ),
@@ -636,7 +636,7 @@ class _HistogramPainter extends CustomPainter {
     canvas.drawRRect(
       tooltipRect,
       Paint()
-        ..color = Colors.white.withOpacity(0.3)
+        ..color = Colors.white.withValues(alpha: 0.3)
         ..style = PaintingStyle.stroke,
     );
 
@@ -663,7 +663,7 @@ class _HistogramPainter extends CustomPainter {
 
     final maxHeight = size.height - 30;
     final paint = Paint()
-      ..color = color.withOpacity(0.5)
+      ..color = color.withValues(alpha: 0.5)
       ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke;
 
@@ -741,7 +741,7 @@ class _MiniHistogramPainter extends CustomPainter {
           ),
           const Radius.circular(1),
         ),
-        Paint()..color = barColor.withOpacity(0.7),
+        Paint()..color = barColor.withValues(alpha: 0.7),
       );
     }
   }
@@ -770,9 +770,9 @@ class LatencyHistogramBadge extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
         decoration: BoxDecoration(
-          color: _getHealthColor(stats).withOpacity(0.15),
+          color: _getHealthColor(stats).withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: _getHealthColor(stats).withOpacity(0.3)),
+          border: Border.all(color: _getHealthColor(stats).withValues(alpha: 0.3)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

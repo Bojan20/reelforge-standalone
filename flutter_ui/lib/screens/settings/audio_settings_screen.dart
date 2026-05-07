@@ -571,7 +571,7 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
       decoration: BoxDecoration(
         color: FluxForgeTheme.bgSurface,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: latencyColor.withOpacity(0.5)),
+        border: Border.all(color: latencyColor.withValues(alpha: 0.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -591,7 +591,7 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: latencyColor.withOpacity(0.2),
+                  color: latencyColor.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(

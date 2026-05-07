@@ -72,9 +72,9 @@ class _MwuiExportPanelState extends State<MwuiExportPanel> {
         children: [
           const Icon(Icons.upload_file, size: 14, color: Color(0xFF26C6DA)),
           const SizedBox(width: 6),
-          Text('Export', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 11, fontWeight: FontWeight.w600)),
+          Text('Export', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11, fontWeight: FontWeight.w600)),
           const Spacer(),
-          Text('7 formats', style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 9)),
+          Text('7 formats', style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 9)),
         ],
       ),
     );
@@ -95,16 +95,16 @@ class _MwuiExportPanelState extends State<MwuiExportPanel> {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
               color: isSelected
-                  ? fmt.color.withOpacity(0.1)
+                  ? fmt.color.withValues(alpha: 0.1)
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(4),
               border: isSelected
-                  ? Border.all(color: fmt.color.withOpacity(0.3), width: 0.5)
+                  ? Border.all(color: fmt.color.withValues(alpha: 0.3), width: 0.5)
                   : null,
             ),
             child: Row(
               children: [
-                Icon(fmt.icon, size: 16, color: isSelected ? fmt.color : Colors.white.withOpacity(0.3)),
+                Icon(fmt.icon, size: 16, color: isSelected ? fmt.color : Colors.white.withValues(alpha: 0.3)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -113,14 +113,14 @@ class _MwuiExportPanelState extends State<MwuiExportPanel> {
                       Text(
                         fmt.name,
                         style: TextStyle(
-                          color: isSelected ? Colors.white.withOpacity(0.8) : Colors.white.withOpacity(0.5),
+                          color: isSelected ? Colors.white.withValues(alpha: 0.8) : Colors.white.withValues(alpha: 0.5),
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                       Text(
                         fmt.extension,
-                        style: TextStyle(color: Colors.white.withOpacity(0.2), fontSize: 8, fontFamily: 'monospace'),
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 8, fontFamily: 'monospace'),
                       ),
                     ],
                   ),
@@ -149,8 +149,8 @@ class _MwuiExportPanelState extends State<MwuiExportPanel> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(fmt.name, style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13, fontWeight: FontWeight.w600)),
-                  Text(fmt.description, style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 9)),
+                  Text(fmt.name, style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13, fontWeight: FontWeight.w600)),
+                  Text(fmt.description, style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 9)),
                 ],
               ),
             ],
@@ -203,13 +203,13 @@ class _MwuiExportPanelState extends State<MwuiExportPanel> {
               height: 4,
               child: LinearProgressIndicator(
                 value: _progress,
-                backgroundColor: Colors.white.withOpacity(0.06),
+                backgroundColor: Colors.white.withValues(alpha: 0.06),
                 valueColor: AlwaysStoppedAnimation(fmt.color),
               ),
             ),
             const SizedBox(height: 4),
             Text('Exporting... ${(_progress * 100).toStringAsFixed(0)}%',
-              style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 9)),
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 9)),
           ] else
             GestureDetector(
               onTap: _startExport,
@@ -217,9 +217,9 @@ class _MwuiExportPanelState extends State<MwuiExportPanel> {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 decoration: BoxDecoration(
-                  color: fmt.color.withOpacity(0.15),
+                  color: fmt.color.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: fmt.color.withOpacity(0.3), width: 0.5),
+                  border: Border.all(color: fmt.color.withValues(alpha: 0.3), width: 0.5),
                 ),
                 alignment: Alignment.center,
                 child: Row(
@@ -275,7 +275,7 @@ class _MwuiExportPanelState extends State<MwuiExportPanel> {
     return Text(
       text,
       style: TextStyle(
-        color: const Color(0xFF26C6DA).withOpacity(0.6),
+        color: const Color(0xFF26C6DA).withValues(alpha: 0.6),
         fontSize: 8,
         fontWeight: FontWeight.w700,
         letterSpacing: 1,
@@ -293,9 +293,9 @@ class _MwuiExportPanelState extends State<MwuiExportPanel> {
             child: Container(
               width: 14, height: 14,
               decoration: BoxDecoration(
-                color: value ? const Color(0xFF26C6DA).withOpacity(0.2) : Colors.transparent,
+                color: value ? const Color(0xFF26C6DA).withValues(alpha: 0.2) : Colors.transparent,
                 borderRadius: BorderRadius.circular(2),
-                border: Border.all(color: value ? const Color(0xFF26C6DA) : Colors.white.withOpacity(0.2), width: 0.5),
+                border: Border.all(color: value ? const Color(0xFF26C6DA) : Colors.white.withValues(alpha: 0.2), width: 0.5),
               ),
               child: value
                   ? const Icon(Icons.check, size: 10, color: Color(0xFF26C6DA))
@@ -303,7 +303,7 @@ class _MwuiExportPanelState extends State<MwuiExportPanel> {
             ),
           ),
           const SizedBox(width: 8),
-          Text(label, style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 10)),
+          Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 10)),
         ],
       ),
     );
@@ -316,7 +316,7 @@ class _MwuiExportPanelState extends State<MwuiExportPanel> {
         children: [
           SizedBox(
             width: 80,
-            child: Text(label, style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10)),
+            child: Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 10)),
           ),
           ...options.map((opt) {
             final isSelected = opt == value;
@@ -326,15 +326,15 @@ class _MwuiExportPanelState extends State<MwuiExportPanel> {
                 margin: const EdgeInsets.only(right: 4),
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: isSelected ? const Color(0xFF26C6DA).withOpacity(0.1) : Colors.transparent,
+                  color: isSelected ? const Color(0xFF26C6DA).withValues(alpha: 0.1) : Colors.transparent,
                   borderRadius: BorderRadius.circular(2),
                   border: Border.all(
-                    color: isSelected ? const Color(0xFF26C6DA).withOpacity(0.4) : Colors.white.withOpacity(0.1),
+                    color: isSelected ? const Color(0xFF26C6DA).withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.1),
                     width: 0.5,
                   ),
                 ),
                 child: Text(opt, style: TextStyle(
-                  color: isSelected ? const Color(0xFF26C6DA) : Colors.white.withOpacity(0.4),
+                  color: isSelected ? const Color(0xFF26C6DA) : Colors.white.withValues(alpha: 0.4),
                   fontSize: 9,
                 )),
               ),
@@ -350,9 +350,9 @@ class _MwuiExportPanelState extends State<MwuiExportPanel> {
       padding: const EdgeInsets.symmetric(vertical: 1),
       child: Row(
         children: [
-          Icon(Icons.check_circle_outline, size: 10, color: const Color(0xFF66BB6A).withOpacity(0.5)),
+          Icon(Icons.check_circle_outline, size: 10, color: const Color(0xFF66BB6A).withValues(alpha: 0.5)),
           const SizedBox(width: 6),
-          Text(text, style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 9)),
+          Text(text, style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 9)),
         ],
       ),
     );

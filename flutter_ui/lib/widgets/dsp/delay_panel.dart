@@ -212,7 +212,7 @@ class _DelayPanelState extends State<DelayPanel> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: _bypassed ? Colors.orange.withOpacity(0.3) : FluxForgeTheme.surface,
+          color: _bypassed ? Colors.orange.withValues(alpha: 0.3) : FluxForgeTheme.surface,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(color: _bypassed ? Colors.orange : FluxForgeTheme.border),
         ),
@@ -232,7 +232,7 @@ class _DelayPanelState extends State<DelayPanel> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: _initialized ? Colors.green.withOpacity(0.2) : Colors.red.withOpacity(0.2),
+        color: _initialized ? Colors.green.withValues(alpha: 0.2) : Colors.red.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
@@ -258,7 +258,7 @@ class _DelayPanelState extends State<DelayPanel> {
             padding: const EdgeInsets.symmetric(vertical: 8),
             decoration: BoxDecoration(
               color: _delayType == type
-                  ? FluxForgeTheme.accentBlue.withOpacity(0.2)
+                  ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
                   : FluxForgeTheme.surface,
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
@@ -436,7 +436,7 @@ class _DelayPanelState extends State<DelayPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: FluxForgeTheme.surface.withOpacity(0.5),
+        color: FluxForgeTheme.surface.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Column(
@@ -454,7 +454,7 @@ class _DelayPanelState extends State<DelayPanel> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: _filterEnabled ? FluxForgeTheme.accentBlue.withOpacity(0.2) : FluxForgeTheme.surface,
+                    color: _filterEnabled ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2) : FluxForgeTheme.surface,
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(color: _filterEnabled ? FluxForgeTheme.accentBlue : FluxForgeTheme.border),
                   ),
@@ -502,7 +502,7 @@ class _DelayPanelState extends State<DelayPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: FluxForgeTheme.surface.withOpacity(0.5),
+        color: FluxForgeTheme.surface.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(4),
       ),
       child: _buildParameterRow(
@@ -523,7 +523,7 @@ class _DelayPanelState extends State<DelayPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: FluxForgeTheme.surface.withOpacity(0.5),
+        color: FluxForgeTheme.surface.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Column(
@@ -577,7 +577,7 @@ class _DelayPanelState extends State<DelayPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: FluxForgeTheme.surface.withOpacity(0.5),
+        color: FluxForgeTheme.surface.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Column(
@@ -598,7 +598,7 @@ class _DelayPanelState extends State<DelayPanel> {
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
                       color: _modPreset == preset
-                          ? FluxForgeTheme.accentBlue.withOpacity(0.2)
+                          ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
                           : FluxForgeTheme.surface,
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(
@@ -714,7 +714,7 @@ class _DelayPanelState extends State<DelayPanel> {
         activeTrackColor: FluxForgeTheme.accentBlue,
         inactiveTrackColor: FluxForgeTheme.surface,
         thumbColor: FluxForgeTheme.accentBlue,
-        overlayColor: FluxForgeTheme.accentBlue.withOpacity(0.2),
+        overlayColor: FluxForgeTheme.accentBlue.withValues(alpha: 0.2),
       ),
       child: Slider(
         value: value.clamp(0.0, 1.0),
@@ -730,7 +730,7 @@ class _DelayPanelState extends State<DelayPanel> {
     activeTrackColor: FluxForgeTheme.accentBlue,
     inactiveTrackColor: FluxForgeTheme.surface,
     thumbColor: FluxForgeTheme.accentBlue,
-    overlayColor: FluxForgeTheme.accentBlue.withOpacity(0.2),
+    overlayColor: FluxForgeTheme.accentBlue.withValues(alpha: 0.2),
   );
 }
 

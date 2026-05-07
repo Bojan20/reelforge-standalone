@@ -65,10 +65,10 @@ class _EventProfilerAdvancedState extends State<EventProfilerAdvanced> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         decoration: BoxDecoration(
-          color: value ? FluxForgeTheme.accentCyan.withOpacity(0.15) : FluxForgeTheme.bgMid,
+          color: value ? FluxForgeTheme.accentCyan.withValues(alpha: 0.15) : FluxForgeTheme.bgMid,
           borderRadius: BorderRadius.circular(3),
           border: Border.all(
-            color: value ? FluxForgeTheme.accentCyan.withOpacity(0.4) : Colors.white12,
+            color: value ? FluxForgeTheme.accentCyan.withValues(alpha: 0.4) : Colors.white12,
           ),
         ),
         child: Text(label,
@@ -94,7 +94,7 @@ class _EventProfilerAdvancedState extends State<EventProfilerAdvanced> {
       decoration: BoxDecoration(
         color: FluxForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Row(
         children: [
@@ -129,7 +129,7 @@ class _EventProfilerAdvancedState extends State<EventProfilerAdvanced> {
       decoration: BoxDecoration(
         color: FluxForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: CustomPaint(
         painter: _HistogramPainter(entries: widget.entries),
@@ -176,10 +176,10 @@ class _EventProfilerAdvancedState extends State<EventProfilerAdvanced> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: active ? FluxForgeTheme.accentCyan.withOpacity(0.15) : null,
+                  color: active ? FluxForgeTheme.accentCyan.withValues(alpha: 0.15) : null,
                   borderRadius: BorderRadius.circular(3),
                   border: Border.all(
-                      color: active ? FluxForgeTheme.accentCyan.withOpacity(0.4) : Colors.white12),
+                      color: active ? FluxForgeTheme.accentCyan.withValues(alpha: 0.4) : Colors.white12),
                 ),
                 child: Text(e.value,
                     style: TextStyle(
@@ -244,7 +244,7 @@ class _EventProfilerAdvancedState extends State<EventProfilerAdvanced> {
           decoration: BoxDecoration(
             color: FluxForgeTheme.bgDeep,
             borderRadius: BorderRadius.circular(3),
-            border: Border.all(color: Colors.white.withOpacity(0.04)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -277,9 +277,9 @@ class _EventProfilerAdvancedState extends State<EventProfilerAdvanced> {
                 child: LinearProgressIndicator(
                   value: ratio,
                   minHeight: 3,
-                  backgroundColor: Colors.white.withOpacity(0.05),
+                  backgroundColor: Colors.white.withValues(alpha: 0.05),
                   valueColor: AlwaysStoppedAnimation(
-                      FluxForgeTheme.accentCyan.withOpacity(0.4)),
+                      FluxForgeTheme.accentCyan.withValues(alpha: 0.4)),
                 ),
               ),
             ],
@@ -324,7 +324,7 @@ class _HistogramPainter extends CustomPainter {
         const Color(0xFF40FF90),
         const Color(0xFFFF4040),
         t,
-      )!.withOpacity(0.6);
+      )!.withValues(alpha: 0.6);
       canvas.drawRRect(
         RRect.fromRectAndRadius(
           Rect.fromLTWH(

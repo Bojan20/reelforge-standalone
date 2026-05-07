@@ -516,11 +516,11 @@ class _LufsHistoryPainter extends CustomPainter {
 
   void _drawGrid(Canvas canvas, Size size) {
     final gridPaint = Paint()
-      ..color = Colors.white.withOpacity(0.08)
+      ..color = Colors.white.withValues(alpha: 0.08)
       ..strokeWidth = 0.5;
 
     final minorGridPaint = Paint()
-      ..color = Colors.white.withOpacity(0.04)
+      ..color = Colors.white.withValues(alpha: 0.04)
       ..strokeWidth = 0.5;
 
     // Horizontal grid (LUFS) - major every 10dB, minor every 2dB
@@ -559,7 +559,7 @@ class _LufsHistoryPainter extends CustomPainter {
 
       // Dashed line
       final dashPaint = Paint()
-        ..color = target.color.withOpacity(0.6)
+        ..color = target.color.withValues(alpha: 0.6)
         ..strokeWidth = 1.0
         ..style = PaintingStyle.stroke;
 
@@ -581,7 +581,7 @@ class _LufsHistoryPainter extends CustomPainter {
         text: TextSpan(
           text: '${target.lufs.toInt()} LUFS',
           style: TextStyle(
-            color: target.color.withOpacity(0.8),
+            color: target.color.withValues(alpha: 0.8),
             fontSize: 8,
             fontWeight: FontWeight.w500,
           ),
@@ -635,8 +635,8 @@ class _LufsHistoryPainter extends CustomPainter {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            FluxForgeTheme.accentGreen.withOpacity(0.3),
-            FluxForgeTheme.accentGreen.withOpacity(0.0),
+            FluxForgeTheme.accentGreen.withValues(alpha: 0.3),
+            FluxForgeTheme.accentGreen.withValues(alpha: 0.0),
           ],
         );
 
@@ -702,7 +702,7 @@ class _LufsHistoryPainter extends CustomPainter {
       Offset(x, 0),
       Offset(x, size.height),
       Paint()
-        ..color = Colors.white.withOpacity(0.3)
+        ..color = Colors.white.withValues(alpha: 0.3)
         ..strokeWidth = 1,
     );
 
@@ -718,7 +718,7 @@ class _LufsHistoryPainter extends CustomPainter {
       Offset(x, y),
       6,
       Paint()
-        ..color = color.withOpacity(0.3)
+        ..color = color.withValues(alpha: 0.3)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
     );
 

@@ -53,7 +53,7 @@ class BusColorPicker extends StatelessWidget {
               color: currentColor,
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
-                color: Colors.white.withOpacity(0.3),
+                color: Colors.white.withValues(alpha: 0.3),
                 width: 1,
               ),
             ),
@@ -159,11 +159,11 @@ class _ColorSwatch extends StatelessWidget {
           borderRadius: BorderRadius.circular(4),
           border: isSelected
               ? Border.all(color: Colors.white, width: 2)
-              : Border.all(color: Colors.white.withOpacity(0.1)),
+              : Border.all(color: Colors.white.withValues(alpha: 0.1)),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: color.withOpacity(0.5),
+                    color: color.withValues(alpha: 0.5),
                     blurRadius: 8,
                     spreadRadius: 1,
                   ),

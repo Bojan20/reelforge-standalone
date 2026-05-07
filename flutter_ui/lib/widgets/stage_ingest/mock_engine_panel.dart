@@ -113,7 +113,7 @@ class _MockEnginePanelState extends State<MockEnginePanel> {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      color: isRunning ? Colors.green.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
+      color: isRunning ? Colors.green.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
       child: Row(
         children: [
           // Status indicator
@@ -124,7 +124,7 @@ class _MockEnginePanelState extends State<MockEnginePanel> {
               shape: BoxShape.circle,
               color: isRunning ? Colors.green : Colors.grey,
               boxShadow: isRunning
-                  ? [BoxShadow(color: Colors.green.withOpacity(0.5), blurRadius: 6)]
+                  ? [BoxShadow(color: Colors.green.withValues(alpha: 0.5), blurRadius: 6)]
                   : null,
             ),
           ),
@@ -201,9 +201,9 @@ class _MockEnginePanelState extends State<MockEnginePanel> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
+        color: color.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withOpacity(0.5)),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
       ),
       child: Text(
         text,
@@ -371,7 +371,7 @@ class _MockEnginePanelState extends State<MockEnginePanel> {
               }
             : null,
         style: ElevatedButton.styleFrom(
-          backgroundColor: color.withOpacity(0.8),
+          backgroundColor: color.withValues(alpha: 0.8),
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 8),
           textStyle: const TextStyle(fontSize: 10),
@@ -460,7 +460,7 @@ class _MockEnginePanelState extends State<MockEnginePanel> {
         icon: Icon(icon, size: 14),
         label: Text(label),
         style: ElevatedButton.styleFrom(
-          backgroundColor: color.withOpacity(0.8),
+          backgroundColor: color.withValues(alpha: 0.8),
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 8),
           textStyle: const TextStyle(fontSize: 11),
@@ -475,7 +475,7 @@ class _MockEnginePanelState extends State<MockEnginePanel> {
         // Log header
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          color: Colors.grey.withOpacity(0.1),
+          color: Colors.grey.withValues(alpha: 0.1),
           child: Row(
             children: [
               const Icon(Icons.list_alt, size: 14, color: Colors.grey),
@@ -545,7 +545,7 @@ class _MockEnginePanelState extends State<MockEnginePanel> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: Colors.grey.withOpacity(0.2)),
+          bottom: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
         ),
       ),
       child: Row(
@@ -668,8 +668,8 @@ class MockEngineBadge extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: isActive
-              ? Colors.green.withOpacity(0.2)
-              : Colors.grey.withOpacity(0.2),
+              ? Colors.green.withValues(alpha: 0.2)
+              : Colors.grey.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
             color: isActive ? Colors.green : Colors.grey,

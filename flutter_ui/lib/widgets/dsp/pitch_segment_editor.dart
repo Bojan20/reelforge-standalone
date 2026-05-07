@@ -411,10 +411,10 @@ class _PitchSegmentEditorState extends State<PitchSegmentEditor> {
           child: Container(
             decoration: BoxDecoration(
               color: isSelected
-                  ? FluxForgeTheme.accentCyan.withOpacity(0.8)
+                  ? FluxForgeTheme.accentCyan.withValues(alpha: 0.8)
                   : (segment.edited
-                      ? FluxForgeTheme.accentOrange.withOpacity(0.6)
-                      : FluxForgeTheme.accentBlue.withOpacity(0.6)),
+                      ? FluxForgeTheme.accentOrange.withValues(alpha: 0.6)
+                      : FluxForgeTheme.accentBlue.withValues(alpha: 0.6)),
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
                 color: isSelected ? FluxForgeTheme.accentCyan : Colors.transparent,
@@ -483,8 +483,8 @@ class _PianoKeyboardPainter extends CustomPainter {
       // Draw horizontal grid line
       final linePaint = Paint()
         ..color = isBlack
-            ? FluxForgeTheme.borderSubtle.withOpacity(0.3)
-            : FluxForgeTheme.borderSubtle.withOpacity(0.5)
+            ? FluxForgeTheme.borderSubtle.withValues(alpha: 0.3)
+            : FluxForgeTheme.borderSubtle.withValues(alpha: 0.5)
         ..strokeWidth = isBlack ? 0.5 : 1;
 
       canvas.drawLine(
@@ -532,8 +532,8 @@ class _SegmentCanvasPainter extends CustomPainter {
 
       final paint = Paint()
         ..color = isC
-            ? FluxForgeTheme.borderMedium.withOpacity(0.5)
-            : FluxForgeTheme.borderSubtle.withOpacity(0.2)
+            ? FluxForgeTheme.borderMedium.withValues(alpha: 0.5)
+            : FluxForgeTheme.borderSubtle.withValues(alpha: 0.2)
         ..strokeWidth = isC ? 1 : 0.5;
 
       canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
@@ -553,7 +553,7 @@ class _SegmentCanvasPainter extends CustomPainter {
       // Draw original pitch as dotted line if different from target
       if ((segment.pitchMidi - segment.targetPitchMidi).abs() > 0.01) {
         final origPaint = Paint()
-          ..color = FluxForgeTheme.textTertiary.withOpacity(0.5)
+          ..color = FluxForgeTheme.textTertiary.withValues(alpha: 0.5)
           ..strokeWidth = 1
           ..style = PaintingStyle.stroke;
 

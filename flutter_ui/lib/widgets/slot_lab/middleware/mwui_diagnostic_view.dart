@@ -107,9 +107,9 @@ class _MwuiDiagnosticViewState extends State<MwuiDiagnosticView> {
         children: [
           const Icon(Icons.developer_mode, size: 14, color: Color(0xFFFF7043)),
           const SizedBox(width: 6),
-          Text('Diagnostics', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 11, fontWeight: FontWeight.w600)),
+          Text('Diagnostics', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11, fontWeight: FontWeight.w600)),
           const Spacer(),
-          Text('RAW', style: TextStyle(color: const Color(0xFFFF7043).withOpacity(0.4), fontSize: 8, fontWeight: FontWeight.w700)),
+          Text('RAW', style: TextStyle(color: const Color(0xFFFF7043).withValues(alpha: 0.4), fontSize: 8, fontWeight: FontWeight.w700)),
         ],
       ),
     );
@@ -132,7 +132,7 @@ class _MwuiDiagnosticViewState extends State<MwuiDiagnosticView> {
               margin: const EdgeInsets.only(right: 2),
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: isActive ? Colors.white.withOpacity(0.06) : Colors.transparent,
+                color: isActive ? Colors.white.withValues(alpha: 0.06) : Colors.transparent,
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
                 border: isActive
                     ? Border(bottom: BorderSide(color: const Color(0xFFFF7043), width: 1.5))
@@ -141,7 +141,7 @@ class _MwuiDiagnosticViewState extends State<MwuiDiagnosticView> {
               child: Text(
                 _tabName(tab),
                 style: TextStyle(
-                  color: isActive ? Colors.white.withOpacity(0.8) : Colors.white.withOpacity(0.4),
+                  color: isActive ? Colors.white.withValues(alpha: 0.8) : Colors.white.withValues(alpha: 0.4),
                   fontSize: 9,
                   fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
                 ),
@@ -230,7 +230,7 @@ class _MwuiDiagnosticViewState extends State<MwuiDiagnosticView> {
     final profiler = _profiler;
     if (profiler == null) {
       return Center(
-        child: Text('Profiler not available', style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 11)),
+        child: Text('Profiler not available', style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 11)),
       );
     }
 
@@ -263,7 +263,7 @@ class _MwuiDiagnosticViewState extends State<MwuiDiagnosticView> {
     final vp = _voicePool;
     if (vp == null) {
       return Center(
-        child: Text('Voice pool not available', style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 11)),
+        child: Text('Voice pool not available', style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 11)),
       );
     }
 
@@ -293,7 +293,7 @@ class _MwuiDiagnosticViewState extends State<MwuiDiagnosticView> {
           height: 8,
           child: LinearProgressIndicator(
             value: util.clamp(0.0, 1.0),
-            backgroundColor: Colors.white.withOpacity(0.06),
+            backgroundColor: Colors.white.withValues(alpha: 0.06),
             valueColor: AlwaysStoppedAnimation(
               util > 0.9
                   ? const Color(0xFFEF5350)
@@ -306,7 +306,7 @@ class _MwuiDiagnosticViewState extends State<MwuiDiagnosticView> {
         const SizedBox(height: 4),
         Text(
           '${vp.engineUtilization.toStringAsFixed(1)}% voice budget used',
-          style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 9),
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 9),
         ),
         const SizedBox(height: 12),
         _sectionLabel('BY SOURCE'),
@@ -338,14 +338,14 @@ class _MwuiDiagnosticViewState extends State<MwuiDiagnosticView> {
         children: [
           SizedBox(
             width: 80,
-            child: Text(pool.type.displayName, style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 9)),
+            child: Text(pool.type.displayName, style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 9)),
           ),
           Expanded(
             child: SizedBox(
               height: 4,
               child: LinearProgressIndicator(
                 value: ratio,
-                backgroundColor: Colors.white.withOpacity(0.06),
+                backgroundColor: Colors.white.withValues(alpha: 0.06),
                 valueColor: AlwaysStoppedAnimation(color),
               ),
             ),
@@ -355,7 +355,7 @@ class _MwuiDiagnosticViewState extends State<MwuiDiagnosticView> {
             child: Text(
               '${pool.activeVoices}/${pool.maxVoices}',
               textAlign: TextAlign.right,
-              style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 8, fontFamily: 'monospace'),
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 8, fontFamily: 'monospace'),
             ),
           ),
         ],
@@ -368,7 +368,7 @@ class _MwuiDiagnosticViewState extends State<MwuiDiagnosticView> {
       child: Column(
         children: [
           Text(value, style: TextStyle(color: color, fontSize: 18, fontWeight: FontWeight.w700)),
-          Text(label, style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 8)),
+          Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 8)),
         ],
       ),
     );
@@ -392,7 +392,7 @@ class _MwuiDiagnosticViewState extends State<MwuiDiagnosticView> {
     return Text(
       text,
       style: TextStyle(
-        color: const Color(0xFFFF7043).withOpacity(0.6),
+        color: const Color(0xFFFF7043).withValues(alpha: 0.6),
         fontSize: 8,
         fontWeight: FontWeight.w700,
         letterSpacing: 1,
@@ -407,9 +407,9 @@ class _MwuiDiagnosticViewState extends State<MwuiDiagnosticView> {
         children: [
           SizedBox(
             width: 120,
-            child: Text(label, style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 9, fontFamily: 'monospace')),
+            child: Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 9, fontFamily: 'monospace')),
           ),
-          Text(value, style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 9, fontFamily: 'monospace')),
+          Text(value, style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 9, fontFamily: 'monospace')),
         ],
       ),
     );

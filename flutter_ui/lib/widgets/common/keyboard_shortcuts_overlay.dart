@@ -502,7 +502,7 @@ class _KeyboardShortcutsOverlayState extends State<KeyboardShortcutsOverlay> {
             border: Border.all(color: LowerZoneColors.border, width: 1),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.5),
+                color: Colors.black.withValues(alpha: 0.5),
                 blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
@@ -613,7 +613,7 @@ class _KeyboardShortcutsOverlayState extends State<KeyboardShortcutsOverlay> {
         selected: isSelected,
         onSelected: (_) => setState(() => _selectedCategory = category),
         backgroundColor: LowerZoneColors.bgSurface,
-        selectedColor: LowerZoneColors.dawAccent.withOpacity(0.3),
+        selectedColor: LowerZoneColors.dawAccent.withValues(alpha: 0.3),
         checkmarkColor: LowerZoneColors.dawAccent,
         labelStyle: TextStyle(
           color: isSelected ? LowerZoneColors.dawAccent : LowerZoneColors.textSecondary,

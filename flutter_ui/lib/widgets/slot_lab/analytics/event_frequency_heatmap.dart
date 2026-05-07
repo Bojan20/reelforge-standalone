@@ -113,7 +113,7 @@ class _EventFrequencyHeatmapState extends State<EventFrequencyHeatmap> {
       decoration: BoxDecoration(
         color: FluxForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -141,7 +141,7 @@ class _EventFrequencyHeatmapState extends State<EventFrequencyHeatmap> {
           Icon(
             Icons.bar_chart,
             size: 14,
-            color: FluxForgeTheme.accentBlue.withOpacity(0.8),
+            color: FluxForgeTheme.accentBlue.withValues(alpha: 0.8),
           ),
           const SizedBox(width: 6),
           Text(
@@ -150,7 +150,7 @@ class _EventFrequencyHeatmapState extends State<EventFrequencyHeatmap> {
               fontSize: 10,
               fontFamily: 'monospace',
               fontWeight: FontWeight.bold,
-              color: FluxForgeTheme.accentBlue.withOpacity(0.9),
+              color: FluxForgeTheme.accentBlue.withValues(alpha: 0.9),
               letterSpacing: 1.0,
             ),
           ),
@@ -180,10 +180,10 @@ class _EventFrequencyHeatmapState extends State<EventFrequencyHeatmap> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
-          color: FluxForgeTheme.accentGreen.withOpacity(0.12),
+          color: FluxForgeTheme.accentGreen.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: FluxForgeTheme.accentGreen.withOpacity(0.3),
+            color: FluxForgeTheme.accentGreen.withValues(alpha: 0.3),
           ),
         ),
         child: Row(
@@ -242,7 +242,7 @@ class _EventFrequencyHeatmapState extends State<EventFrequencyHeatmap> {
             borderRadius: BorderRadius.circular(2),
             child: LinearProgressIndicator(
               value: _progress,
-              backgroundColor: Colors.white.withOpacity(0.08),
+              backgroundColor: Colors.white.withValues(alpha: 0.08),
               valueColor: AlwaysStoppedAnimation<Color>(
                 FluxForgeTheme.accentOrange,
               ),
@@ -391,7 +391,7 @@ class _EventFrequencyHeatmapState extends State<EventFrequencyHeatmap> {
                         width: emptyWidth,
                         height: 8,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.06),
+                          color: Colors.white.withValues(alpha: 0.06),
                           borderRadius: BorderRadius.circular(1),
                         ),
                       ),
@@ -503,10 +503,10 @@ class _EventFrequencyHeatmapState extends State<EventFrequencyHeatmap> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                 decoration: BoxDecoration(
-                  color: FluxForgeTheme.accentGreen.withOpacity(0.12),
+                  color: FluxForgeTheme.accentGreen.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(4),
                   border: Border.all(
-                    color: FluxForgeTheme.accentGreen.withOpacity(0.3),
+                    color: FluxForgeTheme.accentGreen.withValues(alpha: 0.3),
                   ),
                 ),
                 child: Text(
@@ -537,19 +537,19 @@ class _EventFrequencyHeatmapState extends State<EventFrequencyHeatmap> {
     } else if (name.startsWith('WIN_4') || name.startsWith('BIG_WIN')) {
       return FluxForgeTheme.accentOrange;
     } else if (name.startsWith('WIN_3')) {
-      return FluxForgeTheme.accentOrange.withOpacity(0.7);
+      return FluxForgeTheme.accentOrange.withValues(alpha: 0.7);
     } else if (name.startsWith('WIN_')) {
-      return FluxForgeTheme.accentGreen.withOpacity(0.4 + fillFrac * 0.6);
+      return FluxForgeTheme.accentGreen.withValues(alpha: 0.4 + fillFrac * 0.6);
     } else if (name.contains('TRIGGER') || name.contains('FREE_SPIN')) {
-      return FluxForgeTheme.accentPurple.withOpacity(0.8);
+      return FluxForgeTheme.accentPurple.withValues(alpha: 0.8);
     } else if (name.contains('NEAR_MISS') || name.contains('ANTICIPATION')) {
-      return FluxForgeTheme.accentCyan.withOpacity(0.6);
+      return FluxForgeTheme.accentCyan.withValues(alpha: 0.6);
     } else if (name.contains('REEL')) {
-      return FluxForgeTheme.accentBlue.withOpacity(0.5);
+      return FluxForgeTheme.accentBlue.withValues(alpha: 0.5);
     } else if (name.contains('DEAD') || name.contains('LOW')) {
-      return Colors.white.withOpacity(0.15);
+      return Colors.white.withValues(alpha: 0.15);
     }
-    return FluxForgeTheme.accentBlue.withOpacity(0.4 + fillFrac * 0.4);
+    return FluxForgeTheme.accentBlue.withValues(alpha: 0.4 + fillFrac * 0.4);
   }
 
   String _formatSpins(int spins) {

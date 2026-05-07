@@ -227,13 +227,13 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
                 color: flow.transitionsEnabled
-                    ? const Color(0xFF66BB6A).withOpacity(0.15)
-                    : Colors.white.withOpacity(0.05),
+                    ? const Color(0xFF66BB6A).withValues(alpha: 0.15)
+                    : Colors.white.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(3),
                 border: Border.all(
                   color: flow.transitionsEnabled
-                      ? const Color(0xFF66BB6A).withOpacity(0.4)
-                      : Colors.white.withOpacity(0.1),
+                      ? const Color(0xFF66BB6A).withValues(alpha: 0.4)
+                      : Colors.white.withValues(alpha: 0.1),
                 ),
               ),
               child: Text(
@@ -266,7 +266,7 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.03),
+              color: Colors.white.withValues(alpha: 0.03),
               borderRadius: BorderRadius.circular(4),
             ),
             child: Row(
@@ -327,8 +327,8 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
           color: hasOverride
-              ? pair.color.withOpacity(0.3)
-              : Colors.white.withOpacity(0.05),
+              ? pair.color.withValues(alpha: 0.3)
+              : Colors.white.withValues(alpha: 0.05),
         ),
       ),
       child: Column(
@@ -362,9 +362,9 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                   decoration: BoxDecoration(
-                    color: pair.color.withOpacity(0.12),
+                    color: pair.color.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(2),
-                    border: Border.all(color: pair.color.withOpacity(0.3)),
+                    border: Border.all(color: pair.color.withValues(alpha: 0.3)),
                   ),
                   child: Text(
                     'TEST',
@@ -389,7 +389,7 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
+                      color: Colors.white.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(2),
                     ),
                     child: const Text(
@@ -624,7 +624,7 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
           children: [
             Text(
               label,
-              style: TextStyle(color: color.withOpacity(0.5), fontSize: 7, fontWeight: FontWeight.w700),
+              style: TextStyle(color: color.withValues(alpha: 0.5), fontSize: 7, fontWeight: FontWeight.w700),
             ),
             const SizedBox(width: 2),
             Expanded(
@@ -634,7 +634,7 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
                   data: SliderThemeData(
                     trackHeight: 3,
                     thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
-                    activeTrackColor: color.withOpacity(0.4),
+                    activeTrackColor: color.withValues(alpha: 0.4),
                     inactiveTrackColor: const Color(0xFF1A1A24),
                     thumbColor: color,
                     overlayShape: SliderComponentShape.noOverlay,
@@ -669,11 +669,11 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
         decoration: BoxDecoration(
           color: const Color(0xFF1A1A24),
           borderRadius: BorderRadius.circular(2),
-          border: Border.all(color: color.withOpacity(0.2)),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
         ),
         child: Text(
           '$value',
-          style: TextStyle(color: color.withOpacity(0.7), fontSize: 8),
+          style: TextStyle(color: color.withValues(alpha: 0.7), fontSize: 8),
         ),
       ),
     );
@@ -692,9 +692,9 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
       width: 80,
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.3),
+        color: Colors.black.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(3),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
@@ -704,7 +704,7 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
               final newVal = (value - 0.5).clamp(0.5, 30.0);
               onChanged(newVal);
             },
-            child: Icon(Icons.remove, color: color.withOpacity(0.6), size: 12),
+            child: Icon(Icons.remove, color: color.withValues(alpha: 0.6), size: 12),
           ),
           Expanded(
             child: Text(
@@ -723,7 +723,7 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
               final newVal = (value + 0.5).clamp(0.5, 30.0);
               onChanged(newVal);
             },
-            child: Icon(Icons.add, color: color.withOpacity(0.6), size: 12),
+            child: Icon(Icons.add, color: color.withValues(alpha: 0.6), size: 12),
           ),
         ],
       ),
@@ -739,9 +739,9 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
       height: 22,
       padding: const EdgeInsets.symmetric(horizontal: 4),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.3),
+        color: Colors.black.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(3),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: DropdownButton<TransitionDismissMode>(
         value: mode,
@@ -750,7 +750,7 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
         underline: const SizedBox.shrink(),
         dropdownColor: const Color(0xFF1E1E2E),
         style: TextStyle(color: color, fontSize: 9),
-        icon: Icon(Icons.arrow_drop_down, color: color.withOpacity(0.5), size: 14),
+        icon: Icon(Icons.arrow_drop_down, color: color.withValues(alpha: 0.5), size: 14),
         items: TransitionDismissMode.values.map((m) {
           return DropdownMenuItem(
             value: m,
@@ -773,9 +773,9 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
       height: 22,
       padding: const EdgeInsets.symmetric(horizontal: 4),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.3),
+        color: Colors.black.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(3),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: DropdownButton<TransitionStyle>(
         value: style,
@@ -783,7 +783,7 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
         underline: const SizedBox.shrink(),
         dropdownColor: const Color(0xFF1E1E2E),
         style: TextStyle(color: color, fontSize: 9),
-        icon: Icon(Icons.arrow_drop_down, color: color.withOpacity(0.5), size: 14),
+        icon: Icon(Icons.arrow_drop_down, color: color.withValues(alpha: 0.5), size: 14),
         items: TransitionStyle.values.map((s) {
           return DropdownMenuItem(
             value: s,
@@ -808,10 +808,10 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
         decoration: BoxDecoration(
-          color: value ? color.withOpacity(0.12) : Colors.white.withOpacity(0.03),
+          color: value ? color.withValues(alpha: 0.12) : Colors.white.withValues(alpha: 0.03),
           borderRadius: BorderRadius.circular(3),
           border: Border.all(
-            color: value ? color.withOpacity(0.4) : Colors.white.withOpacity(0.08),
+            color: value ? color.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.08),
           ),
         ),
         child: Text(
@@ -837,12 +837,12 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
 
     return Row(
       children: [
-        Icon(Icons.volume_up, color: color.withOpacity(0.5), size: 10),
+        Icon(Icons.volume_up, color: color.withValues(alpha: 0.5), size: 10),
         const SizedBox(width: 4),
         Text(
           label,
           style: TextStyle(
-            color: color.withOpacity(0.5),
+            color: color.withValues(alpha: 0.5),
             fontSize: 8,
             fontWeight: FontWeight.w700,
           ),
@@ -853,10 +853,10 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
             height: 22,
             padding: const EdgeInsets.symmetric(horizontal: 4),
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.black.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(3),
               border: Border.all(
-                color: hasValue ? color.withOpacity(0.3) : Colors.white.withOpacity(0.06),
+                color: hasValue ? color.withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.06),
               ),
             ),
             child: stages.isEmpty
@@ -868,7 +868,7 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(vertical: 4),
                       hintText: 'stage name...',
-                      hintStyle: TextStyle(color: color.withOpacity(0.2), fontSize: 9),
+                      hintStyle: TextStyle(color: color.withValues(alpha: 0.2), fontSize: 9),
                     ),
                     onFieldSubmitted: (val) {
                       final stage = val.trim().toUpperCase();
@@ -880,7 +880,7 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
                     hint: Text(
                       hasValue ? value : 'select stage...',
                       style: TextStyle(
-                        color: hasValue ? color : color.withOpacity(0.2),
+                        color: hasValue ? color : color.withValues(alpha: 0.2),
                         fontSize: 9,
                       ),
                     ),
@@ -889,7 +889,7 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
                     underline: const SizedBox.shrink(),
                     dropdownColor: const Color(0xFF1E1E2E),
                     style: TextStyle(color: color, fontSize: 9),
-                    icon: Icon(Icons.arrow_drop_down, color: color.withOpacity(0.5), size: 14),
+                    icon: Icon(Icons.arrow_drop_down, color: color.withValues(alpha: 0.5), size: 14),
                     menuMaxHeight: 300,
                     items: stages.map((s) {
                       return DropdownMenuItem(
@@ -907,7 +907,7 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
           const SizedBox(width: 2),
           GestureDetector(
             onTap: () => onChanged(''),
-            child: Icon(Icons.close, color: color.withOpacity(0.4), size: 10),
+            child: Icon(Icons.close, color: color.withValues(alpha: 0.4), size: 10),
           ),
         ],
       ],

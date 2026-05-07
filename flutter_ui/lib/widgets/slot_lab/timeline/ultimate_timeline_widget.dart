@@ -66,7 +66,7 @@ class _UltimateTimelineState extends State<UltimateTimeline> {
           height: widget.height,
           decoration: BoxDecoration(
             color: const Color(0xFF0A0A0C),
-            border: Border.all(color: Colors.white.withOpacity(0.1)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
             borderRadius: BorderRadius.circular(4),
           ),
           child: Column(
@@ -179,14 +179,14 @@ class _UltimateTimelineState extends State<UltimateTimeline> {
         bottom: 0,
         child: Container(
           width: 2,
-          color: marker.color.withOpacity(0.6),
+          color: marker.color.withValues(alpha: 0.6),
           child: Align(
             alignment: Alignment.topCenter,
             child: Container(
               margin: const EdgeInsets.only(top: 2),
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
               decoration: BoxDecoration(
-                color: marker.color.withOpacity(0.9),
+                color: marker.color.withValues(alpha: 0.9),
                 borderRadius: BorderRadius.circular(3),
               ),
               child: Text(
@@ -224,7 +224,7 @@ class _UltimateTimelineState extends State<UltimateTimeline> {
       decoration: BoxDecoration(
         color: const Color(0xFF121216),
         border: Border(
-          bottom: BorderSide(color: Colors.white.withOpacity(0.05)),
+          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
         ),
       ),
       child: Row(
@@ -253,7 +253,7 @@ class _UltimateTimelineState extends State<UltimateTimeline> {
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A22),
         border: Border(
-          right: BorderSide(color: Colors.white.withOpacity(0.1)),
+          right: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
         ),
       ),
       child: Column(
@@ -298,7 +298,7 @@ class _UltimateTimelineState extends State<UltimateTimeline> {
           color: track.isMuted ? const Color(0xFFFF9040) : const Color(0xFF242430),
           borderRadius: BorderRadius.circular(2),
           border: Border.all(
-            color: track.isMuted ? const Color(0xFFFF9040) : Colors.white.withOpacity(0.3),
+            color: track.isMuted ? const Color(0xFFFF9040) : Colors.white.withValues(alpha: 0.3),
           ),
         ),
         child: const Center(
@@ -321,7 +321,7 @@ class _UltimateTimelineState extends State<UltimateTimeline> {
           color: track.isSoloed ? const Color(0xFFFFFF40) : const Color(0xFF242430),
           borderRadius: BorderRadius.circular(2),
           border: Border.all(
-            color: track.isSoloed ? const Color(0xFFFFFF40) : Colors.white.withOpacity(0.3),
+            color: track.isSoloed ? const Color(0xFFFFFF40) : Colors.white.withValues(alpha: 0.3),
           ),
         ),
         child: Center(
@@ -348,7 +348,7 @@ class _UltimateTimelineState extends State<UltimateTimeline> {
           color: track.isRecordArmed ? const Color(0xFFFF4060) : const Color(0xFF242430),
           borderRadius: BorderRadius.circular(2),
           border: Border.all(
-            color: track.isRecordArmed ? const Color(0xFFFF4060) : Colors.white.withOpacity(0.3),
+            color: track.isRecordArmed ? const Color(0xFFFF4060) : Colors.white.withValues(alpha: 0.3),
           ),
         ),
         child: const Center(
@@ -376,8 +376,8 @@ class _UltimateTimelineState extends State<UltimateTimeline> {
         child: Container(
           decoration: BoxDecoration(
             color: region.isSelected
-                ? const Color(0xFFFF9040).withOpacity(0.3)
-                : const Color(0xFF4A9EFF).withOpacity(0.2),
+                ? const Color(0xFFFF9040).withValues(alpha: 0.3)
+                : const Color(0xFF4A9EFF).withValues(alpha: 0.2),
             border: Border.all(
               color: region.isSelected ? const Color(0xFFFF9040) : const Color(0xFF4A9EFF),
               width: region.isSelected ? 2 : 1,
@@ -425,7 +425,7 @@ class _UltimateTimelineState extends State<UltimateTimeline> {
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          Colors.black.withOpacity(0.5),
+                          Colors.black.withValues(alpha: 0.5),
                           Colors.transparent,
                         ],
                       ),
@@ -444,7 +444,7 @@ class _UltimateTimelineState extends State<UltimateTimeline> {
                       gradient: LinearGradient(
                         colors: [
                           Colors.transparent,
-                          Colors.black.withOpacity(0.5),
+                          Colors.black.withValues(alpha: 0.5),
                         ],
                       ),
                     ),
@@ -494,7 +494,7 @@ class _UltimateTimelineState extends State<UltimateTimeline> {
       child: IgnorePointer(
         child: Container(
           decoration: BoxDecoration(
-            color: const Color(0xFFFF9040).withOpacity(state.isLooping ? 0.15 : 0.05),
+            color: const Color(0xFFFF9040).withValues(alpha: state.isLooping ? 0.15 : 0.05),
             border: const Border(
               left: BorderSide(color: Color(0xFFFF9040), width: 2),
               right: BorderSide(color: Color(0xFFFF9040), width: 2),
@@ -513,7 +513,7 @@ class _UltimateTimelineState extends State<UltimateTimeline> {
       decoration: BoxDecoration(
         color: const Color(0xFF121216),
         border: Border(
-          top: BorderSide(color: Colors.white.withOpacity(0.1)),
+          top: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
         ),
       ),
       child: Row(

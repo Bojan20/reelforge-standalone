@@ -197,11 +197,11 @@ class _DraggableLayerWidgetState extends State<DraggableLayerWidget> {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(3),
                       border: Border.all(
-                        color: _isDragging ? Colors.white : widget.color.withOpacity(0.6),
+                        color: _isDragging ? Colors.white : widget.color.withValues(alpha: 0.6),
                         width: _isDragging ? 2 : 1,
                       ),
                       boxShadow: _isDragging ? [
-                        BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 8, offset: const Offset(2, 2)),
+                        BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 8, offset: const Offset(2, 2)),
                       ] : null,
                     ),
                     clipBehavior: Clip.hardEdge,
@@ -224,7 +224,7 @@ class _DraggableLayerWidgetState extends State<DraggableLayerWidget> {
                                   width: 14,
                                   height: 14,
                                   decoration: BoxDecoration(
-                                    color: Colors.red.withOpacity(0.8),
+                                    color: Colors.red.withValues(alpha: 0.8),
                                     borderRadius: BorderRadius.circular(3),
                                   ),
                                   child: const Icon(Icons.close, size: 10, color: Colors.white),
@@ -254,8 +254,8 @@ class _DraggableLayerWidgetState extends State<DraggableLayerWidget> {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            color.withOpacity(0.4),
-            color.withOpacity(0.25),
+            color.withValues(alpha: 0.4),
+            color.withValues(alpha: 0.25),
           ],
         ),
       ),
@@ -267,7 +267,7 @@ class _DraggableLayerWidgetState extends State<DraggableLayerWidget> {
               child: CustomPaint(
                 painter: _WaveformPainter(
                   data: widget.waveformData!,
-                  color: color.withOpacity(0.6),
+                  color: color.withValues(alpha: 0.6),
                 ),
               ),
             ),

@@ -309,13 +309,13 @@ class _KSystemButton extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 2),
         decoration: BoxDecoration(
           color: selected
-              ? FluxForgeTheme.accentBlue.withOpacity(0.3)
+              ? FluxForgeTheme.accentBlue.withValues(alpha: 0.3)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(3),
           border: Border.all(
             color: selected
                 ? FluxForgeTheme.accentBlue
-                : Colors.white.withOpacity(0.2),
+                : Colors.white.withValues(alpha: 0.2),
           ),
         ),
         child: Text(
@@ -455,7 +455,7 @@ class _KMeterPainter extends CustomPainter {
       Offset(0, refY),
       Offset(size.width, refY),
       Paint()
-        ..color = Colors.white.withOpacity(0.5)
+        ..color = Colors.white.withValues(alpha: 0.5)
         ..strokeWidth = 1,
     );
   }
@@ -484,7 +484,7 @@ class _KMeterPainter extends CustomPainter {
         Offset(0, y),
         Offset(3, y),
         Paint()
-          ..color = Colors.white.withOpacity(0.3)
+          ..color = Colors.white.withValues(alpha: 0.3)
           ..strokeWidth = 1,
       );
     }
@@ -539,7 +539,7 @@ class _Goniometer extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF0A0A0C),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: CustomPaint(
         painter: _GoniometerPainter(peakL: peakL, peakR: peakR),
@@ -562,7 +562,7 @@ class _GoniometerPainter extends CustomPainter {
 
     // Grid lines
     final gridPaint = Paint()
-      ..color = Colors.white.withOpacity(0.1)
+      ..color = Colors.white.withValues(alpha: 0.1)
       ..strokeWidth = 0.5;
 
     // Diagonal lines (M/S axes)
@@ -630,7 +630,7 @@ class _GoniometerPainter extends CustomPainter {
       Offset(dotX, dotY),
       3,
       Paint()
-        ..color = FluxForgeTheme.accentBlue.withOpacity(0.8)
+        ..color = FluxForgeTheme.accentBlue.withValues(alpha: 0.8)
         ..style = PaintingStyle.fill,
     );
 
@@ -639,7 +639,7 @@ class _GoniometerPainter extends CustomPainter {
       Offset(dotX, dotY),
       6,
       Paint()
-        ..color = FluxForgeTheme.accentBlue.withOpacity(0.3)
+        ..color = FluxForgeTheme.accentBlue.withValues(alpha: 0.3)
         ..style = PaintingStyle.fill
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
     );
@@ -738,7 +738,7 @@ class _CorrelationPainter extends CustomPainter {
       Offset(centerX, 0),
       Offset(centerX, size.height),
       Paint()
-        ..color = Colors.white.withOpacity(0.3)
+        ..color = Colors.white.withValues(alpha: 0.3)
         ..strokeWidth = 1,
     );
   }
@@ -797,7 +797,7 @@ class _BalancePainter extends CustomPainter {
       Offset(centerX, 0),
       Offset(centerX, size.height),
       Paint()
-        ..color = Colors.white.withOpacity(0.3)
+        ..color = Colors.white.withValues(alpha: 0.3)
         ..strokeWidth = 1,
     );
 
@@ -867,11 +867,11 @@ class _LoudnessValue extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
         decoration: BoxDecoration(
           color: highlight
-              ? FluxForgeTheme.accentBlue.withOpacity(0.1)
-              : Colors.black.withOpacity(0.3),
+              ? FluxForgeTheme.accentBlue.withValues(alpha: 0.1)
+              : Colors.black.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(4),
           border: highlight
-              ? Border.all(color: FluxForgeTheme.accentBlue.withOpacity(0.3))
+              ? Border.all(color: FluxForgeTheme.accentBlue.withValues(alpha: 0.3))
               : null,
         ),
         child: FittedBox(
@@ -933,7 +933,7 @@ class _LoudnessHistory extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF0A0A0C),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: CustomPaint(
         painter: _LoudnessHistoryPainter(
@@ -964,7 +964,7 @@ class _LoudnessHistoryPainter extends CustomPainter {
         Offset(0, y),
         Offset(size.width, y),
         Paint()
-          ..color = Colors.white.withOpacity(0.1)
+          ..color = Colors.white.withValues(alpha: 0.1)
           ..strokeWidth = 0.5,
       );
     }
@@ -974,7 +974,7 @@ class _LoudnessHistoryPainter extends CustomPainter {
     final targetBottom = _dbToY(-15, size.height);
     canvas.drawRect(
       Rect.fromLTRB(0, targetTop, size.width, targetBottom),
-      Paint()..color = FluxForgeTheme.accentGreen.withOpacity(0.1),
+      Paint()..color = FluxForgeTheme.accentGreen.withValues(alpha: 0.1),
     );
 
     // History line
@@ -1044,12 +1044,12 @@ class _TruePeakDisplay extends StatelessWidget {
       decoration: BoxDecoration(
         color: isOver
             ? const Color(0x40FF4040)
-            : Colors.black.withOpacity(0.3),
+            : Colors.black.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
           color: isOver
               ? const Color(0xFFFF4040)
-              : Colors.white.withOpacity(0.1),
+              : Colors.white.withValues(alpha: 0.1),
         ),
       ),
       child: Row(
@@ -1097,7 +1097,7 @@ class _VerticalDivider extends StatelessWidget {
     return Container(
       width: 1,
       margin: const EdgeInsets.symmetric(vertical: 8),
-      color: Colors.white.withOpacity(0.1),
+      color: Colors.white.withValues(alpha: 0.1),
     );
   }
 }

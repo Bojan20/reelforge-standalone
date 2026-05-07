@@ -359,7 +359,7 @@ class _ModeTab extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: isActive ? _accent.withOpacity(0.15) : Colors.transparent,
+        color: isActive ? _accent.withValues(alpha: 0.15) : Colors.transparent,
         border: Border(
           bottom: BorderSide(
             color: isActive ? _accent : Colors.transparent,
@@ -401,7 +401,7 @@ Widget _buildHelixOmnibar() {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
-            color: _accent.withOpacity(0.1),
+            color: _accent.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(4),
           ),
           child: const Text(
@@ -452,7 +452,7 @@ class _SpineButton extends StatelessWidget {
       width: 52,
       height: 52,
       decoration: BoxDecoration(
-        color: isActive ? _accent.withOpacity(0.15) : Colors.transparent,
+        color: isActive ? _accent.withValues(alpha: 0.15) : Colors.transparent,
         border: Border(
           left: BorderSide(
             color: isActive ? _accent : Colors.transparent,
@@ -674,7 +674,7 @@ Widget _buildReelCell({required String symbol, required bool isWinning}) {
       ),
       borderRadius: BorderRadius.circular(6),
       boxShadow: isWinning
-          ? [BoxShadow(color: _accentGreen.withOpacity(0.3), blurRadius: 12)]
+          ? [BoxShadow(color: _accentGreen.withValues(alpha: 0.3), blurRadius: 12)]
           : null,
     ),
     child: Center(
@@ -702,7 +702,7 @@ Widget _buildSpinButton({required SpinButtonState state}) {
       gradient: isSpinning
           ? null
           : LinearGradient(
-              colors: [_accent, _accent.withOpacity(0.7)],
+              colors: [_accent, _accent.withValues(alpha: 0.7)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -731,9 +731,9 @@ Widget _buildActionButton({required String label, required Color color}) {
   return _scaffold(Container(
     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
     decoration: BoxDecoration(
-      color: color.withOpacity(0.15),
+      color: color.withValues(alpha: 0.15),
       borderRadius: BorderRadius.circular(6),
-      border: Border.all(color: color.withOpacity(0.5)),
+      border: Border.all(color: color.withValues(alpha: 0.5)),
     ),
     child: Text(
       label,
@@ -772,9 +772,9 @@ Widget _buildDnaPanelHeader({required String brand}) {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
-            color: _accent.withOpacity(0.1),
+            color: _accent.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: _accent.withOpacity(0.3)),
+            border: Border.all(color: _accent.withValues(alpha: 0.3)),
           ),
           child: Text(
             brand,
@@ -799,9 +799,9 @@ Widget _buildDnaInstrumentChips({required List<String> instruments}) {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: _accentGreen.withOpacity(0.1),
+            color: _accentGreen.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: _accentGreen.withOpacity(0.4)),
+            border: Border.all(color: _accentGreen.withValues(alpha: 0.4)),
           ),
           child: Text(
             inst,
@@ -855,10 +855,10 @@ Widget _buildDnaApplyButton({required bool enabled}) {
     duration: const Duration(milliseconds: 200),
     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
     decoration: BoxDecoration(
-      color: enabled ? _accentGreen.withOpacity(0.15) : _borderColor,
+      color: enabled ? _accentGreen.withValues(alpha: 0.15) : _borderColor,
       borderRadius: BorderRadius.circular(6),
       border: Border.all(
-        color: enabled ? _accentGreen.withOpacity(0.6) : _borderColor,
+        color: enabled ? _accentGreen.withValues(alpha: 0.6) : _borderColor,
       ),
     ),
     child: Row(

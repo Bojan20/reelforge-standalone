@@ -716,9 +716,9 @@ class _AudioBrowserItemState extends State<AudioBrowserItem>
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             color: widget.isSelected
-                ? FluxForgeTheme.accentBlue.withOpacity(0.2 + pulseValue)
+                ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2 + pulseValue)
                 : _isHovered
-                    ? Colors.white.withOpacity(0.05)
+                    ? Colors.white.withValues(alpha: 0.05)
                     : Colors.transparent,
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
@@ -734,7 +734,7 @@ class _AudioBrowserItemState extends State<AudioBrowserItem>
             boxShadow: _isPlaying
                 ? [
                     BoxShadow(
-                      color: FluxForgeTheme.accentGreen.withOpacity(0.2),
+                      color: FluxForgeTheme.accentGreen.withValues(alpha: 0.2),
                       blurRadius: 8,
                       spreadRadius: 1,
                     ),
@@ -831,7 +831,7 @@ class _AudioBrowserItemState extends State<AudioBrowserItem>
                       padding:
                           const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                       decoration: BoxDecoration(
-                        color: FluxForgeTheme.accentOrange.withOpacity(0.2),
+                        color: FluxForgeTheme.accentOrange.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(2),
                       ),
                       child: Text(
@@ -861,8 +861,8 @@ class _AudioBrowserItemState extends State<AudioBrowserItem>
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                _getFormatColor().withOpacity(0.3),
-                _getFormatColor().withOpacity(0.1),
+                _getFormatColor().withValues(alpha: 0.3),
+                _getFormatColor().withValues(alpha: 0.1),
               ],
             ),
             borderRadius: BorderRadius.circular(4),
@@ -900,8 +900,8 @@ class _AudioBrowserItemState extends State<AudioBrowserItem>
         height: 24,
         decoration: BoxDecoration(
           color: _isPlaying
-              ? FluxForgeTheme.accentGreen.withOpacity(0.2)
-              : FluxForgeTheme.accentBlue.withOpacity(0.2),
+              ? FluxForgeTheme.accentGreen.withValues(alpha: 0.2)
+              : FluxForgeTheme.accentBlue.withValues(alpha: 0.2),
           shape: BoxShape.circle,
           border: Border.all(
             color:
@@ -955,7 +955,7 @@ class _AudioBrowserItemState extends State<AudioBrowserItem>
                     duration: const Duration(milliseconds: 33),
                     width: _displayProgress * constraints.maxWidth,
                     decoration: BoxDecoration(
-                      color: FluxForgeTheme.accentGreen.withOpacity(0.1),
+                      color: FluxForgeTheme.accentGreen.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(3),
                     ),
                   ),
@@ -973,7 +973,7 @@ class _AudioBrowserItemState extends State<AudioBrowserItem>
                       color: FluxForgeTheme.accentGreen,
                       boxShadow: [
                         BoxShadow(
-                          color: FluxForgeTheme.accentGreen.withOpacity(0.5),
+                          color: FluxForgeTheme.accentGreen.withValues(alpha: 0.5),
                           blurRadius: 4,
                         ),
                       ],
@@ -988,7 +988,7 @@ class _AudioBrowserItemState extends State<AudioBrowserItem>
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.7),
+                    color: Colors.black.withValues(alpha: 0.7),
                     borderRadius: BorderRadius.circular(2),
                   ),
                   child: Text(
@@ -1040,7 +1040,7 @@ class _AudioBrowserItemState extends State<AudioBrowserItem>
           border: Border.all(color: FluxForgeTheme.accentBlue, width: 2),
           boxShadow: [
             BoxShadow(
-              color: FluxForgeTheme.accentBlue.withOpacity(0.3),
+              color: FluxForgeTheme.accentBlue.withValues(alpha: 0.3),
               blurRadius: 12,
               spreadRadius: 2,
             ),
@@ -1125,8 +1125,8 @@ class _MiniWaveformPainter extends CustomPainter {
 
       final paint = Paint()
         ..color = isPastProgress && isPlaying
-            ? FluxForgeTheme.accentGreen.withOpacity(0.8)
-            : Colors.white.withOpacity(0.3)
+            ? FluxForgeTheme.accentGreen.withValues(alpha: 0.8)
+            : Colors.white.withValues(alpha: 0.3)
         ..strokeWidth = barWidth * 0.7
         ..strokeCap = StrokeCap.round;
 
@@ -1169,7 +1169,7 @@ class _MiniWaveformPainter extends CustomPainter {
 
     // Fill waveform (base color)
     final basePaint = Paint()
-      ..color = Colors.white.withOpacity(0.3)
+      ..color = Colors.white.withValues(alpha: 0.3)
       ..style = PaintingStyle.fill;
     canvas.drawPath(path, basePaint);
 
@@ -1179,7 +1179,7 @@ class _MiniWaveformPainter extends CustomPainter {
       canvas.save();
       canvas.clipRect(Rect.fromLTWH(0, 0, progressWidth, size.height));
       final progressPaint = Paint()
-        ..color = FluxForgeTheme.accentGreen.withOpacity(0.8)
+        ..color = FluxForgeTheme.accentGreen.withValues(alpha: 0.8)
         ..style = PaintingStyle.fill;
       canvas.drawPath(path, progressPaint);
       canvas.restore();
@@ -1187,7 +1187,7 @@ class _MiniWaveformPainter extends CustomPainter {
 
     // Draw center line
     final centerPaint = Paint()
-      ..color = Colors.white.withOpacity(0.15)
+      ..color = Colors.white.withValues(alpha: 0.15)
       ..strokeWidth = 0.5;
     canvas.drawLine(
       Offset(0, centerY),
@@ -1434,7 +1434,7 @@ class _AudioBrowserPanelState extends State<AudioBrowserPanel> {
                         child: CircularProgressIndicator(
                           strokeWidth: 1.5,
                           valueColor: AlwaysStoppedAnimation(
-                              FluxForgeTheme.accentBlue.withOpacity(0.7)),
+                              FluxForgeTheme.accentBlue.withValues(alpha: 0.7)),
                         ),
                       ),
                       const SizedBox(width: 4),
@@ -1528,7 +1528,7 @@ class _AudioBrowserPanelState extends State<AudioBrowserPanel> {
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: isActive
-                        ? FluxForgeTheme.accentBlue.withOpacity(0.2)
+                        ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(3),
                     border: Border.all(
@@ -1642,7 +1642,7 @@ class _AudioBrowserPanelState extends State<AudioBrowserPanel> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
               decoration: BoxDecoration(
-                color: FluxForgeTheme.accentBlue.withOpacity(0.2),
+                color: FluxForgeTheme.accentBlue.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(2),
               ),
               child: Text(

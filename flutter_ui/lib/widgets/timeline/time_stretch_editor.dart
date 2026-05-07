@@ -406,9 +406,9 @@ class _TimeStretchEditorState extends State<TimeStretchEditor>
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.2),
+            color: color.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: color.withOpacity(0.5)),
+            border: Border.all(color: color.withValues(alpha: 0.5)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -460,7 +460,7 @@ class _TimeStretchEditorState extends State<TimeStretchEditor>
         bottom: 0,
         width: 2,
         child: Container(
-          color: FluxForgeTheme.textTertiary.withOpacity(opacity),
+          color: FluxForgeTheme.textTertiary.withValues(alpha: opacity),
         ),
       );
     }).toList();
@@ -554,7 +554,7 @@ class _TimeStretchEditorState extends State<TimeStretchEditor>
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  FluxForgeTheme.accentOrange.withOpacity(0.3),
+                  FluxForgeTheme.accentOrange.withValues(alpha: 0.3),
                   Colors.transparent,
                 ],
               ),
@@ -617,7 +617,7 @@ class _TimeStretchEditorState extends State<TimeStretchEditor>
               gradient: LinearGradient(
                 colors: [
                   Colors.transparent,
-                  FluxForgeTheme.accentOrange.withOpacity(0.3),
+                  FluxForgeTheme.accentOrange.withValues(alpha: 0.3),
                 ],
               ),
             ),
@@ -705,7 +705,7 @@ class _TimeStretchEditorState extends State<TimeStretchEditor>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
         decoration: BoxDecoration(
-          color: FluxForgeTheme.bgDeepest.withOpacity(0.9),
+          color: FluxForgeTheme.bgDeepest.withValues(alpha: 0.9),
           borderRadius: BorderRadius.circular(4),
           border: Border.all(color: FluxForgeTheme.borderSubtle),
         ),
@@ -760,9 +760,9 @@ class _TimeStretchEditorState extends State<TimeStretchEditor>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.2),
+          color: color.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: color.withOpacity(0.5)),
+          border: Border.all(color: color.withValues(alpha: 0.5)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -804,7 +804,7 @@ class _TimeStretchEditorState extends State<TimeStretchEditor>
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.3),
+            color: color.withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(4),
             border: Border.all(color: color),
           ),
@@ -956,7 +956,7 @@ class _WarpMarkerWidget extends StatelessWidget {
               bottom: 0,
               width: 2,
               child: Container(
-                color: color.withOpacity(opacity * 0.8),
+                color: color.withValues(alpha: opacity * 0.8),
               ),
             ),
             // Diamond handle at top
@@ -968,7 +968,7 @@ class _WarpMarkerWidget extends StatelessWidget {
                   width: isHovered || isDragging ? 10 : 8,
                   height: isHovered || isDragging ? 10 : 8,
                   decoration: BoxDecoration(
-                    color: color.withOpacity(opacity),
+                    color: color.withValues(alpha: opacity),
                     border: isSelected
                         ? Border.all(color: Colors.white, width: 2)
                         : null,
@@ -993,7 +993,7 @@ class _WarpMarkerWidget extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF845EF7).withOpacity(0.9),
+                    color: const Color(0xFF845EF7).withValues(alpha: 0.9),
                     borderRadius: BorderRadius.circular(2),
                   ),
                   child: Text(
@@ -1135,7 +1135,7 @@ class _StretchRegionsPainter extends CustomPainter {
           : (region.ratio - 1.0).abs().clamp(0.0, 1.0);
 
       final paint = Paint()
-        ..color = color.withOpacity(0.1 + intensity * 0.2)
+        ..color = color.withValues(alpha: 0.1 + intensity * 0.2)
         ..style = PaintingStyle.fill;
 
       canvas.drawRect(
@@ -1175,7 +1175,7 @@ class _StretchRegionsPainter extends CustomPainter {
           Rect.fromLTWH(textX - 3, textY - 1, textPainter.width + 6, textPainter.height + 2),
           const Radius.circular(2),
         ),
-        Paint()..color = FluxForgeTheme.bgDeepest.withOpacity(0.8),
+        Paint()..color = FluxForgeTheme.bgDeepest.withValues(alpha: 0.8),
       );
 
       textPainter.paint(canvas, Offset(textX, textY));
@@ -1205,7 +1205,7 @@ class _StretchRegionsPainter extends CustomPainter {
             Rect.fromLTWH(pitchX - 2, pitchY - 1, pitchPainter.width + 4, pitchPainter.height + 2),
             const Radius.circular(2),
           ),
-          Paint()..color = const Color(0xFF845EF7).withOpacity(0.15),
+          Paint()..color = const Color(0xFF845EF7).withValues(alpha: 0.15),
         );
 
         pitchPainter.paint(canvas, Offset(pitchX, pitchY));

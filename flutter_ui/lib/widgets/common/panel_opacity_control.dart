@@ -363,7 +363,7 @@ class _PanelOpacityControlPanelState extends State<PanelOpacityControlPanel> {
               activeTrackColor: const Color(0xFF4A9EFF),
               inactiveTrackColor: const Color(0xFF2A2A35),
               thumbColor: const Color(0xFF4A9EFF),
-              overlayColor: const Color(0xFF4A9EFF).withOpacity(0.2),
+              overlayColor: const Color(0xFF4A9EFF).withValues(alpha: 0.2),
             ),
             child: Slider(
               value: config.globalMultiplier,
@@ -441,7 +441,7 @@ class _PanelOpacityControlPanelState extends State<PanelOpacityControlPanel> {
               activeTrackColor: const Color(0xFF4A9EFF),
               inactiveTrackColor: const Color(0xFF2A2A35),
               thumbColor: const Color(0xFF4A9EFF),
-              overlayColor: const Color(0xFF4A9EFF).withOpacity(0.2),
+              overlayColor: const Color(0xFF4A9EFF).withValues(alpha: 0.2),
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
             ),
             child: Slider(

@@ -135,7 +135,7 @@ class _AuxSendsPanelState extends State<AuxSendsPanel>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.call_split, size: 28, color: FluxForgeTheme.textTertiary.withOpacity(0.3)),
+          Icon(Icons.call_split, size: 28, color: FluxForgeTheme.textTertiary.withValues(alpha: 0.3)),
           const SizedBox(height: 8),
           Text(
             'Select aux bus',
@@ -182,7 +182,7 @@ class _AuxSendsPanelState extends State<AuxSendsPanel>
                   color: (aux.color.computeLuminance() > 0.5
                           ? FluxForgeTheme.bgVoid
                           : FluxForgeTheme.textPrimary)
-                      .withOpacity(0.6),
+                      .withValues(alpha: 0.6),
                 ),
               ),
             ],
@@ -320,7 +320,7 @@ class _AuxReturnStripState extends State<_AuxReturnStrip> {
     return Container(
       height: 20,
       decoration: BoxDecoration(
-        color: widget.aux.color.withOpacity(0.1),
+        color: widget.aux.color.withValues(alpha: 0.1),
         border: Border(
           bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
@@ -331,7 +331,7 @@ class _AuxReturnStripState extends State<_AuxReturnStrip> {
         style: TextStyle(
           fontSize: 8,
           fontWeight: FontWeight.w600,
-          color: widget.aux.color.withOpacity(0.7),
+          color: widget.aux.color.withValues(alpha: 0.7),
           letterSpacing: 0.5,
         ),
       ),
@@ -397,7 +397,7 @@ class _AuxReturnStripState extends State<_AuxReturnStrip> {
               begin: Alignment.bottomCenter,
               end: Alignment.topCenter,
               colors: [
-                widget.aux.color.withOpacity(0.6),
+                widget.aux.color.withValues(alpha: 0.6),
                 peak > 0.7
                     ? FluxForgeTheme.accentOrange
                     : widget.aux.color,
@@ -479,7 +479,7 @@ class _AuxReturnStripState extends State<_AuxReturnStrip> {
                   top: trackHeight * 0.15,
                   child: Container(
                     height: 1,
-                    color: FluxForgeTheme.accentGreen.withOpacity(0.4),
+                    color: FluxForgeTheme.accentGreen.withValues(alpha: 0.4),
                   ),
                 ),
                 // dB markers
@@ -517,8 +517,8 @@ class _AuxReturnStripState extends State<_AuxReturnStrip> {
             style: TextStyle(
               fontSize: 7,
               color: db == 0
-                  ? FluxForgeTheme.accentGreen.withOpacity(0.6)
-                  : FluxForgeTheme.textTertiary.withOpacity(0.5),
+                  ? FluxForgeTheme.accentGreen.withValues(alpha: 0.6)
+                  : FluxForgeTheme.textTertiary.withValues(alpha: 0.5),
             ),
           ),
         ),
@@ -530,7 +530,7 @@ class _AuxReturnStripState extends State<_AuxReturnStrip> {
           top: y,
           child: Container(
             height: 0.5,
-            color: FluxForgeTheme.textTertiary.withOpacity(0.15),
+            color: FluxForgeTheme.textTertiary.withValues(alpha: 0.15),
           ),
         ),
       );
@@ -547,11 +547,11 @@ class _AuxReturnStripState extends State<_AuxReturnStrip> {
           end: Alignment.bottomCenter,
           colors: _faderDragging
               ? [
-                  widget.aux.color.withOpacity(0.9),
-                  widget.aux.color.withOpacity(0.7),
-                  widget.aux.color.withOpacity(0.6),
-                  widget.aux.color.withOpacity(0.7),
-                  widget.aux.color.withOpacity(0.8),
+                  widget.aux.color.withValues(alpha: 0.9),
+                  widget.aux.color.withValues(alpha: 0.7),
+                  widget.aux.color.withValues(alpha: 0.6),
+                  widget.aux.color.withValues(alpha: 0.7),
+                  widget.aux.color.withValues(alpha: 0.8),
                 ]
               : [
                   Colors.grey.shade200,
@@ -571,7 +571,7 @@ class _AuxReturnStripState extends State<_AuxReturnStrip> {
         ),
         boxShadow: [
           BoxShadow(
-            color: FluxForgeTheme.bgVoid.withOpacity(0.5),
+            color: FluxForgeTheme.bgVoid.withValues(alpha: 0.5),
             blurRadius: 3,
             offset: const Offset(0, 2),
           ),
@@ -586,7 +586,7 @@ class _AuxReturnStripState extends State<_AuxReturnStrip> {
               height: 1,
               margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
               color: (_faderDragging ? Colors.white : FluxForgeTheme.bgVoid)
-                  .withOpacity(0.4),
+                  .withValues(alpha: 0.4),
             ),
         ],
       ),
@@ -605,7 +605,7 @@ class _AuxReturnStripState extends State<_AuxReturnStrip> {
         borderRadius: BorderRadius.circular(2),
         border: Border.all(
           color: isHot
-              ? FluxForgeTheme.accentRed.withOpacity(0.5)
+              ? FluxForgeTheme.accentRed.withValues(alpha: 0.5)
               : FluxForgeTheme.borderSubtle,
           width: 0.5,
         ),
@@ -737,7 +737,7 @@ class _SendRowState extends State<_SendRow> {
       height: 40,
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: FluxForgeTheme.borderSubtle.withOpacity(0.5)),
+          bottom: BorderSide(color: FluxForgeTheme.borderSubtle.withValues(alpha: 0.5)),
         ),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -764,12 +764,12 @@ class _SendRowState extends State<_SendRow> {
               height: 16,
               decoration: BoxDecoration(
                 color: widget.isPreFader
-                    ? widget.color.withOpacity(0.2)
+                    ? widget.color.withValues(alpha: 0.2)
                     : FluxForgeTheme.bgDeep,
                 borderRadius: BorderRadius.circular(2),
                 border: Border.all(
                   color: widget.isPreFader
-                      ? widget.color.withOpacity(0.5)
+                      ? widget.color.withValues(alpha: 0.5)
                       : FluxForgeTheme.borderSubtle,
                   width: 0.5,
                 ),
@@ -821,7 +821,7 @@ class _SendRowState extends State<_SendRow> {
                   borderRadius: BorderRadius.circular(3),
                   border: Border.all(
                     color: _dragging
-                        ? widget.color.withOpacity(0.5)
+                        ? widget.color.withValues(alpha: 0.5)
                         : FluxForgeTheme.borderSubtle,
                     width: 0.5,
                   ),
@@ -855,8 +855,8 @@ class _SendRowState extends State<_SendRow> {
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
                                 colors: [
-                                  widget.color.withOpacity(0.15),
-                                  widget.color.withOpacity(0.3),
+                                  widget.color.withValues(alpha: 0.15),
+                                  widget.color.withValues(alpha: 0.3),
                                 ],
                               ),
                               borderRadius: BorderRadius.circular(2),
@@ -876,8 +876,8 @@ class _SendRowState extends State<_SendRow> {
                                 end: Alignment.bottomCenter,
                                 colors: _dragging
                                     ? [
-                                        widget.color.withOpacity(0.9),
-                                        widget.color.withOpacity(0.7),
+                                        widget.color.withValues(alpha: 0.9),
+                                        widget.color.withValues(alpha: 0.7),
                                       ]
                                     : [
                                         Colors.grey.shade300,
@@ -897,7 +897,7 @@ class _SendRowState extends State<_SendRow> {
                                 width: 6,
                                 height: 1,
                                 color: (_dragging ? Colors.white : FluxForgeTheme.bgVoid)
-                                    .withOpacity(0.4),
+                                    .withValues(alpha: 0.4),
                               ),
                             ),
                           ),

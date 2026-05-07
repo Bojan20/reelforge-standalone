@@ -78,8 +78,8 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
-        border: Border(bottom: BorderSide(color: color.withOpacity(0.3))),
+        color: color.withValues(alpha: 0.15),
+        border: Border(bottom: BorderSide(color: color.withValues(alpha: 0.3))),
       ),
       child: Row(
         children: [
@@ -99,7 +99,7 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
             Text(
               '${_diagnostics.lastReport!.totalChecks} checks',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.5),
+                color: Colors.white.withValues(alpha: 0.5),
                 fontSize: 11,
               ),
             ),
@@ -162,9 +162,9 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: color.withOpacity(0.3)),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -195,7 +195,7 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.03),
+            color: Colors.white.withValues(alpha: 0.03),
             borderRadius: BorderRadius.circular(4),
           ),
           child: Row(
@@ -223,7 +223,7 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
             child: Text(
               '... and ${report.okCount - 5} more OK checks',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.3),
+                color: Colors.white.withValues(alpha: 0.3),
                 fontSize: 10,
               ),
             ),
@@ -252,14 +252,14 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
           children: [
             Icon(
               Icons.health_and_safety_outlined,
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               size: 48,
             ),
             const SizedBox(height: 12),
             Text(
               'No diagnostics yet',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.4),
+                color: Colors.white.withValues(alpha: 0.4),
                 fontSize: 13,
               ),
             ),
@@ -267,7 +267,7 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
             Text(
               'Run a check or start monitoring',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.25),
+                color: Colors.white.withValues(alpha: 0.25),
                 fontSize: 11,
               ),
             ),
@@ -283,7 +283,7 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
         Text(
           title.toUpperCase(),
           style: TextStyle(
-            color: Colors.white.withOpacity(0.6),
+            color: Colors.white.withValues(alpha: 0.6),
             fontSize: 10,
             fontWeight: FontWeight.w700,
             letterSpacing: 1.5,
@@ -294,7 +294,7 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
           Text(
             subtitle,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.3),
+              color: Colors.white.withValues(alpha: 0.3),
               fontSize: 10,
             ),
           ),
@@ -307,13 +307,13 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: count > 0 ? color.withOpacity(0.15) : Colors.white.withOpacity(0.05),
+        color: count > 0 ? color.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(3),
       ),
       child: Text(
         '$count $label',
         style: TextStyle(
-          color: count > 0 ? color : Colors.white.withOpacity(0.3),
+          color: count > 0 ? color : Colors.white.withValues(alpha: 0.3),
           fontSize: 11,
           fontWeight: FontWeight.w600,
         ),
@@ -328,7 +328,7 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.05),
+          color: color.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(3),
           border: Border(left: BorderSide(color: color, width: 2)),
         ),
@@ -340,7 +340,7 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.15),
+                    color: color.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(2),
                   ),
                   child: Text(
@@ -353,7 +353,7 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
                   Text(
                     finding.affectedStage!,
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.4),
+                      color: Colors.white.withValues(alpha: 0.4),
                       fontSize: 9,
                       fontFamily: 'monospace',
                     ),
@@ -365,7 +365,7 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
                   '${finding.timestamp.minute.toString().padLeft(2, '0')}:'
                   '${finding.timestamp.second.toString().padLeft(2, '0')}',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withValues(alpha: 0.2),
                     fontSize: 9,
                   ),
                 ),
@@ -375,7 +375,7 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
             Text(
               finding.message,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.8),
+                color: Colors.white.withValues(alpha: 0.8),
                 fontSize: 11,
               ),
             ),
@@ -384,7 +384,7 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
               Text(
                 finding.detail!,
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.4),
+                  color: Colors.white.withValues(alpha: 0.4),
                   fontSize: 10,
                 ),
               ),

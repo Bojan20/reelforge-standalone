@@ -64,7 +64,7 @@ class _LoudnessGraphPainter extends CustomPainter {
     canvas.drawLine(
       Offset(0, targetY),
       Offset(size.width, targetY),
-      Paint()..color = FluxForgeTheme.accentOrange.withOpacity(0.5)..strokeWidth = 1,
+      Paint()..color = FluxForgeTheme.accentOrange.withValues(alpha: 0.5)..strokeWidth = 1,
     );
   }
 

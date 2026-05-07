@@ -1456,9 +1456,9 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
             Container(
               height: 30,
               decoration: BoxDecoration(
-                color: FabFilterColors.red.withOpacity(0.1),
+                color: FabFilterColors.red.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: FabFilterColors.red.withOpacity(0.3)),
+                border: Border.all(color: FabFilterColors.red.withValues(alpha: 0.3)),
               ),
               child: Center(
                 child: Row(
@@ -1466,7 +1466,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
                   children: [
                     Icon(
                       _freeze ? Icons.ac_unit : Icons.all_inclusive,
-                      color: FabFilterColors.red.withOpacity(0.8),
+                      color: FabFilterColors.red.withValues(alpha: 0.8),
                       size: 14,
                     ),
                     const SizedBox(width: 6),
@@ -1475,7 +1475,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
                           : _freeze ? 'BUFFER FROZEN'
                           : 'INFINITE FEEDBACK',
                       style: TextStyle(
-                        color: FabFilterColors.red.withOpacity(0.9),
+                        color: FabFilterColors.red.withValues(alpha: 0.9),
                         fontSize: 9,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1.2,
@@ -1548,8 +1548,8 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
                 padding: const EdgeInsets.symmetric(vertical: 3),
                 decoration: BoxDecoration(
                   color: i == _midiTriggerMode
-                      ? _midiTriggerColors[i].withOpacity(0.7)
-                      : Colors.white.withOpacity(0.05),
+                      ? _midiTriggerColors[i].withValues(alpha: 0.7)
+                      : Colors.white.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(2),
                 ),
                 child: Text(
@@ -1593,8 +1593,8 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
             padding: const EdgeInsets.symmetric(vertical: 4),
             decoration: BoxDecoration(
               color: i == _stereoRouting
-                  ? _stereoRoutingColors[i].withOpacity(0.7)
-                  : Colors.white.withOpacity(0.05),
+                  ? _stereoRoutingColors[i].withValues(alpha: 0.7)
+                  : Colors.white.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(3),
             ),
             child: Text(
@@ -1647,8 +1647,8 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
                 padding: const EdgeInsets.symmetric(vertical: 3),
                 decoration: BoxDecoration(
                   color: i == shape
-                      ? FabFilterColors.green.withOpacity(0.7)
-                      : Colors.white.withOpacity(0.05),
+                      ? FabFilterColors.green.withValues(alpha: 0.7)
+                      : Colors.white.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(3),
                 ),
                 child: Text(
@@ -1695,7 +1695,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                     decoration: BoxDecoration(
-                      color: sync ? FabFilterColors.green.withOpacity(0.7) : Colors.white.withOpacity(0.05),
+                      color: sync ? FabFilterColors.green.withValues(alpha: 0.7) : Colors.white.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(3),
                     ),
                     child: Text('SYNC', style: TextStyle(
@@ -1712,7 +1712,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                       decoration: BoxDecoration(
-                        color: retrigger ? FabFilterColors.red.withOpacity(0.7) : Colors.white.withOpacity(0.05),
+                        color: retrigger ? FabFilterColors.red.withValues(alpha: 0.7) : Colors.white.withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(3),
                       ),
                       child: Text('RETRIG', style: TextStyle(
@@ -1742,8 +1742,8 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
                   decoration: BoxDecoration(
                     color: i == syncDiv
-                        ? FabFilterColors.green.withOpacity(0.7)
-                        : Colors.white.withOpacity(0.05),
+                        ? FabFilterColors.green.withValues(alpha: 0.7)
+                        : Colors.white.withValues(alpha: 0.05),
                     borderRadius: BorderRadius.circular(3),
                   ),
                   child: Text(
@@ -1787,8 +1787,8 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
               decoration: BoxDecoration(
                 color: i == _modRouting
-                    ? FabFilterColors.purple.withOpacity(0.7)
-                    : Colors.white.withOpacity(0.05),
+                    ? FabFilterColors.purple.withValues(alpha: 0.7)
+                    : Colors.white.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(3),
               ),
               child: Text(
@@ -1879,8 +1879,8 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
                 decoration: BoxDecoration(
                   color: i == selected
-                      ? FabFilterColors.cyan.withOpacity(0.7)
-                      : Colors.white.withOpacity(0.05),
+                      ? FabFilterColors.cyan.withValues(alpha: 0.7)
+                      : Colors.white.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(3),
                 ),
                 child: Text(
@@ -1925,12 +1925,12 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
               decoration: BoxDecoration(
                 color: i == _vintageMode
-                    ? _vintageModeColors[i].withOpacity(0.3)
-                    : Colors.white.withOpacity(0.05),
+                    ? _vintageModeColors[i].withValues(alpha: 0.3)
+                    : Colors.white.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(3),
                 border: Border.all(
                   color: i == _vintageMode
-                      ? _vintageModeColors[i].withOpacity(0.6)
+                      ? _vintageModeColors[i].withValues(alpha: 0.6)
                       : Colors.transparent,
                   width: 0.5,
                 ),
@@ -2231,7 +2231,7 @@ class _TapTimelinePainter extends CustomPainter {
 
     // Draw grid lines
     final gridPaint = Paint()
-      ..color = Colors.white.withOpacity(0.06)
+      ..color = Colors.white.withValues(alpha: 0.06)
       ..strokeWidth = 0.5;
     for (int i = 1; i <= 4; i++) {
       final x = size.width * i / 5;
@@ -2256,7 +2256,7 @@ class _TapTimelinePainter extends CustomPainter {
     // Freeze indicator
     if (freeze) {
       final freezePaint = Paint()
-        ..color = FabFilterColors.red.withOpacity(0.15)
+        ..color = FabFilterColors.red.withValues(alpha: 0.15)
         ..style = PaintingStyle.fill;
       canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), freezePaint);
     }
@@ -2275,7 +2275,7 @@ class _TapTimelinePainter extends CustomPainter {
 
       final r = 2.0 + amp * 4.0;
       final y = baseY + direction * amp * (size.height * 0.3);
-      dotPaint.color = color.withOpacity(amp * 0.8);
+      dotPaint.color = color.withValues(alpha: amp * 0.8);
       canvas.drawCircle(Offset(x, y), r, dotPaint);
 
       amp *= fb;
@@ -2305,12 +2305,12 @@ class _FilterResponsePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = FabFilterColors.cyan.withOpacity(0.6)
+      ..color = FabFilterColors.cyan.withValues(alpha: 0.6)
       ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke;
 
     final fillPaint = Paint()
-      ..color = FabFilterColors.cyan.withOpacity(0.08)
+      ..color = FabFilterColors.cyan.withValues(alpha: 0.08)
       ..style = PaintingStyle.fill;
 
     final path = Path();
@@ -2368,7 +2368,7 @@ class _FilterResponsePainter extends CustomPainter {
 
     // Center line (0 dB)
     final centerPaint = Paint()
-      ..color = Colors.white.withOpacity(0.1)
+      ..color = Colors.white.withValues(alpha: 0.1)
       ..strokeWidth = 0.5;
     canvas.drawLine(
       Offset(0, size.height * 0.5),
@@ -2397,7 +2397,7 @@ class _LfoWaveformPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = color.withOpacity(0.7)
+      ..color = color.withValues(alpha: 0.7)
       ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke;
 
@@ -2420,7 +2420,7 @@ class _LfoWaveformPainter extends CustomPainter {
 
     // Center line
     final centerPaint = Paint()
-      ..color = Colors.white.withOpacity(0.08)
+      ..color = Colors.white.withValues(alpha: 0.08)
       ..strokeWidth = 0.5;
     canvas.drawLine(
       Offset(0, size.height * 0.5),

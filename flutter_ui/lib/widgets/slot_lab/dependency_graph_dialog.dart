@@ -120,12 +120,12 @@ class _DependencyGraphDialogState extends State<DependencyGraphDialog> {
           color: const Color(0xFF121218),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: const Color(0xFF4A9EFF).withOpacity(0.3),
+            color: const Color(0xFF4A9EFF).withValues(alpha: 0.3),
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF4A9EFF).withOpacity(0.15),
+              color: const Color(0xFF4A9EFF).withValues(alpha: 0.15),
               blurRadius: 20,
               spreadRadius: 2,
             ),
@@ -166,7 +166,7 @@ class _DependencyGraphDialogState extends State<DependencyGraphDialog> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFF4A9EFF).withOpacity(0.2),
+              color: const Color(0xFF4A9EFF).withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Icon(
@@ -208,7 +208,7 @@ class _DependencyGraphDialogState extends State<DependencyGraphDialog> {
               margin: const EdgeInsets.only(right: 8),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFFFF4040).withOpacity(0.2),
+                color: const Color(0xFFFF4040).withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: const Color(0xFFFF4040)),
               ),
@@ -233,8 +233,8 @@ class _DependencyGraphDialogState extends State<DependencyGraphDialog> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               color: hasIssues
-                  ? const Color(0xFFFF9040).withOpacity(0.2)
-                  : const Color(0xFF40FF90).withOpacity(0.2),
+                  ? const Color(0xFFFF9040).withValues(alpha: 0.2)
+                  : const Color(0xFF40FF90).withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
                 color: hasIssues
@@ -462,7 +462,7 @@ class _DependencyGraphDialogState extends State<DependencyGraphDialog> {
           width: 12,
           height: 12,
           decoration: BoxDecoration(
-            color: color.withOpacity(0.3),
+            color: color.withValues(alpha: 0.3),
             border: Border.all(color: color, width: 2),
             borderRadius: BorderRadius.circular(3),
           ),
@@ -673,19 +673,19 @@ class _DependencyGraphPainter extends CustomPainter {
 
       if (isInCycle) {
         borderColor = const Color(0xFFFF4040);
-        fillColor = const Color(0xFFFF4040).withOpacity(0.15);
+        fillColor = const Color(0xFFFF4040).withValues(alpha: 0.15);
       } else if (node.isEnabled) {
         borderColor = Color(node.category.colorValue);
-        fillColor = Color(node.category.colorValue).withOpacity(0.15);
+        fillColor = Color(node.category.colorValue).withValues(alpha: 0.15);
       } else {
         borderColor = Colors.grey;
-        fillColor = Colors.grey.withOpacity(0.1);
+        fillColor = Colors.grey.withValues(alpha: 0.1);
       }
 
       // Draw shadow for hovered/selected
       if (isHovered || isSelected) {
         final shadowPaint = Paint()
-          ..color = borderColor.withOpacity(0.3)
+          ..color = borderColor.withValues(alpha: 0.3)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
         canvas.drawRRect(
           RRect.fromRectAndRadius(rect.inflate(4), const Radius.circular(8)),

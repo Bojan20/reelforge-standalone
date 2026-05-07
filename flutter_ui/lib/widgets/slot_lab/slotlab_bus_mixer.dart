@@ -200,7 +200,7 @@ class _SlotLabBusMixerState extends State<SlotLabBusMixer>
                     width: 2,
                     margin: const EdgeInsets.symmetric(vertical: 4),
                     decoration: BoxDecoration(
-                      color: FluxForgeTheme.textPrimary.withOpacity(0.08),
+                      color: FluxForgeTheme.textPrimary.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(1),
                     ),
                   ),
@@ -382,8 +382,8 @@ class _BusStripState extends State<_BusStrip> {
       borderColor = FluxForgeTheme.borderSubtle;
       textColor = FluxForgeTheme.textTertiary;
     } else {
-      bgColor = FluxForgeTheme.accentCyan.withOpacity(0.15);
-      borderColor = FluxForgeTheme.accentCyan.withOpacity(0.3);
+      bgColor = FluxForgeTheme.accentCyan.withValues(alpha: 0.15);
+      borderColor = FluxForgeTheme.accentCyan.withValues(alpha: 0.3);
       textColor = FluxForgeTheme.textSecondary;
     }
 
@@ -588,7 +588,7 @@ class _BusStripState extends State<_BusStrip> {
                           : peak > 0.7
                               ? FluxForgeTheme.accentOrange
                               : widget.color,
-                      widget.color.withOpacity(0.6),
+                      widget.color.withValues(alpha: 0.6),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(1),
@@ -612,7 +612,7 @@ class _BusStripState extends State<_BusStrip> {
                       color: (peakHold > 0.9
                               ? FluxForgeTheme.accentRed
                               : widget.color)
-                          .withOpacity(0.5),
+                          .withValues(alpha: 0.5),
                       blurRadius: 3,
                     ),
                   ],
@@ -706,7 +706,7 @@ class _BusStripState extends State<_BusStrip> {
                   top: trackHeight * 0.15,
                   child: Container(
                     height: 1,
-                    color: FluxForgeTheme.accentGreen.withOpacity(0.4),
+                    color: FluxForgeTheme.accentGreen.withValues(alpha: 0.4),
                   ),
                 ),
                 // dB scale markers
@@ -744,8 +744,8 @@ class _BusStripState extends State<_BusStrip> {
             style: TextStyle(
               fontSize: 7,
               color: db == 0
-                  ? FluxForgeTheme.accentGreen.withOpacity(0.6)
-                  : FluxForgeTheme.textTertiary.withOpacity(0.5),
+                  ? FluxForgeTheme.accentGreen.withValues(alpha: 0.6)
+                  : FluxForgeTheme.textTertiary.withValues(alpha: 0.5),
             ),
           ),
         ),
@@ -757,7 +757,7 @@ class _BusStripState extends State<_BusStrip> {
           top: y,
           child: Container(
             height: 0.5,
-            color: FluxForgeTheme.textTertiary.withOpacity(0.15),
+            color: FluxForgeTheme.textTertiary.withValues(alpha: 0.15),
           ),
         ),
       );
@@ -774,11 +774,11 @@ class _BusStripState extends State<_BusStrip> {
           end: Alignment.bottomCenter,
           colors: _faderDragging
               ? [
-                  widget.color.withOpacity(0.9),
-                  widget.color.withOpacity(0.7),
-                  widget.color.withOpacity(0.6),
-                  widget.color.withOpacity(0.7),
-                  widget.color.withOpacity(0.8),
+                  widget.color.withValues(alpha: 0.9),
+                  widget.color.withValues(alpha: 0.7),
+                  widget.color.withValues(alpha: 0.6),
+                  widget.color.withValues(alpha: 0.7),
+                  widget.color.withValues(alpha: 0.8),
                 ]
               : [
                   Colors.grey.shade200,
@@ -798,7 +798,7 @@ class _BusStripState extends State<_BusStrip> {
         ),
         boxShadow: [
           BoxShadow(
-            color: FluxForgeTheme.bgVoid.withOpacity(0.5),
+            color: FluxForgeTheme.bgVoid.withValues(alpha: 0.5),
             blurRadius: 3,
             offset: const Offset(0, 2),
           ),
@@ -813,7 +813,7 @@ class _BusStripState extends State<_BusStrip> {
               height: 1,
               margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
               color: (_faderDragging ? Colors.white : FluxForgeTheme.bgVoid)
-                  .withOpacity(0.4),
+                  .withValues(alpha: 0.4),
             ),
         ],
       ),
@@ -832,7 +832,7 @@ class _BusStripState extends State<_BusStrip> {
         borderRadius: BorderRadius.circular(2),
         border: Border.all(
           color: isHot
-              ? FluxForgeTheme.accentRed.withOpacity(0.5)
+              ? FluxForgeTheme.accentRed.withValues(alpha: 0.5)
               : FluxForgeTheme.borderSubtle,
           width: 0.5,
         ),

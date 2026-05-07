@@ -198,9 +198,9 @@ class _CrdtSyncPanelState extends State<CrdtSyncPanel>
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         border: Border(
-          bottom: BorderSide(color: Colors.white.withOpacity(0.1)),
+          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
         ),
       ),
       child: Row(
@@ -221,7 +221,7 @@ class _CrdtSyncPanelState extends State<CrdtSyncPanel>
                 Text(
                   'Node: ${service.nodeId.substring(0, 8)}...',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.6),
+                    color: Colors.white.withValues(alpha: 0.6),
                     fontSize: 11,
                   ),
                 ),
@@ -309,9 +309,9 @@ class _CrdtSyncPanelState extends State<CrdtSyncPanel>
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -339,7 +339,7 @@ class _CrdtSyncPanelState extends State<CrdtSyncPanel>
         children: [
           Text(
             label,
-            style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12),
           ),
           Text(
             value,
@@ -480,7 +480,7 @@ class _CrdtSyncPanelState extends State<CrdtSyncPanel>
           children: [
             Text(
               conflict.description,
-              style: TextStyle(color: Colors.white.withOpacity(0.8)),
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.8)),
             ),
             const SizedBox(height: 16),
             const Text('Choose resolution:', style: TextStyle(color: Colors.white70)),
@@ -489,7 +489,7 @@ class _CrdtSyncPanelState extends State<CrdtSyncPanel>
               title: const Text('Keep Local', style: TextStyle(color: Colors.white)),
               subtitle: Text(
                 'Keep your changes (${conflict.localOp.type.name})',
-                style: TextStyle(color: Colors.white.withOpacity(0.6)),
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
               ),
               leading: Radio<bool>(
                 value: true,
@@ -506,7 +506,7 @@ class _CrdtSyncPanelState extends State<CrdtSyncPanel>
               title: const Text('Keep Remote', style: TextStyle(color: Colors.white)),
               subtitle: Text(
                 'Accept remote changes (${conflict.remoteOp.type.name})',
-                style: TextStyle(color: Colors.white.withOpacity(0.6)),
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
               ),
               leading: Radio<bool>(
                 value: false,
@@ -603,7 +603,7 @@ class OperationTile extends StatelessWidget {
       leading: Container(
         padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.2),
+          color: color.withValues(alpha: 0.2),
           shape: BoxShape.circle,
         ),
         child: Icon(icon, color: color, size: 16),
@@ -614,7 +614,7 @@ class OperationTile extends StatelessWidget {
       ),
       subtitle: Text(
         'Target: ${operation.targetId.substring(0, 8)}...',
-        style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 11),
+        style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 11),
       ),
       trailing: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -622,11 +622,11 @@ class OperationTile extends StatelessWidget {
         children: [
           Text(
             _formatTime(operation.createdAt),
-            style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 10),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 10),
           ),
           Text(
             operation.authorId.substring(0, 6),
-            style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 9),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 9),
           ),
         ],
       ),
@@ -652,8 +652,8 @@ class ConflictTile extends StatelessWidget {
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           color: conflict.isResolved
-              ? Colors.green.withOpacity(0.2)
-              : Colors.amber.withOpacity(0.2),
+              ? Colors.green.withValues(alpha: 0.2)
+              : Colors.amber.withValues(alpha: 0.2),
           shape: BoxShape.circle,
         ),
         child: Icon(
@@ -668,7 +668,7 @@ class ConflictTile extends StatelessWidget {
       ),
       subtitle: Text(
         'Local: ${conflict.localOp.type.name} vs Remote: ${conflict.remoteOp.type.name}',
-        style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 11),
+        style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 11),
       ),
       trailing: conflict.isResolved
           ? const Icon(Icons.check_circle, color: Colors.green, size: 20)
@@ -695,7 +695,7 @@ class PeerTile extends StatelessWidget {
       leading: Stack(
         children: [
           CircleAvatar(
-            backgroundColor: Colors.white.withOpacity(0.1),
+            backgroundColor: Colors.white.withValues(alpha: 0.1),
             child: Text(
               peerId.substring(0, 2).toUpperCase(),
               style: const TextStyle(color: Colors.white),
@@ -726,13 +726,13 @@ class PeerTile extends StatelessWidget {
       ),
       subtitle: Text(
         isOnline ? 'Online' : 'Last seen: ${_formatLastSeen(lastSeen)}',
-        style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 11),
+        style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 11),
       ),
       trailing: isOnline
           ? Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.2),
+                color: Colors.green.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Text(

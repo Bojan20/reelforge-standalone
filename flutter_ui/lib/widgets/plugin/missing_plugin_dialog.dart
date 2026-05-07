@@ -110,7 +110,7 @@ class _MissingPluginDialogState extends State<MissingPluginDialog> {
                 Text(
                   widget.projectName,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.6),
+                    color: Colors.white.withValues(alpha: 0.6),
                     fontSize: 13,
                   ),
                 ),
@@ -154,7 +154,7 @@ class _MissingPluginDialogState extends State<MissingPluginDialog> {
           ),
           child: Text(
             'Cancel',
-            style: TextStyle(color: Colors.white.withOpacity(0.7)),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
           ),
         ),
 
@@ -199,9 +199,9 @@ class _MissingPluginDialogState extends State<MissingPluginDialog> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: Row(
         children: [
@@ -266,7 +266,7 @@ class _MissingPluginDialogState extends State<MissingPluginDialog> {
           Text(
             label,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.5),
+              color: Colors.white.withValues(alpha: 0.5),
               fontSize: 10,
             ),
           ),
@@ -283,7 +283,7 @@ class _MissingPluginDialogState extends State<MissingPluginDialog> {
     final useFreeze = _useFreezeFor.contains(uid);
 
     return Card(
-      color: Colors.white.withOpacity(0.05),
+      color: Colors.white.withValues(alpha: 0.05),
       margin: const EdgeInsets.only(bottom: 8),
       child: Column(
         children: [
@@ -300,7 +300,7 @@ class _MissingPluginDialogState extends State<MissingPluginDialog> {
             subtitle: Text(
               '${plugin.vendor} • ${plugin.uid.format.name.toUpperCase()} • ${info.slotCount} slot(s)',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.5),
+                color: Colors.white.withValues(alpha: 0.5),
                 fontSize: 12,
               ),
             ),
@@ -366,9 +366,9 @@ class _MissingPluginDialogState extends State<MissingPluginDialog> {
       width: 40,
       height: 40,
       decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
+        color: color.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.5)),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
       ),
       child: Icon(icon, color: color, size: 20),
     );
@@ -378,9 +378,9 @@ class _MissingPluginDialogState extends State<MissingPluginDialog> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
+        color: color.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withOpacity(0.5)),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
       ),
       child: Text(
         label,
@@ -404,7 +404,7 @@ class _MissingPluginDialogState extends State<MissingPluginDialog> {
           Text(
             'Used in ${info.trackCount} track(s), ${info.slotCount} slot(s)',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.6),
+              color: Colors.white.withValues(alpha: 0.6),
               fontSize: 12,
             ),
           ),
@@ -459,7 +459,7 @@ class _MissingPluginDialogState extends State<MissingPluginDialog> {
                           Text(
                             alt.vendor,
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.5),
+                              color: Colors.white.withValues(alpha: 0.5),
                               fontSize: 12,
                             ),
                           ),
@@ -501,7 +501,7 @@ class _MissingPluginDialogState extends State<MissingPluginDialog> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFF40ff90).withOpacity(0.1),
+                color: const Color(0xFF40ff90).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Row(
@@ -536,7 +536,7 @@ class _MissingPluginDialogState extends State<MissingPluginDialog> {
     required VoidCallback? onPressed,
   }) {
     return Material(
-      color: isActive ? color.withOpacity(0.2) : Colors.transparent,
+      color: isActive ? color.withValues(alpha: 0.2) : Colors.transparent,
       borderRadius: BorderRadius.circular(6),
       child: InkWell(
         onTap: onPressed,

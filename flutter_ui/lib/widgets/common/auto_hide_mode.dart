@@ -473,7 +473,7 @@ class _AutoHideWrapperState extends State<AutoHideWrapper>
           height: 24,
           decoration: BoxDecoration(
             color: isPinned
-                ? const Color(0xFF4A9EFF).withOpacity(0.2)
+                ? const Color(0xFF4A9EFF).withValues(alpha: 0.2)
                 : const Color(0xFF1A1A20),
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
@@ -573,12 +573,12 @@ class _AutoHideModePanelState extends State<AutoHideModePanel> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: config.globalEnabled
-            ? const Color(0xFF4A9EFF).withOpacity(0.1)
+            ? const Color(0xFF4A9EFF).withValues(alpha: 0.1)
             : const Color(0xFF1A1A20),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: config.globalEnabled
-              ? const Color(0xFF4A9EFF).withOpacity(0.3)
+              ? const Color(0xFF4A9EFF).withValues(alpha: 0.3)
               : const Color(0xFF2A2A35),
         ),
       ),
@@ -639,7 +639,7 @@ class _AutoHideModePanelState extends State<AutoHideModePanel> {
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? const Color(0xFF4A9EFF).withOpacity(0.2)
+                      ? const Color(0xFF4A9EFF).withValues(alpha: 0.2)
                       : const Color(0xFF1A1A20),
                   borderRadius: BorderRadius.circular(4),
                   border: Border.all(
@@ -760,7 +760,7 @@ class _AutoHideModePanelState extends State<AutoHideModePanel> {
             activeTrackColor: const Color(0xFF4A9EFF),
             inactiveTrackColor: const Color(0xFF2A2A35),
             thumbColor: const Color(0xFF4A9EFF),
-            overlayColor: const Color(0xFF4A9EFF).withOpacity(0.2),
+            overlayColor: const Color(0xFF4A9EFF).withValues(alpha: 0.2),
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
           ),
           child: Slider(

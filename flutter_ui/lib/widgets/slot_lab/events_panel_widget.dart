@@ -576,7 +576,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A22),
         border: Border(
-          bottom: BorderSide(color: Colors.white.withOpacity(0.1)),
+          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
         ),
       ),
       child: Row(
@@ -662,7 +662,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
             border: Border(
               bottom: _eventsExpanded
                   ? BorderSide.none
-                  : BorderSide(color: Colors.white.withOpacity(0.1)),
+                  : BorderSide(color: Colors.white.withValues(alpha: 0.1)),
             ),
           ),
           child: Column(
@@ -701,9 +701,9 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                       return Container(
                         decoration: isDragHovering
                             ? BoxDecoration(
-                                color: FluxForgeTheme.accentBlue.withOpacity(0.08),
+                                color: FluxForgeTheme.accentBlue.withValues(alpha: 0.08),
                                 border: Border.all(
-                                  color: FluxForgeTheme.accentBlue.withOpacity(0.4),
+                                  color: FluxForgeTheme.accentBlue.withValues(alpha: 0.4),
                                   width: 1,
                                 ),
                                 borderRadius: BorderRadius.circular(4),
@@ -796,9 +796,9 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
       height: 20,
       padding: const EdgeInsets.symmetric(horizontal: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.03),
+        color: Colors.white.withValues(alpha: 0.03),
         border: Border(
-          bottom: BorderSide(color: Colors.white.withOpacity(0.1)),
+          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
         ),
       ),
       child: Row(
@@ -872,9 +872,9 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
         height: 24,
         padding: const EdgeInsets.symmetric(horizontal: 6),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.04),
+          color: Colors.white.withValues(alpha: 0.04),
           border: Border(
-            bottom: BorderSide(color: Colors.white.withOpacity(0.08)),
+            bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
           ),
         ),
         child: Row(
@@ -888,7 +888,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
             Icon(
               isExpanded ? Icons.folder_open : Icons.folder,
               size: 13,
-              color: Colors.amber.withOpacity(0.7),
+              color: Colors.amber.withValues(alpha: 0.7),
             ),
             const SizedBox(width: 4),
             Text(
@@ -978,10 +978,10 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
         padding: const EdgeInsets.symmetric(horizontal: 6),
         decoration: BoxDecoration(
           color: isDragHovering
-              ? FluxForgeTheme.accentBlue.withOpacity(0.35)
-              : (isSelected ? FluxForgeTheme.accentBlue.withOpacity(0.2) : null),
+              ? FluxForgeTheme.accentBlue.withValues(alpha: 0.35)
+              : (isSelected ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2) : null),
           border: Border(
-            bottom: BorderSide(color: Colors.white.withOpacity(0.05)),
+            bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
             left: BorderSide(
               color: isDragHovering
                   ? FluxForgeTheme.accentBlue
@@ -1093,7 +1093,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                       margin: const EdgeInsets.only(right: 2),
                       decoration: BoxDecoration(
-                        color: FluxForgeTheme.accentGreen.withOpacity(0.15),
+                        color: FluxForgeTheme.accentGreen.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(3),
                       ),
                       child: Text(
@@ -1101,7 +1101,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                         style: TextStyle(
                           fontSize: 9,
                           fontFamily: 'monospace',
-                          color: FluxForgeTheme.accentGreen.withOpacity(0.9),
+                          color: FluxForgeTheme.accentGreen.withValues(alpha: 0.9),
                         ),
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,
@@ -1318,7 +1318,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
       FluxForgeTheme.accentOrange,
       FluxForgeTheme.accentGreen,
     ];
-    return colors[index % colors.length].withOpacity(0.7);
+    return colors[index % colors.length].withValues(alpha: 0.7);
   }
 
   Widget _buildDivider() {
@@ -1330,7 +1330,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
           width: 40,
           height: 2,
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.2),
+            color: Colors.white.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(1),
           ),
         ),
@@ -1439,7 +1439,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                 label: const Text('Add Layer', style: TextStyle(fontSize: 11)),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: FluxForgeTheme.accentBlue,
-                  side: BorderSide(color: FluxForgeTheme.accentBlue.withOpacity(0.3)),
+                  side: BorderSide(color: FluxForgeTheme.accentBlue.withValues(alpha: 0.3)),
                   padding: const EdgeInsets.symmetric(vertical: 8),
                 ),
               ),
@@ -1460,7 +1460,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
       decoration: BoxDecoration(
         color: const Color(0xFF12121A),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1490,7 +1490,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.06),
+                  color: Colors.white.withValues(alpha: 0.06),
                   borderRadius: BorderRadius.circular(3),
                 ),
                 child: Row(
@@ -1528,11 +1528,11 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
               children: event.triggerStages.map((s) => Container(
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                 decoration: BoxDecoration(
-                  color: event.color.withOpacity(0.15),
+                  color: event.color.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(3),
-                  border: Border.all(color: event.color.withOpacity(0.3), width: 0.5),
+                  border: Border.all(color: event.color.withValues(alpha: 0.3), width: 0.5),
                 ),
-                child: Text(s, style: TextStyle(fontSize: 8, color: event.color.withOpacity(0.8))),
+                child: Text(s, style: TextStyle(fontSize: 8, color: event.color.withValues(alpha: 0.8))),
               )).toList(),
             ),
           ],
@@ -1553,10 +1553,10 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
         decoration: BoxDecoration(
-          color: active ? activeColor.withOpacity(0.15) : Colors.white.withOpacity(0.04),
+          color: active ? activeColor.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(3),
           border: Border.all(
-            color: active ? activeColor.withOpacity(0.4) : Colors.white.withOpacity(0.08),
+            color: active ? activeColor.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.08),
             width: 0.5,
           ),
         ),
@@ -1606,13 +1606,13 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
           margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
             color: isHovering
-                ? FluxForgeTheme.accentBlue.withOpacity(0.2)
+                ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
                 : const Color(0xFF16161C),
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
               color: isHovering
                   ? FluxForgeTheme.accentBlue
-                  : Colors.white.withOpacity(0.1),
+                  : Colors.white.withValues(alpha: 0.1),
             ),
           ),
           child: Column(
@@ -1702,9 +1702,9 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.3),
+                    color: Colors.black.withValues(alpha: 0.3),
                     border: Border(
-                      top: BorderSide(color: Colors.white.withOpacity(0.05)),
+                      top: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
                     ),
                   ),
                   child: Column(
@@ -1954,7 +1954,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                                 height: 22,
                                 padding: const EdgeInsets.symmetric(horizontal: 6),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.05),
+                                  color: Colors.white.withValues(alpha: 0.05),
                                   borderRadius: BorderRadius.circular(3),
                                 ),
                                 child: TextFormField(
@@ -2062,7 +2062,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                             },
                             style: OutlinedButton.styleFrom(
                               foregroundColor: FluxForgeTheme.accentGreen,
-                              side: BorderSide(color: FluxForgeTheme.accentGreen.withOpacity(0.3)),
+                              side: BorderSide(color: FluxForgeTheme.accentGreen.withValues(alpha: 0.3)),
                               padding: const EdgeInsets.symmetric(vertical: 4),
                             ),
                           ),
@@ -2112,7 +2112,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
               label: valueDisplay,
               onChanged: onChanged,
               activeColor: FluxForgeTheme.accentBlue,
-              inactiveColor: Colors.white.withOpacity(0.1),
+              inactiveColor: Colors.white.withValues(alpha: 0.1),
             ),
           ),
         ),
@@ -2151,7 +2151,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
             height: 22,
             padding: const EdgeInsets.symmetric(horizontal: 4),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
+              color: Colors.white.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(3),
             ),
             child: DropdownButtonHideUnderline(
@@ -2190,13 +2190,13 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
         decoration: BoxDecoration(
           color: active
-              ? FluxForgeTheme.accentBlue.withOpacity(0.15)
-              : Colors.white.withOpacity(0.04),
+              ? FluxForgeTheme.accentBlue.withValues(alpha: 0.15)
+              : Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(3),
           border: Border.all(
             color: active
-                ? FluxForgeTheme.accentBlue.withOpacity(0.4)
-                : Colors.white.withOpacity(0.08),
+                ? FluxForgeTheme.accentBlue.withValues(alpha: 0.4)
+                : Colors.white.withValues(alpha: 0.08),
             width: 0.5,
           ),
         ),
@@ -2362,7 +2362,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
     return Container(
       height: 18,
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Row(
@@ -2374,7 +2374,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
-                color: _isPoolMode ? FluxForgeTheme.accentBlue.withOpacity(0.3) : null,
+                color: _isPoolMode ? FluxForgeTheme.accentBlue.withValues(alpha: 0.3) : null,
                 borderRadius: const BorderRadius.horizontal(left: Radius.circular(4)),
               ),
               alignment: Alignment.center,
@@ -2404,7 +2404,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
-                color: !_isPoolMode ? FluxForgeTheme.accentBlue.withOpacity(0.3) : null,
+                color: !_isPoolMode ? FluxForgeTheme.accentBlue.withValues(alpha: 0.3) : null,
                 borderRadius: const BorderRadius.horizontal(right: Radius.circular(4)),
               ),
               alignment: Alignment.center,
@@ -2453,9 +2453,9 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
       decoration: BoxDecoration(
-        color: Colors.amber.withOpacity(0.05),
+        color: Colors.amber.withValues(alpha: 0.05),
         border: Border(
-          bottom: BorderSide(color: Colors.amber.withOpacity(0.2), width: 1),
+          bottom: BorderSide(color: Colors.amber.withValues(alpha: 0.2), width: 1),
         ),
       ),
       child: Column(
@@ -2465,7 +2465,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
           Container(
             height: 20,
             padding: const EdgeInsets.symmetric(horizontal: 8),
-            color: Colors.amber.withOpacity(0.1),
+            color: Colors.amber.withValues(alpha: 0.1),
             child: Row(
               children: [
                 const Icon(Icons.star, size: 10, color: Colors.amber),
@@ -2836,7 +2836,7 @@ class _AudioBrowserItemWrapperState extends State<_AudioBrowserItemWrapper> {
             border: Border.all(color: FluxForgeTheme.accentBlue, width: 2),
             boxShadow: [
               BoxShadow(
-                color: FluxForgeTheme.accentBlue.withOpacity(0.3),
+                color: FluxForgeTheme.accentBlue.withValues(alpha: 0.3),
                 blurRadius: 12,
                 spreadRadius: 2,
               ),
@@ -2918,10 +2918,10 @@ class _HoverPreviewItem extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
             color: isPlaying
-                ? FluxForgeTheme.accentGreen.withOpacity(0.1)
+                ? FluxForgeTheme.accentGreen.withValues(alpha: 0.1)
                 : Colors.transparent,
             border: Border(
-              bottom: BorderSide(color: Colors.white.withOpacity(0.05)),
+              bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
               left: BorderSide(
                 color: isPlaying ? FluxForgeTheme.accentGreen : Colors.transparent,
                 width: 2,
@@ -2965,7 +2965,7 @@ class _HoverPreviewItem extends StatelessWidget {
                   margin: const EdgeInsets.only(right: 6),
                   padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.08),
+                    color: Colors.white.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(2),
                   ),
                   child: Text(
@@ -3016,8 +3016,8 @@ class _PlayStopButton extends StatelessWidget {
         height: 24,
         decoration: BoxDecoration(
           color: isPlaying
-              ? FluxForgeTheme.accentGreen.withOpacity(0.2)
-              : Colors.white.withOpacity(0.08),
+              ? FluxForgeTheme.accentGreen.withValues(alpha: 0.2)
+              : Colors.white.withValues(alpha: 0.08),
           shape: BoxShape.circle,
         ),
         child: Icon(

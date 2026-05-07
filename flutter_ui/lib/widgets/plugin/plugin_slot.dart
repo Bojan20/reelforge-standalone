@@ -54,7 +54,7 @@ class PluginSlot extends StatelessWidget {
           color: FluxForgeTheme.bgDeep,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: FluxForgeTheme.bgSurface.withOpacity(0.5),
+            color: FluxForgeTheme.bgSurface.withValues(alpha: 0.5),
             width: 1,
           ),
         ),
@@ -62,7 +62,7 @@ class PluginSlot extends StatelessWidget {
           child: Text(
             '+ Insert ${slotIndex + 1}',
             style: TextStyle(
-              color: FluxForgeTheme.textSecondary.withOpacity(0.5),
+              color: FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
               fontSize: 10,
             ),
           ),
@@ -101,7 +101,7 @@ class PluginSlot extends StatelessWidget {
           color: FluxForgeTheme.bgMid,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: _getFormatColor(instance.format).withOpacity(0.5),
+            color: _getFormatColor(instance.format).withValues(alpha: 0.5),
             width: 1,
           ),
         ),
@@ -341,7 +341,7 @@ class _BypassButtonState extends State<_BypassButton> {
         margin: const EdgeInsets.only(right: 2),
         decoration: BoxDecoration(
           color: _bypassed
-              ? FluxForgeTheme.accentOrange.withOpacity(0.3)
+              ? FluxForgeTheme.accentOrange.withValues(alpha: 0.3)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(2),
         ),
@@ -350,7 +350,7 @@ class _BypassButtonState extends State<_BypassButton> {
           size: 12,
           color: _bypassed
               ? FluxForgeTheme.accentOrange
-              : FluxForgeTheme.textSecondary.withOpacity(0.5),
+              : FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
         ),
       ),
     );
@@ -387,7 +387,7 @@ class PluginInsertRack extends StatelessWidget {
               Text(
                 'INSERTS',
                 style: TextStyle(
-                  color: FluxForgeTheme.textSecondary.withOpacity(0.7),
+                  color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
                   fontSize: 9,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 1,
@@ -397,7 +397,7 @@ class PluginInsertRack extends StatelessWidget {
               Text(
                 '${instanceIds.where((id) => id != null).length}/$slotCount',
                 style: TextStyle(
-                  color: FluxForgeTheme.textSecondary.withOpacity(0.5),
+                  color: FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
                   fontSize: 9,
                 ),
               ),

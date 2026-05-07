@@ -1436,9 +1436,9 @@ class _ProjectDashboardDialogState extends State<ProjectDashboardDialog>
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -1529,10 +1529,10 @@ class _ProjectDashboardDialogState extends State<ProjectDashboardDialog>
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [FluxForgeTheme.accentCyan.withOpacity(0.2), FluxForgeTheme.accentBlue.withOpacity(0.1)],
+                    colors: [FluxForgeTheme.accentCyan.withValues(alpha: 0.2), FluxForgeTheme.accentBlue.withValues(alpha: 0.1)],
                   ),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: FluxForgeTheme.accentCyan.withOpacity(0.3)),
+                  border: Border.all(color: FluxForgeTheme.accentCyan.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   children: [

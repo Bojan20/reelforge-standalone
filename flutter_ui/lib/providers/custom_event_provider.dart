@@ -369,7 +369,7 @@ class CustomEventProvider extends ChangeNotifier {
         'name': e.name,
         'description': e.description,
         'category': e.category,
-        'color': e.color.toARGB32(),
+        'color': e.color.value,
         'triggerMode': e.triggerMode.index,
         'probability': e.probability,
         'cooldownSeconds': e.cooldownSeconds,

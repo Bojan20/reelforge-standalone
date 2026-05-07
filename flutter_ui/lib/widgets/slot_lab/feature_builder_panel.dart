@@ -71,12 +71,12 @@ class FeatureBuilderPanel extends StatefulWidget {
                 color: const Color(0xFF121218),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: const Color(0xFF4A9EFF).withOpacity(0.3),
+                  color: const Color(0xFF4A9EFF).withValues(alpha: 0.3),
                   width: 1,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF4A9EFF).withOpacity(0.2),
+                    color: const Color(0xFF4A9EFF).withValues(alpha: 0.2),
                     blurRadius: 20,
                     spreadRadius: 2,
                   ),
@@ -203,7 +203,7 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFF4A9EFF).withOpacity(0.2),
+              color: const Color(0xFF4A9EFF).withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Icon(
@@ -244,8 +244,8 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               color: validationResult.isValid
-                  ? const Color(0xFF40FF90).withOpacity(0.2)
-                  : const Color(0xFFFF4040).withOpacity(0.2),
+                  ? const Color(0xFF40FF90).withValues(alpha: 0.2)
+                  : const Color(0xFFFF4040).withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
                 color: validationResult.isValid
@@ -287,7 +287,7 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFD700).withOpacity(0.2),
+              color: const Color(0xFFFFD700).withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
@@ -320,10 +320,10 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF9370DB).withOpacity(0.2),
+                    color: const Color(0xFF9370DB).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: const Color(0xFF9370DB).withOpacity(0.5),
+                      color: const Color(0xFF9370DB).withValues(alpha: 0.5),
                       width: 1,
                     ),
                   ),
@@ -464,7 +464,7 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: block.isEnabled
-              ? categoryColor.withOpacity(0.5)
+              ? categoryColor.withValues(alpha: 0.5)
               : Colors.white12,
           width: 1,
         ),
@@ -506,8 +506,8 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       color: block.isEnabled
-                          ? categoryColor.withOpacity(0.2)
-                          : Colors.white.withOpacity(0.05),
+                          ? categoryColor.withValues(alpha: 0.2)
+                          : Colors.white.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(
@@ -552,7 +552,7 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: categoryColor.withOpacity(0.2),
+                        color: categoryColor.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
@@ -794,7 +794,7 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
+                color: Colors.white.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
@@ -860,7 +860,7 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
             return FilterChip(
               label: Text(choice.label),
               selected: isSelected,
-              selectedColor: Color(block.category.colorValue).withOpacity(0.3),
+              selectedColor: Color(block.category.colorValue).withValues(alpha: 0.3),
               checkmarkColor: Color(block.category.colorValue),
               labelStyle: TextStyle(
                 color: isSelected ? Colors.white : Colors.white54,

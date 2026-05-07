@@ -903,7 +903,7 @@ class _NoteGridPainter extends CustomPainter {
       canvas.drawRect(
         selectionRect!,
         Paint()
-          ..color = FluxForgeTheme.accentBlue.withOpacity(0.2)
+          ..color = FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
           ..style = PaintingStyle.fill,
       );
       canvas.drawRect(
@@ -1000,7 +1000,7 @@ class _NoteGridPainter extends CustomPainter {
       // Fill
       canvas.drawRRect(
         rect,
-        Paint()..color = note.muted ? baseColor.withOpacity(0.3) : baseColor,
+        Paint()..color = note.muted ? baseColor.withValues(alpha: 0.3) : baseColor,
       );
 
       // Border
@@ -1018,7 +1018,7 @@ class _NoteGridPainter extends CustomPainter {
       final velHeight = (pixelsPerNote - 4) * velocityFactor;
       canvas.drawRect(
         Rect.fromLTWH(x + 2, y + pixelsPerNote - 2 - velHeight, 3, velHeight),
-        Paint()..color = Colors.white.withOpacity(0.3),
+        Paint()..color = Colors.white.withValues(alpha: 0.3),
       );
     }
   }
@@ -1107,7 +1107,7 @@ class _VelocityLanePainter extends CustomPainter {
         Paint()
           ..color = note.selected
               ? FluxForgeTheme.accentBlue
-              : const Color(0xFF4080ff).withOpacity(0.7),
+              : const Color(0xFF4080ff).withValues(alpha: 0.7),
       );
     }
   }

@@ -133,7 +133,7 @@ class _SlotLabSettingsPanelState extends State<SlotLabSettingsPanel> {
         border: Border.all(color: FluxForgeTheme.borderSubtle),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.4),
+            color: Colors.black.withValues(alpha: 0.4),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -413,11 +413,11 @@ class _SlotLabSettingsPanelState extends State<SlotLabSettingsPanel> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: isSelected
-              ? color.withOpacity(0.15)
+              ? color.withValues(alpha: 0.15)
               : FluxForgeTheme.surfaceDark,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
-            color: isSelected ? color.withOpacity(0.5) : FluxForgeTheme.borderSubtle,
+            color: isSelected ? color.withValues(alpha: 0.5) : FluxForgeTheme.borderSubtle,
           ),
         ),
         child: Row(
@@ -555,7 +555,7 @@ class _SlotLabSettingsPanelState extends State<SlotLabSettingsPanel> {
             activeTrackColor: FluxForgeTheme.accentBlue,
             inactiveTrackColor: FluxForgeTheme.bgElevated,
             thumbColor: FluxForgeTheme.accentBlue,
-            overlayColor: FluxForgeTheme.accentBlue.withOpacity(0.2),
+            overlayColor: FluxForgeTheme.accentBlue.withValues(alpha: 0.2),
           ),
           child: Slider(
             value: value,
@@ -599,7 +599,7 @@ class _SlotLabSettingsPanelState extends State<SlotLabSettingsPanel> {
           value: value,
           onChanged: onChanged,
           activeColor: FluxForgeTheme.accentBlue,
-          activeTrackColor: FluxForgeTheme.accentBlue.withOpacity(0.4),
+          activeTrackColor: FluxForgeTheme.accentBlue.withValues(alpha: 0.4),
           inactiveThumbColor: FluxForgeTheme.textTertiary,
           inactiveTrackColor: FluxForgeTheme.bgElevated,
         ),

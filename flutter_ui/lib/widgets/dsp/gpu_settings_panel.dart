@@ -111,7 +111,7 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
         border: Border.all(color: FluxForgeTheme.border),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.4),
+            color: Colors.black.withValues(alpha: 0.4),
             blurRadius: 16,
             offset: const Offset(0, 8),
           ),
@@ -209,7 +209,7 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
           color: device.supportsCompute
-              ? const Color(0xFF76B900).withOpacity(0.3)
+              ? const Color(0xFF76B900).withValues(alpha: 0.3)
               : FluxForgeTheme.border,
         ),
       ),
@@ -319,7 +319,7 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF76B900).withOpacity(0.2)
+              ? const Color(0xFF76B900).withValues(alpha: 0.2)
               : FluxForgeTheme.surface,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
@@ -327,7 +327,7 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
                 ? const Color(0xFF76B900)
                 : canSelect
                     ? FluxForgeTheme.border
-                    : FluxForgeTheme.border.withOpacity(0.3),
+                    : FluxForgeTheme.border.withValues(alpha: 0.3),
           ),
         ),
         child: Row(
@@ -340,7 +340,7 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
                   ? const Color(0xFF76B900)
                   : canSelect
                       ? FluxForgeTheme.textSecondary
-                      : FluxForgeTheme.textSecondary.withOpacity(0.3),
+                      : FluxForgeTheme.textSecondary.withValues(alpha: 0.3),
             ),
             const SizedBox(width: 6),
             Text(
@@ -350,7 +350,7 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
                     ? FluxForgeTheme.textPrimary
                     : canSelect
                         ? FluxForgeTheme.textSecondary
-                        : FluxForgeTheme.textSecondary.withOpacity(0.3),
+                        : FluxForgeTheme.textSecondary.withValues(alpha: 0.3),
                 fontSize: 11,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
@@ -390,7 +390,7 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
         Text(
           'Larger = better frequency resolution, higher latency',
           style: TextStyle(
-            color: FluxForgeTheme.textSecondary.withOpacity(0.6),
+            color: FluxForgeTheme.textSecondary.withValues(alpha: 0.6),
             fontSize: 10,
           ),
         ),
@@ -411,7 +411,7 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected
-              ? FluxForgeTheme.accentBlue.withOpacity(0.2)
+              ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
               : FluxForgeTheme.surface,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
@@ -557,12 +557,12 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: _enableAutoTuning
-              ? const Color(0xFF76B900).withOpacity(0.1)
+              ? const Color(0xFF76B900).withValues(alpha: 0.1)
               : FluxForgeTheme.surface,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
             color: _enableAutoTuning
-                ? const Color(0xFF76B900).withOpacity(0.5)
+                ? const Color(0xFF76B900).withValues(alpha: 0.5)
                 : FluxForgeTheme.border,
           ),
         ),
@@ -662,12 +662,12 @@ class GpuIndicator extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              color.withOpacity(0.3),
-              color.withOpacity(0.1),
+              color.withValues(alpha: 0.3),
+              color.withValues(alpha: 0.1),
             ],
           ),
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: color.withOpacity(0.5)),
+          border: Border.all(color: color.withValues(alpha: 0.5)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

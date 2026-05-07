@@ -60,9 +60,9 @@ class CollaborationStatusBadge extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.2),
+                color: color.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: color.withOpacity(0.5)),
+                border: Border.all(color: color.withValues(alpha: 0.5)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -256,7 +256,7 @@ class _CollaborationPanelState extends State<CollaborationPanel>
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.2),
+                color: Colors.red.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Row(
@@ -468,9 +468,9 @@ class CollaboratorTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 4),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: isLocal ? color.withOpacity(0.1) : Colors.white.withOpacity(0.05),
+        color: isLocal ? color.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(4),
-        border: isLocal ? Border.all(color: color.withOpacity(0.3)) : null,
+        border: isLocal ? Border.all(color: color.withValues(alpha: 0.3)) : null,
       ),
       child: Row(
         children: [
@@ -526,7 +526,7 @@ class CollaboratorTile extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                       decoration: BoxDecoration(
-                        color: _roleColor(collaborator.role).withOpacity(0.2),
+                        color: _roleColor(collaborator.role).withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(2),
                       ),
                       child: Text(
@@ -731,7 +731,7 @@ class _CollaborationChatPanelState extends State<CollaborationChatPanel> {
         padding: const EdgeInsets.all(8),
         constraints: const BoxConstraints(maxWidth: 250),
         decoration: BoxDecoration(
-          color: isLocal ? Colors.blue.withOpacity(0.2) : Colors.white.withOpacity(0.1),
+          color: isLocal ? Colors.blue.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Column(

@@ -721,7 +721,7 @@ class MacroControlProvider extends ChangeNotifier {
     return {
       'id': m.id,
       'name': m.name,
-      'color': m.color.toARGB32(),
+      'color': m.color.value,
       'value': m.value,
       'defaultValue': m.defaultValue,
       'targets': m.targets.map((t) => _targetToJson(t)).toList(),

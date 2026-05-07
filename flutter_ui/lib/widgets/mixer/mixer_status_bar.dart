@@ -74,7 +74,7 @@ class _MixerStatusBarState extends State<MixerStatusBar> {
           decoration: BoxDecoration(
             color: const Color(0xFF0A0A0E),
             border: Border(
-              top: BorderSide(color: Colors.white.withOpacity(0.06)),
+              top: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
             ),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -108,7 +108,7 @@ class _MixerStatusBarState extends State<MixerStatusBar> {
               // Sample rate
               _buildStatChip(
                 '${_sampleRate ~/ 1000}kHz',
-                Colors.white.withOpacity(0.4),
+                Colors.white.withValues(alpha: 0.4),
               ),
             ],
           ),
@@ -136,7 +136,7 @@ class _MixerStatusBarState extends State<MixerStatusBar> {
         width: 3,
         height: 3,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.15),
+          color: Colors.white.withValues(alpha: 0.15),
           shape: BoxShape.circle,
         ),
       ),

@@ -172,7 +172,7 @@ class _AudioWaveformPickerDialogState extends State<AudioWaveformPickerDialog> {
           border: Border.all(color: FluxForgeTheme.borderSubtle),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.5),
+              color: Colors.black.withValues(alpha: 0.5),
               blurRadius: 20,
               spreadRadius: 5,
             ),
@@ -230,7 +230,7 @@ class _AudioWaveformPickerDialogState extends State<AudioWaveformPickerDialog> {
       height: 40,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: FluxForgeTheme.bgDeep.withOpacity(0.5),
+        color: FluxForgeTheme.bgDeep.withValues(alpha: 0.5),
         border: Border(
           bottom: BorderSide(color: FluxForgeTheme.borderSubtle, width: 0.5),
         ),
@@ -409,7 +409,7 @@ class _AudioWaveformPickerDialogState extends State<AudioWaveformPickerDialog> {
                       Icon(
                         Icons.folder,
                         size: 14,
-                        color: FluxForgeTheme.accentOrange.withOpacity(0.7),
+                        color: FluxForgeTheme.accentOrange.withValues(alpha: 0.7),
                       ),
                       const SizedBox(width: 6),
                       Expanded(
@@ -552,7 +552,7 @@ class _QuickAccessButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: isActive
-              ? FluxForgeTheme.accentBlue.withOpacity(0.2)
+              ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(

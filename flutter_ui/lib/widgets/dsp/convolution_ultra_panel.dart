@@ -148,7 +148,7 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
         border: Border.all(color: FluxForgeTheme.border),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.5),
+            color: Colors.black.withValues(alpha: 0.5),
             blurRadius: 24,
             offset: const Offset(0, 12),
           ),
@@ -251,10 +251,10 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: hasIr ? color.withOpacity(0.1) : FluxForgeTheme.bgMid,
+          color: hasIr ? color.withValues(alpha: 0.1) : FluxForgeTheme.bgMid,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
-            color: hasIr ? color.withOpacity(0.5) : FluxForgeTheme.border,
+            color: hasIr ? color.withValues(alpha: 0.5) : FluxForgeTheme.border,
             style: hasIr ? BorderStyle.solid : BorderStyle.none,
           ),
         ),
@@ -374,7 +374,7 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: _enableMorphing
-                      ? const Color(0xFF9C27B0).withOpacity(0.2)
+                      ? const Color(0xFF9C27B0).withValues(alpha: 0.2)
                       : FluxForgeTheme.surface,
                   borderRadius: BorderRadius.circular(4),
                   border: Border.all(
@@ -440,7 +440,7 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
                   activeTrackColor: const Color(0xFF9C27B0),
                   inactiveTrackColor: FluxForgeTheme.bgMid,
                   thumbColor: Colors.white,
-                  overlayColor: const Color(0xFF9C27B0).withOpacity(0.2),
+                  overlayColor: const Color(0xFF9C27B0).withValues(alpha: 0.2),
                 ),
                 child: Slider(
                   value: _morphBlend,
@@ -497,7 +497,7 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: isSelected
-                  ? const Color(0xFF9C27B0).withOpacity(0.2)
+                  ? const Color(0xFF9C27B0).withValues(alpha: 0.2)
                   : FluxForgeTheme.surface,
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
@@ -590,7 +590,7 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF9C27B0).withOpacity(0.2)
+              ? const Color(0xFF9C27B0).withValues(alpha: 0.2)
               : FluxForgeTheme.surface,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
@@ -793,9 +793,9 @@ class ConvolutionIndicator extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
         decoration: BoxDecoration(
-          color: const Color(0xFF9C27B0).withOpacity(0.2),
+          color: const Color(0xFF9C27B0).withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(3),
-          border: Border.all(color: const Color(0xFF9C27B0).withOpacity(0.5)),
+          border: Border.all(color: const Color(0xFF9C27B0).withValues(alpha: 0.5)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

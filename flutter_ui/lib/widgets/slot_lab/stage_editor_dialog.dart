@@ -120,7 +120,7 @@ class _StageEditorDialogState extends State<StageEditorDialog> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: FluxForgeTheme.accentBlue.withOpacity(0.2),
+                      color: FluxForgeTheme.accentBlue.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
@@ -154,7 +154,7 @@ class _StageEditorDialogState extends State<StageEditorDialog> {
               decoration: BoxDecoration(
                 color: const Color(0xFF0D0D10),
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: Colors.white.withOpacity(0.1)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
               ),
               child: _editedStages.isEmpty
                   ? Center(
@@ -176,10 +176,10 @@ class _StageEditorDialogState extends State<StageEditorDialog> {
                           margin: const EdgeInsets.only(bottom: 4),
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                           decoration: BoxDecoration(
-                            color: FluxForgeTheme.accentGreen.withOpacity(0.15),
+                            color: FluxForgeTheme.accentGreen.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(4),
                             border: Border.all(
-                              color: FluxForgeTheme.accentGreen.withOpacity(0.3),
+                              color: FluxForgeTheme.accentGreen.withValues(alpha: 0.3),
                             ),
                           ),
                           child: Row(
@@ -260,7 +260,7 @@ class _StageEditorDialogState extends State<StageEditorDialog> {
                 decoration: BoxDecoration(
                   color: const Color(0xFF0D0D10),
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: Colors.white.withOpacity(0.1)),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
                 ),
                 child: _filteredStages.isEmpty
                     ? Center(
@@ -289,12 +289,12 @@ class _StageEditorDialogState extends State<StageEditorDialog> {
                                 ),
                               ),
                               backgroundColor: isAdded
-                                  ? Colors.white.withOpacity(0.05)
-                                  : FluxForgeTheme.accentBlue.withOpacity(0.2),
+                                  ? Colors.white.withValues(alpha: 0.05)
+                                  : FluxForgeTheme.accentBlue.withValues(alpha: 0.2),
                               side: BorderSide(
                                 color: isAdded
-                                    ? Colors.white.withOpacity(0.1)
-                                    : FluxForgeTheme.accentBlue.withOpacity(0.4),
+                                    ? Colors.white.withValues(alpha: 0.1)
+                                    : FluxForgeTheme.accentBlue.withValues(alpha: 0.4),
                               ),
                               onPressed: isAdded ? null : () => _addStage(stage),
                               avatar: isAdded
@@ -323,7 +323,7 @@ class _StageEditorDialogState extends State<StageEditorDialog> {
           style: ElevatedButton.styleFrom(
             backgroundColor: FluxForgeTheme.accentGreen,
             foregroundColor: Colors.black,
-            disabledBackgroundColor: Colors.white.withOpacity(0.1),
+            disabledBackgroundColor: Colors.white.withValues(alpha: 0.1),
             disabledForegroundColor: Colors.white38,
           ),
         ),

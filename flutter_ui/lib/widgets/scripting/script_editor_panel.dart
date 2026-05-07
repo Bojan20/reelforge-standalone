@@ -116,7 +116,7 @@ return fluxforge.getProjectInfo()
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: const Color(0xFF1a1a20),
-            border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+            border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1))),
           ),
           child: Row(
             children: [
@@ -142,7 +142,7 @@ return fluxforge.getProjectInfo()
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             color: const Color(0xFF121216),
-            border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.05))),
+            border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
           ),
           child: Row(
             children: [
@@ -209,7 +209,7 @@ return fluxforge.getProjectInfo()
         // Output
         Container(
           height: 1,
-          color: Colors.white.withOpacity(0.1),
+          color: Colors.white.withValues(alpha: 0.1),
         ),
         Expanded(
           flex: 2,
@@ -243,7 +243,7 @@ return fluxforge.getProjectInfo()
         Text(
           'JSON-RPC Server',
           style: TextStyle(
-            color: Colors.white.withOpacity(0.7),
+            color: Colors.white.withValues(alpha: 0.7),
             fontSize: 12,
           ),
         ),

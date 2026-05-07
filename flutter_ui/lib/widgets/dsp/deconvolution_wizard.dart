@@ -89,7 +89,7 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
         border: Border.all(color: FluxForgeTheme.border),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.6),
+            color: Colors.black.withValues(alpha: 0.6),
             blurRadius: 32,
             offset: const Offset(0, 16),
           ),
@@ -190,7 +190,7 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
                   color: isComplete
                       ? const Color(0xFF00BCD4)
                       : isCurrent
-                          ? const Color(0xFF00BCD4).withOpacity(0.3)
+                          ? const Color(0xFF00BCD4).withValues(alpha: 0.3)
                           : FluxForgeTheme.surface,
                   shape: BoxShape.circle,
                   border: Border.all(
@@ -362,7 +362,7 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF00BCD4).withOpacity(0.15)
+              ? const Color(0xFF00BCD4).withValues(alpha: 0.15)
               : FluxForgeTheme.surface,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
@@ -395,7 +395,7 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
             Text(
               info['desc'] as String,
               style: TextStyle(
-                color: FluxForgeTheme.textSecondary.withOpacity(0.7),
+                color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
                 fontSize: 9,
               ),
               textAlign: TextAlign.center,
@@ -514,7 +514,7 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
           boxShadow: [
             BoxShadow(
               color: (_isProcessing ? Colors.red : const Color(0xFF00BCD4))
-                  .withOpacity(0.4),
+                  .withValues(alpha: 0.4),
               blurRadius: 16,
               spreadRadius: 2,
             ),
@@ -587,7 +587,7 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
     return Text(
       text,
       style: TextStyle(
-        color: FluxForgeTheme.textSecondary.withOpacity(0.6),
+        color: FluxForgeTheme.textSecondary.withValues(alpha: 0.6),
         fontSize: 8,
       ),
     );
@@ -812,7 +812,7 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF00BCD4).withOpacity(0.2)
+              ? const Color(0xFF00BCD4).withValues(alpha: 0.2)
               : FluxForgeTheme.surface,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
@@ -906,9 +906,9 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF00BCD4).withOpacity(0.1),
+        color: const Color(0xFF00BCD4).withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF00BCD4).withOpacity(0.3)),
+        border: Border.all(color: const Color(0xFF00BCD4).withValues(alpha: 0.3)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -988,10 +988,10 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: value ? const Color(0xFF00BCD4).withOpacity(0.1) : FluxForgeTheme.surface,
+          color: value ? const Color(0xFF00BCD4).withValues(alpha: 0.1) : FluxForgeTheme.surface,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
-            color: value ? const Color(0xFF00BCD4).withOpacity(0.5) : FluxForgeTheme.border,
+            color: value ? const Color(0xFF00BCD4).withValues(alpha: 0.5) : FluxForgeTheme.border,
           ),
         ),
         child: Row(

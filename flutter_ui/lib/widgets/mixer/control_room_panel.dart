@@ -192,7 +192,7 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
           // Source selector
           Row(
             children: [
-              Text('Source:', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary.withOpacity(0.7))),
+              Text('Source:', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7))),
               const SizedBox(width: 8),
               Expanded(
                 child: _buildSourceDropdown(controlRoom),
@@ -331,7 +331,7 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
                   fontSize: 8,
                   color: isActive
                       ? FluxForgeTheme.textSecondary
-                      : FluxForgeTheme.textSecondary.withOpacity(0.5),
+                      : FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
                 ),
               ),
           ],
@@ -377,7 +377,7 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 6),
           decoration: BoxDecoration(
-            color: isActive ? color.withOpacity(0.3) : FluxForgeTheme.bgDeep,
+            color: isActive ? color.withValues(alpha: 0.3) : FluxForgeTheme.bgDeep,
             borderRadius: BorderRadius.circular(2),
             border: Border.all(
               color: isActive ? color : FluxForgeTheme.bgSurface,
@@ -389,7 +389,7 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
-                color: isActive ? color : FluxForgeTheme.textSecondary.withOpacity(0.5),
+                color: isActive ? color : FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
               ),
             ),
           ),
@@ -448,7 +448,7 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
             'Cue ${index + 1}',
             style: TextStyle(
               fontSize: 10,
-              color: enabled ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary.withOpacity(0.5),
+              color: enabled ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
             ),
           ),
         ),
@@ -462,7 +462,7 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
               overlayShape: SliderComponentShape.noOverlay,
               activeTrackColor: enabled ? FluxForgeTheme.accentBlue : Colors.white24,
               inactiveTrackColor: FluxForgeTheme.bgSurface,
-              thumbColor: enabled ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary.withOpacity(0.5),
+              thumbColor: enabled ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
             ),
             child: Slider(
               value: levelDb,
@@ -480,7 +480,7 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
             '${levelDb.toStringAsFixed(1)}',
             style: TextStyle(
               fontSize: 9,
-              color: enabled ? FluxForgeTheme.textSecondary : FluxForgeTheme.textSecondary.withOpacity(0.3),
+              color: enabled ? FluxForgeTheme.textSecondary : FluxForgeTheme.textSecondary.withValues(alpha: 0.3),
             ),
             textAlign: TextAlign.right,
           ),
@@ -553,7 +553,7 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
           // Destinations
           Row(
             children: [
-              Text('To:', style: TextStyle(fontSize: 9, color: FluxForgeTheme.textSecondary.withOpacity(0.5))),
+              Text('To:', style: TextStyle(fontSize: 9, color: FluxForgeTheme.textSecondary.withValues(alpha: 0.5))),
               const SizedBox(width: 8),
               ...List.generate(4, (i) => Padding(
                 padding: const EdgeInsets.only(right: 4),
@@ -574,7 +574,7 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
         decoration: BoxDecoration(
-          color: active ? FluxForgeTheme.accentBlue.withOpacity(0.3) : FluxForgeTheme.bgDeep,
+          color: active ? FluxForgeTheme.accentBlue.withValues(alpha: 0.3) : FluxForgeTheme.bgDeep,
           borderRadius: BorderRadius.circular(2),
           border: Border.all(
             color: active ? FluxForgeTheme.accentBlue : FluxForgeTheme.bgSurface,
@@ -585,7 +585,7 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
           style: TextStyle(
             fontSize: 9,
             fontWeight: FontWeight.bold,
-            color: active ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary.withOpacity(0.5),
+            color: active ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
           ),
         ),
       ),
@@ -605,7 +605,7 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
           style: TextStyle(
             fontSize: 9,
             fontWeight: FontWeight.bold,
-            color: FluxForgeTheme.textSecondary.withOpacity(0.5),
+            color: FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
             letterSpacing: 1,
           ),
         ),
@@ -626,7 +626,7 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: active ? activeColor.withOpacity(0.3) : FluxForgeTheme.bgDeep,
+          color: active ? activeColor.withValues(alpha: 0.3) : FluxForgeTheme.bgDeep,
           borderRadius: BorderRadius.circular(2),
           border: Border.all(
             color: active ? activeColor : FluxForgeTheme.bgSurface,
@@ -637,7 +637,7 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
           style: TextStyle(
             fontSize: 9,
             fontWeight: FontWeight.bold,
-            color: active ? activeColor : FluxForgeTheme.textSecondary.withOpacity(0.5),
+            color: active ? activeColor : FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
           ),
         ),
       ),
@@ -657,7 +657,7 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: TextStyle(fontSize: 9, color: FluxForgeTheme.textSecondary.withOpacity(0.5))),
+            Text(label, style: TextStyle(fontSize: 9, color: FluxForgeTheme.textSecondary.withValues(alpha: 0.5))),
             Text(
               '${value.toStringAsFixed(1)} dB',
               style: const TextStyle(fontSize: 9, color: FluxForgeTheme.textSecondary),

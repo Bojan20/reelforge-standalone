@@ -46,11 +46,11 @@ class TimelineGridPainter extends CustomPainter {
     final baseOpacity = snapEnabled ? 0.20 : 0.10;
 
     _majorPaint = Paint()
-      ..color = Colors.white.withOpacity(baseOpacity)
+      ..color = Colors.white.withValues(alpha: baseOpacity)
       ..strokeWidth = 1.0;
 
     _minorPaint = Paint()
-      ..color = Colors.white.withOpacity(baseOpacity * 0.5)
+      ..color = Colors.white.withValues(alpha: baseOpacity * 0.5)
       ..strokeWidth = 0.5;
 
     _gridLines = _generateGridLines();

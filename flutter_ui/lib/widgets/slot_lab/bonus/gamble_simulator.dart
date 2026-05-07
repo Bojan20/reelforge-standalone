@@ -269,9 +269,9 @@ class _GambleSimulatorState extends State<GambleSimulator>
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: _lastResult == GambleResult.win
-              ? Colors.green.withOpacity(0.5)
+              ? Colors.green.withValues(alpha: 0.5)
               : _lastResult == GambleResult.lose
-                  ? Colors.red.withOpacity(0.5)
+                  ? Colors.red.withValues(alpha: 0.5)
                   : FluxForgeTheme.borderSubtle,
           width: _lastResult != null ? 2 : 1,
         ),
@@ -317,9 +317,9 @@ class _GambleSimulatorState extends State<GambleSimulator>
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: Colors.orange.withOpacity(0.2),
+            color: Colors.orange.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.orange.withOpacity(0.5)),
+            border: Border.all(color: Colors.orange.withValues(alpha: 0.5)),
           ),
           child: Text(
             '${(widget.config.gameType.winChance * 100).toInt()}% / ${widget.config.gameType.winMultiplier.toInt()}x',
@@ -343,15 +343,15 @@ class _GambleSimulatorState extends State<GambleSimulator>
 
         if (_lastResult == GambleResult.win) {
           bgColor = Color.lerp(
-            Colors.green.withOpacity(0.3),
-            Colors.green.withOpacity(0.1),
+            Colors.green.withValues(alpha: 0.3),
+            Colors.green.withValues(alpha: 0.1),
             _resultAnimation.value,
           )!;
           textColor = Colors.green;
         } else if (_lastResult == GambleResult.lose) {
           bgColor = Color.lerp(
-            Colors.red.withOpacity(0.3),
-            Colors.red.withOpacity(0.1),
+            Colors.red.withValues(alpha: 0.3),
+            Colors.red.withValues(alpha: 0.1),
             _resultAnimation.value,
           )!;
           textColor = Colors.red;
@@ -364,9 +364,9 @@ class _GambleSimulatorState extends State<GambleSimulator>
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: _lastResult == GambleResult.win
-                  ? Colors.green.withOpacity(0.5)
+                  ? Colors.green.withValues(alpha: 0.5)
                   : _lastResult == GambleResult.lose
-                      ? Colors.red.withOpacity(0.5)
+                      ? Colors.red.withValues(alpha: 0.5)
                       : FluxForgeTheme.borderSubtle,
             ),
           ),
@@ -375,7 +375,7 @@ class _GambleSimulatorState extends State<GambleSimulator>
               Text(
                 'CURRENT STAKE',
                 style: TextStyle(
-                  color: textColor.withOpacity(0.7),
+                  color: textColor.withValues(alpha: 0.7),
                   fontSize: 10,
                   fontWeight: FontWeight.w500,
                   letterSpacing: 1.2,
@@ -437,7 +437,7 @@ class _GambleSimulatorState extends State<GambleSimulator>
     return Container(
       height: 80,
       decoration: BoxDecoration(
-        color: _winningChoice!.color.withOpacity(0.2),
+        color: _winningChoice!.color.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: _winningChoice!.color,
@@ -492,13 +492,13 @@ class _GambleSimulatorState extends State<GambleSimulator>
             height: 50,
             decoration: BoxDecoration(
               color: isSelected
-                  ? choice.color.withOpacity(0.3)
-                  : choice.color.withOpacity(_waitingForChoice ? 0.15 : 0.05),
+                  ? choice.color.withValues(alpha: 0.3)
+                  : choice.color.withValues(alpha: _waitingForChoice ? 0.15 : 0.05),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
                 color: isSelected || isWinner
                     ? choice.color
-                    : choice.color.withOpacity(0.3),
+                    : choice.color.withValues(alpha: 0.3),
                 width: isSelected || isWinner ? 2 : 1,
               ),
             ),
@@ -560,9 +560,9 @@ class _GambleSimulatorState extends State<GambleSimulator>
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         children: [
@@ -624,7 +624,7 @@ class _GambleSimulatorState extends State<GambleSimulator>
             label: const Text('COLLECT'),
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.green,
-              side: BorderSide(color: Colors.green.withOpacity(0.5)),
+              side: BorderSide(color: Colors.green.withValues(alpha: 0.5)),
               padding: const EdgeInsets.symmetric(vertical: 12),
             ),
           ),

@@ -115,7 +115,7 @@ class _SpectralHeatmapState extends State<SpectralHeatmap> {
         Text(
           'Spectral Allocation',
           style: TextStyle(
-            color: Colors.white.withOpacity(0.8),
+            color: Colors.white.withValues(alpha: 0.8),
             fontSize: 10,
             fontWeight: FontWeight.w600,
           ),
@@ -146,7 +146,7 @@ class _SpectralHeatmapState extends State<SpectralHeatmap> {
                   width: 54,
                   child: Text(
                     _roles[i],
-                    style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 7),
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 7),
                   ),
                 ),
                 Expanded(
@@ -154,8 +154,8 @@ class _SpectralHeatmapState extends State<SpectralHeatmap> {
                     height: 3,
                     child: LinearProgressIndicator(
                       value: values[i],
-                      backgroundColor: Colors.white.withOpacity(0.04),
-                      valueColor: AlwaysStoppedAnimation(_colors[i].withOpacity(0.7)),
+                      backgroundColor: Colors.white.withValues(alpha: 0.04),
+                      valueColor: AlwaysStoppedAnimation(_colors[i].withValues(alpha: 0.7)),
                     ),
                   ),
                 ),
@@ -164,7 +164,7 @@ class _SpectralHeatmapState extends State<SpectralHeatmap> {
                   child: Text(
                     '${(values[i] * 100).toStringAsFixed(0)}',
                     textAlign: TextAlign.right,
-                    style: TextStyle(color: _colors[i].withOpacity(0.5), fontSize: 6),
+                    style: TextStyle(color: _colors[i].withValues(alpha: 0.5), fontSize: 6),
                   ),
                 ),
               ],

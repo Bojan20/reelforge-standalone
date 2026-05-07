@@ -89,7 +89,7 @@ class _MwuiCoverageVizState extends State<MwuiCoverageViz> {
         children: [
           const Icon(Icons.grid_on, size: 14, color: Color(0xFF66BB6A)),
           const SizedBox(width: 6),
-          Text('Coverage', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 11, fontWeight: FontWeight.w600)),
+          Text('Coverage', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11, fontWeight: FontWeight.w600)),
           const Spacer(),
           Text('${pct.toStringAsFixed(0)}%', style: TextStyle(
             color: pct >= 80 ? const Color(0xFF66BB6A) : pct >= 50 ? const Color(0xFFFFB74D) : const Color(0xFFEF5350),
@@ -125,14 +125,14 @@ class _MwuiCoverageVizState extends State<MwuiCoverageViz> {
         margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
         padding: const EdgeInsets.symmetric(horizontal: 8),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF66BB6A).withOpacity(0.15) : Colors.transparent,
+          color: isSelected ? const Color(0xFF66BB6A).withValues(alpha: 0.15) : Colors.transparent,
           borderRadius: BorderRadius.circular(3),
         ),
         alignment: Alignment.center,
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? const Color(0xFF66BB6A) : Colors.white.withOpacity(0.4),
+            color: isSelected ? const Color(0xFF66BB6A) : Colors.white.withValues(alpha: 0.4),
             fontSize: 9,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
           ),
@@ -151,7 +151,7 @@ class _MwuiCoverageVizState extends State<MwuiCoverageViz> {
         height: 4,
         child: LinearProgressIndicator(
           value: pct.clamp(0.0, 1.0),
-          backgroundColor: Colors.white.withOpacity(0.06),
+          backgroundColor: Colors.white.withValues(alpha: 0.06),
           valueColor: AlwaysStoppedAnimation(
             pct >= 0.8 ? const Color(0xFF66BB6A) :
             pct >= 0.5 ? const Color(0xFFFFB74D) : const Color(0xFFEF5350),
@@ -165,7 +165,7 @@ class _MwuiCoverageVizState extends State<MwuiCoverageViz> {
     final tree = _treeProvider;
     if (tree == null) {
       return Center(
-        child: Text('Behavior tree not available', style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 11)),
+        child: Text('Behavior tree not available', style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 11)),
       );
     }
 
@@ -176,7 +176,7 @@ class _MwuiCoverageVizState extends State<MwuiCoverageViz> {
 
     if (nodes.isEmpty) {
       return Center(
-        child: Text('No nodes in this category', style: TextStyle(color: Colors.white.withOpacity(0.2), fontSize: 11)),
+        child: Text('No nodes in this category', style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 11)),
       );
     }
 
@@ -216,10 +216,10 @@ class _MwuiCoverageVizState extends State<MwuiCoverageViz> {
       child: Container(
         padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
-          color: isHovered ? color.withOpacity(0.15) : color.withOpacity(0.05),
+          color: isHovered ? color.withValues(alpha: 0.15) : color.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: isHovered ? color.withOpacity(0.6) : color.withOpacity(0.2),
+            color: isHovered ? color.withValues(alpha: 0.6) : color.withValues(alpha: 0.2),
             width: isHovered ? 1.0 : 0.5,
           ),
         ),
@@ -237,7 +237,7 @@ class _MwuiCoverageVizState extends State<MwuiCoverageViz> {
                 Expanded(
                   child: Text(
                     node.nodeType.displayName,
-                    style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 9, fontWeight: FontWeight.w500),
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 9, fontWeight: FontWeight.w500),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -246,7 +246,7 @@ class _MwuiCoverageVizState extends State<MwuiCoverageViz> {
             const SizedBox(height: 2),
             Text(
               total > 0 ? '${tested + verified}/$total stages' : 'no stages',
-              style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 7),
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 7),
             ),
           ],
         ),
@@ -278,10 +278,10 @@ class _MwuiCoverageVizState extends State<MwuiCoverageViz> {
               children: [
                 Text(
                   node?.nodeType.displayName ?? nodeId,
-                  style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12, fontWeight: FontWeight.w600),
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12, fontWeight: FontWeight.w600),
                 ),
                 if (node != null)
-                  Text(node.category.displayName, style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 9)),
+                  Text(node.category.displayName, style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 9)),
               ],
             ),
           ),
@@ -303,7 +303,7 @@ class _MwuiCoverageVizState extends State<MwuiCoverageViz> {
               padding: const EdgeInsets.symmetric(horizontal: 10),
               children: [
                 Text('STAGE ENTRIES', style: TextStyle(
-                  color: const Color(0xFF66BB6A).withOpacity(0.6),
+                  color: const Color(0xFF66BB6A).withValues(alpha: 0.6),
                   fontSize: 8, fontWeight: FontWeight.w700, letterSpacing: 1)),
                 const SizedBox(height: 4),
                 for (final entry in entries)
@@ -328,7 +328,7 @@ class _MwuiCoverageVizState extends State<MwuiCoverageViz> {
                         Expanded(
                           child: Text(
                             entry.stageName,
-                            style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 9),
+                            style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 9),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -348,8 +348,8 @@ class _MwuiCoverageVizState extends State<MwuiCoverageViz> {
       padding: const EdgeInsets.symmetric(vertical: 1),
       child: Row(
         children: [
-          SizedBox(width: 80, child: Text(label, style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 9))),
-          Text(value, style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 9, fontWeight: FontWeight.w500)),
+          SizedBox(width: 80, child: Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 9))),
+          Text(value, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 9, fontWeight: FontWeight.w500)),
         ],
       ),
     );

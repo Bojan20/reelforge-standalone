@@ -104,9 +104,9 @@ class _StageIngestPanelState extends State<StageIngestPanel>
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               margin: const EdgeInsets.only(right: 12),
               decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.2),
+                color: Colors.green.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: Colors.green.withOpacity(0.5)),
+                border: Border.all(color: Colors.green.withValues(alpha: 0.5)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -147,12 +147,12 @@ class _StageIngestPanelState extends State<StageIngestPanel>
       message: label,
       child: Row(
         children: [
-          Icon(icon, size: 14, color: Colors.white.withOpacity(0.5)),
+          Icon(icon, size: 14, color: Colors.white.withValues(alpha: 0.5)),
           const SizedBox(width: 4),
           Text(
             value,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
+              color: Colors.white.withValues(alpha: 0.7),
               fontSize: 12,
             ),
           ),
@@ -175,7 +175,7 @@ class _StageIngestPanelState extends State<StageIngestPanel>
         indicatorColor: const Color(0xFF4a9eff),
         indicatorWeight: 2,
         labelColor: const Color(0xFF4a9eff),
-        unselectedLabelColor: Colors.white.withOpacity(0.5),
+        unselectedLabelColor: Colors.white.withValues(alpha: 0.5),
         labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
         tabs: [
           const Tab(text: 'Traces'),
@@ -262,16 +262,16 @@ class _StageIngestPanelState extends State<StageIngestPanel>
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.timeline, size: 48, color: Colors.white.withOpacity(0.2)),
+                        Icon(Icons.timeline, size: 48, color: Colors.white.withValues(alpha: 0.2)),
                         const SizedBox(height: 12),
                         Text(
                           'No traces loaded',
-                          style: TextStyle(color: Colors.white.withOpacity(0.5)),
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           'Import JSON or create a new trace',
-                          style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 12),
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 12),
                         ),
                       ],
                     ),
@@ -324,7 +324,7 @@ class _StageIngestPanelState extends State<StageIngestPanel>
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF4a9eff).withOpacity(0.1)
+              ? const Color(0xFF4a9eff).withValues(alpha: 0.1)
               : const Color(0xFF1a1a20),
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
@@ -340,7 +340,7 @@ class _StageIngestPanelState extends State<StageIngestPanel>
               size: 16,
               color: isSelected
                   ? const Color(0xFF4a9eff)
-                  : Colors.white.withOpacity(0.5),
+                  : Colors.white.withValues(alpha: 0.5),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -350,7 +350,7 @@ class _StageIngestPanelState extends State<StageIngestPanel>
                   Text(
                     trace.traceId,
                     style: TextStyle(
-                      color: Colors.white.withOpacity(isSelected ? 1 : 0.8),
+                      color: Colors.white.withValues(alpha: isSelected ? 1 : 0.8),
                       fontSize: 12,
                       fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
                     ),
@@ -360,7 +360,7 @@ class _StageIngestPanelState extends State<StageIngestPanel>
                   Text(
                     '${trace.eventCount} events | ${_formatDuration(trace.durationMs)}',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.5),
+                      color: Colors.white.withValues(alpha: 0.5),
                       fontSize: 10,
                     ),
                   ),
@@ -373,7 +373,7 @@ class _StageIngestPanelState extends State<StageIngestPanel>
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 margin: const EdgeInsets.only(right: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFff9040).withOpacity(0.2),
+                  color: const Color(0xFFff9040).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: const Text(
@@ -388,7 +388,7 @@ class _StageIngestPanelState extends State<StageIngestPanel>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFff4040).withOpacity(0.2),
+                  color: const Color(0xFFff4040).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: const Text(
@@ -401,7 +401,7 @@ class _StageIngestPanelState extends State<StageIngestPanel>
               ),
             const SizedBox(width: 8),
             IconButton(
-              icon: Icon(Icons.delete, size: 16, color: Colors.white.withOpacity(0.4)),
+              icon: Icon(Icons.delete, size: 16, color: Colors.white.withValues(alpha: 0.4)),
               onPressed: () {
                 provider.destroyTrace(trace.handle);
                 if (_selectedTraceHandle == trace.handle) {
@@ -467,13 +467,13 @@ class _StageIngestPanelState extends State<StageIngestPanel>
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: provider.isStagingMode
-                  ? Colors.green.withOpacity(0.1)
-                  : Colors.grey.withOpacity(0.1),
+                  ? Colors.green.withValues(alpha: 0.1)
+                  : Colors.grey.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(6),
               border: Border.all(
                 color: provider.isStagingMode
-                    ? Colors.green.withOpacity(0.5)
-                    : Colors.grey.withOpacity(0.3),
+                    ? Colors.green.withValues(alpha: 0.5)
+                    : Colors.grey.withValues(alpha: 0.3),
               ),
             ),
             child: Row(
@@ -501,7 +501,7 @@ class _StageIngestPanelState extends State<StageIngestPanel>
                             ? 'Mock engine events are being forwarded to audio system'
                             : 'Enable to test audio without connecting to a real engine',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.5),
+                          color: Colors.white.withValues(alpha: 0.5),
                           fontSize: 11,
                         ),
                       ),
@@ -657,7 +657,7 @@ class _ImportJsonDialogState extends State<_ImportJsonDialog> {
           children: [
             Text(
               'Paste JSON from your slot engine:',
-              style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12),
             ),
             const SizedBox(height: 8),
             Container(
@@ -681,7 +681,7 @@ class _ImportJsonDialogState extends State<_ImportJsonDialog> {
                 ),
                 decoration: InputDecoration(
                   hintText: '{"events": [...], "game_id": "..."}',
-                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                  hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.all(8),
                 ),
@@ -703,7 +703,7 @@ class _ImportJsonDialogState extends State<_ImportJsonDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: Text(
             'Cancel',
-            style: TextStyle(color: Colors.white.withOpacity(0.7)),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
           ),
         ),
         ElevatedButton(

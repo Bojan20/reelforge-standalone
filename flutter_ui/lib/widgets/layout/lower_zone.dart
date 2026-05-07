@@ -287,23 +287,23 @@ class _LowerZoneState extends State<LowerZone> {
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        groupColor.withOpacity(0.35),
-                        groupColor.withOpacity(0.2),
+                        groupColor.withValues(alpha: 0.35),
+                        groupColor.withValues(alpha: 0.2),
                       ],
                     )
                   : null,
-              color: isActiveGroup ? null : FluxForgeTheme.bgDeepest.withOpacity(0.6),
+              color: isActiveGroup ? null : FluxForgeTheme.bgDeepest.withValues(alpha: 0.6),
               borderRadius: BorderRadius.circular(6),
               border: Border.all(
                 color: isActiveGroup
-                    ? groupColor.withOpacity(0.7)
-                    : FluxForgeTheme.borderSubtle.withOpacity(0.4),
+                    ? groupColor.withValues(alpha: 0.7)
+                    : FluxForgeTheme.borderSubtle.withValues(alpha: 0.4),
                 width: isActiveGroup ? 1.5 : 1,
               ),
               boxShadow: isActiveGroup
                   ? [
                       BoxShadow(
-                        color: groupColor.withOpacity(0.2),
+                        color: groupColor.withValues(alpha: 0.2),
                         blurRadius: 6,
                         spreadRadius: 0,
                       ),
@@ -345,10 +345,10 @@ class _LowerZoneState extends State<LowerZone> {
             margin: const EdgeInsets.only(left: 4),
             padding: const EdgeInsets.symmetric(horizontal: 4),
             decoration: BoxDecoration(
-              color: FluxForgeTheme.bgDeepest.withOpacity(0.4),
+              color: FluxForgeTheme.bgDeepest.withValues(alpha: 0.4),
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
-                color: groupColor.withOpacity(0.2),
+                color: groupColor.withValues(alpha: 0.2),
                 width: 1,
               ),
             ),
@@ -378,7 +378,7 @@ class _LowerZoneState extends State<LowerZone> {
         decoration: BoxDecoration(
           // Active tab: light background with underline indicator
           color: isActive
-              ? groupColor.withOpacity(0.12)
+              ? groupColor.withValues(alpha: 0.12)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(3),
           border: Border(

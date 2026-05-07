@@ -126,7 +126,7 @@ class _VolatilityDialState extends State<VolatilityDial> with SingleTickerProvid
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: _currentLevel.color.withOpacity(0.3 + _glowController.value * 0.2),
+                      color: _currentLevel.color.withValues(alpha: 0.3 + _glowController.value * 0.2),
                       blurRadius: 20 + _glowController.value * 10,
                       spreadRadius: 2,
                     ),
@@ -151,10 +151,10 @@ class _VolatilityDialState extends State<VolatilityDial> with SingleTickerProvid
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             decoration: BoxDecoration(
-              color: _currentLevel.color.withOpacity(0.2),
+              color: _currentLevel.color.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
-                color: _currentLevel.color.withOpacity(0.5),
+                color: _currentLevel.color.withValues(alpha: 0.5),
               ),
             ),
             child: Row(
@@ -191,14 +191,14 @@ class _VolatilityDialState extends State<VolatilityDial> with SingleTickerProvid
                 height: 20,
                 margin: const EdgeInsets.symmetric(horizontal: 2),
                 decoration: BoxDecoration(
-                  color: isSelected ? level.color : level.color.withOpacity(0.3),
+                  color: isSelected ? level.color : level.color.withValues(alpha: 0.3),
                   shape: BoxShape.circle,
                   border: Border.all(
                     color: isSelected ? Colors.white : Colors.transparent,
                     width: 2,
                   ),
                   boxShadow: isSelected
-                      ? [BoxShadow(color: level.color.withOpacity(0.5), blurRadius: 6)]
+                      ? [BoxShadow(color: level.color.withValues(alpha: 0.5), blurRadius: 6)]
                       : null,
                 ),
               ),
@@ -234,7 +234,7 @@ class _VolatilityDialState extends State<VolatilityDial> with SingleTickerProvid
               ),
               title: Text(level.label, style: TextStyle(color: level.color, fontSize: 12)),
               selected: level == _currentLevel,
-              selectedTileColor: level.color.withOpacity(0.1),
+              selectedTileColor: level.color.withValues(alpha: 0.1),
             );
           }).toList(),
         ),
@@ -269,7 +269,7 @@ class _VolatilityDialPainter extends CustomPainter {
 
     // Outer ring
     final outerRingPaint = Paint()
-      ..color = Colors.white.withOpacity(0.1)
+      ..color = Colors.white.withValues(alpha: 0.1)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3;
 
@@ -284,7 +284,7 @@ class _VolatilityDialPainter extends CustomPainter {
       final isActive = i <= level.value;
 
       final arcPaint = Paint()
-        ..color = isActive ? segmentColor : segmentColor.withOpacity(0.2)
+        ..color = isActive ? segmentColor : segmentColor.withValues(alpha: 0.2)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 8
         ..strokeCap = StrokeCap.round;
@@ -300,7 +300,7 @@ class _VolatilityDialPainter extends CustomPainter {
 
     // Tick marks
     final tickPaint = Paint()
-      ..color = Colors.white.withOpacity(0.5)
+      ..color = Colors.white.withValues(alpha: 0.5)
       ..strokeWidth = 2
       ..strokeCap = StrokeCap.round;
 
@@ -339,7 +339,7 @@ class _VolatilityDialPainter extends CustomPainter {
 
     // Knob highlight
     final highlightPaint = Paint()
-      ..color = Colors.white.withOpacity(0.1)
+      ..color = Colors.white.withValues(alpha: 0.1)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
 
@@ -385,7 +385,7 @@ class _VolatilityDialPainter extends CustomPainter {
         center,
         radius + 8,
         Paint()
-          ..color = level.color.withOpacity(0.3)
+          ..color = level.color.withValues(alpha: 0.3)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2,
       );
@@ -418,10 +418,10 @@ class VolatilityIndicator extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: level.color.withOpacity(0.15),
+          color: level.color.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: level.color.withOpacity(0.5),
+            color: level.color.withValues(alpha: 0.5),
           ),
         ),
         child: Row(

@@ -83,7 +83,7 @@ class _VariantGroupPanelState extends State<VariantGroupPanel> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
-              color: FluxForgeTheme.accentBlue.withOpacity(0.2),
+              color: FluxForgeTheme.accentBlue.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
@@ -142,14 +142,14 @@ class _VariantGroupPanelState extends State<VariantGroupPanel> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.compare_arrows, size: 64, color: Colors.white.withOpacity(0.1)),
+          Icon(Icons.compare_arrows, size: 64, color: Colors.white.withValues(alpha: 0.1)),
           const SizedBox(height: 16),
           Text(
             'No Variant Groups',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: Colors.white.withOpacity(0.3),
+              color: Colors.white.withValues(alpha: 0.3),
             ),
           ),
           const SizedBox(height: 8),
@@ -157,7 +157,7 @@ class _VariantGroupPanelState extends State<VariantGroupPanel> {
             'Create a group to compare audio variants',
             style: TextStyle(
               fontSize: 11,
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.2),
             ),
           ),
         ],
@@ -196,7 +196,7 @@ class _VariantGroupPanelState extends State<VariantGroupPanel> {
         color: const Color(0xFF16161C),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: Colors.white.withOpacity(0.05),
+          color: Colors.white.withValues(alpha: 0.05),
           width: 1,
         ),
       ),
@@ -258,7 +258,7 @@ class _VariantGroupPanelState extends State<VariantGroupPanel> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: FluxForgeTheme.accentPurple.withOpacity(0.2),
+                      color: FluxForgeTheme.accentPurple.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -276,7 +276,7 @@ class _VariantGroupPanelState extends State<VariantGroupPanel> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: FluxForgeTheme.accentGreen.withOpacity(0.2),
+                        color: FluxForgeTheme.accentGreen.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
@@ -405,13 +405,13 @@ class _VariantGroupPanelState extends State<VariantGroupPanel> {
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: isActive
-            ? FluxForgeTheme.accentGreen.withOpacity(0.1)
+            ? FluxForgeTheme.accentGreen.withValues(alpha: 0.1)
             : const Color(0xFF0D0D10),
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
           color: isActive
-              ? FluxForgeTheme.accentGreen.withOpacity(0.3)
-              : Colors.white.withOpacity(0.05),
+              ? FluxForgeTheme.accentGreen.withValues(alpha: 0.3)
+              : Colors.white.withValues(alpha: 0.05),
           width: 1,
         ),
       ),
@@ -476,7 +476,7 @@ class _VariantGroupPanelState extends State<VariantGroupPanel> {
               IconButton(
                 icon: const Icon(Icons.close, size: 16),
                 onPressed: () => service.removeVariantFromGroup(group.id, variant.id),
-                color: Colors.red.withOpacity(0.7),
+                color: Colors.red.withValues(alpha: 0.7),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
                 tooltip: 'Remove',
@@ -492,7 +492,7 @@ class _VariantGroupPanelState extends State<VariantGroupPanel> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
@@ -687,7 +687,7 @@ class _VariantGroupPanelState extends State<VariantGroupPanel> {
           children: [
             Text(
               'Replace all uses of:',
-              style: TextStyle(color: Colors.white.withOpacity(0.7)),
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
             ),
             const SizedBox(height: 8),
             Text(
@@ -700,7 +700,7 @@ class _VariantGroupPanelState extends State<VariantGroupPanel> {
             const SizedBox(height: 16),
             Text(
               'With:',
-              style: TextStyle(color: Colors.white.withOpacity(0.7)),
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
             ),
             const SizedBox(height: 8),
             ...otherVariants.map((v) => ListTile(

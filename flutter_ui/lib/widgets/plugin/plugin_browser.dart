@@ -253,7 +253,7 @@ class _PluginBrowserState extends State<PluginBrowser> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: isSelected ? (color ?? const Color(0xFF4A9EFF)).withOpacity(0.2) : Colors.transparent,
+            color: isSelected ? (color ?? const Color(0xFF4A9EFF)).withValues(alpha: 0.2) : Colors.transparent,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
               color: isSelected ? (color ?? const Color(0xFF4A9EFF)) : const Color(0xFF3A3A40),
@@ -310,11 +310,11 @@ class _PluginBrowserState extends State<PluginBrowser> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.error_outline, size: 48, color: Colors.red.withOpacity(0.6)),
+                Icon(Icons.error_outline, size: 48, color: Colors.red.withValues(alpha: 0.6)),
                 const SizedBox(height: 12),
                 Text(
                   provider.scanError ?? 'Plugin scan failed',
-                  style: TextStyle(color: Colors.red.withOpacity(0.8), fontSize: 13),
+                  style: TextStyle(color: Colors.red.withValues(alpha: 0.8), fontSize: 13),
                 ),
                 const SizedBox(height: 8),
                 TextButton.icon(
@@ -332,7 +332,7 @@ class _PluginBrowserState extends State<PluginBrowser> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.extension_off, size: 48, color: Colors.white.withOpacity(0.2)),
+                Icon(Icons.extension_off, size: 48, color: Colors.white.withValues(alpha: 0.2)),
                 const SizedBox(height: 12),
                 Text(
                   provider.searchQuery.isNotEmpty
@@ -340,7 +340,7 @@ class _PluginBrowserState extends State<PluginBrowser> {
                       : provider.allPlugins.isEmpty
                           ? 'No plugins found'
                           : 'No plugins match filters',
-                  style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13),
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 13),
                 ),
                 const SizedBox(height: 8),
                 if (provider.allPlugins.isEmpty)
@@ -385,7 +385,7 @@ class _PluginBrowserState extends State<PluginBrowser> {
                       width: 32,
                       height: 18,
                       decoration: BoxDecoration(
-                        color: _getFormatColor(plugin.format).withOpacity(0.15),
+                        color: _getFormatColor(plugin.format).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(3),
                       ),
                       alignment: Alignment.center,
@@ -457,7 +457,7 @@ class _PluginBrowserState extends State<PluginBrowser> {
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  color: _getFormatColor(plugin.format).withOpacity(0.15),
+                  color: _getFormatColor(plugin.format).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 alignment: Alignment.center,

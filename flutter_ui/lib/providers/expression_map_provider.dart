@@ -1046,7 +1046,7 @@ class ExpressionMapProvider extends ChangeNotifier {
       'defaultArticulationId': m.defaultArticulationId,
       'remoteKeyRangeStart': m.remoteKeyRangeStart,
       'remoteKeyRangeEnd': m.remoteKeyRangeEnd,
-      'color': m.color.toARGB32(),
+      'color': m.color.value,
     };
   }
 
@@ -1076,7 +1076,7 @@ class ExpressionMapProvider extends ChangeNotifier {
       'description': a.description,
       'type': a.type.index,
       'category': a.category.index,
-      'color': a.color.toARGB32(),
+      'color': a.color.value,
       'outputs': a.outputs.map((o) => _outputToJson(o)).toList(),
       'group': a.group,
       'isDefault': a.isDefault,

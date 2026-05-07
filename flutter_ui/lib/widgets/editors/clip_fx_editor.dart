@@ -163,14 +163,14 @@ class _ClipFxEditorState extends State<ClipFxEditor> {
           Icon(
             Icons.add_circle_outline,
             size: 48,
-            color: FluxForgeTheme.textMuted.withOpacity(0.5),
+            color: FluxForgeTheme.textMuted.withValues(alpha: 0.5),
           ),
           const SizedBox(height: 12),
           Text(
             'No FX in chain',
             style: TextStyle(
               fontSize: 13,
-              color: FluxForgeTheme.textMuted.withOpacity(0.7),
+              color: FluxForgeTheme.textMuted.withValues(alpha: 0.7),
             ),
           ),
           const SizedBox(height: 4),
@@ -178,7 +178,7 @@ class _ClipFxEditorState extends State<ClipFxEditor> {
             'Click + to add effects',
             style: TextStyle(
               fontSize: 11,
-              color: FluxForgeTheme.textMuted.withOpacity(0.5),
+              color: FluxForgeTheme.textMuted.withValues(alpha: 0.5),
             ),
           ),
         ],
@@ -252,9 +252,9 @@ class _ClipFxEditorState extends State<ClipFxEditor> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: FluxForgeTheme.accent.withOpacity(0.1),
+            color: FluxForgeTheme.accent.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: FluxForgeTheme.accent.withOpacity(0.3)),
+            border: Border.all(color: FluxForgeTheme.accent.withValues(alpha: 0.3)),
           ),
           child: const Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -311,7 +311,7 @@ class _FxSlotCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 6),
       color: slot.bypass
-          ? FluxForgeTheme.surfaceDark.withOpacity(0.5)
+          ? FluxForgeTheme.surfaceDark.withValues(alpha: 0.5)
           : FluxForgeTheme.surface,
       child: ExpansionTile(
         leading: Icon(
@@ -725,8 +725,8 @@ class _BypassButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         decoration: BoxDecoration(
           color: bypassed
-              ? FluxForgeTheme.warning.withOpacity(0.2)
-              : FluxForgeTheme.success.withOpacity(0.2),
+              ? FluxForgeTheme.warning.withValues(alpha: 0.2)
+              : FluxForgeTheme.success.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(4),
         ),
         child: Text(
@@ -888,8 +888,8 @@ class ClipFxBadge extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
         decoration: BoxDecoration(
           color: hasActive
-              ? FluxForgeTheme.accent.withOpacity(0.8)
-              : FluxForgeTheme.textMuted.withOpacity(0.5),
+              ? FluxForgeTheme.accent.withValues(alpha: 0.8)
+              : FluxForgeTheme.textMuted.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(3),
         ),
         child: Row(
@@ -898,7 +898,7 @@ class ClipFxBadge extends StatelessWidget {
             Icon(
               Icons.auto_fix_high,
               size: 10,
-              color: Colors.white.withOpacity(0.9),
+              color: Colors.white.withValues(alpha: 0.9),
             ),
             const SizedBox(width: 2),
             Text(
@@ -906,7 +906,7 @@ class ClipFxBadge extends StatelessWidget {
               style: TextStyle(
                 fontSize: 9,
                 fontWeight: FontWeight.bold,
-                color: Colors.white.withOpacity(0.9),
+                color: Colors.white.withValues(alpha: 0.9),
               ),
             ),
           ],

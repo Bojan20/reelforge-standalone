@@ -184,7 +184,7 @@ class _StageDetectivePanelState extends State<StageDetectivePanel> {
         decoration: BoxDecoration(
           color: Colors.grey[800],
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: color.withOpacity(0.3)),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -311,7 +311,7 @@ class _StageDetectivePanelState extends State<StageDetectivePanel> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.blue.withOpacity(0.1) : null,
+          color: isSelected ? Colors.blue.withValues(alpha: 0.1) : null,
           border: Border(
             left: BorderSide(color: color, width: 3),
             bottom: BorderSide(color: Colors.grey[800]!),
@@ -437,7 +437,7 @@ class _StageDetectivePanelState extends State<StageDetectivePanel> {
             width: 24,
             height: 24,
             decoration: BoxDecoration(
-              color: step.color.withOpacity(0.2),
+              color: step.color.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Center(

@@ -70,7 +70,7 @@ class _AilPanelZoneState extends State<AilPanelZone> {
         Text(
           'AIL Recommendations',
           style: TextStyle(
-            color: Colors.white.withOpacity(0.8),
+            color: Colors.white.withValues(alpha: 0.8),
             fontSize: 10,
             fontWeight: FontWeight.w600,
           ),
@@ -81,7 +81,7 @@ class _AilPanelZoneState extends State<AilPanelZone> {
             onTap: () => _provider?.runAnalysis(),
             child: Text(
               'Run',
-              style: TextStyle(color: const Color(0xFFFFAB40).withOpacity(0.7), fontSize: 8),
+              style: TextStyle(color: const Color(0xFFFFAB40).withValues(alpha: 0.7), fontSize: 8),
             ),
           ),
       ],
@@ -91,7 +91,7 @@ class _AilPanelZoneState extends State<AilPanelZone> {
   Widget _buildEmpty() {
     return Text(
       'Run AIL analysis to see recommendations',
-      style: TextStyle(color: Colors.white.withOpacity(0.2), fontSize: 8),
+      style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 8),
     );
   }
 
@@ -122,7 +122,7 @@ class _AilPanelZoneState extends State<AilPanelZone> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(2),
       ),
       child: Text(text, style: TextStyle(color: color, fontSize: 7, fontWeight: FontWeight.w500)),
@@ -134,7 +134,7 @@ class _AilPanelZoneState extends State<AilPanelZone> {
     if (recs.isEmpty) {
       return Text(
         'No recommendations',
-        style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 8),
+        style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 8),
       );
     }
 
@@ -156,7 +156,7 @@ class _AilPanelZoneState extends State<AilPanelZone> {
                 Expanded(
                   child: Text(
                     rec.title,
-                    style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 8),
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 8),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -173,7 +173,7 @@ class _AilPanelZoneState extends State<AilPanelZone> {
 
   Color _statusColor() {
     final p = _provider;
-    if (p == null) return Colors.white.withOpacity(0.3);
+    if (p == null) return Colors.white.withValues(alpha: 0.3);
     switch (p.status) {
       case AilStatusLevel.excellent: return const Color(0xFF66BB6A);
       case AilStatusLevel.good: return const Color(0xFF42A5F5);

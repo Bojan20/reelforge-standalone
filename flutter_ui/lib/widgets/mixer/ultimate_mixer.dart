@@ -733,7 +733,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
         color: FluxForgeTheme.bgDeep,
         border: Border(
           bottom: BorderSide(
-            color: FluxForgeTheme.textPrimary.withOpacity(0.1),
+            color: FluxForgeTheme.textPrimary.withValues(alpha: 0.1),
           ),
         ),
       ),
@@ -782,7 +782,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(3),
-                border: Border.all(color: FluxForgeTheme.textPrimary.withOpacity(0.1)),
+                border: Border.all(color: FluxForgeTheme.textPrimary.withValues(alpha: 0.1)),
               ),
               child: Text(
                 widget.meteringMode.label,
@@ -939,13 +939,13 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
             margin: const EdgeInsets.symmetric(horizontal: 1),
             decoration: BoxDecoration(
               color: ch.selected
-                  ? FluxForgeTheme.bgMid.withOpacity(0.8)
+                  ? FluxForgeTheme.bgMid.withValues(alpha: 0.8)
                   : FluxForgeTheme.bgDeep,
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
                 color: ch.selected
-                    ? ch.color.withOpacity(0.6)
-                    : FluxForgeTheme.textPrimary.withOpacity(0.05),
+                    ? ch.color.withValues(alpha: 0.6)
+                    : FluxForgeTheme.textPrimary.withValues(alpha: 0.05),
               ),
             ),
             clipBehavior: Clip.hardEdge,
@@ -1053,7 +1053,7 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: FluxForgeTheme.borderSubtle.withOpacity(0.3)),
+          bottom: BorderSide(color: FluxForgeTheme.borderSubtle.withValues(alpha: 0.3)),
         ),
       ),
       child: Row(
@@ -1069,8 +1069,8 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
                 height: 22,
                 decoration: BoxDecoration(
                   color: input.phaseInvert
-                      ? FluxForgeTheme.accentOrange.withOpacity(0.8)
-                      : FluxForgeTheme.bgVoid.withOpacity(0.4),
+                      ? FluxForgeTheme.accentOrange.withValues(alpha: 0.8)
+                      : FluxForgeTheme.bgVoid.withValues(alpha: 0.4),
                   borderRadius: BorderRadius.circular(4),
                   border: Border.all(
                     color: input.phaseInvert
@@ -1135,7 +1135,7 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
         alignment: Alignment.center,
         decoration: BoxDecoration(
           border: Border(
-            bottom: BorderSide(color: FluxForgeTheme.borderSubtle.withOpacity(0.2)),
+            bottom: BorderSide(color: FluxForgeTheme.borderSubtle.withValues(alpha: 0.2)),
           ),
         ),
         child: Text(
@@ -1407,9 +1407,9 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
         height: 32,
         margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
         decoration: BoxDecoration(
-          color: FluxForgeTheme.bgDeepest.withOpacity(0.6),
+          color: FluxForgeTheme.bgDeepest.withValues(alpha: 0.6),
           borderRadius: BorderRadius.circular(3),
-          border: Border.all(color: FluxForgeTheme.textPrimary.withOpacity(0.08)),
+          border: Border.all(color: FluxForgeTheme.textPrimary.withValues(alpha: 0.08)),
         ),
         child: CustomPaint(
           painter: _EqCurvePainter(points: points),
@@ -1429,7 +1429,7 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
       padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
       margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
       decoration: BoxDecoration(
-        color: FluxForgeTheme.bgDeepest.withOpacity(0.4),
+        color: FluxForgeTheme.bgDeepest.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(3),
       ),
       child: Column(
@@ -1468,9 +1468,9 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
         margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
         padding: const EdgeInsets.symmetric(horizontal: 3),
         decoration: BoxDecoration(
-          color: FluxForgeTheme.bgDeepest.withOpacity(0.4),
+          color: FluxForgeTheme.bgDeepest.withValues(alpha: 0.4),
           borderRadius: BorderRadius.circular(3),
-          border: Border.all(color: FluxForgeTheme.textPrimary.withOpacity(0.06)),
+          border: Border.all(color: FluxForgeTheme.textPrimary.withValues(alpha: 0.06)),
         ),
         alignment: Alignment.centerLeft,
         child: Text(
@@ -1478,7 +1478,7 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
           style: TextStyle(
             fontSize: 8,
             color: comments.isEmpty
-                ? FluxForgeTheme.textSecondary.withOpacity(0.3)
+                ? FluxForgeTheme.textSecondary.withValues(alpha: 0.3)
                 : FluxForgeTheme.textSecondary,
           ),
           maxLines: 1,
@@ -1505,7 +1505,7 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
           style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
           decoration: InputDecoration(
             hintText: 'Enter track notes...',
-            hintStyle: TextStyle(color: FluxForgeTheme.textSecondary.withOpacity(0.4)),
+            hintStyle: TextStyle(color: FluxForgeTheme.textSecondary.withValues(alpha: 0.4)),
             border: const OutlineInputBorder(),
           ),
         ),
@@ -1534,7 +1534,7 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         border: Border(
-          top: BorderSide(color: FluxForgeTheme.borderSubtle.withOpacity(0.15)),
+          top: BorderSide(color: FluxForgeTheme.borderSubtle.withValues(alpha: 0.15)),
         ),
       ),
       child: Text(
@@ -1542,7 +1542,7 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
         style: TextStyle(
           fontSize: 7,
           fontWeight: FontWeight.w500,
-          color: FluxForgeTheme.textTertiary.withOpacity(0.6),
+          color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6),
           letterSpacing: 0.5,
         ),
       ),
@@ -1628,7 +1628,7 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
               style: TextStyle(
                 fontSize: 7,
                 fontWeight: FontWeight.w600,
-                color: knobColor.withOpacity(0.7),
+                color: knobColor.withValues(alpha: 0.7),
                 letterSpacing: 0.5,
               ),
             ),
@@ -1647,10 +1647,10 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
                     child: Container(
                       margin: const EdgeInsets.symmetric(horizontal: 4),
                       decoration: BoxDecoration(
-                        color: FluxForgeTheme.bgVoid.withOpacity(0.4),
+                        color: FluxForgeTheme.bgVoid.withValues(alpha: 0.4),
                         borderRadius: BorderRadius.circular(3),
                         border: Border.all(
-                          color: FluxForgeTheme.borderSubtle.withOpacity(0.3),
+                          color: FluxForgeTheme.borderSubtle.withValues(alpha: 0.3),
                           width: 0.5,
                         ),
                       ),
@@ -1663,7 +1663,7 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
                             bottom: 2,
                             child: Container(
                               width: 0.5,
-                              color: FluxForgeTheme.textTertiary.withOpacity(0.3),
+                              color: FluxForgeTheme.textTertiary.withValues(alpha: 0.3),
                             ),
                           ),
                           // Fill bar from center
@@ -1678,7 +1678,7 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
                             bottom: 2,
                             child: Container(
                               decoration: BoxDecoration(
-                                color: knobColor.withOpacity(0.5),
+                                color: knobColor.withValues(alpha: 0.5),
                                 borderRadius: BorderRadius.circular(1),
                               ),
                             ),
@@ -1709,7 +1709,7 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
               style: TextStyle(
                 fontSize: 7,
                 fontWeight: FontWeight.w500,
-                color: knobColor.withOpacity(0.8),
+                color: knobColor.withValues(alpha: 0.8),
               ),
             ),
           ],
@@ -1745,7 +1745,7 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
         margin: const EdgeInsets.symmetric(horizontal: 2),
         padding: const EdgeInsets.symmetric(vertical: 1),
         decoration: BoxDecoration(
-          color: FluxForgeTheme.bgDeepest.withOpacity(0.5),
+          color: FluxForgeTheme.bgDeepest.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(2),
         ),
         child: Column(
@@ -1763,7 +1763,7 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
             Text(
               hasMeasurement ? 'I ${lufsI.toStringAsFixed(1)}' : 'I  -∞',
               style: TextStyle(
-                color: _lufsColor(lufsI).withOpacity(0.7),
+                color: _lufsColor(lufsI).withValues(alpha: 0.7),
                 fontSize: 7,
                 fontFamily: 'monospace',
               ),
@@ -1778,7 +1778,7 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
       margin: const EdgeInsets.symmetric(horizontal: 3),
       padding: const EdgeInsets.symmetric(vertical: 1),
       decoration: BoxDecoration(
-        color: FluxForgeTheme.bgDeepest.withOpacity(0.5),
+        color: FluxForgeTheme.bgDeepest.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(2),
       ),
       child: Row(
@@ -1797,7 +1797,7 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
           Text(
             hasMeasurement ? 'I:${lufsI.toStringAsFixed(1)}' : 'I: -∞',
             style: TextStyle(
-              color: _lufsColor(lufsI).withOpacity(0.7),
+              color: _lufsColor(lufsI).withValues(alpha: 0.7),
               fontSize: 7,
               fontFamily: 'monospace',
             ),
@@ -1890,7 +1890,7 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
                     Icon(
                       ch.folderExpanded ? Icons.folder_open : Icons.folder,
                       size: 10,
-                      color: ch.color.withOpacity(0.8),
+                      color: ch.color.withValues(alpha: 0.8),
                     ),
                     const SizedBox(width: 2),
                     Text(
@@ -2126,7 +2126,7 @@ class _FaderWithMeterState extends State<_FaderWithMeter> {
                   bottom: 2,
                   child: Container(
                     decoration: BoxDecoration(
-                      color: FluxForgeTheme.bgVoid.withOpacity(0.4),
+                      color: FluxForgeTheme.bgVoid.withValues(alpha: 0.4),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -2161,12 +2161,12 @@ class _FaderWithMeterState extends State<_FaderWithMeter> {
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.5),
+                          color: Colors.black.withValues(alpha: 0.5),
                           blurRadius: 2,
                           offset: const Offset(0, 1),
                         ),
                         BoxShadow(
-                          color: const Color(0xFF707078).withOpacity(0.15),
+                          color: const Color(0xFF707078).withValues(alpha: 0.15),
                           blurRadius: 0,
                           offset: const Offset(0, -1),
                         ),
@@ -2179,7 +2179,7 @@ class _FaderWithMeterState extends State<_FaderWithMeter> {
                         height: 1.5,
                         decoration: BoxDecoration(
                           color: _isDragging
-                              ? FluxForgeTheme.accentBlue.withOpacity(0.8)
+                              ? FluxForgeTheme.accentBlue.withValues(alpha: 0.8)
                               : const Color(0xFF808088),
                           borderRadius: BorderRadius.circular(1),
                         ),
@@ -2346,7 +2346,7 @@ class _PanKnobState extends State<_PanKnob> {
           boxShadow: _isDragging
               ? [
                   BoxShadow(
-                    color: FluxForgeTheme.accentBlue.withOpacity(0.3),
+                    color: FluxForgeTheme.accentBlue.withValues(alpha: 0.3),
                     blurRadius: 6,
                   ),
                 ]
@@ -2386,7 +2386,7 @@ class _PanKnobPainter extends CustomPainter {
       math.pi * 1.5,
       false,
       Paint()
-        ..color = FluxForgeTheme.textTertiary.withOpacity(0.2)
+        ..color = FluxForgeTheme.textTertiary.withValues(alpha: 0.2)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.5
         ..strokeCap = StrokeCap.round,
@@ -2518,14 +2518,14 @@ class _StereoPanKnobState extends State<_StereoPanKnob> {
               gradient: RadialGradient(
                 center: const Alignment(-0.3, -0.3),
                 colors: [
-                  FluxForgeTheme.bgMid.withOpacity(0.8),
-                  FluxForgeTheme.bgDeep.withOpacity(0.9),
+                  FluxForgeTheme.bgMid.withValues(alpha: 0.8),
+                  FluxForgeTheme.bgDeep.withValues(alpha: 0.9),
                 ],
               ),
               boxShadow: _isDragging
                   ? [
                       BoxShadow(
-                        color: FluxForgeTheme.accentCyan.withOpacity(0.5),
+                        color: FluxForgeTheme.accentCyan.withValues(alpha: 0.5),
                         blurRadius: 8,
                       ),
                     ]
@@ -2550,7 +2550,7 @@ class _StereoPanKnobState extends State<_StereoPanKnob> {
                         borderRadius: BorderRadius.circular(1.5),
                         boxShadow: [
                           BoxShadow(
-                            color: FluxForgeTheme.accentCyan.withOpacity(0.6),
+                            color: FluxForgeTheme.accentCyan.withValues(alpha: 0.6),
                             blurRadius: 4,
                           ),
                         ],
@@ -2638,7 +2638,7 @@ class _EqCurvePainter extends CustomPainter {
     if (data == null || data.isEmpty) {
       // No EQ — draw flat center line
       final linePaint = Paint()
-        ..color = FluxForgeTheme.textTertiary.withOpacity(0.2)
+        ..color = FluxForgeTheme.textTertiary.withValues(alpha: 0.2)
         ..strokeWidth = 0.5;
       canvas.drawLine(
         Offset(0, size.height / 2),
@@ -2650,7 +2650,7 @@ class _EqCurvePainter extends CustomPainter {
 
     // Grid (subtle)
     final gridPaint = Paint()
-      ..color = FluxForgeTheme.textTertiary.withOpacity(0.08)
+      ..color = FluxForgeTheme.textTertiary.withValues(alpha: 0.08)
       ..strokeWidth = 0.5;
     canvas.drawLine(
       Offset(0, size.height / 2),
@@ -2670,8 +2670,8 @@ class _EqCurvePainter extends CustomPainter {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          const Color(0xFFFF9040).withOpacity(0.25),
-          const Color(0xFFFF9040).withOpacity(0.0),
+          const Color(0xFFFF9040).withValues(alpha: 0.25),
+          const Color(0xFFFF9040).withValues(alpha: 0.0),
         ],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 
@@ -2735,13 +2735,13 @@ class _InsertSlot extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 1),
         decoration: BoxDecoration(
           color: insert.isEmpty
-              ? FluxForgeTheme.bgVoid.withOpacity(0.3)
-              : FluxForgeTheme.accentBlue.withOpacity(0.3),
+              ? FluxForgeTheme.bgVoid.withValues(alpha: 0.3)
+              : FluxForgeTheme.accentBlue.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(2),
           border: Border.all(
             color: insert.bypassed
-                ? Colors.orange.withOpacity(0.5)
-                : FluxForgeTheme.textPrimary.withOpacity(0.1),
+                ? Colors.orange.withValues(alpha: 0.5)
+                : FluxForgeTheme.textPrimary.withValues(alpha: 0.1),
           ),
         ),
         child: Center(
@@ -2787,10 +2787,10 @@ class _StripButton extends StatelessWidget {
         width: 18,
         height: 14,
         decoration: BoxDecoration(
-          color: active ? activeColor : FluxForgeTheme.bgVoid.withOpacity(0.3),
+          color: active ? activeColor : FluxForgeTheme.bgVoid.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(2),
           border: Border.all(
-            color: active ? activeColor : FluxForgeTheme.textPrimary.withOpacity(0.1),
+            color: active ? activeColor : FluxForgeTheme.textPrimary.withValues(alpha: 0.1),
             width: 0.5,
           ),
         ),
@@ -2847,7 +2847,7 @@ class _VcaStrip extends StatelessWidget {
         color: FluxForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
-          color: FluxForgeTheme.accentGreen.withOpacity(0.3),
+          color: FluxForgeTheme.accentGreen.withValues(alpha: 0.3),
         ),
       ),
       child: Opacity(
@@ -2939,7 +2939,7 @@ class _VcaFader extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        color: FluxForgeTheme.bgVoid.withOpacity(0.4),
+        color: FluxForgeTheme.bgVoid.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(2),
       ),
       child: LayoutBuilder(
@@ -3059,7 +3059,7 @@ class _MasterStripState extends State<_MasterStrip> {
         ),
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
-          color: FluxForgeTheme.accentOrange.withOpacity(0.3),
+          color: FluxForgeTheme.accentOrange.withValues(alpha: 0.3),
         ),
       ),
       child: Column(
@@ -3110,7 +3110,7 @@ class _MasterStripState extends State<_MasterStrip> {
                       Container(
                         height: 1,
                         margin: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
-                        color: FluxForgeTheme.warningOrange.withOpacity(0.3),
+                        color: FluxForgeTheme.warningOrange.withValues(alpha: 0.3),
                       ),
                       // POST-FADER label
                       Container(
@@ -3161,7 +3161,7 @@ class _MasterStripState extends State<_MasterStrip> {
               margin: const EdgeInsets.symmetric(horizontal: 4),
               padding: const EdgeInsets.symmetric(vertical: 2),
               decoration: BoxDecoration(
-                color: FluxForgeTheme.bgDeepest.withOpacity(0.6),
+                color: FluxForgeTheme.bgDeepest.withValues(alpha: 0.6),
                 borderRadius: BorderRadius.circular(3),
               ),
               child: Column(
@@ -3183,7 +3183,7 @@ class _MasterStripState extends State<_MasterStrip> {
                         ? 'I: -∞'
                         : 'I: ${widget.lufsIntegrated.toStringAsFixed(1)}',
                     style: TextStyle(
-                      color: _lufsColor(widget.lufsIntegrated).withOpacity(0.7),
+                      color: _lufsColor(widget.lufsIntegrated).withValues(alpha: 0.7),
                       fontSize: 7,
                       fontWeight: FontWeight.w500,
                     ),
@@ -3271,10 +3271,10 @@ class _MasterStripState extends State<_MasterStrip> {
       margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       decoration: BoxDecoration(
-        color: FluxForgeTheme.bgDeepest.withOpacity(0.5),
+        color: FluxForgeTheme.bgDeepest.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(3),
         border: Border.all(
-          color: FluxForgeTheme.accentCyan.withOpacity(0.15),
+          color: FluxForgeTheme.accentCyan.withValues(alpha: 0.15),
         ),
       ),
       child: Column(
@@ -3449,9 +3449,9 @@ class _CollapsedSectionIndicator extends StatelessWidget {
           width: 24,
           margin: const EdgeInsets.symmetric(horizontal: 1, vertical: 8),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.08),
+            color: color.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: color.withOpacity(0.2)),
+            border: Border.all(color: color.withValues(alpha: 0.2)),
           ),
           child: RotatedBox(
             quarterTurns: 3,
@@ -3459,7 +3459,7 @@ class _CollapsedSectionIndicator extends StatelessWidget {
               child: Text(
                 '$label ($count)',
                 style: TextStyle(
-                  color: color.withOpacity(0.6),
+                  color: color.withValues(alpha: 0.6),
                   fontSize: 8,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 1.0,
@@ -3482,7 +3482,7 @@ class _SectionDivider extends StatelessWidget {
       width: 1,
       margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
       decoration: BoxDecoration(
-        color: FluxForgeTheme.textPrimary.withOpacity(0.1),
+        color: FluxForgeTheme.textPrimary.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(0.5),
       ),
     );
@@ -3508,13 +3508,13 @@ class _ToolbarToggle extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
         decoration: BoxDecoration(
           color: active
-              ? FluxForgeTheme.accentBlue.withOpacity(0.3)
+              ? FluxForgeTheme.accentBlue.withValues(alpha: 0.3)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(3),
           border: Border.all(
             color: active
                 ? FluxForgeTheme.accentBlue
-                : FluxForgeTheme.textPrimary.withOpacity(0.2),
+                : FluxForgeTheme.textPrimary.withValues(alpha: 0.2),
           ),
         ),
         child: Text(
@@ -3551,7 +3551,7 @@ class _ToolbarButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(3),
-          border: Border.all(color: FluxForgeTheme.textPrimary.withOpacity(0.1)),
+          border: Border.all(color: FluxForgeTheme.textPrimary.withValues(alpha: 0.1)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -3633,7 +3633,7 @@ class _DraggableChannelStrip extends StatelessWidget {
                   borderRadius: BorderRadius.circular(1.5),
                   boxShadow: [
                     BoxShadow(
-                      color: FluxForgeTheme.accentBlue.withOpacity(0.5),
+                      color: FluxForgeTheme.accentBlue.withValues(alpha: 0.5),
                       blurRadius: 4,
                       spreadRadius: 1,
                     ),

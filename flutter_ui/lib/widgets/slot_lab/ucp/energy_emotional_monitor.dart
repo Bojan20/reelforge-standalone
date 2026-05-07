@@ -130,7 +130,7 @@ class _EnergyEmotionalMonitorState extends State<EnergyEmotionalMonitor> {
         Text(
           'Energy / Emotional',
           style: TextStyle(
-            color: Colors.white.withOpacity(0.8),
+            color: Colors.white.withValues(alpha: 0.8),
             fontSize: 10,
             fontWeight: FontWeight.w600,
           ),
@@ -161,7 +161,7 @@ class _EnergyEmotionalMonitorState extends State<EnergyEmotionalMonitor> {
                   width: 44,
                   child: Text(
                     domains[i],
-                    style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 8),
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 8),
                   ),
                 ),
                 Expanded(
@@ -169,7 +169,7 @@ class _EnergyEmotionalMonitorState extends State<EnergyEmotionalMonitor> {
                     height: 3,
                     child: LinearProgressIndicator(
                       value: values[i].clamp(0.0, 1.0),
-                      backgroundColor: Colors.white.withOpacity(0.06),
+                      backgroundColor: Colors.white.withValues(alpha: 0.06),
                       valueColor: AlwaysStoppedAnimation(colors[i]),
                     ),
                   ),
@@ -179,7 +179,7 @@ class _EnergyEmotionalMonitorState extends State<EnergyEmotionalMonitor> {
                   child: Text(
                     '${(values[i] * 100).toStringAsFixed(0)}',
                     textAlign: TextAlign.right,
-                    style: TextStyle(color: colors[i].withOpacity(0.7), fontSize: 7),
+                    style: TextStyle(color: colors[i].withValues(alpha: 0.7), fontSize: 7),
                   ),
                 ),
               ],
@@ -203,7 +203,7 @@ class _EnergyEmotionalMonitorState extends State<EnergyEmotionalMonitor> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(2),
       ),
       child: Text(text, style: TextStyle(color: color, fontSize: 7, fontWeight: FontWeight.w500)),

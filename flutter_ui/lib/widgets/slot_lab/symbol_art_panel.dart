@@ -80,7 +80,7 @@ class SymbolArtPanel extends StatelessWidget {
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w700,
-              color: Colors.white.withOpacity(0.9),
+              color: Colors.white.withValues(alpha: 0.9),
               letterSpacing: 1.2,
             ),
           ),
@@ -89,8 +89,8 @@ class SymbolArtPanel extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
             decoration: BoxDecoration(
               color: assignedCount > 0
-                  ? const Color(0xFF00BCD4).withOpacity(0.2)
-                  : Colors.white.withOpacity(0.05),
+                  ? const Color(0xFF00BCD4).withValues(alpha: 0.2)
+                  : Colors.white.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
@@ -136,8 +136,8 @@ class SymbolArtPanel extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
           color: hasArt
-              ? const Color(0xFF00BCD4).withOpacity(0.3)
-              : Colors.white.withOpacity(0.06),
+              ? const Color(0xFF00BCD4).withValues(alpha: 0.3)
+              : Colors.white.withValues(alpha: 0.06),
         ),
       ),
       child: InkWell(
@@ -162,7 +162,7 @@ class SymbolArtPanel extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 4, vertical: 1),
                           decoration: BoxDecoration(
-                            color: typeColor.withOpacity(0.15),
+                            color: typeColor.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(3),
                           ),
                           child: Text(
@@ -245,7 +245,7 @@ class SymbolArtPanel extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(4),
         color: const Color(0xFF111122),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(3),
@@ -448,7 +448,7 @@ class SymbolArtPanel extends StatelessWidget {
         color: const Color(0xFF1A1A28),
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
-          color: hasArt ? color.withOpacity(0.3) : Colors.white.withOpacity(0.06),
+          color: hasArt ? color.withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.06),
         ),
       ),
       clipBehavior: Clip.antiAlias,
@@ -466,7 +466,7 @@ class SymbolArtPanel extends StatelessWidget {
           : Center(
               child: Text(
                 sym.name.length > 2 ? sym.name.substring(0, 2) : sym.name,
-                style: TextStyle(color: color.withOpacity(0.5), fontSize: 9, fontWeight: FontWeight.w700),
+                style: TextStyle(color: color.withValues(alpha: 0.5), fontSize: 9, fontWeight: FontWeight.w700),
               ),
             ),
     );
@@ -545,9 +545,9 @@ class _HeaderButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: color.withOpacity(0.2)),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

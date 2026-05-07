@@ -900,10 +900,10 @@ class ProfessionalReelWidget extends StatelessWidget {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            Colors.black.withOpacity(intensity * 0.4),
+            Colors.black.withValues(alpha: intensity * 0.4),
             Colors.transparent,
             Colors.transparent,
-            Colors.black.withOpacity(intensity * 0.4),
+            Colors.black.withValues(alpha: intensity * 0.4),
           ],
           stops: const [0.0, 0.2, 0.8, 1.0],
         ),
@@ -917,7 +917,7 @@ class ProfessionalReelWidget extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: RadialGradient(
           colors: [
-            const Color(0xFF4a9eff).withOpacity(glowIntensity),
+            const Color(0xFF4a9eff).withValues(alpha: glowIntensity),
             Colors.transparent,
           ],
         ),

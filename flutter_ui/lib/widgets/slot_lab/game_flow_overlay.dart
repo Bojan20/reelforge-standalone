@@ -1664,7 +1664,7 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
       Colors.white,
       _accentColor,
       _secondaryColor,
-      Colors.white.withOpacity(0.9),
+      Colors.white.withValues(alpha: 0.9),
     ];
   }
 
@@ -1715,7 +1715,7 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
               // (industry standard: transition plaque completely covers the reel area)
               const bgOpacity = 1.0;
               return Container(
-                color: Colors.black.withOpacity(bgOpacity * _fadeAnim.value),
+                color: Colors.black.withValues(alpha: bgOpacity * _fadeAnim.value),
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
@@ -1726,7 +1726,7 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
                           decoration: BoxDecoration(
                             gradient: RadialGradient(
                               colors: [
-                                _accentColor.withOpacity(0.12 * _fadeAnim.value),
+                                _accentColor.withValues(alpha: 0.12 * _fadeAnim.value),
                                 Colors.transparent,
                               ],
                               radius: 0.8,
@@ -1764,14 +1764,14 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
                           borderRadius: BorderRadius.circular(30),
                           boxShadow: [
                             BoxShadow(
-                              color: _accentColor.withOpacity(
+                              color: _accentColor.withValues(alpha: 
                                 0.3 * _glowPulse.value * _plaqueOpacity.value,
                               ),
                               blurRadius: 80 * _glowPulse.value,
                               spreadRadius: 20,
                             ),
                             BoxShadow(
-                              color: _secondaryColor.withOpacity(
+                              color: _secondaryColor.withValues(alpha: 
                                 0.15 * _glowPulse.value * _plaqueOpacity.value,
                               ),
                               blurRadius: 120 * _glowPulse.value,
@@ -1825,35 +1825,35 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                _accentColor.withOpacity(0.35),
-                _accentColor.withOpacity(0.12),
-                Colors.black.withOpacity(0.88),
-                _accentColor.withOpacity(0.08),
+                _accentColor.withValues(alpha: 0.35),
+                _accentColor.withValues(alpha: 0.12),
+                Colors.black.withValues(alpha: 0.88),
+                _accentColor.withValues(alpha: 0.08),
               ],
               stops: const [0.0, 0.2, 0.65, 1.0],
             ),
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: _accentColor.withOpacity(borderOpacity),
+              color: _accentColor.withValues(alpha: borderOpacity),
               width: 3,
             ),
             boxShadow: [
               // Inner depth
               BoxShadow(
-                color: Colors.black.withOpacity(0.8),
+                color: Colors.black.withValues(alpha: 0.8),
                 blurRadius: 15,
                 spreadRadius: -5,
                 offset: const Offset(0, 5),
               ),
               // Primary glow
               BoxShadow(
-                color: _accentColor.withOpacity(0.7 * glowIntensity),
+                color: _accentColor.withValues(alpha: 0.7 * glowIntensity),
                 blurRadius: 40,
                 spreadRadius: 5,
               ),
               // Pulsing outer glow
               BoxShadow(
-                color: _accentColor.withOpacity(0.4 * glowIntensity),
+                color: _accentColor.withValues(alpha: 0.4 * glowIntensity),
                 blurRadius: 80 * glowIntensity,
                 spreadRadius: 12 * glowIntensity,
               ),
@@ -1901,7 +1901,7 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
                   child: Text(
                     'TAP TO CONTINUE',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.6),
+                      color: Colors.white.withValues(alpha: 0.6),
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 3,
@@ -1930,8 +1930,8 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.white.withOpacity(0.22),
-                    Colors.white.withOpacity(0.04),
+                    Colors.white.withValues(alpha: 0.22),
+                    Colors.white.withValues(alpha: 0.04),
                     Colors.transparent,
                   ],
                 ),
@@ -1952,12 +1952,12 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
                     end: Alignment(-0.5 + _shimmerPosition.value * 2, 0.3),
                     colors: [
                       Colors.transparent,
-                      Colors.white.withOpacity(0.08 * _cfg.shimmerIntensity),
+                      Colors.white.withValues(alpha: 0.08 * _cfg.shimmerIntensity),
                       Colors.transparent,
                     ],
                   ).createShader(bounds),
                   blendMode: BlendMode.srcATop,
-                  child: Container(color: Colors.white.withOpacity(0.01)),
+                  child: Container(color: Colors.white.withValues(alpha: 0.01)),
                 ),
               ),
             ),
@@ -1980,7 +1980,7 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: _accentColor.withOpacity(0.5 * _glowPulse.value),
+            color: _accentColor.withValues(alpha: 0.5 * _glowPulse.value),
             blurRadius: 20,
             spreadRadius: 5,
           ),
@@ -1991,9 +1991,9 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
         color: _accentColor,
         size: 44,
         shadows: [
-          Shadow(color: Colors.white.withOpacity(0.8), blurRadius: 3),
+          Shadow(color: Colors.white.withValues(alpha: 0.8), blurRadius: 3),
           Shadow(color: _accentColor, blurRadius: 15),
-          Shadow(color: _accentColor.withOpacity(0.6), blurRadius: 30),
+          Shadow(color: _accentColor.withValues(alpha: 0.6), blurRadius: 30),
         ],
       ),
     );
@@ -2032,7 +2032,7 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
           shaderCallback: (bounds) => RadialGradient(
             colors: [
               _accentColor,
-              _accentColor.withOpacity(0.5),
+              _accentColor.withValues(alpha: 0.5),
               Colors.transparent,
             ],
           ).createShader(bounds),
@@ -2042,7 +2042,7 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
             style: TextStyle(
               fontSize: fontSize + 2,
               fontWeight: FontWeight.w900,
-              color: Colors.white.withOpacity(0.3),
+              color: Colors.white.withValues(alpha: 0.3),
               letterSpacing: 5,
             ),
           ),
@@ -2066,14 +2066,14 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
               shadows: [
                 // Emboss shadow
                 Shadow(
-                  color: Colors.black.withOpacity(0.8),
+                  color: Colors.black.withValues(alpha: 0.8),
                   blurRadius: 2,
                   offset: const Offset(1, 2),
                 ),
                 // Primary glow
                 Shadow(color: _accentColor, blurRadius: 20),
                 // Outer ambient glow
-                Shadow(color: _accentColor.withOpacity(0.6), blurRadius: 40),
+                Shadow(color: _accentColor.withValues(alpha: 0.6), blurRadius: 40),
               ],
             ),
           ),
@@ -2095,12 +2095,12 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
         Text(
           'TOTAL WIN',
           style: TextStyle(
-            color: _secondaryColor.withOpacity(0.8),
+            color: _secondaryColor.withValues(alpha: 0.8),
             fontSize: 12,
             fontWeight: FontWeight.bold,
             letterSpacing: 3,
             shadows: [
-              Shadow(color: _secondaryColor.withOpacity(0.5), blurRadius: 8),
+              Shadow(color: _secondaryColor.withValues(alpha: 0.5), blurRadius: 8),
             ],
           ),
         ),
@@ -2113,14 +2113,14 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  Colors.black.withOpacity(0.5),
-                  _accentColor.withOpacity(0.1),
-                  Colors.black.withOpacity(0.5),
+                  Colors.black.withValues(alpha: 0.5),
+                  _accentColor.withValues(alpha: 0.1),
+                  Colors.black.withValues(alpha: 0.5),
                 ],
               ),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: _accentColor.withOpacity(0.35),
+                color: _accentColor.withValues(alpha: 0.35),
                 width: 1,
               ),
             ),
@@ -2147,12 +2147,12 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
                   shadows: [
                     const Shadow(color: Colors.white, blurRadius: 4),
                     Shadow(
-                      color: Colors.black.withOpacity(0.9),
+                      color: Colors.black.withValues(alpha: 0.9),
                       blurRadius: 3,
                       offset: const Offset(2, 3),
                     ),
                     Shadow(
-                      color: _accentColor.withOpacity(0.9),
+                      color: _accentColor.withValues(alpha: 0.9),
                       blurRadius: 30,
                     ),
                     const Shadow(
@@ -2160,7 +2160,7 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
                       blurRadius: 20,
                     ),
                     Shadow(
-                      color: _accentColor.withOpacity(glowIntensity * 0.8),
+                      color: _accentColor.withValues(alpha: glowIntensity * 0.8),
                       blurRadius: 50 * glowIntensity,
                     ),
                   ],
@@ -2203,7 +2203,7 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: _accentColor.withOpacity(0.5 * glowIntensity),
+                  color: _accentColor.withValues(alpha: 0.5 * glowIntensity),
                   blurRadius: size * 0.5,
                   spreadRadius: size * 0.1,
                 ),
@@ -2215,7 +2215,7 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
             size: size,
             color: _accentColor,
             shadows: [
-              Shadow(color: Colors.white.withOpacity(0.8), blurRadius: 2),
+              Shadow(color: Colors.white.withValues(alpha: 0.8), blurRadius: 2),
               Shadow(color: _accentColor, blurRadius: 8),
             ],
           ),
@@ -2306,8 +2306,8 @@ class _TransitionBurstPainter extends CustomPainter {
       final paint = Paint()
         ..shader = RadialGradient(
           colors: [
-            color.withOpacity(opacity),
-            color.withOpacity(opacity * 0.3),
+            color.withValues(alpha: opacity),
+            color.withValues(alpha: opacity * 0.3),
             Colors.transparent,
           ],
           stops: const [0.0, 0.6, 1.0],

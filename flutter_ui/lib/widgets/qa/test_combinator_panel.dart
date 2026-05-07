@@ -313,7 +313,7 @@ class _TestCombinatorPanelState extends State<TestCombinatorPanel> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.blueAccent.withOpacity(0.2),
+                    color: Colors.blueAccent.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
@@ -364,7 +364,7 @@ class _TestCombinatorPanelState extends State<TestCombinatorPanel> {
                 height: 32,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: Colors.blueAccent.withOpacity(0.2),
+                  color: Colors.blueAccent.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
@@ -400,10 +400,10 @@ class _TestCombinatorPanelState extends State<TestCombinatorPanel> {
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: _getDimensionColor(entry.key).withOpacity(0.2),
+                  color: _getDimensionColor(entry.key).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(3),
                   border: Border.all(
-                    color: _getDimensionColor(entry.key).withOpacity(0.5),
+                    color: _getDimensionColor(entry.key).withValues(alpha: 0.5),
                   ),
                 ),
                 child: Text(

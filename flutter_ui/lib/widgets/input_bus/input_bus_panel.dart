@@ -100,13 +100,13 @@ class _InputBusPanelState extends State<InputBusPanel> {
                             Icon(
                               Icons.input,
                               size: 48,
-                              color: FluxForgeTheme.textSecondary.withOpacity(0.3),
+                              color: FluxForgeTheme.textSecondary.withValues(alpha: 0.3),
                             ),
                             const SizedBox(height: 12),
                             Text(
                               'No input buses',
                               style: TextStyle(
-                                color: FluxForgeTheme.textSecondary.withOpacity(0.6),
+                                color: FluxForgeTheme.textSecondary.withValues(alpha: 0.6),
                                 fontSize: 13,
                               ),
                             ),
@@ -273,7 +273,7 @@ class _InputBusItem extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
           color: bus.enabled
-              ? FluxForgeTheme.accentBlue.withOpacity(0.3)
+              ? FluxForgeTheme.accentBlue.withValues(alpha: 0.3)
               : FluxForgeTheme.bgSurface,
         ),
       ),
@@ -308,7 +308,7 @@ class _InputBusItem extends StatelessWidget {
                     Text(
                       bus.channels == 1 ? 'Mono' : 'Stereo',
                       style: TextStyle(
-                        color: FluxForgeTheme.textSecondary.withOpacity(0.7),
+                        color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
                         fontSize: 11,
                       ),
                     ),
@@ -319,7 +319,7 @@ class _InputBusItem extends StatelessWidget {
               // Delete button
               IconButton(
                 icon: const Icon(Icons.delete_outline, size: 16),
-                color: FluxForgeTheme.accentRed.withOpacity(0.7),
+                color: FluxForgeTheme.accentRed.withValues(alpha: 0.7),
                 tooltip: 'Delete Bus',
                 onPressed: onDelete,
                 padding: EdgeInsets.zero,
@@ -377,7 +377,7 @@ class _PeakMeter extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
-              color: FluxForgeTheme.textSecondary.withOpacity(0.7),
+              color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
               fontSize: 10,
             ),
           ),
@@ -407,7 +407,7 @@ class _PeakMeter extends StatelessWidget {
           child: Text(
             peakDb > -100 ? '${peakDb.toStringAsFixed(1)} dB' : '-∞',
             style: TextStyle(
-              color: FluxForgeTheme.textSecondary.withOpacity(0.7),
+              color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
               fontSize: 9,
               fontFamily: 'monospace',
             ),

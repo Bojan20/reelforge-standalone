@@ -101,7 +101,7 @@ class _RoutingPanelState extends State<RoutingPanel> {
               Text(
                 '${routing.channelCount} channels',
                 style: TextStyle(
-                  color: FluxForgeTheme.textSecondary.withOpacity(0.7),
+                  color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
                   fontSize: 10,
                 ),
               ),
@@ -152,13 +152,13 @@ class _RoutingPanelState extends State<RoutingPanel> {
                       Icon(
                         Icons.device_hub,
                         size: 64,
-                        color: FluxForgeTheme.textSecondary.withOpacity(0.3),
+                        color: FluxForgeTheme.textSecondary.withValues(alpha: 0.3),
                       ),
                       const SizedBox(height: 16),
                       Text(
                         'No Routing Channels',
                         style: TextStyle(
-                          color: FluxForgeTheme.textSecondary.withOpacity(0.6),
+                          color: FluxForgeTheme.textSecondary.withValues(alpha: 0.6),
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                         ),
@@ -167,7 +167,7 @@ class _RoutingPanelState extends State<RoutingPanel> {
                       Text(
                         'Click + to create a channel',
                         style: TextStyle(
-                          color: FluxForgeTheme.textSecondary.withOpacity(0.5),
+                          color: FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
                           fontSize: 12,
                         ),
                       ),
@@ -211,7 +211,7 @@ class _RoutingPanelState extends State<RoutingPanel> {
                     Text(
                       'Channel ${channel.id} · ${_getChannelTypeName(channel.kind)}',
                       style: TextStyle(
-                        color: FluxForgeTheme.textSecondary.withOpacity(0.7),
+                        color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
                         fontSize: 12,
                       ),
                     ),
@@ -336,7 +336,7 @@ class _RoutingPanelState extends State<RoutingPanel> {
         Text(
           'No sends configured',
           style: TextStyle(
-            color: FluxForgeTheme.textSecondary.withOpacity(0.6),
+            color: FluxForgeTheme.textSecondary.withValues(alpha: 0.6),
             fontSize: 12,
           ),
         ),
@@ -388,13 +388,13 @@ class _RoutingPanelState extends State<RoutingPanel> {
           Icon(
             Icons.device_hub,
             size: 64,
-            color: FluxForgeTheme.textSecondary.withOpacity(0.3),
+            color: FluxForgeTheme.textSecondary.withValues(alpha: 0.3),
           ),
           const SizedBox(height: 16),
           Text(
             'No Channel Selected',
             style: TextStyle(
-              color: FluxForgeTheme.textSecondary.withOpacity(0.6),
+              color: FluxForgeTheme.textSecondary.withValues(alpha: 0.6),
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
@@ -403,7 +403,7 @@ class _RoutingPanelState extends State<RoutingPanel> {
           Text(
             'Select a channel from the list',
             style: TextStyle(
-              color: FluxForgeTheme.textSecondary.withOpacity(0.5),
+              color: FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
               fontSize: 12,
             ),
           ),
@@ -492,7 +492,7 @@ class _ChannelListItem extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
           color: isSelected
-              ? FluxForgeTheme.accentBlue.withOpacity(0.5)
+              ? FluxForgeTheme.accentBlue.withValues(alpha: 0.5)
               : FluxForgeTheme.bgSurface,
           width: isSelected ? 2 : 1,
         ),
@@ -511,7 +511,7 @@ class _ChannelListItem extends StatelessWidget {
         subtitle: Text(
           'ID: ${channel.id}',
           style: TextStyle(
-            color: FluxForgeTheme.textSecondary.withOpacity(0.6),
+            color: FluxForgeTheme.textSecondary.withValues(alpha: 0.6),
             fontSize: 11,
           ),
         ),
@@ -680,7 +680,7 @@ class _ChannelOutputDialog extends StatelessWidget {
               ),
               subtitle: Text(
                 'ID: ${channel.id}',
-                style: TextStyle(color: FluxForgeTheme.textSecondary.withOpacity(0.6)),
+                style: TextStyle(color: FluxForgeTheme.textSecondary.withValues(alpha: 0.6)),
               ),
               onTap: () async {
                 await routing.setOutputToChannel(sourceChannelId, channel.id);
@@ -738,7 +738,7 @@ class _AddSendDialogState extends State<_AddSendDialog> {
                 _preFader
                     ? 'Send before fader (independent)'
                     : 'Send after fader (follows volume)',
-                style: TextStyle(color: FluxForgeTheme.textSecondary.withOpacity(0.6)),
+                style: TextStyle(color: FluxForgeTheme.textSecondary.withValues(alpha: 0.6)),
               ),
               value: _preFader,
               onChanged: (value) {
@@ -764,7 +764,7 @@ class _AddSendDialogState extends State<_AddSendDialog> {
                     ),
                     subtitle: Text(
                       'ID: ${channel.id}',
-                      style: TextStyle(color: FluxForgeTheme.textSecondary.withOpacity(0.6)),
+                      style: TextStyle(color: FluxForgeTheme.textSecondary.withValues(alpha: 0.6)),
                     ),
                     onTap: () async {
                       await widget.routing.addSend(

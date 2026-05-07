@@ -196,7 +196,7 @@ class PluginDelayReportPanel extends StatelessWidget {
             width: 20,
             height: 20,
             decoration: BoxDecoration(
-              color: severityColor.withOpacity(0.2),
+              color: severityColor.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(4),
             ),
             alignment: Alignment.center,

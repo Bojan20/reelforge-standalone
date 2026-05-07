@@ -51,7 +51,7 @@ class _MwuiSimulationViewState extends State<MwuiSimulationView> {
           Expanded(
             child: Center(
               child: Text('Simulation provider not available',
-                style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 11)),
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 11)),
             ),
           ),
       ],
@@ -70,12 +70,12 @@ class _MwuiSimulationViewState extends State<MwuiSimulationView> {
         children: [
           const Icon(Icons.science, size: 14, color: Color(0xFF66BB6A)),
           const SizedBox(width: 6),
-          Text('Simulation', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 11, fontWeight: FontWeight.w600)),
+          Text('Simulation', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11, fontWeight: FontWeight.w600)),
           const Spacer(),
           if (_sim?.isRunning == true)
             _statusChip('RUNNING', const Color(0xFF66BB6A))
           else
-            _statusChip('IDLE', Colors.white.withOpacity(0.3)),
+            _statusChip('IDLE', Colors.white.withValues(alpha: 0.3)),
         ],
       ),
     );
@@ -99,13 +99,13 @@ class _MwuiSimulationViewState extends State<MwuiSimulationView> {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: isSelected
-                    ? const Color(0xFF66BB6A).withOpacity(0.15)
-                    : Colors.white.withOpacity(0.03),
+                    ? const Color(0xFF66BB6A).withValues(alpha: 0.15)
+                    : Colors.white.withValues(alpha: 0.03),
                 borderRadius: BorderRadius.circular(3),
                 border: Border.all(
                   color: isSelected
-                      ? const Color(0xFF66BB6A).withOpacity(0.4)
-                      : Colors.white.withOpacity(0.1),
+                      ? const Color(0xFF66BB6A).withValues(alpha: 0.4)
+                      : Colors.white.withValues(alpha: 0.1),
                   width: 0.5,
                 ),
               ),
@@ -115,13 +115,13 @@ class _MwuiSimulationViewState extends State<MwuiSimulationView> {
                   Icon(
                     _modeIcon(mode),
                     size: 14,
-                    color: isSelected ? const Color(0xFF66BB6A) : Colors.white.withOpacity(0.4),
+                    color: isSelected ? const Color(0xFF66BB6A) : Colors.white.withValues(alpha: 0.4),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     mode.displayName,
                     style: TextStyle(
-                      color: isSelected ? Colors.white.withOpacity(0.8) : Colors.white.withOpacity(0.4),
+                      color: isSelected ? Colors.white.withValues(alpha: 0.8) : Colors.white.withValues(alpha: 0.4),
                       fontSize: 8,
                       fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                     ),
@@ -172,9 +172,9 @@ class _MwuiSimulationViewState extends State<MwuiSimulationView> {
           if (sim.mode == SimulationMode.statistical)
             Row(
               children: [
-                Text('Spins:', style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 9)),
+                Text('Spins:', style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 9)),
                 const SizedBox(width: 4),
-                Text('${sim.statSpinCount}', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 10, fontWeight: FontWeight.w600)),
+                Text('${sim.statSpinCount}', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 10, fontWeight: FontWeight.w600)),
               ],
             ),
         ],
@@ -188,15 +188,15 @@ class _MwuiSimulationViewState extends State<MwuiSimulationView> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: color.withOpacity(onTap != null ? 0.1 : 0.03),
+          color: color.withValues(alpha: onTap != null ? 0.1 : 0.03),
           borderRadius: BorderRadius.circular(3),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 12, color: color.withOpacity(onTap != null ? 0.8 : 0.3)),
+            Icon(icon, size: 12, color: color.withValues(alpha: onTap != null ? 0.8 : 0.3)),
             const SizedBox(width: 4),
-            Text(label, style: TextStyle(color: color.withOpacity(onTap != null ? 0.8 : 0.3), fontSize: 9)),
+            Text(label, style: TextStyle(color: color.withValues(alpha: onTap != null ? 0.8 : 0.3), fontSize: 9)),
           ],
         ),
       ),
@@ -222,7 +222,7 @@ class _MwuiSimulationViewState extends State<MwuiSimulationView> {
                     height: 4,
                     child: LinearProgressIndicator(
                       value: sim.progress.clamp(0.0, 1.0),
-                      backgroundColor: Colors.white.withOpacity(0.06),
+                      backgroundColor: Colors.white.withValues(alpha: 0.06),
                       valueColor: const AlwaysStoppedAnimation(Color(0xFF66BB6A)),
                     ),
                   ),
@@ -230,14 +230,14 @@ class _MwuiSimulationViewState extends State<MwuiSimulationView> {
                 const SizedBox(width: 8),
                 Text(
                   '${(sim.progress * 100).toStringAsFixed(1)}%',
-                  style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 10),
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 10),
                 ),
               ],
             ),
             const SizedBox(height: 4),
             Text(
               'Step ${sim.currentStep} / ${sim.totalSteps}',
-              style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 9),
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 9),
             ),
             const SizedBox(height: 12),
           ],
@@ -288,7 +288,7 @@ class _MwuiSimulationViewState extends State<MwuiSimulationView> {
           ),
           const SizedBox(width: 6),
           Expanded(
-            child: Text(d.domain.displayName, style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 10)),
+            child: Text(d.domain.displayName, style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 10)),
           ),
           Text(
             'E:${d.peakEnergy.toStringAsFixed(2)}',
@@ -300,7 +300,7 @@ class _MwuiSimulationViewState extends State<MwuiSimulationView> {
           ),
           const SizedBox(width: 4),
           Text('V:${d.peakVoices}',
-            style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 8)),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 8)),
         ],
       ),
     );
@@ -317,13 +317,13 @@ class _MwuiSimulationViewState extends State<MwuiSimulationView> {
       ),
       child: Row(
         children: [
-          Text('Mode: ${sim.mode.displayName}', style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 8)),
+          Text('Mode: ${sim.mode.displayName}', style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 8)),
           const Spacer(),
-          Text('PBSE: ${sim.pbseTotalSpins} spins', style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 8)),
+          Text('PBSE: ${sim.pbseTotalSpins} spins', style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 8)),
           const SizedBox(width: 12),
           Text(
             'Passed: ${sim.passedDomainCount} / ${sim.passedDomainCount + sim.failedDomainCount}',
-            style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 8),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 8),
           ),
         ],
       ),
@@ -338,7 +338,7 @@ class _MwuiSimulationViewState extends State<MwuiSimulationView> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(2),
       ),
       child: Text(text, style: TextStyle(color: color, fontSize: 7, fontWeight: FontWeight.w700)),
@@ -349,7 +349,7 @@ class _MwuiSimulationViewState extends State<MwuiSimulationView> {
     return Text(
       text,
       style: TextStyle(
-        color: const Color(0xFF66BB6A).withOpacity(0.6),
+        color: const Color(0xFF66BB6A).withValues(alpha: 0.6),
         fontSize: 8,
         fontWeight: FontWeight.w700,
         letterSpacing: 1,
@@ -364,9 +364,9 @@ class _MwuiSimulationViewState extends State<MwuiSimulationView> {
         children: [
           SizedBox(
             width: 120,
-            child: Text(label, style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10)),
+            child: Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 10)),
           ),
-          Text(value, style: TextStyle(color: color ?? Colors.white.withOpacity(0.7), fontSize: 10, fontWeight: FontWeight.w500)),
+          Text(value, style: TextStyle(color: color ?? Colors.white.withValues(alpha: 0.7), fontSize: 10, fontWeight: FontWeight.w500)),
         ],
       ),
     );

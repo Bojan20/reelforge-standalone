@@ -375,7 +375,7 @@ class _TouchSliderState extends State<TouchSlider> {
             activeTrackColor: const Color(0xFF4A9EFF),
             inactiveTrackColor: const Color(0xFF2A2A35),
             thumbColor: const Color(0xFF4A9EFF),
-            overlayColor: const Color(0xFF4A9EFF).withOpacity(0.2),
+            overlayColor: const Color(0xFF4A9EFF).withValues(alpha: 0.2),
           ),
           child: Slider(
             value: _activeValue ?? widget.value,
@@ -450,7 +450,7 @@ class _TouchButtonState extends State<TouchButton> {
         padding: widget.padding ?? defaultPadding,
         decoration: BoxDecoration(
           color: _isPressed
-              ? (widget.backgroundColor ?? const Color(0xFF4A9EFF)).withOpacity(0.8)
+              ? (widget.backgroundColor ?? const Color(0xFF4A9EFF)).withValues(alpha: 0.8)
               : widget.backgroundColor ?? const Color(0xFF4A9EFF),
           borderRadius: BorderRadius.circular(8),
         ),
@@ -543,7 +543,7 @@ class _TouchPenModePanelState extends State<TouchPenModePanel> {
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? const Color(0xFF4A9EFF).withOpacity(0.2)
+                      ? const Color(0xFF4A9EFF).withValues(alpha: 0.2)
                       : const Color(0xFF1A1A20),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
@@ -731,7 +731,7 @@ class _TouchPenModePanelState extends State<TouchPenModePanel> {
             activeTrackColor: const Color(0xFF4A9EFF),
             inactiveTrackColor: const Color(0xFF2A2A35),
             thumbColor: const Color(0xFF4A9EFF),
-            overlayColor: const Color(0xFF4A9EFF).withOpacity(0.2),
+            overlayColor: const Color(0xFF4A9EFF).withValues(alpha: 0.2),
           ),
           child: Slider(
             value: config.pressureSensitivity,

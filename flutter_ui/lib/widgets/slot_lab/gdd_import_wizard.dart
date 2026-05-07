@@ -153,7 +153,7 @@ class _GddImportWizardState extends State<GddImportWizard>
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: const Color(0xFF4A9EFF).withOpacity(0.15),
+              color: const Color(0xFF4A9EFF).withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(Icons.upload_file, color: Color(0xFF4A9EFF), size: 24),
@@ -213,9 +213,9 @@ class _GddImportWizardState extends State<GddImportWizard>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -231,7 +231,7 @@ class _GddImportWizardState extends State<GddImportWizard>
           Text(
             label,
             style: TextStyle(
-              color: color.withOpacity(0.7),
+              color: color.withValues(alpha: 0.7),
               fontSize: 10,
             ),
           ),
@@ -301,7 +301,7 @@ class _GddImportWizardState extends State<GddImportWizard>
             color: isComplete
                 ? const Color(0xFF4A9EFF)
                 : isActive
-                    ? const Color(0xFF4A9EFF).withOpacity(0.2)
+                    ? const Color(0xFF4A9EFF).withValues(alpha: 0.2)
                     : const Color(0xFF2a2a30),
             border: Border.all(
               color: color,
@@ -310,7 +310,7 @@ class _GddImportWizardState extends State<GddImportWizard>
             boxShadow: isActive
                 ? [
                     BoxShadow(
-                      color: const Color(0xFF4A9EFF).withOpacity(0.3),
+                      color: const Color(0xFF4A9EFF).withValues(alpha: 0.3),
                       blurRadius: 12,
                       spreadRadius: 2,
                     ),
@@ -373,9 +373,9 @@ class _GddImportWizardState extends State<GddImportWizard>
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF4A9EFF).withOpacity(0.1),
+              color: const Color(0xFF4A9EFF).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF4A9EFF).withOpacity(0.2)),
+              border: Border.all(color: const Color(0xFF4A9EFF).withValues(alpha: 0.2)),
             ),
             child: Row(
               children: [
@@ -398,7 +398,7 @@ class _GddImportWizardState extends State<GddImportWizard>
                         'Paste JSON directly, load from a .json file, or extract from a PDF document. '
                         'The wizard will auto-detect symbols, features, and generate audio stages.',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.7),
+                          color: Colors.white.withValues(alpha: 0.7),
                           fontSize: 12,
                         ),
                       ),
@@ -460,7 +460,7 @@ class _GddImportWizardState extends State<GddImportWizard>
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: _error != null
-                      ? Colors.red.withOpacity(0.5)
+                      ? Colors.red.withValues(alpha: 0.5)
                       : const Color(0xFF2a2a30),
                 ),
               ),
@@ -528,7 +528,7 @@ class _GddImportWizardState extends State<GddImportWizard>
   "math": {...}
 }''',
                         hintStyle: TextStyle(
-                          color: Colors.white.withOpacity(0.2),
+                          color: Colors.white.withValues(alpha: 0.2),
                           fontFamily: 'JetBrains Mono',
                         ),
                         border: InputBorder.none,
@@ -547,9 +547,9 @@ class _GddImportWizardState extends State<GddImportWizard>
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.1),
+                color: Colors.red.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.red.withOpacity(0.3)),
+                border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
               ),
               child: Row(
                 children: [
@@ -591,9 +591,9 @@ class _GddImportWizardState extends State<GddImportWizard>
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: color.withOpacity(0.3)),
+            border: Border.all(color: color.withValues(alpha: 0.3)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -615,7 +615,7 @@ class _GddImportWizardState extends State<GddImportWizard>
                   Text(
                     subtitle,
                     style: TextStyle(
-                      color: color.withOpacity(0.7),
+                      color: color.withValues(alpha: 0.7),
                       fontSize: 11,
                     ),
                   ),
@@ -768,9 +768,9 @@ class _GddImportWizardState extends State<GddImportWizard>
             margin: const EdgeInsets.all(16),
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: Colors.orange.withOpacity(0.1),
+              color: Colors.orange.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.orange.withOpacity(0.3)),
+              border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -877,7 +877,7 @@ class _GddImportWizardState extends State<GddImportWizard>
       decoration: BoxDecoration(
         color: const Color(0xFF121216),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -937,7 +937,7 @@ class _GddImportWizardState extends State<GddImportWizard>
       decoration: BoxDecoration(
         color: const Color(0xFF121216),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF9370DB).withOpacity(0.3)),
+        border: Border.all(color: const Color(0xFF9370DB).withValues(alpha: 0.3)),
       ),
       child: Column(
         children: [
@@ -978,7 +978,7 @@ class _GddImportWizardState extends State<GddImportWizard>
                         color: const Color(0xFF1a1a20),
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(
-                          color: const Color(0xFF9370DB).withOpacity(0.3),
+                          color: const Color(0xFF9370DB).withValues(alpha: 0.3),
                         ),
                       ),
                       child: Center(
@@ -1040,7 +1040,7 @@ class _GddImportWizardState extends State<GddImportWizard>
           decoration: BoxDecoration(
             color: const Color(0xFF121216),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: tierColor.withOpacity(0.3)),
+            border: Border.all(color: tierColor.withValues(alpha: 0.3)),
           ),
           child: ExpansionTile(
             initiallyExpanded: tier == SymbolTier.premium || tier == SymbolTier.high,
@@ -1048,7 +1048,7 @@ class _GddImportWizardState extends State<GddImportWizard>
               width: 32,
               height: 32,
               decoration: BoxDecoration(
-                color: tierColor.withOpacity(0.15),
+                color: tierColor.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Center(
@@ -1070,7 +1070,7 @@ class _GddImportWizardState extends State<GddImportWizard>
               ),
             ),
             iconColor: tierColor,
-            collapsedIconColor: tierColor.withOpacity(0.5),
+            collapsedIconColor: tierColor.withValues(alpha: 0.5),
             children: [
               const Divider(color: Color(0xFF2a2a30), height: 1),
               Padding(
@@ -1104,7 +1104,7 @@ class _GddImportWizardState extends State<GddImportWizard>
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: tierColor.withOpacity(0.1),
+              color: tierColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Center(
@@ -1171,7 +1171,7 @@ class _GddImportWizardState extends State<GddImportWizard>
       margin: const EdgeInsets.only(left: 4),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
+        color: color.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
@@ -1218,7 +1218,7 @@ class _GddImportWizardState extends State<GddImportWizard>
           decoration: BoxDecoration(
             color: const Color(0xFF121216),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: color.withOpacity(0.3)),
+            border: Border.all(color: color.withValues(alpha: 0.3)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1228,7 +1228,7 @@ class _GddImportWizardState extends State<GddImportWizard>
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: color.withOpacity(0.15),
+                      color: color.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(icon, color: color, size: 20),
@@ -1381,7 +1381,7 @@ class _GddImportWizardState extends State<GddImportWizard>
       decoration: BoxDecoration(
         color: const Color(0xFF121216),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         children: [
@@ -1414,9 +1414,9 @@ class _GddImportWizardState extends State<GddImportWizard>
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -1537,7 +1537,7 @@ class _GddImportWizardState extends State<GddImportWizard>
                 decoration: BoxDecoration(
                   color: const Color(0xFF121216),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: color.withOpacity(0.3)),
+                  border: Border.all(color: color.withValues(alpha: 0.3)),
                 ),
                 child: ExpansionTile(
                   key: Key('stage_cat_$category'),
@@ -1549,7 +1549,7 @@ class _GddImportWizardState extends State<GddImportWizard>
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: color.withOpacity(0.15),
+                      color: color.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Center(
@@ -1572,7 +1572,7 @@ class _GddImportWizardState extends State<GddImportWizard>
                     ),
                   ),
                   iconColor: color,
-                  collapsedIconColor: color.withOpacity(0.5),
+                  collapsedIconColor: color.withValues(alpha: 0.5),
                   children: [
                     const Divider(color: Color(0xFF2a2a30), height: 1),
                     Padding(
@@ -1587,9 +1587,9 @@ class _GddImportWizardState extends State<GddImportWizard>
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: color.withOpacity(0.1),
+                              color: color.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: color.withOpacity(0.2)),
+                              border: Border.all(color: color.withValues(alpha: 0.2)),
                             ),
                             child: Text(
                               stage,
@@ -1632,7 +1632,7 @@ class _GddImportWizardState extends State<GddImportWizard>
             height: 80,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color(0xFF40FF90).withOpacity(0.15),
+              color: const Color(0xFF40FF90).withValues(alpha: 0.15),
             ),
             child: const Icon(
               Icons.check_circle,
@@ -1696,9 +1696,9 @@ class _GddImportWizardState extends State<GddImportWizard>
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF4A9EFF).withOpacity(0.1),
+              color: const Color(0xFF4A9EFF).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF4A9EFF).withOpacity(0.3)),
+              border: Border.all(color: const Color(0xFF4A9EFF).withValues(alpha: 0.3)),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1744,7 +1744,7 @@ class _GddImportWizardState extends State<GddImportWizard>
       decoration: BoxDecoration(
         color: const Color(0xFF121216),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1856,7 +1856,7 @@ class _GddImportWizardState extends State<GddImportWizard>
                   color: isActive
                       ? const Color(0xFF4A9EFF)
                       : index < _currentStep
-                          ? const Color(0xFF4A9EFF).withOpacity(0.5)
+                          ? const Color(0xFF4A9EFF).withValues(alpha: 0.5)
                           : const Color(0xFF2a2a30),
                 ),
               );

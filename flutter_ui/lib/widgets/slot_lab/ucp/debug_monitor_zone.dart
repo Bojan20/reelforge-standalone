@@ -94,7 +94,7 @@ class _DebugMonitorZoneState extends State<DebugMonitorZone> {
         Text(
           'Debug Monitor',
           style: TextStyle(
-            color: Colors.white.withOpacity(0.8),
+            color: Colors.white.withValues(alpha: 0.8),
             fontSize: 10,
             fontWeight: FontWeight.w600,
           ),
@@ -103,7 +103,7 @@ class _DebugMonitorZoneState extends State<DebugMonitorZone> {
         Text(
           'RAW',
           style: TextStyle(
-            color: const Color(0xFF80CBC4).withOpacity(0.5),
+            color: const Color(0xFF80CBC4).withValues(alpha: 0.5),
             fontSize: 7,
             fontWeight: FontWeight.w700,
           ),
@@ -122,7 +122,7 @@ class _DebugMonitorZoneState extends State<DebugMonitorZone> {
           Text(
             title,
             style: TextStyle(
-              color: const Color(0xFF80CBC4).withOpacity(0.6),
+              color: const Color(0xFF80CBC4).withValues(alpha: 0.6),
               fontSize: 7,
               fontWeight: FontWeight.w700,
               letterSpacing: 1.2,
@@ -139,7 +139,7 @@ class _DebugMonitorZoneState extends State<DebugMonitorZone> {
                     child: Text(
                       row.label,
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.3),
+                        color: Colors.white.withValues(alpha: 0.3),
                         fontSize: 7,
                         fontFamily: 'monospace',
                       ),
@@ -149,7 +149,7 @@ class _DebugMonitorZoneState extends State<DebugMonitorZone> {
                     child: Text(
                       row.value,
                       style: TextStyle(
-                        color: row.color ?? Colors.white.withOpacity(0.6),
+                        color: row.color ?? Colors.white.withValues(alpha: 0.6),
                         fontSize: 7,
                         fontFamily: 'monospace',
                       ),

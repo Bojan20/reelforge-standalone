@@ -778,7 +778,7 @@ class ArrangerTrackProvider extends ChangeNotifier {
       'id': s.id,
       'name': s.name,
       'type': s.type.index,
-      'color': s.color.toARGB32(),
+      'color': s.color.value,
       'startBar': s.startBar,
       'startBeat': s.startBeat,
       'lengthBars': s.lengthBars,

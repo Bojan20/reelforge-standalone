@@ -299,7 +299,7 @@ class _SpectralRepairEditorState extends State<SpectralRepairEditor> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.2),
+          color: color.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(4),
           border: Border.all(color: color),
         ),
@@ -503,7 +503,7 @@ class _SpectralRepairEditorState extends State<SpectralRepairEditor> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             margin: const EdgeInsets.only(bottom: 4),
             decoration: BoxDecoration(
-              color: isSelected ? FluxForgeTheme.accentOrange.withOpacity(0.2) : FluxForgeTheme.bgMid,
+              color: isSelected ? FluxForgeTheme.accentOrange.withValues(alpha: 0.2) : FluxForgeTheme.bgMid,
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
                 color: isSelected ? FluxForgeTheme.accentOrange : FluxForgeTheme.borderSubtle,
@@ -782,7 +782,7 @@ class _SpectrogramPainter extends CustomPainter {
         Offset(0, y),
         Offset(size.width, y),
         Paint()
-          ..color = FluxForgeTheme.borderSubtle.withOpacity(0.3)
+          ..color = FluxForgeTheme.borderSubtle.withValues(alpha: 0.3)
           ..strokeWidth = 0.5,
       );
     }
@@ -796,7 +796,7 @@ class _SpectrogramPainter extends CustomPainter {
     // Draw current selection being drawn
     if (currentSelection != null) {
       final paint = Paint()
-        ..color = FluxForgeTheme.accentOrange.withOpacity(0.3)
+        ..color = FluxForgeTheme.accentOrange.withValues(alpha: 0.3)
         ..style = PaintingStyle.fill;
       canvas.drawRect(currentSelection!, paint);
 
@@ -819,7 +819,7 @@ class _SpectrogramPainter extends CustomPainter {
     // Fill
     final fillPaint = Paint()
       ..color = (isSelected ? FluxForgeTheme.accentCyan : FluxForgeTheme.accentOrange)
-          .withOpacity(0.3)
+          .withValues(alpha: 0.3)
       ..style = PaintingStyle.fill;
     canvas.drawRect(rect, fillPaint);
 

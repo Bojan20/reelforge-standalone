@@ -578,13 +578,13 @@ class _EventLogPanelState extends State<EventLogPanel> {
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
                     color: isActive
-                        ? entry.typeColor.withOpacity(0.2)
+                        ? entry.typeColor.withValues(alpha: 0.2)
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(3),
                     border: Border.all(
                       color: isActive
                           ? entry.typeColor
-                          : entry.typeColor.withOpacity(0.3),
+                          : entry.typeColor.withValues(alpha: 0.3),
                       width: 0.5,
                     ),
                   ),
@@ -595,7 +595,7 @@ class _EventLogPanelState extends State<EventLogPanel> {
                         size: 10,
                         color: isActive
                             ? entry.typeColor
-                            : entry.typeColor.withOpacity(0.5),
+                            : entry.typeColor.withValues(alpha: 0.5),
                       ),
                       const SizedBox(width: 4),
                       Text(
@@ -603,7 +603,7 @@ class _EventLogPanelState extends State<EventLogPanel> {
                         style: TextStyle(
                           color: isActive
                               ? entry.typeColor
-                              : entry.typeColor.withOpacity(0.5),
+                              : entry.typeColor.withValues(alpha: 0.5),
                           fontSize: 8,
                           fontWeight: FontWeight.bold,
                         ),
@@ -671,7 +671,7 @@ class _EventLogPanelState extends State<EventLogPanel> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: FluxForgeTheme.accentOrange.withOpacity(0.2),
+                    color: FluxForgeTheme.accentOrange.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
@@ -715,25 +715,25 @@ class _EventLogPanelState extends State<EventLogPanel> {
     if (isAudioSuccess) {
       // SUCCESS: Green — audio played correctly
       leftBorderColor = const Color(0xFF40FF90);
-      bgColor = const Color(0xFF40FF90).withOpacity(0.08);
+      bgColor = const Color(0xFF40FF90).withValues(alpha: 0.08);
       textColor = const Color(0xFF40FF90);
       statusIcon = Icons.volume_up;
     } else if (isAudioMissing) {
       // WARNING: Orange — stage fired but no audio configured
       leftBorderColor = const Color(0xFFFF9040);
-      bgColor = const Color(0xFFFF9040).withOpacity(0.08);
+      bgColor = const Color(0xFFFF9040).withValues(alpha: 0.08);
       textColor = const Color(0xFFFF9040);
       statusIcon = Icons.volume_off;
     } else if (isError) {
       // ERROR: Red — something failed
       leftBorderColor = const Color(0xFFFF4040);
-      bgColor = const Color(0xFFFF4040).withOpacity(0.08);
+      bgColor = const Color(0xFFFF4040).withValues(alpha: 0.08);
       textColor = const Color(0xFFFF4040);
       statusIcon = Icons.error_outline;
     } else {
       // DEFAULT: Use entry's type color
       leftBorderColor = entry.typeColor;
-      bgColor = index.isEven ? Colors.transparent : Colors.white.withOpacity(0.02);
+      bgColor = index.isEven ? Colors.transparent : Colors.white.withValues(alpha: 0.02);
       textColor = Colors.white70;
       statusIcon = entry.typeIcon;
     }
@@ -758,7 +758,7 @@ class _EventLogPanelState extends State<EventLogPanel> {
             width: 24,
             height: 24,
             decoration: BoxDecoration(
-              color: leftBorderColor.withOpacity(0.2),
+              color: leftBorderColor.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
@@ -795,7 +795,7 @@ class _EventLogPanelState extends State<EventLogPanel> {
                     child: Text(
                       entry.details!,
                       style: TextStyle(
-                        color: textColor.withOpacity(0.6),
+                        color: textColor.withValues(alpha: 0.6),
                         fontSize: 9,
                         fontFamily: 'monospace',
                       ),
@@ -879,9 +879,9 @@ class _EventLogPanelState extends State<EventLogPanel> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
           decoration: BoxDecoration(
-            color: badgeColor.withOpacity(0.2),
+            color: badgeColor.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(3),
-            border: Border.all(color: badgeColor.withOpacity(0.5)),
+            border: Border.all(color: badgeColor.withValues(alpha: 0.5)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -903,7 +903,7 @@ class _EventLogPanelState extends State<EventLogPanel> {
         Text(
           '${entry.containerName ?? "?"} (${entry.containerChildCount ?? 0} $childLabel)',
           style: TextStyle(
-            color: badgeColor.withOpacity(0.7),
+            color: badgeColor.withValues(alpha: 0.7),
             fontSize: 8,
           ),
         ),
@@ -957,10 +957,10 @@ class _EventLogPanelState extends State<EventLogPanel> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: statusColor.withOpacity(0.15),
+              color: statusColor.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: statusColor.withOpacity(0.4),
+                color: statusColor.withValues(alpha: 0.4),
                 width: 1,
               ),
             ),
@@ -992,7 +992,7 @@ class _EventLogPanelState extends State<EventLogPanel> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
               decoration: BoxDecoration(
-                color: FluxForgeTheme.accentOrange.withOpacity(0.2),
+                color: FluxForgeTheme.accentOrange.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(2),
               ),
               child: Row(
@@ -1101,8 +1101,8 @@ class EventLogStrip extends StatelessWidget {
                               ),
                               decoration: BoxDecoration(
                                 color: isLatest
-                                    ? FluxForgeTheme.accentBlue.withOpacity(0.2)
-                                    : Colors.white.withOpacity(0.05),
+                                    ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
+                                    : Colors.white.withValues(alpha: 0.05),
                                 borderRadius: BorderRadius.circular(3),
                                 border: Border.all(
                                   color: isLatest

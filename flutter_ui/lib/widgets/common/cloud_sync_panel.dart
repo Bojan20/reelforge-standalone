@@ -38,10 +38,10 @@ class CloudSyncStatusBadge extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: _getBackgroundColor(service).withOpacity(0.2),
+                color: _getBackgroundColor(service).withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: _getBackgroundColor(service).withOpacity(0.5),
+                  color: _getBackgroundColor(service).withValues(alpha: 0.5),
                 ),
               ),
               child: Row(
@@ -215,7 +215,7 @@ class _CloudSyncPanelState extends State<CloudSyncPanel> {
                       ? service.userEmail ?? 'Signed in'
                       : 'Not signed in',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.6),
+                    color: Colors.white.withValues(alpha: 0.6),
                     fontSize: 11,
                   ),
                 ),
@@ -249,13 +249,13 @@ class _CloudSyncPanelState extends State<CloudSyncPanel> {
             Icon(
               Icons.cloud_off,
               size: 64,
-              color: Colors.white.withOpacity(0.3),
+              color: Colors.white.withValues(alpha: 0.3),
             ),
             const SizedBox(height: 16),
             Text(
               'Sign in to sync your projects',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
+                color: Colors.white.withValues(alpha: 0.7),
                 fontSize: 14,
               ),
             ),
@@ -286,13 +286,13 @@ class _CloudSyncPanelState extends State<CloudSyncPanel> {
               Icon(
                 Icons.folder_open,
                 size: 48,
-                color: Colors.white.withOpacity(0.3),
+                color: Colors.white.withValues(alpha: 0.3),
               ),
               const SizedBox(height: 12),
               Text(
                 'No projects synced yet',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.7),
+                  color: Colors.white.withValues(alpha: 0.7),
                   fontSize: 13,
                 ),
               ),
@@ -360,7 +360,7 @@ class _CloudSyncPanelState extends State<CloudSyncPanel> {
               child: Text(
                 '${service.projects.length} project(s)',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.6),
+                  color: Colors.white.withValues(alpha: 0.6),
                   fontSize: 11,
                 ),
               ),
@@ -514,7 +514,7 @@ class _CloudProjectTile extends StatelessWidget {
         subtitle: Text(
           '${_formatSize(project.sizeBytes)} • ${_formatDate(project.updatedAt)}',
           style: TextStyle(
-            color: Colors.white.withOpacity(0.5),
+            color: Colors.white.withValues(alpha: 0.5),
             fontSize: 11,
           ),
         ),
@@ -586,7 +586,7 @@ class _CloudProjectTile extends StatelessWidget {
       width: 36,
       height: 36,
       decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
+        color: color.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Icon(icon, color: color, size: 18),
@@ -775,7 +775,7 @@ class _ShareProjectDialogState extends State<_ShareProjectDialog> {
             Text(
               'The user will receive view access to this project.',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.6),
+                color: Colors.white.withValues(alpha: 0.6),
                 fontSize: 12,
               ),
             ),
@@ -857,7 +857,7 @@ class CloudSyncProgressDialog extends StatelessWidget {
               Text(
                 service.currentOperation ?? service.status.displayName,
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.7),
+                  color: Colors.white.withValues(alpha: 0.7),
                   fontSize: 13,
                 ),
               ),

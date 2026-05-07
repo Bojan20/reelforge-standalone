@@ -400,7 +400,7 @@ class _WinCelebrationDesignerState extends State<WinCelebrationDesigner>
         margin: const EdgeInsets.symmetric(horizontal: 2),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: isSelected ? tier.color.withOpacity(0.2) : Colors.transparent,
+          color: isSelected ? tier.color.withValues(alpha: 0.2) : Colors.transparent,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
             color: isSelected ? tier.color : Colors.transparent,
@@ -423,7 +423,7 @@ class _WinCelebrationDesignerState extends State<WinCelebrationDesigner>
                 margin: const EdgeInsets.only(top: 2),
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                 decoration: BoxDecoration(
-                  color: tier.color.withOpacity(0.3),
+                  color: tier.color.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
@@ -463,7 +463,7 @@ class _WinCelebrationDesignerState extends State<WinCelebrationDesigner>
           margin: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             color: isDraggingOver
-                ? tierConfig.color.withOpacity(0.1)
+                ? tierConfig.color.withValues(alpha: 0.1)
                 : FluxForgeTheme.bgSurface,
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
@@ -531,7 +531,7 @@ class _WinCelebrationDesignerState extends State<WinCelebrationDesigner>
           width: width.clamp(60.0, double.infinity),
           height: _layerHeight,
           decoration: BoxDecoration(
-            color: tierColor.withOpacity(isSelected ? 0.4 : 0.2),
+            color: tierColor.withValues(alpha: isSelected ? 0.4 : 0.2),
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
               color: isSelected ? Colors.white : tierColor,
@@ -618,9 +618,9 @@ class _WinCelebrationDesignerState extends State<WinCelebrationDesigner>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: tierConfig.color.withOpacity(0.2),
+              color: tierConfig.color.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: tierConfig.color.withOpacity(0.5)),
+              border: Border.all(color: tierConfig.color.withValues(alpha: 0.5)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -666,7 +666,7 @@ class _TimelinePainter extends CustomPainter {
     // Draw time ruler
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
     final tickPaint = Paint()
-      ..color = FluxForgeTheme.textSecondary.withOpacity(0.3)
+      ..color = FluxForgeTheme.textSecondary.withValues(alpha: 0.3)
       ..strokeWidth = 1;
 
     // Calculate tick interval

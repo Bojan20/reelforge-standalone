@@ -280,7 +280,7 @@ class _MixerScreenState extends State<MixerScreen> {
         color: FluxForgeTheme.bgDeep,
         border: Border(
           left: BorderSide(
-            color: const Color(0xFFFFD700).withOpacity(0.2),
+            color: const Color(0xFFFFD700).withValues(alpha: 0.2),
             width: 1,
           ),
         ),

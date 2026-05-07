@@ -63,9 +63,9 @@ class _MwuiTemplateGalleryState extends State<MwuiTemplateGallery> {
         children: [
           const Icon(Icons.dashboard, size: 14, color: Color(0xFF7E57C2)),
           const SizedBox(width: 6),
-          Text('Template Gallery', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 11, fontWeight: FontWeight.w600)),
+          Text('Template Gallery', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11, fontWeight: FontWeight.w600)),
           const Spacer(),
-          Text('${_templates.length} templates', style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 9)),
+          Text('${_templates.length} templates', style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 9)),
         ],
       ),
     );
@@ -92,14 +92,14 @@ class _MwuiTemplateGalleryState extends State<MwuiTemplateGallery> {
               margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
               padding: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFF7E57C2).withOpacity(0.15) : Colors.transparent,
+                color: isSelected ? const Color(0xFF7E57C2).withValues(alpha: 0.15) : Colors.transparent,
                 borderRadius: BorderRadius.circular(3),
               ),
               alignment: Alignment.center,
               child: Text(
                 cat.displayName,
                 style: TextStyle(
-                  color: isSelected ? const Color(0xFF7E57C2) : Colors.white.withOpacity(0.4),
+                  color: isSelected ? const Color(0xFF7E57C2) : Colors.white.withValues(alpha: 0.4),
                   fontSize: 9,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),
@@ -118,7 +118,7 @@ class _MwuiTemplateGalleryState extends State<MwuiTemplateGallery> {
 
     if (filtered.isEmpty) {
       return Center(
-        child: Text('No templates in this category', style: TextStyle(color: Colors.white.withOpacity(0.2), fontSize: 11)),
+        child: Text('No templates in this category', style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 11)),
       );
     }
 
@@ -141,11 +141,11 @@ class _MwuiTemplateGalleryState extends State<MwuiTemplateGallery> {
           child: Container(
             decoration: BoxDecoration(
               color: isSelected
-                  ? tpl.color.withOpacity(0.12)
-                  : Colors.white.withOpacity(0.02),
+                  ? tpl.color.withValues(alpha: 0.12)
+                  : Colors.white.withValues(alpha: 0.02),
               borderRadius: BorderRadius.circular(6),
               border: Border.all(
-                color: isSelected ? tpl.color.withOpacity(0.5) : Colors.white.withOpacity(0.08),
+                color: isSelected ? tpl.color.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.08),
                 width: isSelected ? 1.5 : 0.5,
               ),
             ),
@@ -160,7 +160,7 @@ class _MwuiTemplateGalleryState extends State<MwuiTemplateGallery> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                       decoration: BoxDecoration(
-                        color: tpl.color.withOpacity(0.1),
+                        color: tpl.color.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(2),
                       ),
                       child: Text(
@@ -174,7 +174,7 @@ class _MwuiTemplateGalleryState extends State<MwuiTemplateGallery> {
                 Text(
                   tpl.name,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.8),
+                    color: Colors.white.withValues(alpha: 0.8),
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
                   ),
@@ -182,16 +182,16 @@ class _MwuiTemplateGalleryState extends State<MwuiTemplateGallery> {
                 const SizedBox(height: 2),
                 Text(
                   tpl.description,
-                  style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 8),
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 8),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const Spacer(),
                 Row(
                   children: [
-                    Text('${tpl.nodeCount} nodes', style: TextStyle(color: Colors.white.withOpacity(0.2), fontSize: 7)),
+                    Text('${tpl.nodeCount} nodes', style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 7)),
                     const Spacer(),
-                    Text('${tpl.stageCount} stages', style: TextStyle(color: Colors.white.withOpacity(0.2), fontSize: 7)),
+                    Text('${tpl.stageCount} stages', style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 7)),
                   ],
                 ),
               ],
@@ -215,10 +215,10 @@ class _MwuiTemplateGalleryState extends State<MwuiTemplateGallery> {
         children: [
           Icon(tpl.icon, size: 14, color: tpl.color),
           const SizedBox(width: 6),
-          Text(tpl.name, style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 11, fontWeight: FontWeight.w600)),
+          Text(tpl.name, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11, fontWeight: FontWeight.w600)),
           const SizedBox(width: 12),
           Text('${tpl.nodeCount} nodes, ${tpl.stageCount} stages',
-            style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 9)),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 9)),
           const Spacer(),
           GestureDetector(
             onTap: () {
@@ -235,9 +235,9 @@ class _MwuiTemplateGalleryState extends State<MwuiTemplateGallery> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                color: tpl.color.withOpacity(0.15),
+                color: tpl.color.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: tpl.color.withOpacity(0.3), width: 0.5),
+                border: Border.all(color: tpl.color.withValues(alpha: 0.3), width: 0.5),
               ),
               child: Text('Apply Template', style: TextStyle(color: tpl.color, fontSize: 10, fontWeight: FontWeight.w600)),
             ),

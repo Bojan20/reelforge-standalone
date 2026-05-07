@@ -86,7 +86,7 @@ class _ErrorDialogState extends State<ErrorDialog> {
                 Text(
                   _getSeverityLabel(widget.error.severity),
                   style: TextStyle(
-                    color: colors.text.withOpacity(0.7),
+                    color: colors.text.withValues(alpha: 0.7),
                     fontSize: 12,
                   ),
                 ),
@@ -96,7 +96,7 @@ class _ErrorDialogState extends State<ErrorDialog> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: colors.icon.withOpacity(0.2),
+              color: colors.icon.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
@@ -269,36 +269,36 @@ class _ErrorDialogState extends State<ErrorDialog> {
     switch (severity) {
       case ErrorSeverity.info:
         return _SeverityColors(
-          background: FluxForgeTheme.accentBlue.withOpacity(0.1),
-          border: FluxForgeTheme.accentBlue.withOpacity(0.3),
+          background: FluxForgeTheme.accentBlue.withValues(alpha: 0.1),
+          border: FluxForgeTheme.accentBlue.withValues(alpha: 0.3),
           icon: FluxForgeTheme.accentBlue,
           text: Colors.white,
         );
       case ErrorSeverity.warning:
         return _SeverityColors(
-          background: FluxForgeTheme.accentOrange.withOpacity(0.1),
-          border: FluxForgeTheme.accentOrange.withOpacity(0.3),
+          background: FluxForgeTheme.accentOrange.withValues(alpha: 0.1),
+          border: FluxForgeTheme.accentOrange.withValues(alpha: 0.3),
           icon: FluxForgeTheme.accentOrange,
           text: Colors.white,
         );
       case ErrorSeverity.error:
         return _SeverityColors(
-          background: FluxForgeTheme.accentRed.withOpacity(0.1),
-          border: FluxForgeTheme.accentRed.withOpacity(0.3),
+          background: FluxForgeTheme.accentRed.withValues(alpha: 0.1),
+          border: FluxForgeTheme.accentRed.withValues(alpha: 0.3),
           icon: FluxForgeTheme.accentRed,
           text: Colors.white,
         );
       case ErrorSeverity.critical:
         return _SeverityColors(
-          background: const Color(0xFF8B0000).withOpacity(0.2),
-          border: const Color(0xFF8B0000).withOpacity(0.5),
+          background: const Color(0xFF8B0000).withValues(alpha: 0.2),
+          border: const Color(0xFF8B0000).withValues(alpha: 0.5),
           icon: const Color(0xFFFF4040),
           text: Colors.white,
         );
       case ErrorSeverity.fatal:
         return _SeverityColors(
-          background: const Color(0xFF8B0000).withOpacity(0.3),
-          border: const Color(0xFFFF0000).withOpacity(0.6),
+          background: const Color(0xFF8B0000).withValues(alpha: 0.3),
+          border: const Color(0xFFFF0000).withValues(alpha: 0.6),
           icon: const Color(0xFFFF0000),
           text: Colors.white,
         );
@@ -356,7 +356,7 @@ void showErrorSnackbar(BuildContext context, AppError error) {
                 Text(
                   error.message,
                   style: TextStyle(
-                    color: colors.text.withOpacity(0.8),
+                    color: colors.text.withValues(alpha: 0.8),
                     fontSize: 12,
                   ),
                 ),

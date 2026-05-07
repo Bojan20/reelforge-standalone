@@ -458,7 +458,7 @@ class EventDependencyGraphState extends State<EventDependencyGraph>
             height: _nodeHeight * _scale,
             decoration: BoxDecoration(
               color: isSelected
-                  ? node.color.withOpacity(0.3)
+                  ? node.color.withValues(alpha: 0.3)
                   : FluxForgeTheme.bgSurface,
               borderRadius: BorderRadius.circular(6 * _scale),
               border: Border.all(
@@ -472,7 +472,7 @@ class EventDependencyGraphState extends State<EventDependencyGraph>
               boxShadow: isDragged
                   ? [
                       BoxShadow(
-                        color: node.color.withOpacity(0.4),
+                        color: node.color.withValues(alpha: 0.4),
                         blurRadius: 8,
                         spreadRadius: 2,
                       ),
@@ -608,8 +608,8 @@ class _ConnectionPainter extends CustomPainter {
 
         final paint = Paint()
           ..color = isHighlighted
-              ? accentColor.withOpacity(animationValue)
-              : FluxForgeTheme.textSecondary.withOpacity(0.3)
+              ? accentColor.withValues(alpha: animationValue)
+              : FluxForgeTheme.textSecondary.withValues(alpha: 0.3)
           ..strokeWidth = isHighlighted ? 2.0 : 1.0
           ..style = PaintingStyle.stroke;
 

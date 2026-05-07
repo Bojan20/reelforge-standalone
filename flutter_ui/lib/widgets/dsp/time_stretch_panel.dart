@@ -175,13 +175,13 @@ class _TimeStretchPanelState extends State<TimeStretchPanel> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
               color: _processing
-                  ? Colors.orange.withOpacity(0.3)
-                  : FluxForgeTheme.accentBlue.withOpacity(0.2),
+                  ? Colors.orange.withValues(alpha: 0.3)
+                  : FluxForgeTheme.accentBlue.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
                 color: _processing
-                    ? Colors.orange.withOpacity(0.5)
-                    : FluxForgeTheme.accentBlue.withOpacity(0.4),
+                    ? Colors.orange.withValues(alpha: 0.5)
+                    : FluxForgeTheme.accentBlue.withValues(alpha: 0.4),
               ),
             ),
             child: Row(
@@ -213,7 +213,7 @@ class _TimeStretchPanelState extends State<TimeStretchPanel> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
-            color: _initialized ? Colors.green.withOpacity(0.2) : Colors.red.withOpacity(0.2),
+            color: _initialized ? Colors.green.withValues(alpha: 0.2) : Colors.red.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(4),
           ),
           child: Text(
@@ -339,7 +339,7 @@ class _TimeStretchPanelState extends State<TimeStretchPanel> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: isActive ? FluxForgeTheme.accentBlue.withOpacity(0.3) : FluxForgeTheme.surface,
+          color: isActive ? FluxForgeTheme.accentBlue.withValues(alpha: 0.3) : FluxForgeTheme.surface,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
             color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.border,
@@ -461,7 +461,7 @@ class _TimeStretchPanelState extends State<TimeStretchPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: FluxForgeTheme.surface.withOpacity(0.5),
+        color: FluxForgeTheme.surface.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Column(
@@ -580,6 +580,6 @@ class _TimeStretchPanelState extends State<TimeStretchPanel> {
     activeTrackColor: FluxForgeTheme.accentBlue,
     inactiveTrackColor: FluxForgeTheme.surface,
     thumbColor: FluxForgeTheme.accentBlue,
-    overlayColor: FluxForgeTheme.accentBlue.withOpacity(0.2),
+    overlayColor: FluxForgeTheme.accentBlue.withValues(alpha: 0.2),
   );
 }

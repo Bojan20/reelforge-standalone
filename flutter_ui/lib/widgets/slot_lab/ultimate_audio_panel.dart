@@ -647,9 +647,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
           width: 24,
           height: 20,
           decoration: BoxDecoration(
-            color: color.withOpacity(0.10),
+            color: color.withValues(alpha: 0.10),
             borderRadius: BorderRadius.circular(3),
-            border: Border.all(color: color.withOpacity(0.35), width: 1),
+            border: Border.all(color: color.withValues(alpha: 0.35), width: 1),
           ),
           child: Icon(icon, size: 12, color: color),
         ),
@@ -2367,8 +2367,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
           padding: const EdgeInsets.symmetric(horizontal: 10),
           decoration: BoxDecoration(
             color: isActive
-                ? color.withOpacity(0.06)
-                : hovered ? color.withOpacity(0.03) : Colors.transparent,
+                ? color.withValues(alpha: 0.06)
+                : hovered ? color.withValues(alpha: 0.03) : Colors.transparent,
             border: Border(
               bottom: BorderSide(
                 color: isActive ? tabTint : Colors.transparent,
@@ -3011,18 +3011,18 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               padding: const EdgeInsets.symmetric(horizontal: 10),
               decoration: BoxDecoration(
                 color: isHovered
-                    ? phase.color.withOpacity(0.06)
+                    ? phase.color.withValues(alpha: 0.06)
                     : FluxForgeTheme.bgMid,
                 border: Border(
-                  bottom: BorderSide(color: phase.color.withOpacity(0.08)),
-                  left: BorderSide(color: tintColor.withOpacity(0.7), width: 3),
+                  bottom: BorderSide(color: phase.color.withValues(alpha: 0.08)),
+                  left: BorderSide(color: tintColor.withValues(alpha: 0.7), width: 3),
                 ),
               ),
               child: Row(
                 children: [
                   Icon(
                     isExpanded ? Icons.expand_more : Icons.chevron_right,
-                    size: 16, color: tintColor.withOpacity(0.6),
+                    size: 16, color: tintColor.withValues(alpha: 0.6),
                   ),
                   const SizedBox(width: 6),
                   Flexible(
@@ -3041,8 +3041,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                     style: TextStyle(
                       fontSize: 10, fontWeight: FontWeight.w500,
                       color: isComplete
-                          ? FluxForgeTheme.accentGreen.withOpacity(0.6)
-                          : tintColor.withOpacity(0.45),
+                          ? FluxForgeTheme.accentGreen.withValues(alpha: 0.6)
+                          : tintColor.withValues(alpha: 0.45),
                       fontFamily: 'monospace',
                     ),
                   ),
@@ -3089,7 +3089,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
           Container(
             decoration: BoxDecoration(
               border: Border(
-                left: BorderSide(color: phase.color.withOpacity(0.08), width: 2),
+                left: BorderSide(color: phase.color.withValues(alpha: 0.08), width: 2),
               ),
             ),
             child: Column(
@@ -3127,13 +3127,13 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               height: 28,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               color: isHovered
-                  ? config.color.withOpacity(0.04)
+                  ? config.color.withValues(alpha: 0.04)
                   : FluxForgeTheme.bgDeep,
               child: Row(
                 children: [
                   Icon(
                     isExpanded ? Icons.expand_more : Icons.chevron_right,
-                    size: 14, color: sectionTint.withOpacity(0.5),
+                    size: 14, color: sectionTint.withValues(alpha: 0.5),
                   ),
                   const SizedBox(width: 5),
                   Flexible(
@@ -3141,7 +3141,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                       config.title,
                       style: TextStyle(
                         fontSize: 10, fontWeight: FontWeight.w600,
-                        color: sectionTint.withOpacity(0.8), letterSpacing: 0.3,
+                        color: sectionTint.withValues(alpha: 0.8), letterSpacing: 0.3,
                       ),
                       overflow: TextOverflow.ellipsis, maxLines: 1,
                     ),
@@ -3155,7 +3155,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                         style: TextStyle(
                           fontSize: 9, fontWeight: FontWeight.w500,
                           color: percentage == 100
-                              ? sectionTint.withOpacity(0.6)
+                              ? sectionTint.withValues(alpha: 0.6)
                               : FluxForgeTheme.textDisabled,
                           fontFamily: 'monospace',
                         ),
@@ -3334,7 +3334,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                   : isHovering
                       ? FluxForgeTheme.bgSurface
                       : isSlotHovered
-                          ? accentColor.withOpacity(0.03)
+                          ? accentColor.withValues(alpha: 0.03)
                           : const Color(0xFF141420);
 
           return Container(
@@ -3655,7 +3655,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   Color _slotBorderColor(bool isQuickAssignSelected, bool isHovering, bool isSlotHovered, bool hasAudio, Color slotTint) {
     if (isQuickAssignSelected) return FluxForgeTheme.textTertiary;
     if (isHovering) return FluxForgeTheme.textDisabled;
-    if (isSlotHovered) return slotTint.withOpacity(0.3);
+    if (isSlotHovered) return slotTint.withValues(alpha: 0.3);
     if (hasAudio) return FluxForgeTheme.borderSubtle;
     return FluxForgeTheme.bgSurface;
   }
@@ -3947,7 +3947,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
           height: 20,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: color.withOpacity(0.2),
+            color: color.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(4),
           ),
           child: Text(
@@ -4071,7 +4071,7 @@ class _GroupDropZoneState extends State<_GroupDropZone> {
                 color: _isHovering
                     ? FluxForgeTheme.bgElevated
                     : _isMouseHover
-                        ? sectionColor.withOpacity(0.03)
+                        ? sectionColor.withValues(alpha: 0.03)
                         : Colors.transparent,
                 borderRadius: BorderRadius.circular(4),
                 border: _isHovering
@@ -6109,7 +6109,7 @@ class _VariantEditorDialogState extends State<_VariantEditorDialog> {
                     style: ButtonStyle(
                       backgroundColor: WidgetStateProperty.resolveWith((states) {
                         if (states.contains(WidgetState.selected)) {
-                          return widget.accentColor.withOpacity(0.3);
+                          return widget.accentColor.withValues(alpha: 0.3);
                         }
                         return const Color(0xFF0D0D10);
                       }),
@@ -6131,7 +6131,7 @@ class _VariantEditorDialogState extends State<_VariantEditorDialog> {
               decoration: BoxDecoration(
                 color: const Color(0xFF0D0D10),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.white.withOpacity(0.1)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
               ),
               child: _variants.isEmpty
                   ? const Center(
@@ -6176,13 +6176,13 @@ class _VariantEditorDialogState extends State<_VariantEditorDialog> {
                   height: 50,
                   decoration: BoxDecoration(
                     color: isHovering
-                        ? widget.accentColor.withOpacity(0.2)
+                        ? widget.accentColor.withValues(alpha: 0.2)
                         : const Color(0xFF0D0D10),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: isHovering
                           ? widget.accentColor
-                          : Colors.white.withOpacity(0.1),
+                          : Colors.white.withValues(alpha: 0.1),
                       style: BorderStyle.solid,
                     ),
                   ),
@@ -6233,7 +6233,7 @@ class _VariantEditorDialogState extends State<_VariantEditorDialog> {
       decoration: BoxDecoration(
         color: const Color(0xFF16161C),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Row(
         children: [
@@ -6243,7 +6243,7 @@ class _VariantEditorDialogState extends State<_VariantEditorDialog> {
             height: 24,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: widget.accentColor.withOpacity(0.2),
+              color: widget.accentColor.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(

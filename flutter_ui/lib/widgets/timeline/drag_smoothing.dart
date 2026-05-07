@@ -272,7 +272,7 @@ class SnapLinePainter extends CustomPainter {
 
     // Main snap line
     final linePaint = Paint()
-      ..color = color.withOpacity(strength * 0.8)
+      ..color = color.withValues(alpha: strength * 0.8)
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
 
@@ -284,7 +284,7 @@ class SnapLinePainter extends CustomPainter {
 
     // Glow effect
     final glowPaint = Paint()
-      ..color = color.withOpacity(strength * 0.3)
+      ..color = color.withValues(alpha: strength * 0.3)
       ..strokeWidth = 8
       ..style = PaintingStyle.stroke
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
@@ -303,7 +303,7 @@ class SnapLinePainter extends CustomPainter {
       ..close();
 
     final indicatorPaint = Paint()
-      ..color = color.withOpacity(strength)
+      ..color = color.withValues(alpha: strength)
       ..style = PaintingStyle.fill;
 
     canvas.drawPath(indicatorPath, indicatorPaint);
@@ -350,12 +350,12 @@ class GridOverlayPainter extends CustomPainter {
     if (pixelsPerGrid < 10) return;
 
     final paint = Paint()
-      ..color = Colors.white.withOpacity(opacity)
+      ..color = Colors.white.withValues(alpha: opacity)
       ..strokeWidth = 1
       ..style = PaintingStyle.stroke;
 
     final majorPaint = Paint()
-      ..color = Colors.white.withOpacity(opacity * 2)
+      ..color = Colors.white.withValues(alpha: opacity * 2)
       ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke;
 
@@ -452,8 +452,8 @@ class _MagneticZonePainter extends CustomPainter {
       center: Alignment.center,
       radius: 1,
       colors: [
-        const Color(0xFF4a9eff).withOpacity(strength * 0.3),
-        const Color(0xFF4a9eff).withOpacity(0),
+        const Color(0xFF4a9eff).withValues(alpha: strength * 0.3),
+        const Color(0xFF4a9eff).withValues(alpha: 0),
       ],
     );
 

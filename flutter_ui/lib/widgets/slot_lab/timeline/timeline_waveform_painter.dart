@@ -206,7 +206,7 @@ class TimelineWaveformPainter extends CustomPainter {
       ..shader = ui.Gradient.linear(
         const Offset(0, 0),
         Offset(0, size.height),
-        [waveColor.withOpacity(0.8), waveColor.withOpacity(0.3)],
+        [waveColor.withValues(alpha: 0.8), waveColor.withValues(alpha: 0.3)],
       )
       ..style = PaintingStyle.fill;
 
@@ -337,7 +337,7 @@ class TimelineWaveformPainter extends CustomPainter {
   /// Paint placeholder when no waveform data
   void _paintPlaceholder(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white.withOpacity(0.1)
+      ..color = Colors.white.withValues(alpha: 0.1)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
 

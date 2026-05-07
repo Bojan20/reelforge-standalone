@@ -2847,8 +2847,8 @@ class _GainEnvelopePainter extends CustomPainter {
     // Draw the gain line
     final linePaint = Paint()
       ..color = gain > 1.0
-          ? Colors.orange.withOpacity(0.8)  // Boost = orange
-          : Colors.cyan.withOpacity(0.8)    // Cut = cyan
+          ? Colors.orange.withValues(alpha: 0.8)  // Boost = orange
+          : Colors.cyan.withValues(alpha: 0.8)    // Cut = cyan
       ..strokeWidth = 2.0
       ..style = PaintingStyle.stroke;
 
@@ -2912,7 +2912,7 @@ class _GainEnvelopePainter extends CustomPainter {
     );
     canvas.drawRRect(
       textBgRect,
-      Paint()..color = Colors.black.withOpacity(0.6),
+      Paint()..color = Colors.black.withValues(alpha: 0.6),
     );
 
     textPainter.paint(

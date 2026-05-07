@@ -4835,7 +4835,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+                  border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1))),
                 ),
                 child: Row(
                   children: [
@@ -4869,7 +4869,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+                  border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1))),
                 ),
                 child: Row(
                   children: [
@@ -5183,7 +5183,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         backgroundColor: const Color(0xFF1a1a20),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
-          side: BorderSide(color: Colors.white.withOpacity(0.1)),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
         ),
         titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
         contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
@@ -5206,7 +5206,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             children: [
               Text(
                 'Project sample rate: ${_formatSampleRate(projectRate)}',
-                style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12),
               ),
               const SizedBox(height: 10),
               ...byRate.entries.map((entry) {
@@ -5221,7 +5221,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFF9040).withOpacity(0.15),
+                          color: const Color(0xFFFF9040).withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(3),
                         ),
                         child: Text(
@@ -5238,7 +5238,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                       Expanded(
                         child: Text(
                           '$fileNames$suffix',
-                          style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 11),
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 11),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -5250,7 +5250,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
               const SizedBox(height: 8),
               Text(
                 'Audio will play at the project rate. Pitch/speed may differ from original.',
-                style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10.5),
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 10.5),
               ),
             ],
           ),
@@ -11759,7 +11759,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                         color: c,
                         shape: BoxShape.circle,
                         border: Border.all(
-                            color: Colors.white.withOpacity(0.3), width: 0.5),
+                            color: Colors.white.withValues(alpha: 0.3), width: 0.5),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -13649,7 +13649,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF4A9EFF).withOpacity(0.1),
+                      color: const Color(0xFF4A9EFF).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: const Row(
@@ -17047,7 +17047,7 @@ class _CellSliderState extends State<_CellSlider> {
                   border: Border.all(color: FluxForgeTheme.borderSubtle),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
+                      color: Colors.black.withValues(alpha: 0.3),
                       blurRadius: 8,
                       offset: const Offset(0, 4),
                     ),

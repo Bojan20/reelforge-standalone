@@ -709,9 +709,9 @@ class _ShortcutsSettingsScreenState extends State<ShortcutsSettingsScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             border: isLast ? null : Border(
-              bottom: BorderSide(color: FluxForgeTheme.bgDeep.withOpacity(0.5)),
+              bottom: BorderSide(color: FluxForgeTheme.bgDeep.withValues(alpha: 0.5)),
             ),
-            color: isEditing ? FluxForgeTheme.accentBlue.withOpacity(0.1) : null,
+            color: isEditing ? FluxForgeTheme.accentBlue.withValues(alpha: 0.1) : null,
           ),
           child: Row(
             children: [
@@ -744,7 +744,7 @@ class _ShortcutsSettingsScreenState extends State<ShortcutsSettingsScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: FluxForgeTheme.accentBlue.withOpacity(0.2),
+                    color: FluxForgeTheme.accentBlue.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(color: FluxForgeTheme.accentBlue),
                   ),

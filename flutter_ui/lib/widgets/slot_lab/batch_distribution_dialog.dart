@@ -140,10 +140,10 @@ class BatchDistributionDialog extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: FluxForgeTheme.accentBlue.withOpacity(0.1),
+        color: FluxForgeTheme.accentBlue.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: FluxForgeTheme.accentBlue.withOpacity(0.3),
+          color: FluxForgeTheme.accentBlue.withValues(alpha: 0.3),
         ),
       ),
       child: Row(
@@ -217,7 +217,7 @@ class BatchDistributionDialog extends StatelessWidget {
             color: const Color(0xFF16161C),
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
-              color: FluxForgeTheme.accentGreen.withOpacity(0.3),
+              color: FluxForgeTheme.accentGreen.withValues(alpha: 0.3),
             ),
           ),
           child: Row(
@@ -258,7 +258,7 @@ class BatchDistributionDialog extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: FluxForgeTheme.accentGreen.withOpacity(0.2),
+                  color: FluxForgeTheme.accentGreen.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
@@ -284,7 +284,7 @@ class BatchDistributionDialog extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.celebration, size: 48, color: FluxForgeTheme.accentGreen.withOpacity(0.5)),
+            Icon(Icons.celebration, size: 48, color: FluxForgeTheme.accentGreen.withValues(alpha: 0.5)),
             const SizedBox(height: 12),
             Text(
               'All files matched!',
@@ -316,7 +316,7 @@ class BatchDistributionDialog extends StatelessWidget {
             color: const Color(0xFF16161C),
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
-              color: FluxForgeTheme.accentOrange.withOpacity(0.3),
+              color: FluxForgeTheme.accentOrange.withValues(alpha: 0.3),
             ),
           ),
           child: Row(
@@ -343,7 +343,7 @@ class BatchDistributionDialog extends StatelessWidget {
                           : 'Suggestions: ${file.suggestions.take(2).map((s) => s.stage).join(', ')}',
                       style: TextStyle(
                         fontSize: 9,
-                        color: FluxForgeTheme.accentOrange.withOpacity(0.8),
+                        color: FluxForgeTheme.accentOrange.withValues(alpha: 0.8),
                         fontStyle: FontStyle.italic,
                       ),
                       maxLines: 2,

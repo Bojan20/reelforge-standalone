@@ -87,7 +87,7 @@ class _StageTraceViewerState extends State<StageTraceViewer> {
           Text(
             'Stage Trace',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
+              color: Colors.white.withValues(alpha: 0.9),
               fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
@@ -96,7 +96,7 @@ class _StageTraceViewerState extends State<StageTraceViewer> {
           Text(
             '${_events.length} events | ${_formatDuration(_durationMs)}',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.5),
+              color: Colors.white.withValues(alpha: 0.5),
               fontSize: 11,
             ),
           ),
@@ -110,7 +110,7 @@ class _StageTraceViewerState extends State<StageTraceViewer> {
       return Center(
         child: Text(
           'No events in trace',
-          style: TextStyle(color: Colors.white.withOpacity(0.5)),
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
         ),
       );
     }
@@ -156,7 +156,7 @@ class _StageTraceViewerState extends State<StageTraceViewer> {
             onPressed: () => setState(() => _zoom = (_zoom / 1.2).clamp(0.5, 10)),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(maxWidth: 24),
-            color: Colors.white.withOpacity(0.7),
+            color: Colors.white.withValues(alpha: 0.7),
             iconSize: 16,
           ),
           SizedBox(
@@ -174,7 +174,7 @@ class _StageTraceViewerState extends State<StageTraceViewer> {
             onPressed: () => setState(() => _zoom = (_zoom * 1.2).clamp(0.5, 10)),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(maxWidth: 24),
-            color: Colors.white.withOpacity(0.7),
+            color: Colors.white.withValues(alpha: 0.7),
             iconSize: 16,
           ),
           const Spacer(),
@@ -182,7 +182,7 @@ class _StageTraceViewerState extends State<StageTraceViewer> {
           Text(
             _formatDuration(_playheadMs),
             style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
+              color: Colors.white.withValues(alpha: 0.7),
               fontSize: 11,
               fontFamily: 'monospace',
             ),

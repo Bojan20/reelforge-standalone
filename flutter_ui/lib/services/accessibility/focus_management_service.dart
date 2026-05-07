@@ -354,7 +354,7 @@ class FocusIndicator extends StatelessWidget {
               boxShadow: focused
                   ? [
                       BoxShadow(
-                        color: focusColor.withOpacity(0.3),
+                        color: focusColor.withValues(alpha: 0.3),
                         blurRadius: 8,
                         spreadRadius: 1,
                       ),

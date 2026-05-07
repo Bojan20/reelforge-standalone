@@ -82,10 +82,10 @@ class LufsNormalizationIndicator extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.7),
+          color: Colors.black.withValues(alpha: 0.7),
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: Colors.white.withOpacity(0.2),
+            color: Colors.white.withValues(alpha: 0.2),
             width: 1,
           ),
         ),
@@ -95,14 +95,14 @@ class LufsNormalizationIndicator extends StatelessWidget {
             Icon(
               Icons.analytics_outlined,
               size: 12,
-              color: Colors.white.withOpacity(0.5),
+              color: Colors.white.withValues(alpha: 0.5),
             ),
             const SizedBox(width: 4),
             Text(
               'Measuring...',
               style: TextStyle(
                 fontSize: 9,
-                color: Colors.white.withOpacity(0.5),
+                color: Colors.white.withValues(alpha: 0.5),
                 fontFamily: 'monospace',
               ),
             ),
@@ -175,7 +175,7 @@ class _LufsIndicatorPainter extends CustomPainter {
 
     // Draw horizontal line at normalized level
     final linePaint = Paint()
-      ..color = color.withOpacity(0.6)
+      ..color = color.withValues(alpha: 0.6)
       ..strokeWidth = 2
       ..strokeCap = StrokeCap.round;
 
@@ -205,7 +205,7 @@ class _LufsIndicatorPainter extends CustomPainter {
           fontFamily: 'monospace',
           shadows: [
             Shadow(
-              color: Colors.black.withOpacity(0.8),
+              color: Colors.black.withValues(alpha: 0.8),
               offset: const Offset(1, 1),
               blurRadius: 2,
             ),
@@ -234,7 +234,7 @@ class _LufsIndicatorPainter extends CustomPainter {
 
     canvas.drawRRect(
       labelBg,
-      Paint()..color = Colors.black.withOpacity(0.7),
+      Paint()..color = Colors.black.withValues(alpha: 0.7),
     );
 
     textPainter.paint(canvas, Offset(labelX, labelY));
@@ -250,7 +250,7 @@ class _LufsIndicatorPainter extends CustomPainter {
 
   void _drawArrows(Canvas canvas, double y, double height, Color color) {
     final arrowPaint = Paint()
-      ..color = color.withOpacity(0.8)
+      ..color = color.withValues(alpha: 0.8)
       ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke;
 

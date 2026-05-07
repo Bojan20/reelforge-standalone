@@ -197,7 +197,7 @@ class _BonusSimulatorPanelState extends State<BonusSimulatorPanel>
   Widget _buildTabBar() {
     return Container(
       decoration: BoxDecoration(
-        color: FluxForgeTheme.bgMid.withOpacity(0.5),
+        color: FluxForgeTheme.bgMid.withValues(alpha: 0.5),
         border: Border(
           bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
@@ -346,17 +346,17 @@ class _QuickTriggerButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
           decoration: BoxDecoration(
             color: isActive
-                ? type.color.withOpacity(0.3)
-                : type.color.withOpacity(0.1),
+                ? type.color.withValues(alpha: 0.3)
+                : type.color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
-              color: isActive ? type.color : type.color.withOpacity(0.3),
+              color: isActive ? type.color : type.color.withValues(alpha: 0.3),
             ),
           ),
           child: Icon(
             type.icon,
             size: 14,
-            color: isActive ? type.color : type.color.withOpacity(0.7),
+            color: isActive ? type.color : type.color.withValues(alpha: 0.7),
           ),
         ),
       ),
@@ -381,7 +381,7 @@ class _StatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: isActive ? color.withOpacity(0.2) : Colors.transparent,
+        color: isActive ? color.withValues(alpha: 0.2) : Colors.transparent,
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
           color: isActive ? color : Colors.white24,
@@ -711,7 +711,7 @@ class _InactiveState extends StatelessWidget {
           Icon(
             type.icon,
             size: 48,
-            color: type.color.withOpacity(0.5),
+            color: type.color.withValues(alpha: 0.5),
           ),
           const SizedBox(height: 12),
           Text(
@@ -807,7 +807,7 @@ class _ChoiceButton extends StatelessWidget {
       child: Container(
         height: 80,
         decoration: BoxDecoration(
-          color: color.withOpacity(0.2),
+          color: color.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: color, width: 2),
         ),

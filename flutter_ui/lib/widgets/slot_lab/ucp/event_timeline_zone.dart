@@ -36,7 +36,7 @@ class EventTimelineZone extends StatelessWidget {
         Text(
           'Event Timeline',
           style: TextStyle(
-            color: Colors.white.withOpacity(0.8),
+            color: Colors.white.withValues(alpha: 0.8),
             fontSize: 10,
             fontWeight: FontWeight.w600,
           ),
@@ -57,7 +57,7 @@ class EventTimelineZone extends StatelessWidget {
       children: [
         Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
         const SizedBox(width: 2),
-        Text(label, style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 7)),
+        Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 7)),
       ],
     );
   }
@@ -66,13 +66,13 @@ class EventTimelineZone extends StatelessWidget {
     return Container(
       height: 24,
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.03),
+        color: Colors.white.withValues(alpha: 0.03),
         borderRadius: BorderRadius.circular(3),
       ),
       child: Center(
         child: Text(
           'Events will appear during playback',
-          style: TextStyle(color: Colors.white.withOpacity(0.2), fontSize: 8),
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 8),
         ),
       ),
     );

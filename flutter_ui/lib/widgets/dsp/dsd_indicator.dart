@@ -64,12 +64,12 @@ class DsdIndicator extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              _getRateColor().withOpacity(0.3),
-              _getRateColor().withOpacity(0.1),
+              _getRateColor().withValues(alpha: 0.3),
+              _getRateColor().withValues(alpha: 0.1),
             ],
           ),
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: _getRateColor().withOpacity(0.5)),
+          border: Border.all(color: _getRateColor().withValues(alpha: 0.5)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -226,7 +226,7 @@ class _DsdSettingsPanelState extends State<DsdSettingsPanel> {
         border: Border.all(color: FluxForgeTheme.border),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.3),
+            color: Colors.black.withValues(alpha: 0.3),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -403,7 +403,7 @@ class _DsdSettingsPanelState extends State<DsdSettingsPanel> {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: isSelected
-              ? FluxForgeTheme.accentBlue.withOpacity(0.15)
+              ? FluxForgeTheme.accentBlue.withValues(alpha: 0.15)
               : FluxForgeTheme.surface,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
@@ -420,7 +420,7 @@ class _DsdSettingsPanelState extends State<DsdSettingsPanel> {
                   ? (isSelected
                       ? FluxForgeTheme.accentBlue
                       : FluxForgeTheme.textSecondary)
-                  : FluxForgeTheme.textSecondary.withOpacity(0.4),
+                  : FluxForgeTheme.textSecondary.withValues(alpha: 0.4),
               size: 20,
             ),
             const SizedBox(width: 12),
@@ -433,7 +433,7 @@ class _DsdSettingsPanelState extends State<DsdSettingsPanel> {
                     style: TextStyle(
                       color: enabled
                           ? FluxForgeTheme.textPrimary
-                          : FluxForgeTheme.textSecondary.withOpacity(0.4),
+                          : FluxForgeTheme.textSecondary.withValues(alpha: 0.4),
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
@@ -443,7 +443,7 @@ class _DsdSettingsPanelState extends State<DsdSettingsPanel> {
                     style: TextStyle(
                       color: enabled
                           ? FluxForgeTheme.textSecondary
-                          : FluxForgeTheme.textSecondary.withOpacity(0.3),
+                          : FluxForgeTheme.textSecondary.withValues(alpha: 0.3),
                       fontSize: 10,
                     ),
                   ),
@@ -506,9 +506,9 @@ class DsdBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       decoration: BoxDecoration(
-        color: _getColor().withOpacity(0.2),
+        color: _getColor().withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(3),
-        border: Border.all(color: _getColor().withOpacity(0.5)),
+        border: Border.all(color: _getColor().withValues(alpha: 0.5)),
       ),
       child: Text(
         _getLabel(),

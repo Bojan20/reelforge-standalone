@@ -372,7 +372,7 @@ class SlotThemeData {
 
   // Gradient getters for control buttons
   List<Color> get maxBetGradient => [gold, const Color(0xFFFF9040)];
-  List<Color> get autoSpinGradient => [accent, accent.withOpacity(0.7)];
+  List<Color> get autoSpinGradient => [accent, accent.withValues(alpha: 0.7)];
 
   // Casino (default) - Current dark casino theme
   static const casino = SlotThemeData(
@@ -666,7 +666,7 @@ class _HeaderZone extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             boxShadow: [
               BoxShadow(
-                color: theme.accent.withOpacity(0.4),
+                color: theme.accent.withValues(alpha: 0.4),
                 blurRadius: 8,
               ),
             ],
@@ -732,16 +732,16 @@ class _HeaderIconButtonState extends State<_HeaderIconButton> {
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: _isHovered
-                  ? color.withOpacity(0.15)
+                  ? color.withValues(alpha: 0.15)
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: _isHovered ? color.withOpacity(0.3) : Colors.transparent,
+                color: _isHovered ? color.withValues(alpha: 0.3) : Colors.transparent,
               ),
             ),
             child: Icon(
               widget.icon,
-              color: _isHovered ? color : color.withOpacity(0.7),
+              color: _isHovered ? color : color.withValues(alpha: 0.7),
               size: 22,
             ),
           ),
@@ -770,9 +770,9 @@ class _DeviceSimulationDropdown extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: theme.bgMid.withOpacity(0.5),
+        color: theme.bgMid.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: theme.border.withOpacity(0.5)),
+        border: Border.all(color: theme.border.withValues(alpha: 0.5)),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<DeviceSimulation>(
@@ -822,9 +822,9 @@ class _ThemeDropdown extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: theme.bgMid.withOpacity(0.5),
+        color: theme.bgMid.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: theme.border.withOpacity(0.5)),
+        border: Border.all(color: theme.border.withValues(alpha: 0.5)),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<SlotThemePreset>(
@@ -887,7 +887,7 @@ class _DebugToolbar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: theme.bgDark.withOpacity(0.95),
+        color: theme.bgDark.withValues(alpha: 0.95),
         border: Border(
           bottom: BorderSide(color: theme.border, width: 1),
         ),
@@ -898,7 +898,7 @@ class _DebugToolbar extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: FluxForgeTheme.accentOrange.withOpacity(0.2),
+              color: FluxForgeTheme.accentOrange.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(4),
             ),
             child: const Row(
@@ -948,13 +948,13 @@ class _DebugToolbar extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: showStageTrace
-                    ? FluxForgeTheme.accentBlue.withOpacity(0.2)
+                    ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(
                   color: showStageTrace
-                      ? FluxForgeTheme.accentBlue.withOpacity(0.5)
-                      : theme.border.withOpacity(0.3),
+                      ? FluxForgeTheme.accentBlue.withValues(alpha: 0.5)
+                      : theme.border.withValues(alpha: 0.3),
                 ),
               ),
               child: Row(
@@ -1011,9 +1011,9 @@ class _DebugOutcomeButton extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: btnColor.withOpacity(0.15),
+            color: btnColor.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: btnColor.withOpacity(0.4)),
+            border: Border.all(color: btnColor.withValues(alpha: 0.4)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -1021,7 +1021,7 @@ class _DebugOutcomeButton extends StatelessWidget {
               Text(
                 '$index',
                 style: TextStyle(
-                  color: btnColor.withOpacity(0.6),
+                  color: btnColor.withValues(alpha: 0.6),
                   fontSize: 8,
                   fontWeight: FontWeight.bold,
                 ),
@@ -1163,14 +1163,14 @@ class _BalanceDisplayState extends State<_BalanceDisplay>
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: _glowController.isAnimating
-                  ? glowColor.withOpacity(glowOpacity)
+                  ? glowColor.withValues(alpha: glowOpacity)
                   : theme.border,
               width: _glowController.isAnimating ? 2 : 1,
             ),
             boxShadow: _glowController.isAnimating
                 ? [
                     BoxShadow(
-                      color: glowColor.withOpacity(glowOpacity * 0.5),
+                      color: glowColor.withValues(alpha: glowOpacity * 0.5),
                       blurRadius: 12,
                       spreadRadius: 2,
                     ),
@@ -1235,8 +1235,8 @@ class _JackpotZone extends StatelessWidget {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            theme.bgDark.withOpacity(0.95),
-            theme.bgMid.withOpacity(0.85),
+            theme.bgDark.withValues(alpha: 0.95),
+            theme.bgMid.withValues(alpha: 0.85),
           ],
         ),
         border: const Border(
@@ -1378,18 +1378,18 @@ class _JackpotTickerState extends State<_JackpotTicker>
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                widget.color.withOpacity(0.2),
-                widget.color.withOpacity(0.1),
+                widget.color.withValues(alpha: 0.2),
+                widget.color.withValues(alpha: 0.1),
               ],
             ),
             borderRadius: BorderRadius.circular(dimensions.borderRadius),
             border: Border.all(
-              color: widget.color.withOpacity((pulse * 0.6).clamp(0.0, 1.0)),
+              color: widget.color.withValues(alpha: (pulse * 0.6).clamp(0.0, 1.0)),
               width: widget.size == _JackpotSize.grand ? 2 : 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: widget.color.withOpacity((pulse * 0.3).clamp(0.0, 1.0)),
+                color: widget.color.withValues(alpha: (pulse * 0.3).clamp(0.0, 1.0)),
                 blurRadius: dimensions.glowRadius,
                 spreadRadius: 1,
               ),
@@ -1428,7 +1428,7 @@ class _JackpotTickerState extends State<_JackpotTicker>
                         fontFamily: 'monospace',
                         shadows: [
                           Shadow(
-                            color: widget.color.withOpacity(0.5),
+                            color: widget.color.withValues(alpha: 0.5),
                             blurRadius: 4,
                           ),
                         ],
@@ -1695,20 +1695,20 @@ class _MainGameZone extends StatelessWidget {
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
                 color: isWinning
-                    ? glowColor.withOpacity(0.7)
+                    ? glowColor.withValues(alpha: 0.7)
                     : const Color(0xFF1E1E28),
                 width: isWinning ? 2 : 1,
               ),
               boxShadow: [
                 if (isWinning) ...[
                   BoxShadow(
-                    color: glowColor.withOpacity(0.5),
+                    color: glowColor.withValues(alpha: 0.5),
                     blurRadius: 40,
                     spreadRadius: 8,
                   ),
                 ] else ...[
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.6),
+                    color: Colors.black.withValues(alpha: 0.6),
                     blurRadius: 40,
                     spreadRadius: 10,
                   ),
@@ -1752,7 +1752,7 @@ class _MainGameZone extends StatelessWidget {
                     Positioned.fill(
                       child: Container(
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.7),
+                          color: Colors.black.withValues(alpha: 0.7),
                           borderRadius: BorderRadius.circular(18),
                         ),
                         child: Center(
@@ -1760,7 +1760,7 @@ class _MainGameZone extends StatelessWidget {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(Icons.casino_outlined, size: 48,
-                                color: context.slotTheme.textMuted.withOpacity(0.5)),
+                                color: context.slotTheme.textMuted.withValues(alpha: 0.5)),
                               const SizedBox(height: 12),
                               Text(
                                 'NO CONFIGURATION',
@@ -1775,7 +1775,7 @@ class _MainGameZone extends StatelessWidget {
                               Text(
                                 'Configure your slot machine to start',
                                 style: TextStyle(
-                                  color: context.slotTheme.textMuted.withOpacity(0.6),
+                                  color: context.slotTheme.textMuted.withValues(alpha: 0.6),
                                   fontSize: 11,
                                 ),
                               ),
@@ -1793,10 +1793,10 @@ class _MainGameZone extends StatelessWidget {
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
                             colors: [
-                              Colors.white.withOpacity(0.05),
+                              Colors.white.withValues(alpha: 0.05),
                               Colors.transparent,
                               Colors.transparent,
-                              Colors.black.withOpacity(0.1),
+                              Colors.black.withValues(alpha: 0.1),
                             ],
                             stops: const [0.0, 0.15, 0.85, 1.0],
                           ),
@@ -1817,13 +1817,13 @@ class _MainGameZone extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         border: Border.all(
-          color: FluxForgeTheme.accentOrange.withOpacity(0.8),
+          color: FluxForgeTheme.accentOrange.withValues(alpha: 0.8),
           width: 4,
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: FluxForgeTheme.accentOrange.withOpacity(0.5),
+            color: FluxForgeTheme.accentOrange.withValues(alpha: 0.5),
             blurRadius: 30,
             spreadRadius: 10,
           ),
@@ -1907,7 +1907,7 @@ class _PaylinePainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
 
     final glowPaint = Paint()
-      ..color = goldColor.withOpacity(0.3)
+      ..color = goldColor.withValues(alpha: 0.3)
       ..strokeWidth = 12
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
@@ -1977,7 +1977,7 @@ class _WinHighlightOverlayState extends State<_WinHighlightOverlay>
         return Container(
           decoration: BoxDecoration(
             border: Border.all(
-              color: color.withOpacity(0.5 + _controller.value * 0.5),
+              color: color.withValues(alpha: 0.5 + _controller.value * 0.5),
               width: 6,
             ),
             borderRadius: BorderRadius.circular(20),
@@ -2080,9 +2080,9 @@ class _CascadeOverlayState extends State<_CascadeOverlay>
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                FluxForgeTheme.accentCyan.withOpacity(0.1 + _glowController.value * 0.1),
+                FluxForgeTheme.accentCyan.withValues(alpha: 0.1 + _glowController.value * 0.1),
                 Colors.transparent,
-                FluxForgeTheme.accentCyan.withOpacity(0.05 + _glowController.value * 0.05),
+                FluxForgeTheme.accentCyan.withValues(alpha: 0.05 + _glowController.value * 0.05),
               ],
             ),
           ),
@@ -2130,7 +2130,7 @@ class _CascadeSymbolPainter extends CustomPainter {
 
       // Glow effect
       final glowPaint = Paint()
-        ..color = FluxForgeTheme.accentCyan.withOpacity(0.4)
+        ..color = FluxForgeTheme.accentCyan.withValues(alpha: 0.4)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
       canvas.drawCircle(Offset.zero, s.size / 2, glowPaint);
 
@@ -2260,8 +2260,8 @@ class _WildExpansionOverlayState extends State<_WildExpansionOverlay>
               decoration: BoxDecoration(
                 gradient: RadialGradient(
                   colors: [
-                    theme.gold.withOpacity(glowOpacity),
-                    theme.gold.withOpacity(glowOpacity * 0.3),
+                    theme.gold.withValues(alpha: glowOpacity),
+                    theme.gold.withValues(alpha: glowOpacity * 0.3),
                     Colors.transparent,
                   ],
                   stops: const [0.0, 0.4, 1.0],
@@ -2291,7 +2291,7 @@ class _WildExpansionOverlayState extends State<_WildExpansionOverlay>
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: theme.gold.withOpacity(0.6),
+                      color: theme.gold.withValues(alpha: 0.6),
                       blurRadius: 30,
                       spreadRadius: 10,
                     ),
@@ -2346,12 +2346,12 @@ class _SparklePainter extends CustomPainter {
       final opacity = s.life;
 
       final paint = Paint()
-        ..color = goldColor.withOpacity(opacity * 0.8);
+        ..color = goldColor.withValues(alpha: opacity * 0.8);
       canvas.drawCircle(Offset(x, y), s.size * s.life, paint);
 
       // Star shape
       final starPaint = Paint()
-        ..color = Colors.white.withOpacity(opacity * 0.6)
+        ..color = Colors.white.withValues(alpha: opacity * 0.6)
         ..strokeWidth = 1;
       canvas.drawLine(
         Offset(x - s.size, y),
@@ -2450,7 +2450,7 @@ class _ScatterWinOverlayState extends State<_ScatterWinOverlay>
                 gradient: RadialGradient(
                   center: const Alignment(0, -0.8),
                   colors: [
-                    theme.jackpotMinor.withOpacity(0.3 + _glowController.value * 0.2),
+                    theme.jackpotMinor.withValues(alpha: 0.3 + _glowController.value * 0.2),
                     Colors.transparent,
                   ],
                 ),
@@ -2472,15 +2472,15 @@ class _ScatterWinOverlayState extends State<_ScatterWinOverlay>
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: theme.jackpotMinor.withOpacity(0.3),
+                    color: theme.jackpotMinor.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: theme.jackpotMinor.withOpacity(0.5 + _glowController.value * 0.5),
+                      color: theme.jackpotMinor.withValues(alpha: 0.5 + _glowController.value * 0.5),
                       width: 2,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: theme.jackpotMinor.withOpacity(0.3),
+                        color: theme.jackpotMinor.withValues(alpha: 0.3),
                         blurRadius: 20,
                         spreadRadius: 5,
                       ),
@@ -2556,7 +2556,7 @@ class _ScatterPainter extends CustomPainter {
         final trailOpacity = (1.0 - i * 0.2) * 0.3;
 
         final trailPaint = Paint()
-          ..color = scatterColor.withOpacity(trailOpacity);
+          ..color = scatterColor.withValues(alpha: trailOpacity);
         canvas.drawCircle(
           Offset(trailX * size.width, trailY * size.height),
           symbolSize * 0.3,
@@ -2566,7 +2566,7 @@ class _ScatterPainter extends CustomPainter {
 
       // Glow
       final glowPaint = Paint()
-        ..color = scatterColor.withOpacity(s.opacity * 0.5)
+        ..color = scatterColor.withValues(alpha: s.opacity * 0.5)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
       canvas.drawCircle(Offset(x, y), symbolSize * 0.8, glowPaint);
 
@@ -2583,7 +2583,7 @@ class _ScatterPainter extends CustomPainter {
           text: '◆',
           style: TextStyle(
             fontSize: symbolSize * 0.8,
-            color: Colors.white.withOpacity(s.opacity),
+            color: Colors.white.withValues(alpha: s.opacity),
           ),
         ),
         textDirection: TextDirection.ltr,
@@ -2627,7 +2627,7 @@ class _GambleOverlay extends StatelessWidget {
     final isRed = cardRevealed != null && cardRevealed! < 2;
 
     return Container(
-      color: Colors.black.withOpacity(0.85),
+      color: Colors.black.withValues(alpha: 0.85),
       child: Center(
         child: Container(
           width: 500,
@@ -2637,18 +2637,18 @@ class _GambleOverlay extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                theme.bgSurface.withOpacity(0.95),
-                theme.bgMid.withOpacity(0.95),
+                theme.bgSurface.withValues(alpha: 0.95),
+                theme.bgMid.withValues(alpha: 0.95),
               ],
             ),
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: theme.gold.withOpacity(0.5),
+              color: theme.gold.withValues(alpha: 0.5),
               width: 2,
             ),
             boxShadow: [
               BoxShadow(
-                color: theme.gold.withOpacity(0.3),
+                color: theme.gold.withValues(alpha: 0.3),
                 blurRadius: 30,
                 spreadRadius: 5,
               ),
@@ -2688,7 +2688,7 @@ class _GambleOverlay extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: theme.bgDeep,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: theme.gold.withOpacity(0.3)),
+                  border: Border.all(color: theme.gold.withValues(alpha: 0.3)),
                 ),
                 child: Column(
                   children: [
@@ -2810,10 +2810,10 @@ class _GambleOverlay extends StatelessWidget {
         decoration: BoxDecoration(
           color: color,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.3), width: 2),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 2),
           boxShadow: [
             BoxShadow(
-              color: color.withOpacity(0.5),
+              color: color.withValues(alpha: 0.5),
               blurRadius: 15,
               spreadRadius: 2,
             ),
@@ -2863,7 +2863,7 @@ class _GambleOverlay extends StatelessWidget {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: (won ? Colors.green : Colors.red).withOpacity(0.5),
+                        color: (won ? Colors.green : Colors.red).withValues(alpha: 0.5),
                         blurRadius: 20,
                         spreadRadius: 5,
                       ),
@@ -3050,12 +3050,12 @@ class _FeatureBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [color, color.withOpacity(0.7)],
+          colors: [color, color.withValues(alpha: 0.7)],
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: color.withOpacity(0.4),
+            color: color.withValues(alpha: 0.4),
             blurRadius: 8,
           ),
         ],
@@ -3113,7 +3113,7 @@ class _FeatureMeter extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.bgPanel,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.5)),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -3139,7 +3139,7 @@ class _FeatureMeter extends StatelessWidget {
               widthFactor: value.clamp(0.0, 1.0),
               child: Container(
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: [color, color.withOpacity(0.7)]),
+                  gradient: LinearGradient(colors: [color, color.withValues(alpha: 0.7)]),
                   borderRadius: BorderRadius.circular(3),
                 ),
               ),
@@ -3434,7 +3434,7 @@ class _QuickBetChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
           gradient: isSelected
-              ? LinearGradient(colors: [theme.gold, theme.gold.withOpacity(0.7)])
+              ? LinearGradient(colors: [theme.gold, theme.gold.withValues(alpha: 0.7)])
               : null,
           color: isSelected ? null : theme.bgPanel,
           borderRadius: BorderRadius.circular(12),
@@ -3443,7 +3443,7 @@ class _QuickBetChip extends StatelessWidget {
             width: isSelected ? 2 : 1,
           ),
           boxShadow: isSelected
-              ? [BoxShadow(color: theme.gold.withOpacity(0.4), blurRadius: 6)]
+              ? [BoxShadow(color: theme.gold.withValues(alpha: 0.4), blurRadius: 6)]
               : null,
         ),
         child: Text(
@@ -3564,7 +3564,7 @@ class _BetArrowButton extends StatelessWidget {
         width: 32,
         height: 32,
         decoration: BoxDecoration(
-          color: isEnabled ? theme.gold.withOpacity(0.2) : theme.bgPanel,
+          color: isEnabled ? theme.gold.withValues(alpha: 0.2) : theme.bgPanel,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
             color: isEnabled ? theme.gold : theme.border,
@@ -3573,7 +3573,7 @@ class _BetArrowButton extends StatelessWidget {
         child: Icon(
           icon,
           size: 18,
-          color: isEnabled ? theme.gold : theme.textSecondary.withOpacity(0.5),
+          color: isEnabled ? theme.gold : theme.textSecondary.withValues(alpha: 0.5),
         ),
       ),
     );
@@ -3683,14 +3683,14 @@ class _ControlButtonState extends State<_ControlButton> {
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
                   color: hasGradient
-                      ? widget.gradient![0].withOpacity(_isHovered ? 1.0 : 0.6)
+                      ? widget.gradient![0].withValues(alpha: _isHovered ? 1.0 : 0.6)
                       : theme.border,
                   width: _isHovered ? 2 : 1,
                 ),
                 boxShadow: hasGradient && _isHovered
                     ? [
                         BoxShadow(
-                          color: widget.gradient![0].withOpacity(0.4),
+                          color: widget.gradient![0].withValues(alpha: 0.4),
                           blurRadius: 12,
                         ),
                       ]
@@ -3842,7 +3842,7 @@ class _SpinButtonState extends State<_SpinButton>
       SpinButtonPhase.spin => FluxForgeTheme.accentBlue,
       SpinButtonPhase.stop => FluxForgeTheme.accentRed,
       SpinButtonPhase.skip => theme.gold,
-      SpinButtonPhase.skipProtected => theme.gold.withOpacity(0.6),
+      SpinButtonPhase.skipProtected => theme.gold.withValues(alpha: 0.6),
     };
 
     return MouseRegion(
@@ -3893,7 +3893,7 @@ class _SpinButtonState extends State<_SpinButton>
                   boxShadow: [
                     if (isEnabled)
                       BoxShadow(
-                        color: accentColor.withOpacity(_isHovered ? 0.6 : 0.4),
+                        color: accentColor.withValues(alpha: _isHovered ? 0.6 : 0.4),
                         blurRadius: _isHovered ? 24 : 16,
                         spreadRadius: _isHovered ? 4 : 2,
                       ),
@@ -3968,7 +3968,7 @@ class _SpinButtonState extends State<_SpinButton>
                         BigWinProtection.forTier(widget.currentWinTier)),
                     strokeWidth: 3,
                     color: const Color(0xFF1a1a24),
-                    backgroundColor: const Color(0xFF1a1a24).withOpacity(0.3),
+                    backgroundColor: const Color(0xFF1a1a24).withValues(alpha: 0.3),
                   ),
                 ),
                 Text(
@@ -4054,7 +4054,7 @@ class _MenuPanel extends StatelessWidget {
         border: Border.all(color: theme.border),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.5),
+            color: Colors.black.withValues(alpha: 0.5),
             blurRadius: 20,
             spreadRadius: 5,
           ),
@@ -4136,7 +4136,7 @@ class _MenuItemState extends State<_MenuItem> {
   Widget build(BuildContext context) {
     final theme = context.slotTheme;
     final highlightColor = widget.highlight ? theme.gold : FluxForgeTheme.accentBlue;
-    final baseColor = widget.highlight ? highlightColor.withOpacity(0.1) : Colors.transparent;
+    final baseColor = widget.highlight ? highlightColor.withValues(alpha: 0.1) : Colors.transparent;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -4148,10 +4148,10 @@ class _MenuItemState extends State<_MenuItem> {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
           decoration: BoxDecoration(
-            color: _isHovered ? highlightColor.withOpacity(0.2) : baseColor,
+            color: _isHovered ? highlightColor.withValues(alpha: 0.2) : baseColor,
             borderRadius: BorderRadius.circular(8),
             border: widget.highlight ? Border.all(
-              color: highlightColor.withOpacity(0.3),
+              color: highlightColor.withValues(alpha: 0.3),
               width: 1,
             ) : null,
           ),
@@ -4276,7 +4276,7 @@ class _AudioVisualPanel extends StatelessWidget {
         border: Border.all(color: theme.border),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.5),
+            color: Colors.black.withValues(alpha: 0.5),
             blurRadius: 20,
             spreadRadius: 5,
           ),
@@ -4439,13 +4439,13 @@ class _AudioVisualPanel extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? FluxForgeTheme.accentBlue.withOpacity(0.2)
+                        ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
                         : theme.bgSurface,
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
                       color: isSelected
-                          ? FluxForgeTheme.accentBlue.withOpacity(0.5)
-                          : theme.border.withOpacity(0.3),
+                          ? FluxForgeTheme.accentBlue.withValues(alpha: 0.5)
+                          : theme.border.withValues(alpha: 0.3),
                     ),
                   ),
                   child: Row(
@@ -4494,9 +4494,9 @@ class _AudioVisualPanel extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: theme.bgMid.withOpacity(0.5),
+                    color: theme.bgMid.withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: theme.border.withOpacity(0.5)),
+                    border: Border.all(color: theme.border.withValues(alpha: 0.5)),
                   ),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<SlotThemePreset?>(
@@ -4622,7 +4622,7 @@ class _SettingToggleState extends State<_SettingToggle> {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           decoration: BoxDecoration(
             color: widget.isOn
-                ? FluxForgeTheme.accentBlue.withOpacity(0.2)
+                ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
                 : (_isHovered ? theme.bgSurface : theme.bgDark),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
@@ -5687,7 +5687,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
           border: Border.all(color: Colors.grey.shade800, width: 3),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.5),
+              color: Colors.black.withValues(alpha: 0.5),
               blurRadius: 20,
               spreadRadius: 5,
             ),
@@ -5768,7 +5768,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
           border: Border.all(color: Colors.grey.shade800, width: 2),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.4),
+              color: Colors.black.withValues(alpha: 0.4),
               blurRadius: 15,
               spreadRadius: 3,
             ),
@@ -7001,7 +7001,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           color: isFeature
-                              ? const Color(0xFF4CAF50).withOpacity(0.85)
+                              ? const Color(0xFF4CAF50).withValues(alpha: 0.85)
                               : Colors.black54,
                           child: Row(
                             children: [
@@ -7044,7 +7044,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                               Text(
                                 'D to close',
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.4),
+                                  color: Colors.white.withValues(alpha: 0.4),
                                   fontSize: 10,
                                 ),
                               ),
@@ -7208,7 +7208,7 @@ class _ForceButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.8),
+          color: color.withValues(alpha: 0.8),
           borderRadius: BorderRadius.circular(4),
           border: Border.all(color: color, width: 1),
         ),
@@ -7377,14 +7377,14 @@ class _SlotSplashScreenState extends State<_SlotSplashScreen>
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
                                     colors: [
-                                      const Color(0xFFFFD700).withOpacity(0.8),
+                                      const Color(0xFFFFD700).withValues(alpha: 0.8),
                                       const Color(0xFFFFA500),
                                     ],
                                   ),
                                   borderRadius: BorderRadius.circular(3),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: const Color(0xFFFFD700).withOpacity(0.4),
+                                      color: const Color(0xFFFFD700).withValues(alpha: 0.4),
                                       blurRadius: 8,
                                     ),
                                   ],
@@ -7434,7 +7434,7 @@ class _SlotSplashScreenState extends State<_SlotSplashScreen>
                         borderRadius: BorderRadius.circular(30),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFFFFD700).withOpacity(0.3),
+                            color: const Color(0xFFFFD700).withValues(alpha: 0.3),
                             blurRadius: 16,
                             offset: const Offset(0, 4),
                           ),
@@ -7537,8 +7537,8 @@ class _FsSummaryOverlayState extends State<_FsSummaryOverlay>
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                const Color(0xFF0A0600).withOpacity(0.92),
-                const Color(0xFF1A0E00).withOpacity(0.95),
+                const Color(0xFF0A0600).withValues(alpha: 0.92),
+                const Color(0xFF1A0E00).withValues(alpha: 0.95),
               ],
             ),
           ),
@@ -7571,18 +7571,18 @@ class _FsSummaryOverlayState extends State<_FsSummaryOverlay>
                     padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
                     decoration: BoxDecoration(
                       border: Border.all(
-                        color: const Color(0xFFFFD700).withOpacity(0.4),
+                        color: const Color(0xFFFFD700).withValues(alpha: 0.4),
                         width: 1,
                       ),
                       borderRadius: BorderRadius.circular(12),
-                      color: const Color(0xFFFFD700).withOpacity(0.06),
+                      color: const Color(0xFFFFD700).withValues(alpha: 0.06),
                     ),
                     child: Column(
                       children: [
                         Text(
                           'TOTAL WIN',
                           style: TextStyle(
-                            color: const Color(0xFFFFD700).withOpacity(0.6),
+                            color: const Color(0xFFFFD700).withValues(alpha: 0.6),
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 3,
@@ -7638,7 +7638,7 @@ class _FsSummaryOverlayState extends State<_FsSummaryOverlay>
                     child: Text(
                       'TAP TO CONTINUE',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.35),
+                        color: Colors.white.withValues(alpha: 0.35),
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 3,
@@ -7673,15 +7673,15 @@ class _StatBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
-        color: color.withOpacity(0.08),
-        border: Border.all(color: color.withOpacity(0.25), width: 1),
+        color: color.withValues(alpha: 0.08),
+        border: Border.all(color: color.withValues(alpha: 0.25), width: 1),
       ),
       child: Column(
         children: [
           Text(
             label,
             style: TextStyle(
-              color: color.withOpacity(0.6),
+              color: color.withValues(alpha: 0.6),
               fontSize: 9,
               fontWeight: FontWeight.w700,
               letterSpacing: 2,

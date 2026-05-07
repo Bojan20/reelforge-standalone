@@ -39,10 +39,10 @@ class AiMixingStatusBadge extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: _getColor(service, analysis).withOpacity(0.2),
+                color: _getColor(service, analysis).withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: _getColor(service, analysis).withOpacity(0.5),
+                  color: _getColor(service, analysis).withValues(alpha: 0.5),
                 ),
               ),
               child: Row(
@@ -260,7 +260,7 @@ class _AiMixingPanelState extends State<AiMixingPanel> {
                 Text(
                   'Overall Mix Score',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
+                    color: Colors.white.withValues(alpha: 0.7),
                     fontSize: 11,
                   ),
                 ),
@@ -310,7 +310,7 @@ class _AiMixingPanelState extends State<AiMixingPanel> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
+        color: color.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Row(
@@ -319,7 +319,7 @@ class _AiMixingPanelState extends State<AiMixingPanel> {
           Text(
             label,
             style: TextStyle(
-              color: color.withOpacity(0.8),
+              color: color.withValues(alpha: 0.8),
               fontSize: 9,
               fontWeight: FontWeight.w500,
             ),
@@ -347,7 +347,7 @@ class _AiMixingPanelState extends State<AiMixingPanel> {
             Icon(
               Icons.check_circle_outline,
               size: 48,
-              color: const Color(0xFF40FF90).withOpacity(0.5),
+              color: const Color(0xFF40FF90).withValues(alpha: 0.5),
             ),
             const SizedBox(height: 12),
             const Text(
@@ -360,7 +360,7 @@ class _AiMixingPanelState extends State<AiMixingPanel> {
             Text(
               'Your mix is looking great',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.5),
+                color: Colors.white.withValues(alpha: 0.5),
                 fontSize: 12,
               ),
             ),
@@ -393,13 +393,13 @@ class _AiMixingPanelState extends State<AiMixingPanel> {
             Icon(
               Icons.analytics_outlined,
               size: 64,
-              color: Colors.white.withOpacity(0.3),
+              color: Colors.white.withValues(alpha: 0.3),
             ),
             const SizedBox(height: 16),
             Text(
               service.isAnalyzing ? 'Analyzing your mix...' : 'Ready to analyze',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
+                color: Colors.white.withValues(alpha: 0.7),
                 fontSize: 14,
               ),
             ),
@@ -408,7 +408,7 @@ class _AiMixingPanelState extends State<AiMixingPanel> {
               Text(
                 'Click Analyze to get AI mixing suggestions',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.5),
+                  color: Colors.white.withValues(alpha: 0.5),
                   fontSize: 12,
                 ),
               ),
@@ -438,7 +438,7 @@ class _AiMixingPanelState extends State<AiMixingPanel> {
                 Icon(
                   Icons.tune,
                   size: 14,
-                  color: Colors.white.withOpacity(0.5),
+                  color: Colors.white.withValues(alpha: 0.5),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -533,7 +533,7 @@ class SuggestionCard extends StatelessWidget {
                   width: 28,
                   height: 28,
                   decoration: BoxDecoration(
-                    color: _getPriorityColor().withOpacity(0.2),
+                    color: _getPriorityColor().withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Center(
@@ -560,7 +560,7 @@ class SuggestionCard extends StatelessWidget {
                         Text(
                           suggestion.trackName!,
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.5),
+                            color: Colors.white.withValues(alpha: 0.5),
                             fontSize: 10,
                           ),
                         ),
@@ -571,7 +571,7 @@ class SuggestionCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: _getPriorityColor().withOpacity(0.2),
+                    color: _getPriorityColor().withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
@@ -590,7 +590,7 @@ class SuggestionCard extends StatelessWidget {
             Text(
               suggestion.description,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
+                color: Colors.white.withValues(alpha: 0.7),
                 fontSize: 12,
               ),
             ),
@@ -604,13 +604,13 @@ class SuggestionCard extends StatelessWidget {
                   return Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
+                      color: Colors.white.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       '${e.key}: ${e.value.toStringAsFixed(1)}',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.6),
+                        color: Colors.white.withValues(alpha: 0.6),
                         fontSize: 10,
                         fontFamily: 'monospace',
                       ),
@@ -628,7 +628,7 @@ class SuggestionCard extends StatelessWidget {
                 Text(
                   '${(suggestion.confidence * 100).toInt()}% confidence',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.4),
+                    color: Colors.white.withValues(alpha: 0.4),
                     fontSize: 10,
                   ),
                 ),
@@ -706,7 +706,7 @@ class MixScoreIndicator extends StatelessWidget {
             child: CircularProgressIndicator(
               value: 1.0,
               strokeWidth: 4,
-              valueColor: AlwaysStoppedAnimation(color.withOpacity(0.2)),
+              valueColor: AlwaysStoppedAnimation(color.withValues(alpha: 0.2)),
             ),
           ),
           // Progress circle
@@ -733,7 +733,7 @@ class MixScoreIndicator extends StatelessWidget {
                 Text(
                   '${score.toInt()}%',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
+                    color: Colors.white.withValues(alpha: 0.7),
                     fontSize: size * 0.15,
                   ),
                 ),

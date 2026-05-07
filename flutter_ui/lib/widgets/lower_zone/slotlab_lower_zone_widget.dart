@@ -2861,10 +2861,10 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
         margin: const EdgeInsets.only(bottom: 6),
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: isSelected ? LowerZoneColors.slotLabAccent.withOpacity(0.15) : LowerZoneColors.bgMid,
+          color: isSelected ? LowerZoneColors.slotLabAccent.withValues(alpha: 0.15) : LowerZoneColors.bgMid,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
-            color: isSelected ? LowerZoneColors.slotLabAccent : Colors.white.withOpacity(0.05),
+            color: isSelected ? LowerZoneColors.slotLabAccent : Colors.white.withValues(alpha: 0.05),
             width: isSelected ? 1.5 : 1,
           ),
         ),
@@ -3078,7 +3078,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
+              color: Colors.white.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(3),
             ),
             child: Row(
@@ -3145,7 +3145,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
               overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
               activeTrackColor: LowerZoneColors.slotLabAccent,
-              inactiveTrackColor: Colors.white.withOpacity(0.1),
+              inactiveTrackColor: Colors.white.withValues(alpha: 0.1),
               thumbColor: LowerZoneColors.slotLabAccent,
             ),
             child: Slider(
@@ -5021,7 +5021,7 @@ class _FadeCurvePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = color.withOpacity(0.4)
+      ..color = color.withValues(alpha: 0.4)
       ..style = PaintingStyle.fill;
 
     final linePaint = Paint()
@@ -5034,7 +5034,7 @@ class _FadeCurvePainter extends CustomPainter {
       Offset(0, size.height),
       Offset(size.width, size.height),
       Paint()
-        ..color = Colors.white.withOpacity(0.1)
+        ..color = Colors.white.withValues(alpha: 0.1)
         ..strokeWidth = 0.5,
     );
 

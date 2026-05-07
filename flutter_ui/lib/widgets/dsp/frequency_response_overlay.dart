@@ -217,7 +217,7 @@ class _FrequencyResponsePainter extends CustomPainter {
 
     // Glow effect
     final glowPaint = Paint()
-      ..color = Colors.blueAccent.withOpacity(0.3)
+      ..color = Colors.blueAccent.withValues(alpha: 0.3)
       ..strokeWidth = 4.0
       ..style = PaintingStyle.stroke
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4.0);
@@ -243,8 +243,8 @@ class _FrequencyResponsePainter extends CustomPainter {
         Offset(0, 0),
         Offset(0, size.height),
         [
-          Colors.blueAccent.withOpacity(0.3),
-          Colors.blueAccent.withOpacity(0.0),
+          Colors.blueAccent.withValues(alpha: 0.3),
+          Colors.blueAccent.withValues(alpha: 0.0),
         ],
       )
       ..style = PaintingStyle.fill;
@@ -262,7 +262,7 @@ class _FrequencyResponsePainter extends CustomPainter {
     );
 
     final phasePaint = Paint()
-      ..color = Colors.orange.withOpacity(0.5)
+      ..color = Colors.orange.withValues(alpha: 0.5)
       ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke;
 

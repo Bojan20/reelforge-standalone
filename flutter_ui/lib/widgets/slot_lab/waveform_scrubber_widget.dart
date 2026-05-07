@@ -473,7 +473,7 @@ class _WaveformScrubberWidgetState extends State<WaveformScrubberWidget> {
                   Text(
                     _formatTime(widget.duration),
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.5),
+                      color: Colors.white.withValues(alpha: 0.5),
                       fontSize: 12,
                       fontFamily: 'monospace',
                     ),
@@ -619,7 +619,7 @@ class _WaveformScrubberPainter extends CustomPainter {
       // Loop region background
       canvas.drawRect(
         Rect.fromLTRB(loopStartX, 0, loopEndX, size.height),
-        Paint()..color = loopRegionColor.withOpacity(0.15),
+        Paint()..color = loopRegionColor.withValues(alpha: 0.15),
       );
 
       // Loop handles
@@ -691,7 +691,7 @@ class _WaveformScrubberPainter extends CustomPainter {
         Offset(0, size.height / 2),
         Offset(size.width, size.height / 2),
         Paint()
-          ..color = waveformColor.withOpacity(0.3)
+          ..color = waveformColor.withValues(alpha: 0.3)
           ..strokeWidth = 1,
       );
     }
@@ -704,7 +704,7 @@ class _WaveformScrubberPainter extends CustomPainter {
         Offset(playheadX, 0),
         Offset(playheadX, size.height),
         Paint()
-          ..color = playheadColor.withOpacity(0.3)
+          ..color = playheadColor.withValues(alpha: 0.3)
           ..strokeWidth = 5,
       );
       // Playhead line
@@ -727,7 +727,7 @@ class _WaveformScrubberPainter extends CustomPainter {
     // Draw time grid lines
     if (showTimeLabels) {
       final gridPaint = Paint()
-        ..color = Colors.white.withOpacity(0.1)
+        ..color = Colors.white.withValues(alpha: 0.1)
         ..strokeWidth = 1;
 
       // Determine grid interval based on zoom

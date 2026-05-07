@@ -2077,7 +2077,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
                     TextButton(
                       onPressed: () => Navigator.of(ctx).pop(true),
                       style: TextButton.styleFrom(
-                        backgroundColor: const Color(0xFF4a9eff).withOpacity(0.2),
+                        backgroundColor: const Color(0xFF4a9eff).withValues(alpha: 0.2),
                       ),
                       child: const Text('Import', style: TextStyle(color: Color(0xFF4a9eff))),
                     ),
@@ -3041,8 +3041,8 @@ class _GridPreviewPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = isActive
-          ? accentColor.withOpacity(0.6)
-          : LowerZoneColors.textTertiary.withOpacity(0.3)
+          ? accentColor.withValues(alpha: 0.6)
+          : LowerZoneColors.textTertiary.withValues(alpha: 0.3)
       ..strokeWidth = 1;
 
     // Calculate number of grid lines based on snap value
@@ -3057,15 +3057,15 @@ class _GridPreviewPainter extends CustomPainter {
       final isMajor = i % 4 == 0;
       paint.strokeWidth = isMajor ? 1.5 : 0.5;
       paint.color = isActive
-          ? accentColor.withOpacity(isMajor ? 0.8 : 0.4)
-          : LowerZoneColors.textTertiary.withOpacity(isMajor ? 0.5 : 0.2);
+          ? accentColor.withValues(alpha: isMajor ? 0.8 : 0.4)
+          : LowerZoneColors.textTertiary.withValues(alpha: isMajor ? 0.5 : 0.2);
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
     }
 
     // Draw a sample "clip" to show snap behavior
     if (isActive) {
       final clipPaint = Paint()
-        ..color = accentColor.withOpacity(0.3)
+        ..color = accentColor.withValues(alpha: 0.3)
         ..style = PaintingStyle.fill;
       final clipRect = Rect.fromLTWH(
         spacing * 1.5,

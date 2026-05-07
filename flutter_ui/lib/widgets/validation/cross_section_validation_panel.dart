@@ -146,7 +146,7 @@ class _CrossSectionValidationPanelState extends State<CrossSectionValidationPane
           Icon(
             Icons.playlist_add_check,
             size: 64,
-            color: FluxForgeTheme.textSecondary.withOpacity(0.3),
+            color: FluxForgeTheme.textSecondary.withValues(alpha: 0.3),
           ),
           const SizedBox(height: 16),
           Text(
@@ -161,7 +161,7 @@ class _CrossSectionValidationPanelState extends State<CrossSectionValidationPane
             'Click "Run Validation" to check for issues',
             style: TextStyle(
               fontSize: 12,
-              color: FluxForgeTheme.textSecondary.withOpacity(0.7),
+              color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
             ),
           ),
         ],
@@ -264,7 +264,7 @@ class _CrossSectionValidationPanelState extends State<CrossSectionValidationPane
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: FluxForgeTheme.accentBlue.withOpacity(0.2),
+                  color: FluxForgeTheme.accentBlue.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(3),
                   border: Border.all(color: FluxForgeTheme.accentBlue),
                 ),
@@ -281,7 +281,7 @@ class _CrossSectionValidationPanelState extends State<CrossSectionValidationPane
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: FluxForgeTheme.accentCyan.withOpacity(0.2),
+                  color: FluxForgeTheme.accentCyan.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(3),
                 ),
                 child: Text(
@@ -319,9 +319,9 @@ class _CrossSectionValidationPanelState extends State<CrossSectionValidationPane
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: FluxForgeTheme.accentGreen.withOpacity(0.1),
+                color: FluxForgeTheme.accentGreen.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: FluxForgeTheme.accentGreen.withOpacity(0.3)),
+                border: Border.all(color: FluxForgeTheme.accentGreen.withValues(alpha: 0.3)),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,

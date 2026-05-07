@@ -70,7 +70,7 @@ class _SpectralHeatmapState extends State<SpectralHeatmap> {
               Text(
                 'Spectral Map',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.9),
+                  color: Colors.white.withValues(alpha: 0.9),
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                 ),
@@ -105,7 +105,7 @@ class _SpectralHeatmapState extends State<SpectralHeatmap> {
               Text(
                 'Collisions: $collisions',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.7),
+                  color: Colors.white.withValues(alpha: 0.7),
                   fontSize: 10,
                 ),
               ),
@@ -113,7 +113,7 @@ class _SpectralHeatmapState extends State<SpectralHeatmap> {
               Text(
                 'Shifts: ${_provider.slotShifts}',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.7),
+                  color: Colors.white.withValues(alpha: 0.7),
                   fontSize: 10,
                 ),
               ),
@@ -121,7 +121,7 @@ class _SpectralHeatmapState extends State<SpectralHeatmap> {
               Text(
                 'Voices: ${_provider.voiceCount}',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.7),
+                  color: Colors.white.withValues(alpha: 0.7),
                   fontSize: 10,
                 ),
               ),
@@ -145,7 +145,7 @@ class _SpectralHeatmapState extends State<SpectralHeatmap> {
             child: Text(
               label,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.6),
+                color: Colors.white.withValues(alpha: 0.6),
                 fontSize: 9,
               ),
             ),
@@ -154,7 +154,7 @@ class _SpectralHeatmapState extends State<SpectralHeatmap> {
             child: Container(
               height: 8,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
+                color: Colors.white.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: FractionallySizedBox(
@@ -162,7 +162,7 @@ class _SpectralHeatmapState extends State<SpectralHeatmap> {
                 widthFactor: ratio,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.8),
+                    color: color.withValues(alpha: 0.8),
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -175,7 +175,7 @@ class _SpectralHeatmapState extends State<SpectralHeatmap> {
               '$density',
               textAlign: TextAlign.right,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.5),
+                color: Colors.white.withValues(alpha: 0.5),
                 fontSize: 9,
               ),
             ),
@@ -189,9 +189,9 @@ class _SpectralHeatmapState extends State<SpectralHeatmap> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(3),
-        border: Border.all(color: color.withOpacity(0.3), width: 0.5),
+        border: Border.all(color: color.withValues(alpha: 0.3), width: 0.5),
       ),
       child: Text(
         text,

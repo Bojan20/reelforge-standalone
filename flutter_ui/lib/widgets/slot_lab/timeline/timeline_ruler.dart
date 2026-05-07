@@ -42,7 +42,7 @@ class TimelineRuler extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF0A0A0C),
         border: Border(
-          bottom: BorderSide(color: Colors.white.withOpacity(0.1)),
+          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
         ),
       ),
       child: Stack(
@@ -89,7 +89,7 @@ class TimelineRuler extends StatelessWidget {
         child: Container(
           width: 8,
           decoration: BoxDecoration(
-            color: const Color(0xFFFF9040).withOpacity(0.8),
+            color: const Color(0xFFFF9040).withValues(alpha: 0.8),
             border: Border(
               left: isStart ? const BorderSide(color: Color(0xFFFF9040), width: 2) : BorderSide.none,
               right: !isStart ? const BorderSide(color: Color(0xFFFF9040), width: 2) : BorderSide.none,
@@ -132,11 +132,11 @@ class _TimelineRulerPainter extends CustomPainter {
     required this.frameRate,
   }) {
     _majorTickPaint = Paint()
-      ..color = Colors.white.withOpacity(0.7)
+      ..color = Colors.white.withValues(alpha: 0.7)
       ..strokeWidth = 1.5;
 
     _minorTickPaint = Paint()
-      ..color = Colors.white.withOpacity(0.4)
+      ..color = Colors.white.withValues(alpha: 0.4)
       ..strokeWidth = 1.0;
 
     _ticks = _generateTicks();
@@ -152,7 +152,7 @@ class _TimelineRulerPainter extends CustomPainter {
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w500,
-              color: Colors.white.withOpacity(0.7),
+              color: Colors.white.withValues(alpha: 0.7),
             ),
           ),
           textDirection: TextDirection.ltr,

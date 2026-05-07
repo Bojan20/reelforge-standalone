@@ -101,7 +101,7 @@ class _CortexHealthIndicatorState extends State<CortexHealthIndicator>
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: color.withOpacity(0.4),
+                            color: color.withValues(alpha: 0.4),
                             blurRadius: 4,
                             spreadRadius: 1,
                           ),
@@ -150,7 +150,7 @@ class _CortexDashboardDialog extends StatelessWidget {
           backgroundColor: const Color(0xFF12121C),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: color.withOpacity(0.3)),
+            side: BorderSide(color: color.withValues(alpha: 0.3)),
           ),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
@@ -275,7 +275,7 @@ class _CortexDashboardDialog extends StatelessWidget {
                             child: Text(
                               _eventLabel(event),
                               style: TextStyle(
-                                color: _eventColor(event).withOpacity(0.7),
+                                color: _eventColor(event).withValues(alpha: 0.7),
                                 fontSize: 10,
                                 fontFamily: 'monospace',
                               ),
@@ -297,7 +297,7 @@ class _CortexDashboardDialog extends StatelessWidget {
                       child: Text(
                         'Close',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.5),
+                          color: Colors.white.withValues(alpha: 0.5),
                           fontSize: 12,
                         ),
                       ),
@@ -322,7 +322,7 @@ class _CortexDashboardDialog extends StatelessWidget {
             color: color,
             shape: BoxShape.circle,
             boxShadow: [
-              BoxShadow(color: color.withOpacity(0.5), blurRadius: 8),
+              BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 8),
             ],
           ),
         ),
@@ -330,7 +330,7 @@ class _CortexDashboardDialog extends StatelessWidget {
         Text(
           'CORTEX Nervous System',
           style: TextStyle(
-            color: Colors.white.withOpacity(0.9),
+            color: Colors.white.withValues(alpha: 0.9),
             fontSize: 14,
             fontWeight: FontWeight.w600,
             letterSpacing: 0.5,
@@ -341,9 +341,9 @@ class _CortexDashboardDialog extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
-              color: const Color(0xFFFF4060).withOpacity(0.15),
+              color: const Color(0xFFFF4060).withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: const Color(0xFFFF4060).withOpacity(0.3)),
+              border: Border.all(color: const Color(0xFFFF4060).withValues(alpha: 0.3)),
             ),
             child: const Text(
               'DEGRADED',
@@ -366,7 +366,7 @@ class _CortexDashboardDialog extends StatelessWidget {
         height: 6,
         child: LinearProgressIndicator(
           value: health,
-          backgroundColor: Colors.white.withOpacity(0.06),
+          backgroundColor: Colors.white.withValues(alpha: 0.06),
           color: color,
         ),
       ),
@@ -384,7 +384,7 @@ class _CortexDashboardDialog extends StatelessWidget {
         Text(
           'Healing Rate',
           style: TextStyle(
-            color: Colors.white.withOpacity(0.35),
+            color: Colors.white.withValues(alpha: 0.35),
             fontSize: 9,
             fontWeight: FontWeight.w600,
           ),
@@ -397,7 +397,7 @@ class _CortexDashboardDialog extends StatelessWidget {
               height: 4,
               child: LinearProgressIndicator(
                 value: rate.clamp(0.0, 1.0),
-                backgroundColor: Colors.white.withOpacity(0.06),
+                backgroundColor: Colors.white.withValues(alpha: 0.06),
                 color: color,
               ),
             ),
@@ -420,7 +420,7 @@ class _CortexDashboardDialog extends StatelessWidget {
     return Text(
       title,
       style: TextStyle(
-        color: Colors.white.withOpacity(0.3),
+        color: Colors.white.withValues(alpha: 0.3),
         fontSize: 9,
         fontWeight: FontWeight.w700,
         letterSpacing: 1.5,
@@ -431,21 +431,21 @@ class _CortexDashboardDialog extends StatelessWidget {
   Widget _buildDimensionRow(String label, double value, IconData icon) {
     final isAvailable = value >= 0;
     final displayValue = isAvailable ? value.clamp(0.0, 1.0) : 0.0;
-    final color = isAvailable ? _colorForHealth(displayValue) : Colors.white.withOpacity(0.15);
+    final color = isAvailable ? _colorForHealth(displayValue) : Colors.white.withValues(alpha: 0.15);
     final pct = isAvailable ? (displayValue * 100).round() : 0;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
-          Icon(icon, size: 12, color: color.withOpacity(0.7)),
+          Icon(icon, size: 12, color: color.withValues(alpha: 0.7)),
           const SizedBox(width: 6),
           SizedBox(
             width: 100,
             child: Text(
               label,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.5),
+                color: Colors.white.withValues(alpha: 0.5),
                 fontSize: 11,
               ),
             ),
@@ -457,7 +457,7 @@ class _CortexDashboardDialog extends StatelessWidget {
                 height: 4,
                 child: LinearProgressIndicator(
                   value: displayValue,
-                  backgroundColor: Colors.white.withOpacity(0.06),
+                  backgroundColor: Colors.white.withValues(alpha: 0.06),
                   color: color,
                 ),
               ),
@@ -485,9 +485,9 @@ class _CortexDashboardDialog extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.06),
+        color: color.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.12)),
+        border: Border.all(color: color.withValues(alpha: 0.12)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -495,7 +495,7 @@ class _CortexDashboardDialog extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.35),
+              color: Colors.white.withValues(alpha: 0.35),
               fontSize: 9,
               fontWeight: FontWeight.w600,
               letterSpacing: 0.5,

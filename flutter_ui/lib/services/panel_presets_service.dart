@@ -691,9 +691,9 @@ class PanelPresetPicker extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: color.withOpacity(0.3)),
+                  border: Border.all(color: color.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -861,7 +861,7 @@ class _SavePresetDialogState extends State<SavePresetDialog> {
       backgroundColor: const Color(0xFF1a1a20),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: color.withOpacity(0.3)),
+        side: BorderSide(color: color.withValues(alpha: 0.3)),
       ),
       title: Row(
         children: [
@@ -890,7 +890,7 @@ class _SavePresetDialogState extends State<SavePresetDialog> {
                 errorText: _error,
                 errorStyle: TextStyle(color: color, fontSize: 10),
                 enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: color.withOpacity(0.3)),
+                  borderSide: BorderSide(color: color.withValues(alpha: 0.3)),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderSide: BorderSide(color: color),
@@ -922,7 +922,7 @@ class _SavePresetDialogState extends State<SavePresetDialog> {
                 labelText: 'Description (optional)',
                 labelStyle: const TextStyle(color: Colors.white54, fontSize: 11),
                 enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: color.withOpacity(0.3)),
+                  borderSide: BorderSide(color: color.withValues(alpha: 0.3)),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderSide: BorderSide(color: color),

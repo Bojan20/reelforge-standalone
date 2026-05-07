@@ -190,7 +190,7 @@ class AudioGraphEdge {
 
   /// Edge color based on gain level
   Color get color {
-    if (gain < 0.001) return Colors.grey.withOpacity(0.3);  // Muted
+    if (gain < 0.001) return Colors.grey.withValues(alpha: 0.3);  // Muted
     if (gain > 1.5) return const Color(0xFFFF9040);  // Boosted (orange)
     return const Color(0xFF4A9EFF);  // Normal (blue)
   }

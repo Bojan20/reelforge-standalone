@@ -20,18 +20,20 @@
 
 ## TOP 10 NALAZA (poređani po ROI)
 
-| # | Težina | Lokacija | Problem | Effort |
-|---|---|---|---|---|
-| 1 | 🔴 P0 | `helix_screen.dart:1493-1496` | Math HUD (top:12,left:12) preklapa "FREE SPINS" stage banner pri freespins state — **video u snimku 15:08:13** | S |
-| 2 | 🔴 P0 | `quick_assign_hotbar.dart:93-114` | Hotbar Row bez Expanded/responsive wrap → overflow na <500px window width | S |
-| 3 | 🔴 P0 | `helix_screen.dart` cela | 10500 LOC monolit — 13 dock panela u JEDNOM fajlu → kompilacija sporija, refactor opasnost | XL |
-| 4 | 🟡 P1 | `helix_screen.dart:1517` | Anticipation glow magic number `* 0.6 + 60` — pretpostavlja centrirani 60% grid; pomera se kad se PremiumSlotPreview pomeri | M |
-| 5 | 🟡 P1 | `helix_screen.dart:1741` | ARCHITECT mode override-uje user `_dockHeight` na `0.5*screenH` — gubi customizaciju bez upozorenja | S |
-| 6 | 🟡 P1 | `helix_screen.dart:1846-1872` | AUDIO quick actions emituju `AUDIO_MUTE_ALL` kao game-stage trigger u `EventRegistry` — semantička katastrofa | S |
-| 7 | 🟡 P1 | `helix_screen.dart:1008,1034,1184,...` | 60+ `withOpacity()` poziva — Flutter 3.27+ deprecira u korist `withValues(alpha:)` | M |
-| 8 | 🟡 P1 | `helix_screen.dart:5269,5275,5388` | `try/catch` koji vraća text widget umesto error boundary-ja — UI degradira tiho, error nije logovan | M |
-| 9 | 🟢 P2 | `helix_screen.dart:1722-1738` | 13 dock tabova hard-kodirano u `static const _dockTabDefs` — nema registry/extensibility za plugin tabove | M |
-| 10 | 🟢 P2 | `helix_screen.dart:2037` | Dock height hard-kodiran `clamp(180, 600)` — ne skalira sa screen height-om | S |
+| # | Težina | Lokacija | Problem | Effort | Status |
+|---|---|---|---|---|---|
+| 1 | 🔴 P0 | `helix_screen.dart:1525-1528` | Math HUD (top:12,left:12) preklapa "FREE SPINS" stage banner pri freespins state — **video u snimku 15:08:13** | S | ✅ — re-audit 2026-05-07: HUD je već na `top: 80, left: 12` (32px gap od _HeaderZone 48px), `_FeatureIndicators` widget koji je renderovao FREE SPINS banner je dead code (definisan u premium_slot_preview.dart:2929, 0 callers). Audit nalaz iz starije verzije koda. |
+| 2 | 🔴 P0 | `quick_assign_hotbar.dart:93-114` | Hotbar Row bez Expanded/responsive wrap → overflow na <500px window width | S | ✅ — re-audit 2026-05-07: već koristi `SingleChildScrollView(scrollDirection: Axis.horizontal)` (linija 93), nema RenderFlex overflow. Polish opcija (gradient fade affordance) može doći u FAZI UX polish. |
+| 3 | 🔴 P0 | `helix_screen.dart` cela | 10500 LOC monolit — 13 dock panela u JEDNOM fajlu → kompilacija sporija, refactor opasnost | XL | ⏳ Faza 2.3 monolith refactor — odlažem za posle prezentacije (XL effort, visok regression rizik 2 dana pred demo). |
+| 4 | 🟡 P1 | `helix_screen.dart:1517` | Anticipation glow magic number `* 0.6 + 60` — pretpostavlja centrirani 60% grid; pomera se kad se PremiumSlotPreview pomeri | M | ⏳ |
+| 5 | 🟡 P1 | `helix_screen.dart:1741` | ARCHITECT mode override-uje user `_dockHeight` na `0.5*screenH` — gubi customizaciju bez upozorenja | S | ⏳ |
+| 6 | 🟡 P1 | `helix_screen.dart:1846-1872` | AUDIO quick actions emituju `AUDIO_MUTE_ALL` kao game-stage trigger u `EventRegistry` — semantička katastrofa | S | ✅ — re-audit 2026-05-07: 0 `AUDIO_MUTE_ALL` literala u helix_screen.dart, audio quick actions ili uklonjene ili re-implementirane. Nalaz outdated. |
+| 7 | 🟡 P1 | `helix_screen.dart:1008,1034,1184,...` | 60+ `withOpacity()` poziva — Flutter 3.27+ deprecira u korist `withValues(alpha:)` | M | ✅ 2026-05-07 — Stvarno: 2395 call sites u 162 fajla (28× više nego procena). Python migrator sa balanced-paren parser-om, 0 errors, `flutter analyze` clean. Vidi Q2 ispod. |
+| 8 | 🟡 P1 | `helix_screen.dart:5269,5275,5388` | `try/catch` koji vraća text widget umesto error boundary-ja — UI degradira tiho, error nije logovan | M | ⏳ |
+| 9 | 🟢 P2 | `helix_screen.dart:1722-1738` | 13 dock tabova hard-kodirano u `static const _dockTabDefs` — nema registry/extensibility za plugin tabove | M | ⏳ |
+| 10 | 🟢 P2 | `helix_screen.dart:2037` | Dock height hard-kodiran `clamp(180, 600)` — ne skalira sa screen height-om | S | ⏳ |
+
+**Re-audit sažetak 2026-05-07:** Od 10 originalnih nalaza, **4 zatvoreno** (#1, #2, #6 outdated; #7 stvarno migrirano). 1 odložen (#3 monolith — XL pred demo). 5 P1/P2 ostaju za posle prezentacije.
 
 ---
 
@@ -204,10 +206,14 @@ try {
 
 **Konkretne lokacije za prvi fix:** linije `284, 287, 291, 297, 308, 314, 322, 327, 332, 369, 397, 481, 504, 517, 540, 1804, 1813, 1822, 1831, 1840, 1850, 1857, 1864, 1871, 1881, 1888, 1895, 1905, 1912, 1919, 1926, 1933, 1943, 1950, 1957, 1967, 1974, 1981, 2152, 2155` — i to je samo prvih 10% fajla.
 
-#### Q2. **`withOpacity` deprecation** (~80 poziva)
-Flutter 3.27+ deprecira u korist `withValues(alpha: ...)` (zbog wide-gamut color support). Trenutno warning, sledeći major Flutter će biti error.
+#### Q2. **`withOpacity` deprecation** ~~(~80 poziva)~~ ✅ ZATVORENO 2026-05-07
+~~Flutter 3.27+ deprecira u korist `withValues(alpha: ...)` (zbog wide-gamut color support).~~
 
-**Fix:** masovan find-replace `\.withOpacity\(([^)]+)\)` → `.withValues(alpha: $1)`. Mehanički.
+**Stvarni broj nakon dubokog grep-a:** 2395 call sites u 162 fajla (28× više nego procena).
+
+**Fix:** Python migrator (`/tmp/migrate_withopacity.py`) sa balanced-paren parser-om — bezbedno za nested expressions kao `withOpacity(curve.transform(t))`. 161 lib fajl + 1 test fajl, 2395 zamena. `flutter analyze` ostao clean (0 issues), nijedan test/widget API regression.
+
+**Bonus:** suppress `deprecated_member_use: ignore` u `analysis_options.yaml` zadržan, ali sa eksplicitnom listom šta je migrirano i šta ostalo (94× Color.value, 47× Switch.activeColor, 14× Color.red/green/blue, 7× Radio.groupValue, 2× RawKeyboardListener) — ti ostaci zahtevaju type-aware migration i nisu mehanički safe.
 
 #### Q3. **Race condition: 3s delay bez cancellation**
 `helix_screen.dart:251-257`:

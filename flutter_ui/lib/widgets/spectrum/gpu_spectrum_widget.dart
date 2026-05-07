@@ -314,7 +314,7 @@ class _GpuSpectrumWidgetState extends State<GpuSpectrumWidget>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
-              color: _shaderLoaded ? const Color(0xFF40FF90).withOpacity(0.2) : const Color(0xFFFF4060).withOpacity(0.2),
+              color: _shaderLoaded ? const Color(0xFF40FF90).withValues(alpha: 0.2) : const Color(0xFFFF4060).withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
@@ -340,10 +340,10 @@ class _GpuSpectrumWidgetState extends State<GpuSpectrumWidget>
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFF4A9EFF).withOpacity(0.2) : Colors.transparent,
+            color: isSelected ? const Color(0xFF4A9EFF).withValues(alpha: 0.2) : Colors.transparent,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
-              color: isSelected ? const Color(0xFF4A9EFF).withOpacity(0.5) : Colors.transparent,
+              color: isSelected ? const Color(0xFF4A9EFF).withValues(alpha: 0.5) : Colors.transparent,
             ),
           ),
           child: Row(

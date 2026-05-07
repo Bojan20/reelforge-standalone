@@ -11,7 +11,19 @@ include: package:flutter_lints/flutter.yaml
 
 analyzer:
   errors:
-    # Suppress deprecation warnings for Flutter 3.32+ RadioListTile/SwitchListTile API changes
+    # Migrated 2026-05-07: `Color.withOpacity` → `.withValues(alpha:)` (2395 sites, 162 files).
+    # Remaining deprecations (~191 info) are all type-receiver-sensitive — they
+    # CANNOT be safely auto-migrated without a Dart-level type checker because the
+    # same identifier (`value`, `activeColor`, `groupValue`, `onChanged`) appears
+    # on both deprecated-Color/Switch APIs and on still-valid widgets/providers.
+    # Categories pending manual migration:
+    #   • 94× `Color.value` → `.toARGB32()` (must distinguish from Slider/Notifier.value)
+    #   • 47× `Switch.activeColor` → `thumbColor: WidgetStateProperty.all(...)` (API redesign)
+    #   • 14× `Color.red/green/blue` → `(c.r * 255.0).round()...` (precision-sensitive)
+    #   •  7× `Radio.groupValue/onChanged` → `RadioGroup.onChanged`
+    #   •  2× `RawKeyboardListener/RawKeyDownEvent` → `KeyboardListener/KeyDownEvent`
+    # Until these are cleaned, lint is suppressed to keep `flutter analyze` clean
+    # for CI gating (P0 1.6.3).
     deprecated_member_use: ignore
     # Suppress dangling library doc comments (file headers with ///)
     dangling_library_doc_comments: ignore

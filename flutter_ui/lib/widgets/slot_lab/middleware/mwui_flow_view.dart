@@ -102,9 +102,9 @@ class _MwuiFlowViewState extends State<MwuiFlowView> {
         children: [
           const Icon(Icons.route, size: 14, color: Color(0xFF4FC3F7)),
           const SizedBox(width: 6),
-          Text('Middleware Pipeline Flow', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 11, fontWeight: FontWeight.w600)),
+          Text('Middleware Pipeline Flow', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11, fontWeight: FontWeight.w600)),
           const Spacer(),
-          Text('10 Layers', style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 9)),
+          Text('10 Layers', style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 9)),
         ],
       ),
     );
@@ -139,11 +139,11 @@ class _MwuiFlowViewState extends State<MwuiFlowView> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: isHovered
-              ? layer.color.withOpacity(0.15)
-              : layer.color.withOpacity(0.05),
+              ? layer.color.withValues(alpha: 0.15)
+              : layer.color.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
-            color: isActive ? layer.color : layer.color.withOpacity(0.3),
+            color: isActive ? layer.color : layer.color.withValues(alpha: 0.3),
             width: isActive ? 1.5 : 0.5,
           ),
         ),
@@ -152,7 +152,7 @@ class _MwuiFlowViewState extends State<MwuiFlowView> {
             Container(
               width: 24, height: 24,
               decoration: BoxDecoration(
-                color: layer.color.withOpacity(isActive ? 0.3 : 0.1),
+                color: layer.color.withValues(alpha: isActive ? 0.3 : 0.1),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Center(
@@ -170,14 +170,14 @@ class _MwuiFlowViewState extends State<MwuiFlowView> {
                   Text(
                     layer.name,
                     style: TextStyle(
-                      color: isActive ? Colors.white.withOpacity(0.9) : Colors.white.withOpacity(0.6),
+                      color: isActive ? Colors.white.withValues(alpha: 0.9) : Colors.white.withValues(alpha: 0.6),
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   Text(
                     layer.description,
-                    style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 8),
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 8),
                   ),
                 ],
               ),
@@ -185,7 +185,7 @@ class _MwuiFlowViewState extends State<MwuiFlowView> {
             Icon(
               layer.icon,
               size: 14,
-              color: layer.color.withOpacity(isActive ? 0.8 : 0.4),
+              color: layer.color.withValues(alpha: isActive ? 0.8 : 0.4),
             ),
             const SizedBox(width: 6),
             _buildLayerStatus(index, layer),
@@ -200,12 +200,12 @@ class _MwuiFlowViewState extends State<MwuiFlowView> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
       decoration: BoxDecoration(
-        color: layer.color.withOpacity(0.1),
+        color: layer.color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(2),
       ),
       child: Text(
         status,
-        style: TextStyle(color: layer.color.withOpacity(0.7), fontSize: 7, fontFamily: 'monospace'),
+        style: TextStyle(color: layer.color.withValues(alpha: 0.7), fontSize: 7, fontFamily: 'monospace'),
       ),
     );
   }
@@ -217,7 +217,7 @@ class _MwuiFlowViewState extends State<MwuiFlowView> {
         child: Container(
           width: 1,
           height: 16,
-          color: Colors.white.withOpacity(0.1),
+          color: Colors.white.withValues(alpha: 0.1),
         ),
       ),
     );
@@ -226,7 +226,7 @@ class _MwuiFlowViewState extends State<MwuiFlowView> {
   Widget _buildDetailPanel() {
     if (_hoveredLayer < 0 || _hoveredLayer >= _layers.length) {
       return Center(
-        child: Text('Hover a layer for details', style: TextStyle(color: Colors.white.withOpacity(0.2), fontSize: 10)),
+        child: Text('Hover a layer for details', style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 10)),
       );
     }
 
@@ -250,11 +250,11 @@ class _MwuiFlowViewState extends State<MwuiFlowView> {
                   children: [
                     Icon(layer.icon, size: 14, color: layer.color),
                     const SizedBox(width: 6),
-                    Text(layer.name, style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12, fontWeight: FontWeight.w600)),
+                    Text(layer.name, style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12, fontWeight: FontWeight.w600)),
                   ],
                 ),
                 const SizedBox(height: 4),
-                Text(layer.detailDescription, style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 9)),
+                Text(layer.detailDescription, style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 9)),
               ],
             ),
           ),
@@ -262,7 +262,7 @@ class _MwuiFlowViewState extends State<MwuiFlowView> {
             child: ListView(
               padding: const EdgeInsets.all(10),
               children: [
-                Text('PARAMETERS', style: TextStyle(color: layer.color.withOpacity(0.6), fontSize: 8, fontWeight: FontWeight.w700, letterSpacing: 1)),
+                Text('PARAMETERS', style: TextStyle(color: layer.color.withValues(alpha: 0.6), fontSize: 8, fontWeight: FontWeight.w700, letterSpacing: 1)),
                 const SizedBox(height: 4),
                 for (final p in params)
                   Padding(
@@ -271,9 +271,9 @@ class _MwuiFlowViewState extends State<MwuiFlowView> {
                       children: [
                         SizedBox(
                           width: 100,
-                          child: Text(p.key, style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 9)),
+                          child: Text(p.key, style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 9)),
                         ),
-                        Text(p.value, style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 9, fontFamily: 'monospace')),
+                        Text(p.value, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 9, fontFamily: 'monospace')),
                       ],
                     ),
                   ),

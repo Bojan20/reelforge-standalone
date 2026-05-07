@@ -1052,7 +1052,7 @@ class CompingProvider extends ChangeNotifier {
       'isActive': lane.isActive,
       'isCompLane': lane.isCompLane,
       'muted': lane.muted,
-      'color': lane.color?.toARGB32(),
+      'color': lane.color?.value,
       'takes': lane.takes.map((t) => _takeToJson(t)).toList(),
     };
   }

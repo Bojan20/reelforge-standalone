@@ -128,7 +128,7 @@ class _RecordingPanelState extends State<RecordingPanel> {
               Text(
                 '${recording.armedCount} armed · ${recording.recordingCount} recording',
                 style: TextStyle(
-                  color: FluxForgeTheme.textSecondary.withOpacity(0.7),
+                  color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
                   fontSize: 10,
                 ),
               ),
@@ -153,7 +153,7 @@ class _RecordingPanelState extends State<RecordingPanel> {
                       Icon(
                         Icons.folder_outlined,
                         size: 14,
-                        color: FluxForgeTheme.textSecondary.withOpacity(0.7),
+                        color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -247,13 +247,13 @@ class _RecordingPanelState extends State<RecordingPanel> {
             Icon(
               Icons.mic_none,
               size: 64,
-              color: FluxForgeTheme.textSecondary.withOpacity(0.3),
+              color: FluxForgeTheme.textSecondary.withValues(alpha: 0.3),
             ),
             const SizedBox(height: 16),
             Text(
               'No Armed Tracks',
               style: TextStyle(
-                color: FluxForgeTheme.textSecondary.withOpacity(0.6),
+                color: FluxForgeTheme.textSecondary.withValues(alpha: 0.6),
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
@@ -262,7 +262,7 @@ class _RecordingPanelState extends State<RecordingPanel> {
             Text(
               'Arm tracks from the mixer or timeline to start recording',
               style: TextStyle(
-                color: FluxForgeTheme.textSecondary.withOpacity(0.5),
+                color: FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
                 fontSize: 12,
               ),
               textAlign: TextAlign.center,
@@ -285,13 +285,13 @@ class _RecordingPanelState extends State<RecordingPanel> {
                 Icon(
                   Icons.mic_none,
                   size: 64,
-                  color: FluxForgeTheme.textSecondary.withOpacity(0.3),
+                  color: FluxForgeTheme.textSecondary.withValues(alpha: 0.3),
                 ),
                 const SizedBox(height: 16),
                 Text(
                   'No Armed Tracks',
                   style: TextStyle(
-                    color: FluxForgeTheme.textSecondary.withOpacity(0.6),
+                    color: FluxForgeTheme.textSecondary.withValues(alpha: 0.6),
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),
@@ -300,7 +300,7 @@ class _RecordingPanelState extends State<RecordingPanel> {
                 Text(
                   'Arm tracks from the mixer or timeline to start recording',
                   style: TextStyle(
-                    color: FluxForgeTheme.textSecondary.withOpacity(0.5),
+                    color: FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
                     fontSize: 12,
                   ),
                   textAlign: TextAlign.center,
@@ -367,7 +367,7 @@ class _ArmedTrackItem extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
           color: isRecording
-              ? FluxForgeTheme.accentRed.withOpacity(0.5)
+              ? FluxForgeTheme.accentRed.withValues(alpha: 0.5)
               : FluxForgeTheme.bgSurface,
           width: isRecording ? 2 : 1,
         ),
@@ -423,7 +423,7 @@ class _ArmedTrackItem extends StatelessWidget {
                 Text(
                   recordingPath ?? 'Ready to record',
                   style: TextStyle(
-                    color: FluxForgeTheme.textSecondary.withOpacity(0.7),
+                    color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
                     fontSize: 11,
                   ),
                   overflow: TextOverflow.ellipsis,

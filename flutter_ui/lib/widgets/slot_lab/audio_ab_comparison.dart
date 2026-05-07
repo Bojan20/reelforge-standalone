@@ -102,7 +102,7 @@ class _AudioABComparisonState extends State<AudioABComparison> {
             // Divider
             Container(
               width: 2,
-              color: Colors.white.withOpacity(0.1),
+              color: Colors.white.withValues(alpha: 0.1),
               margin: const EdgeInsets.symmetric(horizontal: 12),
             ),
             // File B
@@ -179,7 +179,7 @@ class _AudioABComparisonState extends State<AudioABComparison> {
         color: const Color(0xFF16161C),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: isPlaying ? color : Colors.white.withOpacity(0.1),
+          color: isPlaying ? color : Colors.white.withValues(alpha: 0.1),
           width: isPlaying ? 2 : 1,
         ),
       ),
@@ -190,7 +190,7 @@ class _AudioABComparisonState extends State<AudioABComparison> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
+              color: color.withValues(alpha: 0.2),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(7)),
             ),
             child: Row(
@@ -199,7 +199,7 @@ class _AudioABComparisonState extends State<AudioABComparison> {
                   width: 32,
                   height: 32,
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.3),
+                    color: color.withValues(alpha: 0.3),
                     shape: BoxShape.circle,
                   ),
                   alignment: Alignment.center,

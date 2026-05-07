@@ -126,9 +126,9 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.red.withOpacity(0.2),
+        color: Colors.red.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: Colors.red.withOpacity(0.5)),
+        border: Border.all(color: Colors.red.withValues(alpha: 0.5)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -165,8 +165,8 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: _ffmpegAvailable
-              ? Colors.green.withOpacity(0.2)
-              : Colors.orange.withOpacity(0.2),
+              ? Colors.green.withValues(alpha: 0.2)
+              : Colors.orange.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(4),
         ),
         child: Row(
@@ -196,9 +196,9 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
       padding: const EdgeInsets.all(16),
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.orange.withOpacity(0.1),
+        color: Colors.orange.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.orange.withOpacity(0.3)),
+        border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -252,7 +252,7 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -293,7 +293,7 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
       icon: const Icon(Icons.fiber_manual_record, color: Colors.red),
       label: const Text('Start Recording'),
       style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.red.withOpacity(0.2),
+        backgroundColor: Colors.red.withValues(alpha: 0.2),
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       ),
@@ -306,7 +306,7 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
       icon: const Icon(Icons.pause, color: Colors.white),
       tooltip: 'Pause',
       style: IconButton.styleFrom(
-        backgroundColor: Colors.white.withOpacity(0.1),
+        backgroundColor: Colors.white.withValues(alpha: 0.1),
       ),
     );
   }
@@ -317,7 +317,7 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
       icon: const Icon(Icons.play_arrow, color: Colors.green),
       tooltip: 'Resume',
       style: IconButton.styleFrom(
-        backgroundColor: Colors.green.withOpacity(0.2),
+        backgroundColor: Colors.green.withValues(alpha: 0.2),
       ),
     );
   }
@@ -328,7 +328,7 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
       icon: const Icon(Icons.stop),
       label: const Text('Stop & Export'),
       style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.blue.withOpacity(0.3),
+        backgroundColor: Colors.blue.withValues(alpha: 0.3),
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       ),
@@ -384,7 +384,7 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
         Text(
           label,
           style: TextStyle(
-            color: Colors.white.withOpacity(0.5),
+            color: Colors.white.withValues(alpha: 0.5),
             fontSize: 11,
           ),
         ),
@@ -397,14 +397,14 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
       children: [
         LinearProgressIndicator(
           value: _exportProgress,
-          backgroundColor: Colors.white.withOpacity(0.1),
+          backgroundColor: Colors.white.withValues(alpha: 0.1),
           color: Colors.blue,
         ),
         const SizedBox(height: 8),
         Text(
           '${(_exportProgress * 100).toInt()}% - $_exportStatus',
           style: TextStyle(
-            color: Colors.white.withOpacity(0.7),
+            color: Colors.white.withValues(alpha: 0.7),
             fontSize: 12,
           ),
         ),
@@ -416,7 +416,7 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.03),
+        color: Colors.white.withValues(alpha: 0.03),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -469,7 +469,7 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
               vertical: 8,
             ),
             filled: true,
-            fillColor: Colors.white.withOpacity(0.05),
+            fillColor: Colors.white.withValues(alpha: 0.05),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(4),
               borderSide: BorderSide.none,
@@ -513,7 +513,7 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
               vertical: 8,
             ),
             filled: true,
-            fillColor: Colors.white.withOpacity(0.05),
+            fillColor: Colors.white.withValues(alpha: 0.05),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(4),
               borderSide: BorderSide.none,
@@ -557,7 +557,7 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
               vertical: 8,
             ),
             filled: true,
-            fillColor: Colors.white.withOpacity(0.05),
+            fillColor: Colors.white.withValues(alpha: 0.05),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(4),
               borderSide: BorderSide.none,
@@ -667,13 +667,13 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
           Icon(
             Icons.video_library_outlined,
             size: 48,
-            color: Colors.white.withOpacity(0.2),
+            color: Colors.white.withValues(alpha: 0.2),
           ),
           const SizedBox(height: 12),
           Text(
             'No exports yet',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.4),
+              color: Colors.white.withValues(alpha: 0.4),
               fontSize: 14,
             ),
           ),
@@ -681,7 +681,7 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
           Text(
             'Start recording to create your first video',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.3),
+              color: Colors.white.withValues(alpha: 0.3),
               fontSize: 12,
             ),
           ),
@@ -695,12 +695,12 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.03),
+        color: Colors.white.withValues(alpha: 0.03),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: result.success
-              ? Colors.green.withOpacity(0.2)
-              : Colors.red.withOpacity(0.2),
+              ? Colors.green.withValues(alpha: 0.2)
+              : Colors.red.withValues(alpha: 0.2),
         ),
       ),
       child: Row(
@@ -728,7 +728,7 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
                   Text(
                     '${result.durationFormatted} • ${result.frameCount} frames • ${result.fileSizeFormatted}',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.5),
+                      color: Colors.white.withValues(alpha: 0.5),
                       fontSize: 11,
                     ),
                   ),
@@ -744,7 +744,7 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
                   Text(
                     result.error ?? 'Unknown error',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.5),
+                      color: Colors.white.withValues(alpha: 0.5),
                       fontSize: 11,
                     ),
                     overflow: TextOverflow.ellipsis,
@@ -909,8 +909,8 @@ class VideoRecordButton extends StatelessWidget {
             ),
             style: IconButton.styleFrom(
               backgroundColor: service.isRecording
-                  ? Colors.red.withOpacity(0.2)
-                  : Colors.white.withOpacity(0.1),
+                  ? Colors.red.withValues(alpha: 0.2)
+                  : Colors.white.withValues(alpha: 0.1),
             ),
           ),
         );
@@ -968,7 +968,7 @@ class _RecordingTimeIndicatorState extends State<RecordingTimeIndicator> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: Colors.red.withOpacity(0.2),
+        color: Colors.red.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Row(

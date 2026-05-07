@@ -706,7 +706,7 @@ class _ForcedOutcomePanelState extends State<ForcedOutcomePanel>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: FluxForgeTheme.accentGreen.withOpacity(0.2),
+                color: FluxForgeTheme.accentGreen.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Row(
@@ -798,9 +798,9 @@ class _ForcedOutcomePanelState extends State<ForcedOutcomePanel>
                     end: Alignment.bottomRight,
                     colors: [
                       config.gradientColors[0]
-                          .withOpacity(isSelected ? 0.5 : 0.3),
+                          .withValues(alpha: isSelected ? 0.5 : 0.3),
                       config.gradientColors[1]
-                          .withOpacity(isSelected ? 0.3 : 0.1),
+                          .withValues(alpha: isSelected ? 0.3 : 0.1),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(8),
@@ -809,13 +809,13 @@ class _ForcedOutcomePanelState extends State<ForcedOutcomePanel>
                         ? Colors.white
                         : isSelected
                             ? config.gradientColors[0]
-                            : config.gradientColors[0].withOpacity(0.3),
+                            : config.gradientColors[0].withValues(alpha: 0.3),
                     width: isTriggering ? 2 : 1,
                   ),
                   boxShadow: isTriggering
                       ? [
                           BoxShadow(
-                            color: config.gradientColors[0].withOpacity(0.5),
+                            color: config.gradientColors[0].withValues(alpha: 0.5),
                             blurRadius: 15,
                             spreadRadius: 3,
                           ),
@@ -854,7 +854,7 @@ class _ForcedOutcomePanelState extends State<ForcedOutcomePanel>
                                   width: 18,
                                   height: 18,
                                   decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.4),
+                                    color: Colors.black.withValues(alpha: 0.4),
                                     borderRadius: BorderRadius.circular(3),
                                     border: Border.all(
                                       color: Colors.white24,
@@ -908,7 +908,7 @@ class _ForcedOutcomePanelState extends State<ForcedOutcomePanel>
                             vertical: 1,
                           ),
                           decoration: BoxDecoration(
-                            color: FluxForgeTheme.accentGreen.withOpacity(0.2),
+                            color: FluxForgeTheme.accentGreen.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(2),
                           ),
                           child: Text(
@@ -927,7 +927,7 @@ class _ForcedOutcomePanelState extends State<ForcedOutcomePanel>
                       Positioned.fill(
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.1),
+                            color: Colors.white.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Center(
@@ -999,15 +999,15 @@ class _ForcedOutcomePanelState extends State<ForcedOutcomePanel>
                                   ? LinearGradient(
                                       colors: [
                                         entry.config.gradientColors[0]
-                                            .withOpacity(0.3),
+                                            .withValues(alpha: 0.3),
                                         entry.config.gradientColors[1]
-                                            .withOpacity(0.2),
+                                            .withValues(alpha: 0.2),
                                       ],
                                     )
                                   : null,
                               color: isLatest
                                   ? null
-                                  : Colors.white.withOpacity(0.05),
+                                  : Colors.white.withValues(alpha: 0.05),
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(
                                 color: isLatest

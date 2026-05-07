@@ -134,7 +134,7 @@ class _JsonPathExplorerState extends State<JsonPathExplorer> {
           Text(
             'JSON Path Explorer',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
+              color: Colors.white.withValues(alpha: 0.9),
               fontSize: 13,
               fontWeight: FontWeight.w500,
             ),
@@ -149,7 +149,7 @@ class _JsonPathExplorerState extends State<JsonPathExplorer> {
               icon: const Icon(Icons.unfold_less, size: 14),
               label: const Text('Collapse All'),
               style: TextButton.styleFrom(
-                foregroundColor: Colors.white.withOpacity(0.6),
+                foregroundColor: Colors.white.withValues(alpha: 0.6),
                 padding: const EdgeInsets.symmetric(horizontal: 8),
               ),
             ),
@@ -185,7 +185,7 @@ class _JsonPathExplorerState extends State<JsonPathExplorer> {
               ),
               decoration: InputDecoration(
                 hintText: '{"events": [...], "balance": 1000}',
-                hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.all(8),
               ),
@@ -219,16 +219,16 @@ class _JsonPathExplorerState extends State<JsonPathExplorer> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.code, size: 48, color: Colors.white.withOpacity(0.2)),
+          Icon(Icons.code, size: 48, color: Colors.white.withValues(alpha: 0.2)),
           const SizedBox(height: 12),
           Text(
             'No JSON data loaded',
-            style: TextStyle(color: Colors.white.withOpacity(0.5)),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
           ),
           const SizedBox(height: 4),
           Text(
             'Paste JSON to explore its structure',
-            style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 12),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 12),
           ),
         ],
       ),
@@ -324,7 +324,7 @@ class _JsonPathExplorerState extends State<JsonPathExplorer> {
                           child: Text(
                             '... and ${array.length - 5} more items',
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.4),
+                              color: Colors.white.withValues(alpha: 0.4),
                               fontSize: 10,
                               fontStyle: FontStyle.italic,
                             ),
@@ -374,11 +374,11 @@ class _JsonPathExplorerState extends State<JsonPathExplorer> {
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF4a9eff).withOpacity(0.15)
+              ? const Color(0xFF4a9eff).withValues(alpha: 0.15)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
           border: isSelected
-              ? Border.all(color: const Color(0xFF4a9eff).withOpacity(0.4))
+              ? Border.all(color: const Color(0xFF4a9eff).withValues(alpha: 0.4))
               : null,
         ),
         child: Row(
@@ -387,14 +387,14 @@ class _JsonPathExplorerState extends State<JsonPathExplorer> {
               Icon(
                 isExpanded ? Icons.expand_more : Icons.chevron_right,
                 size: 16,
-                color: Colors.white.withOpacity(0.5),
+                color: Colors.white.withValues(alpha: 0.5),
               ),
             Icon(icon, size: 14, color: color),
             const SizedBox(width: 4),
             Text(
               key,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.9),
+                color: Colors.white.withValues(alpha: 0.9),
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
               ),
@@ -403,7 +403,7 @@ class _JsonPathExplorerState extends State<JsonPathExplorer> {
             Text(
               suffix,
               style: TextStyle(
-                color: color.withOpacity(0.7),
+                color: color.withValues(alpha: 0.7),
                 fontSize: 10,
                 fontFamily: 'monospace',
               ),
@@ -429,7 +429,7 @@ class _JsonPathExplorerState extends State<JsonPathExplorer> {
               Text(
                 'Selected: ',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.6),
+                  color: Colors.white.withValues(alpha: 0.6),
                   fontSize: 11,
                 ),
               ),
@@ -454,7 +454,7 @@ class _JsonPathExplorerState extends State<JsonPathExplorer> {
                 },
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(maxWidth: 24),
-                color: Colors.white.withOpacity(0.5),
+                color: Colors.white.withValues(alpha: 0.5),
               ),
             ],
           ),

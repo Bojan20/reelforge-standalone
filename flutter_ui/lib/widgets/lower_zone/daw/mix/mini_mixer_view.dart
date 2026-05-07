@@ -138,7 +138,7 @@ class _MiniMixerViewState extends State<MiniMixerView> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
-              color: FluxForgeTheme.accentBlue.withOpacity(0.2),
+              color: FluxForgeTheme.accentBlue.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(3),
             ),
             child: Text(
@@ -453,7 +453,7 @@ class _MiniMixerViewState extends State<MiniMixerView> {
                   bottom: 2,
                   child: Container(
                     decoration: BoxDecoration(
-                      color: channel.color.withOpacity(0.3),
+                      color: channel.color.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -465,7 +465,7 @@ class _MiniMixerViewState extends State<MiniMixerView> {
                   top: height * (1.0 - 1.0/1.5) - 1,
                   child: Container(
                     height: 1,
-                    color: FluxForgeTheme.textMuted.withOpacity(0.5),
+                    color: FluxForgeTheme.textMuted.withValues(alpha: 0.5),
                   ),
                 ),
                 // Fader cap
@@ -480,7 +480,7 @@ class _MiniMixerViewState extends State<MiniMixerView> {
                       borderRadius: BorderRadius.circular(2),
                       boxShadow: [
                         BoxShadow(
-                          color: channel.color.withOpacity(0.3),
+                          color: channel.color.withValues(alpha: 0.3),
                           blurRadius: 4,
                           offset: const Offset(0, 1),
                         ),

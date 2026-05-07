@@ -207,7 +207,7 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: _showBindings
-                        ? FluxForgeTheme.accentBlue.withOpacity(0.2)
+                        ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(
@@ -258,16 +258,16 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           color: isSelected
-              ? FluxForgeTheme.accentBlue.withOpacity(0.15)
+              ? FluxForgeTheme.accentBlue.withValues(alpha: 0.15)
               : isRecentlyChanged
-                  ? _getValueColor(normalizedValue).withOpacity(0.1)
+                  ? _getValueColor(normalizedValue).withValues(alpha: 0.1)
                   : FluxForgeTheme.bgMid,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
             color: isSelected
                 ? FluxForgeTheme.accentBlue
                 : isRecentlyChanged
-                    ? _getValueColor(normalizedValue).withOpacity(0.5)
+                    ? _getValueColor(normalizedValue).withValues(alpha: 0.5)
                     : FluxForgeTheme.borderSubtle,
             width: isRecentlyChanged ? 1.5 : 1,
           ),
@@ -308,10 +308,10 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
                   duration: const Duration(milliseconds: 100),
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: _getValueColor(normalizedValue).withOpacity(isRecentlyChanged ? 0.4 : 0.2),
+                    color: _getValueColor(normalizedValue).withValues(alpha: isRecentlyChanged ? 0.4 : 0.2),
                     borderRadius: BorderRadius.circular(3),
                     boxShadow: isRecentlyChanged
-                        ? [BoxShadow(color: _getValueColor(normalizedValue).withOpacity(0.5), blurRadius: 6)]
+                        ? [BoxShadow(color: _getValueColor(normalizedValue).withValues(alpha: 0.5), blurRadius: 6)]
                         : null,
                   ),
                   child: Text(
@@ -350,8 +350,8 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            _getValueColor(normalizedValue).withOpacity(0.6),
-                            _getValueColor(normalizedValue).withOpacity(0.3),
+                            _getValueColor(normalizedValue).withValues(alpha: 0.6),
+                            _getValueColor(normalizedValue).withValues(alpha: 0.3),
                           ],
                         ),
                         borderRadius: BorderRadius.circular(4),
@@ -368,7 +368,7 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
                       activeTrackColor: Colors.transparent,
                       inactiveTrackColor: Colors.transparent,
                       thumbColor: _getValueColor(normalizedValue),
-                      overlayColor: _getValueColor(normalizedValue).withOpacity(0.2),
+                      overlayColor: _getValueColor(normalizedValue).withValues(alpha: 0.2),
                     ),
                     child: Slider(
                       value: value.clamp(rtpc.min, rtpc.max),
@@ -442,7 +442,7 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.show_chart, size: 40, color: Colors.white.withOpacity(0.2)),
+            Icon(Icons.show_chart, size: 40, color: Colors.white.withValues(alpha: 0.2)),
             const SizedBox(height: 8),
             const Text(
               'Select an RTPC to edit curve',
@@ -504,7 +504,7 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: FluxForgeTheme.accentOrange.withOpacity(0.2),
+                  color: FluxForgeTheme.accentOrange.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(3),
                 ),
                 child: Text(
@@ -519,7 +519,7 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: FluxForgeTheme.accentGreen.withOpacity(0.2),
+                  color: FluxForgeTheme.accentGreen.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(3),
                 ),
                 child: Text(
@@ -566,7 +566,7 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
         Container(
           height: 36,
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          color: FluxForgeTheme.bgMid.withOpacity(0.5),
+          color: FluxForgeTheme.bgMid.withValues(alpha: 0.5),
           child: Row(
             children: [
               const Text(
@@ -686,7 +686,7 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.1),
+          color: Colors.white.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(3),
         ),
         child: Row(
@@ -709,7 +709,7 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: isSelected
-              ? FluxForgeTheme.accentCyan.withOpacity(0.2)
+              ? FluxForgeTheme.accentCyan.withValues(alpha: 0.2)
               : FluxForgeTheme.bgDeep,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
@@ -766,7 +766,7 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: FluxForgeTheme.accentGreen.withOpacity(0.2),
+                    color: FluxForgeTheme.accentGreen.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: const Row(
@@ -811,11 +811,11 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: isActive
-            ? FluxForgeTheme.accentGreen.withOpacity(0.1)
+            ? FluxForgeTheme.accentGreen.withValues(alpha: 0.1)
             : FluxForgeTheme.bgMid,
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
-          color: isActive ? FluxForgeTheme.accentGreen.withOpacity(0.5) : FluxForgeTheme.borderSubtle,
+          color: isActive ? FluxForgeTheme.accentGreen.withValues(alpha: 0.5) : FluxForgeTheme.borderSubtle,
         ),
       ),
       child: Row(
@@ -907,7 +907,7 @@ class _CurveEditorPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     // Draw grid
     final gridPaint = Paint()
-      ..color = Colors.white.withOpacity(0.1)
+      ..color = Colors.white.withValues(alpha: 0.1)
       ..strokeWidth = 1;
 
     for (int i = 0; i <= 4; i++) {
@@ -918,7 +918,7 @@ class _CurveEditorPainter extends CustomPainter {
     }
 
     // Draw axis labels background
-    final labelBgPaint = Paint()..color = Colors.black.withOpacity(0.5);
+    final labelBgPaint = Paint()..color = Colors.black.withValues(alpha: 0.5);
 
     // Y-axis label (Output)
     canvas.save();
@@ -949,7 +949,7 @@ class _CurveEditorPainter extends CustomPainter {
       ..shader = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [color.withOpacity(0.3), color.withOpacity(0.05)],
+        colors: [color.withValues(alpha: 0.3), color.withValues(alpha: 0.05)],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 
     final fillPath = Path();
@@ -997,7 +997,7 @@ class _CurveEditorPainter extends CustomPainter {
         Offset(currentPosX, 0),
         Offset(currentPosX, size.height),
         Paint()
-          ..color = FluxForgeTheme.accentOrange.withOpacity(0.5)
+          ..color = FluxForgeTheme.accentOrange.withValues(alpha: 0.5)
           ..strokeWidth = 1
           ..style = PaintingStyle.stroke,
       );
@@ -1007,7 +1007,7 @@ class _CurveEditorPainter extends CustomPainter {
         Offset(0, currentPosY),
         Offset(size.width, currentPosY),
         Paint()
-          ..color = FluxForgeTheme.accentGreen.withOpacity(0.5)
+          ..color = FluxForgeTheme.accentGreen.withValues(alpha: 0.5)
           ..strokeWidth = 1
           ..style = PaintingStyle.stroke,
       );
@@ -1091,7 +1091,7 @@ class _RtpcSparklinePainter extends CustomPainter {
     if (values.isEmpty) return;
 
     // Draw background
-    final bgPaint = Paint()..color = Colors.white.withOpacity(0.03);
+    final bgPaint = Paint()..color = Colors.white.withValues(alpha: 0.03);
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(0, 0, size.width, size.height),
@@ -1102,7 +1102,7 @@ class _RtpcSparklinePainter extends CustomPainter {
 
     // Draw center line
     final centerPaint = Paint()
-      ..color = Colors.white.withOpacity(0.1)
+      ..color = Colors.white.withValues(alpha: 0.1)
       ..strokeWidth = 0.5;
     canvas.drawLine(
       Offset(0, size.height / 2),
@@ -1141,13 +1141,13 @@ class _RtpcSparklinePainter extends CustomPainter {
 
     // Draw fill
     final fillPaint = Paint()
-      ..color = color.withOpacity(0.15)
+      ..color = color.withValues(alpha: 0.15)
       ..style = PaintingStyle.fill;
     canvas.drawPath(fillPath, fillPaint);
 
     // Draw line
     final linePaint = Paint()
-      ..color = color.withOpacity(0.8)
+      ..color = color.withValues(alpha: 0.8)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0
       ..strokeCap = StrokeCap.round;

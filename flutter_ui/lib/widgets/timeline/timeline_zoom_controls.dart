@@ -78,7 +78,7 @@ class TimelineZoomControls extends StatelessWidget {
         color: const Color(0xFF16161C),
         border: Border(
           bottom: BorderSide(
-            color: Colors.white.withOpacity(0.05),
+            color: Colors.white.withValues(alpha: 0.05),
             width: 1,
           ),
         ),
@@ -264,11 +264,11 @@ class TimelineZoomControls extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             color: isActive
-                ? FluxForgeTheme.accentBlue.withOpacity(0.2)
+                ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
                 : const Color(0xFF0D0D10),
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
-              color: isActive ? FluxForgeTheme.accentBlue : Colors.white.withOpacity(0.1),
+              color: isActive ? FluxForgeTheme.accentBlue : Colors.white.withValues(alpha: 0.1),
               width: 1,
             ),
           ),

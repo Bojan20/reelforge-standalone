@@ -104,7 +104,7 @@ class _PluginEditorWindowState extends State<PluginEditorWindow> {
                           child: Icon(
                             Icons.drag_handle,
                             size: 12,
-                            color: FluxForgeTheme.textSecondary.withOpacity(0.3),
+                            color: FluxForgeTheme.textSecondary.withValues(alpha: 0.3),
                           ),
                         ),
                       ),
@@ -149,7 +149,7 @@ class _PluginEditorWindowState extends State<PluginEditorWindow> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: _getFormatColor(instance.format).withOpacity(0.2),
+                color: _getFormatColor(instance.format).withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
@@ -229,14 +229,14 @@ class _PluginEditorWindowState extends State<PluginEditorWindow> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.extension, size: 48,
-              color: FluxForgeTheme.textSecondary.withOpacity(0.3)),
+              color: FluxForgeTheme.textSecondary.withValues(alpha: 0.3)),
           const SizedBox(height: 12),
           Text(instance.name, style: TextStyle(
-            color: FluxForgeTheme.textSecondary.withOpacity(0.7),
+            color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
             fontSize: 16, fontWeight: FontWeight.w500)),
           const SizedBox(height: 4),
           Text('No parameters exposed', style: TextStyle(
-            color: FluxForgeTheme.textSecondary.withOpacity(0.4),
+            color: FluxForgeTheme.textSecondary.withValues(alpha: 0.4),
             fontSize: 11)),
         ],
       ),
@@ -255,17 +255,17 @@ class _PluginEditorWindowState extends State<PluginEditorWindow> {
         Container(
           height: 24,
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          color: FluxForgeTheme.bgMid.withOpacity(0.5),
+          color: FluxForgeTheme.bgMid.withValues(alpha: 0.5),
           child: Row(
             children: [
               Text('${params.length} Parameters',
-                style: TextStyle(color: FluxForgeTheme.textSecondary.withOpacity(0.6),
+                style: TextStyle(color: FluxForgeTheme.textSecondary.withValues(alpha: 0.6),
                   fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 0.5)),
               const Spacer(),
               GestureDetector(
                 onTap: () => _resetAllParams(provider, instance.instanceId, params),
                 child: Text('Reset All', style: TextStyle(
-                  color: FluxForgeTheme.accentBlue.withOpacity(0.7), fontSize: 10)),
+                  color: FluxForgeTheme.accentBlue.withValues(alpha: 0.7), fontSize: 10)),
               ),
             ],
           ),
@@ -513,7 +513,7 @@ class _PluginParamSliderState extends State<_PluginParamSlider> {
               child: Text(
                 p.name,
                 style: TextStyle(
-                  color: FluxForgeTheme.textSecondary.withOpacity(0.8),
+                  color: FluxForgeTheme.textSecondary.withValues(alpha: 0.8),
                   fontSize: 10,
                 ),
                 overflow: TextOverflow.ellipsis,
@@ -566,7 +566,7 @@ class _PluginParamSliderState extends State<_PluginParamSlider> {
               child: Text(
                 '${_formatValue(_value)}${p.unit.isNotEmpty ? ' ${p.unit}' : ''}',
                 style: TextStyle(
-                  color: FluxForgeTheme.textPrimary.withOpacity(0.7),
+                  color: FluxForgeTheme.textPrimary.withValues(alpha: 0.7),
                   fontSize: 9,
                   fontFamily: 'monospace',
                 ),
@@ -583,7 +583,7 @@ class _PluginParamSliderState extends State<_PluginParamSlider> {
               child: Padding(
                 padding: const EdgeInsets.only(left: 4),
                 child: Icon(Icons.restart_alt, size: 12,
-                  color: FluxForgeTheme.textSecondary.withOpacity(0.4)),
+                  color: FluxForgeTheme.textSecondary.withValues(alpha: 0.4)),
               ),
             ),
           ],

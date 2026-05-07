@@ -339,7 +339,7 @@ class _StageFlowDiagramState extends State<StageFlowDiagram>
                     border: Border.all(color: color),
                     boxShadow: [
                       BoxShadow(
-                        color: color.withOpacity(0.3),
+                        color: color.withValues(alpha: 0.3),
                         blurRadius: 8,
                       ),
                     ],
@@ -396,7 +396,7 @@ class _StageFlowDiagramState extends State<StageFlowDiagram>
                   boxShadow: (isHovered || isSelected)
                       ? [
                           BoxShadow(
-                            color: color.withOpacity(0.5),
+                            color: color.withValues(alpha: 0.5),
                             blurRadius: 8,
                             spreadRadius: 2,
                           ),
@@ -525,7 +525,7 @@ class _TimelinePainter extends CustomPainter {
         final color = Color(event.category.color);
 
         final barPaint = Paint()
-          ..color = color.withOpacity(0.3)
+          ..color = color.withValues(alpha: 0.3)
           ..style = PaintingStyle.fill;
 
         canvas.drawRRect(
@@ -542,7 +542,7 @@ class _TimelinePainter extends CustomPainter {
     if (playheadMs != null) {
       final playheadX = playheadMs! * pixelsPerMs * scale;
       final playheadPaint = Paint()
-        ..color = accentColor.withOpacity(isPlaying ? (0.6 + playheadPulse * 0.4) : 1.0)
+        ..color = accentColor.withValues(alpha: isPlaying ? (0.6 + playheadPulse * 0.4) : 1.0)
         ..strokeWidth = 2
         ..style = PaintingStyle.stroke;
 
@@ -579,7 +579,7 @@ class _TimelinePainter extends CustomPainter {
     if (scale > 3) tickIntervalMs = 250;
 
     final tickPaint = Paint()
-      ..color = FluxForgeTheme.textSecondary.withOpacity(0.5)
+      ..color = FluxForgeTheme.textSecondary.withValues(alpha: 0.5)
       ..strokeWidth = 1;
 
     for (int ms = 0; ms <= totalDurationMs; ms += tickIntervalMs) {

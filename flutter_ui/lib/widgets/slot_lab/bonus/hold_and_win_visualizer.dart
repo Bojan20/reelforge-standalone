@@ -198,13 +198,13 @@ class _HoldAndWinVisualizerState extends State<HoldAndWinVisualizer>
         color: FluxForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: _state.isActive ? Colors.amber.withOpacity(0.5) : FluxForgeTheme.borderSubtle,
+          color: _state.isActive ? Colors.amber.withValues(alpha: 0.5) : FluxForgeTheme.borderSubtle,
           width: _state.isActive ? 2 : 1,
         ),
         boxShadow: _state.isActive
             ? [
                 BoxShadow(
-                  color: Colors.amber.withOpacity(0.2),
+                  color: Colors.amber.withValues(alpha: 0.2),
                   blurRadius: 20,
                   spreadRadius: 2,
                 ),
@@ -260,9 +260,9 @@ class _HoldAndWinVisualizerState extends State<HoldAndWinVisualizer>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.amber.withOpacity(0.2),
+              color: Colors.amber.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.amber.withOpacity(0.5)),
+              border: Border.all(color: Colors.amber.withValues(alpha: 0.5)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -341,19 +341,19 @@ class _HoldAndWinVisualizerState extends State<HoldAndWinVisualizer>
       margin: const EdgeInsets.all(2),
       decoration: BoxDecoration(
         color: isLocked
-            ? symbol.symbolType.color.withOpacity(0.2)
+            ? symbol.symbolType.color.withValues(alpha: 0.2)
             : FluxForgeTheme.bgDeep,
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
           color: isLocked
               ? symbol.symbolType.color
-              : FluxForgeTheme.borderSubtle.withOpacity(0.5),
+              : FluxForgeTheme.borderSubtle.withValues(alpha: 0.5),
           width: isLocked ? 2 : 1,
         ),
         boxShadow: isLocked
             ? [
                 BoxShadow(
-                  color: symbol.symbolType.color.withOpacity(0.3),
+                  color: symbol.symbolType.color.withValues(alpha: 0.3),
                   blurRadius: 8,
                 ),
               ]
@@ -486,9 +486,9 @@ class _HoldAndWinVisualizerState extends State<HoldAndWinVisualizer>
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         children: [
@@ -631,9 +631,9 @@ class _HoldAndWinStatusBadgeState extends State<HoldAndWinStatusBadge> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.amber.withOpacity(0.2),
+        color: Colors.amber.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.amber.withOpacity(0.5)),
+        border: Border.all(color: Colors.amber.withValues(alpha: 0.5)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -653,7 +653,7 @@ class _HoldAndWinStatusBadgeState extends State<HoldAndWinStatusBadge> {
             width: 40,
             height: 6,
             decoration: BoxDecoration(
-              color: Colors.amber.withOpacity(0.2),
+              color: Colors.amber.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(3),
             ),
             child: FractionallySizedBox(

@@ -74,7 +74,7 @@ class _FatigueStabilityDashboardState extends State<FatigueStabilityDashboard> {
         Text(
           'Fatigue / Stability',
           style: TextStyle(
-            color: Colors.white.withOpacity(0.8),
+            color: Colors.white.withValues(alpha: 0.8),
             fontSize: 10,
             fontWeight: FontWeight.w600,
           ),
@@ -113,7 +113,7 @@ class _FatigueStabilityDashboardState extends State<FatigueStabilityDashboard> {
                 child: CircularProgressIndicator(
                   value: ratio,
                   strokeWidth: 2.5,
-                  backgroundColor: Colors.white.withOpacity(0.06),
+                  backgroundColor: Colors.white.withValues(alpha: 0.06),
                   valueColor: AlwaysStoppedAnimation(color),
                 ),
               ),
@@ -124,7 +124,7 @@ class _FatigueStabilityDashboardState extends State<FatigueStabilityDashboard> {
             ],
           ),
           const SizedBox(height: 2),
-          Text(label, style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 7)),
+          Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 7)),
         ],
       ),
     );

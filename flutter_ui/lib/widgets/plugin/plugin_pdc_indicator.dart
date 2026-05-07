@@ -106,7 +106,7 @@ class PluginPDCIndicator extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
-            color: FluxForgeTheme.accentCyan.withOpacity(0.2),
+            color: FluxForgeTheme.accentCyan.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(3),
             border: Border.all(color: FluxForgeTheme.accentCyan),
           ),
@@ -219,7 +219,7 @@ class _PDCTimelinePainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
 
     final compensationPaint = Paint()
-      ..color = FluxForgeTheme.accentCyan.withOpacity(0.3)
+      ..color = FluxForgeTheme.accentCyan.withValues(alpha: 0.3)
       ..style = PaintingStyle.fill;
 
     // Draw timeline axis
@@ -372,8 +372,8 @@ class PluginPDCBadge extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
         decoration: BoxDecoration(
           color: hasWarning
-            ? FluxForgeTheme.accentRed.withOpacity(0.2)
-            : FluxForgeTheme.accentCyan.withOpacity(0.2),
+            ? FluxForgeTheme.accentRed.withValues(alpha: 0.2)
+            : FluxForgeTheme.accentCyan.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(3),
           border: Border.all(
             color: hasWarning ? FluxForgeTheme.accentRed : FluxForgeTheme.accentCyan,

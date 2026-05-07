@@ -50,7 +50,7 @@ class ChainHistoryBar extends StatelessWidget {
           decoration: BoxDecoration(
             color: _kBg,
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: Colors.white.withOpacity(0.06)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -152,7 +152,7 @@ class _HistoryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = enabled ? Colors.white.withOpacity(0.85) : _kDim;
+    final color = enabled ? Colors.white.withValues(alpha: 0.85) : _kDim;
     return Tooltip(
       message: tooltip,
       waitDuration: const Duration(milliseconds: 600),
@@ -170,7 +170,7 @@ class _HistoryButton extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
                   decoration: BoxDecoration(
-                    color: _kAccent.withOpacity(0.3),
+                    color: _kAccent.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(3),
                   ),
                   child: Text(
@@ -230,10 +230,10 @@ class _AbButton extends StatelessWidget {
           width: 24,
           height: 20,
           decoration: BoxDecoration(
-            color: isSet ? color.withOpacity(0.18) : Colors.transparent,
+            color: isSet ? color.withValues(alpha: 0.18) : Colors.transparent,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
-              color: isSet ? color.withOpacity(0.6) : _kDim.withOpacity(0.4),
+              color: isSet ? color.withValues(alpha: 0.6) : _kDim.withValues(alpha: 0.4),
             ),
           ),
           alignment: Alignment.center,
@@ -269,7 +269,7 @@ class _IconBtn extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
-          child: Icon(icon, size: 14, color: Colors.white.withOpacity(0.6)),
+          child: Icon(icon, size: 14, color: Colors.white.withValues(alpha: 0.6)),
         ),
       ),
     );
@@ -285,7 +285,7 @@ class _Divider extends StatelessWidget {
       width: 1,
       height: 16,
       margin: const EdgeInsets.symmetric(horizontal: 4),
-      color: Colors.white.withOpacity(0.1),
+      color: Colors.white.withValues(alpha: 0.1),
     );
   }
 }

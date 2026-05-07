@@ -188,7 +188,7 @@ class _ResourcesPanelState extends State<ResourcesPanel> {
         // Search and filters
         Container(
           padding: const EdgeInsets.all(8),
-          color: FluxForgeTheme.bgMid.withOpacity(0.5),
+          color: FluxForgeTheme.bgMid.withValues(alpha: 0.5),
           child: Row(
             children: [
               // Search
@@ -271,7 +271,7 @@ class _ResourcesPanelState extends State<ResourcesPanel> {
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           color: isSelected
-              ? FluxForgeTheme.accentBlue.withOpacity(0.15)
+              ? FluxForgeTheme.accentBlue.withValues(alpha: 0.15)
               : FluxForgeTheme.bgMid,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
@@ -285,7 +285,7 @@ class _ResourcesPanelState extends State<ResourcesPanel> {
               width: 28,
               height: 28,
               decoration: BoxDecoration(
-                color: _getCategoryColor(resource.path).withOpacity(0.2),
+                color: _getCategoryColor(resource.path).withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Icon(
@@ -336,7 +336,7 @@ class _ResourcesPanelState extends State<ResourcesPanel> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: FluxForgeTheme.accentGreen.withOpacity(0.2),
+                  color: FluxForgeTheme.accentGreen.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(3),
                 ),
                 child: Text(
@@ -412,9 +412,9 @@ class _ResourcesPanelState extends State<ResourcesPanel> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFF4040).withOpacity(0.15),
+                        color: const Color(0xFFFF4040).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: const Color(0xFFFF4040).withOpacity(0.5)),
+                        border: Border.all(color: const Color(0xFFFF4040).withValues(alpha: 0.5)),
                       ),
                       child: const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -440,9 +440,9 @@ class _ResourcesPanelState extends State<ResourcesPanel> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       decoration: BoxDecoration(
-                        color: FluxForgeTheme.accentBlue.withOpacity(0.15),
+                        color: FluxForgeTheme.accentBlue.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: FluxForgeTheme.accentBlue.withOpacity(0.5)),
+                        border: Border.all(color: FluxForgeTheme.accentBlue.withValues(alpha: 0.5)),
                       ),
                       child: const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -614,9 +614,9 @@ class _ResourcesPanelState extends State<ResourcesPanel> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.15),
+          color: color.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: color.withOpacity(0.5)),
+          border: Border.all(color: color.withValues(alpha: 0.5)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -678,7 +678,7 @@ class _MiniWaveformPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = color.withOpacity(0.5)
+      ..color = color.withValues(alpha: 0.5)
       ..strokeWidth = 1;
 
     final midY = size.height / 2;

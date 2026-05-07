@@ -3184,7 +3184,7 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                                         borderRadius: BorderRadius.circular(3),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: FluxForgeTheme.accentCyan.withOpacity(0.6),
+                                            color: FluxForgeTheme.accentCyan.withValues(alpha: 0.6),
                                             blurRadius: 6,
                                           ),
                                         ],
@@ -3207,7 +3207,7 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                                           color: FluxForgeTheme.accentCyan,
                                           boxShadow: [
                                             BoxShadow(
-                                              color: FluxForgeTheme.accentCyan.withOpacity(0.7),
+                                              color: FluxForgeTheme.accentCyan.withValues(alpha: 0.7),
                                               blurRadius: 8,
                                               spreadRadius: 2,
                                             ),

@@ -1052,7 +1052,7 @@ class ChordTrackProvider extends ChangeNotifier {
       'voicing': e.voicing.index,
       'baseOctave': e.baseOctave,
       'velocity': e.velocity,
-      'color': e.color?.toARGB32(),
+      'color': e.color?.value,
     };
   }
 

@@ -683,7 +683,7 @@ class _RecordingIndicatorState extends State<_RecordingIndicator>
               shape: BoxShape.circle,
               color: Color.lerp(
                 const Color(0xFFFF4060),
-                const Color(0xFFFF4060).withOpacity(0.3),
+                const Color(0xFFFF4060).withValues(alpha: 0.3),
                 _controller.value,
               ),
             ),
@@ -791,7 +791,7 @@ class _SessionCard extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF4A9EFF).withOpacity(0.2),
+                  color: const Color(0xFF4A9EFF).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(Icons.videocam, color: Color(0xFF4A9EFF), size: 20),
@@ -830,7 +830,7 @@ class _SessionCard extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   margin: const EdgeInsets.only(right: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF40FF90).withOpacity(0.2),
+                    color: const Color(0xFF40FF90).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: const Text('FS',
@@ -841,7 +841,7 @@ class _SessionCard extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   margin: const EdgeInsets.only(right: 8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFD700).withOpacity(0.2),
+                    color: const Color(0xFFFFD700).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: const Text('JP',
@@ -900,7 +900,7 @@ class _SpinListItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: isActive
-          ? const Color(0xFF4A9EFF).withOpacity(0.2)
+          ? const Color(0xFF4A9EFF).withValues(alpha: 0.2)
           : Colors.transparent,
       child: InkWell(
         onTap: onTap,
@@ -954,7 +954,7 @@ class _SpinListItem extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                   margin: const EdgeInsets.only(left: 8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF40FF90).withOpacity(0.2),
+                    color: const Color(0xFF40FF90).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(3),
                   ),
                   child: const Text('FS',
@@ -965,7 +965,7 @@ class _SpinListItem extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                   margin: const EdgeInsets.only(left: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFD700).withOpacity(0.2),
+                    color: const Color(0xFFFFD700).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(3),
                   ),
                   child: const Text('JP',

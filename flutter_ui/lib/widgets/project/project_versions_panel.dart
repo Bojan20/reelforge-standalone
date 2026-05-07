@@ -273,7 +273,7 @@ class _ProjectVersionsPanelState extends State<ProjectVersionsPanel> {
     return Container(
       height: 36,
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      color: FluxForgeTheme.bgMid.withOpacity(0.5),
+      color: FluxForgeTheme.bgMid.withValues(alpha: 0.5),
       child: Row(
         children: [
           // Create version button
@@ -330,7 +330,7 @@ class _ProjectVersionsPanelState extends State<ProjectVersionsPanel> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.history, size: 48, color: Colors.white.withOpacity(0.2)),
+            Icon(Icons.history, size: 48, color: Colors.white.withValues(alpha: 0.2)),
             const SizedBox(height: 16),
             const Text(
               'No versions yet',
@@ -363,14 +363,14 @@ class _ProjectVersionsPanelState extends State<ProjectVersionsPanel> {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: isSelected
-              ? FluxForgeTheme.accentBlue.withOpacity(0.15)
+              ? FluxForgeTheme.accentBlue.withValues(alpha: 0.15)
               : FluxForgeTheme.bgMid,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
             color: isSelected
                 ? FluxForgeTheme.accentBlue
                 : version.isMilestone
-                    ? Colors.amber.withOpacity(0.4)
+                    ? Colors.amber.withValues(alpha: 0.4)
                     : FluxForgeTheme.borderSubtle,
           ),
         ),
@@ -382,7 +382,7 @@ class _ProjectVersionsPanelState extends State<ProjectVersionsPanel> {
               height: 36,
               decoration: BoxDecoration(
                 color: version.isMilestone
-                    ? Colors.amber.withOpacity(0.2)
+                    ? Colors.amber.withValues(alpha: 0.2)
                     : FluxForgeTheme.bgDeep,
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(

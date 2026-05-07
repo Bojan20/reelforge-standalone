@@ -241,7 +241,7 @@ class _PickBonusPanelState extends State<PickBonusPanel>
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: _gameOver
-              ? Colors.green.withOpacity(0.5)
+              ? Colors.green.withValues(alpha: 0.5)
               : FluxForgeTheme.borderSubtle,
           width: _gameOver ? 2 : 1,
         ),
@@ -286,9 +286,9 @@ class _PickBonusPanelState extends State<PickBonusPanel>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.purple.withOpacity(0.2),
+              color: Colors.purple.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.purple.withOpacity(0.5)),
+              border: Border.all(color: Colors.purple.withValues(alpha: 0.5)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -319,9 +319,9 @@ class _PickBonusPanelState extends State<PickBonusPanel>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.green.withOpacity(0.2),
+              color: Colors.green.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.green.withOpacity(0.5)),
+              border: Border.all(color: Colors.green.withValues(alpha: 0.5)),
             ),
             child: const Row(
               mainAxisSize: MainAxisSize.min,
@@ -395,19 +395,19 @@ class _PickBonusPanelState extends State<PickBonusPanel>
               margin: const EdgeInsets.all(3),
               decoration: BoxDecoration(
                 color: isRevealed
-                    ? item.prizeType.color.withOpacity(0.2)
-                    : Colors.purple.withOpacity(0.1),
+                    ? item.prizeType.color.withValues(alpha: 0.2)
+                    : Colors.purple.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: isRevealed
                       ? item.prizeType.color
-                      : Colors.purple.withOpacity(0.3),
+                      : Colors.purple.withValues(alpha: 0.3),
                   width: 2,
                 ),
                 boxShadow: isRevealed
                     ? [
                         BoxShadow(
-                          color: item.prizeType.color.withOpacity(0.3),
+                          color: item.prizeType.color.withValues(alpha: 0.3),
                           blurRadius: 8,
                         ),
                       ]
@@ -429,7 +429,7 @@ class _PickBonusPanelState extends State<PickBonusPanel>
         width: 36,
         height: 36,
         decoration: BoxDecoration(
-          color: Colors.purple.withOpacity(0.3),
+          color: Colors.purple.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(6),
         ),
         child: const Icon(
@@ -524,9 +524,9 @@ class _PickBonusPanelState extends State<PickBonusPanel>
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         children: [
@@ -566,9 +566,9 @@ class _PickBonusPanelState extends State<PickBonusPanel>
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.green.withOpacity(0.1),
+            color: Colors.green.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.green.withOpacity(0.5)),
+            border: Border.all(color: Colors.green.withValues(alpha: 0.5)),
           ),
           child: Column(
             children: [

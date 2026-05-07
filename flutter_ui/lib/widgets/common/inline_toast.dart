@@ -99,9 +99,9 @@ mixin InlineToastMixin<T extends StatefulWidget> on State<T>, TickerProviderStat
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         constraints: const BoxConstraints(maxWidth: 360),
         decoration: BoxDecoration(
-          color: d.color.withOpacity(0.12),
+          color: d.color.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: d.color.withOpacity(0.3), width: 0.5),
+          border: Border.all(color: d.color.withValues(alpha: 0.3), width: 0.5),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

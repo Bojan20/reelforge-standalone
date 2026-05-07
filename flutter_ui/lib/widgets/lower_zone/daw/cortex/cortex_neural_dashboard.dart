@@ -241,9 +241,9 @@ class _OverviewPanelState extends State<_OverviewPanel> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: statusColor.withOpacity(0.1),
+            color: statusColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: statusColor.withOpacity(0.3)),
+            border: Border.all(color: statusColor.withValues(alpha: 0.3)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -254,7 +254,7 @@ class _OverviewPanelState extends State<_OverviewPanel> {
                 decoration: BoxDecoration(
                   color: statusColor,
                   shape: BoxShape.circle,
-                  boxShadow: [BoxShadow(color: statusColor.withOpacity(0.5), blurRadius: 6)],
+                  boxShadow: [BoxShadow(color: statusColor.withValues(alpha: 0.5), blurRadius: 6)],
                 ),
               ),
               const SizedBox(width: 8),
@@ -299,12 +299,12 @@ class _OverviewPanelState extends State<_OverviewPanel> {
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
-          Icon(icon, size: 12, color: color.withOpacity(0.7)),
+          Icon(icon, size: 12, color: color.withValues(alpha: 0.7)),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
               text,
-              style: TextStyle(color: color.withOpacity(0.8), fontSize: 11),
+              style: TextStyle(color: color.withValues(alpha: 0.8), fontSize: 11),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -405,9 +405,9 @@ class _AwarenessPanel extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.05),
+        color: color.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.12)),
+        border: Border.all(color: color.withValues(alpha: 0.12)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -442,7 +442,7 @@ class _AwarenessPanel extends StatelessWidget {
               height: 4,
               child: LinearProgressIndicator(
                 value: displayValue,
-                backgroundColor: Colors.white.withOpacity(0.06),
+                backgroundColor: Colors.white.withValues(alpha: 0.06),
                 color: color,
               ),
             ),
@@ -690,7 +690,7 @@ class _NeuralPanelState extends State<_NeuralPanel> {
           padding: const EdgeInsets.symmetric(vertical: 1),
           child: Row(
             children: [
-              Icon(Icons.hub, size: 10, color: _CortexColors.patternPurple.withOpacity(0.6)),
+              Icon(Icons.hub, size: 10, color: _CortexColors.patternPurple.withValues(alpha: 0.6)),
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
@@ -702,7 +702,7 @@ class _NeuralPanelState extends State<_NeuralPanel> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(2),
                 ),
                 child: Text(
@@ -730,7 +730,7 @@ class _NeuralPanelState extends State<_NeuralPanel> {
             children: [
               Icon(
                 a.healed ? Icons.check_circle : Icons.pending,
-                size: 10, color: color.withOpacity(0.6),
+                size: 10, color: color.withValues(alpha: 0.6),
               ),
               const SizedBox(width: 4),
               Expanded(
@@ -742,7 +742,7 @@ class _NeuralPanelState extends State<_NeuralPanel> {
               ),
               Text(
                 a.result,
-                style: TextStyle(color: color.withOpacity(0.7), fontSize: 9),
+                style: TextStyle(color: color.withValues(alpha: 0.7), fontSize: 9),
               ),
             ],
           ),
@@ -852,7 +852,7 @@ class _ImmunePanel extends StatelessWidget {
                           ? Center(
                               child: Text(
                                 'No active antibodies — immune system clear',
-                                style: TextStyle(color: _CortexColors.healthGreen.withOpacity(0.5), fontSize: 10),
+                                style: TextStyle(color: _CortexColors.healthGreen.withValues(alpha: 0.5), fontSize: 10),
                               ),
                             )
                           : ListView.builder(
@@ -884,9 +884,9 @@ class _ImmunePanel extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
         decoration: BoxDecoration(
-          color: escalationColor.withOpacity(0.06),
+          color: escalationColor.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: escalationColor.withOpacity(0.12)),
+          border: Border.all(color: escalationColor.withValues(alpha: 0.12)),
         ),
         child: Row(
           children: [
@@ -897,7 +897,7 @@ class _ImmunePanel extends StatelessWidget {
                 color: escalationColor,
                 shape: BoxShape.circle,
                 boxShadow: ab.isChronic
-                    ? [BoxShadow(color: _CortexColors.dangerRed.withOpacity(0.5), blurRadius: 4)]
+                    ? [BoxShadow(color: _CortexColors.dangerRed.withValues(alpha: 0.5), blurRadius: 4)]
                     : null,
               ),
             ),
@@ -915,7 +915,7 @@ class _ImmunePanel extends StatelessWidget {
                   Text(
                     ab.isChronic ? 'CHRONIC' : ab.escalationLabel,
                     style: TextStyle(
-                      color: escalationColor.withOpacity(0.7),
+                      color: escalationColor.withValues(alpha: 0.7),
                       fontSize: 8,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.5,
@@ -928,7 +928,7 @@ class _ImmunePanel extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
               decoration: BoxDecoration(
-                color: escalationColor.withOpacity(0.15),
+                color: escalationColor.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(3),
               ),
               child: Text(
@@ -946,7 +946,7 @@ class _ImmunePanel extends StatelessWidget {
                   height: 3,
                   child: LinearProgressIndicator(
                     value: ab.maxSeverity.clamp(0.0, 1.0),
-                    backgroundColor: Colors.white.withOpacity(0.04),
+                    backgroundColor: Colors.white.withValues(alpha: 0.04),
                     color: escalationColor,
                   ),
                 ),
@@ -983,7 +983,7 @@ class _ImmunePanel extends StatelessWidget {
             height: 6,
             child: LinearProgressIndicator(
               value: rate.clamp(0.0, 1.0),
-              backgroundColor: Colors.white.withOpacity(0.06),
+              backgroundColor: Colors.white.withValues(alpha: 0.06),
               color: color,
             ),
           ),
@@ -997,9 +997,9 @@ Widget _immuneStatCard(String label, String value, Color color, IconData icon) {
   return Container(
     padding: const EdgeInsets.all(10),
     decoration: BoxDecoration(
-      color: color.withOpacity(0.06),
+      color: color.withValues(alpha: 0.06),
       borderRadius: BorderRadius.circular(6),
-      border: Border.all(color: color.withOpacity(0.15)),
+      border: Border.all(color: color.withValues(alpha: 0.15)),
     ),
     child: Row(
       children: [
@@ -1098,12 +1098,12 @@ class _EventsPanelState extends State<_EventsPanel> {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           decoration: BoxDecoration(
             color: isActive
-                ? _CortexColors.neuralPink.withOpacity(0.15)
+                ? _CortexColors.neuralPink.withValues(alpha: 0.15)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
               color: isActive
-                  ? _CortexColors.neuralPink.withOpacity(0.4)
+                  ? _CortexColors.neuralPink.withValues(alpha: 0.4)
                   : _CortexColors.border,
             ),
           ),
@@ -1143,18 +1143,18 @@ class _EventsPanelState extends State<_EventsPanel> {
             ),
           ),
           const SizedBox(width: 6),
-          Icon(icon, size: 10, color: color.withOpacity(0.6)),
+          Icon(icon, size: 10, color: color.withValues(alpha: 0.6)),
           const SizedBox(width: 4),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.08),
+              color: color.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(2),
             ),
             child: Text(
               event.eventType.replaceAll('_', ' ').toUpperCase(),
               style: TextStyle(
-                color: color.withOpacity(0.6),
+                color: color.withValues(alpha: 0.6),
                 fontSize: 8,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.5,
@@ -1259,7 +1259,7 @@ class _AwarenessRadarPainter extends CustomPainter {
     final gridPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.5
-      ..color = Colors.white.withOpacity(0.06);
+      ..color = Colors.white.withValues(alpha: 0.06);
 
     for (int ring = 1; ring <= 5; ring++) {
       final r = radius * ring / 5;
@@ -1280,7 +1280,7 @@ class _AwarenessRadarPainter extends CustomPainter {
     final axisPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.5
-      ..color = Colors.white.withOpacity(0.08);
+      ..color = Colors.white.withValues(alpha: 0.08);
 
     for (int i = 0; i < n; i++) {
       final angle = startAngle + angleStep * i;
@@ -1308,14 +1308,14 @@ class _AwarenessRadarPainter extends CustomPainter {
     // Fill with gradient
     final fillPaint = Paint()
       ..style = PaintingStyle.fill
-      ..color = fillColor.withOpacity(0.15);
+      ..color = fillColor.withValues(alpha: 0.15);
     canvas.drawPath(fillPath, fillPaint);
 
     // Stroke
     final strokePaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5
-      ..color = fillColor.withOpacity(0.7);
+      ..color = fillColor.withValues(alpha: 0.7);
     canvas.drawPath(fillPath, strokePaint);
 
     // Draw dots at vertices
@@ -1333,7 +1333,7 @@ class _AwarenessRadarPainter extends CustomPainter {
       // Glow
       final glowPaint = Paint()
         ..style = PaintingStyle.fill
-        ..color = fillColor.withOpacity(0.2);
+        ..color = fillColor.withValues(alpha: 0.2);
       canvas.drawCircle(p, 6, glowPaint);
     }
 
@@ -1350,7 +1350,7 @@ class _AwarenessRadarPainter extends CustomPainter {
               ? '${labels[i]} ${(dimensions[i].clamp(0.0, 1.0) * 100).round()}%'
               : labels[i],
           style: TextStyle(
-            color: Colors.white.withOpacity(0.5),
+            color: Colors.white.withValues(alpha: 0.5),
             fontSize: 9,
             fontWeight: FontWeight.w600,
           ),
@@ -1388,15 +1388,15 @@ class _HealthSparklinePainter extends CustomPainter {
     final h = size.height;
 
     // Background threshold zones
-    _drawThresholdZone(canvas, size, 0.8, 1.0, _CortexColors.healthGreen.withOpacity(0.03));
-    _drawThresholdZone(canvas, size, 0.6, 0.8, _CortexColors.warningAmber.withOpacity(0.03));
-    _drawThresholdZone(canvas, size, 0.0, 0.6, _CortexColors.dangerRed.withOpacity(0.03));
+    _drawThresholdZone(canvas, size, 0.8, 1.0, _CortexColors.healthGreen.withValues(alpha: 0.03));
+    _drawThresholdZone(canvas, size, 0.6, 0.8, _CortexColors.warningAmber.withValues(alpha: 0.03));
+    _drawThresholdZone(canvas, size, 0.0, 0.6, _CortexColors.dangerRed.withValues(alpha: 0.03));
 
     // Threshold lines
     final threshPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.5
-      ..color = Colors.white.withOpacity(0.08);
+      ..color = Colors.white.withValues(alpha: 0.08);
     canvas.drawLine(Offset(0, h * 0.2), Offset(w, h * 0.2), threshPaint); // 80%
     canvas.drawLine(Offset(0, h * 0.4), Offset(w, h * 0.4), threshPaint); // 60%
 
@@ -1426,7 +1426,7 @@ class _HealthSparklinePainter extends CustomPainter {
       ..shader = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [color.withOpacity(0.15), color.withOpacity(0.02)],
+        colors: [color.withValues(alpha: 0.15), color.withValues(alpha: 0.02)],
       ).createShader(Rect.fromLTWH(0, 0, w, h));
     canvas.drawPath(fillPath, fillPaint);
 
@@ -1434,7 +1434,7 @@ class _HealthSparklinePainter extends CustomPainter {
     final strokePaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5
-      ..color = color.withOpacity(0.8);
+      ..color = color.withValues(alpha: 0.8);
     canvas.drawPath(path, strokePaint);
 
     // Current value dot
@@ -1443,7 +1443,7 @@ class _HealthSparklinePainter extends CustomPainter {
       final lastY = h - (values.last.clamp(0.0, 1.0) * h);
       canvas.drawCircle(Offset(lastX, lastY), 3, Paint()..color = color);
       canvas.drawCircle(
-          Offset(lastX, lastY), 6, Paint()..color = color.withOpacity(0.2));
+          Offset(lastX, lastY), 6, Paint()..color = color.withValues(alpha: 0.2));
 
       // Value label
       final tp = TextPainter(
@@ -1520,13 +1520,13 @@ class _SignalRateSparklinePainter extends CustomPainter {
       ..shader = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [color.withOpacity(0.1), color.withOpacity(0.01)],
+        colors: [color.withValues(alpha: 0.1), color.withValues(alpha: 0.01)],
       ).createShader(Rect.fromLTWH(0, 0, w, h)));
 
     canvas.drawPath(path, Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0
-      ..color = color.withOpacity(0.7));
+      ..color = color.withValues(alpha: 0.7));
 
     // Label
     final tp = TextPainter(
@@ -1574,23 +1574,23 @@ class _ImmuneGridPainter extends CustomPainter {
     final gridPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.5
-      ..color = Colors.white.withOpacity(0.06);
+      ..color = Colors.white.withValues(alpha: 0.06);
 
     final activePaint = Paint()
       ..style = PaintingStyle.fill
-      ..color = _CortexColors.dangerRed.withOpacity(0.3);
+      ..color = _CortexColors.dangerRed.withValues(alpha: 0.3);
 
     final healthyPaint = Paint()
       ..style = PaintingStyle.fill
-      ..color = _CortexColors.healthGreen.withOpacity(0.06);
+      ..color = _CortexColors.healthGreen.withValues(alpha: 0.06);
 
     final healingPaint = Paint()
       ..style = PaintingStyle.fill
-      ..color = _CortexColors.immuneCyan.withOpacity(0.15);
+      ..color = _CortexColors.immuneCyan.withValues(alpha: 0.15);
 
     final chronicPaint = Paint()
       ..style = PaintingStyle.fill
-      ..color = _CortexColors.dangerRed.withOpacity(0.5);
+      ..color = _CortexColors.dangerRed.withValues(alpha: 0.5);
 
     int cellIndex = 0;
     for (int row = 0; row < rows; row++) {
@@ -1652,11 +1652,11 @@ class _ImmuneGridPainter extends CustomPainter {
     final y = size.height - 16;
 
     for (final (label, color) in legends) {
-      canvas.drawCircle(Offset(x + 4, y + 4), 3, Paint()..color = color.withOpacity(0.6));
+      canvas.drawCircle(Offset(x + 4, y + 4), 3, Paint()..color = color.withValues(alpha: 0.6));
       final tp = TextPainter(
         text: TextSpan(
           text: label,
-          style: TextStyle(color: Colors.white.withOpacity(0.35), fontSize: 9),
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.35), fontSize: 9),
         ),
         textDirection: TextDirection.ltr,
       );
@@ -1682,7 +1682,7 @@ Widget _sectionTitle(String title) {
   return Text(
     title,
     style: TextStyle(
-      color: Colors.white.withOpacity(0.3),
+      color: Colors.white.withValues(alpha: 0.3),
       fontSize: 9,
       fontWeight: FontWeight.w700,
       letterSpacing: 1.5,
@@ -1695,9 +1695,9 @@ Widget _vitalCard(String label, String value, Color color) {
     width: 100,
     padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
     decoration: BoxDecoration(
-      color: color.withOpacity(0.06),
+      color: color.withValues(alpha: 0.06),
       borderRadius: BorderRadius.circular(6),
-      border: Border.all(color: color.withOpacity(0.12)),
+      border: Border.all(color: color.withValues(alpha: 0.12)),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1706,7 +1706,7 @@ Widget _vitalCard(String label, String value, Color color) {
         Text(
           label,
           style: TextStyle(
-            color: Colors.white.withOpacity(0.35),
+            color: Colors.white.withValues(alpha: 0.35),
             fontSize: 9,
             fontWeight: FontWeight.w600,
             letterSpacing: 0.5,

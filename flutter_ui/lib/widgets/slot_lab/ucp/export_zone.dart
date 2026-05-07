@@ -44,7 +44,7 @@ class ExportZone extends StatelessWidget {
         Text(
           'Export',
           style: TextStyle(
-            color: Colors.white.withOpacity(0.8),
+            color: Colors.white.withValues(alpha: 0.8),
             fontSize: 10,
             fontWeight: FontWeight.w600,
           ),
@@ -78,22 +78,22 @@ class ExportZone extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
         decoration: BoxDecoration(
-          color: const Color(0xFF4FC3F7).withOpacity(0.08),
+          color: const Color(0xFF4FC3F7).withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(3),
           border: Border.all(
-            color: const Color(0xFF4FC3F7).withOpacity(0.2),
+            color: const Color(0xFF4FC3F7).withValues(alpha: 0.2),
             width: 0.5,
           ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 9, color: const Color(0xFF4FC3F7).withOpacity(0.7)),
+            Icon(icon, size: 9, color: const Color(0xFF4FC3F7).withValues(alpha: 0.7)),
             const SizedBox(width: 3),
             Text(
               label,
               style: TextStyle(
-                color: const Color(0xFF4FC3F7).withOpacity(0.8),
+                color: const Color(0xFF4FC3F7).withValues(alpha: 0.8),
                 fontSize: 8,
                 fontWeight: FontWeight.w500,
               ),

@@ -102,10 +102,10 @@ class PluginStateIndicator extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: config.color.withOpacity(0.2),
+        color: config.color.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(size / 4),
         border: Border.all(
-          color: config.color.withOpacity(0.6),
+          color: config.color.withValues(alpha: 0.6),
           width: 1,
         ),
       ),
@@ -245,10 +245,10 @@ class _AnimatedLoadingIndicatorState extends State<_AnimatedLoadingIndicator>
           width: widget.size,
           height: widget.size,
           decoration: BoxDecoration(
-            color: const Color(0xFFff9040).withOpacity(0.2),
+            color: const Color(0xFFff9040).withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(widget.size / 4),
             border: Border.all(
-              color: const Color(0xFFff9040).withOpacity(0.6),
+              color: const Color(0xFFff9040).withValues(alpha: 0.6),
               width: 1,
             ),
           ),
@@ -288,10 +288,10 @@ class PluginStateBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: config.color.withOpacity(0.15),
+        color: config.color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
-          color: config.color.withOpacity(0.4),
+          color: config.color.withValues(alpha: 0.4),
           width: 1,
         ),
       ),
@@ -406,7 +406,7 @@ class InsertSlotStatusRow extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.03),
+          color: Colors.white.withValues(alpha: 0.03),
           borderRadius: BorderRadius.circular(4),
         ),
         child: Row(
@@ -417,7 +417,7 @@ class InsertSlotStatusRow extends StatelessWidget {
               child: Text(
                 slotLabel,
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.4),
+                  color: Colors.white.withValues(alpha: 0.4),
                   fontSize: 10,
                   fontWeight: FontWeight.w500,
                 ),

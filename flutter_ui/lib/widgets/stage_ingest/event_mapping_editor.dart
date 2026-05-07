@@ -216,7 +216,7 @@ class _EventMappingEditorState extends State<EventMappingEditor> {
           Text(
             'Event Mapping',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
+              color: Colors.white.withValues(alpha: 0.9),
               fontSize: 13,
               fontWeight: FontWeight.w500,
             ),
@@ -225,7 +225,7 @@ class _EventMappingEditorState extends State<EventMappingEditor> {
           Text(
             '${_mappings.values.where((v) => v != null).length}/${widget.detectedEvents.length} mapped',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.5),
+              color: Colors.white.withValues(alpha: 0.5),
               fontSize: 11,
             ),
           ),
@@ -273,11 +273,11 @@ class _EventMappingEditorState extends State<EventMappingEditor> {
         style: const TextStyle(color: Colors.white, fontSize: 12),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+          hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           isDense: true,
-          prefixIcon: Icon(Icons.search, size: 16, color: Colors.white.withOpacity(0.4)),
+          prefixIcon: Icon(Icons.search, size: 16, color: Colors.white.withValues(alpha: 0.4)),
           prefixIconConstraints: const BoxConstraints(minWidth: 32),
         ),
       ),
@@ -289,7 +289,7 @@ class _EventMappingEditorState extends State<EventMappingEditor> {
       return Center(
         child: Text(
           'No events match filter',
-          style: TextStyle(color: Colors.white.withOpacity(0.5)),
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
         ),
       );
     }
@@ -313,12 +313,12 @@ class _EventMappingEditorState extends State<EventMappingEditor> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: hasMapping
-            ? const Color(0xFF40ff90).withOpacity(0.05)
+            ? const Color(0xFF40ff90).withValues(alpha: 0.05)
             : const Color(0xFF242430),
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
           color: hasMapping
-              ? const Color(0xFF40ff90).withOpacity(0.3)
+              ? const Color(0xFF40ff90).withValues(alpha: 0.3)
               : const Color(0xFF3a3a44),
         ),
       ),
@@ -335,7 +335,7 @@ class _EventMappingEditorState extends State<EventMappingEditor> {
                   decoration: BoxDecoration(
                     color: hasMapping
                         ? const Color(0xFF40ff90)
-                        : Colors.white.withOpacity(0.3),
+                        : Colors.white.withValues(alpha: 0.3),
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -344,7 +344,7 @@ class _EventMappingEditorState extends State<EventMappingEditor> {
                   child: Text(
                     eventName,
                     style: TextStyle(
-                      color: Colors.white.withOpacity(hasMapping ? 0.9 : 0.6),
+                      color: Colors.white.withValues(alpha: hasMapping ? 0.9 : 0.6),
                       fontSize: 11,
                       fontFamily: 'monospace',
                     ),
@@ -363,7 +363,7 @@ class _EventMappingEditorState extends State<EventMappingEditor> {
               size: 14,
               color: hasMapping
                   ? const Color(0xFF40ff90)
-                  : Colors.white.withOpacity(0.3),
+                  : Colors.white.withValues(alpha: 0.3),
             ),
           ),
 
@@ -398,15 +398,15 @@ class _EventMappingEditorState extends State<EventMappingEditor> {
         style: const TextStyle(color: Colors.white, fontSize: 11),
         hint: Text(
           '-- Select Stage --',
-          style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 11),
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 11),
         ),
-        icon: Icon(Icons.arrow_drop_down, size: 18, color: Colors.white.withOpacity(0.5)),
+        icon: Icon(Icons.arrow_drop_down, size: 18, color: Colors.white.withValues(alpha: 0.5)),
         items: [
           DropdownMenuItem<String?>(
             value: null,
             child: Text(
               '-- None --',
-              style: TextStyle(color: Colors.white.withOpacity(0.5)),
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
             ),
           ),
           ...filteredStages.map((stage) {
@@ -461,7 +461,7 @@ class _EventMappingEditorState extends State<EventMappingEditor> {
           Text(
             '$percentage% complete',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
+              color: Colors.white.withValues(alpha: 0.7),
               fontSize: 11,
             ),
           ),
@@ -500,6 +500,6 @@ class _EventMappingEditorState extends State<EventMappingEditor> {
     if (stage.contains('ANTICIPATION')) return const Color(0xFFff40ff);
     if (stage.contains('ROLLUP')) return const Color(0xFF40ffff);
     if (stage.contains('CASCADE')) return const Color(0xFF90ff40);
-    return Colors.white.withOpacity(0.7);
+    return Colors.white.withValues(alpha: 0.7);
   }
 }

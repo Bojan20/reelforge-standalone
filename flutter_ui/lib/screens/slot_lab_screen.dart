@@ -3759,9 +3759,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                                       child: IgnorePointer(
                                         child: Container(
                                           decoration: BoxDecoration(
-                                            color: FluxForgeTheme.accentBlue.withOpacity(0.08),
+                                            color: FluxForgeTheme.accentBlue.withValues(alpha: 0.08),
                                             border: Border.all(
-                                              color: FluxForgeTheme.accentBlue.withOpacity(0.6),
+                                              color: FluxForgeTheme.accentBlue.withValues(alpha: 0.6),
                                               width: 2,
                                             ),
                                             borderRadius: BorderRadius.circular(8),
@@ -3770,7 +3770,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                                             child: Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                               decoration: BoxDecoration(
-                                                color: FluxForgeTheme.accentBlue.withOpacity(0.9),
+                                                color: FluxForgeTheme.accentBlue.withValues(alpha: 0.9),
                                                 borderRadius: BorderRadius.circular(6),
                                               ),
                                               child: const Row(
@@ -3929,11 +3929,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: FluxForgeTheme.accentBlue.withOpacity(0.9),
+                    color: FluxForgeTheme.accentBlue.withValues(alpha: 0.9),
                     borderRadius: BorderRadius.circular(4),
                     boxShadow: [
                       BoxShadow(
-                        color: FluxForgeTheme.accentBlue.withOpacity(0.5),
+                        color: FluxForgeTheme.accentBlue.withValues(alpha: 0.5),
                         blurRadius: 10,
                       ),
                     ],
@@ -3962,12 +3962,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
                       color: _lastDragStatus.startsWith('✅')
-                          ? Colors.green.withOpacity(0.9)
-                          : Colors.red.withOpacity(0.9),
+                          ? Colors.green.withValues(alpha: 0.9)
+                          : Colors.red.withValues(alpha: 0.9),
                       borderRadius: BorderRadius.circular(8),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.5),
+                          color: Colors.black.withValues(alpha: 0.5),
                           blurRadius: 10,
                         ),
                       ],
@@ -5014,13 +5014,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  const Color(0xFF4A9EFF).withOpacity(0.2),
-                  const Color(0xFF4A9EFF).withOpacity(0.1),
+                  const Color(0xFF4A9EFF).withValues(alpha: 0.2),
+                  const Color(0xFF4A9EFF).withValues(alpha: 0.1),
                 ],
               ),
               borderRadius: BorderRadius.circular(6),
               border: Border.all(
-                color: const Color(0xFF4A9EFF).withOpacity(0.4),
+                color: const Color(0xFF4A9EFF).withValues(alpha: 0.4),
                 width: 1,
               ),
             ),
@@ -5235,7 +5235,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   color: const Color(0xFF0D0D12),
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(
-                    color: progressColor.withOpacity(0.4),
+                    color: progressColor.withValues(alpha: 0.4),
                     width: 1,
                   ),
                 ),
@@ -5284,7 +5284,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     Text(
                       '$percent%',
                       style: TextStyle(
-                        color: progressColor.withOpacity(0.8),
+                        color: progressColor.withValues(alpha: 0.8),
                         fontSize: 9,
                         fontWeight: FontWeight.w500,
                       ),
@@ -6117,9 +6117,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.3),
+        color: Colors.black.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -6147,7 +6147,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   width: 28,
                   height: 28,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFF9040).withOpacity(0.2),
+                    color: const Color(0xFFFF9040).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: const Icon(Icons.close, size: 14, color: Color(0xFFFF9040)),
@@ -6162,7 +6162,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               color: Colors.black,
               borderRadius: BorderRadius.circular(4),
               border: _loopStart != null && _isLooping
-                  ? Border.all(color: const Color(0xFFFF9040).withOpacity(0.5))
+                  ? Border.all(color: const Color(0xFFFF9040).withValues(alpha: 0.5))
                   : null,
             ),
             child: Row(
@@ -6182,7 +6182,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   Text(
                     '⟳${_formatTimecode(_loopStart!)}-${_formatTimecode(_loopEnd!)}',
                     style: TextStyle(
-                      color: const Color(0xFFFF9040).withOpacity(0.8),
+                      color: const Color(0xFFFF9040).withValues(alpha: 0.8),
                       fontSize: 9,
                       fontFamily: 'monospace',
                     ),
@@ -6204,7 +6204,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         width: 28,
         height: 28,
         decoration: BoxDecoration(
-          color: isActive ? const Color(0xFF40FF90).withOpacity(0.2) : Colors.transparent,
+          color: isActive ? const Color(0xFF40FF90).withValues(alpha: 0.2) : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
         ),
         child: Icon(
@@ -6532,9 +6532,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFF4A9EFF).withOpacity(0.15),
+        color: const Color(0xFF4A9EFF).withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: const Color(0xFF4A9EFF).withOpacity(0.3)),
+        border: Border.all(color: const Color(0xFF4A9EFF).withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -6551,7 +6551,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           Text(
             'Caching $_preloadTotalCount...',
             style: TextStyle(
-              color: const Color(0xFF4A9EFF).withOpacity(0.9),
+              color: const Color(0xFF4A9EFF).withValues(alpha: 0.9),
               fontSize: 10,
               fontWeight: FontWeight.w500,
             ),
@@ -6993,7 +6993,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       decoration: BoxDecoration(
         color: const Color(0xFF0D0D10),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: Column(
         children: [
@@ -7080,9 +7080,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(0xFF4A9EFF).withOpacity(0.2),
+                color: const Color(0xFF4A9EFF).withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: const Color(0xFF4A9EFF).withOpacity(0.5)),
+                border: Border.all(color: const Color(0xFF4A9EFF).withValues(alpha: 0.5)),
               ),
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
@@ -7101,9 +7101,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(0xFF40FF90).withOpacity(0.2),
+                color: const Color(0xFF40FF90).withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: const Color(0xFF40FF90).withOpacity(0.5)),
+                border: Border.all(color: const Color(0xFF40FF90).withValues(alpha: 0.5)),
               ),
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
@@ -7123,13 +7123,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: _allTracksExpanded
-                    ? const Color(0xFFFF9040).withOpacity(0.2)
-                    : Colors.white.withOpacity(0.1),
+                    ? const Color(0xFFFF9040).withValues(alpha: 0.2)
+                    : Colors.white.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(
                   color: _allTracksExpanded
-                      ? const Color(0xFFFF9040).withOpacity(0.5)
-                      : Colors.white.withOpacity(0.3),
+                      ? const Color(0xFFFF9040).withValues(alpha: 0.5)
+                      : Colors.white.withValues(alpha: 0.3),
                 ),
               ),
               child: Row(
@@ -7206,9 +7206,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: preset.$2.withOpacity(0.2),
+                          color: preset.$2.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: preset.$2.withOpacity(0.5)),
+                          border: Border.all(color: preset.$2.withValues(alpha: 0.5)),
                         ),
                         child: Text(
                           preset.$1,
@@ -7280,7 +7280,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       decoration: BoxDecoration(
         color: const Color(0xFF151518),
         border: Border(
-          bottom: BorderSide(color: Colors.white.withOpacity(0.1)),
+          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
         ),
       ),
       child: LayoutBuilder(
@@ -7424,9 +7424,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: preset.$4.withOpacity(0.2),
+                        color: preset.$4.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: preset.$4.withOpacity(0.5)),
+                        border: Border.all(color: preset.$4.withValues(alpha: 0.5)),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -7500,8 +7500,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                       height: 32,
                       decoration: BoxDecoration(
                         color: selectedIcon == icon
-                            ? FluxForgeTheme.accentBlue.withOpacity(0.3)
-                            : Colors.white.withOpacity(0.05),
+                            ? FluxForgeTheme.accentBlue.withValues(alpha: 0.3)
+                            : Colors.white.withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(
                           color: selectedIcon == icon ? FluxForgeTheme.accentBlue : Colors.transparent,
@@ -7678,11 +7678,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         padding: const EdgeInsets.symmetric(horizontal: 4),
         decoration: BoxDecoration(
           color: isSelected
-              ? track.color.withOpacity(0.15)
+              ? track.color.withValues(alpha: 0.15)
               : Colors.transparent,
           border: Border(
-            bottom: BorderSide(color: Colors.white.withOpacity(0.05)),
-            right: BorderSide(color: Colors.white.withOpacity(0.1)),
+            bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
+            right: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
           ),
         ),
         child: Row(
@@ -7705,7 +7705,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   height: 18,
                   margin: const EdgeInsets.only(right: 4),
                   decoration: BoxDecoration(
-                    color: isExpanded ? track.color.withOpacity(0.3) : Colors.white.withOpacity(0.1),
+                    color: isExpanded ? track.color.withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(3),
                   ),
                   child: Icon(
@@ -7779,7 +7779,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         height: 20,
         margin: const EdgeInsets.only(left: 2),
         decoration: BoxDecoration(
-          color: isActive ? color.withOpacity(0.3) : Colors.transparent,
+          color: isActive ? color.withValues(alpha: 0.3) : Colors.transparent,
           borderRadius: BorderRadius.circular(3),
           border: Border.all(
             color: isActive ? color : Colors.white24,
@@ -8116,7 +8116,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         timeSeconds: 0.0,
         type: timeline_models.StageMarkerType.win,
         label: tier.displayLabel,
-        color: const Color(0xFFFFD700).withOpacity(0.5),
+        color: const Color(0xFFFFD700).withValues(alpha: 0.5),
       ));
     }
 
@@ -8131,7 +8131,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         timeSeconds: 0.0,
         type: timeline_models.StageMarkerType.win,
         label: tier.displayLabel,
-        color: const Color(0xFFFF9040).withOpacity(0.7),
+        color: const Color(0xFFFF9040).withValues(alpha: 0.7),
       ));
     }
   }
@@ -8275,10 +8275,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                         child: IgnorePointer(
                           child: Container(
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFF9040).withOpacity(_isLooping ? 0.15 : 0.05),
+                              color: const Color(0xFFFF9040).withValues(alpha: _isLooping ? 0.15 : 0.05),
                               border: Border.symmetric(
                                 vertical: BorderSide(
-                                  color: const Color(0xFFFF9040).withOpacity(_isLooping ? 0.8 : 0.3),
+                                  color: const Color(0xFFFF9040).withValues(alpha: _isLooping ? 0.8 : 0.3),
                                   width: 2,
                                 ),
                               ),
@@ -8289,7 +8289,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                                 margin: const EdgeInsets.only(top: 2),
                                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFFF9040).withOpacity(0.9),
+                                  color: const Color(0xFFFF9040).withValues(alpha: 0.9),
                                   borderRadius: BorderRadius.circular(2),
                                 ),
                                 child: Text(
@@ -8356,9 +8356,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         return Container(
           height: trackHeight,
           decoration: BoxDecoration(
-            color: isDropTarget ? track.color.withOpacity(0.1) : null,
+            color: isDropTarget ? track.color.withValues(alpha: 0.1) : null,
             border: Border(
-              bottom: BorderSide(color: Colors.white.withOpacity(0.05)),
+              bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
               top: isDropTarget ? BorderSide(color: track.color, width: 2) : BorderSide.none,
             ),
           ),
@@ -8878,11 +8878,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                       width: 18,
                       height: 18,
                       decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.8),
+                        color: Colors.red.withValues(alpha: 0.8),
                         borderRadius: BorderRadius.circular(4),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.5),
+                            color: Colors.black.withValues(alpha: 0.5),
                             blurRadius: 2,
                           ),
                         ],
@@ -8997,8 +8997,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            (muted ? Colors.grey : color).withOpacity(0.4),
-            (muted ? Colors.grey : color).withOpacity(0.25),
+            (muted ? Colors.grey : color).withValues(alpha: 0.4),
+            (muted ? Colors.grey : color).withValues(alpha: 0.25),
           ],
         ),
       ),
@@ -9010,7 +9010,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               child: CustomPaint(
                 painter: _WaveformPainter(
                   data: waveformData,
-                  color: (muted ? Colors.grey : color).withOpacity(0.6),
+                  color: (muted ? Colors.grey : color).withValues(alpha: 0.6),
                 ),
               ),
             ),
@@ -9045,12 +9045,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            (muted ? Colors.grey : color).withOpacity(0.4),
-            (muted ? Colors.grey : color).withOpacity(0.25),
+            (muted ? Colors.grey : color).withValues(alpha: 0.4),
+            (muted ? Colors.grey : color).withValues(alpha: 0.25),
           ],
         ),
         border: Border(
-          bottom: BorderSide(color: color.withOpacity(0.2), width: 0.5),
+          bottom: BorderSide(color: color.withValues(alpha: 0.2), width: 0.5),
         ),
       ),
       child: Stack(
@@ -9061,7 +9061,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               child: CustomPaint(
                 painter: _WaveformPainter(
                   data: waveformData,
-                  color: (muted ? Colors.grey : color).withOpacity(0.6),
+                  color: (muted ? Colors.grey : color).withValues(alpha: 0.6),
                 ),
               ),
             ),
@@ -9100,7 +9100,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.4),
+                      color: Colors.black.withValues(alpha: 0.4),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
@@ -9126,8 +9126,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            (muted ? Colors.grey : region.color).withOpacity(0.4),
-            (muted ? Colors.grey : region.color).withOpacity(0.25),
+            (muted ? Colors.grey : region.color).withValues(alpha: 0.4),
+            (muted ? Colors.grey : region.color).withValues(alpha: 0.25),
           ],
         ),
       ),
@@ -10941,8 +10941,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               Container(
                 padding: EdgeInsets.symmetric(horizontal: SlotLabSpacing.md, vertical: SlotLabSpacing.sm),
                 color: diag.isMonitoring
-                    ? const Color(0xFF66BB6A).withOpacity(0.15)
-                    : Colors.white.withOpacity(0.05),
+                    ? const Color(0xFF66BB6A).withValues(alpha: 0.15)
+                    : Colors.white.withValues(alpha: 0.05),
                 child: Row(
                   children: [
                     Icon(
@@ -10963,7 +10963,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     const Spacer(),
                     Text(
                       '${findings.length} findings',
-                      style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10),
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 10),
                     ),
                   ],
                 ),
@@ -11029,7 +11029,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                           padding: const EdgeInsets.all(32),
                           child: Text('No diagnostics yet\nRun a check or start monitoring',
                             textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 12)),
+                            style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 12)),
                         ),
                       );
                     }
@@ -11052,7 +11052,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                       margin: const EdgeInsets.only(bottom: 2),
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                       decoration: BoxDecoration(
-                        color: color.withOpacity(0.05),
+                        color: color.withValues(alpha: 0.05),
                         border: Border(left: BorderSide(color: color, width: 2)),
                         borderRadius: BorderRadius.circular(2),
                       ),
@@ -11064,21 +11064,21 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
                                 decoration: BoxDecoration(
-                                  color: color.withOpacity(0.15),
+                                  color: color.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(2),
                                 ),
                                 child: Text(f.checker, style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w600)),
                               ),
                               if (f.affectedStage != null) ...[
                                 const SizedBox(width: 4),
-                                Text(f.affectedStage!, style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 9, fontFamily: 'monospace')),
+                                Text(f.affectedStage!, style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 9, fontFamily: 'monospace')),
                               ],
                             ],
                           ),
                           const SizedBox(height: 1),
-                          Text(f.message, style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 11)),
+                          Text(f.message, style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 11)),
                           if (f.detail != null)
-                            Text(f.detail!, style: TextStyle(color: Colors.white.withOpacity(0.35), fontSize: 10)),
+                            Text(f.detail!, style: TextStyle(color: Colors.white.withValues(alpha: 0.35), fontSize: 10)),
                         ],
                       ),
                     );
@@ -11098,9 +11098,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: color.withOpacity(0.3)),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -11730,9 +11730,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       width: 280,
       margin: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: const Color(0xFF121216).withOpacity(0.9),
+        color: const Color(0xFF121216).withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: Column(
         children: [
@@ -11808,7 +11808,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               padding: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
                 color: const Color(0xFF1A1A22),
-                border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.05))),
+                border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
               ),
               child: Row(
                 children: [
@@ -11817,9 +11817,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF40FF90).withOpacity(0.2),
+                        color: const Color(0xFF40FF90).withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: const Color(0xFF40FF90).withOpacity(0.5)),
+                        border: Border.all(color: const Color(0xFF40FF90).withValues(alpha: 0.5)),
                       ),
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
@@ -11845,7 +11845,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.layers, size: 32, color: Colors.white.withOpacity(0.2)),
+                          Icon(Icons.layers, size: 32, color: Colors.white.withValues(alpha: 0.2)),
                           const SizedBox(height: 8),
                           const Text(
                             'No composite events',
@@ -11882,11 +11882,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: FluxForgeTheme.accentOrange.withOpacity(0.9),
+            color: FluxForgeTheme.accentOrange.withValues(alpha: 0.9),
             borderRadius: BorderRadius.circular(4),
             boxShadow: [
               BoxShadow(
-                color: FluxForgeTheme.accentOrange.withOpacity(0.5),
+                color: FluxForgeTheme.accentOrange.withValues(alpha: 0.5),
                 blurRadius: 10,
               ),
             ],
@@ -11929,13 +11929,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               margin: const EdgeInsets.only(bottom: 6),
               decoration: BoxDecoration(
                 color: isHovering
-                    ? FluxForgeTheme.accentGreen.withOpacity(0.2)
-                    : (isSelected ? FluxForgeTheme.accentBlue.withOpacity(0.15) : const Color(0xFF1A1A22)),
+                    ? FluxForgeTheme.accentGreen.withValues(alpha: 0.2)
+                    : (isSelected ? FluxForgeTheme.accentBlue.withValues(alpha: 0.15) : const Color(0xFF1A1A22)),
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(
                   color: isHovering
                       ? FluxForgeTheme.accentGreen
-                      : (isSelected ? FluxForgeTheme.accentBlue : Colors.white.withOpacity(0.1)),
+                      : (isSelected ? FluxForgeTheme.accentBlue : Colors.white.withValues(alpha: 0.1)),
                   width: isHovering ? 2 : 1,
                 ),
               ),
@@ -11993,7 +11993,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     child: Container(
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF4A9EFF).withOpacity(0.2),
+                        color: const Color(0xFF4A9EFF).withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: const Icon(Icons.edit_outlined, size: 14, color: Color(0xFF4A9EFF)),
@@ -12006,7 +12006,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     child: Container(
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFF4060).withOpacity(0.2),
+                        color: const Color(0xFFFF4060).withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: const Icon(Icons.delete_outline, size: 14, color: Color(0xFFFF4060)),
@@ -12019,7 +12019,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.2),
+                  color: Colors.black.withValues(alpha: 0.2),
                   borderRadius: const BorderRadius.vertical(bottom: Radius.circular(5)),
                 ),
                 child: Column(
@@ -12064,7 +12064,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A22),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -12130,10 +12130,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.purple.withOpacity(0.3) : Colors.transparent,
+          color: isSelected ? Colors.purple.withValues(alpha: 0.3) : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: isSelected ? Colors.purple : Colors.white.withOpacity(0.1),
+            color: isSelected ? Colors.purple : Colors.white.withValues(alpha: 0.1),
           ),
         ),
         child: Row(
@@ -12166,7 +12166,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       decoration: BoxDecoration(
         color: const Color(0xFF0E0E14),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: DropdownButton<ContainerType>(
         value: event.containerType == ContainerType.none ? ContainerType.blend : event.containerType,
@@ -12222,7 +12222,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         decoration: BoxDecoration(
           color: const Color(0xFF0E0E14),
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: Colors.orange.withOpacity(0.3)),
+          border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
         ),
         child: const Text(
           'No containers',
@@ -12236,7 +12236,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       decoration: BoxDecoration(
         color: const Color(0xFF0E0E14),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: DropdownButton<int>(
         value: containers.any((c) => c.id == event.containerId) ? event.containerId : null,
@@ -12310,9 +12310,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: typeColor.withOpacity(0.1),
+        color: typeColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: typeColor.withOpacity(0.3)),
+        border: Border.all(color: typeColor.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -12356,7 +12356,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             child: Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: typeColor.withOpacity(0.2),
+                color: typeColor.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Icon(Icons.open_in_new, size: 12, color: typeColor),
@@ -12730,7 +12730,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       margin: const EdgeInsets.only(bottom: 4),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Row(
@@ -12755,7 +12755,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             child: Container(
               padding: const EdgeInsets.all(2),
               decoration: BoxDecoration(
-                color: const Color(0xFFFF4060).withOpacity(0.15),
+                color: const Color(0xFFFF4060).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(3),
               ),
               child: const Icon(Icons.close, size: 10, color: Color(0xFFFF4060)),
@@ -13412,7 +13412,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
             color: const Color(0xFF1A1A22),
-            border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.05))),
+            border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
           ),
           child: Row(
             children: [
@@ -13421,9 +13421,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: FluxForgeTheme.accentBlue.withOpacity(0.2),
+                    color: FluxForgeTheme.accentBlue.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: FluxForgeTheme.accentBlue.withOpacity(0.5)),
+                    border: Border.all(color: FluxForgeTheme.accentBlue.withValues(alpha: 0.5)),
                   ),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
@@ -13441,9 +13441,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05),
+                    color: Colors.white.withValues(alpha: 0.05),
                     borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: Colors.white.withOpacity(0.1)),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
                   ),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
@@ -13471,22 +13471,22 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             style: const TextStyle(color: Colors.white, fontSize: 11),
             decoration: InputDecoration(
               hintText: 'Search audio...',
-              hintStyle: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 11),
+              hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 11),
               prefixIcon: const Icon(Icons.search, size: 14, color: Colors.white38),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(4),
-                borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(4),
-                borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(4),
                 borderSide: const BorderSide(color: FluxForgeTheme.accentBlue),
               ),
               filled: true,
-              fillColor: Colors.black.withOpacity(0.3),
+              fillColor: Colors.black.withValues(alpha: 0.3),
               contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
             ),
             onChanged: (value) => setState(() => _browserSearchQuery = value),
@@ -13498,7 +13498,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
             color: const Color(0xFF16161E),
-            border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.04))),
+            border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.04))),
           ),
           child: Row(
             children: [
@@ -13521,13 +13521,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: _selectedPoolTag == tagDef.$1
-                            ? tagDef.$3.withOpacity(0.2)
+                            ? tagDef.$3.withValues(alpha: 0.2)
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(3),
                         border: Border.all(
                           color: _selectedPoolTag == tagDef.$1
-                              ? tagDef.$3.withOpacity(0.6)
-                              : Colors.white.withOpacity(0.08),
+                              ? tagDef.$3.withValues(alpha: 0.6)
+                              : Colors.white.withValues(alpha: 0.08),
                         ),
                       ),
                       child: Row(
@@ -13548,12 +13548,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 0),
                               decoration: BoxDecoration(
-                                color: tagDef.$3.withOpacity(0.15),
+                                color: tagDef.$3.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
                                 '${tagCounts[tagDef.$1]}',
-                                style: TextStyle(color: tagDef.$3.withOpacity(0.7), fontSize: 8),
+                                style: TextStyle(color: tagDef.$3.withValues(alpha: 0.7), fontSize: 8),
                               ),
                             ),
                           ],
@@ -13584,13 +13584,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? FluxForgeTheme.accentBlue.withOpacity(0.2)
+                          ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(
                         color: isSelected
                             ? FluxForgeTheme.accentBlue
-                            : Colors.white.withOpacity(0.1),
+                            : Colors.white.withValues(alpha: 0.1),
                       ),
                     ),
                     child: Text(
@@ -13654,11 +13654,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: FluxForgeTheme.accentBlue.withOpacity(0.9),
+            color: FluxForgeTheme.accentBlue.withValues(alpha: 0.9),
             borderRadius: BorderRadius.circular(4),
             boxShadow: [
               BoxShadow(
-                color: FluxForgeTheme.accentBlue.withOpacity(0.5),
+                color: FluxForgeTheme.accentBlue.withValues(alpha: 0.5),
                 blurRadius: 10,
               ),
             ],
@@ -13694,16 +13694,16 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         margin: const EdgeInsets.only(bottom: 2),
         decoration: BoxDecoration(
           color: isPlaying
-              ? FluxForgeTheme.accentGreen.withOpacity(0.1)
+              ? FluxForgeTheme.accentGreen.withValues(alpha: 0.1)
               : _quickAssignMode && _quickAssignSelectedSlot != null
-                  ? FluxForgeTheme.accentBlue.withOpacity(0.05)
-                  : Colors.white.withOpacity(0.03),
+                  ? FluxForgeTheme.accentBlue.withValues(alpha: 0.05)
+                  : Colors.white.withValues(alpha: 0.03),
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
             color: isPlaying
                 ? FluxForgeTheme.accentGreen
                 : _quickAssignMode && _quickAssignSelectedSlot != null
-                    ? FluxForgeTheme.accentBlue.withOpacity(0.2)
+                    ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
                     : Colors.transparent,
           ),
         ),
@@ -13724,8 +13724,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 height: 24,
                 decoration: BoxDecoration(
                   color: isPlaying
-                      ? FluxForgeTheme.accentGreen.withOpacity(0.2)
-                      : Colors.white.withOpacity(0.08),
+                      ? FluxForgeTheme.accentGreen.withValues(alpha: 0.2)
+                      : Colors.white.withValues(alpha: 0.08),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -13754,7 +13754,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 margin: const EdgeInsets.only(left: 6),
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.08),
+                  color: Colors.white.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(2),
                 ),
                 child: Text(
@@ -13767,13 +13767,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               margin: const EdgeInsets.only(left: 4),
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
               decoration: BoxDecoration(
-                color: tagColor.withOpacity(0.15),
+                color: tagColor.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(2),
-                border: Border.all(color: tagColor.withOpacity(0.3), width: 0.5),
+                border: Border.all(color: tagColor.withValues(alpha: 0.3), width: 0.5),
               ),
               child: Text(
                 tag,
-                style: TextStyle(fontSize: 7, color: tagColor.withOpacity(0.8), fontWeight: FontWeight.w600),
+                style: TextStyle(fontSize: 7, color: tagColor.withValues(alpha: 0.8), fontWeight: FontWeight.w600),
               ),
             ),
             const SizedBox(width: 4),
@@ -13802,7 +13802,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A22),
         border: Border(
-          top: BorderSide(color: Colors.white.withOpacity(0.1)),
+          top: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
         ),
       ),
       child: Row(
@@ -14052,7 +14052,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   children: [
                     // Game Model tab
                     Expanded(child: _buildGameModelContent()),
-                    VerticalDivider(width: 1, color: Colors.white.withOpacity(0.1)),
+                    VerticalDivider(width: 1, color: Colors.white.withValues(alpha: 0.1)),
                     // GDD Import tab
                     Expanded(child: _buildGddImportContent()),
                   ],
@@ -14435,7 +14435,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       decoration: BoxDecoration(
         color: const Color(0xFF0D0D10),
         border: Border(
-          top: BorderSide(color: Colors.white.withOpacity(0.1)),
+          top: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
         ),
       ),
       child: _buildBottomPanelContent(),
@@ -14621,8 +14621,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
           color: isActive
-              ? const Color(0xFF4A9EFF).withOpacity(0.3)
-              : Colors.white.withOpacity(0.1),
+              ? const Color(0xFF4A9EFF).withValues(alpha: 0.3)
+              : Colors.white.withValues(alpha: 0.1),
         ),
       ),
       child: Row(
@@ -14633,7 +14633,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
               color: isActive
-                  ? const Color(0xFF4A9EFF).withOpacity(0.2)
+                  ? const Color(0xFF4A9EFF).withValues(alpha: 0.2)
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(3),
             ),
@@ -14661,9 +14661,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 height: 26,
                 decoration: BoxDecoration(
                   color: isPaused
-                      ? const Color(0xFFFF9040).withOpacity(0.2)
+                      ? const Color(0xFFFF9040).withValues(alpha: 0.2)
                       : isPlaying
-                          ? const Color(0xFF40FF90).withOpacity(0.2)
+                          ? const Color(0xFF40FF90).withValues(alpha: 0.2)
                           : Colors.transparent,
                   borderRadius: BorderRadius.circular(4),
                 ),
@@ -14709,7 +14709,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: const Color(0xFF40FF90).withOpacity(0.1),
+                color: const Color(0xFF40FF90).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(3),
               ),
               child: Text(
@@ -14729,7 +14729,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: const Color(0xFFFF9040).withOpacity(0.15),
+                color: const Color(0xFFFF9040).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(3),
               ),
               child: Row(
@@ -14885,13 +14885,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         height: 32,
         decoration: BoxDecoration(
           color: isActive
-              ? FluxForgeTheme.accentBlue.withOpacity(0.2)
-              : Colors.white.withOpacity(0.1),
+              ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
+              : Colors.white.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
             color: isActive
                 ? FluxForgeTheme.accentBlue
-                : Colors.white.withOpacity(0.1),
+                : Colors.white.withValues(alpha: 0.1),
           ),
         ),
         child: Icon(
@@ -14941,7 +14941,7 @@ class _TimelineGridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white.withOpacity(0.05)
+      ..color = Colors.white.withValues(alpha: 0.05)
       ..strokeWidth = 1;
 
     // Vertical grid lines (time markers)

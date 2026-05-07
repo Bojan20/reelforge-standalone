@@ -734,7 +734,7 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
             color: isSelected
-                ? LowerZoneColors.dawAccent.withOpacity(0.2)
+                ? LowerZoneColors.dawAccent.withValues(alpha: 0.2)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(3),
             border: Border.all(
@@ -845,7 +845,7 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                 decoration: BoxDecoration(
-                  color: LowerZoneColors.dawAccent.withOpacity(0.2),
+                  color: LowerZoneColors.dawAccent.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -908,7 +908,7 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                 decoration: BoxDecoration(
-                  color: Colors.amber.withOpacity(0.2),
+                  color: Colors.amber.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -952,7 +952,7 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
         margin: const EdgeInsets.only(top: 2),
         decoration: BoxDecoration(
           color: isSelected
-              ? Colors.amber.withOpacity(0.15)
+              ? Colors.amber.withValues(alpha: 0.15)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
         ),
@@ -1011,7 +1011,7 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
         margin: const EdgeInsets.only(top: 2),
         decoration: BoxDecoration(
           color: isSelected
-              ? LowerZoneColors.dawAccent.withOpacity(0.15)
+              ? LowerZoneColors.dawAccent.withValues(alpha: 0.15)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
         ),
@@ -1075,7 +1075,7 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
         ),
         decoration: BoxDecoration(
           color: isSelected
-              ? LowerZoneColors.dawAccent.withOpacity(0.15)
+              ? LowerZoneColors.dawAccent.withValues(alpha: 0.15)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
         ),
@@ -1120,7 +1120,7 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
                   size: 12,
                   color: isFavorited
                       ? Colors.amber
-                      : LowerZoneColors.textMuted.withOpacity(0.5),
+                      : LowerZoneColors.textMuted.withValues(alpha: 0.5),
                 ),
               ),
             ],
@@ -1147,7 +1147,7 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
             Icon(
               _searchQuery.isNotEmpty ? Icons.search_off : Icons.audio_file,
               size: 40,
-              color: LowerZoneColors.textMuted.withOpacity(0.3),
+              color: LowerZoneColors.textMuted.withValues(alpha: 0.3),
             ),
             const SizedBox(height: 12),
             Text(
@@ -1165,7 +1165,7 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
                 'Supported: WAV, FLAC, MP3, OGG, AIFF',
                 style: TextStyle(
                   fontSize: 9,
-                  color: LowerZoneColors.textMuted.withOpacity(0.6),
+                  color: LowerZoneColors.textMuted.withValues(alpha: 0.6),
                 ),
               ),
             ],
@@ -1229,7 +1229,7 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
               decoration: BoxDecoration(
-                color: LowerZoneColors.dawAccent.withOpacity(0.2),
+                color: LowerZoneColors.dawAccent.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(2),
               ),
               child: Text(

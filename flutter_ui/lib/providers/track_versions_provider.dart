@@ -700,7 +700,7 @@ class TrackVersionsProvider extends ChangeNotifier {
       'id': v.id,
       'name': v.name,
       'description': v.description,
-      'color': v.color.toARGB32(),
+      'color': v.color.value,
       'createdAt': v.createdAt.toIso8601String(),
       'modifiedAt': v.modifiedAt.toIso8601String(),
       'contentType': v.contentType.index,

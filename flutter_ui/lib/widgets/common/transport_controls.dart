@@ -515,7 +515,7 @@ class _TransportControlsState extends State<TransportControls> {
                   width: constraints.maxWidth * _progress.clamp(0.0, 1.0),
                   height: 32,
                   decoration: BoxDecoration(
-                    color: FluxForgeTheme.accentBlue.withOpacity(0.3),
+                    color: FluxForgeTheme.accentBlue.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),

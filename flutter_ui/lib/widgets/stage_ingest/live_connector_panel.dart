@@ -128,14 +128,14 @@ class _LiveConnectorPanelState extends State<LiveConnectorPanel> {
                 : Icons.wifi_off,
             color: _activeConnector != null && widget.provider.isConnected(_activeConnector!.connectorId)
                 ? const Color(0xFF40ff90)
-                : Colors.white.withOpacity(0.5),
+                : Colors.white.withValues(alpha: 0.5),
             size: 18,
           ),
           const SizedBox(width: 8),
           Text(
             'Live Connection',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
+              color: Colors.white.withValues(alpha: 0.9),
               fontSize: 13,
               fontWeight: FontWeight.w500,
             ),
@@ -145,7 +145,7 @@ class _LiveConnectorPanelState extends State<LiveConnectorPanel> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: _getStateColor().withOpacity(0.2),
+                color: _getStateColor().withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
@@ -253,7 +253,7 @@ class _LiveConnectorPanelState extends State<LiveConnectorPanel> {
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF4a9eff).withOpacity(0.2)
+              ? const Color(0xFF4a9eff).withValues(alpha: 0.2)
               : const Color(0xFF242430),
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
@@ -270,7 +270,7 @@ class _LiveConnectorPanelState extends State<LiveConnectorPanel> {
               size: 16,
               color: isSelected
                   ? const Color(0xFF4a9eff)
-                  : Colors.white.withOpacity(isConnected ? 0.3 : 0.6),
+                  : Colors.white.withValues(alpha: isConnected ? 0.3 : 0.6),
             ),
             const SizedBox(width: 6),
             Text(
@@ -278,7 +278,7 @@ class _LiveConnectorPanelState extends State<LiveConnectorPanel> {
               style: TextStyle(
                 color: isSelected
                     ? const Color(0xFF4a9eff)
-                    : Colors.white.withOpacity(isConnected ? 0.3 : 0.7),
+                    : Colors.white.withValues(alpha: isConnected ? 0.3 : 0.7),
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
               ),
@@ -301,7 +301,7 @@ class _LiveConnectorPanelState extends State<LiveConnectorPanel> {
         Text(
           label,
           style: TextStyle(
-            color: Colors.white.withOpacity(0.6),
+            color: Colors.white.withValues(alpha: 0.6),
             fontSize: 11,
           ),
         ),
@@ -317,12 +317,12 @@ class _LiveConnectorPanelState extends State<LiveConnectorPanel> {
             controller: controller,
             enabled: enabled,
             style: TextStyle(
-              color: Colors.white.withOpacity(enabled ? 1 : 0.5),
+              color: Colors.white.withValues(alpha: enabled ? 1 : 0.5),
               fontSize: 12,
             ),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+              hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
               isDense: true,
@@ -343,12 +343,12 @@ class _LiveConnectorPanelState extends State<LiveConnectorPanel> {
         ),
         child: Row(
           children: [
-            Icon(Icons.info_outline, size: 16, color: Colors.white.withOpacity(0.5)),
+            Icon(Icons.info_outline, size: 16, color: Colors.white.withValues(alpha: 0.5)),
             const SizedBox(width: 8),
             Text(
               'Not connected',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.5),
+                color: Colors.white.withValues(alpha: 0.5),
                 fontSize: 12,
               ),
             ),
@@ -378,7 +378,7 @@ class _LiveConnectorPanelState extends State<LiveConnectorPanel> {
             child: Text(
               _activeConnector!.address,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
+                color: Colors.white.withValues(alpha: 0.7),
                 fontSize: 12,
                 fontFamily: 'monospace',
               ),
@@ -389,7 +389,7 @@ class _LiveConnectorPanelState extends State<LiveConnectorPanel> {
           Text(
             '${_recentEvents.length} events',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.5),
+              color: Colors.white.withValues(alpha: 0.5),
               fontSize: 11,
             ),
           ),
@@ -403,7 +403,7 @@ class _LiveConnectorPanelState extends State<LiveConnectorPanel> {
       return Center(
         child: Text(
           'No events received yet',
-          style: TextStyle(color: Colors.white.withOpacity(0.4)),
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
         ),
       );
     }
@@ -450,7 +450,7 @@ class _LiveConnectorPanelState extends State<LiveConnectorPanel> {
           Text(
             '${event.timestampMs.toStringAsFixed(0)}ms',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.5),
+              color: Colors.white.withValues(alpha: 0.5),
               fontSize: 10,
               fontFamily: 'monospace',
             ),

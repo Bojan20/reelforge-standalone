@@ -351,14 +351,14 @@ class _NetworkDiagnosticsPanelState extends State<NetworkDiagnosticsPanel> {
         children: [
           Icon(
             Icons.analytics_outlined,
-            color: Colors.white.withOpacity(0.7),
+            color: Colors.white.withValues(alpha: 0.7),
             size: 18,
           ),
           const SizedBox(width: 8),
           Text(
             'Network Diagnostics',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
+              color: Colors.white.withValues(alpha: 0.9),
               fontSize: 13,
               fontWeight: FontWeight.w500,
             ),
@@ -373,7 +373,7 @@ class _NetworkDiagnosticsPanelState extends State<NetworkDiagnosticsPanel> {
             },
             icon: Icon(
               Icons.refresh,
-              color: Colors.white.withOpacity(0.5),
+              color: Colors.white.withValues(alpha: 0.5),
               size: 16,
             ),
             padding: EdgeInsets.zero,
@@ -406,7 +406,7 @@ class _NetworkDiagnosticsPanelState extends State<NetworkDiagnosticsPanel> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
+        color: color.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Row(
@@ -470,7 +470,7 @@ class _NetworkDiagnosticsPanelState extends State<NetworkDiagnosticsPanel> {
         child: Center(
           child: Text(
             'No data',
-            style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 11),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 11),
           ),
         ),
       );
@@ -618,7 +618,7 @@ class _NetworkDiagnosticsPanelState extends State<NetworkDiagnosticsPanel> {
                   padding: const EdgeInsets.all(16),
                   child: Text(
                     'No connection history',
-                    style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 11),
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 11),
                   ),
                 ),
               )
@@ -652,7 +652,7 @@ class _NetworkDiagnosticsPanelState extends State<NetworkDiagnosticsPanel> {
           Text(
             _formatTime(entry.timestamp),
             style: TextStyle(
-              color: Colors.white.withOpacity(0.5),
+              color: Colors.white.withValues(alpha: 0.5),
               fontSize: 10,
               fontFamily: 'monospace',
             ),
@@ -662,7 +662,7 @@ class _NetworkDiagnosticsPanelState extends State<NetworkDiagnosticsPanel> {
             child: Text(
               entry.message,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
+                color: Colors.white.withValues(alpha: 0.7),
                 fontSize: 11,
               ),
             ),
@@ -682,12 +682,12 @@ class _NetworkDiagnosticsPanelState extends State<NetworkDiagnosticsPanel> {
       children: [
         Row(
           children: [
-            Icon(icon, size: 14, color: Colors.white.withOpacity(0.5)),
+            Icon(icon, size: 14, color: Colors.white.withValues(alpha: 0.5)),
             const SizedBox(width: 6),
             Text(
               title,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
+                color: Colors.white.withValues(alpha: 0.7),
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),
@@ -706,7 +706,7 @@ class _NetworkDiagnosticsPanelState extends State<NetworkDiagnosticsPanel> {
       decoration: BoxDecoration(
         color: const Color(0xFF242430),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -714,7 +714,7 @@ class _NetworkDiagnosticsPanelState extends State<NetworkDiagnosticsPanel> {
           Text(
             label,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.5),
+              color: Colors.white.withValues(alpha: 0.5),
               fontSize: 10,
             ),
           ),
@@ -908,9 +908,9 @@ class NetworkStatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

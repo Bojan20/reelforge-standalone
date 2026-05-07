@@ -77,7 +77,7 @@ class _ScenarioControlsState extends State<ScenarioControls> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
+                    color: Colors.white.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(3),
                   ),
                   child: const Text(
@@ -222,10 +222,10 @@ class _ScenarioControlsState extends State<ScenarioControls> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             decoration: BoxDecoration(
-              color: isExpanded ? color.withOpacity(0.15) : FluxForgeTheme.bgDeep,
+              color: isExpanded ? color.withValues(alpha: 0.15) : FluxForgeTheme.bgDeep,
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
-                color: isExpanded ? color.withOpacity(0.5) : FluxForgeTheme.borderSubtle,
+                color: isExpanded ? color.withValues(alpha: 0.5) : FluxForgeTheme.borderSubtle,
               ),
             ),
             child: Row(
@@ -269,7 +269,7 @@ class _ScenarioControlsState extends State<ScenarioControls> {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: widget.isSpinning
-              ? FluxForgeTheme.bgDeep.withOpacity(0.5)
+              ? FluxForgeTheme.bgDeep.withValues(alpha: 0.5)
               : FluxForgeTheme.bgDeep,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(color: FluxForgeTheme.borderSubtle),
@@ -300,11 +300,11 @@ class _ScenarioControlsState extends State<ScenarioControls> {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         decoration: BoxDecoration(
           color: isEnabled
-              ? color.withOpacity(0.15)
-              : FluxForgeTheme.bgDeep.withOpacity(0.5),
+              ? color.withValues(alpha: 0.15)
+              : FluxForgeTheme.bgDeep.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: isEnabled ? color.withOpacity(0.5) : FluxForgeTheme.borderSubtle,
+            color: isEnabled ? color.withValues(alpha: 0.5) : FluxForgeTheme.borderSubtle,
           ),
         ),
         child: Row(
@@ -367,7 +367,7 @@ class ScenarioTriggerButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: isActive ? color.withOpacity(0.2) : FluxForgeTheme.bgMid,
+          color: isActive ? color.withValues(alpha: 0.2) : FluxForgeTheme.bgMid,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
             color: isActive ? color : FluxForgeTheme.borderSubtle,

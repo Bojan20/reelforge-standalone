@@ -430,7 +430,7 @@ class _GraphPainter extends CustomPainter {
 
     // Grid
     final gridPaint = Paint()
-      ..color = Colors.white.withOpacity(0.05)
+      ..color = Colors.white.withValues(alpha: 0.05)
       ..strokeWidth = 1;
 
     for (int i = 1; i < 4; i++) {
@@ -440,7 +440,7 @@ class _GraphPainter extends CustomPainter {
 
     // Fill
     final fillPaint = Paint()
-      ..color = color.withOpacity(0.1)
+      ..color = color.withValues(alpha: 0.1)
       ..style = PaintingStyle.fill;
 
     final fillPath = Path();
