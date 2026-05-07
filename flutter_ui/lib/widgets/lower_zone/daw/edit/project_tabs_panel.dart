@@ -69,6 +69,9 @@ class ProjectTabsService extends ChangeNotifier {
   static final ProjectTabsService instance = ProjectTabsService._();
 
   final List<ProjectTab> _tabs = [];
+  // Monotonic counter mixed into tab ids so two adds in the same millisecond
+  // (rapid duplicate clicks, programmatic batches) don't collide.
+  int _idCounter = 0;
 
   List<ProjectTab> get tabs => List.unmodifiable(_tabs);
   int get count => _tabs.length;
@@ -85,7 +88,7 @@ class ProjectTabsService extends ChangeNotifier {
     for (final t in _tabs) {
       t.isActive = false;
     }
-    final id = 'tab_${DateTime.now().millisecondsSinceEpoch}';
+    final id = 'tab_${DateTime.now().millisecondsSinceEpoch}_${_idCounter++}';
     _tabs.add(ProjectTab(id: id, name: name, path: path, isActive: true));
     notifyListeners();
   }
@@ -112,10 +115,12 @@ class ProjectTabsService extends ChangeNotifier {
   }
 
   void reorderTab(int oldIndex, int newIndex) {
+    if (oldIndex < 0 || oldIndex >= _tabs.length) return;
+    if (newIndex < 0 || newIndex > _tabs.length) return;
     if (oldIndex == newIndex) return;
     if (newIndex > oldIndex) newIndex--;
     final tab = _tabs.removeAt(oldIndex);
-    _tabs.insert(newIndex, tab);
+    _tabs.insert(newIndex.clamp(0, _tabs.length), tab);
     notifyListeners();
   }
 
@@ -308,6 +313,10 @@ class _ProjectTabsPanelState extends State<ProjectTabsPanel> {
                     border: InputBorder.none,
                   ),
                   onSubmitted: (_) => _applyTabRename(tab.id),
+                  // Tap outside the rename field commits the rename so user
+                  // never gets stuck in rename mode (e.g., switching tabs,
+                  // clicking elsewhere). Empty input falls back to old name.
+                  onTapOutside: (_) => _applyTabRename(tab.id),
                 ),
               )
             else

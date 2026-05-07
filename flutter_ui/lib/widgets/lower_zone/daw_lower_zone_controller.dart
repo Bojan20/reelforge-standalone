@@ -195,15 +195,20 @@ class DawLowerZoneController extends ChangeNotifier {
 
   /// Navigate to a recent tab entry
   void goToRecentTab(RecentTabEntry entry) {
-    if (_state.superTab != entry.superTab) {
-      _state = _state.copyWith(superTab: entry.superTab, isExpanded: true);
-    }
-    _state.setSubTabIndex(entry.subTabIndex);
-    if (!_state.isExpanded) {
-      _state = _state.copyWith(isExpanded: true);
-    }
-    notifyListeners();
-    saveToStorage();
+    // Build a new state in one shot through copyWith so the immutable update
+    // contract holds and listeners see a single coherent state. We also
+    // refresh the recent-tab MRU list before notifying so any UI reading
+    // `recentTabs` during rebuild picks up the same logical step.
+    var newState = _state.copyWith(
+      superTab: entry.superTab,
+      isExpanded: true,
+    );
+    // Apply sub-tab on the new state. setSubTabIndex mutates the receiver,
+    // which is fine because `newState` is the candidate we're about to commit.
+    newState.setSubTabIndex(entry.subTabIndex);
+    _state = newState;
+    _recordRecentTab();
+    _updateAndSave(newState);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -216,8 +221,12 @@ class DawLowerZoneController extends ChangeNotifier {
       // Toggle collapse when clicking active tab
       _updateAndSave(_state.copyWith(isExpanded: false));
     } else {
-      _updateAndSave(_state.copyWith(superTab: tab, isExpanded: true));
-      _recordRecentTab(); // P1.5: Track recent tabs
+      // Order matters: commit state first, then record recent so the entry
+      // reflects the destination tab; _updateAndSave's single notifyListeners
+      // then carries both the new state and the updated MRU list to the UI.
+      _state = _state.copyWith(superTab: tab, isExpanded: true);
+      _recordRecentTab();
+      _updateAndSave(_state);
     }
   }
 
@@ -236,8 +245,11 @@ class DawLowerZoneController extends ChangeNotifier {
   void setSubTabIndex(int index) {
     _state.setSubTabIndex(index);
     final newState = _state.isExpanded ? _state : _state.copyWith(isExpanded: true);
+    // Commit before recording so MRU list reflects the new sub-tab and the
+    // single _updateAndSave call carries everything to listeners atomically.
+    _state = newState;
+    _recordRecentTab();
     _updateAndSave(newState);
-    _recordRecentTab(); // P1.5: Track recent tabs
   }
 
   /// Specific sub-tab setters for type safety
@@ -472,16 +484,16 @@ class DawLowerZoneController extends ChangeNotifier {
       setSuperTab(tab);
       return;
     }
-    if (paneIndex == 1) {
-      // Keep backward compatibility with secondPane* fields
-      setSecondPaneSuperTab(tab);
-    }
     final extraIdx = paneIndex - 1;
-    if (extraIdx < _state.extraPanes.length) {
-      final newPanes = _state.extraPanes.map((p) => p.copy()).toList();
-      newPanes[extraIdx].superTab = tab;
-      _updateAndSave(_state.copyWith(extraPanes: newPanes));
-    }
+    if (extraIdx < 0 || extraIdx >= _state.extraPanes.length) return;
+    final newPanes = _state.extraPanes.map((p) => p.copy()).toList();
+    newPanes[extraIdx].superTab = tab;
+    // For pane 1, also mirror to legacy secondPane* fields so backward-compatible
+    // JSON readers and split-view legacy code paths stay in sync.
+    final base = paneIndex == 1
+        ? _state.copyWith(extraPanes: newPanes, secondPaneSuperTab: tab)
+        : _state.copyWith(extraPanes: newPanes);
+    _updateAndSave(base);
   }
 
   /// Set sub-tab index for any pane by index

@@ -31,6 +31,39 @@ class SlotLabLowerZoneController extends ChangeNotifier {
     return instance;
   }
 
+  /// Reset singleton for testing — creates a fresh instance with default state
+  @visibleForTesting
+  static void resetForTesting() {
+    _instance = SlotLabLowerZoneController._();
+  }
+
+  // Singleton lifecycle guard.
+  // Mirror of DawLowerZoneController guard: when the screen that owns the
+  // controller is disposed (e.g., back-to-launcher), `dispose()` flips the
+  // disposed flag and clears `_instance`. Async continuations that race past
+  // dispose (e.g., `loadFromStorage()` completing) hit `notifyListeners()`
+  // on a disposed `ChangeNotifier` — that assertion throws and Flutter
+  // renders the red ErrorWidget on top of the SlotLab workspace. The guard
+  // drops late notifications and lets the next mount receive a fresh
+  // singleton.
+  bool _isDisposed = false;
+  bool get isDisposed => _isDisposed;
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    if (identical(_instance, this)) {
+      _instance = null;
+    }
+    super.dispose();
+  }
+
+  @override
+  void notifyListeners() {
+    if (_isDisposed) return;
+    super.notifyListeners();
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // GETTERS
   // ═══════════════════════════════════════════════════════════════════════════

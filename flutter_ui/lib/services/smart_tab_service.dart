@@ -190,9 +190,10 @@ class SmartTabService extends ChangeNotifier {
 
       _usageHistory.add(record);
 
-      // Trim history if too large
+      // Trim history if too large. removeAt(0) is O(n); when many records
+      // pile up at once, prefer a batched removeRange so we shift only once.
       if (_usageHistory.length > _maxHistorySize) {
-        _usageHistory.removeAt(0);
+        _usageHistory.removeRange(0, _usageHistory.length - _maxHistorySize);
       }
 
       // Update stats
@@ -253,23 +254,37 @@ class SmartTabService extends ChangeNotifier {
     return sorted.take(limit).map((e) => e.key).toList();
   }
 
-  /// Get related tabs (often accessed together)
+  /// Get related tabs (often accessed together).
+  ///
+  /// "Together" = within ±5 minutes of an occurrence of `tabId`. The forward
+  /// half (j >= i) caught only tabs used AFTER the target, so a tab that's
+  /// always used right BEFORE the target would never show up. We now also
+  /// scan backward and stop early on either side once we leave the window,
+  /// which keeps the inner loops O(window) instead of O(n).
   List<String> getRelatedTabs(String tabId, {int limit = 3}) {
-    // Find sessions where this tab was used
     final sessions = <String, int>{};
+    const window = Duration(minutes: 5);
 
     for (int i = 0; i < _usageHistory.length; i++) {
-      if (_usageHistory[i].tabId == tabId) {
-        // Look at tabs used within 5 minutes
-        final sessionStart = _usageHistory[i].timestamp;
-        final sessionEnd = sessionStart.add(const Duration(minutes: 5));
+      if (_usageHistory[i].tabId != tabId) continue;
+      final pivot = _usageHistory[i].timestamp;
+      final windowStart = pivot.subtract(window);
+      final windowEnd = pivot.add(window);
 
-        for (int j = i; j < _usageHistory.length; j++) {
-          final otherRecord = _usageHistory[j];
-          if (otherRecord.timestamp.isAfter(sessionEnd)) break;
-          if (otherRecord.tabId != tabId) {
-            sessions[otherRecord.tabId] = (sessions[otherRecord.tabId] ?? 0) + 1;
-          }
+      // Forward half — break as soon as we cross the right edge.
+      for (int j = i + 1; j < _usageHistory.length; j++) {
+        final r = _usageHistory[j];
+        if (r.timestamp.isAfter(windowEnd)) break;
+        if (r.tabId != tabId) {
+          sessions[r.tabId] = (sessions[r.tabId] ?? 0) + 1;
+        }
+      }
+      // Backward half — break as soon as we cross the left edge.
+      for (int j = i - 1; j >= 0; j--) {
+        final r = _usageHistory[j];
+        if (r.timestamp.isBefore(windowStart)) break;
+        if (r.tabId != tabId) {
+          sessions[r.tabId] = (sessions[r.tabId] ?? 0) + 1;
         }
       }
     }

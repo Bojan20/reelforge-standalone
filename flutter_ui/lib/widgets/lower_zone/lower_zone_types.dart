@@ -550,17 +550,23 @@ class DawLowerZoneState {
   // P2.1: Second Pane Tab Access (Split View Mode)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Get current sub-tab index for second pane's active super-tab
+  /// Get current sub-tab index for second pane's active super-tab.
+  /// CORTEX has no dedicated `secondPaneCortexSubTab` field (legacy second-pane
+  /// model predates CORTEX), so we route through `extraPanes[0]` which the new
+  /// multi-pane controller already maintains for pane 1.
   int get secondPaneCurrentSubTabIndex => switch (secondPaneSuperTab) {
     DawSuperTab.browse => secondPaneBrowseSubTab.index,
     DawSuperTab.edit => secondPaneEditSubTab.index,
     DawSuperTab.mix => secondPaneMixSubTab.index,
     DawSuperTab.process => secondPaneProcessSubTab.index,
     DawSuperTab.deliver => secondPaneDeliverSubTab.index,
-    DawSuperTab.cortex => DawCortexSubTab.overview.index,
+    DawSuperTab.cortex => extraPanes.isNotEmpty
+        ? extraPanes[0].cortexSubTab.index
+        : DawCortexSubTab.overview.index,
   };
 
-  /// Set sub-tab by index for second pane's active super-tab
+  /// Set sub-tab by index for second pane's active super-tab.
+  /// CORTEX writes to `extraPanes[0]` (see comment on the getter).
   void setSecondPaneSubTabIndex(int index) {
     switch (secondPaneSuperTab) {
       case DawSuperTab.browse:
@@ -574,7 +580,10 @@ class DawLowerZoneState {
       case DawSuperTab.deliver:
         secondPaneDeliverSubTab = DawDeliverSubTab.values[index.clamp(0, DawDeliverSubTab.values.length - 1)];
       case DawSuperTab.cortex:
-        break; // Cortex uses main pane cortexSubTab
+        if (extraPanes.isNotEmpty) {
+          extraPanes[0].cortexSubTab = DawCortexSubTab.values[
+              index.clamp(0, DawCortexSubTab.values.length - 1)];
+        }
     }
   }
 
