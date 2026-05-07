@@ -235,6 +235,8 @@ const kShortcuts = <String, ShortcutDef>{
   'layoutPreset1': ShortcutDef(key: '1', mod: ShortcutModifiers(cmd: true, shift: true), display: '⇧⌘1'),
   'layoutPreset2': ShortcutDef(key: '2', mod: ShortcutModifiers(cmd: true, shift: true), display: '⇧⌘2'),
   'layoutPreset3': ShortcutDef(key: '3', mod: ShortcutModifiers(cmd: true, shift: true), display: '⇧⌘3'),
+  // FAZA 2B.4 DOD — Cmd+0 = default layout (reset to factory panel layout)
+  'resetLayout':   ShortcutDef(key: '0', mod: ShortcutModifiers(cmd: true), display: '⌘0'),
 
   // Advanced panels (Cubase-style Shift+Cmd shortcuts)
   'logicalEditor': ShortcutDef(key: 'L', mod: ShortcutModifiers(cmd: true, shift: true), display: '⇧⌘L'),

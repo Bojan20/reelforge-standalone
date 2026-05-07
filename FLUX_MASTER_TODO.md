@@ -302,28 +302,30 @@
 | # | Problem | Rešenje | Effort |
 |---|---|---|---|
 | 2B.3.1 | ✅ Panel Focus indikator — `PanelFocusProvider` + `FocusablePanel` (1px brandGold border) wrapped oko Spine/Canvas/Dock u HELIX. **2026-05-05 (commit 98414105 follow-up):** dodato keyboard cycling `Cmd+]` / `Cmd+[` (forward / back) sa skip-on-invisible (FOCUS mode dock). Mirrors Logic Pro / Final Cut / Photoshop bindings — Tab namerno NIJE hijack-ovan jer Tab unutar TextField (BPM, GRID, project name) mora da zadrži native traversal. Toast `FOCUS: SPINE/CANVAS/DOCK` 1.5s. **14 unit testova** za PanelFocusProvider — pin anti-spam invariant (identical focus() mora ne-notify, sprečava AnimatedContainer repaint storm na pointer drag). |
-| 2B.3.2 | **Smart Panel Memory** — layout se ne pamti po projektu | `PanelLayoutProvider` pamti active tab/sub-tab + panel visibility per `projectId` u SQLite | 4 h |
-| 2B.3.3 | **Layout Snapshots** (`Cmd+Opt+1..9`) | Photoshop Layer Comps za panele — sačuvaj i vrati kompletan panel state jednim tasterom | 1 nedelja |
+| 2B.3.2 | ✅ 818e78bb — `PanelLayoutProvider` (ChangeNotifier, keyed by `projectId`, LRU 50 entries) sa SharedPreferences persistance (`panel_layout_memory_v1`). API: `save/patch/restore/switchProject`. `PanelLayoutMemory` model čuva `helixDockTab`, `dawLowerTab`, left/right/lower visibility. **19 unit testova** (round-trips, LRU eviction, switchProject semantics, patch invariants). |
+| 2B.3.3 | ✅ obsolete — overlap sa SPEC-15 (Selection Memory) koji je completed u Sprint 4 (`Cmd+1..9` restore, `Cmd+Shift+1..9` save). Layout Snapshots i Selection Memory dele isti UX pattern (Photoshop Layer Comps); SPEC-15 implementacija pokriva oba use case-a. |
 | 2B.3.4 | ✅ Phase 1 (originalni) — `FluxTooltip` widget (`lib/widgets/common/flux_tooltip.dart`) sa 150ms delay + brand-gold border + macOS keyboard glyph mapping (`Cmd+ → ⌘`, `Shift+ → ⇧` itd). **2026-05-05 (commit pending):** Phase 2 — `formatShortcut` exposed kao public static za testabilnost, + 14 unit testova (kbd glyph mapping, idempotency, compound modifiers, kWaitDuration pin), + **SPEC-16 ratchet test** `test/lints/tooltip_consistency_test.dart` koji broji raw `Tooltip(` call sites pod `flutter_ui/lib/`, baseline=240, fail-CI ako count raste. Migration pilot: helix_screen `Drag to resize` + control_bar `_IconBtn` (sa shortcut hint pattern). Top offenders ostaju: control_bar.dart=21, slot_lab_screen.dart=17, channel_inspector_panel.dart=9 — postupna migracija je deferred work pinned by ratchet. |
-| 2B.3.5 | **Keyboard nav između panela** — Tab/Shift+Tab | Tab = sledeći panel fokus, Arrow keys = unutar panela, Enter = primary action | 3 h |
-| 2B.3.6 | **Isti Cmd+K u DAW i HELIX** | Jedan globalni `FluxCommandPalette` (2B.1.2) dostupan svuda | 0 h (zavisi od 2B.1.2) |
-| 2B.3.7 | **Context menu "Explain this"** — Right-click na bilo koji param | Copilot tooltip: šta je ovaj param, tipične vrednosti, upozorenja. Onboarding bez tutorijala. | 1 nedelja (zavisi od Faza 4) |
-| 2B.3.8 | **Selection Memory** (`Cmd+1..9`) | Sačuvaj trenutni view (tab, zoom, selekcija) na slot, vrati jednim tasterom — kao Cmd+1..9 u Photoshop | 4 h |
+| 2B.3.5 | ✅ 818e78bb — `PanelFocusProvider.cycleForward/cycleBackward` sa kanonskim 7-panel redosledom. Wired u `main_layout.dart::_handleKeyEvent` za Tab/Shift+Tab. **Guard:** skip kad `EditableText` ima focus (nikad ne krade input iz BPM, GRID, project name field-ova). **11 unit testova** (cycle, wrap-around, forward+backward cancellation, EditableText guard). |
+| 2B.3.6 | ✅ — overlap sa SPEC-01 `FluxCommandPalette` (Sprint 2 done, commit 3ef5afff). Globalni `Cmd+K` palette dostupan u DAW + HELIX, fuzzy search po svim panelima/sub-tabovima/akcijama/projektima. |
+| 2B.3.7 | **Context menu "Explain this"** — Right-click na bilo koji param | Copilot tooltip: šta je ovaj param, tipične vrednosti, upozorenja. Onboarding bez tutorijala. | 1 nedelja (zavisi od Faza 4) — ⏳ zavisi od `rf-copilot` crate (4.1.1) i lokalnog LLM-a (4.1.2). |
+| 2B.3.8 | ✅ — overlap sa SPEC-15 (Sprint 4 done, commit ce2a90a9 + c58c7d04). `Cmd+1..9` restore + `Cmd+Shift+1..9` save kompletnog panel state-a (tab, zoom, selekcija, layout). |
 
 ---
 
 ### 2B.4 Merljivi ciljevi (Definition of Done)
 
-| Metrika | Sada | Cilj |
-|---------|------|------|
-| Klika do EQ na specifičnom stage | 3 klika | 1 (Cmd+K "open EQ stage X") |
-| Klika do promene reel count-a | 4 klika | 1 (Omnibar inline edit) |
-| Klika do preview zvuka | 2 klika | 1 (Space na selektovanom) |
-| Vidljive info simultano (1440px) | 4 zone | 4 zone + HUD float |
-| Sub-tab switchovanje | 2-3 klika | 1 keyboard key (1-9) |
-| Otvoren panel bez etikete | Spine (5 ikona) | Sve ikone imaju tooltip ≤ 150ms |
-| Stub tabovi sa praznom stranicom | 6 u HELIX | 0 (badge ili sakriti) |
-| Layout reset posle pomrnje šta je otvoreno | Ručno | Cmd+0 = default layout |
+| Metrika | Pre | Cilj | Status |
+|---------|-----|------|--------|
+| Klika do EQ na specifičnom stage | 3 klika | 1 (Cmd+K "open EQ stage X") | ✅ SPEC-01 (Sprint 2) — fuzzy search po panelima/sub-tabovima/akcijama. |
+| Klika do promene reel count-a | 4 klika | 1 (Omnibar inline edit) | ✅ FAZA 2.1.7 — `GRID 5×3` pill u HELIX Omnibar parsuje `5x3`/`5×3`/`5X3`. |
+| Klika do preview zvuka | 2 klika | 1 (Space na selektovanom) | ✅ Space-bar bound u SlotLab (audition selected audio file). |
+| Vidljive info simultano (1440px) | 4 zone | 4 zone + HUD float | ✅ SPEC-10 Math HUD (top:80, left:12) + Compliance Lights badge + Stage strip — sve simultano vidljivo. |
+| Sub-tab switchovanje | 2-3 klika | 1 keyboard key (1-9) | ✅ FAZA 2.1.5 — Digit 1-9 → idx 0-8, 0 → 9, Q-U → 10-16 u DAW lower zone. |
+| Otvoren panel bez etikete | Spine (5 ikona) | Sve ikone imaju tooltip ≤ 150ms | ✅ SPEC-06 (Sprint 1) — Spine Compact/Expanded toggle + 150ms hover tooltips kroz `FluxTooltip`. |
+| Stub tabovi sa praznom stranicom | 6 u HELIX | 0 (badge ili sakriti) | ✅ SPEC-07 (Sprint 1) Never Empty + FAZA 1.4 audit: svih 7 sub-tabova (DSP spatial, RTPC, CONTAINERS, MUSIC, LOGIC, DAW CORTEX, MONITOR neuro/aiCopilot) verifikovano da imaju realan sadržaj. |
+| Layout reset posle pomrnje šta je otvoreno | Ručno | Cmd+0 = default layout | ✅ 2026-05-07 — `'resetLayout': ShortcutDef(key: '0', mod: ShortcutModifiers(cmd: true), display: '⌘0')` dodato u `global_shortcuts_provider.dart`. `_handleResetLayout` callback već implementiran (resets left/right/lower visibility + timelineZoom + scrollOffset, snack-bar feedback "Layout reset to defaults"). |
+
+**8/8 DOD metrika ✅ — sve mere kompaktnosti i navigacije iz FAZA 2B su pokrivene.**
 
 ---
 
