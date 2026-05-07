@@ -143,8 +143,27 @@ fn restore_snapshot_to_engine(snap: &FullChainSnapshot) -> String {
     for slot in &snap.slots {
         let si = slot.slot_index as usize;
 
-        // Create processor by factory name (same path as chain_apply_ffi)
-        match rf_engine::create_processor_extended(&slot.processor_name, sample_rate) {
+        // Try the snapshot's stored name as a factory key first, then
+        // fall back to the display-name → factory-key map. The
+        // double-lookup is intentional: legacy snapshots and snapshots
+        // captured via `get_track_insert_info` carry the *display name*
+        // ("FluxForge Studio Compressor"), while preset/UI flows that
+        // already canonicalised the key send the factory string
+        // ("compressor"). Both must restore correctly. Without the
+        // fallback, processors whose display ≠ factory (compressor,
+        // limiter, room-correction) silently drop on undo / preset
+        // apply — see the chain_preset_integration_tests fix log.
+        let processor_opt = rf_engine::create_processor_extended(
+            &slot.processor_name,
+            sample_rate,
+        )
+        .or_else(|| {
+            rf_engine::display_name_to_factory_key(&slot.processor_name)
+                .and_then(|key| {
+                    rf_engine::create_processor_extended(key, sample_rate)
+                })
+        });
+        match processor_opt {
             Some(processor) => {
                 let ok = pb.load_track_insert(track_id, si, processor);
                 if !ok {

@@ -5446,6 +5446,45 @@ pub fn create_processor_extended(name: &str, sample_rate: f64) -> Option<Box<dyn
     }
 }
 
+/// Translate an `InsertProcessor::name()` display string back into the
+/// canonical factory key consumed by `create_processor_extended` /
+/// `create_processor`.
+///
+/// Why this exists: every processor wrapper exposes a *human-friendly*
+/// display name ("FluxForge Studio Compressor", "FluxForge Studio True
+/// Peak Limiter") so the UI can show pretty labels — but
+/// `PlaybackEngine::get_track_insert_info` returns that same display
+/// string as the slot's `name`. When the chain history / preset
+/// systems serialise a `FullChainSnapshot` they store the display
+/// string; when they later try to *restore* the chain they pass that
+/// string to `create_processor_extended`, which expects a factory key
+/// like `"compressor"` and silently returns `None` for unmatched
+/// display strings — the slot is dropped on restore.
+///
+/// This mapping closes that loop. `restore_snapshot_to_engine` and any
+/// other restore path can do `create_processor_extended(name)
+/// .or_else(|| display_name_to_factory_key(name).and_then(|k|
+/// create_processor_extended(k, sr)))` to handle both legacy snapshots
+/// (display strings) and factory-key snapshots transparently.
+///
+/// Returns `None` for unknown / unrecognised display strings so the
+/// caller can surface a "skipped: unknown processor" warning rather
+/// than mis-instantiating the wrong processor.
+pub fn display_name_to_factory_key(display: &str) -> Option<&'static str> {
+    match display {
+        "FluxForge Studio Compressor" => Some("compressor"),
+        "FluxForge Studio True Peak Limiter" => Some("limiter"),
+        "FluxForge Studio Pro-EQ 64" => Some("pro-eq"),
+        "Room Correction" => Some("room-correction"),
+        // Most processors already expose their factory key as their
+        // display name (gate, delay, reverb, saturator, …) — those
+        // don't need a reverse entry. New mappings should be added
+        // when a wrapper's name() string drifts from its factory key
+        // in `create_processor_extended`.
+        _ => None,
+    }
+}
+
 /// Get list of all available processors
 pub fn available_processors() -> Vec<&'static str> {
     vec![

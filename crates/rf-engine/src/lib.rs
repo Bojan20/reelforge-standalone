@@ -272,6 +272,7 @@ pub use dsp_wrappers::{
     Api550Wrapper, CompressorWrapper, ExpanderWrapper, GateWrapper, Neve1073Wrapper, ProEqWrapper,
     PultecWrapper, RoomCorrectionWrapper, TruePeakLimiterWrapper, UltraEqWrapper,
     available_processors, create_processor, create_processor_extended,
+    display_name_to_factory_key,
 };
 
 // Re-exports: Phase 8 - Automation
