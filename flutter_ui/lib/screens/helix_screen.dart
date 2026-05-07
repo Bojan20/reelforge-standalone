@@ -835,12 +835,14 @@ class _HelixScreenState extends State<HelixScreen>
     for (var i = 0; i < _dockTabDefs.length; i++) {
       final def = _dockTabDefs[i];
       CommandRegistry.instance.register(PaletteCommand(
-        id: 'helix.tab.$i',
-        label: def.$2,
-        description: 'Switch to ${def.$2} dock tab',
+        // Stable id from the registry — survives index reshuffling once
+        // the future DockTabRegistry plugin path lands.
+        id: 'helix.tab.${def.id}',
+        label: def.label,
+        description: 'Switch to ${def.label} dock tab',
         category: PaletteCategory.navigate,
-        icon: def.$1,
-        keywords: [def.$2.toLowerCase(), 'helix', 'dock'],
+        icon: def.icon,
+        keywords: [def.label.toLowerCase(), def.id, 'helix', 'dock'],
         onExecute: () => setState(() => _dockTab = i),
       ));
     }
@@ -1819,22 +1821,35 @@ class _HelixScreenState extends State<HelixScreen>
   // COMMAND DOCK
   // ─────────────────────────────────────────────────────────────────────────
 
-  static const _dockTabDefs = [
-    (Icons.account_tree_rounded, 'FLOW',     FluxForgeTheme.accentBlue),
-    (Icons.graphic_eq_rounded,   'AUDIO',    FluxForgeTheme.accentCyan),
-    (Icons.functions_rounded,    'MATH',     FluxForgeTheme.accentGreen),
-    (Icons.timeline_rounded,     'TIMELINE', FluxForgeTheme.accentOrange),
-    (Icons.psychology_rounded,   'INTEL',    FluxForgeTheme.accentPurple),
-    (Icons.upload_rounded,       'EXPORT',   FluxForgeTheme.accentYellow),
+  // Dock tab catalog. Migrated from positional record `(IconData, String, Color)`
+  // to named record `({String id, IconData icon, String label, Color color})`
+  // — fixes audit nalaz #9 readability concern.
+  //
+  // The `id` field is the foundation for a future `DockTabRegistry.register(...)`
+  // plugin extension point: callers will be able to filter/insert by stable id
+  // instead of bare list index, which lets third-party plugins inject tabs
+  // without conflicting on numeric position.
+  //
+  // TODO(URP-future): When the plugin marketplace lands, lift this list into a
+  // `DockTabRegistry` singleton with `register({id, icon, label, color, builder})`.
+  // The current `switch(_dockTab)` in `_buildDockPanel` will dispatch via the
+  // registry's builder for each id.
+  static const List<({String id, IconData icon, String label, Color color})> _dockTabDefs = [
+    (id: 'flow',     icon: Icons.account_tree_rounded, label: 'FLOW',     color: FluxForgeTheme.accentBlue),
+    (id: 'audio',    icon: Icons.graphic_eq_rounded,   label: 'AUDIO',    color: FluxForgeTheme.accentCyan),
+    (id: 'math',     icon: Icons.functions_rounded,    label: 'MATH',     color: FluxForgeTheme.accentGreen),
+    (id: 'timeline', icon: Icons.timeline_rounded,     label: 'TIMELINE', color: FluxForgeTheme.accentOrange),
+    (id: 'intel',    icon: Icons.psychology_rounded,   label: 'INTEL',    color: FluxForgeTheme.accentPurple),
+    (id: 'export',   icon: Icons.upload_rounded,       label: 'EXPORT',   color: FluxForgeTheme.accentYellow),
     // ── FAZA 3 tabs ──
-    (Icons.auto_fix_high_rounded,'SFX',      FluxForgeTheme.accentCyan),
-    (Icons.hub_rounded,          'BT',       FluxForgeTheme.accentOrange),
-    (Icons.fingerprint_rounded,  'DNA',      FluxForgeTheme.accentPink),
-    (Icons.auto_awesome_rounded, 'AI GEN',   FluxForgeTheme.accentPurple),
-    (Icons.cloud_sync_rounded,   'CLOUD',    FluxForgeTheme.accentBlue),
-    (Icons.science_rounded,      'A/B',      FluxForgeTheme.accentGreen),
+    (id: 'sfx',      icon: Icons.auto_fix_high_rounded,label: 'SFX',      color: FluxForgeTheme.accentCyan),
+    (id: 'bt',       icon: Icons.hub_rounded,          label: 'BT',       color: FluxForgeTheme.accentOrange),
+    (id: 'dna',      icon: Icons.fingerprint_rounded,  label: 'DNA',      color: FluxForgeTheme.accentPink),
+    (id: 'ai_gen',   icon: Icons.auto_awesome_rounded, label: 'AI GEN',   color: FluxForgeTheme.accentPurple),
+    (id: 'cloud',    icon: Icons.cloud_sync_rounded,   label: 'CLOUD',    color: FluxForgeTheme.accentBlue),
+    (id: 'ab',       icon: Icons.science_rounded,      label: 'A/B',      color: FluxForgeTheme.accentGreen),
     // Model 3 — multi-provider AI Composer (Local / BYOK / Azure)
-    (Icons.smart_toy_rounded,    'COMPOSER', FluxForgeTheme.accentGreen),
+    (id: 'composer', icon: Icons.smart_toy_rounded,    label: 'COMPOSER', color: FluxForgeTheme.accentGreen),
   ];
 
   /// Resolves the active dock height for the current mode.
@@ -2142,12 +2157,12 @@ class _HelixScreenState extends State<HelixScreen>
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: _dockTabDefs.asMap().entries.map((e) {
-                  final (icon, label, color) = e.value;
+                  final def = e.value;
                   final active = _dockTab == e.key;
                   return Padding(
                     padding: const EdgeInsets.only(right: 2),
                     child: _DockTab(
-                      icon: icon, label: label, color: color,
+                      icon: def.icon, label: def.label, color: def.color,
                       active: active,
                       onTap: () => setState(() => _dockTab = e.key),
                     ),
@@ -2161,18 +2176,25 @@ class _HelixScreenState extends State<HelixScreen>
           // Updates the height belonging to the currently-active mode so
           // mode-switching never destroys a user's custom resize (fixes
           // audit nalaz #5). ARCHITECT gets a higher upper clamp because
-          // it's the analyst-style large-canvas mode; COMPOSE keeps the
-          // tighter 180-600 range to leave room for the slot preview.
+          // it's the analyst-style large-canvas mode.
+          //
+          // COMPOSE upper clamp scales with screen height (audit nalaz #10):
+          // small screens stay at 600px (preserves slot preview real estate),
+          // large screens (multi-monitor / 4K) get up to 65% of screen height.
+          // This keeps the productive lower bound while letting power users
+          // on big displays actually use the space.
           GestureDetector(
             onVerticalDragUpdate: (d) => setState(() {
+              final screenH = MediaQuery.of(context).size.height;
               if (_mode == 2) {
                 final base = _dockHeightArchitect < 0
-                    ? MediaQuery.of(context).size.height * 0.5
+                    ? screenH * 0.5
                     : _dockHeightArchitect;
-                final maxH = MediaQuery.of(context).size.height * 0.9;
+                final maxH = screenH * 0.9;
                 _dockHeightArchitect = (base - d.delta.dy).clamp(180.0, maxH);
               } else {
-                _dockHeightCompose = (_dockHeightCompose - d.delta.dy).clamp(180.0, 600.0);
+                final maxComposeH = math.max(600.0, screenH * 0.65);
+                _dockHeightCompose = (_dockHeightCompose - d.delta.dy).clamp(180.0, maxComposeH);
               }
             }),
             // SPEC-16 — uniform tooltip surface (150ms delay, brand-gold

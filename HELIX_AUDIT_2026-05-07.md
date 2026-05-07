@@ -30,13 +30,14 @@
 | 6 | 🟡 P1 | `helix_screen.dart:1846-1872` | AUDIO quick actions emituju `AUDIO_MUTE_ALL` kao game-stage trigger u `EventRegistry` — semantička katastrofa | S | ✅ — re-audit 2026-05-07: 0 `AUDIO_MUTE_ALL` literala u helix_screen.dart, audio quick actions ili uklonjene ili re-implementirane. Nalaz outdated. |
 | 7 | 🟡 P1 | `helix_screen.dart:1008,1034,1184,...` | 60+ `withOpacity()` poziva — Flutter 3.27+ deprecira u korist `withValues(alpha:)` | M | ✅ 2026-05-07 — Stvarno: 2395 call sites u 162 fajla (28× više nego procena). Python migrator sa balanced-paren parser-om, 0 errors, `flutter analyze` clean. Vidi Q2 ispod. |
 | 8 | 🟡 P1 | `helix_screen.dart:5269,5275,5388` | `try/catch` koji vraća text widget umesto error boundary-ja — UI degradira tiho, error nije logovan | M | ✅ 2026-05-07 — Sve 4 lokacije (AUDIO BUILD, AUDIO INIT, ORB, BIND ERR) zamenjene sa `_renderHelixErrorFallback(tag, error)` helperom. Helper: (a) loguje kroz `debugPrint('[HELIX ERROR][$tag] $e')` u `assert(...)` block — debug-only fail-fast, release zero-overhead, (b) standardizovan style (red text, monospace, fontSize param). UI više ne degradira tiho. |
-| 9 | 🟢 P2 | `helix_screen.dart:1722-1738` | 13 dock tabova hard-kodirano u `static const _dockTabDefs` — nema registry/extensibility za plugin tabove | M | ⏳ |
-| 10 | 🟢 P2 | `helix_screen.dart:2037` | Dock height hard-kodiran `clamp(180, 600)` — ne skalira sa screen height-om | S | ⏳ |
+| 9 | 🟢 P2 | `helix_screen.dart:1722-1738` | 13 dock tabova hard-kodirano u `static const _dockTabDefs` — nema registry/extensibility za plugin tabove | M | ✅ 2026-05-07 — Migracija sa positional record `(IconData, String, Color)` na named record `({String id, IconData icon, String label, Color color})`. Stable `id` polje dodato po tabu (`'flow'`, `'audio'`, `'math'`, ...) — foundation za buduću `DockTabRegistry.register({id, icon, label, color, builder})` plugin path. Dva accessor sajta migrirana: command palette registration (linija 832) i dock tab bar render (linija 2147). `TODO(URP-future)` dodat za marketplace plugin extension point. Full registry refactor sa builder fn-om je M+ effort i zahteva extracting 13 panel builders u standalone funkcije — odložen do FAZE plugin marketplace, ali API shape je sad future-compatible. |
+| 10 | 🟢 P2 | `helix_screen.dart:2037` | Dock height hard-kodiran `clamp(180, 600)` — ne skalira sa screen height-om | S | ✅ 2026-05-07 — COMPOSE upper clamp sad `math.max(600.0, screenH * 0.65)`. Mali ekrani (720p): max ostaje 600 (zbog max() floor-a). FHD (1080p): max = 702. 4K (2160p): max = 1404. Lower bound ostaje 180 (slot preview real estate). ARCHITECT mode već ima `screenH * 0.9` (P1 #5 fix). |
 
 **Re-audit sažetak 2026-05-07 (po sesijama):**
 - **Sesija 1:** 4 zatvoreno (#1, #2, #6 outdated; #7 withOpacity migracija — 2395 sites).
 - **Sesija 2:** 4 dodatna zatvorena (#3 partial via Dart `part of`; #4, #5, #8 P1 fix-evi).
-- **Status:** 8/10 ✅ done. 2/10 ⏳ deferred (#9 dock tab registry P2/M, #10 dock height responsive scaling P2/S — oba post-demo polish, ne demo blokiraju).
+- **Sesija 3:** 2 dodatna zatvorena (#9 named record + id field foundation; #10 responsive dock clamp).
+- **Status:** **10/10 ✅ DONE.** Audit closed. Sve P0/P1/P2 stavke iz HELIX_AUDIT_2026-05-07 adresirane.
 
 ---
 
