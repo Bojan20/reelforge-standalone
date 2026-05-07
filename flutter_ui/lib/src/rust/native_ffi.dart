@@ -10462,6 +10462,63 @@ class NativeFFI {
       }
     } catch (_) { return null; }
   }
+
+  /// Wave 2 Front 6 — apply a structured filter (categories × tags ×
+  /// query × uncategorised_only). Spec JSON shape mirrors
+  /// `PresetFilterSpec` in `rf-ml::assistant::chain_preset`.
+  String? chainPresetFilterJson(String specJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('chain_preset_filter_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)
+      >('chain_preset_free_string');
+      final p = specJson.toNativeUtf8();
+      try {
+        final ptr = fn(p);
+        if (ptr == nullptr) return null;
+        final r = ptr.toDartString(); freeFn(ptr); return r;
+      } finally {
+        calloc.free(p);
+      }
+    } catch (_) { return null; }
+  }
+
+  /// Wave 2 Front 6 — every distinct tag in the library, sorted ASC.
+  String? chainPresetListTags() {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()
+      >('chain_preset_list_tags');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)
+      >('chain_preset_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final r = ptr.toDartString(); freeFn(ptr); return r;
+    } catch (_) { return null; }
+  }
+
+  /// Wave 2 Front 6 — every distinct category (canonicals first, then
+  /// user-defined alphabetically). Always returns at least the canonical
+  /// list so the UI chip strip is stable from first paint.
+  String? chainPresetListCategories() {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()
+      >('chain_preset_list_categories');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)
+      >('chain_preset_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final r = ptr.toDartString(); freeFn(ptr); return r;
+    } catch (_) { return null; }
+  }
 }
 
 /// Pitch segment data from analysis

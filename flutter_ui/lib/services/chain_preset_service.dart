@@ -42,6 +42,16 @@ class ChainPresetService extends ChangeNotifier {
   List<ChainPresetMeta> _presets = const [];
   List<ChainPresetMeta> get presets => List.unmodifiable(_presets);
 
+  /// Wave 2 Front 6 — cached union of every tag in the library
+  /// (lowercase, sorted). Refreshed alongside [_presets] in [refresh].
+  List<String> _allTags = const [];
+  List<String> get allTags => List.unmodifiable(_allTags);
+
+  /// Wave 2 Front 6 — cached union of canonical + user-defined
+  /// categories (canonicals first). Refreshed alongside [_presets].
+  List<String> _allCategories = const [];
+  List<String> get allCategories => List.unmodifiable(_allCategories);
+
   /// Cached resolved preset directory (echoed by `chain_preset_set_dir` /
   /// `chain_preset_get_dir`). Empty until first call.
   String _resolvedDir = '';
@@ -84,9 +94,21 @@ class ChainPresetService extends ChangeNotifier {
 
   /// Re-read the metadata list from disk. Called automatically after every
   /// mutating op; expose so first-mount UIs can populate the cache.
+  ///
+  /// Refreshes [presets], [allTags] and [allCategories] in one shot —
+  /// the FFI calls are cheap (flat-file scan, <10ms typical) so paying
+  /// the extra two roundtrips here keeps the chip strip in sync without
+  /// every UI surface having to remember to refresh tags/categories.
   Future<void> refresh() async {
     final raw = NativeFFI.instance.chainPresetListJson();
     _presets = _parseList(raw);
+
+    final tagsRaw = NativeFFI.instance.chainPresetListTags();
+    _allTags = _parseStringItems(tagsRaw);
+
+    final catsRaw = NativeFFI.instance.chainPresetListCategories();
+    _allCategories = _parseStringItems(catsRaw);
+
     notifyListeners();
   }
 
@@ -98,13 +120,27 @@ class ChainPresetService extends ChangeNotifier {
     return _parseList(raw);
   }
 
+  /// Wave 2 Front 6 — apply a structured filter. Empty filter returns
+  /// the full cached list (no FFI roundtrip). Does NOT mutate the cache.
+  Future<List<ChainPresetMeta>> filter(ChainPresetFilter spec) async {
+    if (spec.isEmpty) return presets;
+    final raw =
+        NativeFFI.instance.chainPresetFilterJson(jsonEncode(spec.toJson()));
+    return _parseList(raw);
+  }
+
   // ─── Save / load / delete ──────────────────────────────────────────────
 
   /// Save a preset. Overwrites if a preset with the same slug exists
   /// (preserving `created_ms`). Refreshes the cache on success.
+  ///
+  /// `category` is optional and free-form; the Rust core normalises
+  /// (trim + lowercase) on save. Pass `null` (or empty/whitespace) for
+  /// un-classified presets.
   Future<ChainPresetOpResult> save({
     required String name,
     String description = '',
+    String? category,
     List<String> tags = const [],
     required FullChainSnapshot snapshot,
   }) async {
@@ -114,9 +150,11 @@ class ChainPresetService extends ChangeNotifier {
       notifyListeners();
       return err;
     }
+    final normCat = category == null ? null : normaliseChainCategory(category);
     final reqJson = jsonEncode({
       'name': name,
       'description': description,
+      if (normCat != null) 'category': normCat,
       'tags': tags,
       'snapshot': snapshot.toJson(),
     });
@@ -266,6 +304,26 @@ class ChainPresetService extends ChangeNotifier {
           .toList(growable: false);
     } catch (e) {
       _lastError = 'list: parse error ($e)';
+      return const [];
+    }
+  }
+
+  /// Parse a `{"items": [...]}` envelope from `chain_preset_list_tags` /
+  /// `chain_preset_list_categories`. Errors degrade to the canonical
+  /// fallback (empty for tags, canonical-only for categories — the
+  /// caller layers that on top).
+  List<String> _parseStringItems(String? raw) {
+    if (raw == null) return const [];
+    try {
+      final j = jsonDecode(raw) as Map<String, dynamic>;
+      if (j['error'] != null) {
+        _lastError = j['error'].toString();
+        return const [];
+      }
+      final arr = (j['items'] as List<dynamic>?) ?? const [];
+      return arr.map((e) => e.toString()).toList(growable: false);
+    } catch (e) {
+      _lastError = 'string list: parse error ($e)';
       return const [];
     }
   }

@@ -99,8 +99,19 @@ class _ChainPresetLibraryPanelState extends State<ChainPresetLibraryPanel> {
   final FocusNode _searchFocus = FocusNode();
 
   /// Currently filtered metadata. Updated either from the cached service
-  /// list (empty query) or from a search() call (non-empty query).
+  /// list (empty filter) or from a `filter()` call.
   List<ChainPresetMeta> _filtered = const [];
+
+  /// Wave 2 Front 6 — selected categories for the chip strip. Multi-
+  /// select OR-combined. Empty set = no category restriction.
+  final Set<String> _selectedCategories = <String>{};
+
+  /// Wave 2 Front 6 — selected tags for the multi-select strip. AND-
+  /// combined (every selected tag must be on the preset).
+  final Set<String> _selectedTags = <String>{};
+
+  /// Wave 2 Front 6 — show only un-classified presets toggle.
+  bool _uncategorisedOnly = false;
 
   /// Most recent transient status message, shown in the footer. Null = no
   /// message. Cleared after a few seconds.
@@ -118,9 +129,7 @@ class _ChainPresetLibraryPanelState extends State<ChainPresetLibraryPanel> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await ChainPresetService.instance.refresh();
       if (mounted) {
-        setState(() {
-          _filtered = ChainPresetService.instance.presets;
-        });
+        await _applyCurrentFilter();
       }
     });
   }
@@ -134,18 +143,81 @@ class _ChainPresetLibraryPanelState extends State<ChainPresetLibraryPanel> {
   }
 
   Future<void> _onQueryChanged() async {
-    final q = _searchCtl.text;
-    if (q.trim().isEmpty) {
+    await _applyCurrentFilter();
+  }
+
+  /// Wave 2 Front 6 — single source of truth for "what does the list
+  /// show right now?" Combines the search box + category chips + tag
+  /// chips + uncategorised toggle into one [ChainPresetFilter] and
+  /// either reads the cache (empty filter) or hits the FFI.
+  Future<void> _applyCurrentFilter() async {
+    final spec = _currentFilter();
+    if (spec.isEmpty) {
+      if (!mounted) return;
       setState(() {
         _filtered = ChainPresetService.instance.presets;
       });
       return;
     }
-    final results = await ChainPresetService.instance.search(q);
+    final results = await ChainPresetService.instance.filter(spec);
     if (!mounted) return;
     setState(() {
       _filtered = results;
     });
+  }
+
+  ChainPresetFilter _currentFilter() => ChainPresetFilter(
+        categories: _selectedCategories.toList(growable: false),
+        tagsAll: _selectedTags.toList(growable: false),
+        query: _searchCtl.text.trim(),
+        uncategorisedOnly:
+            _uncategorisedOnly && _selectedCategories.isEmpty,
+      );
+
+  void _toggleCategory(String cat) {
+    setState(() {
+      if (_selectedCategories.contains(cat)) {
+        _selectedCategories.remove(cat);
+      } else {
+        _selectedCategories.add(cat);
+        // Selecting a category invalidates the un-categorised toggle.
+        _uncategorisedOnly = false;
+      }
+    });
+    _applyCurrentFilter();
+  }
+
+  void _toggleTag(String tag) {
+    setState(() {
+      if (_selectedTags.contains(tag)) {
+        _selectedTags.remove(tag);
+      } else {
+        _selectedTags.add(tag);
+      }
+    });
+    _applyCurrentFilter();
+  }
+
+  void _clearAllFilters() {
+    setState(() {
+      _selectedCategories.clear();
+      _selectedTags.clear();
+      _uncategorisedOnly = false;
+      _searchCtl.clear();
+    });
+    _applyCurrentFilter();
+  }
+
+  void _toggleUncategorisedOnly() {
+    setState(() {
+      _uncategorisedOnly = !_uncategorisedOnly;
+      if (_uncategorisedOnly) {
+        // Uncategorised wins → drop category selections so the AND axis
+        // doesn't accidentally hide everything.
+        _selectedCategories.clear();
+      }
+    });
+    _applyCurrentFilter();
   }
 
   void _showToast(String message, {bool isError = false}) {
@@ -178,14 +250,14 @@ class _ChainPresetLibraryPanelState extends State<ChainPresetLibraryPanel> {
     final result = await ChainPresetService.instance.save(
       name: entry.name,
       description: entry.description,
+      category: entry.category,
       tags: entry.tags,
       snapshot: snapshot,
     );
     if (!mounted) return;
-    setState(() {
-      _busy = false;
-      _filtered = ChainPresetService.instance.presets;
-    });
+    setState(() => _busy = false);
+    await _applyCurrentFilter();
+    if (!mounted) return;
     if (result.ok) {
       _showToast('Snimljeno: ${result.name}');
     } else {
@@ -217,10 +289,9 @@ class _ChainPresetLibraryPanelState extends State<ChainPresetLibraryPanel> {
     setState(() => _busy = true);
     final outcome = await ChainPresetService.instance.delete(meta.name);
     if (!mounted) return;
-    setState(() {
-      _busy = false;
-      _filtered = ChainPresetService.instance.presets;
-    });
+    setState(() => _busy = false);
+    await _applyCurrentFilter();
+    if (!mounted) return;
     switch (outcome) {
       case ChainPresetDeleteResult.removed:
         _showToast('Obrisano: ${meta.name}');
@@ -270,10 +341,9 @@ class _ChainPresetLibraryPanelState extends State<ChainPresetLibraryPanel> {
     setState(() => _busy = true);
     final result = await ChainPresetService.instance.importFrom(sourcePath);
     if (!mounted) return;
-    setState(() {
-      _busy = false;
-      _filtered = ChainPresetService.instance.presets;
-    });
+    setState(() => _busy = false);
+    await _applyCurrentFilter();
+    if (!mounted) return;
     if (result.ok) {
       _showToast('Importovano: ${result.name}');
     } else {
@@ -289,17 +359,17 @@ class _ChainPresetLibraryPanelState extends State<ChainPresetLibraryPanel> {
     return ListenableBuilder(
       listenable: ChainPresetService.instance,
       builder: (context, _) {
-        // Service notification → re-resolve filtered list with current query.
-        // The service mutates its cached list under the hood; if no query is
-        // active, just adopt it. Non-empty query: leave _filtered alone — it
-        // was set by the last search() call.
-        if (_searchCtl.text.trim().isEmpty) {
+        // Service notification → re-resolve filtered list with current
+        // filter spec. Empty filter ⇒ adopt cache; otherwise the last
+        // filter() call's result is still valid (we'll re-fetch on the
+        // next interaction; intermediate paint is acceptable here).
+        if (_currentFilter().isEmpty) {
           _filtered = ChainPresetService.instance.presets;
         }
 
         return Container(
-          width: 720,
-          height: 560,
+          width: 760,
+          height: 620,
           decoration: BoxDecoration(
             color: _kBg,
             borderRadius: BorderRadius.circular(10),
@@ -317,6 +387,8 @@ class _ChainPresetLibraryPanelState extends State<ChainPresetLibraryPanel> {
             children: [
               _buildHeader(),
               _buildSearchBar(),
+              _buildCategoryStrip(),
+              _buildTagStrip(),
               const Divider(height: 1, color: _kBorder),
               Expanded(child: _buildList()),
               const Divider(height: 1, color: _kBorder),
@@ -325,6 +397,114 @@ class _ChainPresetLibraryPanelState extends State<ChainPresetLibraryPanel> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildCategoryStrip() {
+    final svc = ChainPresetService.instance;
+    final cats = svc.allCategories.isEmpty
+        ? kCanonicalChainCategories
+        : svc.allCategories;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+      child: Row(
+        children: [
+          const _StripLabel(text: 'KATEGORIJA'),
+          const SizedBox(width: 8),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _FilterChip(
+                    label: 'Sve',
+                    selected: _selectedCategories.isEmpty &&
+                        !_uncategorisedOnly,
+                    onTap: _selectedCategories.isEmpty &&
+                            !_uncategorisedOnly
+                        ? null
+                        : () {
+                            setState(() {
+                              _selectedCategories.clear();
+                              _uncategorisedOnly = false;
+                            });
+                            _applyCurrentFilter();
+                          },
+                  ),
+                  const SizedBox(width: 4),
+                  _FilterChip(
+                    label: 'Bez kategorije',
+                    selected: _uncategorisedOnly,
+                    onTap: _toggleUncategorisedOnly,
+                  ),
+                  const SizedBox(width: 8),
+                  for (final c in cats) ...[
+                    _FilterChip(
+                      label: c,
+                      selected: _selectedCategories.contains(c),
+                      onTap: () => _toggleCategory(c),
+                      canonical: chainCategoryIsCanonical(c),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTagStrip() {
+    final tags = ChainPresetService.instance.allTags;
+    if (tags.isEmpty && _selectedTags.isEmpty) {
+      // Hide silently when there are no tags in the library — keeps the
+      // header compact for first-time users with empty libraries.
+      return const SizedBox(height: 8);
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+      child: Row(
+        children: [
+          const _StripLabel(text: 'TAGOVI'),
+          const SizedBox(width: 8),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final t in tags) ...[
+                    _FilterChip(
+                      label: t,
+                      selected: _selectedTags.contains(t),
+                      onTap: () => _toggleTag(t),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          if (_selectedCategories.isNotEmpty ||
+              _selectedTags.isNotEmpty ||
+              _uncategorisedOnly ||
+              _searchCtl.text.trim().isNotEmpty) ...[
+            const SizedBox(width: 8),
+            TextButton(
+              onPressed: _clearAllFilters,
+              style: TextButton.styleFrom(
+                foregroundColor: _kFgDim,
+                visualDensity: VisualDensity.compact,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              ),
+              child: const Text('Resetuj filter',
+                  style: TextStyle(fontSize: 11)),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -431,6 +611,7 @@ class _ChainPresetLibraryPanelState extends State<ChainPresetLibraryPanel> {
 
   Widget _buildList() {
     if (_filtered.isEmpty) {
+      final filterActive = !_currentFilter().isEmpty;
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -438,11 +619,24 @@ class _ChainPresetLibraryPanelState extends State<ChainPresetLibraryPanel> {
             const Icon(Icons.inbox_outlined, size: 36, color: _kFgDim),
             const SizedBox(height: 10),
             Text(
-              _searchCtl.text.trim().isEmpty
-                  ? 'Biblioteka je prazna — snimite svoj prvi chain.'
-                  : 'Nema rezultata za "${_searchCtl.text}".',
+              filterActive
+                  ? 'Nema rezultata za trenutni filter.'
+                  : 'Biblioteka je prazna — snimite svoj prvi chain.',
               style: const TextStyle(color: _kFgDim, fontSize: 12),
             ),
+            if (filterActive) ...[
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: _clearAllFilters,
+                style: TextButton.styleFrom(
+                  foregroundColor: _kAccent,
+                  visualDensity: VisualDensity.compact,
+                ),
+                icon: const Icon(Icons.close, size: 14),
+                label: const Text('Resetuj filter',
+                    style: TextStyle(fontSize: 11)),
+              ),
+            ],
           ],
         ),
       );
@@ -505,79 +699,118 @@ class _ChainPresetLibraryPanelState extends State<ChainPresetLibraryPanel> {
     final nameCtl = TextEditingController();
     final descCtl = TextEditingController();
     final tagsCtl = TextEditingController();
+    String? selectedCategory; // null = "no category"
+    final categories = ChainPresetService.instance.allCategories.isEmpty
+        ? kCanonicalChainCategories
+        : ChainPresetService.instance.allCategories;
     return showDialog<_SaveEntry>(
       context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: _kBg,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-          side: BorderSide(color: _kBorderStrong),
-        ),
-        child: SizedBox(
-          width: 420,
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Snimi chain kao preset',
-                  style: TextStyle(
-                      color: _kFg, fontSize: 14, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 14),
-                _DialogField(
-                  label: 'Ime *',
-                  controller: nameCtl,
-                  hint: 'My Vocal Master',
-                  autofocus: true,
-                ),
-                const SizedBox(height: 10),
-                _DialogField(
-                  label: 'Opis',
-                  controller: descCtl,
-                  hint: 'Bright, transparent',
-                  maxLines: 2,
-                ),
-                const SizedBox(height: 10),
-                _DialogField(
-                  label: 'Tagovi (zarezima razdvojeni)',
-                  controller: tagsCtl,
-                  hint: 'vocal, modern',
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.of(ctx).pop(),
-                      child: const Text('Otkaži',
-                          style: TextStyle(color: _kFgDim)),
-                    ),
-                    const SizedBox(width: 6),
-                    _PrimaryButton(
-                      label: 'Snimi',
-                      onPressed: () {
-                        final name = nameCtl.text.trim();
-                        if (name.isEmpty) return;
-                        final tags = tagsCtl.text
-                            .split(',')
-                            .map((t) => t.trim())
-                            .where((t) => t.isNotEmpty)
-                            .toList(growable: false);
-                        Navigator.of(ctx).pop(
-                          _SaveEntry(
-                            name: name,
-                            description: descCtl.text.trim(),
-                            tags: tags,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => Dialog(
+          backgroundColor: _kBg,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: BorderSide(color: _kBorderStrong),
+          ),
+          child: SizedBox(
+            width: 460,
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Snimi chain kao preset',
+                    style: TextStyle(
+                        color: _kFg, fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 14),
+                  _DialogField(
+                    label: 'Ime *',
+                    controller: nameCtl,
+                    hint: 'My Vocal Master',
+                    autofocus: true,
+                  ),
+                  const SizedBox(height: 10),
+                  _DialogField(
+                    label: 'Opis',
+                    controller: descCtl,
+                    hint: 'Bright, transparent',
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 10),
+                  // Category chip strip — single-select.
+                  const Text('Kategorija',
+                      style: TextStyle(color: _kFgDim, fontSize: 11)),
+                  const SizedBox(height: 4),
+                  SizedBox(
+                    height: 28,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _FilterChip(
+                            label: '— bez kategorije —',
+                            selected: selectedCategory == null,
+                            onTap: () =>
+                                setLocal(() => selectedCategory = null),
                           ),
-                        );
-                      },
+                          const SizedBox(width: 4),
+                          for (final c in categories) ...[
+                            _FilterChip(
+                              label: c,
+                              selected: selectedCategory == c,
+                              canonical: chainCategoryIsCanonical(c),
+                              onTap: () =>
+                                  setLocal(() => selectedCategory = c),
+                            ),
+                            const SizedBox(width: 4),
+                          ],
+                        ],
+                      ),
                     ),
-                  ],
-                ),
-              ],
+                  ),
+                  const SizedBox(height: 10),
+                  _DialogField(
+                    label: 'Tagovi (zarezima razdvojeni)',
+                    controller: tagsCtl,
+                    hint: 'modern, podcast, bright',
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        child: const Text('Otkaži',
+                            style: TextStyle(color: _kFgDim)),
+                      ),
+                      const SizedBox(width: 6),
+                      _PrimaryButton(
+                        label: 'Snimi',
+                        onPressed: () {
+                          final name = nameCtl.text.trim();
+                          if (name.isEmpty) return;
+                          final tags = tagsCtl.text
+                              .split(',')
+                              .map((t) => t.trim())
+                              .where((t) => t.isNotEmpty)
+                              .toList(growable: false);
+                          Navigator.of(ctx).pop(
+                            _SaveEntry(
+                              name: name,
+                              description: descCtl.text.trim(),
+                              category: selectedCategory,
+                              tags: tags,
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -755,6 +988,10 @@ class _PresetRow extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      if (meta.category != null) ...[
+                        const SizedBox(width: 8),
+                        _CategoryBadge(category: meta.category!),
+                      ],
                       const SizedBox(width: 8),
                       _Badge(
                         text: '${meta.slotCount} slot'
@@ -1043,10 +1280,132 @@ class _IconButton extends StatelessWidget {
 class _SaveEntry {
   final String name;
   final String description;
+  final String? category;
   final List<String> tags;
   const _SaveEntry({
     required this.name,
     required this.description,
+    required this.category,
     required this.tags,
   });
+}
+
+// ─── Wave 2 Front 6 — filter chip + supporting visuals ─────────────────────
+
+class _StripLabel extends StatelessWidget {
+  final String text;
+  const _StripLabel({required this.text});
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 76,
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: _kFgDim,
+          fontSize: 9.5,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.6,
+        ),
+      ),
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+
+  /// Null disables the chip (e.g. "Sve" while no filter is active).
+  final VoidCallback? onTap;
+
+  /// True for canonical categories — gets the accent dot indicator so
+  /// users can spot canonical vs user-defined at a glance.
+  final bool canonical;
+
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.canonical = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final disabled = onTap == null;
+    final bg = selected
+        ? _kAccent
+        : (disabled
+            ? _kBgRaised.withValues(alpha: 0.5)
+            : _kBgRaised);
+    final fg = selected ? Colors.white : _kFg;
+    final border = selected ? _kAccent : _kBorder;
+    return Material(
+      color: bg,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: border),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (canonical && !selected) ...[
+                Container(
+                  width: 5,
+                  height: 5,
+                  decoration: const BoxDecoration(
+                    color: _kAccentSoft,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 5),
+              ],
+              Text(
+                label,
+                style: TextStyle(
+                  color: disabled ? _kFgDim : fg,
+                  fontSize: 11,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoryBadge extends StatelessWidget {
+  final String category;
+  const _CategoryBadge({required this.category});
+  @override
+  Widget build(BuildContext context) {
+    final canonical = chainCategoryIsCanonical(category);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: canonical
+            ? _kAccent.withValues(alpha: 0.65)
+            : _kAccentSoft.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: canonical ? _kAccent : _kBorder),
+      ),
+      child: Text(
+        category,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 9.5,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.4,
+        ),
+      ),
+    );
+  }
 }

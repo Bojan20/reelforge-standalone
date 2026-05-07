@@ -209,6 +209,190 @@ void main() {
     });
   });
 
+  // ─── Wave 2 Front 6 — categories + structured filter ─────────────────────
+
+  group('ChainPreset — category', () {
+    test('normalises category on fromJson (lowercase + trim)', () {
+      final j = {
+        'name': 'P',
+        'description': '',
+        'category': '  VOCAL  ',
+        'tags': <String>[],
+        'snapshot': {'track_id': 1},
+      };
+      final p = ChainPreset.fromJson(j);
+      expect(p.category, 'vocal');
+    });
+
+    test('legacy preset without category field parses as null', () {
+      final j = {
+        'name': 'Legacy',
+        'description': '',
+        'tags': <String>[],
+        'snapshot': {'track_id': 1},
+      };
+      final p = ChainPreset.fromJson(j);
+      expect(p.category, isNull);
+    });
+
+    test('toSaveRequest omits null category, includes set category', () {
+      const withCat = ChainPreset(
+        name: 'Y',
+        description: '',
+        category: 'vocal',
+        tags: [],
+        snapshot: FullChainSnapshot(
+            trackId: 1, slots: [], label: '', timestampMs: 0),
+        formatVersion: 1,
+        createdMs: 0,
+        updatedMs: 0,
+      );
+      const noCat = ChainPreset(
+        name: 'Z',
+        description: '',
+        tags: [],
+        snapshot: FullChainSnapshot(
+            trackId: 1, slots: [], label: '', timestampMs: 0),
+        formatVersion: 1,
+        createdMs: 0,
+        updatedMs: 0,
+      );
+      expect(withCat.toSaveRequest()['category'], 'vocal');
+      expect(noCat.toSaveRequest().containsKey('category'), false);
+    });
+
+    test('empty/whitespace category becomes null on fromJson', () {
+      final j = {
+        'name': 'P',
+        'description': '',
+        'category': '   ',
+        'tags': <String>[],
+        'snapshot': {'track_id': 1},
+      };
+      final p = ChainPreset.fromJson(j);
+      expect(p.category, isNull);
+    });
+  });
+
+  group('ChainPresetMeta — category', () {
+    test('parses category in metadata projection', () {
+      final j = {
+        'name': 'Listed',
+        'description': '',
+        'category': 'DRUMS',
+        'tags': <String>[],
+        'filename': 'listed.json',
+      };
+      final m = ChainPresetMeta.fromJson(j);
+      expect(m.category, 'drums');
+    });
+
+    test('null category when field absent', () {
+      final j = {
+        'name': 'Listed',
+        'filename': 'listed.json',
+      };
+      final m = ChainPresetMeta.fromJson(j);
+      expect(m.category, isNull);
+    });
+  });
+
+  group('Canonical category helpers', () {
+    test('canonical list mirrors Rust order exactly', () {
+      // Rust order: vocal, drums, bass, guitar, synth, instrument, bus,
+      // fx, mix, mastering. Drift here would shift chip strip layout.
+      expect(kCanonicalChainCategories, [
+        'vocal',
+        'drums',
+        'bass',
+        'guitar',
+        'synth',
+        'instrument',
+        'bus',
+        'fx',
+        'mix',
+        'mastering',
+      ]);
+    });
+
+    test('chainCategoryIsCanonical is case-insensitive', () {
+      expect(chainCategoryIsCanonical('VOCAL'), true);
+      expect(chainCategoryIsCanonical('  Vocal  '), true);
+      expect(chainCategoryIsCanonical('podcast'), false);
+      expect(chainCategoryIsCanonical(''), false);
+    });
+
+    test('normaliseChainCategory trims + lowercases + nulls empty', () {
+      expect(normaliseChainCategory('  VOCAL  '), 'vocal');
+      expect(normaliseChainCategory(''), isNull);
+      expect(normaliseChainCategory('   '), isNull);
+      expect(normaliseChainCategory('Bus'), 'bus');
+    });
+  });
+
+  group('ChainPresetFilter', () {
+    test('default is empty', () {
+      const f = ChainPresetFilter();
+      expect(f.isEmpty, true);
+      expect(f.toJson(), <String, dynamic>{});
+    });
+
+    test('isEmpty becomes false when any axis populated', () {
+      expect(const ChainPresetFilter(categories: ['vocal']).isEmpty, false);
+      expect(const ChainPresetFilter(tagsAny: ['x']).isEmpty, false);
+      expect(const ChainPresetFilter(tagsAll: ['x']).isEmpty, false);
+      expect(const ChainPresetFilter(query: 'q').isEmpty, false);
+      expect(const ChainPresetFilter(uncategorisedOnly: true).isEmpty, false);
+    });
+
+    test('whitespace-only query is treated as empty', () {
+      const f = ChainPresetFilter(query: '   ');
+      expect(f.isEmpty, true);
+    });
+
+    test('toJson omits empty axes (Rust serde defaults match)', () {
+      const f = ChainPresetFilter(
+        categories: ['vocal'],
+        tagsAny: ['modern'],
+      );
+      final j = f.toJson();
+      expect(j['categories'], ['vocal']);
+      expect(j['tags_any'], ['modern']);
+      expect(j.containsKey('tags_all'), false);
+      expect(j.containsKey('query'), false);
+      expect(j.containsKey('uncategorised_only'), false);
+    });
+
+    test('toJson includes uncategorised_only only when true', () {
+      const off = ChainPresetFilter(uncategorisedOnly: false);
+      const on = ChainPresetFilter(uncategorisedOnly: true);
+      expect(off.toJson().containsKey('uncategorised_only'), false);
+      expect(on.toJson()['uncategorised_only'], true);
+    });
+
+    test('copyWith overrides selected fields only', () {
+      const base = ChainPresetFilter(
+        categories: ['vocal'],
+        query: 'pod',
+      );
+      final updated = base.copyWith(query: 'rock');
+      expect(updated.categories, ['vocal']);
+      expect(updated.query, 'rock');
+      // tagsAny / tagsAll preserved (empty)
+      expect(updated.tagsAny, isEmpty);
+    });
+
+    test('toJson serialises tags_all and query', () {
+      const f = ChainPresetFilter(
+        tagsAll: ['mastering', 'modern'],
+        query: 'pod',
+      );
+      final j = f.toJson();
+      expect(j['tags_all'], ['mastering', 'modern']);
+      expect(j['query'], 'pod');
+    });
+  });
+
   group('ChainPresetOpResult', () {
     test('parses success envelope', () {
       final r = ChainPresetOpResult.fromJson({

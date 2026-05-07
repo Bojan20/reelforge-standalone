@@ -1,4 +1,4 @@
-/// Chain preset domain models — Wave 2 Front 5 Flutter side.
+/// Chain preset domain models — Wave 2 Front 5 + Front 6 Flutter side.
 ///
 /// Mirrors the Rust types in `crates/rf-ml/src/assistant/chain_preset.rs`
 /// and `crates/rf-ml/src/assistant/chain_history.rs`. JSON shapes are
@@ -6,7 +6,47 @@
 ///
 /// Keep these models 1:1 with the Rust definitions — schema drift would
 /// silently corrupt round-tripped presets.
+///
+/// Wave 2 Front 6 adds:
+///   * `ChainPreset.category` / `ChainPresetMeta.category`
+///   * [kCanonicalChainCategories] (mirrors `CANONICAL_CATEGORIES` in Rust)
+///   * [ChainPresetFilter] (mirrors `PresetFilterSpec` in Rust)
 library;
+
+// ─── Canonical categories (mirror CANONICAL_CATEGORIES in Rust) ─────────────
+
+/// The canonical mixing categories surfaced as the chip strip in the
+/// library panel. Order is meaningful — UI renders left-to-right.
+///
+/// Must stay in lock-step with `CANONICAL_CATEGORIES` in
+/// `crates/rf-ml/src/assistant/chain_preset.rs`. A drift here just
+/// re-orders chips; a drift in spelling silently shifts a category to
+/// the "user-defined" tail. Tests guard this.
+const List<String> kCanonicalChainCategories = <String>[
+  'vocal',
+  'drums',
+  'bass',
+  'guitar',
+  'synth',
+  'instrument',
+  'bus',
+  'fx',
+  'mix',
+  'mastering',
+];
+
+/// Normalise a free-form category to the on-disk shape (trim + lowercase).
+/// Returns `null` for empty / whitespace-only input.
+String? normaliseChainCategory(String raw) {
+  final n = raw.trim().toLowerCase();
+  return n.isEmpty ? null : n;
+}
+
+/// True if [cat] (after trim/lowercase) matches a canonical category.
+bool chainCategoryIsCanonical(String cat) {
+  final n = normaliseChainCategory(cat);
+  return n != null && kCanonicalChainCategories.contains(n);
+}
 
 // ─── Snapshot leaves (mirror chain_history.rs) ──────────────────────────────
 
@@ -131,6 +171,11 @@ class ChainPreset {
   /// Optional human description (a few sentences max — UI hint, not a doc).
   final String description;
 
+  /// Single canonical mixing category (`vocal`, `drums`, `bus`, …).
+  /// Always stored normalised (lowercase, trimmed). `null` for legacy
+  /// or un-classified presets.
+  final String? category;
+
   /// User-defined tags ("vocal", "vintage", "podcast"…).
   final List<String> tags;
 
@@ -149,6 +194,7 @@ class ChainPreset {
   const ChainPreset({
     required this.name,
     required this.description,
+    this.category,
     required this.tags,
     required this.snapshot,
     required this.formatVersion,
@@ -159,6 +205,7 @@ class ChainPreset {
   factory ChainPreset.fromJson(Map<String, dynamic> j) => ChainPreset(
         name: (j['name'] as String?) ?? '',
         description: (j['description'] as String?) ?? '',
+        category: normaliseChainCategory((j['category'] as String?) ?? ''),
         tags: ((j['tags'] as List<dynamic>?) ?? const [])
             .map((t) => t.toString())
             .toList(growable: false),
@@ -172,10 +219,11 @@ class ChainPreset {
   /// Save-request payload shape consumed by `chain_preset_save_json`.
   /// Note: the FFI strips/replaces format_version, created_ms, updated_ms
   /// on save (`ChainPreset::new` resets them) — only name/description/
-  /// tags/snapshot are honoured.
+  /// category/tags/snapshot are honoured.
   Map<String, dynamic> toSaveRequest() => {
         'name': name,
         'description': description,
+        if (category != null && category!.isNotEmpty) 'category': category,
         'tags': tags,
         'snapshot': snapshot.toJson(),
       };
@@ -188,6 +236,11 @@ class ChainPreset {
 class ChainPresetMeta {
   final String name;
   final String description;
+
+  /// Single canonical category (lowercase, trimmed) — mirrors
+  /// `ChainPreset.category`. `null` when unclassified.
+  final String? category;
+
   final List<String> tags;
   final int createdMs;
   final int updatedMs;
@@ -201,6 +254,7 @@ class ChainPresetMeta {
   const ChainPresetMeta({
     required this.name,
     required this.description,
+    this.category,
     required this.tags,
     required this.createdMs,
     required this.updatedMs,
@@ -211,6 +265,7 @@ class ChainPresetMeta {
   factory ChainPresetMeta.fromJson(Map<String, dynamic> j) => ChainPresetMeta(
         name: (j['name'] as String?) ?? '',
         description: (j['description'] as String?) ?? '',
+        category: normaliseChainCategory((j['category'] as String?) ?? ''),
         tags: ((j['tags'] as List<dynamic>?) ?? const [])
             .map((t) => t.toString())
             .toList(growable: false),
@@ -218,6 +273,71 @@ class ChainPresetMeta {
         updatedMs: (j['updated_ms'] as num?)?.toInt() ?? 0,
         slotCount: (j['slot_count'] as num?)?.toInt() ?? 0,
         filename: (j['filename'] as String?) ?? '',
+      );
+}
+
+// ─── Filter spec (mirrors PresetFilterSpec in Rust) ─────────────────────────
+
+/// Structured filter spec — sent as JSON to `chain_preset_filter_json`.
+///
+/// All axes are optional; the empty filter matches every preset. Axes
+/// AND-combine. Within `tagsAny` it's OR; within `tagsAll` it's AND.
+class ChainPresetFilter {
+  /// At most one of these categories must match (case-insensitive).
+  /// Empty `null` ⇒ no category restriction.
+  final List<String> categories;
+
+  /// At least one of these tags must appear on the preset.
+  final List<String> tagsAny;
+
+  /// All of these tags must appear.
+  final List<String> tagsAll;
+
+  /// Substring query across name/description/tags/category.
+  final String query;
+
+  /// If true, only un-classified presets are returned. Mutually
+  /// exclusive with [categories]; if both provided, [categories] wins.
+  final bool uncategorisedOnly;
+
+  const ChainPresetFilter({
+    this.categories = const [],
+    this.tagsAny = const [],
+    this.tagsAll = const [],
+    this.query = '',
+    this.uncategorisedOnly = false,
+  });
+
+  /// True when no axis is populated → caller can fall back to the cheap
+  /// cached metadata list instead of an FFI roundtrip.
+  bool get isEmpty =>
+      categories.isEmpty &&
+      tagsAny.isEmpty &&
+      tagsAll.isEmpty &&
+      query.trim().isEmpty &&
+      !uncategorisedOnly;
+
+  Map<String, dynamic> toJson() => {
+        if (categories.isNotEmpty) 'categories': categories,
+        if (tagsAny.isNotEmpty) 'tags_any': tagsAny,
+        if (tagsAll.isNotEmpty) 'tags_all': tagsAll,
+        if (query.trim().isNotEmpty) 'query': query,
+        if (uncategorisedOnly) 'uncategorised_only': true,
+      };
+
+  ChainPresetFilter copyWith({
+    List<String>? categories,
+    List<String>? tagsAny,
+    List<String>? tagsAll,
+    String? query,
+    bool? uncategorisedOnly,
+  }) =>
+      ChainPresetFilter(
+        categories: categories ?? this.categories,
+        tagsAny: tagsAny ?? this.tagsAny,
+        tagsAll: tagsAll ?? this.tagsAll,
+        query: query ?? this.query,
+        uncategorisedOnly: uncategorisedOnly ?? this.uncategorisedOnly,
       );
 }
 

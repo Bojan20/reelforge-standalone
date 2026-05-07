@@ -11,7 +11,10 @@
 //! - `chain_preset_save_json(req_json)`          — save a preset
 //! - `chain_preset_load_json(name)`              — load by user-visible name
 //! - `chain_preset_list_json()`                  — metadata list (sorted by updated_ms desc)
-//! - `chain_preset_search_json(query)`           — substring search across name/description/tags
+//! - `chain_preset_search_json(query)`           — substring search across name/description/tags/category
+//! - `chain_preset_filter_json(spec_json)`       — Wave 2 Front 6: structured filter (category × tags × query)
+//! - `chain_preset_list_tags()`                  — Wave 2 Front 6: aggregate of every tag in the library
+//! - `chain_preset_list_categories()`            — Wave 2 Front 6: canonical + user-defined categories
 //! - `chain_preset_delete(name)`                 — delete by name; returns 1 if removed, 0 if missing, -1 on error
 //! - `chain_preset_export_json(req_json)`        — export to an absolute path
 //! - `chain_preset_import_path(path)`            — import a preset file into the store
@@ -23,8 +26,21 @@
 //! {
 //!   "name": "My Vocal Master",
 //!   "description": "Bright, transparent",
-//!   "tags": ["vocal", "modern"],
+//!   "category": "vocal",
+//!   "tags": ["modern", "podcast"],
 //!   "snapshot": { ... FullChainSnapshot ... }
+//! }
+//! ```
+//!
+//! # Filter spec shape
+//!
+//! ```json
+//! {
+//!   "categories": ["vocal", "bus"],
+//!   "tags_any": ["modern"],
+//!   "tags_all": ["mastering"],
+//!   "query": "podcast",
+//!   "uncategorised_only": false
 //! }
 //! ```
 //!
@@ -43,7 +59,7 @@ use serde::{Deserialize, Serialize};
 
 use rf_ml::assistant::chain_history::FullChainSnapshot;
 use rf_ml::assistant::chain_preset::{
-    self, ChainPreset, ChainPresetMeta, PresetError,
+    self, ChainPreset, ChainPresetMeta, PresetError, PresetFilterSpec,
 };
 
 // ─── Wire types ──────────────────────────────────────────────────────────────
@@ -53,6 +69,11 @@ struct SaveRequest {
     name: String,
     #[serde(default)]
     description: String,
+    /// Optional canonical category — `vocal`, `drums`, `bus`, … See
+    /// `chain_preset::CANONICAL_CATEGORIES`. Free-form strings are
+    /// allowed; the core normalises (lowercase + trim) on save.
+    #[serde(default)]
+    category: Option<String>,
     #[serde(default)]
     tags: Vec<String>,
     snapshot: FullChainSnapshot,
@@ -78,6 +99,11 @@ struct OkResponse {
 #[derive(Debug, Serialize)]
 struct ListResponse {
     presets: Vec<ChainPresetMeta>,
+}
+
+#[derive(Debug, Serialize)]
+struct StringListResponse {
+    items: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -191,7 +217,13 @@ pub extern "C" fn chain_preset_save_json(req_json: *const c_char) -> *mut c_char
         Ok(d) => d,
         Err(e) => return error_response(format!("resolve dir: {}", e)),
     };
-    let preset = ChainPreset::new(req.name.clone(), req.description, req.tags, req.snapshot);
+    let preset = ChainPreset::with_category(
+        req.name.clone(),
+        req.description,
+        req.category,
+        req.tags,
+        req.snapshot,
+    );
     match chain_preset::save_preset(&dir, &preset) {
         Ok(path) => {
             let resp = OkResponse {
@@ -265,6 +297,73 @@ pub extern "C" fn chain_preset_search_json(query_cstr: *const c_char) -> *mut c_
             json_to_c(serde_json::to_string(&resp).unwrap_or_default())
         }
         Err(e) => error_response(format!("search: {}", e)),
+    }
+}
+
+/// Apply a structured filter (categories / tags_any / tags_all / query /
+/// uncategorised_only). See `PresetFilterSpec` in `rf-ml` for the full
+/// contract. Empty / missing axes are no-ops.
+///
+/// # Safety
+/// `spec_json` must be NUL-terminated UTF-8.
+#[unsafe(no_mangle)]
+pub extern "C" fn chain_preset_filter_json(spec_json: *const c_char) -> *mut c_char {
+    let s = match cstr_to_str(spec_json, "spec") {
+        Ok(s) => s,
+        Err(e) => return e,
+    };
+    let spec: PresetFilterSpec = match serde_json::from_str(s) {
+        Ok(r) => r,
+        Err(e) => return error_response(format!("parse error: {}", e)),
+    };
+    let dir = match current_dir() {
+        Ok(d) => d,
+        Err(e) => return error_response(format!("resolve dir: {}", e)),
+    };
+    match chain_preset::filter_presets(&dir, &spec) {
+        Ok(presets) => {
+            let resp = ListResponse { presets };
+            json_to_c(serde_json::to_string(&resp).unwrap_or_default())
+        }
+        Err(e) => error_response(format!("filter: {}", e)),
+    }
+}
+
+/// List every distinct tag across the library, sorted alphabetically.
+/// Used by the multi-select chip strip — call once on panel mount and
+/// again after every save/delete.
+#[unsafe(no_mangle)]
+pub extern "C" fn chain_preset_list_tags() -> *mut c_char {
+    let dir = match current_dir() {
+        Ok(d) => d,
+        Err(e) => return error_response(format!("resolve dir: {}", e)),
+    };
+    match chain_preset::list_tags(&dir) {
+        Ok(items) => {
+            let resp = StringListResponse { items };
+            json_to_c(serde_json::to_string(&resp).unwrap_or_default())
+        }
+        Err(e) => error_response(format!("list_tags: {}", e)),
+    }
+}
+
+/// List every distinct category across the library. Canonical categories
+/// (`vocal`, `drums`, `bus`, …) come first in their canonical order;
+/// user-defined categories follow alphabetically. Always returns the
+/// canonical set even when the library is empty so the UI chip strip
+/// has a stable shape.
+#[unsafe(no_mangle)]
+pub extern "C" fn chain_preset_list_categories() -> *mut c_char {
+    let dir = match current_dir() {
+        Ok(d) => d,
+        Err(e) => return error_response(format!("resolve dir: {}", e)),
+    };
+    match chain_preset::list_categories(&dir) {
+        Ok(items) => {
+            let resp = StringListResponse { items };
+            json_to_c(serde_json::to_string(&resp).unwrap_or_default())
+        }
+        Err(e) => error_response(format!("list_categories: {}", e)),
     }
 }
 
@@ -677,5 +776,130 @@ mod tests {
         assert!(out.contains("\"ok\":true") || out.contains("\"error\""));
         // Restore an isolated dir for any subsequent tests
         isolate_dir("clear_restore");
+    }
+
+    // ─── Wave 2 Front 6 — categories + filter FFI ──────────────────────────
+
+    fn save_with_category(name: &str, category: Option<&str>, tags: &[&str]) {
+        let mut req = serde_json::json!({
+            "name": name,
+            "description": "",
+            "tags": tags,
+            "snapshot": sample_snapshot(1, name)
+        });
+        if let Some(c) = category {
+            req["category"] = serde_json::json!(c);
+        }
+        let c = CString::new(req.to_string()).unwrap();
+        let out = cstr_to_string(chain_preset_save_json(c.as_ptr()));
+        assert!(out.contains("\"ok\":true"), "save failed: {}", out);
+    }
+
+    #[test]
+    fn save_with_category_round_trips() {
+        let _g = DIR_TEST_LOCK.lock().unwrap();
+        isolate_dir("save_cat");
+        save_with_category("VocalA", Some("VOCAL"), &["modern"]);
+        let n = CString::new("VocalA").unwrap();
+        let out = cstr_to_string(chain_preset_load_json(n.as_ptr()));
+        // Lowercase canonicalisation done in core.
+        assert!(out.contains("\"category\":\"vocal\""), "got {}", out);
+    }
+
+    #[test]
+    fn list_tags_aggregator_returns_unique_sorted() {
+        let _g = DIR_TEST_LOCK.lock().unwrap();
+        isolate_dir("ffi_list_tags");
+        save_with_category("A", None, &["Modern", "vintage"]);
+        save_with_category("B", None, &["VINTAGE", "warm"]);
+        let out = cstr_to_string(chain_preset_list_tags());
+        // Expect modern, vintage, warm (lowercased + sorted + deduped).
+        assert!(out.contains("\"items\""));
+        assert!(out.contains("modern"));
+        assert!(out.contains("vintage"));
+        assert!(out.contains("warm"));
+        // Single occurrence of "vintage".
+        let count = out.matches("\"vintage\"").count();
+        assert_eq!(count, 1, "got {}", out);
+    }
+
+    #[test]
+    fn list_categories_returns_canonicals_even_when_empty() {
+        let _g = DIR_TEST_LOCK.lock().unwrap();
+        isolate_dir("ffi_list_cats_empty");
+        let out = cstr_to_string(chain_preset_list_categories());
+        // Canonical set must always be present.
+        assert!(out.contains("vocal"));
+        assert!(out.contains("drums"));
+        assert!(out.contains("mastering"));
+    }
+
+    #[test]
+    fn list_categories_includes_user_defined() {
+        let _g = DIR_TEST_LOCK.lock().unwrap();
+        isolate_dir("ffi_list_cats_user");
+        save_with_category("CustomP", Some("podcast"), &[]);
+        let out = cstr_to_string(chain_preset_list_categories());
+        assert!(out.contains("podcast"), "got {}", out);
+    }
+
+    #[test]
+    fn filter_by_category_returns_only_matches() {
+        let _g = DIR_TEST_LOCK.lock().unwrap();
+        isolate_dir("ffi_filter_cat");
+        save_with_category("Vox", Some("vocal"), &[]);
+        save_with_category("Kik", Some("drums"), &[]);
+        let spec = serde_json::json!({"categories": ["vocal"]});
+        let c = CString::new(spec.to_string()).unwrap();
+        let out = cstr_to_string(chain_preset_filter_json(c.as_ptr()));
+        assert!(out.contains("\"name\":\"Vox\""), "got {}", out);
+        assert!(!out.contains("\"name\":\"Kik\""), "got {}", out);
+    }
+
+    #[test]
+    fn filter_by_tags_any_combines_or() {
+        let _g = DIR_TEST_LOCK.lock().unwrap();
+        isolate_dir("ffi_filter_any");
+        save_with_category("A", None, &["modern"]);
+        save_with_category("B", None, &["vintage"]);
+        save_with_category("C", None, &["dark"]);
+        let spec = serde_json::json!({"tags_any": ["modern", "vintage"]});
+        let c = CString::new(spec.to_string()).unwrap();
+        let out = cstr_to_string(chain_preset_filter_json(c.as_ptr()));
+        assert!(out.contains("\"name\":\"A\""), "got {}", out);
+        assert!(out.contains("\"name\":\"B\""), "got {}", out);
+        assert!(!out.contains("\"name\":\"C\""), "got {}", out);
+    }
+
+    #[test]
+    fn filter_invalid_json_returns_error() {
+        let _g = DIR_TEST_LOCK.lock().unwrap();
+        isolate_dir("ffi_filter_bad");
+        let c = CString::new("not json").unwrap();
+        let out = cstr_to_string(chain_preset_filter_json(c.as_ptr()));
+        assert!(out.contains("\"error\""));
+    }
+
+    #[test]
+    fn filter_null_returns_error_safely() {
+        let _g = DIR_TEST_LOCK.lock().unwrap();
+        let out = cstr_to_string(chain_preset_filter_json(std::ptr::null()));
+        assert!(out.contains("\"error\""));
+    }
+
+    #[test]
+    fn legacy_save_request_without_category_still_works() {
+        let _g = DIR_TEST_LOCK.lock().unwrap();
+        isolate_dir("ffi_legacy_save");
+        // Old request shape (no category field) must still parse.
+        let req = serde_json::json!({
+            "name": "Legacy",
+            "description": "",
+            "tags": ["x"],
+            "snapshot": sample_snapshot(1, "x")
+        });
+        let c = CString::new(req.to_string()).unwrap();
+        let out = cstr_to_string(chain_preset_save_json(c.as_ptr()));
+        assert!(out.contains("\"ok\":true"), "got {}", out);
     }
 }

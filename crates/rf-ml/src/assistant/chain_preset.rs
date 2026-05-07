@@ -32,6 +32,7 @@
 //! the same name are last-writer-wins; the directory is not
 //! intentionally hot.
 
+use std::collections::BTreeSet;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -43,6 +44,39 @@ use super::chain_history::FullChainSnapshot;
 
 const FORMAT_VERSION: u32 = 1;
 
+/// Canonical mixing categories — UI uses these as a chip strip.
+///
+/// The category field is open: users can save a preset with any string,
+/// but the chip strip shows these first so muscle memory works across
+/// machines / migrations / shared libraries. `category_is_canonical`
+/// surfaces this for UI styling.
+pub const CANONICAL_CATEGORIES: &[&str] = &[
+    "vocal",
+    "drums",
+    "bass",
+    "guitar",
+    "synth",
+    "instrument",
+    "bus",
+    "fx",
+    "mix",
+    "mastering",
+];
+
+/// Returns true if `cat` matches a canonical mixing category
+/// (case-insensitive, trimmed).
+pub fn category_is_canonical(cat: &str) -> bool {
+    let needle = cat.trim().to_lowercase();
+    CANONICAL_CATEGORIES.iter().any(|c| **c == needle)
+}
+
+/// Normalise a category string for storage / matching: trim + lowercase.
+/// Empty input returns `None` so callers can distinguish "no category".
+pub fn normalise_category(raw: &str) -> Option<String> {
+    let n = raw.trim().to_lowercase();
+    if n.is_empty() { None } else { Some(n) }
+}
+
 // ─── Public types ────────────────────────────────────────────────────────────
 
 /// One saved preset.
@@ -53,6 +87,14 @@ pub struct ChainPreset {
     /// Optional human description (a few sentences max — UI hint, not a doc).
     #[serde(default)]
     pub description: String,
+    /// Single canonical mixing category (`vocal`, `drums`, `bass`, `bus`,
+    /// `mix`, `mastering`, …). Stored as normalised lowercase. None when
+    /// the user hasn't classified the preset (legacy presets land here).
+    ///
+    /// Distinct from `tags` (free-form, multi-valued). The category drives
+    /// the top-level chip strip; tags drive the multi-select filter.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub category: Option<String>,
     /// User-defined tags ("vocal", "vintage", "podcast"…).
     #[serde(default)]
     pub tags: Vec<String>,
@@ -80,10 +122,24 @@ impl ChainPreset {
         tags: Vec<String>,
         snapshot: FullChainSnapshot,
     ) -> Self {
+        Self::with_category(name, description, None, tags, snapshot)
+    }
+
+    /// Construct with an explicit category. Empty/whitespace `category`
+    /// is normalised to `None`. Lowercased on the way in.
+    pub fn with_category(
+        name: impl Into<String>,
+        description: impl Into<String>,
+        category: Option<String>,
+        tags: Vec<String>,
+        snapshot: FullChainSnapshot,
+    ) -> Self {
         let now = now_ms();
+        let normalised_category = category.as_deref().and_then(normalise_category);
         Self {
             name: name.into(),
             description: description.into(),
+            category: normalised_category,
             tags,
             snapshot,
             format_version: FORMAT_VERSION,
@@ -99,12 +155,78 @@ impl ChainPreset {
 pub struct ChainPresetMeta {
     pub name: String,
     pub description: String,
+    /// Mirrors `ChainPreset.category` for cheap chip-bar filtering.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub category: Option<String>,
     pub tags: Vec<String>,
     pub created_ms: u64,
     pub updated_ms: u64,
     pub slot_count: usize,
     /// On-disk filename (slug + ".json"), useful for explicit deletes.
     pub filename: String,
+}
+
+/// Structured filter spec — strictly more expressive than a raw
+/// substring search. Each axis is independently optional; the empty
+/// spec matches every preset.
+///
+/// Combination semantics: `AND` across axes (a preset must satisfy
+/// every populated axis). Within `tags_any` it is `OR`; within
+/// `tags_all` it is `AND`.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct PresetFilterSpec {
+    /// If set, only presets whose `category` equals (case-insensitive)
+    /// one of these are returned. `None` ⇒ no category restriction.
+    /// Empty `Vec` is treated as no restriction (forgiving for FFI
+    /// callers that always pass an array).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub categories: Option<Vec<String>>,
+
+    /// At least one of these tags must appear on the preset (case-
+    /// insensitive). `None` / empty ⇒ skip this axis.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tags_any: Option<Vec<String>>,
+
+    /// All of these tags must appear on the preset (case-insensitive).
+    /// `None` / empty ⇒ skip this axis.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tags_all: Option<Vec<String>>,
+
+    /// Substring query across name + description + tags (case-
+    /// insensitive). Empty / whitespace ⇒ skip this axis.
+    #[serde(default)]
+    pub query: String,
+
+    /// If true, only return presets *without* a category.
+    /// Mutually exclusive with `categories` — if both are supplied,
+    /// `categories` wins. Useful for "show un-classified" toggle.
+    #[serde(default)]
+    pub uncategorised_only: bool,
+}
+
+impl PresetFilterSpec {
+    fn is_empty(&self) -> bool {
+        let cats_empty = self
+            .categories
+            .as_ref()
+            .map(|v| v.is_empty())
+            .unwrap_or(true);
+        let any_empty = self
+            .tags_any
+            .as_ref()
+            .map(|v| v.is_empty())
+            .unwrap_or(true);
+        let all_empty = self
+            .tags_all
+            .as_ref()
+            .map(|v| v.is_empty())
+            .unwrap_or(true);
+        cats_empty
+            && any_empty
+            && all_empty
+            && self.query.trim().is_empty()
+            && !self.uncategorised_only
+    }
 }
 
 // ─── Errors ──────────────────────────────────────────────────────────────────
@@ -323,6 +445,7 @@ pub fn list_presets(dir: &Path) -> PresetResult<Vec<ChainPresetMeta>> {
                 metas.push(ChainPresetMeta {
                     name: preset.name,
                     description: preset.description,
+                    category: preset.category,
                     tags: preset.tags,
                     created_ms: preset.created_ms,
                     updated_ms: preset.updated_ms,
@@ -353,12 +476,174 @@ pub fn search_presets(dir: &Path, query: &str) -> PresetResult<Vec<ChainPresetMe
     }
     Ok(all
         .into_iter()
+        .filter(|m| meta_matches_query(m, &q))
+        .collect())
+}
+
+fn meta_matches_query(m: &ChainPresetMeta, q_lower: &str) -> bool {
+    if q_lower.is_empty() {
+        return true;
+    }
+    if m.name.to_lowercase().contains(q_lower)
+        || m.description.to_lowercase().contains(q_lower)
+    {
+        return true;
+    }
+    if m.tags.iter().any(|t| t.to_lowercase().contains(q_lower)) {
+        return true;
+    }
+    if let Some(cat) = m.category.as_deref()
+        && cat.to_lowercase().contains(q_lower)
+    {
+        return true;
+    }
+    false
+}
+
+/// Apply a structured filter to the library. Empty `spec` returns the
+/// full list (sorted by `updated_ms` descending — same as `list_presets`).
+///
+/// Combination semantics:
+///   - axes are AND-combined (preset must satisfy every populated axis)
+///   - within `tags_any` it's OR
+///   - within `tags_all` it's AND
+///   - `categories` is OR (preset.category in {…})
+///   - `uncategorised_only` is mutually exclusive with `categories`
+///     (categories wins if both supplied)
+pub fn filter_presets(
+    dir: &Path,
+    spec: &PresetFilterSpec,
+) -> PresetResult<Vec<ChainPresetMeta>> {
+    let all = list_presets(dir)?;
+    if spec.is_empty() {
+        return Ok(all);
+    }
+
+    let categories_lc: Option<Vec<String>> = spec.categories.as_ref().and_then(|v| {
+        let trimmed: Vec<String> = v
+            .iter()
+            .map(|c| c.trim().to_lowercase())
+            .filter(|c| !c.is_empty())
+            .collect();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed)
+        }
+    });
+
+    let tags_any_lc: Option<Vec<String>> = spec.tags_any.as_ref().and_then(|v| {
+        let trimmed: Vec<String> = v
+            .iter()
+            .map(|t| t.trim().to_lowercase())
+            .filter(|t| !t.is_empty())
+            .collect();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed)
+        }
+    });
+
+    let tags_all_lc: Option<Vec<String>> = spec.tags_all.as_ref().and_then(|v| {
+        let trimmed: Vec<String> = v
+            .iter()
+            .map(|t| t.trim().to_lowercase())
+            .filter(|t| !t.is_empty())
+            .collect();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed)
+        }
+    });
+
+    let q_lower = spec.query.trim().to_lowercase();
+
+    Ok(all
+        .into_iter()
         .filter(|m| {
-            m.name.to_lowercase().contains(&q)
-                || m.description.to_lowercase().contains(&q)
-                || m.tags.iter().any(|t| t.to_lowercase().contains(&q))
+            // Category axis (categories wins over uncategorised_only when both set).
+            if let Some(ref wants) = categories_lc {
+                let cat_lc = m.category.as_deref().map(|c| c.to_lowercase());
+                if !cat_lc.map(|c| wants.iter().any(|w| *w == c)).unwrap_or(false) {
+                    return false;
+                }
+            } else if spec.uncategorised_only && m.category.is_some() {
+                return false;
+            }
+
+            // tags_any: at least one match
+            if let Some(ref wants) = tags_any_lc {
+                let preset_tags_lc: Vec<String> =
+                    m.tags.iter().map(|t| t.to_lowercase()).collect();
+                if !wants.iter().any(|w| preset_tags_lc.iter().any(|t| t == w)) {
+                    return false;
+                }
+            }
+
+            // tags_all: every required tag must be present
+            if let Some(ref wants) = tags_all_lc {
+                let preset_tags_lc: Vec<String> =
+                    m.tags.iter().map(|t| t.to_lowercase()).collect();
+                if !wants.iter().all(|w| preset_tags_lc.iter().any(|t| t == w)) {
+                    return false;
+                }
+            }
+
+            // Substring query (across name/desc/tags/category).
+            if !q_lower.is_empty() && !meta_matches_query(m, &q_lower) {
+                return false;
+            }
+
+            true
         })
         .collect())
+}
+
+/// Aggregate every distinct tag across the library, sorted alphabetically
+/// (case-insensitive). Useful for the multi-select chip strip in the UI.
+pub fn list_tags(dir: &Path) -> PresetResult<Vec<String>> {
+    let all = list_presets(dir)?;
+    let mut set: BTreeSet<String> = BTreeSet::new();
+    for m in all {
+        for t in m.tags {
+            let trimmed = t.trim();
+            if !trimmed.is_empty() {
+                // Preserve original casing on first sight; later duplicates ignored.
+                // BTreeSet de-dupes on the lowercase key by storing lowercase only.
+                set.insert(trimmed.to_lowercase());
+            }
+        }
+    }
+    Ok(set.into_iter().collect())
+}
+
+/// Aggregate every distinct category across the library plus every
+/// canonical category (so the chip strip is stable even before the user
+/// has saved their first preset).
+///
+/// Returns a vec of unique lowercase category strings, sorted such that
+/// canonical categories come first (in their canonical order) and any
+/// user-defined categories follow alphabetically.
+pub fn list_categories(dir: &Path) -> PresetResult<Vec<String>> {
+    let all = list_presets(dir)?;
+    let mut user_set: BTreeSet<String> = BTreeSet::new();
+    for m in all {
+        if let Some(cat) = m.category {
+            let trimmed = cat.trim();
+            if !trimmed.is_empty() {
+                let lc = trimmed.to_lowercase();
+                if !category_is_canonical(&lc) {
+                    user_set.insert(lc);
+                }
+            }
+        }
+    }
+
+    let mut out: Vec<String> = CANONICAL_CATEGORIES.iter().map(|s| (*s).to_string()).collect();
+    out.extend(user_set);
+    Ok(out)
 }
 
 /// Export a preset to an explicit path. Useful for sharing across
@@ -734,5 +1019,281 @@ mod tests {
         let s = slugify("🎵 Vocal Master").unwrap();
         assert!(s.contains("vocal"));
         assert!(s.contains("master"));
+    }
+
+    // ─── Wave 2 Front 6 — categories + structured filter ───────────────────
+
+    fn save_with(
+        dir: &Path,
+        name: &str,
+        category: Option<&str>,
+        tags: &[&str],
+    ) -> PresetResult<()> {
+        let preset = ChainPreset::with_category(
+            name,
+            "",
+            category.map(|s| s.to_string()),
+            tags.iter().map(|t| t.to_string()).collect(),
+            sample_snapshot(1),
+        );
+        save_preset(dir, &preset).map(|_| ())
+    }
+
+    #[test]
+    fn category_normalisation_lowercases_and_trims() {
+        let dir = tmp_dir("cat_norm");
+        save_with(&dir, "P", Some("  VOCAL  "), &[]).unwrap();
+        let loaded = load_preset(&dir, "P").unwrap();
+        assert_eq!(loaded.category.as_deref(), Some("vocal"));
+    }
+
+    #[test]
+    fn category_empty_input_becomes_none() {
+        let dir = tmp_dir("cat_empty");
+        save_with(&dir, "P", Some("   "), &[]).unwrap();
+        let loaded = load_preset(&dir, "P").unwrap();
+        assert!(loaded.category.is_none());
+    }
+
+    #[test]
+    fn category_is_canonical_works_case_insensitive() {
+        assert!(category_is_canonical("VOCAL"));
+        assert!(category_is_canonical("vocal"));
+        assert!(category_is_canonical("  Mix  "));
+        assert!(!category_is_canonical("foo"));
+    }
+
+    #[test]
+    fn list_tags_returns_unique_lowercase_sorted() {
+        let dir = tmp_dir("tags_agg");
+        save_with(&dir, "A", None, &["Modern", "vocal"]).unwrap();
+        save_with(&dir, "B", None, &["VOCAL", "vintage"]).unwrap();
+        save_with(&dir, "C", None, &[]).unwrap();
+        let tags = list_tags(&dir).unwrap();
+        // Sorted, lowercase, deduped (vocal once).
+        assert_eq!(tags, vec!["modern", "vintage", "vocal"]);
+    }
+
+    #[test]
+    fn list_categories_includes_canonicals_first() {
+        let dir = tmp_dir("cat_agg");
+        save_with(&dir, "A", Some("vocal"), &[]).unwrap();
+        save_with(&dir, "B", Some("custom-zebra"), &[]).unwrap();
+        let cats = list_categories(&dir).unwrap();
+        // Canonicals appear in declared order, user-defined "custom-zebra" tail-end.
+        assert_eq!(cats[0..CANONICAL_CATEGORIES.len()].to_vec(), {
+            let v: Vec<String> = CANONICAL_CATEGORIES
+                .iter()
+                .map(|s| (*s).to_string())
+                .collect();
+            v
+        });
+        assert_eq!(cats.last().unwrap(), "custom-zebra");
+    }
+
+    #[test]
+    fn list_categories_dedups_user_categories_against_canonical() {
+        let dir = tmp_dir("cat_dedup");
+        save_with(&dir, "A", Some("VOCAL"), &[]).unwrap(); // canonical
+        save_with(&dir, "B", Some("vocal"), &[]).unwrap(); // dupe via case
+        save_with(&dir, "C", Some("podcast"), &[]).unwrap(); // user-defined
+        let cats = list_categories(&dir).unwrap();
+        // No duplicates of "vocal" beyond the canonical set.
+        let vocal_count = cats.iter().filter(|c| *c == "vocal").count();
+        assert_eq!(vocal_count, 1);
+        assert!(cats.contains(&"podcast".to_string()));
+    }
+
+    #[test]
+    fn filter_empty_spec_returns_full_list() {
+        let dir = tmp_dir("filter_empty");
+        save_with(&dir, "A", Some("vocal"), &["x"]).unwrap();
+        save_with(&dir, "B", Some("drums"), &["y"]).unwrap();
+        let r = filter_presets(&dir, &PresetFilterSpec::default()).unwrap();
+        assert_eq!(r.len(), 2);
+    }
+
+    #[test]
+    fn filter_by_single_category() {
+        let dir = tmp_dir("filter_cat");
+        save_with(&dir, "Vox", Some("vocal"), &[]).unwrap();
+        save_with(&dir, "Kik", Some("drums"), &[]).unwrap();
+        save_with(&dir, "Bus", Some("bus"), &[]).unwrap();
+        let spec = PresetFilterSpec {
+            categories: Some(vec!["vocal".into()]),
+            ..Default::default()
+        };
+        let r = filter_presets(&dir, &spec).unwrap();
+        assert_eq!(r.len(), 1);
+        assert_eq!(r[0].name, "Vox");
+    }
+
+    #[test]
+    fn filter_by_multiple_categories_or_combine() {
+        let dir = tmp_dir("filter_multi_cat");
+        save_with(&dir, "Vox", Some("vocal"), &[]).unwrap();
+        save_with(&dir, "Kik", Some("drums"), &[]).unwrap();
+        save_with(&dir, "Bus", Some("bus"), &[]).unwrap();
+        let spec = PresetFilterSpec {
+            categories: Some(vec!["vocal".into(), "drums".into()]),
+            ..Default::default()
+        };
+        let r = filter_presets(&dir, &spec).unwrap();
+        assert_eq!(r.len(), 2);
+        let names: Vec<&str> = r.iter().map(|m| m.name.as_str()).collect();
+        assert!(names.contains(&"Vox"));
+        assert!(names.contains(&"Kik"));
+    }
+
+    #[test]
+    fn filter_by_tags_any() {
+        let dir = tmp_dir("filter_tags_any");
+        save_with(&dir, "A", None, &["modern", "bright"]).unwrap();
+        save_with(&dir, "B", None, &["vintage", "warm"]).unwrap();
+        save_with(&dir, "C", None, &["dark"]).unwrap();
+        let spec = PresetFilterSpec {
+            tags_any: Some(vec!["modern".into(), "vintage".into()]),
+            ..Default::default()
+        };
+        let r = filter_presets(&dir, &spec).unwrap();
+        assert_eq!(r.len(), 2);
+        let names: Vec<&str> = r.iter().map(|m| m.name.as_str()).collect();
+        assert!(names.contains(&"A"));
+        assert!(names.contains(&"B"));
+    }
+
+    #[test]
+    fn filter_by_tags_all() {
+        let dir = tmp_dir("filter_tags_all");
+        save_with(&dir, "A", None, &["modern", "bright"]).unwrap();
+        save_with(&dir, "B", None, &["modern"]).unwrap();
+        save_with(&dir, "C", None, &["bright"]).unwrap();
+        let spec = PresetFilterSpec {
+            tags_all: Some(vec!["modern".into(), "bright".into()]),
+            ..Default::default()
+        };
+        let r = filter_presets(&dir, &spec).unwrap();
+        assert_eq!(r.len(), 1);
+        assert_eq!(r[0].name, "A");
+    }
+
+    #[test]
+    fn filter_combined_axes_are_anded() {
+        let dir = tmp_dir("filter_combined");
+        save_with(&dir, "VocalModern", Some("vocal"), &["modern"]).unwrap();
+        save_with(&dir, "VocalVintage", Some("vocal"), &["vintage"]).unwrap();
+        save_with(&dir, "DrumModern", Some("drums"), &["modern"]).unwrap();
+        let spec = PresetFilterSpec {
+            categories: Some(vec!["vocal".into()]),
+            tags_any: Some(vec!["modern".into()]),
+            ..Default::default()
+        };
+        let r = filter_presets(&dir, &spec).unwrap();
+        assert_eq!(r.len(), 1);
+        assert_eq!(r[0].name, "VocalModern");
+    }
+
+    #[test]
+    fn filter_uncategorised_only_excludes_classified() {
+        let dir = tmp_dir("filter_uncat");
+        save_with(&dir, "Classified", Some("vocal"), &[]).unwrap();
+        save_with(&dir, "Loose", None, &[]).unwrap();
+        let spec = PresetFilterSpec {
+            uncategorised_only: true,
+            ..Default::default()
+        };
+        let r = filter_presets(&dir, &spec).unwrap();
+        assert_eq!(r.len(), 1);
+        assert_eq!(r[0].name, "Loose");
+    }
+
+    #[test]
+    fn filter_categories_wins_over_uncategorised_only() {
+        let dir = tmp_dir("filter_cat_vs_uncat");
+        save_with(&dir, "Classified", Some("vocal"), &[]).unwrap();
+        save_with(&dir, "Loose", None, &[]).unwrap();
+        let spec = PresetFilterSpec {
+            categories: Some(vec!["vocal".into()]),
+            uncategorised_only: true, // ignored when categories present
+            ..Default::default()
+        };
+        let r = filter_presets(&dir, &spec).unwrap();
+        assert_eq!(r.len(), 1);
+        assert_eq!(r[0].name, "Classified");
+    }
+
+    #[test]
+    fn filter_query_matches_category_name() {
+        let dir = tmp_dir("filter_query_cat");
+        save_with(&dir, "A", Some("vocal"), &[]).unwrap();
+        save_with(&dir, "B", Some("drums"), &[]).unwrap();
+        let spec = PresetFilterSpec {
+            query: "voc".into(),
+            ..Default::default()
+        };
+        let r = filter_presets(&dir, &spec).unwrap();
+        assert_eq!(r.len(), 1);
+        assert_eq!(r[0].name, "A");
+    }
+
+    #[test]
+    fn filter_empty_string_axes_are_treated_as_no_restriction() {
+        let dir = tmp_dir("filter_empty_axes");
+        save_with(&dir, "A", Some("vocal"), &["modern"]).unwrap();
+        save_with(&dir, "B", Some("drums"), &["vintage"]).unwrap();
+        // Empty arrays + whitespace query → no axis restricts → all returned.
+        let spec = PresetFilterSpec {
+            categories: Some(vec![]),
+            tags_any: Some(vec!["   ".into()]),
+            tags_all: Some(vec!["".into()]),
+            query: "   ".into(),
+            uncategorised_only: false,
+        };
+        let r = filter_presets(&dir, &spec).unwrap();
+        assert_eq!(r.len(), 2);
+    }
+
+    #[test]
+    fn category_round_trips_through_save_load() {
+        let dir = tmp_dir("cat_roundtrip");
+        let preset = ChainPreset::with_category(
+            "Bus Glue",
+            "Compressor + Saturator",
+            Some("Bus".into()),
+            vec!["modern".into()],
+            sample_snapshot(2),
+        );
+        save_preset(&dir, &preset).unwrap();
+        let loaded = load_preset(&dir, "Bus Glue").unwrap();
+        assert_eq!(loaded.category.as_deref(), Some("bus"));
+    }
+
+    #[test]
+    fn meta_carries_category_for_browsing_without_full_load() {
+        let dir = tmp_dir("meta_cat");
+        save_with(&dir, "P", Some("mastering"), &[]).unwrap();
+        let metas = list_presets(&dir).unwrap();
+        assert_eq!(metas.len(), 1);
+        assert_eq!(metas[0].category.as_deref(), Some("mastering"));
+    }
+
+    #[test]
+    fn legacy_preset_without_category_field_loads_as_none() {
+        let dir = tmp_dir("legacy");
+        // Plant a JSON that mimics format_version=1 minus the `category` field.
+        let path = path_for(&dir, "legacy_one");
+        let json = serde_json::json!({
+            "name": "Legacy One",
+            "description": "",
+            "tags": ["x"],
+            "snapshot": serde_json::to_value(sample_snapshot(1)).unwrap(),
+            "format_version": 1,
+            "created_ms": 1u64,
+            "updated_ms": 2u64,
+        });
+        fs::write(&path, serde_json::to_vec_pretty(&json).unwrap()).unwrap();
+        let loaded = load_preset(&dir, "Legacy One").unwrap();
+        assert!(loaded.category.is_none());
+        assert_eq!(loaded.tags, vec!["x"]);
     }
 }
