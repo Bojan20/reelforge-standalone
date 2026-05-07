@@ -24,6 +24,7 @@
 mod analyzer;
 mod chain_advisor;
 mod chain_applier;
+pub mod chain_history;
 mod classifier;
 mod config;
 mod suggestions;

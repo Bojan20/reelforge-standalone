@@ -10034,6 +10034,218 @@ class NativeFFI {
   double tempoStateGetVoiceAStretch() => _tempoStateGetVoiceAStretch();
   double tempoStateGetVoiceBStretch() => _tempoStateGetVoiceBStretch();
   int tempoStateProcess(int num_samples, Pointer<Double> out_voice_a_stretch, Pointer<Double> out_voice_a_gain, Pointer<Double> out_voice_b_stretch, Pointer<Double> out_voice_b_gain, Pointer<Double> out_bpm) => _tempoStateProcess(num_samples, out_voice_a_stretch, out_voice_a_gain, out_voice_b_stretch, out_voice_b_gain, out_bpm);
+  // ═══════════════════════════════════════════════════════════════════════
+  // CHAIN HISTORY — Undo / Redo + A/B Snapshot
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// Number of undo steps available for [trackId].
+  int chainUndoDepth(int trackId) {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(Uint32), int Function(int)>('chain_undo_depth');
+      return fn(trackId);
+    } catch (_) { return 0; }
+  }
+
+  /// Number of redo steps available for [trackId].
+  int chainRedoDepth(int trackId) {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(Uint32), int Function(int)>('chain_redo_depth');
+      return fn(trackId);
+    } catch (_) { return 0; }
+  }
+
+  /// Label of the step that would be undone next (tooltip text), or null.
+  String? chainUndoLabel(int trackId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Uint32), Pointer<Utf8> Function(int)
+      >('chain_undo_label_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)
+      >('chain_history_free_string');
+      final ptr = fn(trackId);
+      if (ptr == nullptr) return null;
+      final r = ptr.toDartString(); freeFn(ptr); return r;
+    } catch (_) { return null; }
+  }
+
+  /// Label of the step that would be redone next, or null.
+  String? chainRedoLabel(int trackId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Uint32), Pointer<Utf8> Function(int)
+      >('chain_redo_label_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)
+      >('chain_history_free_string');
+      final ptr = fn(trackId);
+      if (ptr == nullptr) return null;
+      final r = ptr.toDartString(); freeFn(ptr); return r;
+    } catch (_) { return null; }
+  }
+
+  /// Undo most recent chain apply for [trackId]. Returns JSON result or null.
+  String? chainUndoJson(int trackId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Uint32), Pointer<Utf8> Function(int)
+      >('chain_undo_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)
+      >('chain_history_free_string');
+      final ptr = fn(trackId);
+      if (ptr == nullptr) return null;
+      final r = ptr.toDartString(); freeFn(ptr); return r;
+    } catch (_) { return null; }
+  }
+
+  /// Redo most recently undone apply for [trackId]. Returns JSON result or null.
+  String? chainRedoJson(int trackId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Uint32), Pointer<Utf8> Function(int)
+      >('chain_redo_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)
+      >('chain_history_free_string');
+      final ptr = fn(trackId);
+      if (ptr == nullptr) return null;
+      final r = ptr.toDartString(); freeFn(ptr); return r;
+    } catch (_) { return null; }
+  }
+
+  /// Clear undo+redo stacks for [trackId].
+  bool chainHistoryClear(int trackId) {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(Uint32), int Function(int)>('chain_history_clear');
+      return fn(trackId) == 1;
+    } catch (_) { return false; }
+  }
+
+  /// Clear history for ALL tracks (project close/new).
+  bool chainHistoryClearAll() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>('chain_history_clear_all');
+      return fn() == 1;
+    } catch (_) { return false; }
+  }
+
+  /// Capture current engine chain → A slot for [trackId].
+  bool chainAbSaveA(int trackId) {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(Uint32), int Function(int)>('chain_ab_save_a');
+      return fn(trackId) == 1;
+    } catch (_) { return false; }
+  }
+
+  /// Capture current engine chain → B slot for [trackId].
+  bool chainAbSaveB(int trackId) {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(Uint32), int Function(int)>('chain_ab_save_b');
+      return fn(trackId) == 1;
+    } catch (_) { return false; }
+  }
+
+  /// Restore A slot → engine (pushes current to undo). Returns JSON result.
+  String? chainAbRestoreA(int trackId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Uint32), Pointer<Utf8> Function(int)
+      >('chain_ab_restore_a_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)
+      >('chain_history_free_string');
+      final ptr = fn(trackId);
+      if (ptr == nullptr) return null;
+      final r = ptr.toDartString(); freeFn(ptr); return r;
+    } catch (_) { return null; }
+  }
+
+  /// Restore B slot → engine (pushes current to undo). Returns JSON result.
+  String? chainAbRestoreB(int trackId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Uint32), Pointer<Utf8> Function(int)
+      >('chain_ab_restore_b_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)
+      >('chain_history_free_string');
+      final ptr = fn(trackId);
+      if (ptr == nullptr) return null;
+      final r = ptr.toDartString(); freeFn(ptr); return r;
+    } catch (_) { return null; }
+  }
+
+  /// Swap A↔B slot labels in memory (no engine change).
+  bool chainAbSwap(int trackId) {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(Uint32), int Function(int)>('chain_ab_swap');
+      return fn(trackId) == 1;
+    } catch (_) { return false; }
+  }
+
+  /// Get A-slot snapshot JSON (null if slot is empty).
+  String? chainAbGetA(int trackId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Uint32), Pointer<Utf8> Function(int)
+      >('chain_ab_get_a_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)
+      >('chain_history_free_string');
+      final ptr = fn(trackId);
+      if (ptr == nullptr) return null;
+      final r = ptr.toDartString(); freeFn(ptr); return r;
+    } catch (_) { return null; }
+  }
+
+  /// Get B-slot snapshot JSON (null if slot is empty).
+  String? chainAbGetB(int trackId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Uint32), Pointer<Utf8> Function(int)
+      >('chain_ab_get_b_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)
+      >('chain_history_free_string');
+      final ptr = fn(trackId);
+      if (ptr == nullptr) return null;
+      final r = ptr.toDartString(); freeFn(ptr); return r;
+    } catch (_) { return null; }
+  }
+
+  /// Unified status JSON: undo/redo depths + A/B slot state. Lightweight poll.
+  /// Shape: { track_id, undo_depth, redo_depth, undo_label?, redo_label?,
+  ///           a_set, b_set, a_label?, b_label? }
+  String? chainHistoryStatus(int trackId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Uint32), Pointer<Utf8> Function(int)
+      >('chain_history_status_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)
+      >('chain_history_free_string');
+      final ptr = fn(trackId);
+      if (ptr == nullptr) return null;
+      final r = ptr.toDartString(); freeFn(ptr); return r;
+    } catch (_) { return null; }
+  }
+
+  /// Capture current engine chain state as a full JSON snapshot.
+  /// Useful for manual persistence (project files, preset export).
+  String? chainHistoryCapture(int trackId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Uint32), Pointer<Utf8> Function(int)
+      >('chain_history_capture_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)
+      >('chain_history_free_string');
+      final ptr = fn(trackId);
+      if (ptr == nullptr) return null;
+      final r = ptr.toDartString(); freeFn(ptr); return r;
+    } catch (_) { return null; }
+  }
 }
 
 /// Pitch segment data from analysis
@@ -31287,5 +31499,4 @@ extension ClipEnvelopeFFI on NativeFFI {
       return null;
     }
   }
-}
-
+  }

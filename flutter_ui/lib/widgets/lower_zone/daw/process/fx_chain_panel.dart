@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../../lower_zone_types.dart';
 import '../../../../providers/dsp_chain_provider.dart';
 import '../../../../widgets/dsp/internal_processor_editor_window.dart';
+import '../../../../widgets/dsp/chain_history_bar.dart';
 import '../shared/processor_cpu_meter.dart';
 
 class FxChainPanel extends StatelessWidget {
@@ -49,6 +50,9 @@ class FxChainPanel extends StatelessWidget {
                   const SizedBox(width: 12),
                   // CPU usage badge (P3.2)
                   ProcessorCpuBadge(trackId: trackId),
+                  const SizedBox(width: 12),
+                  // Chain undo/redo + A/B snapshot bar
+                  ChainHistoryBar(trackId: trackId),
                   const Spacer(),
                   _buildAddProcessorButton(trackId, provider),
                   const SizedBox(width: 8),

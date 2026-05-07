@@ -184,6 +184,17 @@ pub extern "C" fn chain_apply_execute_json(request_json: *const c_char) -> *mut 
         Err(e) => return error_response(&format!("parse error: {}", e)),
     };
 
+    // Auto-push undo snapshot before any live execute (non-dry-run)
+    if !req.dry_run {
+        let track_id = req.plan.before_snapshot.track_id;
+        let label = if req.plan.source_label.is_empty() {
+            "chain apply".to_string()
+        } else {
+            req.plan.source_label.clone()
+        };
+        crate::chain_history_ffi::push_current_snapshot(track_id, &label);
+    }
+
     let result = execute_plan(&req.plan, req.dry_run);
     match serde_json::to_string(&result) {
         Ok(j) => json_to_c(j),
