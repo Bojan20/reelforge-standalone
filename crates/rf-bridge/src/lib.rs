@@ -37,6 +37,7 @@ pub mod chain_advisor_ffi;
 pub mod chain_apply_ffi;
 pub mod chain_auto_ffi;
 pub mod chain_history_ffi;
+pub mod reference_match_ffi;
 pub mod telemetry_ffi;
 mod api;
 mod api_engine;
