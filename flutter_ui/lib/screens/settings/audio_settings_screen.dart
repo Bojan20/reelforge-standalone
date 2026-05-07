@@ -365,7 +365,10 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
             value: device.name,
             child: Row(
               children: [
-                Expanded(child: Text(device.name)),
+                Text(
+                  device.name,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 if (device.isDefault)
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -426,7 +429,10 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
             value: device.name,
             child: Row(
               children: [
-                Expanded(child: Text(device.name)),
+                Text(
+                  device.name,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 if (device.isDefault)
                   Container(
                     padding: const EdgeInsets.symmetric(

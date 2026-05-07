@@ -15,6 +15,7 @@ library;
 
 import 'package:flutter/material.dart';
 import '../../services/chain_history_service.dart';
+import '../common/flux_tooltip.dart';
 
 // ─── Colors ──────────────────────────────────────────────────────────────
 
@@ -153,9 +154,8 @@ class _HistoryButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = enabled ? Colors.white.withValues(alpha: 0.85) : _kDim;
-    return Tooltip(
+    return FluxTooltip(
       message: tooltip,
-      waitDuration: const Duration(milliseconds: 600),
       child: InkWell(
         onTap: enabled ? onTap : null,
         borderRadius: BorderRadius.circular(4),
@@ -220,9 +220,8 @@ class _AbButton extends StatelessWidget {
             : 'Restore chain $label\nRight-click to capture')
         : 'Capture current chain as $label';
 
-    return Tooltip(
+    return FluxTooltip(
       message: tooltip,
-      waitDuration: const Duration(milliseconds: 600),
       child: GestureDetector(
         onTap: isSet ? onRestore : onCapture,
         onSecondaryTap: onCapture, // right-click → always capture
@@ -261,9 +260,8 @@ class _IconBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
+    return FluxTooltip(
       message: tooltip,
-      waitDuration: const Duration(milliseconds: 600),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(4),

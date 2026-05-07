@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../providers/panel_undo_manager.dart';
+import 'flux_tooltip.dart';
 
 /// Compact toolbar for panel undo/redo
 class PanelUndoToolbar extends StatelessWidget {
@@ -50,7 +51,7 @@ class PanelUndoToolbar extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         // Undo button
-        Tooltip(
+        FluxTooltip(
           message: manager.canUndo ? 'Undo: ${manager.undoDescription}' : 'Nothing to undo',
           child: InkWell(
             onTap: manager.canUndo ? manager.undo : null,

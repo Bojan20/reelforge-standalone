@@ -18,6 +18,7 @@
 
 import 'dart:async';
 import 'dart:math' as math;
+import '../common/flux_tooltip.dart';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -1887,7 +1888,7 @@ class _IconChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
+    return FluxTooltip(
       message: tooltip,
       child: Material(
         color: Colors.transparent,
@@ -2115,7 +2116,7 @@ class _MiniAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
+    return FluxTooltip(
       message: tooltip,
       child: Material(
         color: Colors.transparent,
@@ -2501,7 +2502,7 @@ class _LatencySparkline extends StatelessWidget {
     final avg = values.isEmpty
         ? 0
         : (values.reduce((a, b) => a + b) / values.length).round();
-    return Tooltip(
+    return FluxTooltip(
       message: 'Latencija (poslednjih ${values.length}): '
           'last ${last}ms · avg ${avg}ms',
       child: SizedBox(

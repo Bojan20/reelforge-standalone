@@ -49,8 +49,13 @@ class FxChainPanel extends StatelessWidget {
                 children: [
                   const Icon(Icons.link, size: 16, color: LowerZoneColors.dawAccent),
                   const SizedBox(width: 8),
-                  Text('FX CHAIN — Track $trackId', 
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: LowerZoneColors.dawAccent, letterSpacing: 1.0)),
+                  Flexible(
+                    child: Text(
+                      'FX CHAIN — Track $trackId',
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: LowerZoneColors.dawAccent, letterSpacing: 1.0),
+                    ),
+                  ),
                   const SizedBox(width: 12),
                   _buildChainBypassToggle(trackId, chain.bypass),
                   const SizedBox(width: 12),
