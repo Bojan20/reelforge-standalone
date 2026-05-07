@@ -494,6 +494,18 @@ mod tests {
         AnalysisResult, DynamicsAnalysis, LoudnessAnalysis, SpectralAnalysis, StereoAnalysis,
         TrackType,
     };
+    use std::sync::Mutex;
+
+    /// Serializes tests that mutate the shared `REFERENCE_STATE` static
+    /// (set/clear/compute). Without this, `cargo test --workspace` runs
+    /// tests in parallel and racing `reference_match_clear()` calls cause
+    /// `compute_with_sample_rate_mismatch_returns_error` (and friends) to
+    /// flake — they pass in isolation but one or two get a stale state
+    /// from a sibling test under load.
+    ///
+    /// Tests that don't touch reference state (e.g. pure suggestion
+    /// helpers) don't need to acquire the lock.
+    static TEST_MUTEX: Mutex<()> = Mutex::new(());
 
     fn cstr_to_string(ptr: *mut c_char) -> String {
         assert!(!ptr.is_null());
@@ -543,12 +555,14 @@ mod tests {
 
     #[test]
     fn has_reference_initially_false() {
+        let _guard = TEST_MUTEX.lock().unwrap();
         reference_match_clear();
         assert!(!reference_match_has_reference());
     }
 
     #[test]
     fn set_and_clear_reference_pcm() {
+        let _guard = TEST_MUTEX.lock().unwrap();
         let audio = synth(0.5, 48000, 440.0);
         let raw = unsafe {
             reference_match_set_reference_pcm(audio.as_ptr(), audio.len(), 2, 48000)
@@ -581,6 +595,7 @@ mod tests {
 
     #[test]
     fn compute_without_reference_returns_error() {
+        let _guard = TEST_MUTEX.lock().unwrap();
         reference_match_clear();
         let audio = synth(0.2, 48000, 220.0);
         let raw = unsafe {
@@ -593,6 +608,7 @@ mod tests {
 
     #[test]
     fn compute_with_sample_rate_mismatch_returns_error() {
+        let _guard = TEST_MUTEX.lock().unwrap();
         reference_match_clear();
         let ref_audio = synth(0.5, 48000, 440.0);
         let raw = unsafe {
@@ -611,6 +627,7 @@ mod tests {
 
     #[test]
     fn compute_with_matching_pcm_yields_curve() {
+        let _guard = TEST_MUTEX.lock().unwrap();
         reference_match_clear();
         let ref_audio = synth(0.5, 48000, 440.0);
         let _ = cstr_to_string(unsafe {

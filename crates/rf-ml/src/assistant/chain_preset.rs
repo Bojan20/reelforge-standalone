@@ -10,7 +10,7 @@
 //!
 //! # Layout
 //!
-//! ```
+//! ```text
 //! <preset_dir>/                        (default: ~/.fluxforge/chains/)
 //! ├── my_vocal_master.json
 //! ├── drum_bus_glue_2026.json
