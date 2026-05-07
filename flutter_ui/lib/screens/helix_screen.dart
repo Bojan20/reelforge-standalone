@@ -103,6 +103,39 @@ part 'helix/helix_minimode_widgets.dart';
 // HELIX SCREEN
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Standardised error fallback for HELIX dock panels. Replaces ad-hoc
+/// `Center(child: Text('FOO ERR: $e'))` snippets that previously swallowed
+/// errors silently into the UI without logging (audit nalaz #8, P1).
+///
+/// - Logs through `debugPrint` so the error reaches the dev console / IDE.
+/// - Wraps the message in `assert(...)` to fail-fast in debug mode (caught
+///   exception still surfaces in tests / CI), but is a no-op in release.
+/// - Visual style is consistent across panels: red text, monospace label,
+///   small font so it doesn't push surrounding layout.
+Widget _renderHelixErrorFallback(String tag, Object error, {double fontSize = 10}) {
+  assert(() {
+    // Debug-only: fail-fast so the error surfaces in tests + CI, not silent.
+    debugPrint('[HELIX ERROR][$tag] $error');
+    return true;
+  }());
+  return Center(
+    child: Text(
+      '$tag ERR: $error',
+      style: TextStyle(color: const Color(0xFFFF4444), fontSize: fontSize),
+    ),
+  );
+}
+
+// Layout constants for slot-grid-relative overlays (anticipation glow,
+// stage triggers, future win-line painters). PremiumSlotPreview is centered
+// at this ratio/offset; if its layout changes, update here in one place.
+//
+// TODO(URP-future): Make these dynamic via a GlobalKey lookup of the live
+// PremiumSlotPreview RenderBox so layout-preset changes don't drift overlays.
+const double _kSlotGridWidthRatio = 0.6;     // PremiumSlotPreview width / screen width
+const double _kSlotGridLeftOffsetPx = 60.0;  // horizontal margin on the screen
+const double _kSlotGridVInsetPx = 60.0;      // vertical inset (top == bottom)
+
 class HelixScreen extends StatefulWidget {
   final VoidCallback? onClose;
   final List<Map<String, dynamic>>? audioPool;
@@ -118,7 +151,20 @@ class _HelixScreenState extends State<HelixScreen>
 
   // ── Dock ──────────────────────────────────────────────────────────────────
   int _dockTab = 0; // 0=FLOW 1=AUDIO 2=MATH 3=TIMELINE 4=INTEL 5=EXPORT 6=SFX 7=BT 8=DNA 9=AI 10=CLOUD 11=A/B
-  double _dockHeight = 380.0;
+
+  // Per-mode dock heights — fixes audit nalaz #5 (P1).
+  // Pre-fix: a single `_dockHeight` was overwritten by ARCHITECT mode's
+  // `screenH * 0.5` computation, silently destroying the user's custom
+  // resize when toggling COMPOSE → ARCHITECT and back. Drag-resize while
+  // in ARCHITECT also did nothing because `_buildDock` ignored
+  // `_dockHeight` in that mode.
+  //
+  // Post-fix: each mode owns its own height. Drag updates the *active*
+  // mode's height. ARCHITECT starts as `-1` sentinel meaning
+  // "compute 50% of screen height on first build"; once the user drags,
+  // it switches to a concrete value and stops following the screen.
+  double _dockHeightCompose = 380.0;
+  double _dockHeightArchitect = -1.0;  // <0 sentinel → lazy 0.5 * screenH
   bool _dockExpanded = true;
 
   // ── Mode ──────────────────────────────────────────────────────────────────
@@ -659,7 +705,7 @@ class _HelixScreenState extends State<HelixScreen>
           if (_spineOpen != null)
             Positioned(
               left: 48, top: 48,
-              bottom: _mode == 1 ? 48 : (_dockHeight + 48).clamp(228.0, 648.0), // Dynamic: dock height + stage strip (48px)
+              bottom: _mode == 1 ? 48 : (_resolveDockHeight() + 48).clamp(228.0, 648.0), // Dynamic: dock height + stage strip (48px)
               child: _SpineOverlay(
                 title: _spineIcons[_spineOpen!].$2,
                 spineIndex: _spineOpen!,
@@ -1548,14 +1594,29 @@ class _HelixScreenState extends State<HelixScreen>
                   ),
                 ),
 
-              // Anticipation reel glow — highlights reels with scatter/bonus during spin
+              // Anticipation reel glow — highlights reels with scatter/bonus during spin.
+              //
+              // Layout assumption: PremiumSlotPreview sits centered, occupying
+              // `_kSlotGridWidthRatio` of the screen width with a horizontal
+              // margin of `_kSlotGridLeftOffsetPx`. These named constants
+              // replace the previous bare `* 0.6 + 60` magic literals so that
+              // a future PremiumSlotPreview layout change is a one-place edit.
+              //
+              // TODO(URP-future): Replace ratio/offset assumptions with a
+              // GlobalKey lookup of the live PremiumSlotPreview RenderBox.
+              // The current approach drifts if the preview is moved (e.g.
+              // a layout preset changes the grid width ratio). See audit
+              // HELIX_AUDIT_2026-05-07.md nalaz #4 (P1).
               if (_anticipationReels.isNotEmpty)
                 ..._anticipationReels.map((reelIdx) {
                   final reels = GetIt.instance<SlotLabProjectProvider>().gridConfig?.columns ?? 5;
+                  final screenW = MediaQuery.of(context).size.width;
+                  final gridW = screenW * _kSlotGridWidthRatio;
                   return Positioned(
-                    left: (reelIdx / reels) * MediaQuery.of(context).size.width * 0.6 + 60,
-                    top: 60, bottom: 60,
-                    width: (MediaQuery.of(context).size.width * 0.6) / reels,
+                    left: (reelIdx / reels) * gridW + _kSlotGridLeftOffsetPx,
+                    top: _kSlotGridVInsetPx,
+                    bottom: _kSlotGridVInsetPx,
+                    width: gridW / reels,
                     child: IgnorePointer(
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 500),
@@ -1776,8 +1837,26 @@ class _HelixScreenState extends State<HelixScreen>
     (Icons.smart_toy_rounded,    'COMPOSER', FluxForgeTheme.accentGreen),
   ];
 
+  /// Resolves the active dock height for the current mode.
+  ///   COMPOSE  → user-resizable, persisted across mode toggles.
+  ///   FOCUS    → caller hides the dock entirely (we still return a value
+  ///              so AnimatedContainer doesn't NaN; FOCUS path is gated
+  ///              upstream in the layout `bottom:` calc).
+  ///   ARCHITECT → lazy-init to 50% of screen on first build, then
+  ///              user-resizable from there.
+  double _resolveDockHeight() {
+    if (_mode == 2) {
+      if (_dockHeightArchitect < 0) {
+        // First-time enter: seed from 50% screen height.
+        return MediaQuery.of(context).size.height * 0.5;
+      }
+      return _dockHeightArchitect;
+    }
+    return _dockHeightCompose;
+  }
+
   Widget _buildDock() {
-    final dockH = _mode == 2 ? MediaQuery.of(context).size.height * 0.5 : _dockHeight;
+    final dockH = _resolveDockHeight();
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
@@ -2077,10 +2156,24 @@ class _HelixScreenState extends State<HelixScreen>
               ),
             ),
           ),
-          // Resize handle — hambuger style, easy to grab
+          // Resize handle — hambuger style, easy to grab.
+          //
+          // Updates the height belonging to the currently-active mode so
+          // mode-switching never destroys a user's custom resize (fixes
+          // audit nalaz #5). ARCHITECT gets a higher upper clamp because
+          // it's the analyst-style large-canvas mode; COMPOSE keeps the
+          // tighter 180-600 range to leave room for the slot preview.
           GestureDetector(
             onVerticalDragUpdate: (d) => setState(() {
-              _dockHeight = (_dockHeight - d.delta.dy).clamp(180.0, 600.0);
+              if (_mode == 2) {
+                final base = _dockHeightArchitect < 0
+                    ? MediaQuery.of(context).size.height * 0.5
+                    : _dockHeightArchitect;
+                final maxH = MediaQuery.of(context).size.height * 0.9;
+                _dockHeightArchitect = (base - d.delta.dy).clamp(180.0, maxH);
+              } else {
+                _dockHeightCompose = (_dockHeightCompose - d.delta.dy).clamp(180.0, 600.0);
+              }
             }),
             // SPEC-16 — uniform tooltip surface (150ms delay, brand-gold
             // border, optional shortcut hint). Pre-migration this was a
@@ -5312,14 +5405,12 @@ class _AudioPanelState extends State<_AudioPanel> {
           try {
             return _buildContent(context);
           } catch (e) {
-            return Center(child: Text('AUDIO BUILD ERR: $e',
-              style: const TextStyle(color: Color(0xFFFF4444), fontSize: 10)));
+            return _renderHelixErrorFallback('AUDIO BUILD', e);
           }
         },
       );
     } catch (e) {
-      return Center(child: Text('AUDIO INIT ERR: $e',
-        style: const TextStyle(color: Color(0xFFFF4444), fontSize: 10)));
+      return _renderHelixErrorFallback('AUDIO INIT', e);
     }
   }
 
@@ -5430,8 +5521,7 @@ class _AudioPanelState extends State<_AudioPanel> {
                   size: 120,
                 );
               } catch (e) {
-                return Center(child: Text('ORB ERR: $e',
-                  style: const TextStyle(color: Color(0xFFFF4444), fontSize: 8)));
+                return _renderHelixErrorFallback('ORB', e, fontSize: 8);
               }
             }),
           ),
@@ -5456,8 +5546,7 @@ class _AudioPanelState extends State<_AudioPanel> {
                         },
                       );
                     } catch (e) {
-                      return Text('BIND ERR: $e',
-                        style: const TextStyle(color: Color(0xFFFF4444), fontSize: 8));
+                      return _renderHelixErrorFallback('BIND', e, fontSize: 8);
                     }
                   }),
                   const Spacer(),

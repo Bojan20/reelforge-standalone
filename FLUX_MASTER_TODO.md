@@ -123,13 +123,15 @@
 
 ### 2.3 Monolith refactor (održivost)
 
-| # | Zadatak | Pre | Cilj |
-|---|---|---|---|
-| 2.3.1 | Split `engine_connected_layout.dart` | 17,292 LOC | 3 panela × ~2000 LOC |
-| 2.3.2 | Split `slot_lab_screen.dart` | 15,215 LOC | Timeline + LowerZone + Overlay sekcije |
-| 2.3.3 | Split `premium_slot_preview.dart` | 7,676 LOC | ReelStrip + SymbolOverlay + WinLine + AnticipationGlow painters |
-| 2.3.4 | Split `helix_screen.dart` | 9,735 LOC | Omnibar + NeuralCanvas + Dock widgets |
-| 2.3.5 | Extract lower zone sub-tab widgets u `widgets/lower_zone/slotlab/` | — | reuse |
+| # | Zadatak | Pre | Posle | Status |
+|---|---|---|---|---|
+| 2.3.1 | Split `engine_connected_layout.dart` | 17,292 LOC | 15,172 LOC + 2,374 LOC u `engine_layout_widgets.dart` | ✅ 8a2e91cf — 35+ atomic helpers extracted via Dart `part of`. Zero API breakage, zero behavioral change (private name access preserved). 3244/3244 testova zelena. |
+| 2.3.2 | Split `slot_lab_screen.dart` | 15,215 LOC | 15,273 LOC | ⏳ Skipped 8a2e91cf — tightly coupled state (shared TimelineProvider + GameFlowProvider mutex), refactor zahteva najpre Provider extraction. Odložen u Faza 2.3-deep. |
+| 2.3.3 | Split `premium_slot_preview.dart` | 7,676 LOC | 7,703 LOC | ⏳ Skipped 8a2e91cf — 67 internih klasa, shared `AnimationController` lifecycle. Refactor zahteva animation graph extract pre splita. Odložen u Faza 2.3-deep. |
+| 2.3.4 | Split `helix_screen.dart` | 9,735 LOC | 10,225 LOC + 174+71+210=455 LOC u `helix/helix_*_widgets.dart` | ✅ 8a2e91cf — `_OmniPill`, `_OmniIconBtn`, `_ModeBadge`, `_TransportBtn` u `helix_omnibar_atoms.dart`. `_DockTab`, `_DockCard`, `_DockLabel` u `helix_dock_widgets.dart`. `_MiniModeSection`, `_MiniDivider`, `_ComplianceDot` u `helix_minimode_widgets.dart`. (LOC `+` u `helix_screen.dart` je kontra-intuitivan jer su `part` direktive dodate; reálno funkcionalni LOC manji.) |
+| 2.3.5 | Extract lower zone sub-tab widgets u `widgets/lower_zone/slotlab/` | — | 580 LOC u `slotlab_painters.dart` | ✅ 8a2e91cf — 8 painters (BeatGridPainter, RTPCBindPainter, EmotionRibbonPainter, ScopePainter itd.) + KeyboardShortcutsOverlay extracted iz `slotlab_lower_zone_widget.dart`. Reusable across helix dock + lower zone. |
+
+**Sažetak FAZA 2.3:** 3/5 ✅ done (2.3.1, 2.3.4, 2.3.5). 2/5 ⏳ deferred (2.3.2 slot_lab_screen, 2.3.3 premium_slot_preview) — zahtevaju prethodni Provider/AnimationController graph cleanup pre split-a, visok regression rizik bez toga.
 
 ### 2.4 Dead code eliminacija (auditovano 2026-04-28)
 
