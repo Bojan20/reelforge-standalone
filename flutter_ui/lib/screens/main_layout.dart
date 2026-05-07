@@ -11,6 +11,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:get_it/get_it.dart';
 import 'package:provider/provider.dart';
 import '../theme/fluxforge_theme.dart';
 import '../models/layout_models.dart';
@@ -30,6 +31,7 @@ import '../widgets/slot_lab/sfx_pipeline_wizard.dart';
 import '../widgets/lower_zone/daw_lower_zone_controller.dart';
 import '../widgets/lower_zone/lower_zone_types.dart';
 import '../providers/smart_tool_provider.dart';
+import '../providers/panel_focus_provider.dart';
 
 class MainLayout extends StatefulWidget {
   // PERFORMANCE: Custom control bar widget that handles its own provider listening
@@ -521,6 +523,25 @@ class _MainLayoutState extends State<MainLayout>
     // P3.1: Keyboard shortcuts overlay (? key = Shift + /)
     if (isShift && key == LogicalKeyboardKey.slash) {
       KeyboardShortcutsOverlay.show(context);
+      return KeyEventResult.handled;
+    }
+
+    // SPEC-2B.3.5: Tab / Shift+Tab — cycle panel focus
+    // Guard: skip when a text field has focus so we don't steal Tab from inputs.
+    if (!isCtrl && key == LogicalKeyboardKey.tab) {
+      // The EditableText ancestor check above already covers text fields, but
+      // we repeat it here explicitly to be safe (the early return at the top
+      // of _handleKeyEvent exits before reaching this point when typing).
+      try {
+        final focusProvider = GetIt.instance<PanelFocusProvider>();
+        if (isShift) {
+          focusProvider.cycleBackward();
+        } else {
+          focusProvider.cycleForward();
+        }
+      } catch (_) {
+        // PanelFocusProvider not registered — ignore
+      }
       return KeyEventResult.handled;
     }
 

@@ -59,6 +59,52 @@ class PanelFocusProvider extends ChangeNotifier {
     _focused = null;
     notifyListeners();
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CYCLE (Tab / Shift+Tab keyboard nav — SPEC-2B.3.5)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Canonical cycle order: HELIX dock → canvas → spine → DAW timeline →
+  /// DAW lower zone → SlotLab canvas → SlotLab lower zone → (wrap).
+  ///
+  /// The order matches left-to-right, top-to-bottom visual layout so
+  /// Tab always moves the user forward through visible UI regions.
+  ///
+  /// Exposed publicly so tests and the keyboard-shortcuts overlay can
+  /// display the cycle sequence without coupling to implementation details.
+  static const List<FocusPanelId> cycleOrder = [
+    FocusPanelId.helixDock,
+    FocusPanelId.helixCanvas,
+    FocusPanelId.helixSpine,
+    FocusPanelId.dawTimeline,
+    FocusPanelId.dawLowerZone,
+    FocusPanelId.slotLabCanvas,
+    FocusPanelId.slotLabLowerZone,
+  ];
+
+  /// Move focus to the next panel in the cycle order (Tab key).
+  /// If no panel is focused, focus the first panel in the order.
+  void cycleForward() {
+    if (_focused == null) {
+      focus(cycleOrder.first);
+      return;
+    }
+    final idx = cycleOrder.indexOf(_focused!);
+    final next = cycleOrder[(idx + 1) % cycleOrder.length];
+    focus(next);
+  }
+
+  /// Move focus to the previous panel in the cycle order (Shift+Tab key).
+  /// If no panel is focused, focus the last panel in the order.
+  void cycleBackward() {
+    if (_focused == null) {
+      focus(cycleOrder.last);
+      return;
+    }
+    final idx = cycleOrder.indexOf(_focused!);
+    final prev = cycleOrder[(idx - 1 + cycleOrder.length) % cycleOrder.length];
+    focus(prev);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -179,4 +179,105 @@ void main() {
       expect(p.focused, isNull);
     });
   });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SPEC-2B.3.5 — cycleForward / cycleBackward (Tab / Shift+Tab keyboard nav)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  group('PanelFocusProvider.cycleForward', () {
+    test('when no panel is focused, focuses the first panel in cycle order', () {
+      final p = PanelFocusProvider();
+      p.cycleForward();
+      expect(p.focused, PanelFocusProvider.cycleOrder.first);
+    });
+
+    test('advances to the next panel in cycle order', () {
+      final p = PanelFocusProvider();
+      final order = PanelFocusProvider.cycleOrder;
+      p.focus(order[0]);
+      p.cycleForward();
+      expect(p.focused, order[1]);
+    });
+
+    test('wraps around from last to first', () {
+      final p = PanelFocusProvider();
+      final order = PanelFocusProvider.cycleOrder;
+      p.focus(order.last);
+      p.cycleForward();
+      expect(p.focused, order.first);
+    });
+
+    test('fires notifyListeners on each forward step', () {
+      final p = PanelFocusProvider();
+      var count = 0;
+      p.addListener(() => count++);
+      p.cycleForward(); // null → first
+      p.cycleForward(); // first → second
+      expect(count, 2);
+    });
+  });
+
+  group('PanelFocusProvider.cycleBackward', () {
+    test('when no panel is focused, focuses the last panel in cycle order', () {
+      final p = PanelFocusProvider();
+      p.cycleBackward();
+      expect(p.focused, PanelFocusProvider.cycleOrder.last);
+    });
+
+    test('moves to the previous panel in cycle order', () {
+      final p = PanelFocusProvider();
+      final order = PanelFocusProvider.cycleOrder;
+      p.focus(order[2]);
+      p.cycleBackward();
+      expect(p.focused, order[1]);
+    });
+
+    test('wraps around from first to last', () {
+      final p = PanelFocusProvider();
+      final order = PanelFocusProvider.cycleOrder;
+      p.focus(order.first);
+      p.cycleBackward();
+      expect(p.focused, order.last);
+    });
+  });
+
+  group('PanelFocusProvider.cycleOrder', () {
+    test('contains every FocusPanelId exactly once', () {
+      final order = PanelFocusProvider.cycleOrder;
+      expect(order.length, FocusPanelId.values.length);
+      for (final id in FocusPanelId.values) {
+        expect(order.contains(id), isTrue,
+            reason: '$id must be in the cycle order');
+      }
+    });
+
+    test('forward full cycle returns to starting panel', () {
+      final p = PanelFocusProvider();
+      final order = PanelFocusProvider.cycleOrder;
+      p.focus(order.first);
+      for (var i = 0; i < order.length; i++) {
+        p.cycleForward();
+      }
+      expect(p.focused, order.first);
+    });
+
+    test('backward full cycle returns to starting panel', () {
+      final p = PanelFocusProvider();
+      final order = PanelFocusProvider.cycleOrder;
+      p.focus(order.last);
+      for (var i = 0; i < order.length; i++) {
+        p.cycleBackward();
+      }
+      expect(p.focused, order.last);
+    });
+
+    test('forward + backward cancel each other out', () {
+      final p = PanelFocusProvider();
+      final order = PanelFocusProvider.cycleOrder;
+      p.focus(order[2]);
+      p.cycleForward();
+      p.cycleBackward();
+      expect(p.focused, order[2]);
+    });
+  });
 }
