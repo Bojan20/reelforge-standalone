@@ -566,7 +566,7 @@ pub fn filter_presets(
             // Category axis (categories wins over uncategorised_only when both set).
             if let Some(ref wants) = categories_lc {
                 let cat_lc = m.category.as_deref().map(|c| c.to_lowercase());
-                if !cat_lc.map(|c| wants.iter().any(|w| *w == c)).unwrap_or(false) {
+                if !cat_lc.map(|c| wants.contains(&c)).unwrap_or(false) {
                     return false;
                 }
             } else if spec.uncategorised_only && m.category.is_some() {
