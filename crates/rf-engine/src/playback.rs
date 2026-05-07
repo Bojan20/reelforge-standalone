@@ -3632,6 +3632,14 @@ impl PlaybackEngine {
             .unwrap_or(0.0)
     }
 
+    /// Current audio block size (samples per render call).
+    /// Read-only snapshot; safe to call from non-audio threads.
+    /// Used by external plugin instantiation to size pre-allocated
+    /// buffers in the `PluginInsertProcessor` adapter.
+    pub fn max_block_size(&self) -> usize {
+        self.current_block_size.load(Ordering::Relaxed)
+    }
+
     /// Number of parameters on the processor in `(track_id, slot_index)`,
     /// or 0 if the slot is empty / track is unknown.
     /// Read-only; safe to call from non-audio threads.

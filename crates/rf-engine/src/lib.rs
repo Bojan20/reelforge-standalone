@@ -30,6 +30,7 @@ mod freeze;
 pub mod groups;
 mod insert_chain;
 mod parallel_graph;
+pub mod plugin_insert_adapter;
 mod pdc;
 pub mod routing_pdc; // P10.0.2: Graph-level PDC
 mod send_return;

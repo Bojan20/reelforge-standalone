@@ -288,17 +288,38 @@ fn apply_step_to_engine(track_id: u64, step: &ApplyStep) -> (String, String) {
             }
         }
         ApplyStep::LoadExternal {
+            slot_index,
             plugin_id,
             plugin_name,
-            ..
-        } => (
-            "skipped".into(),
-            format!(
-                "external plugin '{}' (id {}) — instantiation through apply path \
-                 is a follow-up phase",
-                plugin_name, plugin_id
-            ),
-        ),
+        } => {
+            let sample_rate = pb.sample_rate() as f64;
+            // Engine block size — pulled from the playback engine so the
+            // plugin's pre-allocated buffers match what the audio thread
+            // actually hands it. Falls back to a conservative 4096
+            // when not yet known.
+            let max_block = pb.max_block_size().max(64);
+            match rf_engine::plugin_insert_adapter::load_external_plugin_as_insert(
+                plugin_id,
+                sample_rate,
+                max_block,
+            ) {
+                Ok(processor) => {
+                    let ok = pb.load_track_insert(track_id, *slot_index as usize, processor);
+                    if ok {
+                        ("ok".into(), format!("loaded external '{}'", plugin_name))
+                    } else {
+                        (
+                            "failed".into(),
+                            format!("load_track_insert returned false for '{}'", plugin_name),
+                        )
+                    }
+                }
+                Err(e) => (
+                    "failed".into(),
+                    format!("external '{}' instantiation failed: {}", plugin_name, e),
+                ),
+            }
+        }
         ApplyStep::SetBypass {
             slot_index,
             bypassed,
