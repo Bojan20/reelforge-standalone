@@ -90,27 +90,30 @@ class _QuickAssignHotbarState extends State<QuickAssignHotbar> {
           ),
         ),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const _HotbarLabel(),
-          const SizedBox(width: 12),
-          for (var i = 0; i < bindings.length; i++) ...[
-            _HotbarSlot(
-              index: i,
-              audioPath: bindings[i],
-              onBind: (path) {
-                _project.bindHotbarSlot(i, path);
-                widget.onChanged?.call();
-              },
-              onUnbind: () {
-                _project.unbindHotbarSlot(i);
-                widget.onChanged?.call();
-              },
-            ),
-            if (i < bindings.length - 1) const SizedBox(width: 6),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const _HotbarLabel(),
+            const SizedBox(width: 12),
+            for (var i = 0; i < bindings.length; i++) ...[
+              _HotbarSlot(
+                index: i,
+                audioPath: bindings[i],
+                onBind: (path) {
+                  _project.bindHotbarSlot(i, path);
+                  widget.onChanged?.call();
+                },
+                onUnbind: () {
+                  _project.unbindHotbarSlot(i);
+                  widget.onChanged?.call();
+                },
+              ),
+              if (i < bindings.length - 1) const SizedBox(width: 6),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

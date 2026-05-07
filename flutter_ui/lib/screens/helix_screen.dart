@@ -52,6 +52,7 @@ import '../src/rust/native_ffi.dart' show ForcedOutcome;
 import '../widgets/slot_lab/live_play_orb_overlay.dart';
 import '../widgets/slot_lab/premium_slot_preview.dart';
 // ── SPRINT 1 imports ──
+import '../widgets/common/command_palette.dart';
 import '../widgets/common/flux_tooltip.dart';
 import '../widgets/helix/math_hud_overlay.dart';
 // import '../widgets/helix/stub_tab_placeholder.dart'; // removed — no stubs remain
@@ -67,6 +68,8 @@ import '../services/cloud_sync_service.dart';
 import '../services/ai_generation_service.dart';
 import '../services/cortex_vision_service.dart';
 import '../services/cortex_eye_server.dart';
+import '../services/audio_playback_service.dart';
+import '../services/command_registry.dart';
 import '../services/event_registry.dart';
 import '../services/event_registration_service.dart';
 import '../services/stage_configuration_service.dart';
@@ -84,6 +87,7 @@ import '../widgets/slot_lab/orb_mixer.dart';
 import '../widgets/helix/compliance_lights_badge.dart';
 import '../widgets/helix/ai_composer_panel.dart'; // Model 3 — multi-provider AI Composer
 import '../providers/mixer_dsp_provider.dart';
+import '../providers/orb_mixer_provider.dart';
 import '../providers/rgai_ffi_provider.dart';
 import '../providers/slot_lab/live_compliance_provider.dart';
 import 'slot_lab_screen.dart' show SlotLabScreen;
@@ -759,7 +763,35 @@ class _HelixScreenState extends State<HelixScreen>
     } else if (key == LogicalKeyboardKey.backquote) {
       // Backtick → AI COMPOSER tab
       setState(() => _dockTab = 12);
+    } else if (key == LogicalKeyboardKey.keyK && isMeta) {
+      // SPEC-01: Global Cmd+K — HELIX Quick Switcher
+      _openQuickSwitcher();
+      return;
     }
+  }
+
+  /// SPEC-01 — HELIX Quick Switcher (Cmd+K).
+  ///
+  /// Registers all 13 dock tabs as palette commands so the user can jump
+  /// to any tab via fuzzy search. Clears stale tab registrations first
+  /// to avoid duplicates when the palette is opened multiple times.
+  void _openQuickSwitcher() {
+    CommandRegistry.instance.clearByPrefix('helix.tab.');
+    CommandRegistry.instance.clearByPrefix('daw.tab.');
+    CommandRegistry.instance.clearByPrefix('slotlab.tab.');
+    for (var i = 0; i < _dockTabDefs.length; i++) {
+      final def = _dockTabDefs[i];
+      CommandRegistry.instance.register(PaletteCommand(
+        id: 'helix.tab.$i',
+        label: def.$2,
+        description: 'Switch to ${def.$2} dock tab',
+        category: PaletteCategory.navigate,
+        icon: def.$1,
+        keywords: [def.$2.toLowerCase(), 'helix', 'dock'],
+        onExecute: () => setState(() => _dockTab = i),
+      ));
+    }
+    CommandPalette.showUltimate(context);
   }
 
   /// SPEC-14 — Panel focus cycle (Cmd+] forward, Cmd+[ back).
@@ -1491,7 +1523,7 @@ class _HelixScreenState extends State<HelixScreen>
               // Always visible while user works in any HELIX dock tab.
               // Positioned top-left so it doesn't clash with info chips top-right.
               const Positioned(
-                top: 12, left: 12,
+                top: 80, left: 12,
                 child: MathHudOverlay(),
               ),
 
@@ -1847,28 +1879,35 @@ class _HelixScreenState extends State<HelixScreen>
             icon: Icons.volume_off_rounded, label: 'MUTE ALL',
             color: FluxForgeTheme.accentCyan,
             onTap: () {
-              try { EventRegistry.instance.triggerStage('AUDIO_MUTE_ALL'); } catch (_) {}
+              try {
+                final mixer = GetIt.instance<OrbMixerProvider>();
+                if (!mixer.master.muted) mixer.toggleMute(OrbBusId.master);
+              } catch (_) {}
             },
           ),
           _QuickAction(
             icon: Icons.volume_up_rounded, label: 'UNMUTE',
             color: FluxForgeTheme.accentCyan,
             onTap: () {
-              try { EventRegistry.instance.triggerStage('AUDIO_UNMUTE_ALL'); } catch (_) {}
+              try {
+                final mixer = GetIt.instance<OrbMixerProvider>();
+                if (mixer.master.muted) mixer.toggleMute(OrbBusId.master);
+              } catch (_) {}
             },
           ),
           _QuickAction(
             icon: Icons.stop_rounded, label: 'STOP ALL',
             color: FluxForgeTheme.accentOrange,
             onTap: () {
-              try { EventRegistry.instance.triggerStage('AUDIO_STOP_ALL'); } catch (_) {}
+              try { GetIt.instance<AudioPlaybackService>().stopAll(); } catch (_) {}
             },
           ),
           _QuickAction(
             icon: Icons.refresh_rounded, label: 'RELOAD',
             color: FluxForgeTheme.textTertiary,
             onTap: () {
-              try { EventRegistry.instance.triggerStage('AUDIO_RELOAD'); } catch (_) {}
+              // TODO: implement hot-reload of audio assets from disk
+              // (requires AssetManagerProvider.scanAndReload() — not yet built)
             },
           ),
         ];
