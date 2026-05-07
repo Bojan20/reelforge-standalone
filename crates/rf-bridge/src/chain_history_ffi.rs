@@ -229,6 +229,64 @@ pub extern "C" fn chain_history_push_json(snapshot_json: *const c_char) -> i32 {
     }
 }
 
+/// Apply a `FullChainSnapshot` JSON directly to the engine, with an
+/// automatic undo-push of the *current* state first.
+///
+/// Used by the chain preset library (Wave 2 Front 5): a preset stores a
+/// `FullChainSnapshot`; loading it should look identical to any other
+/// `chain_apply_execute` from the user's POV (single-step undo restores
+/// what was loaded before).
+///
+/// Behaviour mirrors `chain_apply_execute_json`:
+///   1. Capture current engine chain → push onto undo stack with the
+///      snapshot's label (or "preset apply" fallback).
+///   2. Unload all currently-loaded slots.
+///   3. Load each snapshot slot, set parameters, set bypass + mix.
+///
+/// Returns the same `RestoreResult` JSON shape as `chain_undo_json`
+/// (`{"ok":true,"track_id":...,"slots_restored":...,"params_set":...,"label":...}`)
+/// or an error envelope.
+///
+/// **Caller must free with `chain_history_free_string`.**
+///
+/// # Safety
+/// `snapshot_json` must be a NUL-terminated UTF-8 string.
+#[unsafe(no_mangle)]
+pub extern "C" fn chain_history_apply_snapshot_json(
+    snapshot_json: *const c_char,
+) -> *mut c_char {
+    if snapshot_json.is_null() {
+        let err = make_err_json(0, "null snapshot");
+        return CString::new(err).map(CString::into_raw).unwrap_or(ptr::null_mut());
+    }
+    let s = match unsafe { CStr::from_ptr(snapshot_json) }.to_str() {
+        Ok(s) => s,
+        Err(_) => {
+            let err = make_err_json(0, "snapshot not utf-8");
+            return CString::new(err).map(CString::into_raw).unwrap_or(ptr::null_mut());
+        }
+    };
+    let snap: FullChainSnapshot = match serde_json::from_str(s) {
+        Ok(v) => v,
+        Err(e) => {
+            let err = make_err_json(0, &format!("parse error: {}", e));
+            return CString::new(err).map(CString::into_raw).unwrap_or(ptr::null_mut());
+        }
+    };
+
+    // Auto-push undo so the user can revert the preset apply with a
+    // single Cmd-Z. Use the snapshot label if present, else a generic.
+    let label = if snap.label.is_empty() {
+        "preset apply".to_string()
+    } else {
+        snap.label.clone()
+    };
+    push_current_snapshot(snap.track_id, &label);
+
+    let result = restore_snapshot_to_engine(&snap);
+    CString::new(result).map(CString::into_raw).unwrap_or(ptr::null_mut())
+}
+
 // ─── FFI: depths + labels ────────────────────────────────────────────────────
 
 /// How many undo steps are available for `track_id`.

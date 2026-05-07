@@ -14,6 +14,8 @@
 /// - UI state only updates on successful FFI calls
 library;
 
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import '../src/rust/native_ffi.dart';
 
@@ -379,6 +381,32 @@ class DspChainProvider extends ChangeNotifier {
     };
   }
 
+  /// Inverse of [_typeToProcessorName]. Returns null for unknown processors
+  /// (e.g. external VST3 plugins exposed by name in the engine but without
+  /// a matching DspNodeType — those are skipped during refresh-from-engine
+  /// rather than mis-categorised).
+  DspNodeType? _processorNameToType(String name) {
+    return switch (name) {
+      'pro-eq' => DspNodeType.eq,
+      'compressor' => DspNodeType.compressor,
+      'limiter' => DspNodeType.limiter,
+      'gate' => DspNodeType.gate,
+      'expander' => DspNodeType.expander,
+      'reverb' => DspNodeType.reverb,
+      'delay' => DspNodeType.delay,
+      'saturator' => DspNodeType.saturation,
+      'deesser' => DspNodeType.deEsser,
+      'pultec' => DspNodeType.pultec,
+      'api550' => DspNodeType.api550,
+      'neve1073' => DspNodeType.neve1073,
+      'multiband-saturator' => DspNodeType.multibandSaturation,
+      'haas-delay' => DspNodeType.haasDelay,
+      'stereo-imager' => DspNodeType.stereoImager,
+      'multiband-stereo-imager' => DspNodeType.multibandStereoImager,
+      _ => null,
+    };
+  }
+
   /// Get chain for track (creates empty if not exists)
   DspChain getChain(int trackId) {
     return _chains[trackId] ?? DspChain(trackId: trackId);
@@ -394,6 +422,64 @@ class DspChainProvider extends ChangeNotifier {
   void initializeChain(int trackId) {
     if (_chains.containsKey(trackId)) return;
     _chains[trackId] = DspChain(trackId: trackId, nodes: []);
+  }
+
+  /// Re-read the live engine chain state and rebuild the UI provider's
+  /// model to match. Use after any code path that mutates the engine
+  /// chain *outside* this provider (preset library apply, undo/redo
+  /// from chain history, A/B restore, future external plugin host
+  /// notifications) — without this call the FX Chain canvas would show
+  /// stale nodes.
+  ///
+  /// Reads via `chain_history_capture_json` (the same path used by
+  /// undo/redo and the A/B snapshot system) so what the user sees is
+  /// guaranteed to reflect what the audio thread actually has loaded.
+  ///
+  /// Unknown processor names (external plugins, plugins not in
+  /// `DspNodeType`) are skipped — they're audible but the UI can't draw
+  /// a typed badge for them yet. Logs a debug line so the gap is visible
+  /// in `flutter logs`.
+  void refreshFromEngine(int trackId) {
+    final raw = NativeFFI.instance.chainHistoryCapture(trackId);
+    if (raw == null) {
+      // Engine not initialised or capture failed — leave provider state
+      // untouched but still notify so any "syncing…" UI can clear.
+      notifyListeners();
+      return;
+    }
+    Map<String, dynamic> snap;
+    try {
+      snap = jsonDecode(raw) as Map<String, dynamic>;
+    } catch (_) {
+      notifyListeners();
+      return;
+    }
+    final slots = (snap['slots'] as List<dynamic>?) ?? const [];
+
+    final List<DspNode> rebuilt = [];
+    int order = 0;
+    for (final s in slots) {
+      final m = s as Map<String, dynamic>;
+      final processorName = (m['processor_name'] as String?) ?? '';
+      final type = _processorNameToType(processorName);
+      if (type == null) {
+        debugPrint(
+            '[DspChainProvider] refreshFromEngine: unmapped processor '
+            '"$processorName" — skipped (external/unknown)');
+        continue;
+      }
+      final bypassed = (m['bypassed'] as bool?) ?? false;
+      final mix = (m['mix'] as num?)?.toDouble() ?? 1.0;
+      rebuilt.add(
+        DspNode.create(type, order: order, bypass: bypassed)
+            .copyWith(wetDry: mix),
+      );
+      order++;
+    }
+
+    final existing = getChain(trackId);
+    _chains[trackId] = existing.copyWith(nodes: rebuilt);
+    notifyListeners();
   }
 
   /// Clear chain for track

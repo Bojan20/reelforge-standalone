@@ -1,13 +1,19 @@
 /// DAW FX Chain Panel - FULL (P0.1)
 /// Updated: 2026-01-29 - Added per-processor CPU meters (P3.2)
+/// Updated: 2026-05-07 - Wave 2 Front 5: Library button → preset modal
 library;
+
+import 'dart:convert';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import '../../lower_zone_types.dart';
+import '../../../../models/chain_preset.dart';
 import '../../../../providers/dsp_chain_provider.dart';
-import '../../../../widgets/dsp/internal_processor_editor_window.dart';
+import '../../../../services/chain_history_service.dart';
 import '../../../../widgets/dsp/chain_history_bar.dart';
+import '../../../../widgets/dsp/chain_preset_library_panel.dart';
+import '../../../../widgets/dsp/internal_processor_editor_window.dart';
 import '../shared/processor_cpu_meter.dart';
 
 class FxChainPanel extends StatelessWidget {
@@ -63,6 +69,13 @@ class FxChainPanel extends StatelessWidget {
                   ],
                   const SizedBox(width: 8),
                   _buildChainActionButton(Icons.clear_all, 'Clear', () => provider.clearChain(trackId)),
+                  const SizedBox(width: 8),
+                  // Wave 2 Front 5 — preset library entry point
+                  _buildChainActionButton(
+                    Icons.library_music,
+                    'Library',
+                    () => _openPresetLibrary(context, trackId),
+                  ),
                 ],
               ),
               const SizedBox(height: 16),
@@ -425,5 +438,79 @@ class FxChainPanel extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  // ─── Wave 2 Front 5 — Preset library entry point ─────────────────────────
+  //
+  // The library panel needs two callbacks tightly coupled to the engine:
+  //
+  //   captureCurrentChain  — read live engine state for "Save current as
+  //                          preset". Goes through `chain_history_capture_json`
+  //                          (same FFI used by undo/redo and A/B), which
+  //                          returns a `FullChainSnapshot` JSON. We parse it
+  //                          back into our Dart model so the panel can attach
+  //                          it to the save request without re-reading.
+  //
+  //   onApplyPreset        — push a saved snapshot onto the live engine.
+  //                          Routes through the new
+  //                          `chain_history_apply_snapshot_json` FFI, which
+  //                          auto-pushes the *current* state to undo first
+  //                          (single Cmd-Z reverts the apply) and then
+  //                          unloads/reloads slots through the regular
+  //                          chain-history restore path. The provider gets
+  //                          notified via ChainHistoryService → DSP UI
+  //                          rebuilds without a manual refresh.
+  //
+  // Errors surface as toast strings the modal renders in the footer.
+
+  void _openPresetLibrary(BuildContext context, int trackId) {
+    ChainPresetLibraryPanel.show(
+      context,
+      trackId: trackId,
+      captureCurrentChain: () => _captureCurrentSnapshot(trackId),
+      onApplyPreset: (preset) => _applyPresetToEngine(trackId, preset),
+    );
+  }
+
+  FullChainSnapshot? _captureCurrentSnapshot(int trackId) {
+    final raw = ChainHistoryService.instance.captureSnapshot(trackId);
+    if (raw == null) return null;
+    try {
+      final parsed = jsonDecode(raw) as Map<String, dynamic>;
+      return FullChainSnapshot.fromJson(parsed);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<String> _applyPresetToEngine(
+      int trackId, ChainPreset preset) async {
+    // Re-stamp the snapshot's track_id to the *currently-selected* track
+    // and re-label so the undo entry reads "Apply: <preset name>".
+    // Without this, applying a preset captured on a different track would
+    // restore onto the wrong track id (or no-op silently).
+    final retargeted = FullChainSnapshot(
+      trackId: trackId,
+      slots: preset.snapshot.slots,
+      label: 'Apply: ${preset.name}',
+      timestampMs: DateTime.now().millisecondsSinceEpoch,
+    );
+    final snapshotJson = jsonEncode(retargeted.toJson());
+    final result =
+        ChainHistoryService.instance.applySnapshot(trackId, snapshotJson);
+    if (result == null) {
+      return 'Greška pri primeni: FFI nije vratio rezultat.';
+    }
+    if (result['ok'] == true) {
+      final slots = (result['slots_restored'] as num?)?.toInt() ?? 0;
+      final params = (result['params_set'] as num?)?.toInt() ?? 0;
+      // Bounce the chain provider so the FX Chain canvas re-paints from
+      // the engine's new state — restore_snapshot_to_engine touched
+      // engine slots directly, the provider has no side-channel signal.
+      DspChainProvider.instance.refreshFromEngine(trackId);
+      return 'Primenjeno: ${preset.name} ($slots slot, $params parametara)';
+    }
+    final err = (result['error'] as String?) ?? 'nepoznata greška';
+    return 'Greška pri primeni: $err';
   }
 }

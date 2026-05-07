@@ -10247,6 +10247,32 @@ class NativeFFI {
     } catch (_) { return null; }
   }
 
+  /// Apply a `FullChainSnapshot` JSON directly to the engine, with an
+  /// automatic undo-push of the current state. Returns the same
+  /// `RestoreResult` JSON shape as `chainUndoJson` or an error envelope.
+  ///
+  /// Used by the chain preset library — loading a preset is semantically
+  /// "apply this captured chain" and should be Cmd-Z reversible.
+  String? chainHistoryApplySnapshot(String snapshotJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('chain_history_apply_snapshot_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)
+      >('chain_history_free_string');
+      final p = snapshotJson.toNativeUtf8();
+      try {
+        final ptr = fn(p);
+        if (ptr == nullptr) return null;
+        final r = ptr.toDartString(); freeFn(ptr); return r;
+      } finally {
+        calloc.free(p);
+      }
+    } catch (_) { return null; }
+  }
+
   // ═══════════════════════════════════════════════════════════════════════
   // CHAIN PRESET LIBRARY — user-owned chain snapshots persisted as flat
   // JSON files in `~/.fluxforge/chains/` (or RF_CHAIN_PRESET_DIR override).

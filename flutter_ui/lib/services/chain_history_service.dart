@@ -179,6 +179,28 @@ class ChainHistoryService extends ChangeNotifier {
     _refresh(trackId);
   }
 
+  // ─── Capture / apply snapshot ──────────────────────────────────────────
+
+  /// Snapshot the current engine chain state as raw JSON (the same shape
+  /// the chain preset library and undo stack consume).
+  String? captureSnapshot(int trackId) =>
+      NativeFFI.instance.chainHistoryCapture(trackId);
+
+  /// Apply a previously-captured snapshot JSON to the engine. The current
+  /// state is auto-pushed to the undo stack first, so a single Cmd-Z
+  /// reverts the apply. Returns the parsed `RestoreResult` (same shape as
+  /// `undo`/`redo`) or null on FFI failure.
+  Map<String, dynamic>? applySnapshot(int trackId, String snapshotJson) {
+    final raw = NativeFFI.instance.chainHistoryApplySnapshot(snapshotJson);
+    _refresh(trackId);
+    if (raw == null) return null;
+    try {
+      return jsonDecode(raw) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
   // ─── Force refresh ─────────────────────────────────────────────────────
 
   /// Refresh cached status from Rust (call after external chain modifications).
