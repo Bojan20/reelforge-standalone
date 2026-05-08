@@ -36,6 +36,8 @@ class HrtfProfilePanel extends StatelessWidget {
               _buildHeader(p),
               const SizedBox(height: 16),
               _buildPresets(context, p),
+              const SizedBox(height: 8),
+              _buildBundledPresets(context, p),
               const SizedBox(height: 16),
               _buildMeasurementSliders(p),
               const SizedBox(height: 16),
@@ -201,6 +203,115 @@ class HrtfProfilePanel extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── Bundled presets (P1.3) ────────────────────────────────────────────
+
+  Widget _buildBundledPresets(BuildContext context, HrtfProvider p) {
+    return Row(
+      children: [
+        const SizedBox(
+          width: 80,
+          child: Text(
+            'BUNDLED',
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              color: FluxForgeTheme.textTertiary,
+              letterSpacing: 1.1,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        _bundledChip(context, p, 'small'),
+        const SizedBox(width: 6),
+        _bundledChip(context, p, 'average'),
+        const SizedBox(width: 6),
+        _bundledChip(context, p, 'large'),
+        const Spacer(),
+        FluxTooltip(
+          message: p.hasDefaultPresets
+              ? 'Re-install bundled presets (overwrite)'
+              : 'Generate bundled small/average/large presets to disk',
+          child: GestureDetector(
+            onTap: () async {
+              final ok = await p.installDefaultPresets(force: true);
+              if (context.mounted) {
+                _showSnack(context,
+                    ok ? 'Bundled presets installed' : (p.errorMessage ?? 'Install failed'));
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF14141C),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: FluxForgeTheme.brandGoldDark.withValues(alpha: 0.30),
+                  width: 0.5,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    p.hasDefaultPresets
+                        ? Icons.refresh_rounded
+                        : Icons.download_rounded,
+                    size: 11,
+                    color: FluxForgeTheme.textSecondary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    p.hasDefaultPresets ? 'REBUILD' : 'INSTALL',
+                    style: const TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      color: FluxForgeTheme.textSecondary,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _bundledChip(BuildContext context, HrtfProvider p, String name) {
+    return GestureDetector(
+      onTap: () async {
+        final ok = await p.loadBundledPreset(name);
+        if (context.mounted) {
+          _showSnack(
+            context,
+            ok ? 'Loaded bundled preset: $name' : (p.errorMessage ?? 'Load failed'),
+          );
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0E0E14),
+          borderRadius: BorderRadius.circular(5),
+          border: Border.all(
+            color: FluxForgeTheme.accentGreen.withValues(alpha: 0.35),
+            width: 0.5,
+          ),
+        ),
+        child: Text(
+          name.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 9,
+            fontWeight: FontWeight.w700,
+            color: FluxForgeTheme.accentGreen,
+            letterSpacing: 1.0,
           ),
         ),
       ),

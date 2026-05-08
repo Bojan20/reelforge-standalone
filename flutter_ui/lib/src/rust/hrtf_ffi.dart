@@ -70,6 +70,13 @@ extension HrtfFFI on NativeFFI {
           int Function(double, double, int, int, Pointer<Utf8>)>(
               'hrtf_audition_render_to_wav');
 
+  // ── Default presets bundle (P1.3) ────────────────────────────────────────
+
+  static final _hrtfSaveDefaultPresets =
+      NativeFFI.instance.lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>, Uint32),
+          int Function(Pointer<Utf8>, int)>('hrtf_save_default_presets');
+
   // ═══════════════════════════════════════════════════════════════════════════
   // PUBLIC API
   // ═══════════════════════════════════════════════════════════════════════════
@@ -157,6 +164,23 @@ extension HrtfFFI on NativeFFI {
     try {
       return _hrtfAuditionRenderToWav(
           azimuthDeg, elevationDeg, signalType, durationMs, p);
+    } finally {
+      malloc.free(p);
+    }
+  }
+
+  /// Generate the three canonical anthropometric presets (small / average /
+  /// large) and persist them as `.ffhrtf` directories under `outDir`.
+  /// Each preset becomes its own subdirectory of [outDir] using its name.
+  ///
+  /// Returns:
+  /// *  `0` on success
+  /// * `-1` invalid argument
+  /// * `-2` I/O error
+  int hrtfSaveDefaultPresets(String outDir, int sampleRate) {
+    final p = outDir.toNativeUtf8();
+    try {
+      return _hrtfSaveDefaultPresets(p, sampleRate);
     } finally {
       malloc.free(p);
     }

@@ -242,6 +242,72 @@ class HrtfProvider extends ChangeNotifier {
     return _refreshMetadata();
   }
 
+  // ─── Bundled presets (P1.3) ──────────────────────────────────────────────
+
+  /// Resolve the on-disk root that holds the three default presets.
+  /// We use the same Application Support directory used by other persistent
+  /// state, so users can browse to it from the SAVE dialog if they want.
+  String get _defaultPresetsRoot {
+    final home = Platform.environment['HOME'] ?? '/tmp';
+    return '$home/Library/Application Support/FluxForge Studio/hrtf/presets';
+  }
+
+  /// True if all three default presets already exist on disk.
+  bool get hasDefaultPresets {
+    final root = Directory(_defaultPresetsRoot);
+    if (!root.existsSync()) return false;
+    for (final n in const ['small', 'average', 'large']) {
+      if (!Directory('${root.path}/$n').existsSync()) return false;
+      if (!File('${root.path}/$n/manifest.json').existsSync()) return false;
+    }
+    return true;
+  }
+
+  /// Generate the three canonical presets if they aren't already installed.
+  /// Idempotent — if all three exist on disk this returns `true` without
+  /// touching the filesystem.
+  Future<bool> installDefaultPresets({bool force = false}) async {
+    if (!_ffiAvailable()) return _fail('FFI not available');
+    if (!force && hasDefaultPresets) return true;
+
+    final root = Directory(_defaultPresetsRoot);
+    try {
+      await root.create(recursive: true);
+    } catch (e) {
+      return _fail('Could not create presets dir: $e');
+    }
+
+    final rc = NativeFFI.instance
+        .hrtfSaveDefaultPresets(_defaultPresetsRoot, _sampleRate);
+    if (rc != 0) {
+      return _fail('hrtf_save_default_presets returned $rc');
+    }
+    notifyListeners();
+    return true;
+  }
+
+  /// Load one of the bundled presets by name (`small`, `average`, `large`).
+  /// Auto-installs the bundle on first call so a fresh app always has
+  /// these three available.
+  Future<bool> loadBundledPreset(String name) async {
+    if (!const ['small', 'average', 'large'].contains(name)) {
+      return _fail('Unknown bundled preset: $name');
+    }
+    if (!hasDefaultPresets) {
+      final installed = await installDefaultPresets();
+      if (!installed) return false;
+    }
+    // Sync the editor profile to match what we are loading so the UI
+    // sliders reflect the bundled measurements.
+    final mirrored = switch (name) {
+      'small' => AnthropometricProfile.small,
+      'large' => AnthropometricProfile.large,
+      _ => AnthropometricProfile.cipicAverage,
+    };
+    setProfile(mirrored);
+    return loadFfhrtf('$_defaultPresetsRoot/$name');
+  }
+
   // ─── Audition (P1.2) ─────────────────────────────────────────────────────
 
   /// Update the audition source position.  Each axis is clamped to the

@@ -176,6 +176,83 @@ pub extern "C" fn hrtf_metadata_json() -> *mut c_char {
 // LIFECYCLE
 // ═══════════════════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════════════════
+// DEFAULT PRESETS BUNDLE (P1.3)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Generates the three canonical anthropometric profiles (small / average /
+// large) and writes each as a `.ffhrtf` directory under `out_dir`.  Flutter
+// calls this once on first launch and then loads any of them via the
+// existing `hrtf_load_ffhrtf` path.
+
+/// Anthropometric matching the Dart `AnthropometricProfile.small` constant.
+fn preset_small() -> AnthropometricProfile {
+    AnthropometricProfile {
+        head_width_mm: 142.0,
+        head_depth_mm: 180.0,
+        pinna_height_mm: 58.0,
+        pinna_width_mm: 25.0,
+        cavum_concha_depth_mm: 10.5,
+        head_circumference_mm: 540.0,
+        inter_tragal_distance_mm: 128.0,
+        nose_bridge_prominence_mm: 11.0,
+    }
+}
+
+fn preset_large() -> AnthropometricProfile {
+    AnthropometricProfile {
+        head_width_mm: 168.0,
+        head_depth_mm: 212.0,
+        pinna_height_mm: 74.0,
+        pinna_width_mm: 32.0,
+        cavum_concha_depth_mm: 14.5,
+        head_circumference_mm: 600.0,
+        inter_tragal_distance_mm: 152.0,
+        nose_bridge_prominence_mm: 17.0,
+    }
+}
+
+/// Generate and persist the three default `.ffhrtf` presets under
+/// `out_dir`/{small,average,large}.  Each subdirectory becomes a complete
+/// `.ffhrtf` bundle that can be loaded via `hrtf_load_ffhrtf`.
+///
+/// Returns:
+/// *  `0` — all three presets written
+/// * `-1` — invalid args (null path, bad UTF-8)
+/// * `-2` — I/O error during write (partial state may exist on disk)
+#[unsafe(no_mangle)]
+pub extern "C" fn hrtf_save_default_presets(
+    out_dir: *const c_char,
+    sample_rate: u32,
+) -> i32 {
+    if out_dir.is_null() {
+        return -1;
+    }
+    let base_str = match unsafe { CStr::from_ptr(out_dir) }.to_str() {
+        Ok(s) if !s.is_empty() => s,
+        _ => return -1,
+    };
+    let base = std::path::PathBuf::from(base_str);
+    let presets: [(&str, AnthropometricProfile); 3] = [
+        ("small", preset_small()),
+        ("average", AnthropometricProfile::default()),
+        ("large", preset_large()),
+    ];
+    for (name, profile) in &presets {
+        let db = personalize(*profile, sample_rate);
+        let (mut manifest, dataset) =
+            rf_spatial::binaural::export_database(&db, name, Some(*profile));
+        manifest.subject_id = (*name).to_string();
+        let dir = base.join(name);
+        if rf_spatial::binaural::save_ffhrtf_dir(&dir, &manifest, &dataset)
+            .is_err()
+        {
+            return -2;
+        }
+    }
+    0
+}
+
 /// Free a string returned by any `hrtf_*` function.
 #[unsafe(no_mangle)]
 pub extern "C" fn hrtf_free_string(ptr: *mut c_char) {
@@ -616,6 +693,45 @@ mod tests {
             "expected ≤5s of audio, got {frames} frames",
         );
         let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn default_presets_writes_three_loadable_bundles() {
+        let _g = TEST_MUTEX.lock().unwrap();
+        let tmp = std::env::temp_dir().join("fluxforge_default_presets_test");
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).unwrap();
+        let path_c = cstr(tmp.to_str().unwrap());
+
+        let rc = hrtf_save_default_presets(path_c.as_ptr(), 48_000);
+        assert_eq!(rc, 0);
+
+        // Verify all three subdirectories exist and are loadable.
+        for name in ["small", "average", "large"] {
+            let sub = tmp.join(name);
+            assert!(sub.is_dir(), "{name} preset dir missing");
+            assert!(sub.join("manifest.json").exists());
+            assert!(sub.join("hrir_left.raw").exists());
+
+            // Load each one back into the global slot — proves the bundle
+            // is byte-identical to a freshly generated one.
+            let pc = cstr(sub.to_str().unwrap());
+            let lc = hrtf_load_ffhrtf(pc.as_ptr());
+            assert_eq!(lc, 0, "{name} load failed (rc={lc})");
+            let meta = ffi_string(hrtf_metadata_json()).unwrap();
+            let v: serde_json::Value = serde_json::from_str(&meta).unwrap();
+            assert_eq!(v["sample_rate"].as_u64(), Some(48_000));
+            assert!(v["measurement_count"].as_u64().unwrap() > 100);
+        }
+
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn default_presets_rejects_null_path() {
+        let _g = TEST_MUTEX.lock().unwrap();
+        let rc = hrtf_save_default_presets(std::ptr::null(), 48_000);
+        assert_eq!(rc, -1);
     }
 
     #[test]
