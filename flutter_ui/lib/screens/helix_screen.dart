@@ -362,11 +362,11 @@ class _HelixScreenState extends State<HelixScreen>
 
     _bpmTimer = Timer.periodic(const Duration(seconds: 2), (_) {
       if (!mounted) return;
-      try {
+      silentRun('bpmTimer.syncDisplay', () {
         final engine = GetIt.instance<EngineProvider>();
         final t = engine.transport;
         setState(() => _bpmDisplay = t.tempo > 0 ? t.tempo : _bpmDisplay);
-      } catch (_) {}
+      });
     });
 
     // Seed demo composite events so panels show real data on first open
@@ -420,23 +420,23 @@ class _HelixScreenState extends State<HelixScreen>
         case 'stage_force':
           final stage = params['stage'] as String?;
           if (stage != null) {
-            try {
+            silentRun('eye.stageForce', () {
               EventRegistry.instance.triggerStage(stage.toUpperCase());
-            } catch (_) {}
+            });
           }
         case 'play':
-          try { GetIt.instance<EngineProvider>().play(); } catch (_) {}
+          silentRun('eye.enginePlay', () { GetIt.instance<EngineProvider>().play(); });
         case 'pause':
         case 'stop':
-          try { GetIt.instance<EngineProvider>().stop(); } catch (_) {}
+          silentRun('eye.engineStop', () { GetIt.instance<EngineProvider>().stop(); });
         case 'transport_toggle':
-          try {
+          silentRun('eye.transportToggle', () {
             final e = GetIt.instance<EngineProvider>();
             e.transport.isPlaying ? e.stop() : e.play();
-          } catch (_) {}
+          });
         // ─── TALAS 1 — Eye automation for slot flow QA ────────────────────
         case 'slot_load_sample':
-          try {
+          silentRun('eye.slotLoadSample', () {
             final gddJson = GddImportService.instance.createSampleGddJson();
             GetIt.instance<SlotLabCoordinator>().initEngineFromGdd(gddJson);
             // Clear "NO CONFIGURATION" overlay so SPIN button is enabled
@@ -452,63 +452,63 @@ class _HelixScreenState extends State<HelixScreen>
                 volatilityProfile: 'medium',
               ));
             }
-          } catch (_) {}
+          });
         case 'slot_spin':
-          try { GetIt.instance<SlotLabCoordinator>().spin(); } catch (_) {}
+          silentRun('eye.slotSpin', () { GetIt.instance<SlotLabCoordinator>().spin(); });
         case 'slot_spin_forced':
-          try {
+          silentRun('eye.slotSpinForced', () {
             final name = (params['outcome'] as String? ?? 'bigWin').toLowerCase();
             final outcome = ForcedOutcome.values.firstWhere(
               (o) => o.name.toLowerCase() == name,
               orElse: () => ForcedOutcome.bigWin,
             );
             GetIt.instance<SlotLabCoordinator>().spinForced(outcome);
-          } catch (_) {}
+          });
         case 'slot_stop':
-          try {
+          silentRun('eye.slotStop', () {
             GetIt.instance<SlotLabCoordinator>().stopStagePlayback();
-          } catch (_) {}
+          });
         // ─── TALAS 1 β — Synthetic FSM drivers ────────────────────────────
         // These bypass the engine and drive GameFlowProvider directly so all
         // Talas 1 wires (onSpinStart/Complete, FS auto-loop, deferred BW,
         // SLAM watchdog) can be end-to-end verified via Eye even when the
         // engine lacks a full blueprint.
         case 'fsm_reset':
-          try {
+          silentRun('eye.fsmReset', () {
             GetIt.instance<GameFlowProvider>().resetToBaseGame();
-          } catch (_) {}
+          });
         case 'fsm_dismiss_transition':
-          try {
+          silentRun('eye.fsmDismissTransition', () {
             GetIt.instance<GameFlowProvider>().dismissTransition();
-          } catch (_) {}
+          });
         case 'fsm_force_transition':
-          try {
+          silentRun('eye.fsmForceTransition', () {
             final name = (params['to'] as String? ?? 'baseGame');
             final target = GameFlowState.values.firstWhere(
               (s) => s.name == name,
               orElse: () => GameFlowState.baseGame,
             );
             GetIt.instance<GameFlowProvider>().forceTransition(target);
-          } catch (_) {}
+          });
         // Phase 9: Live Play Orb overlay eye-automation
         case 'orb_show':
-          try { LivePlayOrbOverlayState.current?.show(); } catch (_) {}
+          silentRun('eye.orbShow', () { LivePlayOrbOverlayState.current?.show(); });
         case 'orb_hide':
-          try { LivePlayOrbOverlayState.current?.hide(); } catch (_) {}
+          silentRun('eye.orbHide', () { LivePlayOrbOverlayState.current?.hide(); });
         case 'orb_toggle':
-          try { LivePlayOrbOverlayState.current?.toggleVisible(); } catch (_) {}
+          silentRun('eye.orbToggle', () { LivePlayOrbOverlayState.current?.toggleVisible(); });
         case 'orb_cycle_size':
-          try { LivePlayOrbOverlayState.current?.cycleSizeMode(); } catch (_) {}
+          silentRun('eye.orbCycleSize', () { LivePlayOrbOverlayState.current?.cycleSizeMode(); });
         case 'orb_set_size':
           // Smooth-resize: params.px = target size in pixels (60..480).
-          try {
+          silentRun('eye.orbSetSize', () {
             final px = (params['px'] as num?)?.toDouble();
             if (px != null) {
               LivePlayOrbOverlayState.current?.setSizePx(px);
             }
-          } catch (_) {}
+          });
         case 'fsm_synthetic_spin':
-          try {
+          silentRun('eye.fsmSyntheticSpin', () {
             final outcome = (params['outcome'] as String? ?? 'noWin').toLowerCase();
             final bet = (params['bet'] as num?)?.toDouble() ?? 2.0;
             final gf = GetIt.instance<GameFlowProvider>();
@@ -570,19 +570,19 @@ class _HelixScreenState extends State<HelixScreen>
               cascadeCount: 0,
             );
             gf.onSpinComplete(result);
-          } catch (_) {}
+          });
       }
     };
 
     // Playhead sync timer — polls engine position for timeline animation
     _playheadTimer = Timer.periodic(const Duration(milliseconds: 60), (_) {
       if (!mounted) return;
-      try {
+      silentRun('playheadTimer.sync', () {
         final t = GetIt.instance<EngineProvider>().transport;
         if (t.isPlaying && t.positionSeconds != _playheadSeconds) {
           setState(() => _playheadSeconds = t.positionSeconds);
         }
-      } catch (_) {}
+      });
     });
   }
 
@@ -651,7 +651,7 @@ class _HelixScreenState extends State<HelixScreen>
 
   void _seedDemoEvents() {
     if (_demoSeedDone) return;
-    try {
+    silentRun('seed.demoEvents', () {
       final mw = GetIt.instance<MiddlewareProvider>();
       if (mw.compositeEvents.isNotEmpty) {
         // Project already has authored events — do not seed demo data, but
@@ -722,7 +722,7 @@ class _HelixScreenState extends State<HelixScreen>
         mw.addCompositeEvent(e, select: false, skipUndo: true);
       }
       // Also seed some neuro data so INTEL/MATH panels show values
-      try {
+      silentRun('seed.neuroData', () {
         final neuro = GetIt.instance<NeuroAudioProvider>();
         final rng = math.Random(42);
         for (int i = 0; i < 50; i++) {
@@ -732,9 +732,9 @@ class _HelixScreenState extends State<HelixScreen>
           final winMult = rng.nextDouble() < 0.28 ? rng.nextDouble() * 8 : 0.0;
           neuro.recordSpinResult(winMult);
         }
-      } catch (_) {}
+      });
       // Seed some spin results into project stats
-      try {
+      silentRun('seed.projectSpinResults', () {
         final proj = GetIt.instance<SlotLabProjectProvider>();
         final rng = math.Random(42);
         for (int i = 0; i < 30; i++) {
@@ -743,11 +743,11 @@ class _HelixScreenState extends State<HelixScreen>
           proj.recordSpinResult(betAmount: bet, winAmount: winMult * bet,
           tier: winMult > 5 ? 'WIN 3' : winMult > 0 ? 'WIN 1' : null);
         }
-      } catch (_) {}
+      });
       // H-005: mark seed complete so subsequent HELIX mounts don't duplicate
       // neuro/proj samples even if the composite-events guard would still bail.
       _demoSeedDone = true;
-    } catch (_) {}
+    });
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -1690,7 +1690,7 @@ class _HelixScreenState extends State<HelixScreen>
                       _showReelLens = true;
                     });
                     // Also try to open audio lens for matching composite event
-                    try {
+                    silentRun('canvas.openAudioContextLens', () {
                       final mw = GetIt.instance<MiddlewareProvider>();
                       final events = mw.compositeEvents;
                       final match = events.where((e) =>
@@ -1703,7 +1703,7 @@ class _HelixScreenState extends State<HelixScreen>
                       } else if (events.isNotEmpty) {
                         openContextLens(events[reelIndex % events.length]);
                       }
-                    } catch (_) {}
+                    });
                   },
                 );
                   },
@@ -2091,47 +2091,37 @@ class _HelixScreenState extends State<HelixScreen>
           _QuickAction(
             icon: Icons.play_arrow_rounded, label: 'SPIN',
             color: FluxForgeTheme.accentBlue,
-            onTap: () {
-              try {
-                GetIt.instance<GameFlowProvider>().forceTransition(GameFlowState.baseGame);
-              } catch (_) {}
-            },
+            onTap: () => silentRun('quickAction.flowBaseGame', () {
+              GetIt.instance<GameFlowProvider>().forceTransition(GameFlowState.baseGame);
+            }),
           ),
           _QuickAction(
             icon: Icons.star_rounded, label: 'FREE',
             color: FluxForgeTheme.accentYellow,
-            onTap: () {
-              try {
-                GetIt.instance<GameFlowProvider>().forceTransition(GameFlowState.freeSpins);
-              } catch (_) {}
-            },
+            onTap: () => silentRun('quickAction.flowFreeSpins', () {
+              GetIt.instance<GameFlowProvider>().forceTransition(GameFlowState.freeSpins);
+            }),
           ),
           _QuickAction(
             icon: Icons.emoji_events_rounded, label: 'JACKPOT',
             color: FluxForgeTheme.accentOrange,
-            onTap: () {
-              try {
-                GetIt.instance<GameFlowProvider>().forceTransition(GameFlowState.jackpotPresentation);
-              } catch (_) {}
-            },
+            onTap: () => silentRun('quickAction.flowJackpot', () {
+              GetIt.instance<GameFlowProvider>().forceTransition(GameFlowState.jackpotPresentation);
+            }),
           ),
           _QuickAction(
             icon: Icons.casino_rounded, label: 'BONUS',
             color: FluxForgeTheme.accentPurple,
-            onTap: () {
-              try {
-                GetIt.instance<GameFlowProvider>().forceTransition(GameFlowState.bonusGame);
-              } catch (_) {}
-            },
+            onTap: () => silentRun('quickAction.flowBonus', () {
+              GetIt.instance<GameFlowProvider>().forceTransition(GameFlowState.bonusGame);
+            }),
           ),
           _QuickAction(
             icon: Icons.restart_alt_rounded, label: 'RESET',
             color: FluxForgeTheme.textTertiary,
-            onTap: () {
-              try {
-                GetIt.instance<GameFlowProvider>().forceTransition(GameFlowState.idle);
-              } catch (_) {}
-            },
+            onTap: () => silentRun('quickAction.flowReset', () {
+              GetIt.instance<GameFlowProvider>().forceTransition(GameFlowState.idle);
+            }),
           ),
         ];
       case 1: // AUDIO
@@ -2155,9 +2145,7 @@ class _HelixScreenState extends State<HelixScreen>
           _QuickAction(
             icon: Icons.stop_rounded, label: 'STOP ALL',
             color: FluxForgeTheme.accentOrange,
-            onTap: () {
-              try { GetIt.instance<AudioPlaybackService>().stopAll(); } catch (_) {}
-            },
+            onTap: () => silentRun('quickAction.audioStopAll', () { GetIt.instance<AudioPlaybackService>().stopAll(); }),
           ),
           _QuickAction(
             icon: Icons.refresh_rounded, label: 'RELOAD',
@@ -2173,23 +2161,17 @@ class _HelixScreenState extends State<HelixScreen>
           _QuickAction(
             icon: Icons.check_circle_outline_rounded, label: 'VERIFY RTP',
             color: FluxForgeTheme.accentGreen,
-            onTap: () {
-              try { EventRegistry.instance.triggerStage('MATH_VERIFY_RTP'); } catch (_) {}
-            },
+            onTap: () => silentRun('quickAction.mathVerifyRtp', () { EventRegistry.instance.triggerStage('MATH_VERIFY_RTP'); }),
           ),
           _QuickAction(
             icon: Icons.calculate_rounded, label: 'RECALC',
             color: FluxForgeTheme.accentCyan,
-            onTap: () {
-              try { EventRegistry.instance.triggerStage('MATH_RECALCULATE'); } catch (_) {}
-            },
+            onTap: () => silentRun('quickAction.mathRecalc', () { EventRegistry.instance.triggerStage('MATH_RECALCULATE'); }),
           ),
           _QuickAction(
             icon: Icons.compare_rounded, label: 'COMPARE',
             color: FluxForgeTheme.accentPurple,
-            onTap: () {
-              try { EventRegistry.instance.triggerStage('MATH_COMPARE_BLUEPRINT'); } catch (_) {}
-            },
+            onTap: () => silentRun('quickAction.mathCompare', () { EventRegistry.instance.triggerStage('MATH_COMPARE_BLUEPRINT'); }),
           ),
         ];
       case 3: // TIMELINE
@@ -2197,37 +2179,27 @@ class _HelixScreenState extends State<HelixScreen>
           _QuickAction(
             icon: Icons.skip_previous_rounded, label: 'START',
             color: FluxForgeTheme.textTertiary,
-            onTap: () {
-              try { EventRegistry.instance.triggerStage('TIMELINE_GOTO_START'); } catch (_) {}
-            },
+            onTap: () => silentRun('quickAction.timelineGotoStart', () { EventRegistry.instance.triggerStage('TIMELINE_GOTO_START'); }),
           ),
           _QuickAction(
             icon: Icons.play_arrow_rounded, label: 'PLAY',
             color: FluxForgeTheme.accentOrange,
-            onTap: () {
-              try { EventRegistry.instance.triggerStage('TIMELINE_PLAY'); } catch (_) {}
-            },
+            onTap: () => silentRun('quickAction.timelinePlay', () { EventRegistry.instance.triggerStage('TIMELINE_PLAY'); }),
           ),
           _QuickAction(
             icon: Icons.stop_rounded, label: 'STOP',
             color: FluxForgeTheme.accentOrange,
-            onTap: () {
-              try { EventRegistry.instance.triggerStage('TIMELINE_STOP'); } catch (_) {}
-            },
+            onTap: () => silentRun('quickAction.timelineStop', () { EventRegistry.instance.triggerStage('TIMELINE_STOP'); }),
           ),
           _QuickAction(
             icon: Icons.fiber_manual_record_rounded, label: 'REC',
             color: const Color(0xFFFF4060),
-            onTap: () {
-              try { EventRegistry.instance.triggerStage('TIMELINE_RECORD'); } catch (_) {}
-            },
+            onTap: () => silentRun('quickAction.timelineRecord', () { EventRegistry.instance.triggerStage('TIMELINE_RECORD'); }),
           ),
           _QuickAction(
             icon: Icons.loop_rounded, label: 'LOOP',
             color: FluxForgeTheme.accentCyan,
-            onTap: () {
-              try { EventRegistry.instance.triggerStage('TIMELINE_TOGGLE_LOOP'); } catch (_) {}
-            },
+            onTap: () => silentRun('quickAction.timelineToggleLoop', () { EventRegistry.instance.triggerStage('TIMELINE_TOGGLE_LOOP'); }),
           ),
         ];
       case 4: // INTEL
@@ -2235,23 +2207,17 @@ class _HelixScreenState extends State<HelixScreen>
           _QuickAction(
             icon: Icons.analytics_rounded, label: 'ANALYZE',
             color: FluxForgeTheme.accentPurple,
-            onTap: () {
-              try { EventRegistry.instance.triggerStage('INTEL_ANALYZE'); } catch (_) {}
-            },
+            onTap: () => silentRun('quickAction.intelAnalyze', () { EventRegistry.instance.triggerStage('INTEL_ANALYZE'); }),
           ),
           _QuickAction(
             icon: Icons.summarize_rounded, label: 'REPORT',
             color: FluxForgeTheme.accentCyan,
-            onTap: () {
-              try { EventRegistry.instance.triggerStage('INTEL_GENERATE_REPORT'); } catch (_) {}
-            },
+            onTap: () => silentRun('quickAction.intelReport', () { EventRegistry.instance.triggerStage('INTEL_GENERATE_REPORT'); }),
           ),
           _QuickAction(
             icon: Icons.delete_sweep_rounded, label: 'CLEAR',
             color: FluxForgeTheme.textTertiary,
-            onTap: () {
-              try { EventRegistry.instance.triggerStage('INTEL_CLEAR'); } catch (_) {}
-            },
+            onTap: () => silentRun('quickAction.intelClear', () { EventRegistry.instance.triggerStage('INTEL_CLEAR'); }),
           ),
         ];
       case 5: // EXPORT
@@ -2259,23 +2225,17 @@ class _HelixScreenState extends State<HelixScreen>
           _QuickAction(
             icon: Icons.upload_file_rounded, label: 'EXPORT',
             color: FluxForgeTheme.accentYellow,
-            onTap: () {
-              try { EventRegistry.instance.triggerStage('EXPORT_QUICK'); } catch (_) {}
-            },
+            onTap: () => silentRun('quickAction.exportQuick', () { EventRegistry.instance.triggerStage('EXPORT_QUICK'); }),
           ),
           _QuickAction(
             icon: Icons.queue_music_rounded, label: 'STEMS',
             color: FluxForgeTheme.accentCyan,
-            onTap: () {
-              try { EventRegistry.instance.triggerStage('EXPORT_STEMS'); } catch (_) {}
-            },
+            onTap: () => silentRun('quickAction.exportStems', () { EventRegistry.instance.triggerStage('EXPORT_STEMS'); }),
           ),
           _QuickAction(
             icon: Icons.preview_rounded, label: 'PREVIEW',
             color: FluxForgeTheme.textTertiary,
-            onTap: () {
-              try { EventRegistry.instance.triggerStage('EXPORT_PREVIEW'); } catch (_) {}
-            },
+            onTap: () => silentRun('quickAction.exportPreview', () { EventRegistry.instance.triggerStage('EXPORT_PREVIEW'); }),
           ),
         ];
       default:
@@ -2495,10 +2455,10 @@ class _FlowPanelState extends State<_FlowPanel> {
   void _tapNode(_FlowGraphNode node, GameFlowProvider flow) {
     setState(() => _selectedNode = node.id);
     if (node.state != null) {
-      try { flow.forceTransition(node.state!); } catch (_) {}
+      silentRun('flowGraph.forceTransition', () { flow.forceTransition(node.state!); });
     } else if (node.id == 'win') {
       // WIN has no state — trigger WIN_PRESENT_1 stage directly
-      try { EventRegistry.instance.triggerStage('WIN_PRESENT_1'); } catch (_) {}
+      silentRun('flowGraph.triggerWinPresent', () { EventRegistry.instance.triggerStage('WIN_PRESENT_1'); });
     }
   }
 
@@ -4214,7 +4174,7 @@ class _DnaApplyButtonState extends State<_DnaApplyButton> {
     cursor: SystemMouseCursors.click,
     child: GestureDetector(
       onTap: () {
-        try {
+        silentRun('dna.applyToProject', () {
           // 1. Apply BPM midpoint to engine transport
           final bpmMid = ((widget.bpmMin + widget.bpmMax) / 2).roundToDouble();
           GetIt.instance<EngineProvider>().setTempo(bpmMid);
@@ -4231,7 +4191,7 @@ class _DnaApplyButtonState extends State<_DnaApplyButton> {
             winEscalation: widget.winEscalation,
             ambientLayerCount: widget.ambientLayerCount,
           );
-        } catch (_) {}
+        });
         setState(() => _applied = true);
         Future.delayed(const Duration(seconds: 2), () {
           if (mounted) setState(() => _applied = false);
@@ -5033,7 +4993,7 @@ class _CloudSyncPanelState extends State<_CloudSyncPanel> {
                 const SizedBox(height: 6),
                 Row(children: CloudProvider.values.map((p) => GestureDetector(
                   onTap: () async {
-                    try { await _cloud.setProvider(p); } catch (_) {}
+                    await silentCatchAsync('cloud.setProvider', () => _cloud.setProvider(p));
                     if (mounted) setState(() {});
                   },
                   child: Container(
@@ -5103,10 +5063,10 @@ class _CloudSyncPanelState extends State<_CloudSyncPanel> {
                   const Spacer(),
                   GestureDetector(
                     onTap: () async {
-                      try {
+                      await silentCatchAsync('cloud.uploadProject', () async {
                         final proj = GetIt.instance<SlotLabProjectProvider>();
                         await _cloud.uploadProject('.', name: proj.projectName);
-                      } catch (_) {}
+                      });
                       if (mounted) setState(() {});
                     },
                     child: Container(
@@ -5127,7 +5087,7 @@ class _CloudSyncPanelState extends State<_CloudSyncPanel> {
                   const SizedBox(width: 8),
                   GestureDetector(
                     onTap: () async {
-                      try { await _cloud.syncAllProjects(); } catch (_) {}
+                      await silentCatchAsync('cloud.syncAllProjects', () => _cloud.syncAllProjects());
                       if (mounted) setState(() {});
                     },
                     child: Container(
@@ -5184,7 +5144,7 @@ class _CloudSyncPanelState extends State<_CloudSyncPanel> {
                               )),
                               GestureDetector(
                                 onTap: () async {
-                                  try { await _cloud.syncProject(p.id); } catch (_) {}
+                                  await silentCatchAsync('cloud.syncProject', () => _cloud.syncProject(p.id));
                                   if (mounted) setState(() {});
                                 },
                                 child: const Icon(Icons.sync_rounded, size: 14, color: FluxForgeTheme.accentCyan),
@@ -5192,7 +5152,7 @@ class _CloudSyncPanelState extends State<_CloudSyncPanel> {
                               const SizedBox(width: 8),
                               GestureDetector(
                                 onTap: () async {
-                                  try { await _cloud.downloadProject(p.id); } catch (_) {}
+                                  await silentCatchAsync('cloud.downloadProject', () => _cloud.downloadProject(p.id));
                                   if (mounted) setState(() {});
                                 },
                                 child: const Icon(Icons.cloud_download_rounded, size: 14, color: FluxForgeTheme.accentGreen),
@@ -5661,12 +5621,12 @@ class _AudioPanelState extends State<_AudioPanel> {
                       onTapDown: (d) {
                         final v = (d.localPosition.dx / c.maxWidth).clamp(0.0, 1.0);
                         setState(() => _masterFader = v);
-                        try { NativeFFI.instance.setMasterVolume(v); } catch (_) {}
+                        silentRun('fader.setMasterVolume', () { NativeFFI.instance.setMasterVolume(v); });
                       },
                       onHorizontalDragUpdate: (d) {
                         final v = (d.localPosition.dx / c.maxWidth).clamp(0.0, 1.0);
                         setState(() => _masterFader = v);
-                        try { NativeFFI.instance.setMasterVolume(v); } catch (_) {}
+                        silentRun('fader.setMasterVolume', () { NativeFFI.instance.setMasterVolume(v); });
                       },
                       child: Container(
                         height: 10,
@@ -6112,7 +6072,7 @@ class _RunSimButtonState extends State<_RunSimButton> {
   Future<void> _run() async {
     if (_running) return;
     setState(() => _running = true);
-    try {
+    silentRun('mathSim.runSimulation', () {
       final proj = GetIt.instance<SlotLabProjectProvider>();
       final rng = math.Random();
       // Use slider values: hit frequency as probability, RTP controls avg win size
@@ -6125,7 +6085,7 @@ class _RunSimButtonState extends State<_RunSimButton> {
         proj.recordSpinResult(betAmount: 1.0, winAmount: win,
           tier: win > avgWinMult * 1.5 ? 'WIN 3' : win > 0 ? 'WIN 1' : null);
       }
-    } catch (_) {}
+    });
     await Future.delayed(const Duration(milliseconds: 800));
     if (mounted) setState(() => _running = false);
   }
@@ -6588,7 +6548,7 @@ class _IntelPanelState extends State<_IntelPanel> {
                           onTap: () {
                             // Apply: set RTPC via middleware using suggested value
                             // Map parameter name → RTPC index (matches NeuroAudioProvider 8D dims)
-                            try {
+                            silentRun('copilot.applyRtpcSuggestion', () {
                               final top = allRemediations.first;
                               final v = double.tryParse(top.suggestedValue) ?? 0.5;
                               final mw = GetIt.instance<MiddlewareProvider>();
@@ -6607,7 +6567,7 @@ class _IntelPanelState extends State<_IntelPanel> {
                                 : param.contains('compress') ? 2
                                 : 0;
                               mw.setRtpc(rtpcIdx, v.clamp(0.0, 1.0), interpolationMs: 500);
-                            } catch (_) {}
+                            });
                           },
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -6728,7 +6688,7 @@ class _IntelPanelState extends State<_IntelPanel> {
                         // I5: Run Analysis button
                         GestureDetector(
                           onTap: () {
-                            try {
+                            silentRun('rgai.analyzeBatch', () {
                               final mw = GetIt.instance<MiddlewareProvider>();
                               final ces = mw.compositeEvents;
                               if (ces.isNotEmpty) {
@@ -6749,7 +6709,7 @@ class _IntelPanelState extends State<_IntelPanel> {
                                   )).toList(),
                                 );
                               }
-                            } catch (_) {}
+                            });
                           },
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
@@ -6971,13 +6931,15 @@ class _ExportPanelState extends State<_ExportPanel> {
 
   Future<void> _doExport(String format, String label) async {
     // E3: Compliance gate — block export if RGAI HIGH risk
-    try {
+    bool _blocked = false;
+    silentRun('export.rgaiComplianceGate', () {
       final rgai = GetIt.instance<RgaiProvider>();
       if (rgai.report?.summary != null && !rgai.report!.summary.isCompliant) {
         setState(() => _lastExportResult = '⛔ BLOCKED: RGAI compliance check failed. Fix issues first.');
-        return;
+        _blocked = true;
       }
-    } catch (_) {}
+    });
+    if (_blocked) return;
 
     setState(() { _exporting = true; _lastExportResult = null; });
     try {
@@ -7908,7 +7870,7 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
       modifiedAt: DateTime.now(),
     );
     // Remove old event, add updated (id may have changed)
-    try { mw.deleteCompositeEvent(event.id); } catch (_) {}
+    silentRun('audio.deleteOldStageEvent', () { mw.deleteCompositeEvent(event.id); });
     mw.addCompositeEvent(updated);
     _registerToEventRegistry(updated);
     _syncProjectAudioAssignment(updated);
@@ -8024,7 +7986,7 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
         );
         // ID may have changed — remove old, add new
         if (target.id != event.id) {
-          try { mw.deleteCompositeEvent(event.id); } catch (_) {}
+          silentRun('audio.deleteOldEvent', () { mw.deleteCompositeEvent(event.id); });
           mw.addCompositeEvent(target);
         } else {
           mw.updateCompositeEvent(target);
@@ -8188,12 +8150,12 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
           )),
           GestureDetector(
             onTap: () async {
-              try {
+              await silentCatchAsync('audio.browseAndCreate', () async {
                 final paths = await NativeFilePicker.pickAudioFiles();
                 if (paths.isNotEmpty) {
                   await _browseAndCreateSlot(paths);
                 }
-              } catch (_) {}
+              });
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
@@ -8532,13 +8494,13 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
             onTap: () {
               final now = DateTime.now();
               final newId = 'sym_${now.millisecondsSinceEpoch}';
-              try {
+              silentRun('symbol.addNew', () {
                 proj.addSymbol(SymbolDefinition(
                   id: newId, name: 'SYM ${proj.symbols.length + 1}',
                   emoji: '🎰', type: SymbolType.custom,
                   sortOrder: proj.symbols.length,
                 ));
-              } catch (_) {}
+              });
             },
             child: const Icon(Icons.add_rounded, size: 12, color: FluxForgeTheme.accentCyan)),
         ]),
@@ -8551,10 +8513,10 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
               return _SymbolEditorRow(
                 symbol: sym,
                 onNameChanged: (name) {
-                  try { proj.updateSymbol(sym.id, sym.copyWith(name: name)); } catch (_) {}
+                  silentRun('symbol.updateName', () { proj.updateSymbol(sym.id, sym.copyWith(name: name)); });
                 },
                 onPayChanged: (pay) {
-                  try { proj.updateSymbol(sym.id, sym.copyWith(payMultiplier: pay)); } catch (_) {}
+                  silentRun('symbol.updatePay', () { proj.updateSymbol(sym.id, sym.copyWith(payMultiplier: pay)); });
                 },
               );
             },
@@ -8712,7 +8674,7 @@ class _SpineAiIntelState extends State<_SpineAiIntel> {
                     onHorizontalDragUpdate: (det) {
                       final frac = (det.localPosition.dx / constraints.maxWidth).clamp(0.0, 1.0);
                       setState(() => _rtpcOverrides[d.$4] = frac);
-                      try { mw.setRtpc(d.$4, frac, interpolationMs: 100); } catch (_) {}
+                      silentRun('neuro.setRtpc', () { mw.setRtpc(d.$4, frac, interpolationMs: 100); });
                     },
                     child: Container(
                       height: 8,
@@ -9870,25 +9832,25 @@ class _TlTrackInteractiveState extends State<_TlTrackInteractive> {
       if (value == null || !mounted) return;
       switch (value) {
         case 'delete':
-          try { widget.middleware.deleteEvent(e.id); } catch (_) {}
+          silentRun('timeline.deleteEvent', () { widget.middleware.deleteEvent(e.id); });
         case 'duplicate':
-          try {
+          silentRun('timeline.duplicateEvent', () {
             final now = DateTime.now();
             widget.middleware.addCompositeEvent(e.copyWith(
               id: 'dup_${now.millisecondsSinceEpoch}',
               name: '${e.name}_copy',
               timelinePositionMs: e.timelinePositionMs + 200,
             ));
-          } catch (_) {}
+          });
         case 'rename':
           _showRenameDialog(context, e);
         default:
           if (value.startsWith('track_')) {
             final trackIdx = int.tryParse(value.substring(6)) ?? 0;
-            try {
+            silentRun('timeline.moveToTrack', () {
               widget.middleware.updateCompositeEvent(
                 e.copyWith(trackIndex: trackIdx));
-            } catch (_) {}
+            });
           }
       }
     });
@@ -9924,9 +9886,9 @@ class _TlTrackInteractiveState extends State<_TlTrackInteractive> {
             onPressed: () {
               final name = ctrl.text.trim();
               if (name.isNotEmpty) {
-                try {
+                silentRun('timeline.renameEvent', () {
                   widget.middleware.updateCompositeEvent(e.copyWith(name: name));
-                } catch (_) {}
+                });
               }
               Navigator.of(context).pop();
             },
@@ -10008,10 +9970,10 @@ class _TlTrackInteractiveState extends State<_TlTrackInteractive> {
                           // SlotCompositeEvent has no durationMs field — we persist the
                           // modifiedAt timestamp so the timeline re-reads _regionWidthFactors.
                           if (_resizingId == e.id) {
-                            try {
+                            silentRun('timeline.resizePersist', () {
                               widget.middleware.updateCompositeEvent(
                                 e.copyWith(modifiedAt: DateTime.now()));
-                            } catch (_) {}
+                            });
                           }
                           _draggingId = null;
                           _resizingId = null;
@@ -10237,10 +10199,10 @@ class _AudioContextLensState extends State<_AudioContextLens> {
                                         value: _rtpcValues[i],
                                         onChanged: (v) {
                                           setState(() => _rtpcValues[i] = v);
-                                          try {
+                                          silentRun('event_detail.setRtpc', () {
                                             GetIt.instance<MiddlewareProvider>()
                                               .setRtpc(i, v, interpolationMs: 200);
-                                          } catch (_) {}
+                                          });
                                         },
                                       ),
                                     ),
@@ -10618,14 +10580,14 @@ class _ReelContextLensState extends State<_ReelContextLens> {
                               value: _sliderValues[i],
                               onChanged: (v) {
                                 setState(() => _sliderValues[i] = v);
-                                try {
+                                silentRun('reel_config.setRtpc', () {
                                   // RTPC IDs: reel × 4 + slider_index (0-3)
                                   // Per-reel, 4 params. Max ID = (reels-1)*4+3 = 23 for 6-reel slots.
                                   // Row-independent (these are reel-level parameters).
                                   GetIt.instance<MiddlewareProvider>().setRtpc(
                                     widget.reel * 4 + i, v,
                                     interpolationMs: 100);
-                                } catch (_) {}
+                                });
                               },
                             ),
                           ),

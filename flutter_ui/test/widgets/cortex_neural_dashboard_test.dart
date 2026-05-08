@@ -133,6 +133,10 @@ void main() {
 
     testWidgets('all sub-tabs have consistent dark bg', (tester) async {
       for (final subTab in DawCortexSubTab.values) {
+        // chat renders BrainChat which needs BrainProvider + CortexDaemonClient
+        // (full daemon stack) — skip in unit-test context; covered in integration tests.
+        if (subTab == DawCortexSubTab.chat) continue;
+
         await tester.pumpWidget(_testApp(
           CortexNeuralDashboard(subTab: subTab),
         ));
@@ -147,11 +151,13 @@ void main() {
   });
 
   group('DawCortexSubTab', () {
-    test('has 5 values', () {
-      expect(DawCortexSubTab.values.length, 5);
+    test('has 6 values', () {
+      // chat was added as first element (index 0) after the original 5 were written.
+      expect(DawCortexSubTab.values.length, 6);
     });
 
     test('labels are correct', () {
+      expect(DawCortexSubTab.chat.label, 'Chat');
       expect(DawCortexSubTab.overview.label, 'Overview');
       expect(DawCortexSubTab.awareness.label, 'Awareness');
       expect(DawCortexSubTab.neural.label, 'Neural');
@@ -159,12 +165,14 @@ void main() {
       expect(DawCortexSubTab.events.label, 'Events');
     });
 
-    test('shortcuts are Q-T', () {
-      expect(DawCortexSubTab.overview.shortcut, 'Q');
-      expect(DawCortexSubTab.awareness.shortcut, 'W');
-      expect(DawCortexSubTab.neural.shortcut, 'E');
-      expect(DawCortexSubTab.immune.shortcut, 'R');
-      expect(DawCortexSubTab.events.shortcut, 'T');
+    test('shortcuts are Q-Y', () {
+      // chat is now index 0 → 'Q'; all others shifted by one position.
+      expect(DawCortexSubTab.chat.shortcut, 'Q');
+      expect(DawCortexSubTab.overview.shortcut, 'W');
+      expect(DawCortexSubTab.awareness.shortcut, 'E');
+      expect(DawCortexSubTab.neural.shortcut, 'R');
+      expect(DawCortexSubTab.immune.shortcut, 'T');
+      expect(DawCortexSubTab.events.shortcut, 'Y');
     });
 
     test('icons are not null', () {
@@ -210,8 +218,9 @@ void main() {
 
     test('setSubTabIndex works for cortex', () {
       final state = PaneTabState(superTab: DawSuperTab.cortex);
+      // index 0=chat, 1=overview, 2=awareness, 3=neural, 4=immune, 5=events
       state.setSubTabIndex(2);
-      expect(state.cortexSubTab, DawCortexSubTab.neural);
+      expect(state.cortexSubTab, DawCortexSubTab.awareness);
     });
 
     test('currentSubTabIndex returns cortex index', () {
@@ -219,13 +228,15 @@ void main() {
         superTab: DawSuperTab.cortex,
         cortexSubTab: DawCortexSubTab.events,
       );
-      expect(state.currentSubTabIndex, 4);
+      // events is now at index 5 (chat was prepended)
+      expect(state.currentSubTabIndex, 5);
     });
 
     test('subTabLabels returns cortex labels', () {
       final state = PaneTabState(superTab: DawSuperTab.cortex);
-      expect(state.subTabLabels.length, 5);
-      expect(state.subTabLabels.first, 'Overview');
+      // 6 tabs: chat + original 5
+      expect(state.subTabLabels.length, 6);
+      expect(state.subTabLabels.first, 'Chat');
     });
 
     test('copy preserves cortexSubTab', () {
@@ -257,7 +268,8 @@ void main() {
 
     test('setSubTabIndex works for cortex', () {
       final state = DawLowerZoneState(superTab: DawSuperTab.cortex);
-      state.setSubTabIndex(3);
+      // Enum: chat(0) overview(1) awareness(2) neural(3) immune(4) events(5)
+      state.setSubTabIndex(4);
       expect(state.cortexSubTab, DawCortexSubTab.immune);
     });
 
@@ -266,12 +278,14 @@ void main() {
         superTab: DawSuperTab.cortex,
         cortexSubTab: DawCortexSubTab.events,
       );
-      expect(state.currentSubTabIndex, 4);
+      // events is at index 5 (chat prepended as index 0)
+      expect(state.currentSubTabIndex, 5);
     });
 
     test('subTabLabels returns cortex labels', () {
       final state = DawLowerZoneState(superTab: DawSuperTab.cortex);
-      expect(state.subTabLabels.length, 5);
+      // 6 tabs: chat + original 5
+      expect(state.subTabLabels.length, 6);
     });
 
     test('copyWith preserves cortexSubTab', () {
@@ -283,19 +297,22 @@ void main() {
     test('toJson includes cortexSubTab', () {
       final state = DawLowerZoneState(cortexSubTab: DawCortexSubTab.neural);
       final json = state.toJson();
-      expect(json['cortexSubTab'], 2);
+      // neural is now at index 3 (chat was prepended)
+      expect(json['cortexSubTab'], 3);
     });
 
     test('fromJson restores cortexSubTab', () {
       final state = DawLowerZoneState.fromJson({
-        'cortexSubTab': 4,
+        'cortexSubTab': 5,
       });
+      // index 5 = events
       expect(state.cortexSubTab, DawCortexSubTab.events);
     });
 
     test('fromJson handles missing cortexSubTab', () {
       final state = DawLowerZoneState.fromJson({});
-      expect(state.cortexSubTab, DawCortexSubTab.overview);
+      // Missing key defaults to index 0; with chat prepended that is now chat.
+      expect(state.cortexSubTab, DawCortexSubTab.chat);
     });
   });
 

@@ -332,6 +332,7 @@ class _NeuralBindOrbState extends State<NeuralBindOrb>
             matchRate: _lastAnalysis?.matchRate ?? 0,
             boundStages: _lastAnalysis?.uniqueStageCount ?? 0,
             totalStages: _totalStages,
+            dnaResult: _lastDnaResult,
           ),
         ),
       ),
@@ -351,6 +352,8 @@ class _OrbPainter extends CustomPainter {
   final double matchRate;
   final int boundStages;
   final int totalStages;
+  /// Sonic DNA classification result — drives outer category rings in DONE state.
+  final SonicDnaResult? dnaResult;
 
   const _OrbPainter({
     required this.state,
@@ -360,6 +363,7 @@ class _OrbPainter extends CustomPainter {
     required this.matchRate,
     required this.boundStages,
     required this.totalStages,
+    this.dnaResult,
   });
 
   @override
@@ -499,6 +503,71 @@ class _OrbPainter extends CustomPainter {
 
     // Check mark
     _drawCheckmark(canvas, cx, cy, r * 0.3, const Color(0xFF50FF98));
+
+    // ── Sonic DNA classification rings (outer) ────────────────────────────
+    // When dnaResult is available, draw colored arc segments just outside the
+    // main ring — one arc per sound category, length ∝ count.  This gives the
+    // user an at-a-glance view of what the classifier found without opening
+    // the NeuralBindSheet.
+    _paintClassificationRings(canvas, cx, cy, r);
+  }
+
+  /// Draws colored category arcs on the outer rim (r * 0.94) based on the
+  /// Sonic DNA classification counts.  Uses the same colour map as
+  /// `_soundTypeColor` so the mini orb and the sheet are visually consistent.
+  void _paintClassificationRings(Canvas canvas, double cx, double cy, double r) {
+    final dna = dnaResult;
+    if (dna == null || dna.typeCounts.isEmpty) return;
+
+    final total = dna.typeCounts.values.fold<int>(0, (a, b) => a + b);
+    if (total == 0) return;
+
+    // Sort by count descending so dominant categories read first (top of circle).
+    final sorted = dna.typeCounts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    const ringRRatio = 0.94;
+    final ringR = r * ringRRatio;
+    const gapAngle = 0.04; // radians — tiny gap between category arcs
+    double startAngle = -math.pi / 2; // start at 12-o'clock
+
+    for (final entry in sorted) {
+      final fraction = entry.value / total;
+      final sweep = fraction * 2 * math.pi - gapAngle;
+      if (sweep <= 0) continue;
+
+      final color = _soundTypeColor(entry.key);
+      final paint = Paint()
+        ..color = color.withValues(alpha: 0.75)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0
+        ..strokeCap = StrokeCap.round;
+
+      canvas.drawArc(
+        Rect.fromCircle(center: Offset(cx, cy), radius: ringR),
+        startAngle,
+        sweep,
+        false,
+        paint,
+      );
+
+      // Subtle glow behind each arc
+      final glowPaint = Paint()
+        ..color = color.withValues(alpha: 0.18)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 5.0
+        ..strokeCap = StrokeCap.round
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2);
+      canvas.drawArc(
+        Rect.fromCircle(center: Offset(cx, cy), radius: ringR),
+        startAngle,
+        sweep,
+        false,
+        glowPaint,
+      );
+
+      startAngle += sweep + gapAngle;
+    }
   }
 
   void _paintError(Canvas canvas, double cx, double cy, double r) {
@@ -586,7 +655,8 @@ class _OrbPainter extends CustomPainter {
       old.pulseValue != pulseValue ||
       old.spinValue != spinValue ||
       old.flashValue != flashValue ||
-      old.matchRate != matchRate;
+      old.matchRate != matchRate ||
+      old.dnaResult != dnaResult;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
