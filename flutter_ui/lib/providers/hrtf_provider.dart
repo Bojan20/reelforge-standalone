@@ -484,6 +484,63 @@ class HrtfProvider extends ChangeNotifier {
     super.dispose();
   }
 
+  // ─── Offline buffer render (HRTF P2 phase 1) ─────────────────────────────
+
+  /// Render an arbitrary mono WAV file through the loaded HRTF database to
+  /// a stereo WAV at the current audition position (or the supplied
+  /// override).  This is the offline counterpart of [playAudition] —
+  /// useful for batch-processing whole sound libraries with consistent
+  /// HRTF spatialisation.
+  ///
+  /// Returns the path to the written file on success, or `null` on
+  /// failure (sets [errorMessage]).
+  Future<String?> renderBufferToWav({
+    required String inputPath,
+    required String outputPath,
+    double? azimuthDeg,
+    double? elevationDeg,
+    double gain = 1.0,
+  }) async {
+    if (!_ffiAvailable()) {
+      _fail('FFI not available');
+      return null;
+    }
+    if (!hasGenerated) {
+      _fail('Generate the HRTF database before rendering');
+      return null;
+    }
+    final az = azimuthDeg ?? _auditionAzimuthDeg;
+    final el = elevationDeg ?? _auditionElevationDeg;
+    final frames = NativeFFI.instance.hrtfRenderBufferToWav(
+      inPath: inputPath,
+      outPath: outputPath,
+      azimuthDeg: az,
+      elevationDeg: el,
+      gain: gain,
+    );
+    switch (frames) {
+      case -1:
+        _fail('No HRTF database loaded');
+        return null;
+      case -2:
+        _fail('Invalid render arguments');
+        return null;
+      case -3:
+        _fail('Input file unreadable: $inputPath');
+        return null;
+      case -4:
+        _fail('Output WAV write failed: $outputPath');
+        return null;
+      case 0:
+        _fail('Render produced 0 frames (empty input?)');
+        return null;
+      default:
+        _errorMessage = null;
+        notifyListeners();
+        return outputPath;
+    }
+  }
+
   /// Force-stop any in-flight audition voice.  Safe to call when nothing
   /// is playing — it's a no-op.
   void stopAudition() {

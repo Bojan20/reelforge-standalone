@@ -77,6 +77,14 @@ extension HrtfFFI on NativeFFI {
           Int32 Function(Pointer<Utf8>, Uint32),
           int Function(Pointer<Utf8>, int)>('hrtf_save_default_presets');
 
+  // ── Offline buffer render (HRTF P2 phase 1) ──────────────────────────────
+
+  static final _hrtfRenderBufferToWav =
+      NativeFFI.instance.lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>, Pointer<Utf8>, Float, Float, Float),
+          int Function(Pointer<Utf8>, Pointer<Utf8>, double, double, double)>(
+              'hrtf_render_buffer_to_wav');
+
   // ═══════════════════════════════════════════════════════════════════════════
   // PUBLIC API
   // ═══════════════════════════════════════════════════════════════════════════
@@ -183,6 +191,34 @@ extension HrtfFFI on NativeFFI {
       return _hrtfSaveDefaultPresets(p, sampleRate);
     } finally {
       malloc.free(p);
+    }
+  }
+
+  /// Offline-render a mono WAV file through the loaded HRTF database to
+  /// a stereo WAV at `(azimuthDeg, elevationDeg)`.  Same DSP path as the
+  /// live audition — this is the foundation for the upcoming P2 audio-
+  /// thread HRTF mixer integration.
+  ///
+  /// Returns the number of frames written, or:
+  /// *  `0` empty input or write failure
+  /// * `-1` no HRTF database loaded
+  /// * `-2` invalid argument (null path)
+  /// * `-3` input file unreadable
+  /// * `-4` output WAV write failed
+  int hrtfRenderBufferToWav({
+    required String inPath,
+    required String outPath,
+    required double azimuthDeg,
+    required double elevationDeg,
+    double gain = 1.0,
+  }) {
+    final pi = inPath.toNativeUtf8();
+    final po = outPath.toNativeUtf8();
+    try {
+      return _hrtfRenderBufferToWav(pi, po, azimuthDeg, elevationDeg, gain);
+    } finally {
+      malloc.free(pi);
+      malloc.free(po);
     }
   }
 

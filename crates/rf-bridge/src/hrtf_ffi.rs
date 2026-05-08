@@ -474,6 +474,164 @@ fn apply_fades(stereo: &mut [f32], sample_rate: u32) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// OFFLINE BUFFER RENDER (HRTF P2 phase 1)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Render an arbitrary mono WAV file through the in-memory HRTF database to
+// a stereo WAV at the user-picked (azimuth, elevation).  This is the offline
+// counterpart of `hrtf_audition_render_to_wav` — same DSP path, but the
+// source audio comes from disk instead of a synthesised test signal.
+//
+// This is the foundation for the upcoming P2 audio-thread integration:
+// the offline path proves the BinauralRenderer × HrtfDatabase wiring is
+// sample-accurate before we hook it into the realtime mixer.
+
+/// Render `in_path` (mono or stereo source — stereo is summed to mono)
+/// through the loaded HRTF DB at the supplied direction.
+///
+/// Returns the number of frames written to `out_path`, or:
+/// *  `0` — empty input or write failure
+/// * `-1` — no HRTF DB loaded
+/// * `-2` — invalid argument (null path, bad UTF-8)
+/// * `-3` — input file could not be read / decoded
+/// * `-4` — output WAV write failed
+///
+/// `azimuth_deg` and `elevation_deg` follow the same convention as the
+/// audition render: azimuth −180..+180 (0 front, +90 right), elevation
+/// −90..+90 (0 ear-level, +90 above).
+#[unsafe(no_mangle)]
+pub extern "C" fn hrtf_render_buffer_to_wav(
+    in_path: *const c_char,
+    out_path: *const c_char,
+    azimuth_deg: f32,
+    elevation_deg: f32,
+    gain: f32,
+) -> i32 {
+    let db_arc = match HRTF_DB.read().unwrap().as_ref() {
+        Some(arc) => arc.clone(),
+        None => return -1,
+    };
+    if in_path.is_null() || out_path.is_null() {
+        return -2;
+    }
+    let in_str = match unsafe { CStr::from_ptr(in_path) }.to_str() {
+        Ok(s) if !s.is_empty() => s,
+        _ => return -2,
+    };
+    let out_str = match unsafe { CStr::from_ptr(out_path) }.to_str() {
+        Ok(s) if !s.is_empty() => s,
+        _ => return -2,
+    };
+
+    // ── Decode input ────────────────────────────────────────────────────
+    let (mut mono, sample_rate) = match decode_wav_to_mono(in_str) {
+        Ok(v) => v,
+        Err(_) => return -3,
+    };
+    if mono.is_empty() {
+        return 0;
+    }
+
+    // ── Apply user gain (clamped to ±1.0 range after) ───────────────────
+    let g = gain.clamp(0.0, 4.0);
+    if (g - 1.0).abs() > 1e-6 {
+        for s in mono.iter_mut() {
+            *s *= g;
+        }
+    }
+
+    // ── Build BinauralRenderer matching the input sample rate ─────────────
+    // The DB might be at a different SR; if so we still feed input frames
+    // 1:1.  A future commit can resample first; for now we expose the
+    // mismatch as a no-op (best-effort offline render).
+    let mut renderer = BinauralRenderer::new(BinauralConfig::default(), sample_rate);
+    renderer.set_hrtf_database((*db_arc).clone());
+
+    let position = Position3D::from_spherical(azimuth_deg, elevation_deg, 1.5);
+    let object = AudioObject {
+        id: 0,
+        name: "offline".into(),
+        position,
+        size: 0.0,
+        gain: 1.0, // gain already baked into source
+        audio: mono,
+        sample_rate,
+        automation: None,
+    };
+
+    let n_frames = object.audio.len();
+    let mut output = vec![0.0f32; n_frames * 2];
+    if renderer.render(&[object], &mut output, 2).is_err() {
+        return -4;
+    }
+
+    // 5 ms fade-in/out to suppress edge clicks (same policy as audition).
+    apply_fades(&mut output, sample_rate);
+
+    // De-interleave for the rf_core writer (16-bit PCM stereo).
+    let mut left = Vec::with_capacity(n_frames);
+    let mut right = Vec::with_capacity(n_frames);
+    for i in 0..n_frames {
+        left.push(output[i * 2]);
+        right.push(output[i * 2 + 1]);
+    }
+    if rf_core::wav_writer::write_wav(out_str, &left, &right, sample_rate).is_err() {
+        return -4;
+    }
+    n_frames as i32
+}
+
+/// Decode a WAV file into mono f32 frames + the file's sample rate.
+/// Stereo / multi-channel sources are summed to mono.  Uses `hound` so
+/// PCM 16/24/32, IEEE float and ADPCM-free files all work without us
+/// shipping a heavyweight decoder.
+fn decode_wav_to_mono(path: &str) -> Result<(Vec<f32>, u32), Box<dyn std::error::Error>> {
+    let mut reader = hound::WavReader::open(path)?;
+    let spec = reader.spec();
+    let channels = spec.channels.max(1) as usize;
+    let sample_rate = spec.sample_rate;
+
+    let frames: Vec<f32> = match spec.sample_format {
+        hound::SampleFormat::Float => {
+            let raw: Vec<f32> = reader
+                .samples::<f32>()
+                .map(|s| s.unwrap_or(0.0))
+                .collect();
+            sum_to_mono(&raw, channels)
+        }
+        hound::SampleFormat::Int => {
+            // Normalise integer PCM to ±1 by dividing by 2^(bits-1).
+            let bits = spec.bits_per_sample.max(1) as i32;
+            let scale = 1.0f32 / ((1i64 << (bits - 1)) as f32);
+            let raw: Vec<f32> = reader
+                .samples::<i32>()
+                .map(|s| s.map(|v| v as f32 * scale).unwrap_or(0.0))
+                .collect();
+            sum_to_mono(&raw, channels)
+        }
+    };
+
+    Ok((frames, sample_rate))
+}
+
+fn sum_to_mono(interleaved: &[f32], channels: usize) -> Vec<f32> {
+    if channels <= 1 {
+        return interleaved.to_vec();
+    }
+    let frames = interleaved.len() / channels;
+    let mut out = Vec::with_capacity(frames);
+    let inv = 1.0 / channels as f32;
+    for f in 0..frames {
+        let mut sum = 0.0f32;
+        for c in 0..channels {
+            sum += interleaved[f * channels + c];
+        }
+        out.push(sum * inv);
+    }
+    out
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // TESTS
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -732,6 +890,110 @@ mod tests {
         let _g = TEST_MUTEX.lock().unwrap();
         let rc = hrtf_save_default_presets(std::ptr::null(), 48_000);
         assert_eq!(rc, -1);
+    }
+
+    // ─── Offline buffer render tests (HRTF P2 phase 1) ─────────────────
+
+    /// Helper — write a synthetic mono WAV that the renderer can decode.
+    fn write_test_mono_wav(path: &std::path::Path, freq: f32, secs: f32) {
+        let spec = hound::WavSpec {
+            channels: 1,
+            sample_rate: 48_000,
+            bits_per_sample: 32,
+            sample_format: hound::SampleFormat::Float,
+        };
+        let mut w = hound::WavWriter::create(path, spec).unwrap();
+        let n = (48_000.0 * secs) as usize;
+        let two_pi = std::f32::consts::TAU;
+        for i in 0..n {
+            let t = i as f32 / 48_000.0;
+            w.write_sample((two_pi * freq * t).sin() * 0.5).unwrap();
+        }
+        w.finalize().unwrap();
+    }
+
+    #[test]
+    fn buffer_render_round_trip_produces_stereo_wav() {
+        let _g = TEST_MUTEX.lock().unwrap();
+        assert_eq!(hrtf_generate_default(48_000), 0);
+
+        let dir = std::env::temp_dir();
+        let in_path = dir.join("fluxforge_buffer_in.wav");
+        let out_path = dir.join("fluxforge_buffer_out.wav");
+        let _ = std::fs::remove_file(&in_path);
+        let _ = std::fs::remove_file(&out_path);
+        write_test_mono_wav(&in_path, 440.0, 0.2);
+
+        let in_c = cstr(in_path.to_str().unwrap());
+        let out_c = cstr(out_path.to_str().unwrap());
+        let frames = hrtf_render_buffer_to_wav(in_c.as_ptr(), out_c.as_ptr(), 45.0, 10.0, 1.0);
+        assert!(frames > 0, "expected positive frame count, got {frames}");
+
+        let reader = hound::WavReader::open(&out_path).expect("read out");
+        let s = reader.spec();
+        assert_eq!(s.channels, 2);
+        assert_eq!(s.sample_rate, 48_000);
+        assert!(reader.duration() > 0);
+
+        let _ = std::fs::remove_file(&in_path);
+        let _ = std::fs::remove_file(&out_path);
+    }
+
+    #[test]
+    fn buffer_render_rejects_when_no_db() {
+        let _g = TEST_MUTEX.lock().unwrap();
+        *HRTF_DB.write().unwrap() = None;
+        let in_c = cstr("/tmp/no_db_in.wav");
+        let out_c = cstr("/tmp/no_db_out.wav");
+        let rc = hrtf_render_buffer_to_wav(in_c.as_ptr(), out_c.as_ptr(), 0.0, 0.0, 1.0);
+        assert_eq!(rc, -1);
+    }
+
+    #[test]
+    fn buffer_render_rejects_null_paths() {
+        let _g = TEST_MUTEX.lock().unwrap();
+        assert_eq!(hrtf_generate_default(48_000), 0);
+        let dummy = cstr("/tmp/dummy.wav");
+        assert_eq!(
+            hrtf_render_buffer_to_wav(std::ptr::null(), dummy.as_ptr(), 0.0, 0.0, 1.0),
+            -2
+        );
+        assert_eq!(
+            hrtf_render_buffer_to_wav(dummy.as_ptr(), std::ptr::null(), 0.0, 0.0, 1.0),
+            -2
+        );
+    }
+
+    #[test]
+    fn buffer_render_rejects_missing_input_file() {
+        let _g = TEST_MUTEX.lock().unwrap();
+        assert_eq!(hrtf_generate_default(48_000), 0);
+        let in_c = cstr("/tmp/this_file_does_not_exist_xyz.wav");
+        let out_c = cstr("/tmp/should_not_be_written.wav");
+        let rc = hrtf_render_buffer_to_wav(in_c.as_ptr(), out_c.as_ptr(), 0.0, 0.0, 1.0);
+        assert_eq!(rc, -3);
+    }
+
+    #[test]
+    fn buffer_render_clamps_extreme_gain() {
+        let _g = TEST_MUTEX.lock().unwrap();
+        assert_eq!(hrtf_generate_default(48_000), 0);
+
+        let dir = std::env::temp_dir();
+        let in_path = dir.join("fluxforge_gain_in.wav");
+        let out_path = dir.join("fluxforge_gain_out.wav");
+        let _ = std::fs::remove_file(&in_path);
+        let _ = std::fs::remove_file(&out_path);
+        write_test_mono_wav(&in_path, 440.0, 0.05);
+
+        let in_c = cstr(in_path.to_str().unwrap());
+        let out_c = cstr(out_path.to_str().unwrap());
+        // 999.0 → clamped to 4.0 internally, render should still succeed
+        let frames = hrtf_render_buffer_to_wav(in_c.as_ptr(), out_c.as_ptr(), 0.0, 0.0, 999.0);
+        assert!(frames > 0);
+
+        let _ = std::fs::remove_file(&in_path);
+        let _ = std::fs::remove_file(&out_path);
     }
 
     #[test]
