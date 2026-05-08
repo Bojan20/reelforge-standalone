@@ -6437,8 +6437,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                     },
                   )
                 : null,
-            // SPEC-03: Contextual Inspector — right zone
-            rightInspectorContent: _rightVisible
+            // SPEC-03: Contextual Inspector — right zone (hidden in HELIX/slot mode)
+            rightInspectorContent: _rightVisible && _editorMode != EditorMode.slot
                 ? ContextualInspector(
                     onChanged: (field, value) => _handleInspectorChange(field, value),
                     onAction: (action) => _handleInspectorAction(action),
