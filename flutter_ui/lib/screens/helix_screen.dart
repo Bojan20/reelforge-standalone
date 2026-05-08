@@ -188,6 +188,13 @@ class _HelixScreenState extends State<HelixScreen>
   late Timer _bpmTimer;
   double _bpmDisplay = 128.0;
 
+  // ── Vision init delay (H-004 cancellable) ────────────────────────────────
+  // Cancellable timer for the deferred CortexVision startup capture.  If the
+  // HELIX screen unmounts inside the 3 s window the timer must be cancelled,
+  // otherwise we leak an async chain that runs `vision.init()` +
+  // `captureFullWindow()` against a dead BuildContext.
+  Timer? _visionInitTimer;
+
   // ── FocusNode (CLAUDE.md: initState, not build) ───────────────────────────
   late final FocusNode _focusNode;
 
@@ -304,13 +311,26 @@ class _HelixScreenState extends State<HelixScreen>
     // ne pokreće 5 paralelnih poll-ova.
     GetIt.instance<LiveComplianceProvider>().start();
 
-    // Cortex Vision auto-capture — takes screenshot of HELIX on startup
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await Future.delayed(const Duration(seconds: 3));
+    // Cortex Vision auto-capture — takes screenshot of HELIX on startup.
+    //
+    // H-004 (HELIX_AUDIT 2026-05-07): the original implementation used
+    // `await Future.delayed(...)` inside `addPostFrameCallback`, which is
+    // not cancellable.  If the HELIX screen unmounts during the 3 s window
+    // (e.g. user opens then immediately closes), the async chain still
+    // resolves and runs `vision.init()` + `captureFullWindow()` against a
+    // dead BuildContext.  Replace with a stored Timer that we cancel in
+    // `dispose()`.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final vision = CortexVisionService.instance;
-      await vision.init();
-      await vision.captureFullWindow(metadata: {'trigger': 'helix_startup', 'tab': _dockTab});
+      _visionInitTimer = Timer(const Duration(seconds: 3), () async {
+        if (!mounted) return;
+        final vision = CortexVisionService.instance;
+        await vision.init();
+        if (!mounted) return; // re-check after the async gap
+        await vision.captureFullWindow(
+          metadata: {'trigger': 'helix_startup', 'tab': _dockTab},
+        );
+      });
     });
 
     // CortexEye: register all HELIX control callbacks for CORTEX autonomy
@@ -517,6 +537,7 @@ class _HelixScreenState extends State<HelixScreen>
     _waveTimer.cancel();
     _bpmTimer.cancel();
     _playheadTimer.cancel();
+    _visionInitTimer?.cancel(); // H-004
     super.dispose();
   }
 
@@ -550,10 +571,25 @@ class _HelixScreenState extends State<HelixScreen>
   // Seed demo composite events so HELIX panels aren't empty
   // ─────────────────────────────────────────────────────────────────────────
 
+  // H-005 (HELIX_AUDIT 2026-05-07): the previous guard only compared
+  // `mw.compositeEvents.isNotEmpty` — but the same call also seeds 50 neuro
+  // samples + 30 project spin results, which have no symmetric guard.  If
+  // HELIX is mounted, dismissed, and re-mounted (e.g. dock layout swap or
+  // hot-reload), those *neuro / proj* tracks get duplicate samples even
+  // though the composite-events guard correctly bails.  Switch to a single
+  // process-wide flag so the entire seed runs at most once per app session.
+  static bool _demoSeedDone = false;
+
   void _seedDemoEvents() {
+    if (_demoSeedDone) return;
     try {
       final mw = GetIt.instance<MiddlewareProvider>();
-      if (mw.compositeEvents.isNotEmpty) return; // already has data
+      if (mw.compositeEvents.isNotEmpty) {
+        // Project already has authored events — do not seed demo data, but
+        // mark as done so a later mount does not re-seed neuro/proj either.
+        _demoSeedDone = true;
+        return;
+      }
       final now = DateTime.now();
       final demoEvents = [
         SlotCompositeEvent(
@@ -639,6 +675,9 @@ class _HelixScreenState extends State<HelixScreen>
           tier: winMult > 5 ? 'WIN 3' : winMult > 0 ? 'WIN 1' : null);
         }
       } catch (_) {}
+      // H-005: mark seed complete so subsequent HELIX mounts don't duplicate
+      // neuro/proj samples even if the composite-events guard would still bail.
+      _demoSeedDone = true;
     } catch (_) {}
   }
 
@@ -1577,9 +1616,15 @@ class _HelixScreenState extends State<HelixScreen>
               // SPRINT 1 SPEC-10 — Floating Math HUD overlay (RTP / VOL / HIT / MAX).
               // Always visible while user works in any HELIX dock tab.
               // Positioned top-left so it doesn't clash with info chips top-right.
-              const Positioned(
-                top: 80, left: 12,
-                child: MathHudOverlay(),
+              //
+              // H-001 (HELIX_AUDIT 2026-05-07): when an in-feature banner is up
+              // (Free Spins / Respin / Cascade), GameFlowOverlay places its
+              // banner at top:40 spanning the full width.  Slide the Math HUD
+              // down by 44 px in that case so the two never overlap.
+              Positioned(
+                top: flow.isInFeature ? 124 : 80,
+                left: 12,
+                child: const MathHudOverlay(),
               ),
 
               // Win line overlay — shows active paylines after spin

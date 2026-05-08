@@ -90,11 +90,20 @@ class _QuickAssignHotbarState extends State<QuickAssignHotbar> {
           ),
         ),
       ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
+      // H-002 (HELIX_AUDIT 2026-05-07): hotbar used to be a horizontal
+      // SingleChildScrollView, which produced a hidden horizontal scroller
+      // and clipped the slots on narrow viewports (<500 px).  Switch to a
+      // LayoutBuilder-driven layout: when there's enough room we keep the
+      // single-row look (centered Row), otherwise we fall through to a
+      // centered Wrap that breaks onto a second row instead of overflowing.
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Each slot is ~46 px wide + 6 px gap; label ~70 px + 12 px gap.
+          // Single-row width estimate:  70 + 12 + 8 × (46 + 6) ≈ 498.
+          const singleRowMinWidth = 500.0;
+          final useWrap = constraints.maxWidth < singleRowMinWidth;
+
+          final children = <Widget>[
             const _HotbarLabel(),
             const SizedBox(width: 12),
             for (var i = 0; i < bindings.length; i++) ...[
@@ -112,8 +121,22 @@ class _QuickAssignHotbarState extends State<QuickAssignHotbar> {
               ),
               if (i < bindings.length - 1) const SizedBox(width: 6),
             ],
-          ],
-        ),
+          ];
+
+          if (useWrap) {
+            return Wrap(
+              alignment: WrapAlignment.center,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 6,
+              runSpacing: 6,
+              children: children,
+            );
+          }
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: children,
+          );
+        },
       ),
     );
   }

@@ -157,8 +157,58 @@ class CortexVisionService extends ChangeNotifier {
   static const int _maxSnapshots = 200;
   static const int _maxEvents = 500;
 
-  /// Pixel ratio for captures (2.0 = Retina quality)
+  /// Pixel ratio for explicit / API captures (2.0 = Retina quality)
   double pixelRatio = 2.0;
+
+  // ─── Disk budget (H-006 fix) ───────────────────────────────────────────
+  //
+  // Background:  prior to 2026-05-08 the service wrote a Retina-resolution
+  // PNG every 10s for every registered region (default 6 captures/tick → 36/min
+  // → ~50 000 fragments/day) and `cleanupOldSnapshots` was NEVER invoked.
+  // The result was a silent ~80 GB / 33 271-file leak in
+  // `~/Library/Application Support/FluxForge Studio/CortexVision/`.
+  //
+  // The fix has four orthogonal lines of defence:
+  //   1. Startup purge of files older than `maxAgeDays`.
+  //   2. Hard disk-budget ceiling (`maxDiskBytes`) enforced on every write.
+  //   3. Skipping frozen regions during auto-observe.
+  //   4. Lower pixel ratio + slower interval for auto-observe.
+  // Everything is configurable so tests / power users can tune it.
+
+  /// Hard ceiling for total bytes kept on disk under `_outputDir`.
+  /// Default 500 MB.  Once exceeded, oldest files are deleted until we are
+  /// back below the cap.
+  int maxDiskBytes = 500 * 1024 * 1024;
+
+  /// Files older than this are purged at startup and on each scheduled
+  /// cleanup tick.  Default 7 days.
+  Duration maxAge = const Duration(days: 7);
+
+  /// Run a scheduled cleanup every N writes (cheap counter, avoids walking
+  /// the directory on every capture).  Default 100.
+  int purgeEveryNCaptures = 100;
+
+  /// When true, auto-observe skips regions that VisionDiffEngine has
+  /// classified as frozen (no pixel changes for several captures).
+  /// Frozen regions still get a single "freshness" snapshot every
+  /// `_frozenRefreshEvery` ticks so the diff engine never starves.
+  bool skipFrozenInAutoObserve = true;
+  static const int _frozenRefreshEvery = 12; // ≈ 6 minutes at 30 s tick
+
+  /// Pixel ratio used during auto-observe captures (independent of the
+  /// public `pixelRatio` field, which API consumers control).
+  double autoObservePixelRatio = 1.0;
+
+  /// Internal: rolling counter, used by `purgeEveryNCaptures` and by
+  /// `_frozenRefreshEvery`.
+  int _captureCounter = 0;
+
+  /// Internal: cached current disk usage so we don't `stat` every time.
+  /// Kept in sync by `_writeAndAccount` and `_runDiskBudgetCleanup`.
+  int _diskUsageBytes = 0;
+
+  /// True while a cleanup is in flight; prevents two cleanups from racing.
+  bool _cleanupInFlight = false;
 
   // ─── Initialization ────────────────────────────────────────────────────
 
@@ -172,6 +222,54 @@ class CortexVisionService extends ChangeNotifier {
     await Directory('$_outputDir/snapshots').create(recursive: true);
     await Directory('$_outputDir/regions').create(recursive: true);
     await Directory('$_outputDir/diffs').create(recursive: true);
+
+    // H-006: startup purge — delete files older than `maxAge`, then size-cap
+    // the rest under `maxDiskBytes`.  This recovers any disk previously
+    // leaked by the un-bounded auto-observer and gets the in-memory accumulator
+    // in sync with reality.
+    await _purgeStartup();
+  }
+
+  /// Purge old files on startup and rebuild the disk-usage accumulator.
+  /// Errors during enumeration are logged but never thrown — the rest of
+  /// the app must come up even if a stat() fails on a stray symlink.
+  Future<void> _purgeStartup() async {
+    try {
+      final cutoff = DateTime.now().subtract(maxAge);
+      int purged = 0;
+      int total = 0;
+      for (final subDir in const ['snapshots', 'regions', 'diffs']) {
+        final dir = Directory('$_outputDir/$subDir');
+        if (!await dir.exists()) continue;
+        await for (final entity in dir.list()) {
+          if (entity is! File) continue;
+          try {
+            final stat = await entity.stat();
+            if (stat.modified.isBefore(cutoff)) {
+              await entity.delete();
+              purged++;
+              continue;
+            }
+            total += stat.size;
+          } catch (_) {
+            // Skip files that vanish or can't be stat'd.
+          }
+        }
+      }
+      _diskUsageBytes = total;
+      if (purged > 0 || total > 0) {
+        debugPrint(
+          '[CortexVision] startup: purged $purged stale, '
+          '${(total / (1024 * 1024)).toStringAsFixed(1)} MB on disk',
+        );
+      }
+      // Enforce budget on whatever survived the age cut.
+      if (_diskUsageBytes > maxDiskBytes) {
+        await _runDiskBudgetCleanup();
+      }
+    } catch (e) {
+      debugPrint('[CortexVision] startup purge failed: $e');
+    }
   }
 
   // ─── Region Management ─────────────────────────────────────────────────
@@ -234,11 +332,16 @@ class CortexVisionService extends ChangeNotifier {
     return results;
   }
 
-  /// Internal: capture from a GlobalKey pointing to a RepaintBoundary
+  /// Internal: capture from a GlobalKey pointing to a RepaintBoundary.
+  ///
+  /// `pixelRatioOverride` lets the auto-observer use a smaller ratio than
+  /// the public `pixelRatio` field so the on-disk footprint of background
+  /// captures stays small without affecting on-demand API captures.
   Future<VisionSnapshot?> _captureFromKey(
     GlobalKey key,
     String name, {
     Map<String, dynamic> metadata = const {},
+    double? pixelRatioOverride,
   }) async {
     try {
       final boundary = key.currentContext?.findRenderObject() as RenderRepaintBoundary?;
@@ -248,7 +351,8 @@ class CortexVisionService extends ChangeNotifier {
       }
 
       // Capture to image
-      final ui.Image image = await boundary.toImage(pixelRatio: pixelRatio);
+      final ratio = pixelRatioOverride ?? pixelRatio;
+      final ui.Image image = await boundary.toImage(pixelRatio: ratio);
 
       // Convert to PNG bytes
       final ByteData? byteData = await image.toByteData(
@@ -270,8 +374,8 @@ class CortexVisionService extends ChangeNotifier {
       final subDir = name == 'full_window' ? 'snapshots' : 'regions';
       final filePath = '$_outputDir/$subDir/${name}_$tsStr.png';
 
-      // Write to disk
-      await File(filePath).writeAsBytes(bytes);
+      // Write to disk + account for disk budget.
+      await _writeAndAccount(filePath, bytes);
 
       final snapshot = VisionSnapshot(
         regionName: name,
@@ -299,19 +403,107 @@ class CortexVisionService extends ChangeNotifier {
     }
   }
 
+  /// Write bytes to disk and update the running disk-usage tally.
+  /// Triggers cleanups when budget is exceeded or on the periodic counter.
+  Future<void> _writeAndAccount(String filePath, Uint8List bytes) async {
+    await File(filePath).writeAsBytes(bytes);
+    _diskUsageBytes += bytes.length;
+    _captureCounter++;
+
+    // Two independent triggers — whichever fires first.
+    final overBudget = _diskUsageBytes > maxDiskBytes;
+    final scheduled =
+        purgeEveryNCaptures > 0 && _captureCounter % purgeEveryNCaptures == 0;
+    if (overBudget || scheduled) {
+      // Run cleanup async; never block the capture path.
+      // ignore: discarded_futures
+      _runDiskBudgetCleanup();
+    }
+  }
+
+  /// Walk the output directory and delete oldest files (snapshots, regions,
+  /// diffs) until we are below `maxDiskBytes` and no file is older than
+  /// `maxAge`.  Idempotent + reentrancy-guarded.
+  Future<void> _runDiskBudgetCleanup() async {
+    if (_cleanupInFlight) return;
+    _cleanupInFlight = true;
+    try {
+      final cutoff = DateTime.now().subtract(maxAge);
+
+      // Collect every file with stat + age.
+      final all = <_FileEntry>[];
+      for (final subDir in const ['snapshots', 'regions', 'diffs']) {
+        final dir = Directory('$_outputDir/$subDir');
+        if (!await dir.exists()) continue;
+        await for (final entity in dir.list()) {
+          if (entity is! File) continue;
+          try {
+            final stat = await entity.stat();
+            all.add(_FileEntry(entity, stat.size, stat.modified));
+          } catch (_) {}
+        }
+      }
+
+      // Phase A — drop everything past the age cutoff.
+      int totalBytes = 0;
+      final survivors = <_FileEntry>[];
+      for (final f in all) {
+        if (f.modified.isBefore(cutoff)) {
+          try {
+            await f.file.delete();
+          } catch (_) {}
+          continue;
+        }
+        survivors.add(f);
+        totalBytes += f.size;
+      }
+
+      // Phase B — if still over budget, delete oldest first.
+      if (totalBytes > maxDiskBytes) {
+        survivors.sort((a, b) => a.modified.compareTo(b.modified)); // oldest first
+        for (final f in survivors) {
+          if (totalBytes <= maxDiskBytes) break;
+          try {
+            await f.file.delete();
+            totalBytes -= f.size;
+          } catch (_) {}
+        }
+      }
+
+      _diskUsageBytes = totalBytes;
+    } catch (e) {
+      debugPrint('[CortexVision] disk-budget cleanup failed: $e');
+    } finally {
+      _cleanupInFlight = false;
+    }
+  }
+
+  /// Current accounting (exposed for tests / diagnostics).
+  int get diskUsageBytes => _diskUsageBytes;
+  int get captureCounter => _captureCounter;
+
   // ─── Auto-Observation ──────────────────────────────────────────────────
 
-  /// Start periodic observation (CORTEX watches the app)
+  /// Start periodic observation (CORTEX watches the app).
+  ///
+  /// Default interval was raised from 10 s → 30 s as part of the H-006
+  /// disk-leak fix (combined with the disk-budget cap and frozen-region
+  /// skipping, on-disk footprint drops by ~30×).
   void startObserving({
-    Duration interval = const Duration(seconds: 10),
+    Duration interval = const Duration(seconds: 30),
     bool fullWindowOnly = false,
   }) {
     stopObserving();
     _observeTimer = Timer.periodic(interval, (_) async {
       if (fullWindowOnly) {
-        await captureFullWindow(metadata: {'type': 'auto_observe'});
+        await _captureFromKey(
+          rootBoundaryKey,
+          'full_window',
+          metadata: const {'type': 'auto_observe'},
+          pixelRatioOverride: autoObservePixelRatio,
+        );
       } else {
-        await captureAll(metadata: {'type': 'auto_observe'});
+        await _autoObserveAll();
       }
 
       // Compute visual diffs after capture
@@ -340,10 +532,45 @@ class CortexVisionService extends ChangeNotifier {
       _addEvent(VisionEvent(
         type: VisionEventType.healthCheck,
         description: 'Periodic observation: ${_regions.length} regions'
-            '${frozen.isNotEmpty ? ', ${frozen.length} frozen' : ''}',
+            '${frozen.isNotEmpty ? ', ${frozen.length} frozen' : ''}'
+            ', disk=${(_diskUsageBytes / (1024 * 1024)).toStringAsFixed(1)}MB',
         timestamp: DateTime.now(),
       ));
     });
+  }
+
+  /// Auto-observe pass that respects `skipFrozenInAutoObserve` and uses
+  /// `autoObservePixelRatio` instead of the public `pixelRatio` field.
+  /// Frozen regions still get a refresh capture every `_frozenRefreshEvery`
+  /// observe ticks so the diff engine never deadlocks on a region.
+  Future<void> _autoObserveAll() async {
+    final diff = VisionDiffEngine.instance;
+    final allowFrozenRefresh =
+        skipFrozenInAutoObserve && (_captureCounter % _frozenRefreshEvery == 0);
+
+    for (final name in _regions.keys) {
+      if (skipFrozenInAutoObserve &&
+          diff.isRegionFrozen(name) &&
+          !allowFrozenRefresh) {
+        continue;
+      }
+      final region = _regions[name];
+      if (region == null) continue;
+      await _captureFromKey(
+        region.boundaryKey,
+        name,
+        metadata: const {'type': 'auto_observe'},
+        pixelRatioOverride: autoObservePixelRatio,
+      );
+    }
+
+    // Always grab a full-window snapshot so we have a global reference.
+    await _captureFromKey(
+      rootBoundaryKey,
+      'full_window',
+      metadata: const {'type': 'auto_observe'},
+      pixelRatioOverride: autoObservePixelRatio,
+    );
   }
 
   /// Stop periodic observation
@@ -413,4 +640,15 @@ class CortexVisionService extends ChangeNotifier {
     stopObserving();
     super.dispose();
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INTERNAL — file accounting helper for cleanup pass
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _FileEntry {
+  final File file;
+  final int size;
+  final DateTime modified;
+  const _FileEntry(this.file, this.size, this.modified);
 }
