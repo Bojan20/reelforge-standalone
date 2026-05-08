@@ -171,7 +171,7 @@ class _HelixScreenState extends State<HelixScreen>
   int _mode = 0; // 0=COMPOSE 1=FOCUS 2=ARCHITECT
 
   // ── Spine overlay ─────────────────────────────────────────────────────────
-  int? _spineOpen; // null=closed  0=audio 1=game 2=ai 3=settings 4=analytics
+  int? _spineOpen; // null=closed  0=game 1=audio 2=ai 3=settings 4=analytics
   // SPRINT 1 SPEC-06 — Spine compact/expanded state.
   bool _spineExpanded = false;
 
@@ -708,8 +708,10 @@ class _HelixScreenState extends State<HelixScreen>
                 : Column(
               children: [
                 _buildOmnibar(),
-                // SPRINT 3 SPEC-13 — Quick Assign Hotbar (visible only in ASSIGN spine)
-                QuickAssignHotbar(visible: _spineOpen == 0),
+                // SPRINT 3 SPEC-13 — Quick Assign Hotbar (visible only in
+                // AUDIO ASSIGN spine, which is index 1 after the
+                // Game Config / Audio Assign reorder).
+                QuickAssignHotbar(visible: _spineOpen == 1),
                 Expanded(
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1443,8 +1445,8 @@ class _HelixScreenState extends State<HelixScreen>
 
   // Spine icon definitions — shared between _buildSpine() and spine overlay in build()
   static const _spineIcons = [
-    (Icons.music_note_rounded, 'AUDIO ASSIGN'),
     (Icons.grid_view_rounded, 'GAME CONFIG'),
+    (Icons.music_note_rounded, 'AUDIO ASSIGN'),
     (Icons.psychology_rounded, 'AI / INTEL'),
     (Icons.tune_rounded, 'SETTINGS'),
     (Icons.bar_chart_rounded, 'ANALYTICS'),
@@ -7561,8 +7563,8 @@ class _SpineOverlay extends StatelessWidget {
 
   static Widget _buildSpineContent(int index) {
     switch (index) {
-      case 0: return _SpineAudioAssign();
-      case 1: return _SpineGameConfig();
+      case 0: return _SpineGameConfig();
+      case 1: return _SpineAudioAssign();
       case 2: return _SpineAiIntel();
       case 3: return _SpineSettings();
       case 4: return _SpineAnalytics();
