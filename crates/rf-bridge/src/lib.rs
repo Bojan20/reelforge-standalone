@@ -69,6 +69,7 @@ pub mod ffi_bounds; // ✅ P12.0.5: FFI bounds checking
 pub mod ffi_error; // ✅ P12.0.2: FFI error result type
 pub mod fluxmacro_ffi;
 pub mod gad_ffi;
+pub mod hrtf_ffi;
 pub mod ingest_ffi;
 pub mod loop_ffi;
 pub mod memory_ffi;

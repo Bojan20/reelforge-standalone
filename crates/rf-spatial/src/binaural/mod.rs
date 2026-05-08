@@ -8,7 +8,14 @@
 //! - Crossfeed for speaker simulation
 
 mod hrtf;
+mod personalized;
 mod renderer;
+mod sofa;
+
+pub use personalized::{
+    personalize, AnthropometricProfile, HrtfPcaBasis, PersonalizedHrtfGenerator,
+};
+pub use sofa::{export_database, load_ffhrtf_dir, load_sofa, save_ffhrtf_dir, HrirDataset, HrtfManifest};
 
 pub use hrtf::{Hrtf, HrtfDatabase, HrtfInterpolation};
 pub use renderer::{BinauralConfig, BinauralRenderer};

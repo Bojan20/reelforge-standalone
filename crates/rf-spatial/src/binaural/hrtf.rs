@@ -63,6 +63,14 @@ impl HrtfDatabase {
         self.interpolation = method;
     }
 
+    /// Set the expected filter length.
+    ///
+    /// Useful when the database is populated programmatically and the first
+    /// insert should not dictate the global length.
+    pub fn set_filter_length(&mut self, len: usize) {
+        self.filter_length = len;
+    }
+
     /// Add HRIR measurement.
     ///
     /// Azimuth is wrapped into the canonical [0, az_steps) bucket so that
