@@ -7615,6 +7615,33 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
     EventRegistrationService.instance.registerComposite(event);
   }
 
+  /// Mirror the layer assignment into `SlotLabProjectProvider._audioAssignments`
+  /// so that `slot_stage_provider._hasAudioAssignment(stage)` returns `true`
+  /// at spin time.
+  ///
+  /// **2026-05-08 autobind P0 fix.**  HELIX `_SpineAudioAssign` used to only
+  /// call `_registerToEventRegistry`, which populates `EventRegistry._stageToEvent`
+  /// — but the spin gate in `slot_stage_provider._triggerStage` first checks
+  /// `SlotLabProjectProvider.hasAudioAssignment(stage)` and silently `return`s
+  /// when both `effectiveStage` *and* `stageType` are missing.  Result:
+  /// composite is registered but never fires.  SlotLab calls
+  /// `projectProvider.setAudioAssignment(stage, audioPath)` everywhere it
+  /// touches the registry; HELIX missed that side-effect, so dropping audio
+  /// in the AUDIO ASSIGN spine looked correct but produced silence on spin.
+  void _syncProjectAudioAssignment(SlotCompositeEvent event) {
+    if (event.layers.isEmpty || event.triggerStages.isEmpty) return;
+    try {
+      final project = GetIt.instance<SlotLabProjectProvider>();
+      final firstPath = event.layers.first.audioPath;
+      if (firstPath.isEmpty) return;
+      for (final stage in event.triggerStages) {
+        project.setAudioAssignment(stage, firstPath, recordUndo: false);
+      }
+    } catch (_) {
+      // Project provider not registered (e.g., test mode) — ignore.
+    }
+  }
+
   // ─── Stage picker dialog ────────────────────────────────────────────────────
   Future<String?> _pickStage(BuildContext context) async {
     final stages = StageConfigurationService.instance.allStages;
@@ -7723,6 +7750,7 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
       mw.updateCompositeEvent(updated);
       // Re-register with remaining stages
       _registerToEventRegistry(updated);
+      _syncProjectAudioAssignment(updated);
       if (mounted) setState(() {});
       return;
     }
@@ -7745,6 +7773,7 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
     try { mw.deleteCompositeEvent(event.id); } catch (_) {}
     mw.addCompositeEvent(updated);
     _registerToEventRegistry(updated);
+    _syncProjectAudioAssignment(updated);
     if (mounted) setState(() {});
   }
 
@@ -7879,6 +7908,7 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
     // Explicit re-register — covers the case where SlotLab is not mounted
     // (HELIX-only workflow). Idempotent with SlotLab's _onMiddlewareChanged.
     _registerToEventRegistry(updated);
+    _syncProjectAudioAssignment(updated);
     if (mounted) setState(() {});
   }
 
@@ -7919,6 +7949,7 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
         );
         mw.updateCompositeEvent(merged);
         _registerToEventRegistry(merged);
+        _syncProjectAudioAssignment(merged);
         if (mounted) setState(() {});
         return;
       }
@@ -7940,6 +7971,7 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
     );
     mw.addCompositeEvent(event);
     _registerToEventRegistry(event);
+    _syncProjectAudioAssignment(event);
     if (mounted) setState(() {});
   }
 
