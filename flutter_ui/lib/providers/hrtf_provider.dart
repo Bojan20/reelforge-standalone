@@ -10,6 +10,7 @@
 /// raw left/right HRIRs + positions JSON.  The same format is used by
 /// the Rust `tools/convert_sofa.py` helper.
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -101,6 +102,18 @@ class HrtfProvider extends ChangeNotifier {
   /// True while the rendered WAV is being played back.
   bool _auditionPlaying = false;
 
+  // ─── AutoSpatial integration (P1.4) ────────────────────────────────────
+  /// Whether AutoSpatial should consult the HRTF database for spatial output.
+  /// Mirrors `auto_spatial_get_hrtf_enabled` so the toggle is reflected
+  /// across UI mounts.
+  bool _autoSpatialHrtfEnabled = false;
+
+  /// When true, an internal poll timer slaves the audition position to
+  /// the most-recently-active AutoSpatial event so the user can hear
+  /// what the live game is producing.
+  bool _followAutoSpatialEvent = false;
+  Timer? _followTimer;
+
   // ─── Getters ─────────────────────────────────────────────────────────────
 
   AnthropometricProfile get profile => _profile;
@@ -118,6 +131,10 @@ class HrtfProvider extends ChangeNotifier {
   HrtfAuditionSignal get auditionSignal => _auditionSignal;
   int get auditionDurationMs => _auditionDurationMs;
   bool get auditionPlaying => _auditionPlaying;
+
+  // AutoSpatial integration getters (P1.4)
+  bool get autoSpatialHrtfEnabled => _autoSpatialHrtfEnabled;
+  bool get followAutoSpatialEvent => _followAutoSpatialEvent;
 
   // ─── Profile Mutation ────────────────────────────────────────────────────
 
@@ -402,6 +419,69 @@ class HrtfProvider extends ChangeNotifier {
     });
 
     return true;
+  }
+
+  // ─── AutoSpatial integration (P1.4) ──────────────────────────────────────
+
+  /// Toggle whether the AutoSpatial engine consults the HRTF database
+  /// for its `hrtf_azimuth` / `hrtf_elevation` outputs.  Reads back the
+  /// effective state via `auto_spatial_get_hrtf_enabled` so the UI mirror
+  /// agrees with the engine even if FFI fails silently.
+  void setAutoSpatialHrtfEnabled(bool enabled) {
+    if (!_ffiAvailable()) return;
+    NativeFFI.instance.autoSpatialSetHrtfEnabled(enabled);
+    _autoSpatialHrtfEnabled =
+        NativeFFI.instance.autoSpatialGetHrtfEnabled();
+    notifyListeners();
+  }
+
+  /// Sync the local mirror of the AutoSpatial HRTF flag from the engine.
+  /// Useful at panel mount — engine state may already be `true` from a
+  /// prior session.
+  void syncAutoSpatialHrtfMirror() {
+    if (!_ffiAvailable()) return;
+    final fresh = NativeFFI.instance.autoSpatialGetHrtfEnabled();
+    if (fresh == _autoSpatialHrtfEnabled) return;
+    _autoSpatialHrtfEnabled = fresh;
+    notifyListeners();
+  }
+
+  /// Toggle FOLLOW EVENT mode — when enabled, a 250 ms timer reads the
+  /// most-recently-active AutoSpatial event and copies its HRTF angles
+  /// into the audition position so the user hears whatever the live
+  /// game is producing.
+  void setFollowAutoSpatialEvent(bool enabled) {
+    if (_followAutoSpatialEvent == enabled) return;
+    _followAutoSpatialEvent = enabled;
+    _followTimer?.cancel();
+    _followTimer = null;
+    if (enabled) {
+      _followTimer = Timer.periodic(
+        const Duration(milliseconds: 250),
+        (_) => _followTick(),
+      );
+    }
+    notifyListeners();
+  }
+
+  void _followTick() {
+    if (!_ffiAvailable()) return;
+    final ffi = NativeFFI.instance;
+    final eventId = ffi.autoSpatialLatestActiveEvent();
+    if (eventId == 0) return;
+    final out = ffi.autoSpatialGetOutput(eventId);
+    if (out == null) return;
+    setAuditionPosition(
+      azimuthDeg: out.hrtfAzimuth,
+      elevationDeg: out.hrtfElevation,
+    );
+  }
+
+  @override
+  void dispose() {
+    _followTimer?.cancel();
+    _followTimer = null;
+    super.dispose();
   }
 
   /// Force-stop any in-flight audition voice.  Safe to call when nothing

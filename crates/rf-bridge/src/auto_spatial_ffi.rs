@@ -542,6 +542,44 @@ pub extern "C" fn auto_spatial_set_hrtf_enabled(enabled: i32) {
     ENGINE.write().hrtf_enabled = enabled != 0;
 }
 
+/// Read the current HRTF flag (P1.4 — symmetric with set_hrtf_enabled).
+/// Returns 0 if disabled or engine not initialized, 1 if enabled.
+#[unsafe(no_mangle)]
+pub extern "C" fn auto_spatial_get_hrtf_enabled() -> i32 {
+    if AUTO_SPATIAL_STATE.load(Ordering::SeqCst) != STATE_INITIALIZED {
+        return 0;
+    }
+    if ENGINE.read().hrtf_enabled { 1 } else { 0 }
+}
+
+/// Return the most-recently-active event id (used by the HRTF panel's
+/// FOLLOW EVENT mode), or 0 when nothing is active.
+///
+/// We pick "most recent" by walking `id_map` and choosing the slot whose
+/// tracker is `active = true` and was last updated.  This is O(n) over
+/// 128 trackers — fine for a 4 Hz UI poll.
+#[unsafe(no_mangle)]
+pub extern "C" fn auto_spatial_latest_active_event() -> u64 {
+    if AUTO_SPATIAL_STATE.load(Ordering::SeqCst) != STATE_INITIALIZED {
+        return 0;
+    }
+    let engine = ENGINE.read();
+    let mut best_id: u64 = 0;
+    let mut best_ts: u64 = 0;
+    for (&event_id, &slot) in engine.id_map.iter() {
+        let tracker = &engine.trackers[slot];
+        if !tracker.active {
+            continue;
+        }
+        let ts = tracker.kalman.last_update_ms;
+        if ts >= best_ts {
+            best_ts = ts;
+            best_id = event_id;
+        }
+    }
+    best_id
+}
+
 /// Enable/disable distance attenuation
 #[unsafe(no_mangle)]
 pub extern "C" fn auto_spatial_set_distance_atten_enabled(enabled: i32) {

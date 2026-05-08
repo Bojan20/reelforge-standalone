@@ -20939,6 +20939,35 @@ extension SlotLabFFI on NativeFFI {
     }
   }
 
+  /// Read the current HRTF flag (P1.4 — symmetric with set_hrtf_enabled).
+  /// Returns false if engine isn't initialised.
+  bool autoSpatialGetHrtfEnabled() {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(),
+          int Function()
+      >('auto_spatial_get_hrtf_enabled');
+      return fn() != 0;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Return the id of the most-recently-active spatial event, or 0
+  /// when nothing is active.  Used by the HRTF panel's FOLLOW EVENT
+  /// mode to slave the audition position to live game state.
+  int autoSpatialLatestActiveEvent() {
+    try {
+      final fn = _lib.lookupFunction<
+          Uint64 Function(),
+          int Function()
+      >('auto_spatial_latest_active_event');
+      return fn();
+    } catch (_) {
+      return 0;
+    }
+  }
+
   /// Enable/disable distance attenuation
   void autoSpatialSetDistanceAttenEnabled(bool enabled) {
     try {

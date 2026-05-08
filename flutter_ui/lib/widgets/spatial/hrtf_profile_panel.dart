@@ -47,6 +47,8 @@ class HrtfProfilePanel extends StatelessWidget {
               const SizedBox(height: 16),
               _buildAuditionSection(context, p),
               const SizedBox(height: 12),
+              _buildAutoSpatialRow(context, p),
+              const SizedBox(height: 12),
               _buildStatus(p),
             ],
           ),
@@ -862,6 +864,110 @@ class HrtfProfilePanel extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  // ─── AutoSpatial wireup (P1.4) ─────────────────────────────────────────
+
+  Widget _buildAutoSpatialRow(BuildContext context, HrtfProvider p) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF14141C),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: FluxForgeTheme.accentPurple.withValues(alpha: 0.25),
+          width: 0.5,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.surround_sound_rounded,
+            size: 13,
+            color: FluxForgeTheme.accentPurple,
+          ),
+          const SizedBox(width: 6),
+          const Text(
+            'AUTOSPATIAL',
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w800,
+              color: FluxForgeTheme.accentPurple,
+              letterSpacing: 1.2,
+            ),
+          ),
+          const Spacer(),
+          _autoSpatialToggle(
+            label: 'USE HRTF',
+            tooltip: 'Route AutoSpatial output through the HRTF database '
+                '(applies to live game audio, not just audition)',
+            value: p.autoSpatialHrtfEnabled,
+            onChanged: p.setAutoSpatialHrtfEnabled,
+          ),
+          const SizedBox(width: 8),
+          _autoSpatialToggle(
+            label: 'FOLLOW EVENT',
+            tooltip: 'Slave the audition position to the latest active '
+                'AutoSpatial event so you hear what the live game produces',
+            value: p.followAutoSpatialEvent,
+            onChanged: p.setFollowAutoSpatialEvent,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _autoSpatialToggle({
+    required String label,
+    required String tooltip,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return FluxTooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: () => onChanged(!value),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+          decoration: BoxDecoration(
+            color: value
+                ? FluxForgeTheme.accentPurple.withValues(alpha: 0.20)
+                : const Color(0xFF0E0E14),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: value
+                  ? FluxForgeTheme.accentPurple
+                  : FluxForgeTheme.brandGoldDark.withValues(alpha: 0.30),
+              width: 0.5,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                value ? Icons.check_circle_rounded : Icons.circle_outlined,
+                size: 10,
+                color: value
+                    ? FluxForgeTheme.accentPurple
+                    : FluxForgeTheme.textTertiary,
+              ),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                  color: value
+                      ? FluxForgeTheme.accentPurple
+                      : FluxForgeTheme.textSecondary,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
