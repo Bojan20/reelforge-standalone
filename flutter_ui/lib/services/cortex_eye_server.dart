@@ -49,10 +49,15 @@ import 'package:get_it/get_it.dart';
 import 'cortex_vision_service.dart';
 import 'cortex_hands_service.dart';
 import 'cortex_log_buffer.dart';
+import 'event_registration_service.dart';
+import 'stage_configuration_service.dart';
 import 'vision_diff_engine.dart';
+import '../models/slot_audio_events.dart';
+import '../providers/middleware_provider.dart';
 import '../providers/slot_lab/game_flow_provider.dart';
 import '../providers/slot_lab/slot_lab_coordinator.dart';
 import '../providers/slot_lab/slot_voice_mixer_provider.dart';
+import '../providers/slot_lab_project_provider.dart';
 import '../providers/subsystems/composite_event_system_provider.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -221,6 +226,8 @@ class CortexEyeServer {
         await _handleHandsKey(request);
       } else if (method == 'POST' && path == '/hands/input') {
         await _handleHandsInput(request);
+      } else if (method == 'POST' && path == '/hands/audio_drop') {
+        await _handleHandsAudioDrop(request);
 
       // ── Mozak ─────────────────────────────────────────────────────────
       } else if (method == 'GET' && path == '/brain/state') {
@@ -246,6 +253,7 @@ class CortexEyeServer {
             'hands': [
               'POST /hands/tap', 'POST /hands/swipe', 'POST /hands/scroll',
               'POST /hands/key', 'POST /hands/input',
+              'POST /hands/audio_drop',
             ],
             'brain': [
               'GET /brain/state', 'GET /brain/logs', 'GET /brain/metrics',
@@ -574,6 +582,142 @@ class CortexEyeServer {
 
     await Future.delayed(const Duration(milliseconds: 200));
     await _json(request, {...result, 'engine': 'flutter_native'});
+  }
+
+  /// POST /hands/audio_drop — programmatic equivalent of dragging an audio
+  /// file onto a slot in the AUDIO ASSIGN spine.  Allows autonomous tests
+  /// to exercise the full autobind path (composite event creation +
+  /// EventRegistry sync + SlotLabProjectProvider mirror) without OS-level
+  /// drag simulation.
+  ///
+  /// Body: `{"stage": "REEL_STOP", "audio_path": "/path/to/file.wav"}`
+  ///
+  /// Behavior matches `_SpineAudioAssign._addLayersToEvent` in helix_screen:
+  /// * If a composite for `stage` already exists, append the file as a layer.
+  /// * Otherwise create a new composite with the file as its first layer.
+  /// * In both cases, EventRegistrationService.registerComposite +
+  ///   SlotLabProjectProvider.setAudioAssignment fire so spin gates pass.
+  ///
+  /// Returns `{success, eventId, layerCount, mode: 'append'|'create'}` or
+  /// `{error: ...}` with HTTP 400 / 500.
+  Future<void> _handleHandsAudioDrop(HttpRequest request) async {
+    final body = await utf8.decodeStream(request);
+    Map<String, dynamic> params = {};
+    try {
+      params = jsonDecode(body) as Map<String, dynamic>;
+    } catch (_) {}
+
+    final stage = params['stage'] as String?;
+    final audioPath = params['audio_path'] as String?;
+
+    if (stage == null || stage.isEmpty) {
+      request.response.statusCode = 400;
+      await _json(request, {'error': 'Required: stage (string)'});
+      return;
+    }
+    if (audioPath == null || audioPath.isEmpty) {
+      request.response.statusCode = 400;
+      await _json(request, {'error': 'Required: audio_path (string)'});
+      return;
+    }
+
+    final file = File(audioPath);
+    if (!file.existsSync()) {
+      request.response.statusCode = 400;
+      await _json(request,
+          {'error': 'audio_path does not exist on disk', 'path': audioPath});
+      return;
+    }
+
+    try {
+      final mw = GetIt.instance<MiddlewareProvider>();
+      final project = GetIt.instance<SlotLabProjectProvider>();
+      final stageUpper = stage.toUpperCase();
+      final now = DateTime.now();
+      final ts = now.millisecondsSinceEpoch;
+
+      // Build a layer that mirrors the shape used by _SpineAudioAssign.
+      final layer = SlotEventLayer(
+        id: 'cortex_drop_${ts}_${stageUpper.toLowerCase()}',
+        audioPath: audioPath,
+        name: audioPath.split('/').last,
+        volume: 1.0,
+        pan: 0.0,
+        offsetMs: 0,
+        actionType: 'Play',
+        loop: false,
+        busId: StageConfigurationService.instance
+            .getStage(stageUpper)
+            ?.bus
+            .index,
+      );
+
+      // Locate an existing composite that already triggers this stage.
+      final existing = mw.compositeEvents
+          .where((e) => e.triggerStages.contains(stageUpper))
+          .firstOrNull;
+
+      String eventId;
+      String mode;
+      int layerCount;
+
+      if (existing != null) {
+        final updated = existing.copyWith(
+          layers: [...existing.layers, layer],
+          modifiedAt: now,
+        );
+        mw.updateCompositeEvent(updated);
+        EventRegistrationService.instance.registerComposite(updated);
+        project.setAudioAssignment(stageUpper, audioPath, recordUndo: false);
+        eventId = updated.id;
+        mode = 'append';
+        layerCount = updated.layers.length;
+      } else {
+        final event = SlotCompositeEvent(
+          id: 'audio_$stageUpper',
+          name: stageUpper,
+          category: StageConfigurationService.instance
+              .getCategoryLabel(stageUpper),
+          color: StageConfigurationService.instance.getCategoryColor(stageUpper),
+          layers: [layer],
+          triggerStages: [stageUpper],
+          createdAt: now,
+          modifiedAt: now,
+        );
+        mw.addCompositeEvent(event);
+        EventRegistrationService.instance.registerComposite(event);
+        project.setAudioAssignment(stageUpper, audioPath, recordUndo: false);
+        eventId = event.id;
+        mode = 'create';
+        layerCount = 1;
+      }
+
+      // Snapshot the AUDIO ASSIGN spine so the caller can verify visually
+      // that the slot card now shows the new layer.
+      try {
+        await CortexVisionService.instance.captureFullWindow(metadata: {
+          'trigger': 'hands_audio_drop',
+          'stage': stageUpper,
+          'mode': mode,
+        });
+      } catch (_) {
+        // Vision not yet initialised — non-fatal for the drop itself.
+      }
+
+      await _json(request, {
+        'success': true,
+        'eventId': eventId,
+        'mode': mode,
+        'stage': stageUpper,
+        'layerCount': layerCount,
+        'audioPath': audioPath,
+      });
+    } catch (e, st) {
+      debugPrint('[CortexEyeServer] /hands/audio_drop failed: $e\n$st');
+      request.response.statusCode = 500;
+      await _json(request,
+          {'error': 'audio_drop failed', 'details': e.toString()});
+    }
   }
 
   // ─── MOZAK ──────────────────────────────────────────────────────────────
