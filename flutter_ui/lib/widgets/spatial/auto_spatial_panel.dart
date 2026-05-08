@@ -11,11 +11,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/auto_spatial_provider.dart';
+import '../../providers/hrtf_provider.dart';
 import 'intent_rule_editor.dart';
 import 'bus_policy_editor.dart';
 import 'anchor_monitor.dart';
 import 'spatial_stats_panel.dart';
 import 'spatial_event_visualizer.dart';
+import 'hrtf_profile_panel.dart';
 
 /// Main AutoSpatial configuration panel
 class AutoSpatialPanel extends StatefulWidget {
@@ -32,7 +34,7 @@ class _AutoSpatialPanelState extends State<AutoSpatialPanel>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
 
     // Ensure provider is initialized
     final provider = AutoSpatialProvider.instance;
@@ -49,8 +51,13 @@ class _AutoSpatialPanelState extends State<AutoSpatialPanel>
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider.value(
-      value: AutoSpatialProvider.instance,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: AutoSpatialProvider.instance),
+        // HRTF provider is local to this panel — keeps the personalized
+        // database editing self-contained.  Spatial P1.1.
+        ChangeNotifierProvider(create: (_) => HrtfProvider()),
+      ],
       child: Container(
         color: const Color(0xFF1a1a20),
         child: Column(
@@ -68,6 +75,7 @@ class _AutoSpatialPanelState extends State<AutoSpatialPanel>
                   AnchorMonitor(),
                   SpatialStatsPanel(),
                   SpatialEventVisualizer(),
+                  HrtfProfilePanel(),
                 ],
               ),
             ),
@@ -125,6 +133,7 @@ class _AutoSpatialPanelState extends State<AutoSpatialPanel>
                 Tab(text: 'Anchors'),
                 Tab(text: 'Stats & Config'),
                 Tab(text: 'Visualizer'),
+                Tab(text: 'HRTF'),
               ],
             ),
           ),
