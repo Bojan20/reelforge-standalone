@@ -233,15 +233,36 @@ class _HelixScreenState extends State<HelixScreen>
   // ── Win line overlay + anticipation glow ─────────────────────────────────
   // Win lines: list of payline indices (0-based) that hit on last spin
   List<int> _lastWinLines = [];
+  // H-014 (HELIX_AUDIT 2026-05-07): two-phase clear so the overlay fades
+  // out in the last 500 ms instead of vanishing.  `_winLinesFading=true`
+  // sets opacity → 0 via AnimatedOpacity, then a follow-up timer clears
+  // the list so the next spin starts from a clean state.
+  bool _winLinesFading = false;
+  Timer? _winLinesFadeTimer;
+  Timer? _winLinesClearTimer;
   // Anticipation: reel indices (0-based) showing scatter/bonus during spin
   Set<int> _anticipationReels = {};
 
   /// Called from spin result to show win lines
   void showWinLines(List<int> lines) {
-    setState(() => _lastWinLines = lines);
-    // Auto-clear after 3 seconds
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) setState(() => _lastWinLines = []);
+    _winLinesFadeTimer?.cancel();
+    _winLinesClearTimer?.cancel();
+    setState(() {
+      _lastWinLines = lines;
+      _winLinesFading = false;
+    });
+    // Phase 1 — start fade at 2.5 s so the user has 500 ms of fade.
+    _winLinesFadeTimer = Timer(const Duration(milliseconds: 2500), () {
+      if (mounted) setState(() => _winLinesFading = true);
+    });
+    // Phase 2 — clear after the fade completes.
+    _winLinesClearTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) {
+        setState(() {
+          _lastWinLines = [];
+          _winLinesFading = false;
+        });
+      }
     });
   }
 
@@ -538,6 +559,8 @@ class _HelixScreenState extends State<HelixScreen>
     _bpmTimer.cancel();
     _playheadTimer.cancel();
     _visionInitTimer?.cancel(); // H-004
+    _winLinesFadeTimer?.cancel(); // H-014
+    _winLinesClearTimer?.cancel(); // H-014
     super.dispose();
   }
 
@@ -1279,14 +1302,17 @@ class _HelixScreenState extends State<HelixScreen>
           // Transport
           _buildTransport(),
           const SizedBox(width: 12),
-          // Mode badges
-          ...[['COMPOSE', 0], ['FOCUS', 1], ['ARCHITECT', 2]].map((m) =>
+          // Mode badges (H-015 HELIX_AUDIT 2026-05-07: tooltip-aware)
+          ..._modeDefs.map((m) =>
             Padding(
               padding: const EdgeInsets.only(left: 3),
-              child: _ModeBadge(
-                label: m[0] as String,
-                active: _mode == m[1],
-                onTap: () => setState(() => _mode = m[1] as int),
+              child: FluxTooltip(
+                message: m.tooltip,
+                child: _ModeBadge(
+                  label: m.label,
+                  active: _mode == m.index,
+                  onTap: () => setState(() => _mode = m.index),
+                ),
               ),
             ),
           ),
@@ -1442,6 +1468,30 @@ class _HelixScreenState extends State<HelixScreen>
   // ─────────────────────────────────────────────────────────────────────────
   // NEURAL SPINE
   // ─────────────────────────────────────────────────────────────────────────
+
+  // H-015 (HELIX_AUDIT 2026-05-07): mode badge metadata in one place so the
+  // tooltip stays in sync with the index-driven state machine.
+  static const _modeDefs = <_HelixModeDef>[
+    _HelixModeDef(
+      index: 0,
+      label: 'COMPOSE',
+      tooltip: 'COMPOSE — full editor: spine, neural canvas and dock '
+          'are all visible.  Default authoring mode.',
+    ),
+    _HelixModeDef(
+      index: 1,
+      label: 'FOCUS',
+      tooltip: 'FOCUS — hides the dock so you can concentrate on the '
+          'neural canvas.  Press F to cycle the panel; Tab/Shift+Tab to '
+          'cycle dock tabs even while hidden.',
+    ),
+    _HelixModeDef(
+      index: 2,
+      label: 'ARCHITECT',
+      tooltip: 'ARCHITECT — dock expands to fill ~50% of the screen '
+          'for graph + flow editing.  Drag the dock divider to fine-tune.',
+    ),
+  ];
 
   // Spine icon definitions — shared between _buildSpine() and spine overlay in build()
   static const _spineIcons = [
@@ -1629,15 +1679,22 @@ class _HelixScreenState extends State<HelixScreen>
                 child: const MathHudOverlay(),
               ),
 
-              // Win line overlay — shows active paylines after spin
+              // Win line overlay — shows active paylines after spin.
+              // H-014: AnimatedOpacity gives a 500 ms fade-out instead of
+              // an abrupt disappearance — see `showWinLines`.
               if (_lastWinLines.isNotEmpty)
                 Positioned.fill(
                   child: IgnorePointer(
-                    child: CustomPaint(
-                      painter: _WinLineOverlayPainter(
-                        winLines: _lastWinLines,
-                        reels: GetIt.instance<SlotLabProjectProvider>().gridConfig?.columns ?? 5,
-                        rows: GetIt.instance<SlotLabProjectProvider>().gridConfig?.rows ?? 3,
+                    child: AnimatedOpacity(
+                      opacity: _winLinesFading ? 0.0 : 1.0,
+                      duration: const Duration(milliseconds: 500),
+                      curve: Curves.easeOut,
+                      child: CustomPaint(
+                        painter: _WinLineOverlayPainter(
+                          winLines: _lastWinLines,
+                          reels: GetIt.instance<SlotLabProjectProvider>().gridConfig?.columns ?? 5,
+                          rows: GetIt.instance<SlotLabProjectProvider>().gridConfig?.rows ?? 3,
+                        ),
                       ),
                     ),
                   ),
@@ -2198,24 +2255,53 @@ class _HelixScreenState extends State<HelixScreen>
       child: Row(
         children: [
           const SizedBox(width: 16), // 16px start padding — matches mockup
-          // Scrollable tab area
+          // Scrollable tab area.
+          // H-017 (HELIX_AUDIT 2026-05-07): Stack overlays a 24 px gradient
+          // fade on the right edge so users get a visual hint that more
+          // tabs are off-screen (the SingleChildScrollView gives no native
+          // affordance).  IgnorePointer keeps the gradient out of the
+          // scroll/tap path.
           Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: _dockTabDefs.asMap().entries.map((e) {
-                  final def = e.value;
-                  final active = _dockTab == e.key;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 2),
-                    child: _DockTab(
-                      icon: def.icon, label: def.label, color: def.color,
-                      active: active,
-                      onTap: () => setState(() => _dockTab = e.key),
+            child: Stack(
+              children: [
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: _dockTabDefs.asMap().entries.map((e) {
+                      final def = e.value;
+                      final active = _dockTab == e.key;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 2),
+                        child: _DockTab(
+                          icon: def.icon, label: def.label, color: def.color,
+                          active: active,
+                          onTap: () => setState(() => _dockTab = e.key),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: 24,
+                  child: IgnorePointer(
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                          colors: [
+                            Color(0x00060608),
+                            Color(0xB3060608),
+                          ],
+                        ),
+                      ),
                     ),
-                  );
-                }).toList(),
-              ),
+                  ),
+                ),
+              ],
             ),
           ),
           // Resize handle — hambuger style, easy to grab.
@@ -10587,3 +10673,17 @@ class _QuickActionPillState extends State<_QuickActionPill> {
 
 // ─── SPEC-12: Mini Mode helper widgets ──────────────────────────────────────
 // _MiniModeSection, _MiniDivider, _ComplianceDot → helix/helix_minimode_widgets.dart (part file)
+
+// H-015 (HELIX_AUDIT 2026-05-07): metadata for the COMPOSE / FOCUS / ARCHITECT
+// mode badges in the Omnibar.  Lives at file scope so `_HelixScreenState`
+// can declare a `static const` list of them.
+class _HelixModeDef {
+  final int index;
+  final String label;
+  final String tooltip;
+  const _HelixModeDef({
+    required this.index,
+    required this.label,
+    required this.tooltip,
+  });
+}

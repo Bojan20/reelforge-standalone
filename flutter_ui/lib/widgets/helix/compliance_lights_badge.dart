@@ -71,13 +71,32 @@ class _BadgeRow extends StatelessWidget {
         children: [
           // Spin counter — kontekst za korisnika "koliko spin-ova je
           // sample size za ovo stanje" (statistički bias-aware UI).
-          Text(
-            '${snap.spinsTotal}',
-            style: const TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF8A8AA0),
+          // H-018 (HELIX_AUDIT 2026-05-07): added inline "spins" suffix
+          // so the lone integer doesn't read as "milliseconds" or "ms"
+          // at a glance.
+          RichText(
+            text: TextSpan(
+              children: [
+                TextSpan(
+                  text: '${snap.spinsTotal}',
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF8A8AA0),
+                  ),
+                ),
+                const TextSpan(
+                  text: ' spins',
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 8,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF606078),
+                    letterSpacing: 0.4,
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(width: 8),
