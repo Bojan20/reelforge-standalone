@@ -1013,11 +1013,11 @@ Sprint 4 (layout memory, power users):                 ✅ DONE (ce2a90a9 + c58c
 
 ### 3.5 Atmos + spatial catch-up
 
-| # | Zadatak | Effort |
-|---|---|---|
-| 3.5.1 | Atmos object export MVP (bar jedan path) | 3 nedelje |
-| 3.5.2 | HOA 3rd–5th order authoring | 1 mesec |
-| 3.5.3 | Personalized HRTF via HRTFformer / graph NN | 1 mesec |
+| # | Zadatak | Effort | Status |
+|---|---|---|---|
+| 3.5.1 | Atmos object export MVP (bar jedan path) | 3 nedelje | ✅ — `crates/rf-spatial/src/atmos/export/` (`adm_xml.rs` ITU-R BS.2076-2 graf + `bw64.rs` BW64/RF64 writer + `mod.rs` `AtmosExporter` API). Pun pipeline: bed (7.1.4) + N objects → BW64 `.wav` sa `axml` (ADM XML) + `chna` (Channel Allocation) chunks. Auto-promocija RF64 na payload > 4 GiB ili `force_rf64`. 16/24/32-bit (PCM/IEEE float). 14 unit testova (TC carry, XML graf, position blocks sa Jump flag, RIFF chunk parser, RF64 ds64, 24-bit clamp/NaN, axml word-align, error paths) + 6 E2E integration testova (bed+objects roundtrip, RF64 promotion, objects-only, channel mismatch reject, bit_depth reject, data size invariant). 23/23 unit + 6/6 E2E zelena. Workspace clippy clean (uz fix 4 wasm `0.7071` → `FRAC_1_SQRT_2`, 1 ffi unsafe annotation, 1 mut-from-ref allow). 3838 workspace testova prolazi. |
+| 3.5.2 | HOA 3rd–5th order authoring | 1 mesec | ⏳ |
+| 3.5.3 | Personalized HRTF via HRTFformer / graph NN | 1 mesec | ⏳ |
 
 ---
 

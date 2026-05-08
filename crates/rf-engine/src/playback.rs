@@ -1992,6 +1992,7 @@ impl<T> AudioThreadCell<T> {
 
     /// Get exclusive mutable access. SAFETY: caller must ensure single-thread access.
     #[inline(always)]
+    #[allow(clippy::mut_from_ref)] // intentional: caller upholds single-thread audio invariant
     unsafe fn get_mut(&self) -> &mut T { unsafe {
         &mut *self.0.get()
     }}

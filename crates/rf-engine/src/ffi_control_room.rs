@@ -77,9 +77,10 @@ unsafe fn cstr_to_string(ptr: *const c_char) -> Option<String> {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Initialize control room pointer (called once from PlaybackEngine)
-/// SAFETY: control_room_ptr must remain valid for the entire program lifetime
+/// SAFETY: control_room_ptr must remain valid for the entire program lifetime.
+/// Caller MUST ensure the pointer is non-null and points to a valid `ControlRoom`.
 #[unsafe(no_mangle)]
-pub extern "C" fn control_room_init(control_room_ptr: *mut ControlRoom) -> i32 {
+pub unsafe extern "C" fn control_room_init(control_room_ptr: *mut ControlRoom) -> i32 {
     ffi_panic_guard!(0, {
         if control_room_ptr.is_null() {
             return 0;

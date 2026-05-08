@@ -223,6 +223,9 @@ futures-util = "0.3"
 # UUIDs
 uuid = { version = "1.11", features = ["v4"] }
 
+# XML (ADM/ITU-R BS.2076-2 serialization for Atmos export)
+quick-xml = { version = "0.36", features = ["serialize"] }
+
 # Time
 chrono = { version = "0.4", features = ["serde"] }
 num_cpus = "1.16"

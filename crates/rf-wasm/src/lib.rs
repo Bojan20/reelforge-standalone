@@ -740,8 +740,8 @@ mod tests {
         assert!((result[1] - 1.0).abs() < 0.0001);
 
         let result = equal_power_crossfade(0.5);
-        assert!((result[0] - 0.7071).abs() < 0.001);
-        assert!((result[1] - 0.7071).abs() < 0.001);
+        assert!((result[0] - std::f32::consts::FRAC_1_SQRT_2).abs() < 0.001);
+        assert!((result[1] - std::f32::consts::FRAC_1_SQRT_2).abs() < 0.001);
     }
 
     #[test]
@@ -812,10 +812,11 @@ mod tests {
 
     #[test]
     fn test_equal_power_crossfade_midpoint() {
-        // At t=0.5: both ≈ 0.7071
+        // At t=0.5: both ≈ FRAC_1_SQRT_2 (≈0.7071)
         let r = equal_power_crossfade(0.5);
-        assert!((r[0] - 0.7071).abs() < 0.001, "Left at 0.5: {}", r[0]);
-        assert!((r[1] - 0.7071).abs() < 0.001, "Right at 0.5: {}", r[1]);
+        let target = std::f32::consts::FRAC_1_SQRT_2;
+        assert!((r[0] - target).abs() < 0.001, "Left at 0.5: {}", r[0]);
+        assert!((r[1] - target).abs() < 0.001, "Right at 0.5: {}", r[1]);
     }
 
     #[test]

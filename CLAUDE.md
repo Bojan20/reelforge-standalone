@@ -7,6 +7,14 @@
 - **Posle taska:** pitaj "Da li da commitujem?" i cekaj potvrdu
 - **Srpski (ekavica)** za komunikaciju
 - **Autonomni rezim** — ne pitaj za dozvolu, ne cekaj potvrdu izmedju koraka
+- **CORTEX OČI / CORTEX RUKE — UVEK, BEZ PITANJA** — kad treba da vidim UI ili da kliknem, koristim `CortexEye` / `CortexHands` HTTP endpoint-e, NIKADA macOS `screencapture` / `cliclick` / `osascript -e 'tell application "System Events"'`. Redosled za svaku UI promenu: impl → CortexEye snap → CortexHands verify → izveštaj.
+  - `GET  http://127.0.0.1:7891/eye/snap`         — full screen snapshot
+  - `GET  http://127.0.0.1:7891/eye/inspect?x=…&y=…` — pixel/widget probe
+  - `GET  http://127.0.0.1:7891/eye/logs`         — last N stderr lines
+  - `POST http://127.0.0.1:7891/hands/tap`       — `{x,y,modifiers?}`
+  - `POST http://127.0.0.1:7891/hands/input`     — `{text,target?}`
+  - `POST http://127.0.0.1:7891/hands/swipe`     — `{from,to,duration_ms?}`
+  - Ako endpoint nije up: spawn `cargo run -p cortex-eye-hands` → retry. NE fall-back na macOS native — radije fail loud.
 
 ## Pre svake akcije
 
