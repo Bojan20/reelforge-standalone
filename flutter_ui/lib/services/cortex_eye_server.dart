@@ -46,9 +46,11 @@ import 'package:flutter/foundation.dart' show ChangeNotifier, debugPrint;
 import 'package:flutter/widgets.dart' show Offset;
 import 'package:get_it/get_it.dart';
 
+import 'audio_playback_service.dart';
 import 'cortex_vision_service.dart';
 import 'cortex_hands_service.dart';
 import 'cortex_log_buffer.dart';
+import 'event_registry.dart';
 import 'event_registration_service.dart';
 import 'stage_configuration_service.dart';
 import 'vision_diff_engine.dart';
@@ -236,6 +238,10 @@ class CortexEyeServer {
         await _handleBrainLogs(request);
       } else if (method == 'GET' && path == '/brain/metrics') {
         await _handleBrainMetrics(request);
+      } else if (method == 'GET' && path == '/brain/audio_voices') {
+        await _handleBrainAudioVoices(request);
+      } else if (method == 'GET' && path == '/brain/registry') {
+        await _handleBrainRegistry(request);
 
       } else {
         request.response.statusCode = 404;
@@ -257,6 +263,7 @@ class CortexEyeServer {
             ],
             'brain': [
               'GET /brain/state', 'GET /brain/logs', 'GET /brain/metrics',
+              'GET /brain/audio_voices', 'GET /brain/registry',
             ],
           },
         });
@@ -1231,6 +1238,82 @@ class CortexEyeServer {
       'selectedChannelId': provider.selectedChannelId,
       'hasSoloActive': provider.hasSoloActive,
       'totalChannels': provider.channels.length,
+    });
+  }
+
+  /// GET /brain/audio_voices — live audio playback voice census.
+  ///
+  /// Returns the list of voices currently active in
+  /// `AudioPlaybackService` (one entry per simultaneous one-shot, layer
+  /// or DAW track playback).  Used by autonomous end-to-end tests to
+  /// verify that an event triggered by the spin engine actually reached
+  /// the audio engine — closes the autobind verification loop without
+  /// scraping debug logs.
+  ///
+  /// Each entry exposes: voiceId, audioPath, source (daw/slotlab/
+  /// middleware/browser), eventId, layerId, startTime, ageMs.
+  Future<void> _handleBrainAudioVoices(HttpRequest request) async {
+    final svc = AudioPlaybackService.instance;
+    final now = DateTime.now();
+    final voices = svc.activeVoices.map((v) => {
+          'voiceId': v.voiceId,
+          'audioPath': v.audioPath,
+          'source': v.source.name,
+          'eventId': v.eventId,
+          'layerId': v.layerId,
+          'startTime': v.startTime.toIso8601String(),
+          'ageMs': now.difference(v.startTime).inMilliseconds,
+        }).toList();
+
+    await _json(request, {
+      'timestamp': now.toIso8601String(),
+      'count': voices.length,
+      'totalActiveCount': svc.activeVoiceCount,
+      'voices': voices,
+    });
+  }
+
+  /// GET /brain/registry — diagnostic snapshot of EventRegistry state.
+  ///
+  /// Returns the list of stages currently mapped to AudioEvent slots
+  /// plus the last trigger result (success flag + error message).
+  /// Used by autonomous tests to confirm a `/hands/audio_drop` actually
+  /// landed in the registry and to diagnose why a subsequent
+  /// `stage_force` produced silence.
+  Future<void> _handleBrainRegistry(HttpRequest request) async {
+    final reg = EventRegistry.instance;
+    final stages = reg.registeredStages.toList()..sort();
+    // Drill into each stage so the caller sees which event id and how
+    // many layers each registered slot carries.
+    final byStage = <String, dynamic>{};
+    for (final s in stages) {
+      final ev = reg.getEventForStage(s);
+      if (ev == null) {
+        byStage[s] = null;
+        continue;
+      }
+      byStage[s] = {
+        'eventId': ev.id,
+        'name': ev.name,
+        'stage': ev.stage,
+        'targetBusId': ev.targetBusId,
+        'loop': ev.loop,
+        'overlap': ev.overlap,
+        'layerCount': ev.layers.length,
+        'layerIds': ev.layers.map((l) => l.id).toList(),
+        'layerPaths': ev.layers.map((l) => l.audioPath).toList(),
+      };
+    }
+    final eventIds = reg.registeredEventIds.toList()..sort();
+    await _json(request, {
+      'timestamp': DateTime.now().toIso8601String(),
+      'stageCount': stages.length,
+      'stages': stages,
+      'byStage': byStage,
+      'eventIdCount': eventIds.length,
+      'eventIds': eventIds,
+      'lastTriggerSuccess': reg.lastTriggerSuccess,
+      'lastTriggerError': reg.lastTriggerError,
     });
   }
 }
