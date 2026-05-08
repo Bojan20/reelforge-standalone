@@ -119,10 +119,23 @@ class CortexDaemonClient {
 
   bool _claudeAvailable = false;
   String _claudePath = '';
+  String _projectRoot = '';
   Process? _activeProcess;
 
   /// Whether claude CLI is available.
   bool get isDaemonReachable => _claudeAvailable;
+
+  /// Detected FluxForge repo root (working directory for claude calls).
+  /// Empty until first resolution; safe to read after [_ensureProjectRoot].
+  // ignore: unnecessary_getters_setters
+  String get projectRoot => _projectRoot;
+
+  /// Override the auto-detected project root. Useful when the user opens
+  /// a different project — pass its path so Claude has correct context.
+  // ignore: unnecessary_getters_setters
+  set projectRoot(String value) {
+    _projectRoot = value;
+  }
 
   CortexDaemonClient._();
 
@@ -145,6 +158,107 @@ class CortexDaemonClient {
       if (out.isNotEmpty && await File(out).exists()) return out;
     } catch (_) {}
     return null;
+  }
+
+  /// Resolve the FluxForge repo root so Claude runs with correct working dir.
+  ///
+  /// Detection strategy (first hit wins):
+  ///   1. Env override: `FLUXFORGE_REPO`
+  ///   2. Walk parents of [Platform.resolvedExecutable] looking for repo
+  ///      markers (`pubspec.yaml` + `flutter_ui` ili `Cargo.toml` + `crates/`).
+  ///   3. Walk parents of [Directory.current.path] same way.
+  ///   4. Probe known fallback: `$HOME/Projects/fluxforge-studio`.
+  ///   5. Final fallback: `$HOME` (better than `/`).
+  ///
+  /// Cached on first call.
+  Future<String> _ensureProjectRoot() async {
+    if (_projectRoot.isNotEmpty) return _projectRoot;
+
+    // 1. Env override
+    final envRepo = Platform.environment['FLUXFORGE_REPO'];
+    if (envRepo != null && envRepo.isNotEmpty && await Directory(envRepo).exists()) {
+      _projectRoot = envRepo;
+      return _projectRoot;
+    }
+
+    // Helper: walk up checking markers
+    Future<String?> walkForMarkers(String start) async {
+      var dir = Directory(start);
+      // Cap walk at 12 levels to avoid runaway loops on weird FS.
+      for (var i = 0; i < 12; i++) {
+        final pubspec = File('${dir.path}/pubspec.yaml');
+        final flutterUi = Directory('${dir.path}/flutter_ui');
+        final crates = Directory('${dir.path}/crates');
+        final cargo = File('${dir.path}/Cargo.toml');
+        final git = Directory('${dir.path}/.git');
+
+        // Strong match: FluxForge repo top (has crates/ AND flutter_ui/)
+        if (await crates.exists() && await flutterUi.exists()) {
+          return dir.path;
+        }
+        // Workspace Cargo.toml at root
+        if (await cargo.exists() && await crates.exists()) {
+          return dir.path;
+        }
+        // flutter_ui dir itself
+        if (await pubspec.exists() && await flutterUi.exists()) {
+          return dir.path;
+        }
+        // Generic git root
+        if (await git.exists()) {
+          return dir.path;
+        }
+        final parent = dir.parent;
+        if (parent.path == dir.path) break; // hit FS root
+        dir = parent;
+      }
+      return null;
+    }
+
+    // 2. Walk from executable path (works in dev `flutter run`)
+    try {
+      final exe = Platform.resolvedExecutable;
+      if (exe.isNotEmpty) {
+        final found = await walkForMarkers(File(exe).parent.path);
+        if (found != null) {
+          _projectRoot = found;
+          return _projectRoot;
+        }
+      }
+    } catch (_) {}
+
+    // 3. Walk from current working directory
+    try {
+      final cwd = Directory.current.path;
+      if (cwd.isNotEmpty && cwd != '/') {
+        final found = await walkForMarkers(cwd);
+        if (found != null) {
+          _projectRoot = found;
+          return _projectRoot;
+        }
+      }
+    } catch (_) {}
+
+    // 4. Known fallback path
+    final home = Platform.environment['HOME'] ?? '';
+    if (home.isNotEmpty) {
+      const knownPaths = [
+        '/Projects/fluxforge-studio',
+        '/Documents/fluxforge-studio',
+        '/fluxforge-studio',
+      ];
+      for (final rel in knownPaths) {
+        final candidate = '$home$rel';
+        if (await Directory(candidate).exists()) {
+          _projectRoot = candidate;
+          return _projectRoot;
+        }
+      }
+    }
+
+    // 5. Last resort: $HOME (NEVER `/` — that's what caused the original bug)
+    _projectRoot = home.isNotEmpty ? home : Directory.current.path;
+    return _projectRoot;
   }
 
   /// Check if claude CLI is available.
@@ -173,10 +287,14 @@ class CortexDaemonClient {
   ///   - chunk: partial text (real-time as Claude streams)
   ///   - result: final complete response with metadata
   ///   - error: something went wrong
+  ///
+  /// [workingDirectory] overrides the auto-detected FluxForge repo root.
+  /// If null, the resolved project root is used so Claude has correct context.
   Stream<DaemonStreamEvent> streamQuery(
     String content, {
     String context = '',
     String? systemPrompt,
+    String? workingDirectory,
   }) async* {
     // Nađi claude binary ako nismo
     if (_claudePath.isEmpty) {
@@ -193,10 +311,14 @@ class CortexDaemonClient {
     }
     _claudeAvailable = true;
 
-    // Sagradi prompt — ubaci context ako postoji
+    // Resolve working directory — NEVER let claude run from `/`.
+    final cwd = workingDirectory ?? await _ensureProjectRoot();
+
+    // Sagradi prompt — ubaci context ako postoji + repo info
+    final repoHint = 'WORKING_DIR: $cwd\n';
     final fullContent = context.isNotEmpty
-        ? 'KONTEKST:\n$context\n\nPITANJE:\n$content'
-        : content;
+        ? '$repoHint\nKONTEKST:\n$context\n\nPITANJE:\n$content'
+        : '$repoHint\n$content';
 
     // Napravi argumente
     final args = <String>[
@@ -219,10 +341,12 @@ class CortexDaemonClient {
       process = await Process.start(
         _claudePath,
         args,
+        workingDirectory: cwd,
         environment: {
           'PATH': '/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${Platform.environment['PATH'] ?? ''}',
           'HOME': Platform.environment['HOME'] ?? '',
           'USER': Platform.environment['USER'] ?? '',
+          'PWD': cwd,
         },
         runInShell: false,
       );
@@ -338,11 +462,14 @@ class CortexDaemonClient {
     String content, {
     String context = '',
     String? systemPrompt,
+    String? workingDirectory,
     int timeoutSecs = 300,
   }) async {
+    final cwd = workingDirectory ?? await _ensureProjectRoot();
+    final repoHint = 'WORKING_DIR: $cwd\n';
     final fullContent = context.isNotEmpty
-        ? 'KONTEKST:\n$context\n\nPITANJE:\n$content'
-        : content;
+        ? '$repoHint\nKONTEKST:\n$context\n\nPITANJE:\n$content'
+        : '$repoHint\n$content';
 
     if (_claudePath.isEmpty) {
       final found = await _findClaude();
@@ -358,10 +485,12 @@ class CortexDaemonClient {
     final result = await Process.run(
       _claudePath,
       args,
+      workingDirectory: cwd,
       environment: {
         'PATH': '/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${Platform.environment['PATH'] ?? ''}',
         'HOME': Platform.environment['HOME'] ?? '',
         'USER': Platform.environment['USER'] ?? '',
+        'PWD': cwd,
       },
     ).timeout(Duration(seconds: timeoutSecs));
 

@@ -104,10 +104,14 @@ class BrainProvider extends ChangeNotifier {
 
   /// Send a streaming query to the daemon.
   /// Text appears in [streamingText] in real-time as chunks arrive.
+  ///
+  /// [workingDirectory] overrides claude's auto-detected project root. Pass
+  /// the path of the open project so claude has the correct repo context.
   void streamQuery(
     String query, {
     String context = '',
     String? systemPrompt,
+    String? workingDirectory,
   }) {
     // Cancel any in-flight query
     cancelQuery();
@@ -122,6 +126,7 @@ class BrainProvider extends ChangeNotifier {
       query,
       context: context,
       systemPrompt: systemPrompt,
+      workingDirectory: workingDirectory,
     );
 
     _activeStream = stream.listen(
