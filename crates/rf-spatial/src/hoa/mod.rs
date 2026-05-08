@@ -24,13 +24,23 @@
 
 mod decoder;
 mod encoder;
+mod epad;
 mod format;
+mod maxre;
+mod shelf_filter;
+mod t_design;
 mod transform;
+mod pipeline;
 
-pub use decoder::AmbisonicDecoder;
-pub use encoder::AmbisonicEncoder;
+pub use decoder::{AmbisonicDecoder, DecodingMethod};
+pub use encoder::{AmbisonicEncoder, MultiSourceEncoder};
+pub use epad::EpadDecoder;
 pub use format::{AmbisonicFormat, ChannelOrdering, Normalization};
-pub use transform::AmbisonicTransform;
+pub use maxre::MaxReWeights;
+pub use shelf_filter::HoaShelfFilter;
+pub use t_design::TDesign;
+pub use transform::{AmbisonicTransform, RotationInterpolator};
+pub use pipeline::{HoaPipeline, HoaPipelineConfig};
 
 use crate::error::{SpatialError, SpatialResult};
 
