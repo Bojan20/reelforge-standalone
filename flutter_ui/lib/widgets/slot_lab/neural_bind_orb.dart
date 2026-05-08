@@ -943,16 +943,113 @@ class _NeuralVizState extends State<_NeuralViz> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _waveCtl,
-      builder: (_, _) => CustomPaint(
-        painter: _NeuralVizPainter(
-          nodes: widget.nodes,
-          waveValue: _waveCtl.value,
-          nodeScales: _nodeAnims.map((a) => a.value).toList(),
-          missingTypes: widget.dnaResult?.missingTypes ?? [],
+    // NeuralBindOrb Phase 2 — overlay a ghost / bound ratio chip in the
+    // top-right so the user can quickly read "12 / 48 ghost stages" at
+    // a glance, without having to count nodes.
+    final boundCount = widget.nodes.where((n) => n.isBound).length;
+    final ghostCount = widget.nodes.length - boundCount;
+
+    return Stack(
+      children: [
+        AnimatedBuilder(
+          animation: _waveCtl,
+          builder: (_, _) => CustomPaint(
+            painter: _NeuralVizPainter(
+              nodes: widget.nodes,
+              waveValue: _waveCtl.value,
+              nodeScales: _nodeAnims.map((a) => a.value).toList(),
+              missingTypes: widget.dnaResult?.missingTypes ?? [],
+            ),
+            size: Size.infinite,
+          ),
         ),
-        size: Size.infinite,
+        Positioned(
+          top: 8,
+          right: 10,
+          child: _GhostBindRatioChip(
+            bound: boundCount,
+            ghost: ghostCount,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Compact "12 bound / 36 ghost" indicator that hovers in the corner of
+/// the neural viz.  Coloured gold for bound and amber for ghost so the
+/// chip echoes the ghost-node glyph below.
+class _GhostBindRatioChip extends StatelessWidget {
+  final int bound;
+  final int ghost;
+
+  const _GhostBindRatioChip({required this.bound, required this.ghost});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xCC0E0E14),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: const Color(0xFFFFC85E).withValues(alpha: 0.30),
+          width: 0.5,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Bound count
+          Container(
+            width: 5,
+            height: 5,
+            decoration: const BoxDecoration(
+              color: Color(0xFF50FF98),
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '$bound',
+            style: const TextStyle(
+              color: Color(0xFF50FF98),
+              fontFamily: 'JetBrainsMono',
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Ghost count
+          Container(
+            width: 5,
+            height: 5,
+            decoration: const BoxDecoration(
+              color: Color(0xFFFFC85E),
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '$ghost',
+            style: const TextStyle(
+              color: Color(0xFFFFC85E),
+              fontFamily: 'JetBrainsMono',
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(width: 6),
+          const Text(
+            'ghost',
+            style: TextStyle(
+              color: Color(0xFF8A8AA0),
+              fontFamily: 'JetBrainsMono',
+              fontSize: 8,
+              letterSpacing: 0.6,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1154,20 +1251,52 @@ class _NeuralVizPainter extends CustomPainter {
     );
   }
 
+  /// NeuralBindOrb Phase 2 — Ghost slot indicator.
+  ///
+  /// Pre-2026-05-08 unbound nodes were just a faint dim circle indistinguishable
+  /// from the wave field at a glance.  The redesigned glyph makes "missing
+  /// audio binding" instantly readable:
+  ///   • dashed outline ring (10 segments) — visually echoes the dashed
+  ///     `_drawMissingTypeArcs` outer band
+  ///   • soft inner fill with a subtle pulse driven by `waveValue`
+  ///   • centered "+" glyph hinting that the slot is *waiting* for audio
+  ///   • amber tint instead of neutral white so it reads as "attention" not
+  ///     "decoration"
   void _drawUnboundNode(Canvas canvas, double nx, double ny, double r) {
+    final pulse = 0.5 + 0.5 * waveValue; // 0..1
+    final amber = const Color(0xFFFFC85E);
+
+    // Soft inner fill (slight pulse)
     canvas.drawCircle(
-      Offset(nx, ny), r,
+      Offset(nx, ny),
+      r,
       Paint()
-        ..color = Colors.white.withValues(alpha: 0.06)
+        ..color = amber.withValues(alpha: 0.04 + 0.05 * pulse)
         ..style = PaintingStyle.fill,
     );
-    canvas.drawCircle(
-      Offset(nx, ny), r,
-      Paint()
-        ..color = Colors.white.withValues(alpha: 0.12)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.5,
-    );
+
+    // Dashed outline — 10 short arc segments around the perimeter
+    const segments = 10;
+    final segmentArc = (2 * math.pi) / (segments * 2); // half drawn, half gap
+    final dashPaint = Paint()
+      ..color = amber.withValues(alpha: 0.45 + 0.25 * pulse)
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 0.9;
+    final rect = Rect.fromCircle(center: Offset(nx, ny), radius: r);
+    for (int i = 0; i < segments; i++) {
+      final start = (i * 2) * segmentArc;
+      canvas.drawArc(rect, start, segmentArc, false, dashPaint);
+    }
+
+    // Centered "+" glyph (waiting-for-audio cue)
+    final glyph = Paint()
+      ..color = amber.withValues(alpha: 0.6 + 0.3 * pulse)
+      ..strokeWidth = 1.0
+      ..strokeCap = StrokeCap.round;
+    final g = r * 0.45;
+    canvas.drawLine(Offset(nx - g, ny), Offset(nx + g, ny), glyph);
+    canvas.drawLine(Offset(nx, ny - g), Offset(nx, ny + g), glyph);
   }
 
   @override

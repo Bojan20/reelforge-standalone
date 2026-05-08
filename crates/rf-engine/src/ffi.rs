@@ -4656,6 +4656,17 @@ pub extern "C" fn orb_ring_frames_written() -> u64 {
     MASTER_RING.frames_written()
 }
 
+/// Re-arm the master ring buffer — resets the write cursor to zero so the
+/// next captured snapshot starts fresh, without freeing the underlying
+/// allocation.  Used by the Problems Inbox "fresh capture" flow.
+///
+/// Audio-thread safe (single atomic store).
+#[unsafe(no_mangle)]
+pub extern "C" fn orb_ring_rearm() -> i32 {
+    MASTER_RING.rearm();
+    1
+}
+
 /// Capture the last `seconds` of master output to a 32-bit float stereo WAV
 /// at the UTF-8 path provided (null-terminated C string).
 ///

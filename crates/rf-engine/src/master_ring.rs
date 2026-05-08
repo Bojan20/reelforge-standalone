@@ -188,6 +188,14 @@ impl MasterRingBuffer {
     pub fn frames_written(&self) -> u64 {
         self.write_pos.load(Ordering::Relaxed)
     }
+
+    /// Reset the write cursor to zero — used by the Problems Inbox FFI to
+    /// re-arm a capture without freeing the buffer.  The underlying samples
+    /// are NOT cleared; subsequent writes will overwrite them in place.
+    /// Audio-thread safe (single atomic store).
+    pub fn rearm(&self) {
+        self.write_pos.store(0, Ordering::Release);
+    }
 }
 
 #[cfg(test)]

@@ -1312,46 +1312,51 @@ class _OverlayBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // H-016 (HELIX_AUDIT 2026-05-07): pre-2026-05-08 the overlay badge
+    // stacked label above value, totalling ~32 px tall plus shadow halo.
+    // Combined with the `Positioned(top: 40)` placement that visually
+    // crashed into the Math HUD overlay (already moved by H-001).
+    // Switched to a single-line "LABEL value" format that keeps the same
+    // information density at ~22 px tall — the pre-fix banner read like
+    // a hero stat panel; now it reads like an inline status pill.
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [color, color.withValues(alpha: 0.7)],
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(11),
         boxShadow: [
           BoxShadow(
-            color: color.withValues(alpha: 0.4),
-            blurRadius: 8,
+            color: color.withValues(alpha: 0.35),
+            blurRadius: 6,
           ),
         ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(icon, color: Colors.white, size: 14),
-          const SizedBox(width: 6),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 8,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              Text(
-                value,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
+          Icon(icon, color: Colors.white, size: 12),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.6,
+            ),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              height: 1.0,
+            ),
           ),
         ],
       ),

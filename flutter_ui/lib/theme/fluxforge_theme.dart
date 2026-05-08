@@ -20,6 +20,41 @@ import '../models/timeline_models.dart' show TrackType;
 
 class FluxForgeTheme {
   // ═══════════════════════════════════════════════════════════════════════════
+  // TYPOGRAPHY SCALE — H-019 (HELIX_AUDIT 2026-05-07)
+  // ═══════════════════════════════════════════════════════════════════════════
+  //
+  // Centralized font-size scale so panels stop hard-coding 8/9/10/11pt.
+  // The pre-audit baseline used `fontSize: 9` for "label" rows and `11`
+  // for "value" rows — too small on 13" laptops and Retina at 100%
+  // scaling.  This scale raises the floor by 1pt and gives panels a
+  // single source of truth.
+  //
+  // Sizes are in logical pixels.  Use `fontSizeNumeric` for monospace
+  // readouts that need a slightly tighter optical size.
+
+  /// Hairline microcopy (badge dot suffix, secondary unit) — 9pt.
+  /// Use sparingly; prefer [fontSizeMicroLabel] for legibility.
+  static const double fontSizeHairline = 9.0;
+
+  /// Compact uppercase label (chips, headers, metric tags) — 10pt.
+  /// Was 9pt before H-019.
+  static const double fontSizeMicroLabel = 10.0;
+
+  /// Standard label (sidebar entries, panel section titles) — 11pt.
+  /// Was 10pt before H-019.
+  static const double fontSizeLabel = 11.0;
+
+  /// Inline numeric values (RTP, MAX×, voice counts) — 12pt.
+  /// Was 11pt before H-019.
+  static const double fontSizeValue = 12.0;
+
+  /// Body copy (panel descriptions, dialogs) — 13pt.
+  static const double fontSizeBody = 13.0;
+
+  /// Heading (panel titles, dialog titles) — 14pt.
+  static const double fontSizeHeading = 14.0;
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // COLOR PALETTE - Pro Audio Dark (6-Layer Depth System)
   // ═══════════════════════════════════════════════════════════════════════════
 

@@ -54,6 +54,7 @@ import '../widgets/slot_lab/premium_slot_preview.dart';
 // ── SPRINT 1 imports ──
 import '../widgets/common/command_palette.dart';
 import '../widgets/common/flux_tooltip.dart';
+import '../utils/error_log.dart'; // H-011
 import '../widgets/helix/math_hud_overlay.dart';
 // import '../widgets/helix/stub_tab_placeholder.dart'; // removed — no stubs remain
 // ── SPEC-14: Panel Focus ──
@@ -231,6 +232,13 @@ class _HelixScreenState extends State<HelixScreen>
   double _playheadSeconds = 0;
 
   // ── Win line overlay + anticipation glow ─────────────────────────────────
+  // H-012 (HELIX_AUDIT 2026-05-07): live RenderBox lookup so anticipation
+  // glow tracks the true PremiumSlotPreview position instead of relying on
+  // the `* 0.6 + 60` magic literals that drifted whenever a layout preset
+  // changed the grid width.  Key is attached to the centred preview below
+  // and read in `_buildCanvas` to compute glow rectangles.
+  final GlobalKey _slotPreviewKey = GlobalKey(debugLabel: 'helix_slot_preview');
+
   // Win lines: list of payline indices (0-based) that hit on last spin
   List<int> _lastWinLines = [];
   // H-014 (HELIX_AUDIT 2026-05-07): two-phase clear so the overlay fades
@@ -242,6 +250,44 @@ class _HelixScreenState extends State<HelixScreen>
   Timer? _winLinesClearTimer;
   // Anticipation: reel indices (0-based) showing scatter/bonus during spin
   Set<int> _anticipationReels = {};
+
+  /// H-012: Resolve the live PremiumSlotPreview rect (origin + size) in
+  /// the same coordinate space as the surrounding `Stack`.  Returns the
+  /// hard-coded fallback rect when the GlobalKey has not yet attached to
+  /// a laid-out RenderBox (first build, headless tests).
+  Rect _resolveSlotPreviewRect() {
+    try {
+      final ctx = _slotPreviewKey.currentContext;
+      if (ctx != null) {
+        final ro = ctx.findRenderObject();
+        if (ro is RenderBox && ro.hasSize) {
+          // The Stack ancestor in `_buildCanvas` does not introduce its own
+          // origin offset, so converting via the Stack's own RenderBox
+          // (looked up by walking up the tree) is equivalent to the
+          // ancestor.findRenderObject() result.  Use globalToLocal against
+          // a Stack ancestor lookup when we can find one; fall back to
+          // local Offset.zero otherwise.
+          final ancestor = context.findRenderObject();
+          final origin = (ancestor is RenderBox)
+              ? ro.localToGlobal(Offset.zero, ancestor: ancestor)
+              : ro.localToGlobal(Offset.zero);
+          return Rect.fromLTWH(
+              origin.dx, origin.dy, ro.size.width, ro.size.height);
+        }
+      }
+    } catch (_) {
+      // Fall through to constants below.
+    }
+    final screenW = MediaQuery.of(context).size.width;
+    final screenH = MediaQuery.of(context).size.height;
+    final gridW = screenW * _kSlotGridWidthRatio;
+    return Rect.fromLTWH(
+      _kSlotGridLeftOffsetPx,
+      _kSlotGridVInsetPx,
+      gridW,
+      screenH - 2 * _kSlotGridVInsetPx,
+    );
+  }
 
   /// Called from spin result to show win lines
   void showWinLines(List<int> lines) {
@@ -1606,9 +1652,16 @@ class _HelixScreenState extends State<HelixScreen>
 
               // Slot preview — center (C1: onCellTap → Context Lens)
               // Grid dimensions read from SlotLabProjectProvider so GAME CONFIG Apply
-              // actually reconfigures the visible slot machine
+              // actually reconfigures the visible slot machine.
+              //
+              // H-012: the `_slotPreviewKey` GlobalKey lives on the wrapping
+              // KeyedSubtree so anticipation-glow lookup gets a stable
+              // RenderObject regardless of grid resize.  PremiumSlotPreview
+              // keeps its own ValueKey for the rebuild-on-resize trigger.
               Center(
-                child: ListenableBuilder(
+                child: KeyedSubtree(
+                  key: _slotPreviewKey,
+                  child: ListenableBuilder(
                   listenable: GetIt.instance<SlotLabProjectProvider>(),
                   builder: (ctx, _) {
                     final proj = GetIt.instance<SlotLabProjectProvider>();
@@ -1654,6 +1707,7 @@ class _HelixScreenState extends State<HelixScreen>
                   },
                 );
                   },
+                ),
                 ),
               ),
 
@@ -1702,27 +1756,29 @@ class _HelixScreenState extends State<HelixScreen>
 
               // Anticipation reel glow — highlights reels with scatter/bonus during spin.
               //
-              // Layout assumption: PremiumSlotPreview sits centered, occupying
-              // `_kSlotGridWidthRatio` of the screen width with a horizontal
-              // margin of `_kSlotGridLeftOffsetPx`. These named constants
-              // replace the previous bare `* 0.6 + 60` magic literals so that
-              // a future PremiumSlotPreview layout change is a one-place edit.
+              // H-012 (HELIX_AUDIT 2026-05-07): live RenderBox lookup via
+              // `_slotPreviewKey`.  We resolve the centred PremiumSlotPreview's
+              // actual position + size each frame so the glow tracks layout
+              // changes (preset switch, window resize, ARCHITECT mode dock
+              // grow that shrinks the canvas).  The pre-fix path used
+              // hard-coded `_kSlotGridWidthRatio` / `_kSlotGridLeftOffsetPx`
+              // constants which drifted by 4–24 px on non-default layouts.
               //
-              // TODO(URP-future): Replace ratio/offset assumptions with a
-              // GlobalKey lookup of the live PremiumSlotPreview RenderBox.
-              // The current approach drifts if the preview is moved (e.g.
-              // a layout preset changes the grid width ratio). See audit
-              // HELIX_AUDIT_2026-05-07.md nalaz #4 (P1).
+              // Falls back to the named constants when the key has not yet
+              // been laid out (first frame after mount).
               if (_anticipationReels.isNotEmpty)
                 ..._anticipationReels.map((reelIdx) {
-                  final reels = GetIt.instance<SlotLabProjectProvider>().gridConfig?.columns ?? 5;
-                  final screenW = MediaQuery.of(context).size.width;
-                  final gridW = screenW * _kSlotGridWidthRatio;
+                  final reels = GetIt.instance<SlotLabProjectProvider>()
+                          .gridConfig
+                          ?.columns ??
+                      5;
+                  final rect = _resolveSlotPreviewRect();
+                  final reelWidth = rect.width / reels;
                   return Positioned(
-                    left: (reelIdx / reels) * gridW + _kSlotGridLeftOffsetPx,
-                    top: _kSlotGridVInsetPx,
-                    bottom: _kSlotGridVInsetPx,
-                    width: gridW / reels,
+                    left: rect.left + reelIdx * reelWidth,
+                    top: rect.top,
+                    width: reelWidth,
+                    height: rect.height,
                     child: IgnorePointer(
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 500),
@@ -2083,22 +2139,18 @@ class _HelixScreenState extends State<HelixScreen>
           _QuickAction(
             icon: Icons.volume_off_rounded, label: 'MUTE ALL',
             color: FluxForgeTheme.accentCyan,
-            onTap: () {
-              try {
-                final mixer = GetIt.instance<OrbMixerProvider>();
-                if (!mixer.master.muted) mixer.toggleMute(OrbBusId.master);
-              } catch (_) {}
-            },
+            onTap: () => silentRun('quick_action MUTE ALL', () {
+              final mixer = GetIt.instance<OrbMixerProvider>();
+              if (!mixer.master.muted) mixer.toggleMute(OrbBusId.master);
+            }),
           ),
           _QuickAction(
             icon: Icons.volume_up_rounded, label: 'UNMUTE',
             color: FluxForgeTheme.accentCyan,
-            onTap: () {
-              try {
-                final mixer = GetIt.instance<OrbMixerProvider>();
-                if (mixer.master.muted) mixer.toggleMute(OrbBusId.master);
-              } catch (_) {}
-            },
+            onTap: () => silentRun('quick_action UNMUTE', () {
+              final mixer = GetIt.instance<OrbMixerProvider>();
+              if (mixer.master.muted) mixer.toggleMute(OrbBusId.master);
+            }),
           ),
           _QuickAction(
             icon: Icons.stop_rounded, label: 'STOP ALL',

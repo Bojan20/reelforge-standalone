@@ -8077,6 +8077,10 @@ class NativeFFI {
       Uint64 Function(Pointer<Utf8>, Float),
       int Function(Pointer<Utf8>, double)>('orb_capture_last_n_seconds');
 
+  late final _orbRingRearm = _lib.lookupFunction<
+      Int32 Function(),
+      int Function()>('orb_ring_rearm');
+
   /// Initialise or reconfigure the master-output ring buffer.
   /// Call once at engine start with the engine's sample rate and the desired
   /// window (clamped to 10 s on the Rust side). The default window matches
@@ -8104,6 +8108,15 @@ class NativeFFI {
     } finally {
       calloc.free(cPath);
     }
+  }
+
+  /// Re-arm the master ring buffer — resets the write cursor so the next
+  /// captured snapshot starts fresh.  Used by the Problems Inbox "fresh
+  /// capture" flow when the user wants a clean sample after fixing an
+  /// issue.  Audio-thread safe.  Returns 1 on success.
+  int orbRingRearm() {
+    if (!_loaded) return 0;
+    return _orbRingRearm();
   }
 
   // ============================================================
