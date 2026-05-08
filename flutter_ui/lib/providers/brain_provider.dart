@@ -196,6 +196,8 @@ class BrainProvider extends ChangeNotifier {
   void cancelQuery() {
     _activeStream?.cancel();
     _activeStream = null;
+    // Kill the underlying claude process
+    _client.cancelActive();
     if (_state == BrainQueryState.streaming ||
         _state == BrainQueryState.connecting) {
       _state = BrainQueryState.idle;

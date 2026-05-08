@@ -327,13 +327,14 @@ enum DawEditSubTab { timeline, pianoRoll, fades, grid, punch, comping, warp, ela
 enum DawMixSubTab { mixer, sends, pan, automation }
 enum DawProcessSubTab { eq, comp, limiter, reverb, gate, delay, saturation, deEsser, fxChain, sidechain }
 enum DawDeliverSubTab { export, stems, stemManager, loudnessReport, bounce, archive }
-enum DawCortexSubTab { overview, awareness, neural, immune, events }
+enum DawCortexSubTab { chat, overview, awareness, neural, immune, events }
 
 extension DawCortexSubTabX on DawCortexSubTab {
-  String get label => ['Overview', 'Awareness', 'Neural', 'Immune', 'Events'][index];
-  String get shortcut => ['Q', 'W', 'E', 'R', 'T'][index];
-  IconData get icon => [Icons.dashboard, Icons.radar, Icons.electric_bolt, Icons.shield, Icons.timeline][index];
+  String get label => ['Chat', 'Overview', 'Awareness', 'Neural', 'Immune', 'Events'][index];
+  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y'][index];
+  IconData get icon => [Icons.chat_bubble_outline_rounded, Icons.dashboard, Icons.radar, Icons.electric_bolt, Icons.shield, Icons.timeline][index];
   String get tooltip => [
+    'Chat direktno sa Corti — Claude AI streaming u realnom vremenu',
     'Health overview with radar chart and sparkline history',
     '7-dimensional awareness: throughput, reliability, responsiveness, coverage, cognition, efficiency, coherence',
     'Neural signal flow: reflexes, patterns, signal rate, drop monitoring',

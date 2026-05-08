@@ -1,6 +1,7 @@
 /// CORTEX Neural Dashboard — Full nervous system visualization panel
 ///
-/// 5 sub-panels accessible via DAW lower zone CORTEX super-tab:
+/// 6 sub-panels accessible via DAW lower zone CORTEX super-tab:
+/// 0. Chat     — Direktan Claude AI chat u realnom vremenu (BrainChat)
 /// 1. Overview — Health radar chart + sparkline history + status summary
 /// 2. Awareness — 7-dimensional awareness with animated radar visualization
 /// 3. Neural — Signal flow, reflex activity, pattern recognition monitor
@@ -13,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../providers/cortex_provider.dart';
 import '../../lower_zone_types.dart';
+import '../../../cortex/brain_chat.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CORTEX COLORS — Neural system palette
@@ -59,6 +61,7 @@ class CortexNeuralDashboard extends StatelessWidget {
     return Container(
       color: _CortexColors.bg,
       child: switch (subTab) {
+        DawCortexSubTab.chat => const BrainChat(),
         DawCortexSubTab.overview => const _OverviewPanel(),
         DawCortexSubTab.awareness => const _AwarenessPanel(),
         DawCortexSubTab.neural => const _NeuralPanel(),

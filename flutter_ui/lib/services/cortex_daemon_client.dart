@@ -1,19 +1,11 @@
 // file: flutter_ui/lib/services/cortex_daemon_client.dart
-/// CORTEX Daemon Client — SSE streaming connection to cortex-daemon HTTP API.
+/// CORTEX Daemon Client — Claude CLI direct integration.
 ///
-/// Communicates with the daemon at http://127.0.0.1:9743:
-///   POST /stream  → SSE streaming (real-time chunks from Claude CLI)
-///   POST /query   → Full response (blocking)
-///   GET  /status  → Daemon + brain health
+/// Komunikacija direktno sa Claude CLI procesom:
+///   streamQuery → `claude -p "..." --output-format stream-json --verbose`
+///   getStatus   → provera claude binary dostupnosti
 ///
-/// Usage:
-/// ```dart
-/// final client = CortexDaemonClient();
-/// await for (final event in client.streamQuery('Analiziraj ovaj kod')) {
-///   if (event.isChunk) print(event.text);  // real-time
-///   if (event.isResult) print(event.content); // final
-/// }
-/// ```
+/// Nema HTTP servera, nema porta — sve ide direktno kroz claude CLI.
 
 import 'dart:async';
 import 'dart:convert';
@@ -23,7 +15,7 @@ import 'dart:io';
 // TYPES
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/// A single SSE event from the daemon stream.
+/// A single streaming event from the claude CLI.
 class DaemonStreamEvent {
   final String type;
   final Map<String, dynamic> data;
@@ -53,7 +45,8 @@ class DaemonStreamEvent {
   double get costUsd => (data['cost_usd'] as num?)?.toDouble() ?? 0.0;
 
   @override
-  String toString() => 'DaemonStreamEvent($type, ${text.isNotEmpty ? "${text.length} chars" : content.isNotEmpty ? "${content.length} chars" : errorMessage})';
+  String toString() =>
+      'DaemonStreamEvent($type, ${text.isNotEmpty ? "${text.length} chars" : content.isNotEmpty ? "${content.length} chars" : errorMessage})';
 }
 
 /// Full query response (non-streaming).
@@ -112,101 +105,69 @@ class DaemonStatus {
     required this.totalErrors,
     required this.availableProviders,
   });
-
-  factory DaemonStatus.fromJson(Map<String, dynamic> json) {
-    final brain = json['brain'] as Map<String, dynamic>? ?? {};
-    return DaemonStatus(
-      running: json['daemon'] == 'running',
-      uptimeSecs: (json['uptime_secs'] as num?)?.toInt() ?? 0,
-      browserConnected: json['browser_connected'] as bool? ?? false,
-      browserModel: json['browser_model'] as String?,
-      totalQueries: (json['total_queries'] as num?)?.toInt() ?? 0,
-      totalBrainQueries: (json['total_brain_queries'] as num?)?.toInt() ?? 0,
-      totalErrors: (json['total_errors'] as num?)?.toInt() ?? 0,
-      availableProviders: (brain['available_providers'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          [],
-    );
-  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CLIENT
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/// HTTP + SSE client for the cortex-daemon API.
+/// Claude CLI client — direktno poziva claude binary bez HTTP servera.
 ///
 /// Singleton — use [CortexDaemonClient.instance].
 class CortexDaemonClient {
   static final CortexDaemonClient instance = CortexDaemonClient._();
 
-  final HttpClient _http = HttpClient();
-  final String _host = '127.0.0.1';
-  final int _port = 9743;
+  bool _claudeAvailable = false;
+  String _claudePath = '';
+  Process? _activeProcess;
 
-  bool _daemonReachable = false;
+  /// Whether claude CLI is available.
+  bool get isDaemonReachable => _claudeAvailable;
 
-  /// Whether the daemon responded to the last health check.
-  bool get isDaemonReachable => _daemonReachable;
+  CortexDaemonClient._();
 
-  CortexDaemonClient._() {
-    _http.connectionTimeout = const Duration(seconds: 5);
+  /// Pronadje putanju do claude binary.
+  Future<String?> _findClaude() async {
+    // Probaj poznate lokacije
+    const candidates = [
+      '/opt/homebrew/bin/claude',
+      '/usr/local/bin/claude',
+      '/usr/bin/claude',
+    ];
+    for (final path in candidates) {
+      if (await File(path).exists()) return path;
+    }
+    // Probaj 'which claude'
+    try {
+      final result = await Process.run('which', ['claude'],
+          environment: {'PATH': '/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin'});
+      final out = (result.stdout as String).trim();
+      if (out.isNotEmpty && await File(out).exists()) return out;
+    } catch (_) {}
+    return null;
   }
 
-  /// Check if daemon is alive.
+  /// Check if claude CLI is available.
   Future<DaemonStatus?> getStatus() async {
-    try {
-      final req = await _http.get(_host, _port, '/status');
-      final resp = await req.close();
-      if (resp.statusCode != 200) {
-        _daemonReachable = false;
-        return null;
-      }
-      final body = await resp.transform(utf8.decoder).join();
-      final json = jsonDecode(body) as Map<String, dynamic>;
-      _daemonReachable = true;
-      return DaemonStatus.fromJson(json);
-    } catch (_) {
-      _daemonReachable = false;
+    final path = await _findClaude();
+    if (path == null) {
+      _claudeAvailable = false;
       return null;
     }
+    _claudePath = path;
+    _claudeAvailable = true;
+    return DaemonStatus(
+      running: true,
+      uptimeSecs: 0,
+      browserConnected: false,
+      totalQueries: 0,
+      totalBrainQueries: 0,
+      totalErrors: 0,
+      availableProviders: ['claude-cli'],
+    );
   }
 
-  /// Send a blocking query (waits for full response).
-  Future<DaemonQueryResponse> query(
-    String content, {
-    String context = '',
-    String? systemPrompt,
-    int timeoutSecs = 300,
-  }) async {
-    final payload = jsonEncode({
-      'content': content,
-      'context': context,
-      if (systemPrompt != null) 'system_prompt': systemPrompt,
-      'timeout_secs': timeoutSecs,
-    });
-
-    final req = await _http.post(_host, _port, '/query');
-    req.headers.contentType = ContentType.json;
-    req.write(payload);
-    final resp = await req.close();
-
-    final body = await resp.transform(utf8.decoder).join();
-    final json = jsonDecode(body) as Map<String, dynamic>;
-
-    if (resp.statusCode != 200) {
-      throw DaemonClientException(
-        json['error'] as String? ?? 'Unknown error',
-        resp.statusCode,
-      );
-    }
-
-    _daemonReachable = true;
-    return DaemonQueryResponse.fromJson(json);
-  }
-
-  /// Stream a query — returns SSE events as they arrive.
+  /// Stream a query — yields events as they arrive from claude CLI.
   ///
   /// Events:
   ///   - chunk: partial text (real-time as Claude streams)
@@ -217,70 +178,230 @@ class CortexDaemonClient {
     String context = '',
     String? systemPrompt,
   }) async* {
-    final payload = jsonEncode({
-      'content': content,
-      'context': context,
-      if (systemPrompt != null) 'system_prompt': systemPrompt,
-    });
+    // Nađi claude binary ako nismo
+    if (_claudePath.isEmpty) {
+      final found = await _findClaude();
+      if (found == null) {
+        _claudeAvailable = false;
+        yield DaemonStreamEvent(
+          type: 'error',
+          data: {'message': 'claude CLI nije pronađen. Instaliraj Claude Code.'},
+        );
+        return;
+      }
+      _claudePath = found;
+    }
+    _claudeAvailable = true;
 
-    HttpClientResponse resp;
+    // Sagradi prompt — ubaci context ako postoji
+    final fullContent = context.isNotEmpty
+        ? 'KONTEKST:\n$context\n\nPITANJE:\n$content'
+        : content;
+
+    // Napravi argumente
+    final args = <String>[
+      '--print',
+      '--output-format',
+      'stream-json',
+      '--verbose',
+    ];
+
+    // System prompt via --system-prompt flag ako postoji
+    if (systemPrompt != null && systemPrompt.isNotEmpty) {
+      args.addAll(['--system-prompt', systemPrompt]);
+    }
+
+    // Prompt
+    args.add(fullContent);
+
+    Process process;
     try {
-      final req = await _http.post(_host, _port, '/stream');
-      req.headers.contentType = ContentType.json;
-      req.write(payload);
-      resp = await req.close();
+      process = await Process.start(
+        _claudePath,
+        args,
+        environment: {
+          'PATH': '/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${Platform.environment['PATH'] ?? ''}',
+          'HOME': Platform.environment['HOME'] ?? '',
+          'USER': Platform.environment['USER'] ?? '',
+        },
+        runInShell: false,
+      );
+      _activeProcess = process;
     } catch (e) {
-      _daemonReachable = false;
+      _claudeAvailable = false;
       yield DaemonStreamEvent(
         type: 'error',
-        data: {'message': 'Daemon not reachable: $e'},
+        data: {'message': 'Ne mogu da pokrenem claude: $e'},
       );
       return;
     }
 
-    _daemonReachable = true;
+    // Buffer za akumulaciju teksta (za finalni result event)
+    final buffer = StringBuffer();
+    String finalModel = 'claude';
+    int durationMs = 0;
+    double totalCost = 0.0;
 
-    if (resp.statusCode != 200) {
-      final body = await resp.transform(utf8.decoder).join();
-      yield DaemonStreamEvent(
-        type: 'error',
-        data: {'message': 'HTTP ${resp.statusCode}: $body'},
-      );
-      return;
-    }
+    // Parsiraj stdout — svaka linija je JSON event
+    final stdoutStream = process.stdout
+        .transform(utf8.decoder)
+        .transform(const LineSplitter());
 
-    // Parse SSE stream: each event is "data: {...}\n\n"
-    var buffer = '';
-    await for (final chunk in resp.transform(utf8.decoder)) {
-      buffer += chunk;
+    try {
+      await for (final line in stdoutStream) {
+        if (line.isEmpty) continue;
+        try {
+          final json = jsonDecode(line) as Map<String, dynamic>;
+          final type = json['type'] as String?;
 
-      // Process complete SSE events (terminated by double newline)
-      while (buffer.contains('\n\n')) {
-        final idx = buffer.indexOf('\n\n');
-        final eventStr = buffer.substring(0, idx).trim();
-        buffer = buffer.substring(idx + 2);
+          if (type == 'assistant') {
+            // Streaming text chunk
+            final message = json['message'] as Map<String, dynamic>?;
+            final contentBlocks = message?['content'] as List<dynamic>?;
+            for (final block in contentBlocks ?? []) {
+              if (block is Map && block['type'] == 'text') {
+                final text = block['text'] as String? ?? '';
+                if (text.isNotEmpty) {
+                  buffer.write(text);
+                  yield DaemonStreamEvent(
+                    type: 'chunk',
+                    data: {'text': text},
+                  );
+                }
+              }
+            }
+            // Izvuci model ime
+            if (message?['model'] is String) {
+              finalModel = message!['model'] as String;
+            }
+          } else if (type == 'result') {
+            // Finalni rezultat
+            durationMs = (json['duration_ms'] as num?)?.toInt() ?? 0;
+            totalCost = (json['total_cost_usd'] as num?)?.toDouble() ?? 0.0;
+            final resultText = json['result'] as String?;
+            final finalContent = resultText ?? buffer.toString();
 
-        if (eventStr.isEmpty) continue;
-
-        // Parse "data: <json>" lines
-        for (final line in eventStr.split('\n')) {
-          if (!line.startsWith('data: ')) continue;
-          final jsonStr = line.substring(6);
-          try {
-            final json = jsonDecode(jsonStr) as Map<String, dynamic>;
-            final type = json['type'] as String? ?? 'unknown';
-            yield DaemonStreamEvent(type: type, data: json);
-          } catch (_) {
-            // Malformed JSON — skip
+            yield DaemonStreamEvent(
+              type: 'result',
+              data: {
+                'content': finalContent,
+                'model': finalModel,
+                'latency_ms': durationMs,
+                'cost_usd': totalCost,
+              },
+            );
+            break; // Gotovo
+          } else if (type == 'system') {
+            // Ignore init/hook events
           }
+        } catch (_) {
+          // Malformed JSON — skip
         }
       }
+    } catch (e) {
+      yield DaemonStreamEvent(
+        type: 'error',
+        data: {'message': 'Stream error: $e'},
+      );
+    } finally {
+      _activeProcess = null;
+      // Cleanup process
+      try {
+        process.kill();
+      } catch (_) {}
+    }
+
+    // Ako nismo dobili result event ali imamo buffer
+    if (buffer.isNotEmpty && durationMs == 0) {
+      yield DaemonStreamEvent(
+        type: 'result',
+        data: {
+          'content': buffer.toString(),
+          'model': finalModel,
+          'latency_ms': 0,
+          'cost_usd': totalCost,
+        },
+      );
     }
   }
 
-  /// Dispose the HTTP client.
+  /// Cancel the active streaming query.
+  void cancelActive() {
+    try {
+      _activeProcess?.kill();
+    } catch (_) {}
+    _activeProcess = null;
+  }
+
+  /// Send a blocking query (waits for full response).
+  Future<DaemonQueryResponse> query(
+    String content, {
+    String context = '',
+    String? systemPrompt,
+    int timeoutSecs = 300,
+  }) async {
+    final fullContent = context.isNotEmpty
+        ? 'KONTEKST:\n$context\n\nPITANJE:\n$content'
+        : content;
+
+    if (_claudePath.isEmpty) {
+      final found = await _findClaude();
+      if (found == null) throw DaemonClientException('claude CLI nije pronađen', 0);
+      _claudePath = found;
+    }
+
+    final args = ['--print', '--output-format', 'stream-json', '--verbose', fullContent];
+    if (systemPrompt != null && systemPrompt.isNotEmpty) {
+      args.insertAll(0, ['--system-prompt', systemPrompt]);
+    }
+
+    final result = await Process.run(
+      _claudePath,
+      args,
+      environment: {
+        'PATH': '/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${Platform.environment['PATH'] ?? ''}',
+        'HOME': Platform.environment['HOME'] ?? '',
+        'USER': Platform.environment['USER'] ?? '',
+      },
+    ).timeout(Duration(seconds: timeoutSecs));
+
+    final lines = (result.stdout as String).split('\n');
+    String content2 = '';
+    String model = 'claude';
+    int latencyMs = 0;
+    double costUsd = 0.0;
+
+    for (final line in lines) {
+      if (line.isEmpty) continue;
+      try {
+        final json = jsonDecode(line) as Map<String, dynamic>;
+        final type = json['type'] as String?;
+        if (type == 'result') {
+          content2 = json['result'] as String? ?? '';
+          latencyMs = (json['duration_ms'] as num?)?.toInt() ?? 0;
+          costUsd = (json['total_cost_usd'] as num?)?.toDouble() ?? 0.0;
+        } else if (type == 'assistant') {
+          final message = json['message'] as Map<String, dynamic>?;
+          if (message?['model'] is String) model = message!['model'] as String;
+        }
+      } catch (_) {}
+    }
+
+    return DaemonQueryResponse(
+      requestId: DateTime.now().millisecondsSinceEpoch.toString(),
+      content: content2,
+      model: model,
+      source: 'claude-cli',
+      latencyMs: latencyMs,
+      inputTokens: 0,
+      outputTokens: 0,
+      costUsd: costUsd,
+    );
+  }
+
+  /// Dispose.
   void dispose() {
-    _http.close();
+    cancelActive();
   }
 }
 

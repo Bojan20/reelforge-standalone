@@ -129,6 +129,7 @@ import 'video_export_service.dart';
 import 'video_playback_service.dart';
 import '../providers/custom_event_provider.dart';
 import '../providers/cortex_provider.dart';
+import '../providers/brain_provider.dart';
 import '../providers/engine_provider.dart';
 import '../providers/timeline_playback_provider.dart';
 import '../providers/mixer_dsp_provider.dart';
@@ -909,6 +910,11 @@ class ServiceLocator {
     // =============================================================================
     sl.registerLazySingleton<CortexProvider>(
       () => CortexProvider(),
+    );
+
+    // LAYER 9.1: Brain Provider (Claude AI Chat)
+    sl.registerLazySingleton<BrainProvider>(
+      () => BrainProvider(),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
