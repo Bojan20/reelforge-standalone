@@ -7579,7 +7579,11 @@ class _SpineAudioAssign extends StatefulWidget {
 }
 
 class _SpineAudioAssignState extends State<_SpineAudioAssign> {
-  bool _dropHovering = false;
+  /// ID of the slot card currently being hovered with a drag — used for
+  /// per-card drop-target visual feedback (replaces the legacy global
+  /// `_dropHovering` flag, which lived on a top-level drop area that no
+  /// longer exists in the slot-first workflow).
+  String? _hoveringEventId;
 
   static const _audioExtensions = {
     '.wav', '.aiff', '.aif', '.mp3', '.ogg', '.flac', '.m4a', '.aac', '.opus',
@@ -7742,78 +7746,198 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
     if (mounted) setState(() {});
   }
 
-  // ─── Drop handler ───────────────────────────────────────────────────────────
-  Future<void> _handleDrop(List<String> paths) async {
+  // ─── Filter audio paths ────────────────────────────────────────────────────
+  List<String> _filterAudioPaths(List<String> paths) {
+    return paths.where((p) {
+      final dotIdx = p.toLowerCase().lastIndexOf('.');
+      if (dotIdx < 0) return false;
+      return _audioExtensions.contains(p.toLowerCase().substring(dotIdx));
+    }).toList();
+  }
+
+  // ─── Build a layer from an audio file path ────────────────────────────────
+  SlotEventLayer _layerFromPath(String path, int ts, String? stage) {
+    final fileName = path.split('/').last;
+    final name = fileName.contains('.')
+        ? fileName.substring(0, fileName.lastIndexOf('.'))
+        : fileName;
+    return SlotEventLayer(
+      id: 'layer_$ts',
+      name: name,
+      audioPath: path,
+      volume: 1.0,
+      loop: false,
+      actionType: 'Play',
+      busId: stage != null
+          ? StageConfigurationService.instance.getStage(stage)?.bus.index
+          : null,
+    );
+  }
+
+  // ─── STEP 1: Create a new (empty) slot ─────────────────────────────────────
+  // Asks for stage first — slot without a stage cannot fire on spin, so we
+  // make the assignment explicit at creation time. User can still "skip" but
+  // gets a visible warning chip.
+  Future<void> _createNewSlot() async {
+    if (!mounted) return;
+    final picked = await _pickStage(context);
+    if (picked == null) return; // cancelled
+    final stage = (picked == '__SKIP__') ? null : picked;
     final mw = GetIt.instance<MiddlewareProvider>();
     final now = DateTime.now();
 
-    for (int i = 0; i < paths.length; i++) {
-      final path = paths[i];
-      final lower = path.toLowerCase();
-      final dotIdx = lower.lastIndexOf('.');
-      if (dotIdx < 0) continue;
-      final ext = lower.substring(dotIdx);
-      if (!_audioExtensions.contains(ext)) continue;
-
-      final fileName = path.split('/').last;
-      final name = fileName.contains('.')
-          ? fileName.substring(0, fileName.lastIndexOf('.'))
-          : fileName;
-      final ts = now.millisecondsSinceEpoch + i;
-
-      // 1. Auto-match stage from filename
-      String? stage = _matchStageFromFilename(name);
-
-      // 2. If no auto-match, ask user (only for first file to avoid dialog spam)
-      if (stage == null && i == 0 && mounted) {
-        final picked = await _pickStage(context);
-        if (picked == null) continue; // Cancelled
-        if (picked != '__SKIP__') stage = picked;
+    // Stage already taken? Just select the existing event instead of duplicating.
+    if (stage != null) {
+      final existing = mw.compositeEvents
+          .where((e) => e.triggerStages.contains(stage))
+          .firstOrNull;
+      if (existing != null) {
+        mw.selectCompositeEvent(existing.id);
+        if (mounted) setState(() {});
+        return;
       }
-
-      // 3. Build event with trigger stage
-      final event = SlotCompositeEvent(
-        id: stage != null ? 'audio_${stage}' : 'drop_$ts',
-        name: stage ?? name,
-        category: stage != null
-            ? StageConfigurationService.instance.getCategoryLabel(stage)
-            : 'custom',
-        color: stage != null
-            ? StageConfigurationService.instance.getCategoryColor(stage)
-            : FluxForgeTheme.accentCyan,
-        layers: [
-          SlotEventLayer(
-            id: 'layer_$ts',
-            name: name,
-            audioPath: path,
-            volume: 1.0,
-            loop: false,
-            actionType: 'Play',
-            busId: stage != null
-                ? StageConfigurationService.instance.getStage(stage)?.bus.index
-                : null,
-          ),
-        ],
-        triggerStages: stage != null ? [stage] : [],
-        createdAt: now,
-        modifiedAt: now,
-      );
-
-      // 4. Add to MiddlewareProvider (UI list)
-      try {
-        // Replace existing event with same stage id if present
-        final existing = mw.compositeEvents.where((e) => e.id == event.id).firstOrNull;
-        if (existing != null) {
-          mw.updateCompositeEvent(event);
-        } else {
-          mw.addCompositeEvent(event);
-        }
-      } catch (_) {}
-
-      // 5. Register to EventRegistry — this makes audio actually play
-      _registerToEventRegistry(event);
     }
 
+    final ts = now.millisecondsSinceEpoch;
+    final event = SlotCompositeEvent(
+      id: stage != null ? 'audio_$stage' : 'helix_new_$ts',
+      name: stage ?? 'New Slot ${mw.compositeEvents.length + 1}',
+      category: stage != null
+          ? StageConfigurationService.instance.getCategoryLabel(stage)
+          : 'custom',
+      color: stage != null
+          ? StageConfigurationService.instance.getCategoryColor(stage)
+          : FluxForgeTheme.accentCyan,
+      layers: const [],
+      triggerStages: stage != null ? [stage] : const [],
+      createdAt: now,
+      modifiedAt: now,
+    );
+    mw.addCompositeEvent(event);
+    if (mounted) setState(() {});
+  }
+
+  // ─── STEP 2a: Drop audio onto existing slot — append layers ───────────────
+  Future<void> _addLayersToEvent(
+    SlotCompositeEvent event,
+    List<String> paths,
+  ) async {
+    final audioPaths = _filterAudioPaths(paths);
+    if (audioPaths.isEmpty) return;
+
+    final mw = GetIt.instance<MiddlewareProvider>();
+    final now = DateTime.now();
+
+    // If the slot has no stage yet, ask now — without a stage the layers
+    // won't fire on spin (EventRegistrationService.registerComposite returns
+    // empty when triggerStages is empty and no fallback is supplied). User
+    // can still skip and assign later from the chip.
+    SlotCompositeEvent target = event;
+    if (target.triggerStages.isEmpty && mounted) {
+      final picked = await _pickStage(context);
+      if (picked == null) return; // cancelled — don't add layers
+      if (picked != '__SKIP__') {
+        // Refresh from provider in case the event was edited while dialog
+        // was open; fall back to the captured `event` if it was deleted.
+        target = mw.compositeEvents
+            .where((e) => e.id == event.id)
+            .firstOrNull ?? event;
+        target = target.copyWith(
+          id: 'audio_$picked',
+          name: target.name == 'New Slot ${mw.compositeEvents.length}'
+              || target.name.startsWith('New Slot ')
+              ? picked
+              : target.name,
+          category: StageConfigurationService.instance.getCategoryLabel(picked),
+          color: StageConfigurationService.instance.getCategoryColor(picked),
+          triggerStages: [picked],
+          modifiedAt: now,
+        );
+        // ID may have changed — remove old, add new
+        if (target.id != event.id) {
+          try { mw.deleteCompositeEvent(event.id); } catch (_) {}
+          mw.addCompositeEvent(target);
+        } else {
+          mw.updateCompositeEvent(target);
+        }
+      }
+    }
+
+    final stage = target.triggerStages.isNotEmpty ? target.triggerStages.first : null;
+    final newLayers = <SlotEventLayer>[];
+    for (int i = 0; i < audioPaths.length; i++) {
+      newLayers.add(_layerFromPath(audioPaths[i], now.millisecondsSinceEpoch + i, stage));
+    }
+
+    final updated = target.copyWith(
+      layers: [...target.layers, ...newLayers],
+      modifiedAt: now,
+    );
+    mw.updateCompositeEvent(updated);
+    // Explicit re-register — covers the case where SlotLab is not mounted
+    // (HELIX-only workflow). Idempotent with SlotLab's _onMiddlewareChanged.
+    _registerToEventRegistry(updated);
+    if (mounted) setState(() {});
+  }
+
+  // ─── STEP 2b: Browse / drop on empty area — pick stage, then create slot
+  // pre-populated with layers. This path also runs from the Browse button.
+  Future<void> _browseAndCreateSlot(List<String> paths) async {
+    final audioPaths = _filterAudioPaths(paths);
+    if (audioPaths.isEmpty) return;
+
+    // Try auto-match from first file
+    final firstName = audioPaths.first.split('/').last;
+    String? stage = _matchStageFromFilename(firstName);
+
+    if (stage == null && mounted) {
+      final picked = await _pickStage(context);
+      if (picked == null) return; // cancelled
+      if (picked != '__SKIP__') stage = picked;
+    }
+
+    final mw = GetIt.instance<MiddlewareProvider>();
+    final now = DateTime.now();
+    final ts = now.millisecondsSinceEpoch;
+
+    final layers = <SlotEventLayer>[];
+    for (int i = 0; i < audioPaths.length; i++) {
+      layers.add(_layerFromPath(audioPaths[i], ts + i, stage));
+    }
+
+    // If a slot already exists for this stage, append layers to it.
+    if (stage != null) {
+      final existing = mw.compositeEvents
+          .where((e) => e.triggerStages.contains(stage))
+          .firstOrNull;
+      if (existing != null) {
+        final merged = existing.copyWith(
+          layers: [...existing.layers, ...layers],
+          modifiedAt: now,
+        );
+        mw.updateCompositeEvent(merged);
+        _registerToEventRegistry(merged);
+        if (mounted) setState(() {});
+        return;
+      }
+    }
+
+    final event = SlotCompositeEvent(
+      id: stage != null ? 'audio_$stage' : 'helix_drop_$ts',
+      name: stage ?? layers.first.name,
+      category: stage != null
+          ? StageConfigurationService.instance.getCategoryLabel(stage)
+          : 'custom',
+      color: stage != null
+          ? StageConfigurationService.instance.getCategoryColor(stage)
+          : FluxForgeTheme.accentCyan,
+      layers: layers,
+      triggerStages: stage != null ? [stage] : const [],
+      createdAt: now,
+      modifiedAt: now,
+    );
+    mw.addCompositeEvent(event);
+    _registerToEventRegistry(event);
     if (mounted) setState(() {});
   }
 
@@ -7831,226 +7955,276 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
     final helixState = context.findAncestorStateOfType<_HelixScreenState>();
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // ── Step 1: Create slot — primary action ─────────────────────
         Row(children: [
-          Text('${events.length}', style: const TextStyle(
-            fontFamily: 'monospace', fontSize: 18, color: FluxForgeTheme.accentCyan, fontWeight: FontWeight.w600)),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            decoration: BoxDecoration(
+              color: FluxForgeTheme.accentCyan.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(3)),
+            child: const Text('STEP 1',
+              style: TextStyle(
+                fontFamily: 'monospace', fontSize: 7,
+                color: FluxForgeTheme.accentCyan, letterSpacing: 1.2,
+                fontWeight: FontWeight.w600)),
+          ),
           const SizedBox(width: 6),
-          const Text('events assigned', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary)),
-          const Spacer(),
-          // Browse audio files via native file picker
+          const Expanded(child: Text('Create slot',
+            style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary))),
+          GestureDetector(
+            onTap: _createNewSlot,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: FluxForgeTheme.accentCyan.withValues(alpha: 0.18),
+                border: Border.all(color: FluxForgeTheme.accentCyan, width: 1.0),
+                borderRadius: BorderRadius.circular(4)),
+              child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.add_circle_outline_rounded, size: 11,
+                  color: FluxForgeTheme.accentCyan),
+                SizedBox(width: 4),
+                Text('New Slot', style: TextStyle(
+                  fontFamily: 'monospace', fontSize: 9,
+                  color: FluxForgeTheme.accentCyan, fontWeight: FontWeight.w600)),
+              ]),
+            ),
+          ),
+        ]),
+        const SizedBox(height: 8),
+        // ── Step 2: Drop audio onto a slot ───────────────────────────
+        Row(children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            decoration: BoxDecoration(
+              color: FluxForgeTheme.accentBlue.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(3)),
+            child: const Text('STEP 2',
+              style: TextStyle(
+                fontFamily: 'monospace', fontSize: 7,
+                color: FluxForgeTheme.accentBlue, letterSpacing: 1.2,
+                fontWeight: FontWeight.w600)),
+          ),
+          const SizedBox(width: 6),
+          Expanded(child: Text(
+            events.isEmpty
+              ? 'Drop audio onto a slot'
+              : '${events.length} slot${events.length == 1 ? "" : "s"} — drop audio on a card',
+            style: const TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary),
+            overflow: TextOverflow.ellipsis,
+          )),
           GestureDetector(
             onTap: () async {
               try {
                 final paths = await NativeFilePicker.pickAudioFiles();
                 if (paths.isNotEmpty) {
-                  _handleDrop(paths);
+                  await _browseAndCreateSlot(paths);
                 }
               } catch (_) {}
             },
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              margin: const EdgeInsets.only(right: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
               decoration: BoxDecoration(
                 color: FluxForgeTheme.accentBlue.withValues(alpha: 0.08),
-                border: Border.all(color: FluxForgeTheme.accentBlue.withValues(alpha: 0.3)),
+                border: Border.all(color: FluxForgeTheme.accentBlue.withValues(alpha: 0.4)),
                 borderRadius: BorderRadius.circular(4)),
               child: const Row(mainAxisSize: MainAxisSize.min, children: [
                 Icon(Icons.folder_open_rounded, size: 10, color: FluxForgeTheme.accentBlue),
-                SizedBox(width: 2),
+                SizedBox(width: 3),
                 Text('Browse', style: TextStyle(
                   fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.accentBlue)),
               ]),
             ),
           ),
-          // S3: New Event button
-          GestureDetector(
-            onTap: () {
-              try {
-                final now = DateTime.now();
-                GetIt.instance<MiddlewareProvider>().addCompositeEvent(
-                  SlotCompositeEvent(
-                    id: 'helix_new_${now.millisecondsSinceEpoch}',
-                    name: 'New Event ${events.length + 1}',
-                    category: 'custom',
-                    color: FluxForgeTheme.accentCyan,
-                    createdAt: now,
-                    modifiedAt: now,
-                  ),
-                );
-              } catch (_) {}
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: FluxForgeTheme.accentCyan.withValues(alpha: 0.08),
-                border: Border.all(color: FluxForgeTheme.accentCyan.withValues(alpha: 0.3)),
-                borderRadius: BorderRadius.circular(4)),
-              child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.add_rounded, size: 10, color: FluxForgeTheme.accentCyan),
-                SizedBox(width: 2),
-                Text('New', style: TextStyle(
-                  fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.accentCyan)),
-              ]),
-            ),
-          ),
         ]),
-        const SizedBox(height: 12),
-        // A4: Drop target wrapping event list
+        const SizedBox(height: 10),
+        // ── Slot list ─────────────────────────────────────────────────
         Expanded(
-          child: DropTarget(
-            onDragEntered: (_) => setState(() => _dropHovering = true),
-            onDragExited: (_) => setState(() => _dropHovering = false),
-            onDragDone: (detail) {
-              setState(() => _dropHovering = false);
-              _handleDrop(detail.files.map((f) => f.path).toList());
-            },
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: _dropHovering
-                    ? FluxForgeTheme.accentBlue.withValues(alpha: 0.7)
-                    : Colors.transparent,
-                  width: 2),
-                borderRadius: BorderRadius.circular(6),
-                boxShadow: _dropHovering ? [BoxShadow(
-                  color: FluxForgeTheme.accentBlue.withValues(alpha: 0.2),
-                  blurRadius: 12)] : null,
-              ),
-              child: events.isEmpty
-                ? Center(child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.audio_file_outlined, size: 24,
-                        color: FluxForgeTheme.textTertiary.withValues(alpha: 0.4)),
-                      const SizedBox(height: 6),
-                      const Text('No audio events.\nDrop WAV/AIFF/MP3 here\nor create in SlotLab.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary, height: 1.5)),
-                    ],
-                  ))
-                : ListView(
-                    children: events.take(20).map((e) {
-                      final hasStages = e.triggerStages.isNotEmpty;
-                      return GestureDetector(
-                        onTap: () => helixState?.openContextLens(e),
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 4),
-                          padding: EdgeInsets.fromLTRB(8, 6, 6, hasStages ? 5 : 6),
-                          decoration: BoxDecoration(
-                            color: e.color.withValues(alpha: 0.05),
-                            border: Border.all(
-                              color: hasStages
-                                ? e.color.withValues(alpha: 0.22)
-                                : const Color(0xFF333340),
-                              width: hasStages ? 1.0 : 0.5,
-                            ),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              // ── Row 1: dot + name + layer count ──
-                              Row(children: [
-                                Container(width: 4, height: 4, decoration: BoxDecoration(
-                                  color: e.color, shape: BoxShape.circle)),
-                                const SizedBox(width: 7),
-                                Expanded(child: Text(e.name, style: const TextStyle(
-                                  fontFamily: 'monospace', fontSize: 10,
-                                  color: FluxForgeTheme.textSecondary),
-                                  overflow: TextOverflow.ellipsis)),
-                                if (e.layers.isNotEmpty)
-                                  Text('${e.layers.length}L', style: const TextStyle(
-                                    fontFamily: 'monospace', fontSize: 8,
-                                    color: FluxForgeTheme.textTertiary)),
-                                const SizedBox(width: 3),
-                                const Icon(Icons.chevron_right_rounded, size: 11,
-                                  color: FluxForgeTheme.textTertiary),
-                              ]),
-                              // ── Row 2: stage chips ──────────────
-                              const SizedBox(height: 4),
-                              Wrap(
-                                spacing: 3,
-                                runSpacing: 3,
-                                children: [
-                                  // Existing stage chips (removable)
-                                  ...List.generate(e.triggerStages.length, (si) {
-                                    final stage = e.triggerStages[si];
-                                    final cfg = StageConfigurationService.instance.getStage(stage);
-                                    final chipColor = cfg != null
-                                      ? StageConfigurationService.instance.getCategoryColor(stage)
-                                      : FluxForgeTheme.accentCyan;
-                                    return GestureDetector(
-                                      onTap: () {
-                                        // Prevents parent GestureDetector from firing
-                                      },
-                                      child: Container(
-                                        padding: const EdgeInsets.fromLTRB(5, 2, 2, 2),
-                                        decoration: BoxDecoration(
-                                          color: chipColor.withValues(alpha: 0.1),
-                                          border: Border.all(color: chipColor.withValues(alpha: 0.4)),
-                                          borderRadius: BorderRadius.circular(3),
-                                        ),
-                                        child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                          Text(stage,
-                                            style: TextStyle(
-                                              fontFamily: 'monospace', fontSize: 7,
-                                              color: chipColor, letterSpacing: 0.3)),
-                                          const SizedBox(width: 3),
-                                          GestureDetector(
-                                            onTap: () => _reassignStage(e, removeIndex: si),
-                                            child: Icon(Icons.close_rounded, size: 8,
-                                              color: chipColor.withValues(alpha: 0.6)),
-                                          ),
-                                        ]),
-                                      ),
-                                    );
-                                  }),
-                                  // Add stage button
-                                  GestureDetector(
-                                    onTap: () => _reassignStage(e),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: Colors.transparent,
-                                        border: Border.all(
-                                          color: hasStages
-                                            ? const Color(0xFF444455)
-                                            : FluxForgeTheme.accentCyan.withValues(alpha: 0.4),
-                                          style: hasStages ? BorderStyle.solid : BorderStyle.solid,
-                                        ),
-                                        borderRadius: BorderRadius.circular(3),
-                                      ),
-                                      child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                        Icon(Icons.add_rounded, size: 8,
-                                          color: hasStages
-                                            ? FluxForgeTheme.textTertiary
-                                            : FluxForgeTheme.accentCyan),
-                                        const SizedBox(width: 2),
-                                        Text(hasStages ? 'stage' : 'assign stage',
-                                          style: TextStyle(
-                                            fontFamily: 'monospace', fontSize: 7,
-                                            color: hasStages
-                                              ? FluxForgeTheme.textTertiary
-                                              : FluxForgeTheme.accentCyan)),
-                                      ]),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }).toList(),
+          child: events.isEmpty
+            ? Center(child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.layers_outlined, size: 28,
+                    color: FluxForgeTheme.textTertiary.withValues(alpha: 0.4)),
+                  const SizedBox(height: 8),
+                  const Text('No slots yet.\nCreate a slot first,\nthen drop audio on it.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 9,
+                      color: FluxForgeTheme.textTertiary, height: 1.5)),
+                  const SizedBox(height: 14),
+                  GestureDetector(
+                    onTap: _createNewSlot,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: FluxForgeTheme.accentCyan.withValues(alpha: 0.18),
+                        border: Border.all(color: FluxForgeTheme.accentCyan, width: 1.0),
+                        borderRadius: BorderRadius.circular(4)),
+                      child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.add_rounded, size: 12, color: FluxForgeTheme.accentCyan),
+                        SizedBox(width: 5),
+                        Text('Create First Slot', style: TextStyle(
+                          fontFamily: 'monospace', fontSize: 10,
+                          color: FluxForgeTheme.accentCyan, fontWeight: FontWeight.w600)),
+                      ]),
+                    ),
                   ),
-            ),
-          ),
+                ],
+              ))
+            : ListView(
+                children: events
+                    .take(20)
+                    .map((e) => _buildSlotCard(e, helixState))
+                    .toList(),
+              ),
         ),
       ],
+    );
+  }
+
+  // ─── Slot card — DropTarget that appends layers on drop ────────────────────
+  Widget _buildSlotCard(SlotCompositeEvent e, _HelixScreenState? helixState) {
+    final hasStages = e.triggerStages.isNotEmpty;
+    final hasLayers = e.layers.isNotEmpty;
+    final isHovering = _hoveringEventId == e.id;
+    return DropTarget(
+      onDragEntered: (_) => setState(() => _hoveringEventId = e.id),
+      onDragExited: (_) => setState(() {
+        if (_hoveringEventId == e.id) _hoveringEventId = null;
+      }),
+      onDragDone: (detail) {
+        setState(() => _hoveringEventId = null);
+        _addLayersToEvent(e, detail.files.map((f) => f.path).toList());
+      },
+      child: GestureDetector(
+        onTap: () => helixState?.openContextLens(e),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          margin: const EdgeInsets.only(bottom: 4),
+          padding: const EdgeInsets.fromLTRB(8, 6, 6, 6),
+          decoration: BoxDecoration(
+            color: isHovering
+              ? FluxForgeTheme.accentBlue.withValues(alpha: 0.18)
+              : e.color.withValues(alpha: 0.05),
+            border: Border.all(
+              color: isHovering
+                ? FluxForgeTheme.accentBlue.withValues(alpha: 0.7)
+                : (hasStages
+                    ? e.color.withValues(alpha: 0.22)
+                    : const Color(0xFF333340)),
+              width: isHovering ? 1.5 : (hasStages ? 1.0 : 0.5),
+            ),
+            borderRadius: BorderRadius.circular(6),
+            boxShadow: isHovering ? [BoxShadow(
+              color: FluxForgeTheme.accentBlue.withValues(alpha: 0.25),
+              blurRadius: 8)] : null,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // ── Row 1: dot + name + layer count / drop hint ──
+              Row(children: [
+                Container(width: 4, height: 4, decoration: BoxDecoration(
+                  color: e.color, shape: BoxShape.circle)),
+                const SizedBox(width: 7),
+                Expanded(child: Text(e.name, style: const TextStyle(
+                  fontFamily: 'monospace', fontSize: 10,
+                  color: FluxForgeTheme.textSecondary),
+                  overflow: TextOverflow.ellipsis)),
+                if (!hasLayers)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: FluxForgeTheme.accentBlue.withValues(alpha: 0.08),
+                      border: Border.all(
+                        color: FluxForgeTheme.accentBlue.withValues(alpha: 0.4)),
+                      borderRadius: BorderRadius.circular(3)),
+                    child: const Text('drop audio',
+                      style: TextStyle(
+                        fontFamily: 'monospace', fontSize: 7,
+                        color: FluxForgeTheme.accentBlue, letterSpacing: 0.3)),
+                  )
+                else
+                  Text('${e.layers.length}L', style: const TextStyle(
+                    fontFamily: 'monospace', fontSize: 8,
+                    color: FluxForgeTheme.textTertiary)),
+                const SizedBox(width: 3),
+                const Icon(Icons.chevron_right_rounded, size: 11,
+                  color: FluxForgeTheme.textTertiary),
+              ]),
+              // ── Row 2: stage chips ──
+              const SizedBox(height: 4),
+              Wrap(
+                spacing: 3,
+                runSpacing: 3,
+                children: [
+                  ...List.generate(e.triggerStages.length, (si) {
+                    final stage = e.triggerStages[si];
+                    final cfg = StageConfigurationService.instance.getStage(stage);
+                    final chipColor = cfg != null
+                      ? StageConfigurationService.instance.getCategoryColor(stage)
+                      : FluxForgeTheme.accentCyan;
+                    return GestureDetector(
+                      onTap: () {
+                        // Prevents parent GestureDetector from firing
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.fromLTRB(5, 2, 2, 2),
+                        decoration: BoxDecoration(
+                          color: chipColor.withValues(alpha: 0.1),
+                          border: Border.all(color: chipColor.withValues(alpha: 0.4)),
+                          borderRadius: BorderRadius.circular(3)),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Text(stage,
+                            style: TextStyle(
+                              fontFamily: 'monospace', fontSize: 7,
+                              color: chipColor, letterSpacing: 0.3)),
+                          const SizedBox(width: 3),
+                          GestureDetector(
+                            onTap: () => _reassignStage(e, removeIndex: si),
+                            child: Icon(Icons.close_rounded, size: 8,
+                              color: chipColor.withValues(alpha: 0.6)),
+                          ),
+                        ]),
+                      ),
+                    );
+                  }),
+                  // Add stage button — red "set stage" warning if missing
+                  GestureDetector(
+                    onTap: () => _reassignStage(e),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: hasStages
+                          ? Colors.transparent
+                          : FluxForgeTheme.accentRed.withValues(alpha: 0.10),
+                        border: Border.all(color: hasStages
+                          ? const Color(0xFF444455)
+                          : FluxForgeTheme.accentRed.withValues(alpha: 0.5)),
+                        borderRadius: BorderRadius.circular(3)),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.add_rounded, size: 8,
+                          color: hasStages
+                            ? FluxForgeTheme.textTertiary
+                            : FluxForgeTheme.accentRed),
+                        const SizedBox(width: 2),
+                        Text(hasStages ? 'stage' : 'set stage (won\'t play)',
+                          style: TextStyle(
+                            fontFamily: 'monospace', fontSize: 7,
+                            color: hasStages
+                              ? FluxForgeTheme.textTertiary
+                              : FluxForgeTheme.accentRed)),
+                      ]),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
