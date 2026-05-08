@@ -62,6 +62,14 @@ extension HrtfFFI on NativeFFI {
       Void Function(Pointer<Utf8>),
       void Function(Pointer<Utf8>)>('hrtf_free_string');
 
+  // ── Audition (P1.2) ──────────────────────────────────────────────────────
+
+  static final _hrtfAuditionRenderToWav =
+      NativeFFI.instance.lib.lookupFunction<
+          Int32 Function(Float, Float, Uint8, Uint32, Pointer<Utf8>),
+          int Function(double, double, int, int, Pointer<Utf8>)>(
+              'hrtf_audition_render_to_wav');
+
   // ═══════════════════════════════════════════════════════════════════════════
   // PUBLIC API
   // ═══════════════════════════════════════════════════════════════════════════
@@ -122,6 +130,37 @@ extension HrtfFFI on NativeFFI {
   /// The JSON is `{ "sample_rate": u32, "filter_length": usize,
   /// "measurement_count": usize }`.
   String? hrtfMetadataJson() => _consumeOwnedJson(_hrtfMetadataJson());
+
+  /// Render a personalized HRTF audition tone to a stereo WAV file.
+  ///
+  /// Returns:
+  /// *  `0` on success — file is ready to play
+  /// * `-1` no HRTF database loaded
+  /// * `-2` invalid argument (bad signal type, empty path, etc.)
+  /// * `-3` rendering failed
+  /// * `-4` WAV write failed
+  ///
+  /// `signalType`:
+  /// * `0` — pink noise (default — best for general HRTF auditioning)
+  /// * `1` — white noise
+  /// * `2` — 440 Hz sine
+  /// * `3` — 1 kHz sine
+  /// * `4` — 200 Hz → 8 kHz log chirp
+  int hrtfAuditionRenderToWav({
+    required double azimuthDeg,
+    required double elevationDeg,
+    required int signalType,
+    required int durationMs,
+    required String outPath,
+  }) {
+    final p = outPath.toNativeUtf8();
+    try {
+      return _hrtfAuditionRenderToWav(
+          azimuthDeg, elevationDeg, signalType, durationMs, p);
+    } finally {
+      malloc.free(p);
+    }
+  }
 
   // ── Internal ─────────────────────────────────────────────────────────────
 

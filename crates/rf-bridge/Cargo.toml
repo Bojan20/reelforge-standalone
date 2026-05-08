@@ -31,6 +31,8 @@ rf-fingerprint = { path = "../rf-fingerprint" }
 rf-cloud-sync = { path = "../rf-cloud-sync" }
 rf-slot-spatial = { path = "../rf-slot-spatial" }
 rf-spatial = { path = "../rf-spatial" }
+# WAV writer for HRTF live audition (P1.2)
+hound = { workspace = true }
 rf-ai-gen = { path = "../rf-ai-gen" }
 rf-rgai = { path = "../rf-rgai" }
 rf-composer = { path = "../rf-composer" }

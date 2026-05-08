@@ -19,6 +19,7 @@ pub enum HrtfInterpolation {
 }
 
 /// HRTF database
+#[derive(Clone)]
 pub struct HrtfDatabase {
     /// HRIR measurements indexed by (azimuth_idx, elevation_idx)
     hrirs: HashMap<(i32, i32), HrirPair>,

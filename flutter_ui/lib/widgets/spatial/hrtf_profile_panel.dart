@@ -42,6 +42,8 @@ class HrtfProfilePanel extends StatelessWidget {
               _buildSampleRateRow(p),
               const SizedBox(height: 12),
               _buildActions(context, p),
+              const SizedBox(height: 16),
+              _buildAuditionSection(context, p),
               const SizedBox(height: 12),
               _buildStatus(p),
             ],
@@ -493,6 +495,265 @@ class HrtfProfilePanel extends StatelessWidget {
     );
   }
 
+  // ─── Audition (P1.2) ───────────────────────────────────────────────────
+
+  Widget _buildAuditionSection(BuildContext context, HrtfProvider p) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF14141C),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: FluxForgeTheme.accentCyan.withValues(alpha: 0.25),
+          width: 0.6,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.headphones_rounded,
+                size: 14,
+                color: FluxForgeTheme.accentCyan,
+              ),
+              const SizedBox(width: 6),
+              const Text(
+                'LIVE AUDITION',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: FluxForgeTheme.accentCyan,
+                  letterSpacing: 1.3,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                'AZ ${p.auditionAzimuthDeg.toStringAsFixed(0)}°  '
+                'EL ${p.auditionElevationDeg.toStringAsFixed(0)}°',
+                style: const TextStyle(
+                  fontSize: 9,
+                  color: FluxForgeTheme.textTertiary,
+                  fontFamily: 'JetBrainsMono',
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _AuditionPositionPad(
+            azimuthDeg: p.auditionAzimuthDeg,
+            elevationDeg: p.auditionElevationDeg,
+            onPositionChanged: (az, el) =>
+                p.setAuditionPosition(azimuthDeg: az, elevationDeg: el),
+          ),
+          const SizedBox(height: 10),
+          _buildSignalSelector(p),
+          const SizedBox(height: 10),
+          _buildAuditionPlayRow(context, p),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSignalSelector(HrtfProvider p) {
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: [
+        for (final s in HrtfAuditionSignal.values)
+          FluxTooltip(
+            message: s.tooltip,
+            child: GestureDetector(
+              onTap: () => p.setAuditionSignal(s),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: p.auditionSignal == s
+                      ? FluxForgeTheme.accentCyan.withValues(alpha: 0.20)
+                      : const Color(0xFF0E0E14),
+                  borderRadius: BorderRadius.circular(5),
+                  border: Border.all(
+                    color: p.auditionSignal == s
+                        ? FluxForgeTheme.accentCyan
+                        : FluxForgeTheme.brandGoldDark.withValues(alpha: 0.30),
+                    width: 0.5,
+                  ),
+                ),
+                child: Text(
+                  s.label,
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    color: p.auditionSignal == s
+                        ? FluxForgeTheme.accentCyan
+                        : FluxForgeTheme.textSecondary,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildAuditionPlayRow(BuildContext context, HrtfProvider p) {
+    return Row(
+      children: [
+        Expanded(
+          flex: 2,
+          child: GestureDetector(
+            onTap: p.hasGenerated
+                ? () async {
+                    final ok = await p.playAudition();
+                    if (!ok && context.mounted) {
+                      _showSnack(context,
+                          p.errorMessage ?? 'Audition failed');
+                    }
+                  }
+                : null,
+            child: Container(
+              height: 30,
+              decoration: BoxDecoration(
+                color: p.hasGenerated
+                    ? (p.auditionPlaying
+                        ? FluxForgeTheme.accentGreen.withValues(alpha: 0.25)
+                        : FluxForgeTheme.accentCyan.withValues(alpha: 0.15))
+                    : const Color(0xFF0E0E14),
+                borderRadius: BorderRadius.circular(5),
+                border: Border.all(
+                  color: p.hasGenerated
+                      ? (p.auditionPlaying
+                          ? FluxForgeTheme.accentGreen
+                          : FluxForgeTheme.accentCyan.withValues(alpha: 0.55))
+                      : FluxForgeTheme.brandGoldDark.withValues(alpha: 0.25),
+                  width: 0.6,
+                ),
+              ),
+              alignment: Alignment.center,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    p.auditionPlaying
+                        ? Icons.graphic_eq_rounded
+                        : Icons.play_arrow_rounded,
+                    size: 14,
+                    color: p.hasGenerated
+                        ? (p.auditionPlaying
+                            ? FluxForgeTheme.accentGreen
+                            : FluxForgeTheme.accentCyan)
+                        : FluxForgeTheme.textTertiary,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    p.auditionPlaying ? 'PLAYING' : 'PLAY',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: p.hasGenerated
+                          ? (p.auditionPlaying
+                              ? FluxForgeTheme.accentGreen
+                              : FluxForgeTheme.accentCyan)
+                          : FluxForgeTheme.textTertiary,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          flex: 1,
+          child: GestureDetector(
+            onTap: p.auditionPlaying ? p.stopAudition : null,
+            child: Container(
+              height: 30,
+              decoration: BoxDecoration(
+                color: p.auditionPlaying
+                    ? FluxForgeTheme.accentRed.withValues(alpha: 0.15)
+                    : const Color(0xFF0E0E14),
+                borderRadius: BorderRadius.circular(5),
+                border: Border.all(
+                  color: p.auditionPlaying
+                      ? FluxForgeTheme.accentRed.withValues(alpha: 0.55)
+                      : FluxForgeTheme.brandGoldDark.withValues(alpha: 0.25),
+                  width: 0.6,
+                ),
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                Icons.stop_rounded,
+                size: 14,
+                color: p.auditionPlaying
+                    ? FluxForgeTheme.accentRed
+                    : FluxForgeTheme.textTertiary,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        // Duration mini-slider
+        Expanded(
+          flex: 3,
+          child: Row(
+            children: [
+              const Text(
+                'DUR',
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                  color: FluxForgeTheme.textTertiary,
+                  letterSpacing: 0.8,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: SliderTheme(
+                  data: SliderThemeData(
+                    trackHeight: 2,
+                    activeTrackColor: FluxForgeTheme.accentCyan,
+                    inactiveTrackColor:
+                        FluxForgeTheme.brandGoldDark.withValues(alpha: 0.20),
+                    thumbColor: FluxForgeTheme.accentCyan,
+                    overlayColor:
+                        FluxForgeTheme.accentCyan.withValues(alpha: 0.18),
+                    thumbShape:
+                        const RoundSliderThumbShape(enabledThumbRadius: 5),
+                  ),
+                  child: Slider(
+                    value: p.auditionDurationMs.toDouble(),
+                    min: 100,
+                    max: 3000,
+                    divisions: 29,
+                    onChanged: (v) =>
+                        p.setAuditionDurationMs(v.round()),
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 50,
+                child: Text(
+                  '${p.auditionDurationMs} ms',
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    fontSize: 9,
+                    color: FluxForgeTheme.textPrimary,
+                    fontFamily: 'JetBrainsMono',
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   // ─── Status ────────────────────────────────────────────────────────────
 
   Widget _buildStatus(HrtfProvider p) {
@@ -659,5 +920,159 @@ class HrtfProfilePanel extends StatelessWidget {
       ),
     );
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AUDITION POSITION PAD — 2D draggable azimuth × elevation surface
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Top-down circular pad that lets the user drag the source position
+/// around the listener.  X axis maps to azimuth (−180..+180), Y axis to
+/// elevation (−40..+90).  The listener sits at the centre, looking up
+/// the screen (so the front of the head is at the top).
+class _AuditionPositionPad extends StatelessWidget {
+  final double azimuthDeg;
+  final double elevationDeg;
+  final void Function(double az, double el) onPositionChanged;
+
+  const _AuditionPositionPad({
+    required this.azimuthDeg,
+    required this.elevationDeg,
+    required this.onPositionChanged,
+  });
+
+  static const double _padHeight = 140.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (ctx, constraints) {
+        final width = constraints.maxWidth;
+        return GestureDetector(
+          onPanStart: (d) => _handle(d.localPosition, width),
+          onPanUpdate: (d) => _handle(d.localPosition, width),
+          onTapDown: (d) => _handle(d.localPosition, width),
+          child: Container(
+            height: _padHeight,
+            decoration: BoxDecoration(
+              color: const Color(0xFF0A0A10),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: FluxForgeTheme.brandGoldDark.withValues(alpha: 0.25),
+                width: 0.5,
+              ),
+            ),
+            child: CustomPaint(
+              painter: _PadPainter(
+                azimuthDeg: azimuthDeg,
+                elevationDeg: elevationDeg,
+              ),
+              size: Size(width, _padHeight),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _handle(Offset pos, double width) {
+    // X: 0..width → −180..+180°
+    final az = ((pos.dx / width) * 360.0 - 180.0).clamp(-180.0, 180.0);
+    // Y: 0..height → +90..−40° (top = up)
+    final elRange = 130.0; // 90 - (-40)
+    final el = (90.0 - (pos.dy / _padHeight) * elRange).clamp(-40.0, 90.0);
+    onPositionChanged(az, el);
+  }
+}
+
+class _PadPainter extends CustomPainter {
+  final double azimuthDeg;
+  final double elevationDeg;
+
+  const _PadPainter({
+    required this.azimuthDeg,
+    required this.elevationDeg,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final cx = w / 2;
+    final cy = h * (90.0 / 130.0); // ear-level row (el = 0)
+
+    // Background grid lines
+    final grid = Paint()
+      ..color = FluxForgeTheme.brandGoldDark.withValues(alpha: 0.15)
+      ..strokeWidth = 0.5;
+    // Vertical: az = 0 (front), ±90, ±180
+    for (final az in [-180.0, -90.0, 0.0, 90.0, 180.0]) {
+      final x = ((az + 180.0) / 360.0) * w;
+      canvas.drawLine(Offset(x, 0), Offset(x, h), grid);
+    }
+    // Horizontal: el = 0 (ear-level), +45, -20
+    for (final el in [-40.0, 0.0, 45.0, 90.0]) {
+      final y = (90.0 - el) / 130.0 * h;
+      canvas.drawLine(Offset(0, y), Offset(w, y), grid);
+    }
+
+    // Ear-level emphasis
+    final earPaint = Paint()
+      ..color = FluxForgeTheme.accentCyan.withValues(alpha: 0.25)
+      ..strokeWidth = 1.0;
+    canvas.drawLine(Offset(0, cy), Offset(w, cy), earPaint);
+
+    // Listener glyph at centre (front-pointing triangle)
+    final listenerPaint = Paint()
+      ..color = FluxForgeTheme.brandGold.withValues(alpha: 0.85);
+    final tri = Path()
+      ..moveTo(cx, cy - 6)
+      ..lineTo(cx - 4, cy + 4)
+      ..lineTo(cx + 4, cy + 4)
+      ..close();
+    canvas.drawPath(tri, listenerPaint);
+
+    // Labels
+    _drawLabel(canvas, 'FRONT', cx, 6, FluxForgeTheme.textTertiary);
+    _drawLabel(canvas, 'BACK', cx, h - 14, FluxForgeTheme.textTertiary);
+    _drawLabel(canvas, 'L', 6, cy - 6, FluxForgeTheme.textTertiary);
+    _drawLabel(canvas, 'R', w - 12, cy - 6, FluxForgeTheme.textTertiary);
+
+    // Source position dot
+    final sx = ((azimuthDeg + 180.0) / 360.0) * w;
+    final sy = (90.0 - elevationDeg) / 130.0 * h;
+    final glow = Paint()
+      ..color = FluxForgeTheme.accentCyan.withValues(alpha: 0.35)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+    canvas.drawCircle(Offset(sx, sy), 10, glow);
+    final dotFill = Paint()..color = FluxForgeTheme.accentCyan;
+    canvas.drawCircle(Offset(sx, sy), 5, dotFill);
+    final dotRim = Paint()
+      ..color = FluxForgeTheme.bgDeep
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    canvas.drawCircle(Offset(sx, sy), 5, dotRim);
+  }
+
+  void _drawLabel(Canvas canvas, String text, double x, double y, Color c) {
+    final tp = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          color: c,
+          fontSize: 8,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.8,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    tp.layout();
+    tp.paint(canvas, Offset(x - tp.width / 2, y));
+  }
+
+  @override
+  bool shouldRepaint(_PadPainter old) =>
+      old.azimuthDeg != azimuthDeg || old.elevationDeg != elevationDeg;
 }
 

@@ -10,9 +10,12 @@
 /// raw left/right HRIRs + positions JSON.  The same format is used by
 /// the Rust `tools/convert_sofa.py` helper.
 
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 
 import '../models/hrtf_models.dart';
+import '../services/audio_playback_service.dart';
 import '../src/rust/hrtf_ffi.dart';
 import '../src/rust/native_ffi.dart';
 
@@ -26,6 +29,43 @@ enum HrtfStatus {
 
   /// Last operation failed (parse error, I/O error).  See [errorMessage].
   error,
+}
+
+/// Test signals understood by the live audition pipeline.
+/// Order must match `SIGNAL_*` constants in `hrtf_ffi.rs`.
+enum HrtfAuditionSignal {
+  pinkNoise,    // 0
+  whiteNoise,   // 1
+  sine440,      // 2
+  sine1k,       // 3
+  chirp,        // 4
+}
+
+extension HrtfAuditionSignalLabel on HrtfAuditionSignal {
+  String get label {
+    switch (this) {
+      case HrtfAuditionSignal.pinkNoise: return 'PINK';
+      case HrtfAuditionSignal.whiteNoise: return 'WHITE';
+      case HrtfAuditionSignal.sine440: return '440Hz';
+      case HrtfAuditionSignal.sine1k: return '1kHz';
+      case HrtfAuditionSignal.chirp: return 'CHIRP';
+    }
+  }
+
+  String get tooltip {
+    switch (this) {
+      case HrtfAuditionSignal.pinkNoise:
+        return 'Pink noise — equal energy per octave; best general HRTF audition signal';
+      case HrtfAuditionSignal.whiteNoise:
+        return 'White noise — flat spectrum; emphasises high-frequency pinna cues';
+      case HrtfAuditionSignal.sine440:
+        return '440 Hz sine — A4 tone, low-frequency localisation reference';
+      case HrtfAuditionSignal.sine1k:
+        return '1 kHz sine — calibration tone, mid-band ITD/ILD reference';
+      case HrtfAuditionSignal.chirp:
+        return '200 Hz → 8 kHz log chirp — sweeps through the full pinna-cue band';
+    }
+  }
 }
 
 class HrtfProvider extends ChangeNotifier {
@@ -45,6 +85,22 @@ class HrtfProvider extends ChangeNotifier {
   String? _lastSavedPath;
   String? _subjectId;
 
+  // ─── Audition state (P1.2) ─────────────────────────────────────────────
+  /// Azimuth in degrees: 0 = front, +90 = right.
+  double _auditionAzimuthDeg = 30.0;
+
+  /// Elevation in degrees: 0 = ear-level, +90 = above.
+  double _auditionElevationDeg = 0.0;
+
+  /// Test signal currently selected in the UI.
+  HrtfAuditionSignal _auditionSignal = HrtfAuditionSignal.pinkNoise;
+
+  /// Audition tone duration in milliseconds.
+  int _auditionDurationMs = 600;
+
+  /// True while the rendered WAV is being played back.
+  bool _auditionPlaying = false;
+
   // ─── Getters ─────────────────────────────────────────────────────────────
 
   AnthropometricProfile get profile => _profile;
@@ -55,6 +111,13 @@ class HrtfProvider extends ChangeNotifier {
   String? get lastSavedPath => _lastSavedPath;
   String? get subjectId => _subjectId;
   bool get hasGenerated => _status == HrtfStatus.ready;
+
+  // Audition getters
+  double get auditionAzimuthDeg => _auditionAzimuthDeg;
+  double get auditionElevationDeg => _auditionElevationDeg;
+  HrtfAuditionSignal get auditionSignal => _auditionSignal;
+  int get auditionDurationMs => _auditionDurationMs;
+  bool get auditionPlaying => _auditionPlaying;
 
   // ─── Profile Mutation ────────────────────────────────────────────────────
 
@@ -177,6 +240,115 @@ class HrtfProvider extends ChangeNotifier {
     }
     _lastSavedPath = path;
     return _refreshMetadata();
+  }
+
+  // ─── Audition (P1.2) ─────────────────────────────────────────────────────
+
+  /// Update the audition source position.  Each axis is clamped to the
+  /// HRTF database's supported range.
+  void setAuditionPosition({double? azimuthDeg, double? elevationDeg}) {
+    final az = (azimuthDeg ?? _auditionAzimuthDeg).clamp(-180.0, 180.0);
+    final el = (elevationDeg ?? _auditionElevationDeg).clamp(-40.0, 90.0);
+    if (az == _auditionAzimuthDeg && el == _auditionElevationDeg) return;
+    _auditionAzimuthDeg = az;
+    _auditionElevationDeg = el;
+    notifyListeners();
+  }
+
+  /// Pick which test signal will be rendered on the next [playAudition].
+  void setAuditionSignal(HrtfAuditionSignal signal) {
+    if (_auditionSignal == signal) return;
+    _auditionSignal = signal;
+    notifyListeners();
+  }
+
+  /// Set the audition duration in milliseconds (clamped to [50, 5000]).
+  void setAuditionDurationMs(int ms) {
+    final clamped = ms.clamp(50, 5000);
+    if (_auditionDurationMs == clamped) return;
+    _auditionDurationMs = clamped;
+    notifyListeners();
+  }
+
+  /// Render the test signal through the HRTF database to a temp WAV file
+  /// and play it through the existing AudioPlaybackService.
+  ///
+  /// Requires [hasGenerated] — call [generate] / [generateDefault] first.
+  /// Returns `true` when playback was initiated successfully.
+  Future<bool> playAudition() async {
+    if (!_ffiAvailable()) return _fail('FFI not available');
+    if (!hasGenerated) {
+      return _fail('Generate the HRTF database before auditioning');
+    }
+
+    // Render to a per-process temp WAV — overwriting it each call so the
+    // disk footprint stays at one file.
+    final tmpDir = Directory.systemTemp.path;
+    final wavPath = '$tmpDir/fluxforge_hrtf_audition.wav';
+    final rc = NativeFFI.instance.hrtfAuditionRenderToWav(
+      azimuthDeg: _auditionAzimuthDeg,
+      elevationDeg: _auditionElevationDeg,
+      signalType: _auditionSignal.index,
+      durationMs: _auditionDurationMs,
+      outPath: wavPath,
+    );
+    switch (rc) {
+      case 0:
+        break;
+      case -1:
+        return _fail('No HRTF database loaded');
+      case -2:
+        return _fail('Invalid audition arguments');
+      case -3:
+        return _fail('Audition render failed');
+      case -4:
+        return _fail('Audition WAV write failed');
+      default:
+        return _fail('Audition returned $rc');
+    }
+
+    // Hand off to the existing playback service.  We use bus 0 (master)
+    // and a very-short PlaybackSource so it doesn't fight the DAW
+    // transport.
+    final voice = AudioPlaybackService.instance.playFileToBus(
+      wavPath,
+      volume: 0.85,
+      pan: 0.0,
+      busId: 0,
+      source: PlaybackSource.browser,
+      eventId: 'hrtf_audition',
+    );
+    if (voice < 0) {
+      return _fail('Playback service rejected the WAV (voice=$voice)');
+    }
+    _auditionPlaying = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    // Auto-clear the playing flag after the audition has run its course.
+    // We don't actually stop the voice — playback service marks it
+    // inactive when the file ends.
+    Future.delayed(Duration(milliseconds: _auditionDurationMs + 50), () {
+      if (_auditionPlaying) {
+        _auditionPlaying = false;
+        notifyListeners();
+      }
+    });
+
+    return true;
+  }
+
+  /// Force-stop any in-flight audition voice.  Safe to call when nothing
+  /// is playing — it's a no-op.
+  void stopAudition() {
+    if (!_auditionPlaying) return;
+    try {
+      AudioPlaybackService.instance.stopEvent('hrtf_audition');
+    } catch (_) {
+      // Service may not be ready in test mode — ignore.
+    }
+    _auditionPlaying = false;
+    notifyListeners();
   }
 
   // ─── Internal ────────────────────────────────────────────────────────────
