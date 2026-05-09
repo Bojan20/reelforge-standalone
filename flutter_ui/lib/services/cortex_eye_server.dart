@@ -50,6 +50,7 @@ import 'audio_playback_service.dart';
 import 'cortex_vision_service.dart';
 import 'cortex_hands_service.dart';
 import 'cortex_log_buffer.dart';
+import 'auto_bind/auto_bind_engine.dart';
 import 'event_registry.dart';
 import '../utils/path_validator.dart';
 import 'event_registration_service.dart';
@@ -62,6 +63,7 @@ import '../providers/slot_lab/slot_lab_coordinator.dart';
 import '../providers/slot_lab/slot_voice_mixer_provider.dart';
 import '../providers/slot_lab_project_provider.dart';
 import '../providers/subsystems/composite_event_system_provider.dart';
+import '../screens/slot_lab_screen.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CORTEX EYE SERVER
@@ -231,6 +233,8 @@ class CortexEyeServer {
         await _handleHandsInput(request);
       } else if (method == 'POST' && path == '/hands/audio_drop') {
         await _handleHandsAudioDrop(request);
+      } else if (method == 'POST' && path == '/hands/auto_bind_folder') {
+        await _handleHandsAutoBindFolder(request);
 
       // ── Mozak ─────────────────────────────────────────────────────────
       } else if (method == 'GET' && path == '/brain/state') {
@@ -261,6 +265,7 @@ class CortexEyeServer {
               'POST /hands/tap', 'POST /hands/swipe', 'POST /hands/scroll',
               'POST /hands/key', 'POST /hands/input',
               'POST /hands/audio_drop',
+              'POST /hands/auto_bind_folder',
             ],
             'brain': [
               'GET /brain/state', 'GET /brain/logs', 'GET /brain/metrics',
@@ -732,6 +737,130 @@ class CortexEyeServer {
       request.response.statusCode = 500;
       await _json(request,
           {'error': 'audio_drop failed', 'details': e.toString()});
+    }
+  }
+
+  /// POST /hands/auto_bind_folder — programmatic equivalent of clicking
+  /// the AutoBind orb and picking a folder.  Replicates `_runInstantBind`
+  /// from `neural_bind_orb.dart`: scans the folder, runs
+  /// `AutoBindEngine.analyze`, applies the result to `SlotLabProjectProvider`,
+  /// and re-syncs `EventRegistry` via the project listener chain.
+  ///
+  /// Body: `{"folder_path": "/abs/path/to/folder"}`
+  ///
+  /// Returns:
+  /// * `{success, folderPath, matchedCount, unmatchedCount, warningCount,
+  ///    stageGroups: {stage: [layerPaths…]}}` on success.
+  /// * `{error: ..., details: ...}` with HTTP 4xx/5xx on failure.
+  ///
+  /// Side effects:
+  /// * Extends PathValidator sandbox with the folder so
+  ///   `EventRegistry._validateAudioPath` accepts the dropped paths.
+  /// * Mutates SlotLabProjectProvider audio assignments (recordUndo: true so
+  ///   user can ⌘Z if they don't like the result).
+  /// * Triggers a CortexVision snapshot so the caller can diff the AUDIO
+  ///   ASSIGN spine before/after the bind.
+  Future<void> _handleHandsAutoBindFolder(HttpRequest request) async {
+    final body = await utf8.decodeStream(request);
+    Map<String, dynamic> params = {};
+    try {
+      params = jsonDecode(body) as Map<String, dynamic>;
+    } catch (_) {}
+
+    final folderPath = params['folder_path'] as String?;
+    if (folderPath == null || folderPath.isEmpty) {
+      request.response.statusCode = 400;
+      await _json(request, {'error': 'Required: folder_path (string)'});
+      return;
+    }
+
+    final dir = Directory(folderPath);
+    if (!dir.existsSync()) {
+      request.response.statusCode = 400;
+      await _json(request, {
+        'error': 'folder_path does not exist on disk',
+        'path': folderPath,
+      });
+      return;
+    }
+
+    try {
+      // Sandbox the folder + every subdirectory we'll be reading from.
+      PathValidator.addSandboxRoot(folderPath);
+      // Walk one level deep so subdirs (e.g. Reelstops/, Music/) are also
+      // covered — AutoBindEngine recurses, our sandbox should mirror that.
+      for (final entity in dir.listSync(recursive: true)) {
+        if (entity is Directory) {
+          PathValidator.addSandboxRoot(entity.path);
+        }
+      }
+
+      // 1. Pure analysis — no provider mutation yet.
+      final analysis = AutoBindEngine.analyze(folderPath);
+
+      if (analysis.matchedCount == 0) {
+        await _json(request, {
+          'success': false,
+          'reason': 'no_matches',
+          'folderPath': folderPath,
+          'matchedCount': 0,
+          'unmatchedCount': analysis.unmatched.length,
+          'unmatchedSample': analysis.unmatched
+              .take(10)
+              .map((u) => u.fileName)
+              .toList(),
+        });
+        return;
+      }
+
+      // 2. Apply transactionally.  As of 2026-05-09 `AutoBindEngine.apply`
+      //    drives `AutoBindCompositeBuilder.buildAndRegisterAll` itself,
+      //    so the MiddlewareProvider composite events + EventRegistry stage
+      //    map are populated regardless of which screen is currently
+      //    mounted (HELIX, SlotLab, none).  No follow-up
+      //    `triggerAutoBindReload` is needed to make stages playable.
+      final provider = GetIt.instance<SlotLabProjectProvider>();
+      AutoBindEngine.apply(analysis, provider);
+
+      // 3. Best-effort UI refresh: if SlotLabScreen happens to be mounted,
+      //    nudge its async sync so the AUDIO ASSIGN spine repaints with
+      //    the new bindings.  This is purely cosmetic — the audio engine
+      //    is already wired up by step 2.
+      SlotLabScreen.triggerAutoBindReload(folderPath);
+
+      // 4. Snapshot the UI so the caller can verify the spine repopulated.
+      try {
+        await CortexVisionService.instance.captureFullWindow(metadata: {
+          'trigger': 'hands_auto_bind_folder',
+          'folder': folderPath,
+        });
+      } catch (_) {}
+
+      // 4. Build a structured response so curl + jq scripts can verify.
+      final stageGroups = <String, List<String>>{};
+      for (final entry in analysis.stageGroups.entries) {
+        stageGroups[entry.key] =
+            entry.value.map((m) => m.filePath).toList();
+      }
+
+      await _json(request, {
+        'success': true,
+        'folderPath': folderPath,
+        'matchedCount': analysis.matchedCount,
+        'unmatchedCount': analysis.unmatched.length,
+        'warningCount': analysis.warnings.length,
+        'warnings': analysis.warnings
+            .map((w) => {'message': w.message, 'stage': w.stage})
+            .toList(),
+        'stageGroups': stageGroups,
+      });
+    } catch (e, st) {
+      debugPrint('[CortexEyeServer] /hands/auto_bind_folder failed: $e\n$st');
+      request.response.statusCode = 500;
+      await _json(request, {
+        'error': 'auto_bind_folder failed',
+        'details': e.toString(),
+      });
     }
   }
 

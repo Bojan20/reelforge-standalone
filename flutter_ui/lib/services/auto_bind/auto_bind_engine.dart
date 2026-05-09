@@ -20,6 +20,7 @@ import '../ffnc/ffnc_parser.dart';
 import '../stage_configuration_service.dart';
 import '../../providers/slot_lab_project_provider.dart';
 import '../../utils/path_validator.dart';
+import 'auto_bind_composite_builder.dart';
 import 'binding_result.dart';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -461,6 +462,28 @@ class AutoBindEngine {
         variantPools: variantPools,
         layerData: layerData,
       );
+
+      // 2026-05-09 — silent-spin root-cause fix.
+      //
+      // `applyAutoBindTransaction` only writes the project-level
+      // `audioAssignments` map; it does NOT create the
+      // `SlotCompositeEvent`s that the audio engine actually plays from.
+      // Composite-event creation used to be driven by
+      // `SlotLabScreen._ensureCompositeEventForStage`, which only runs
+      // when the SlotLab screen is mounted.  In HELIX (where the orb is
+      // also rendered) `_SlotLabScreenState._activeInstance` is null, so
+      // `SlotLabScreen.triggerAutoBindReload(...)` is a silent no-op and
+      // the EventRegistry stays empty — `triggerError = "No audio
+      // layers"`.
+      //
+      // We now drive that step here, so every caller of
+      // `AutoBindEngine.apply` (orb in SlotLab, orb in HELIX, HTTP
+      // `hands/auto_bind_folder`, HELIX dialog) gets identical
+      // composite-event population.  The builder reuses
+      // `EventRegistrationService.registerComposite` so the single-point
+      // registration invariant from CLAUDE.md is preserved.
+      AutoBindCompositeBuilder.instance
+          .buildAndRegisterAll(primaryBindings);
     } catch (e) {
       // Rollback to snapshot
       provider.restoreAudioAssignmentsSnapshot(snapshot);
