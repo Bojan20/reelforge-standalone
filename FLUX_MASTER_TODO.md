@@ -28,6 +28,143 @@
 
 ---
 
+## FAZA 0.5 — AKTIVNI BACKLOG (2026-05-10)
+
+> **Audit svrha:** šta je *trenutno* otvoreno (kod je u repo, nije ✅, nije long-tail moonshot).
+> Sve ostalo je ili landed (FAZA 1-3), ili strateški tracker (FAZA 4-8 / Moonshots).
+> Boki ovde dobija jasnu sliku **šta da dovršimo pre nego što krenemo iz čistog koda u sledeći sprint**.
+
+### A — VISUAL IDENTITY (Bokijev "AI-look" feedback)
+
+> Kontekst: "vidim da svi koji koriste AI za interfejs da im se napravi" — UI zvuči kao generički AI mockup, mora handcrafted, prepoznatljivo FluxForge.
+
+| # | Stavka | Lokacija | Effort | Status |
+|---|---|---|---|---|
+| A.1 | **Boja audit cross-screen** — fix sve `Colors.amber/grey/teal/purple` direktne reference u `flutter_ui/lib/widgets/**` i `lib/screens/**` na `FluxForgeTheme.*` token-e. Trenutno: 200+ raw `Color(0x…)` literala u kodu, nema single source of truth. | grep `'Color(0x'` u `flutter_ui/lib/` | M (4 h) | 🔴 OPEN |
+| A.2 | **Brand-pin ratchet test** — `test/lints/brand_color_ratchet_test.dart` koji broji raw `Color(0x` outside `lib/theme/`, baseline=current count, fail-CI ako raste. | `flutter_ui/test/lints/` | S (1 h) | 🔴 OPEN |
+| A.3 | **Glassmorphism konzistencija** — sve overlays/popups koriste isti `_kGlassBg` token. Trenutno mix `withOpacity(0.72/0.85/0.9)` po fajlu. Ekstrakovati u `FluxForgeTheme.glassFill / glassBorder / glassBlur`. | `theme/flux_forge_theme.dart` + grep `withOpacity` u widgets | S (2 h) | 🔴 OPEN |
+| A.4 | **Spring animacije globalno** — sve `Duration(ms: ...)` + `Curves.easeIn*` migrirati na `FluxMotion.spring(stiffness, damping)` token (već definisan u `lib/theme/motion.dart` za neke widgete, treba rollout). | grep `Duration(milliseconds:` u widgets/ | M (3 h) | 🔴 OPEN |
+| A.5 | **Typography pin** — sve `TextStyle` calls koje hardkoduju font/size → `FluxForgeTheme.typography.*` (h1/h2/body/mono/microLabel). Eliminiše 30+ inline TextStyle definicija. | grep `TextStyle(` u widgets/ | M (3 h) | 🔴 OPEN |
+
+### B — EVENTI I IMENA (Bokijev "moras da istrazis" feedback)
+
+> Kontekst: "moras da istrazis maksimalno tacno ili da napravis [tools]" — event taxonomy, naming, tracking.
+
+| # | Stavka | Lokacija | Effort | Status |
+|---|---|---|---|---|
+| B.1 | **Event Audit Tool** — CLI/UI tool koji ekstraktuje sve `Stage::*` variants (Rust) + `EventRegistry` entries (Dart) + composite events, generiše `audit/events_<date>.json` sa: stage_name, audio_event_name, audio_assignments, fired_count_lifetime, never_fired (orphans). | `tools/event_audit/` (novi crate) + `lib/services/event_audit_service.dart` | L (1 dan) | 🔴 OPEN |
+| B.2 | **Event Naming Convention pin** — `crates/rf-stage/tests/naming_convention_test.rs`. Pravila: snake_case, prefix po category-i (`audio_*`, `ui_*`, `compliance_*`, `compose_*`), nikad camelCase ili kebab-case. Fail-CI ako neko doda nekonvencionalan event. | `crates/rf-stage/tests/` | S (2 h) | 🔴 OPEN |
+| B.3 | **Orphan event detector** — runtime sweep koji u DEV builds prijavljuje events koji su registrovani ali nikad fired tokom 100 spinova. Lista u HELIX Monitor → debug sub-tab. | `lib/services/event_orphan_detector.dart` | M (3 h) | 🔴 OPEN |
+| B.4 | **Event timing trace export** — extension postojeće `_lastStages` cache: per-spin export `audit/spin_<id>_trace.json` sa `(event_name, fired_at_ms, payload, source: rust/dart)`. Ulaz u marketing clip metadata (3.6.F). | `lib/providers/slot_lab/slot_stage_provider.dart` | M (3 h) | 🔴 OPEN |
+
+### C — DVA BUGA (Bokijev "tesis kako znas i umes")
+
+> Kontekst: "dva buga moras da mi tesis kako znas i umes, ako ne postoje toolovi za to, napravices ih. prvi je…" — tačan opis bagova nestao iz sećanja, treba ga reaktivirati. Ostavljam slot za 2 stavke + alat.
+
+| # | Stavka | Lokacija | Effort | Status |
+|---|---|---|---|---|
+| C.0 | **Reactivate bug context** — Boki da repeat opis 2 buga (sećanje pominje "prvi je…" ali se rečenica gubi). Ako su to: (a) audio thread silent on first spin, (b) drag-drop assign zaboravlja last layer — već su zatvoreni u `c27dfc3f` / `0c7e43e1` / `f00ce538`. | — | XS | 🟡 NEEDS-INFO |
+| C.1 | **Bug Reproduction Harness** — `tools/bug_repro/` CLI koji uzima JSON scenario (init state + sequence of UI actions kroz `helix_action`) i loop-uje N puta, prijavi prvi divergentni stage_trace. Boki: "ako ne postoje toolovi, napravices ih". | `tools/bug_repro/` (novi crate) | L (1 dan) | 🔴 OPEN |
+| C.2 | _(slot za bug #1 kad Boki potvrdi opis)_ | — | — | 🟡 PENDING |
+| C.3 | _(slot za bug #2 kad Boki potvrdi opis)_ | — | — | 🟡 PENDING |
+
+### D — RILOVI (Bokijev "iskoristiti rilove za nesto smisleno")
+
+> Kontekst: "A kako mozemo da iskoristimo rilove za nesto, da ne postoje samo bezveze tu?" — reels (rilovi) trenutno samo dekoracija, treba im funkcionalna uloga.
+
+| # | Stavka | Lokacija | Effort | Status |
+|---|---|---|---|---|
+| D.1 | **Reel Cell = Audio Bind Target** — drag audio file iznad reel cell-a → bind na `REEL_STOP_<index>` event direktno (preskače event picker). Visual: cell glow gold, drop ikonica. Persist u `audioAssignments`. | `lib/widgets/slot_lab/premium_slot_preview.dart` reel cell + `lib/providers/slot_lab/slot_lab_project_provider.dart` | M (4 h) | 🔴 OPEN |
+| D.2 | **Reel Cell = Live Math Probe** — long-press na reel cell → tooltip `"Symbol: WILD · paytable: 5/10/50/200 · last hit: 12 spinova"`. Real-time iz `MathBlueprintProvider`. | `lib/widgets/slot_lab/premium_slot_preview.dart` reel cell | M (3 h) | 🔴 OPEN |
+| D.3 | **Reel Cell = Symbol Audition** — tap na reel cell tokom IDLE state → audition `sfx_symbol_<name>` ako postoji u audioAssignments. Brz QA "kako zvuči WILD landing zvuk?". | `lib/widgets/slot_lab/premium_slot_preview.dart` reel cell + `audio_playback_service.dart` | S (2 h) | 🔴 OPEN |
+| D.4 | **Reel Strip Editor (RIGHT klik na reel header)** — context menu sa `[Edit Strip] [Lock Symbols] [Force Outcome] [Show Probability Distribution]`. Force outcome za QA scenario testing. | `lib/widgets/slot_lab/premium_slot_preview.dart` reel header | M (4 h) | 🔴 OPEN |
+
+### E — UNBLOCKED PHASES (3.6.E landed → F/G/H sad mogu)
+
+| # | Stavka | Lokacija | Effort | Status |
+|---|---|---|---|---|
+| E.1 | **3.6.F — Marketing Clip Export** | `lib/services/session_recorder.dart` + `clip_exporter.dart` (novi) | L (1 dan) | 🟢 UNBLOCKED |
+| E.2 | **3.6.G — Stress Test Mode** | `lib/widgets/helix/stress_test_panel.dart` (novi) + `crates/rf-ab-sim` reuse | M (4 h) | 🟢 UNBLOCKED |
+| E.3 | **3.6.H — Per-Spin Profile Compare** | `stage_flow_strip.dart` dual-track mode + `slot_lab_provider.dart` dual-cache | M (4 h) | 🟢 UNBLOCKED |
+| E.4 | **3.6.E rust audio bounce extension** — `MasterRingBuffer::expand_to_60s()` da podrži marketing clip 60s window-a (sad samo 5s). Treba allocation strategy za 60s × 48kHz × stereo × f32 = 23 MB. | `crates/rf-engine/src/master_ring.rs` | M (3 h) | 🔴 OPEN (blocks E.1) |
+
+### F — GAME CONFIG residual (3.7.K, 3.7.M)
+
+| # | Stavka | Lokacija | Effort | Status |
+|---|---|---|---|---|
+| F.1 | **3.7.K — RTP Solver** — auto-solve symbol probability tables za zadati RTP target. Constraint solver (linear programming) preko `crates/rf-slot-builder`. | `crates/rf-slot-builder/src/rtp_solver.rs` (novi) | L (1 dan) | 🔴 OPEN |
+| F.2 | **3.7.M — AI Recommender** — preporuka math profila / volatility / feature stack na osnovu market segment-a (UK retail, MGA crypto, NV high-roller). Depends na FAZA 4 LLM infra ali može MVP sa heuristics. | `lib/services/game_config_recommender.dart` (novi) | M (4 h) MVP / L (1 ned) full | 🔴 OPEN MVP |
+
+### G — DUG (Tehnički, otvoren u kodu)
+
+> `grep TODO/FIXME` rezultat — sve što nije FLUX_MASTER_TODO breadcrumb.
+
+| # | Stavka | Lokacija | Effort | Status |
+|---|---|---|---|---|
+| G.1 | **Audio export abort FFI** — UI ima Stop dugme ali nema FFI hook | `lib/providers/audio_export_provider.dart:230` | S (2 h) | 🔴 OPEN |
+| G.2 | **Stage event firing per timeline position** | `lib/providers/stage_provider.dart:312` | M (3 h) | 🔴 OPEN |
+| G.3 | **Apply `_eventMappingOverrides` to config** | `lib/providers/stage_provider.dart:665` | S (2 h) | 🔴 OPEN |
+| G.4 | **Comping render to single file FFI** | `lib/providers/comping_provider.dart:920` + `crates/rf-engine` | M (4 h) | 🔴 OPEN |
+| G.5 | **Beat snapping (requires tempo map)** | `lib/models/timeline/timeline_state.dart:257` | M (3 h) | 🔴 OPEN |
+| G.6 | **Plugin folder picker** | `lib/screens/settings/plugin_manager_screen.dart:686` | XS (30 min) | 🔴 OPEN |
+| G.7 | **Hot-reload audio assets from disk** | `lib/screens/helix_screen.dart:2309` | S (2 h) | 🔴 OPEN |
+| G.8 | **Test combinator save dialog** | `lib/widgets/qa/test_combinator_panel.dart:90` | S (1 h) | 🔴 OPEN |
+| G.9 | **Timing validation save dialog** | `lib/widgets/qa/timing_validation_panel.dart:63` | S (1 h) | 🔴 OPEN |
+| G.10 | **Groove extract / apply** | `lib/widgets/panels/groove_quantize_panel.dart:217,601` | M (4 h) | 🔴 OPEN |
+| G.11 | **Scripting API integration** (EventRegistry + AudioPlaybackService) | `lib/services/scripting/scripting_api.dart:296,312,319` | M (3 h) | 🔴 OPEN |
+| G.12 | **Lua VM init** (lua_dardo or FFI) | `lib/services/scripting/lua_bridge.dart:68` | L (1 dan) | 🔴 OPEN |
+| G.13 | **Transition / rule editor wiring** | `lib/widgets/ale/transition_editor.dart:281` + `rule_editor.dart:329` | M (4 h) | 🔴 OPEN |
+| G.14 | **Variant group create/add/swap** | `lib/widgets/audio/variant_group_panel.dart:549,559,655` | M (3 h) | 🔴 OPEN |
+| G.15 | **Logical editor apply to selection** | `lib/widgets/panels/logical_editor_panel.dart:501` | S (2 h) | 🔴 OPEN |
+| G.16 | **Room wizard file picker / save preset / export** | `lib/widgets/eq/room_wizard.dart:848,1875,1884` | M (3 h) | 🔴 OPEN |
+| G.17 | **Breadcrumb wire to controller** | `lib/widgets/common/breadcrumb_trail.dart:105,115` | S (1 h) | 🔴 OPEN |
+| G.18 | **Template gallery local storage** | `lib/widgets/template/template_gallery_panel.dart:107` | S (2 h) | 🔴 OPEN |
+| G.19 | **Music transition profile save** | `lib/widgets/middleware/music_transition_preview_panel.dart:689` | S (2 h) | 🔴 OPEN |
+| G.20 | **FFNC profile importer layer merge** | `lib/services/ffnc/profile_importer.dart:141` | M (3 h) | 🔴 OPEN |
+| G.21 | **Blend container preview at RTPC value** | `lib/widgets/middleware/blend_container_panel.dart:474` | S (2 h) | 🔴 OPEN |
+| G.22 | **Timeline zoom to selected regions** | `lib/controllers/slot_lab/timeline_controller.dart:114` | S (2 h) | 🔴 OPEN |
+
+### H — OFFLOADED (FAZA 1 P0 follow-ups)
+
+| # | Stavka | Lokacija | Effort | Status |
+|---|---|---|---|---|
+| H.1 | **1.5.2 Phase 3 — Real subprocess plugin host binary** — `flux-plugin-host` binary, mmap shared buffer, cmd channel pipes. Trenutno `Command::new("true")` placeholder. | `crates/rf-plugin/src/sandbox.rs` + new binary crate | XL (2 ned) | 🔴 OPEN |
+| H.2 | **2.3.2 — slot_lab_screen.dart split** (15K LOC) — zahteva prethodni `TimelineProvider`/`GameFlowProvider` extract. | `lib/screens/slot_lab_screen.dart` | XL (2 ned) | 🔴 BLOCKED on Provider extract |
+| H.3 | **2.3.3 — premium_slot_preview.dart split** (7.7K LOC) — zahteva `AnimationController` graph extract. | `lib/widgets/slot_lab/premium_slot_preview.dart` | L (1 ned) | 🔴 BLOCKED on AnimationGraph |
+| H.4 | **2B.3.7 — Context menu "Explain this"** — zavisi od FAZA 4 (rf-copilot + lokalni LLM). | — | — | 🔴 BLOCKED on FAZA 4 |
+| H.5 | **3.5.3 — Personalized HRTF (HRTFformer / graph NN)** | `crates/rf-spatial/src/hrtf/personalized.rs` (novi) | XL (1 mes) | 🔴 OPEN |
+| H.6 | **MIX dock cross-link state** (3.6.B follow-up) — klik na clash ribbon → otvara MIX dock-tab sa offending layer-ima već selected. | `widgets/helix/timeline_intelligence.dart` + MIX panel | M (3 h) | 🔴 OPEN |
+
+### I — TOOLTIP MIGRATION (SPEC-16 ratchet baseline=240)
+
+> Pin u CI; postupna migracija sa `Tooltip(` → `FluxTooltip` kroz top offenders.
+
+| # | Stavka | Lokacija | Effort | Status |
+|---|---|---|---|---|
+| I.1 | **control_bar.dart** — 21 raw Tooltip → FluxTooltip | `lib/widgets/control_bar.dart` | S (1 h) | 🔴 OPEN |
+| I.2 | **slot_lab_screen.dart** — 17 raw Tooltip → FluxTooltip | `lib/screens/slot_lab_screen.dart` | S (1 h) | 🔴 OPEN |
+| I.3 | **channel_inspector_panel.dart** — 9 raw Tooltip → FluxTooltip | `lib/widgets/inspector/channel_inspector_panel.dart` | S (30 min) | 🔴 OPEN |
+
+---
+
+### Sumarni breakdown FAZA 0.5
+
+| Kategorija | Stavke | Total effort | Prioritet |
+|---|---|---|---|
+| A — Visual identity | 5 | ~13 h | P1 (Boki direct ask) |
+| B — Eventi i imena | 4 | ~1.5 dana | P1 (Boki direct ask) |
+| C — Dva buga | 4 | NEEDS-INFO + 1 dan harness | P0 (blokira ako bugovi reproduce) |
+| D — Rilovi | 4 | ~13 h | P1 (Boki direct ask) |
+| E — 3.6 unblocked | 4 | ~2.5 dana | P2 (high impact, low risk) |
+| F — Game Config residual | 2 | ~1.5 dana MVP | P2 |
+| G — Tehnički dug | 22 | ~3 dana ukupno | P3 (po potrebi) |
+| H — FAZA 1 follow-ups | 6 | ~6 nedelja blocked | P3 (long tail) |
+| I — Tooltip migration | 3 | ~2.5 h | P3 (CI ratchet drži je u check) |
+
+**Predlozi za sledeći Sprint 5:** A.1+A.2 (boja audit + ratchet), B.1+B.2 (event audit tool + naming pin), D.1+D.2+D.3 (rilovi funkcionalni), E.4+E.1 (master ring 60s + clip export). Ukupno ~3 dana, pokriva 4 od Boki-jevih 5 zahteva direktno.
+
+---
+
 ## FAZA 1 — P0 BLOKIRAJUĆE (pre v1 release)
 
 > Ne puštamo javno dok ovo ne zatvorimo.
