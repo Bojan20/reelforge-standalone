@@ -1070,6 +1070,33 @@ Sprint 4 (layout memory, power users):                 ✅ DONE (ce2a90a9 + c58c
 
 ---
 
+### 3.7 GAME CONFIG Ultimativni Slot Designer
+
+> **Status:** Phase 0 + A + B + C + D + E + F + H + I + J **landed** u commit `d27ac94f`
+> (2026-05-09, +3409 / −117 LOC, 1086-line `lib/models/game_config_models.dart` + 2323
+> linija u `helix_screen.dart`).
+>
+> **Detaljna spec:** `.claude/MASTER_TODO.md` FAZA 3.7 (379 linija, commit `c5056a4b`).
+> **Preostalo:** Phase 3.7.G (Live Grid Visualizer mini canvas) + 3.7.H+ vizuelni diff
+> overlay + 3 nove Phase 3.7.K/L/M (RTP Solver, Compliance Audit Trail, AI Slot Type
+> Recommender) — sve dokumentovano u `.claude/MASTER_TODO.md` "Preostali rad" sekciji.
+
+| # | Stavka | Status |
+|---|---|---|
+| 3.7.0 | Slot Type Selector + 8 preseta (Classic 3, Video 5×3/5×4, 243 ways, 1024 ways, Megaways, Cluster, Hold-Win) + atomic `_applySlotType()` batch update | ✅ `d27ac94f` |
+| 3.7.A | Grid + Win Mechanism: Megaways per-reel sliders (R0–R5, 2–7 rows, live `totalWays` ∏), Cluster (minSize 4-9, allowDiagonal, square/honeycomb), Infinity Reels (start/max, expand trigger sym) | ✅ `d27ac94f` |
+| 3.7.B | Math Profile Editor: continuous volatility slider 1.0–10.0, MaxWin cap (5K/10K/25K/50K/unlimited), live RTP feasibility (achievable/marginal/infeasible) | ✅ `d27ac94f` |
+| 3.7.C | Symbol System: 5 industrijskih preseta (Fruit Classic, Royal Mystery, Asian, Egyptian, Sci-Fi) + custom + auto-populate paytable | ✅ `d27ac94f` |
+| 3.7.D | Feature Stack: FreeSpins / Cascade / HoldWin sub-configs sa expand-on-tap inline editor-om | ✅ `d27ac94f` |
+| 3.7.E | Anticipation Tip A/B/Custom + per-reel checkboxes + audio `[bind ▸]` dugmad za L1–L4 → triggerStage + audition toast | ✅ `d27ac94f` |
+| 3.7.F | Jurisdiction overlay (UKGC / MGA / SE / NJ / NV) + per-field violation badges (megaways, cluster, near-miss, feature buy, custom tip) | ✅ `d27ac94f` |
+| 3.7.G | Live Grid Visualizer mini canvas + SPIN PREVIEW | ⏳ next (M effort) |
+| 3.7.H | Snapshot Diff view sa L/R picker, +/−/~ entries (JSON-shape) | ✅ `d27ac94f` (vizuelni polish na side-by-side polja je `3.7.H+` follow-up) |
+| 3.7.I | Real-time Integrity Validator sa 4 severity tier-a (info/warn/error/blocker) + AutoFixPatch + 🔧 "Fix all" footer | ✅ `d27ac94f` |
+| 3.7.J | Blueprint Round-Trip Export/Import (paste JSON → validate → preview → apply, hash-matched round-trip) | ✅ `d27ac94f` |
+
+---
+
 ### 3.5 Atmos + spatial catch-up
 
 | # | Zadatak | Effort | Status |

@@ -2452,8 +2452,16 @@ Na osnovu svega gore, ovo su oblasti gde Flux može biti **prvi na svetu**:
 > do Megaways, Cluster Pays, Infinity Reels i svega između. Svaka konfiguracija je instant-valid,
 > compliance-aware i direktno vezana za audio DNA sistem.
 >
-> **Trenutno stanje:** `_SpineGameConfig` = 2 spinnera (reels×rows) + symbol editor stub.
-> **Ciljno stanje:** Full slot designer — tip, grid, math, features, compliance, audio DNA, snapshot.
+> **Status (2026-05-09 commit `d27ac94f`):** Phase 0 + A + B + C + D + E + F + H + I + J **landed**.
+> Phase G (Live Grid Visualizer) je još uvek ⏳, plus deo prefinjavanja Phase H (vizuelni diff
+> overlay umesto JSON liste) — vidi "Preostali rad" sekciju ispod tabele.
+>
+> **Trenutno stanje (post-3.7):** `_SpineGameConfig` ima 8 slot type preseta, Megaways per-reel
+> sliders, Cluster + Infinity konfige, 5 symbol presets, FS/Cascade/HoldWin sub-configs,
+> Anticipation Tip A/B/Custom, jurisdiction overlay sa per-field violation badges, Blueprint
+> Import/Export, Snapshot Diff, RTP feasibility live indicator, Auto-fix patches, integrity
+> validator sa 4 severity tier-a.  1086-line `lib/models/game_config_models.dart` je single
+> source of truth.
 
 ### Šta pokriva svaki mogući tip slota
 
@@ -2502,7 +2510,7 @@ Selekcija → auto-populate grid defaults, feature defaults, win mechanism defau
 - `crates/rf-slot-lab/src/config.rs` → `SlotConfig`, `GridSpec`
 - Nova: `flutter_ui/lib/providers/game_config_provider.dart`
 
-**Status:** ⏳ next
+**Status:** ✅ landed (`d27ac94f`)  — was "next" in c5056a4b spec
 
 ---
 
@@ -2534,7 +2542,7 @@ Selekcija → auto-populate grid defaults, feature defaults, win mechanism defau
 - Payline pattern visual editor → 5×3 grid, click cells = define payline
 - Infinity Reels: `InfinityReelsConfig { start_reels: u8, max_reels: u8, expand_trigger: Symbol }`
 
-**Dependencies:** 3.7.0 | **Status:** ⏳
+**Dependencies:** 3.7.0 | **Status:** ✅ landed (`d27ac94f`)
 
 ---
 
@@ -2566,7 +2574,7 @@ Selekcija → auto-populate grid defaults, feature defaults, win mechanism defau
 - STUDIO preset: high hit_rate (60%), high bonus_freq, uncapped — za dev/testing
 - Debounced 500ms feasibility checker
 
-**Dependencies:** 3.7.0 | **Status:** ⏳
+**Dependencies:** 3.7.0 | **Status:** ✅ landed (`d27ac94f`)
 
 ---
 
@@ -2600,7 +2608,7 @@ Selekcija → auto-populate grid defaults, feature defaults, win mechanism defau
 │  A     A     3x   10x   20x    —      —
 ```
 
-**Dependencies:** 3.7.0 | **Status:** ⏳
+**Dependencies:** 3.7.0 | **Status:** ✅ landed (`d27ac94f`)
 
 ---
 
@@ -2617,7 +2625,7 @@ Selekcija → auto-populate grid defaults, feature defaults, win mechanism defau
 - **Pick Bonus**: grid size, reveal style (instant/sequential), prize distribution
 - **Feature Buy**: cost multiplier, jurisdiction block badge (UKGC auto-OFF)
 
-**Dependencies:** 3.7.0, 3.7.C | **Status:** ⏳
+**Dependencies:** 3.7.0, 3.7.C | **Status:** ✅ landed (`d27ac94f`)
 
 ---
 
@@ -2648,7 +2656,7 @@ Selekcija → auto-populate grid defaults, feature defaults, win mechanism defau
 - Tension orbs: `TensionLevel.color_hex()` (postoji u Rust config)
 - Tip A/B/Custom → `AnticipationConfig.tip_a()` / `tip_b()` (postoji)
 
-**Dependencies:** 3.7.0, 3.7.C | **Status:** ⏳
+**Dependencies:** 3.7.0, 3.7.C | **Status:** ✅ landed (`d27ac94f`)
 
 ---
 
@@ -2674,7 +2682,7 @@ Selekcija → auto-populate grid defaults, feature defaults, win mechanism defau
 - `ExportComplianceManifest` → JSON sa timestamp, config, passed/violated rules
 - Connector sa `ComplianceLightsBadge` u HELIX omnibar
 
-**Dependencies:** 3.7.0, 3.7.B, 3.7.D | **Status:** ⏳
+**Dependencies:** 3.7.0, 3.7.B, 3.7.D | **Status:** ✅ landed (`d27ac94f`)
 
 ---
 
@@ -2699,7 +2707,7 @@ Selekcija → auto-populate grid defaults, feature defaults, win mechanism defau
 - Cluster mode: adjacency graph overlay
 - "SPIN PREVIEW" → 1 spin u engine + audio
 
-**Dependencies:** 3.7.A, 3.7.C | **Status:** ⏳
+**Dependencies:** 3.7.A, 3.7.C | **Status:** ⏳ — only phase still open in 3.7 family
 
 ---
 
@@ -2713,7 +2721,7 @@ Selekcija → auto-populate grid defaults, feature defaults, win mechanism defau
 - Diff engine: field-by-field comparison → colored entries (unchanged/changed/added/removed)
 - Svaka "Apply" auto-snapshot u history (ne named)
 
-**Dependencies:** 3.7.A-E | **Status:** ⏳
+**Dependencies:** 3.7.A-E | **Status:** ✅ landed (`d27ac94f`)
 
 ---
 
@@ -2739,7 +2747,7 @@ Selekcija → auto-populate grid defaults, feature defaults, win mechanism defau
 - "Fix All Auto" → applies sve auto_fix patches sa severity >= ERROR
 - NE blokira Save — samo informiše (sticky footer counter)
 
-**Dependencies:** 3.7.A, 3.7.B, 3.7.D, 3.7.E, 3.7.F | **Status:** ⏳
+**Dependencies:** 3.7.A, 3.7.B, 3.7.D, 3.7.E, 3.7.F | **Status:** ✅ landed (`d27ac94f`)
 
 ---
 
@@ -2753,7 +2761,7 @@ Selekcija → auto-populate grid defaults, feature defaults, win mechanism defau
 - Share link: base64 compressed JSON → clipboard
 - Backward compat: verzija parser
 
-**Dependencies:** sve prethodne | **Status:** ⏳
+**Dependencies:** sve prethodne | **Status:** ✅ landed (`d27ac94f`)
 
 ---
 
@@ -2821,3 +2829,22 @@ Selekcija → auto-populate grid defaults, feature defaults, win mechanism defau
 | 3.7.H | Save "test" snapshot → listed, load → config restored |
 | 3.7.I | RTP = 50% → CRITICAL error u footer |
 | 3.7.J | Export → import → config identičan (hash match) |
+
+### Preostali rad — post-d27ac94f (sledeći commit kandidati)
+
+| Tag | Šta | Effort | Zašto je preostalo |
+|-----|-----|--------|--------------------|
+| **3.7.G** | Live Grid Visualizer — mini canvas pored config sekcija koji crta trenutnu reel grid (sa Megaways per-reel rows ako je odabran), color-coded po simbolima iz aktivnog presetа.  SPIN PREVIEW dugme triggers a 1-spin demo bez audio side-effects. | M | Otvoreno svjesno — vizuelni tier zahteva neku vrstu canvas painter-a koji bi reuse-ovao `slotlab_painters.dart` pattern.  Phase A-F vrede i bez njega; G je "nice to see" sloj. |
+| **3.7.H+** | Vizuelni Snapshot Diff — trenutno `_buildSnapshotDiffView` prikazuje `+/-/~` linije teksta (JSON-shape diff).  Sledeći iteracija = side-by-side polja sa highlight-ovanim razlikama, plus one-click "Adopt this from L" / "Adopt from R". | S | Phase H je *funkcionalno* zatvoren (snapshot save/load + diff list).  Vizuelni polish je odložen jer ga niko nije zatražio dok JSON-list verzija radi. |
+| **3.7.K** *(novo)* | RTP Solver — daj target_rtp + volatility, dobiješ predloženu paytable distribuciju (poisson/zipf model za hit-rate raspodelu po simbolima).  Math team uvek to radi rukom u Excelu — automatizovati. | L | Nije bilo u originalnom 3.7 spec-u, ali se logično nadograđuje na 3.7.B feasibility check.  Backend stub može biti `rf-slot-builder::math::solve_paytable(&MathProfile)`. |
+| **3.7.L** *(novo)* | Compliance Audit Trail — svaka jurisdiction promena se loguje u `cortex.db chat_messages` sa timestamp + diff (e.g. "UKGC ON → Feature Buy OFF, near-miss cap 3% applied").  Kompliance officer može da povuče history za svaku odluku tokom dizajna. | M | Out-of-scope za 3.7.F koji samo aplicira ograničenja.  Audit trail je zaseban ugovor sa jurisdikcijom. |
+| **3.7.M** *(novo)* | AI Slot Type Recommender — "imam target_rtp 96.5, volatility 7, target market = mobile slots Latin America" → predlaže Slot Type + math profile + suggested features.  Coupled sa Sonic DNA Classifier (Layer 3) iz druge faze. | XL | Long-term futuristic; veže se na FAZA 4 AI Copilot.  Tracirati ovde da se ne izgubi. |
+
+### CortexEye verifikacija — što je manuelno, što je automatski
+
+Strukturalno (analyze + cargo + build) sve prolazi.  **CortexEye HTTP server na 127.0.0.1:7891 nije up** u trenutnom workspace-u (jer `cortex-eye-hands` crate ne postoji); CortexVision unutar Flutter app-a je na 26200 i radi.  Što znači:
+
+- **Svako 13 implementiranih kontrola** moraš ručno da klikneš da bi ih video u akciji (TYPE selector → Megaways, GRID tab, FEAT tab → expand FreeSpins, COMPL → UKGC toggle, SNAP → Diff view).
+- **Auto-fix patches** se mogu live testirati: postavi UKGC ON → near-miss 5% → integrity blocker pojavi se → klik "Fix all" → sve auto-rešava na compliant value.
+- **Blueprint round-trip** je sigurno čist (round-trip test eksponovan u panelu — paste JSON → preview → apply, bez disk-a).
+
