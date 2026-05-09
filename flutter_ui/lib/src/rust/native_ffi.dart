@@ -9695,6 +9695,13 @@ class NativeFFI {
   double exportGetProgress() => _exportGetProgress();
   int exportIsExporting() => _exportIsExporting();
 
+  // G.1: Abort FFI — sets cancel_flag in ExportEngine, checked per render block
+  late final _exportAbort = _lib.lookupFunction<
+      Int32 Function(),
+      int Function()>('export_abort');
+  /// Abort ongoing export. Returns 1 if export was active, 0 otherwise.
+  int exportAbort() => _exportAbort();
+
   // ═══════════════════════════════════════════════════════════════════════════
   // PITCH ANALYSIS API (Full Clip Analysis)
   // ═══════════════════════════════════════════════════════════════════════════

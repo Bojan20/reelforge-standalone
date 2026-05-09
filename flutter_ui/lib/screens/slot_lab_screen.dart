@@ -12071,7 +12071,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         children: [
           Row(
             children: [
-              Icon(Icons.account_tree_outlined, size: 12, color: Colors.purple.shade300),
+              Icon(Icons.account_tree_outlined, size: 12, color: FluxForgeTheme.accentPurple),
               const SizedBox(width: 6),
               const Text(
                 'Playback Mode',
@@ -12130,10 +12130,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.purple.withValues(alpha: 0.3) : Colors.transparent,
+          color: isSelected ? FluxForgeTheme.accentPurple.withValues(alpha: 0.22) : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: isSelected ? Colors.purple : Colors.white.withValues(alpha: 0.1),
+            color: isSelected ? FluxForgeTheme.accentPurple : Colors.white.withValues(alpha: 0.1),
           ),
         ),
         child: Row(
@@ -12142,15 +12142,15 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             Icon(
               isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
               size: 12,
-              color: isSelected ? Colors.purple.shade300 : Colors.white38,
+              color: isSelected ? FluxForgeTheme.accentPurple : Colors.white38,
             ),
             const SizedBox(width: 4),
-            Icon(icon, size: 12, color: isSelected ? Colors.purple.shade300 : Colors.white38),
+            Icon(icon, size: 12, color: isSelected ? FluxForgeTheme.accentPurple : Colors.white38),
             const SizedBox(width: 4),
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? Colors.purple.shade300 : Colors.white38,
+                color: isSelected ? FluxForgeTheme.accentPurple : Colors.white38,
                 fontSize: 10,
               ),
             ),
@@ -12300,11 +12300,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     }
 
     final typeColor = switch (event.containerType) {
-      ContainerType.blend => Colors.purple,
-      ContainerType.random => Colors.amber,
-      ContainerType.sequence => Colors.teal,
-      ContainerType.switchContainer => Colors.cyan,
-      ContainerType.none => Colors.grey,
+      ContainerType.blend => FluxForgeTheme.accentPurple,
+      ContainerType.random => FluxForgeTheme.brandGold,
+      ContainerType.sequence => FluxForgeTheme.accentGreen,
+      ContainerType.switchContainer => FluxForgeTheme.accentCyan,
+      ContainerType.none => FluxForgeTheme.brandGraphiteLight,
     };
 
     return Container(

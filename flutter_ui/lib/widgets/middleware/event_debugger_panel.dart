@@ -16,6 +16,7 @@ import 'package:provider/provider.dart';
 import '../../models/slot_audio_events.dart';
 import '../../providers/middleware_provider.dart';
 import '../../services/event_registry.dart';
+import '../../services/event_orphan_detector.dart';
 import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -85,7 +86,7 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     eventRegistry.addListener(_onEventRegistryUpdate);
   }
 
@@ -301,6 +302,7 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
                 _buildTraceTab(),
                 _buildMappingsTab(),
                 _buildStatsTab(),
+                _buildOrphansTab(),
               ],
             ),
           ),
@@ -421,6 +423,7 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
           Tab(text: 'TRACE'),
           Tab(text: 'MAPPINGS'),
           Tab(text: 'STATS'),
+          Tab(text: 'ORPHANS'),
         ],
       ),
     );
@@ -941,6 +944,184 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
           ),
         ],
       ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // B.3: ORPHANS TAB — events registered in EventRegistry but never fired
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildOrphansTab() {
+    return AnimatedBuilder(
+      animation: EventOrphanDetectorService.instance,
+      builder: (context, _) {
+        final detector = EventOrphanDetectorService.instance;
+        final orphans = detector.orphans;
+        final registered = detector.registeredCount;
+        final spins = detector.spinsSinceReset;
+        final pct =
+            registered == 0 ? 0.0 : orphans.length / registered * 100;
+
+        return Column(
+          children: [
+            // ── Header bar ──────────────────────────────────────────────────
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              color: const Color(0xFF0C0C14),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.bug_report_outlined,
+                    size: 13,
+                    color: orphans.isEmpty
+                        ? const Color(0xFF40FF80)
+                        : const Color(0xFFFF6040),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${orphans.length} orphans / $registered registered',
+                    style: TextStyle(
+                      color: orphans.isEmpty
+                          ? const Color(0xFF40FF80)
+                          : const Color(0xFFFF8060),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '(${pct.toStringAsFixed(1)}%)',
+                    style: const TextStyle(
+                        color: Colors.white38, fontSize: 10),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '$spins spins',
+                    style: const TextStyle(
+                        color: Colors.white38, fontSize: 10),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () => detector.reset(),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                            color: Colors.white24, width: 0.5),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text('Reset',
+                          style: TextStyle(
+                              color: Colors.white54, fontSize: 10)),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  GestureDetector(
+                    onTap: () => detector.forceSweep(),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: FluxForgeTheme.accentBlue.withValues(alpha: 0.15),
+                        border: Border.all(
+                            color: FluxForgeTheme.accentBlue.withValues(alpha: 0.4),
+                            width: 0.5),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text('Sweep',
+                          style: TextStyle(
+                              color: FluxForgeTheme.accentBlue,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // ── List ────────────────────────────────────────────────────────
+            Expanded(
+              child: orphans.isEmpty
+                  ? const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.check_circle_outline,
+                              color: Color(0xFF40FF80), size: 32),
+                          SizedBox(height: 8),
+                          Text(
+                            'No orphans — all events fired',
+                            style: TextStyle(
+                                color: Color(0xFF40FF80), fontSize: 13),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'Run more spins to improve coverage',
+                            style: TextStyle(
+                                color: Colors.white38, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: orphans.length,
+                      itemBuilder: (context, i) {
+                        final o = orphans[i];
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(
+                                  color: Colors.white.withValues(alpha: 0.04),
+                                  width: 0.5),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 6,
+                                height: 6,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFFF6040),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  o.stage,
+                                  style: const TextStyle(
+                                    color: Color(0xFFFFB090),
+                                    fontSize: 11,
+                                    fontFamily: 'monospace',
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                o.eventId,
+                                style: const TextStyle(
+                                    color: Colors.white30, fontSize: 10),
+                              ),
+                              const SizedBox(width: 8),
+                              GestureDetector(
+                                onTap: () =>
+                                    Clipboard.setData(ClipboardData(text: o.stage)),
+                                child: const Icon(Icons.copy,
+                                    size: 12, color: Colors.white30),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

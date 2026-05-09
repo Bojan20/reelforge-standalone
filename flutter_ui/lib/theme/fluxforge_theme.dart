@@ -186,6 +186,18 @@ class FluxForgeTheme {
   static const Color accent = accentBlue;
   static const Color border = borderSubtle;
   static const Color textMuted = textTertiary;
+
+  // ── Glassmorphism tokens (A.3) ────────────────────────────────────────────
+  // Use these instead of inline withValues(alpha:0.XX) on bg colors.
+  // glassFill: background tint for floating overlays (modals, popovers)
+  // glassBorder: 1px edge highlight for glass panels
+  // glassBlur: sigma value for ImageFilter.blur on overlay backgrounds
+  static const Color glassFill = Color(0xCC0E0E14);     // bgDeep @ 80% opacity
+  static const Color glassFillLight = Color(0xB21E1E28); // bgSurface @ 70%
+  static const Color glassBorder = Color(0x14FFFFFF);   // white @ 8%
+  static const Color glassBorderBright = Color(0x22FFFFFF); // white @ 13%
+  static const double glassBlur = 20.0;   // BackdropFilter blur sigma
+  static const double glassBlurLight = 12.0;
   static const Color surface = bgSurface;
   static const Color surfaceDark = bgMid;
   static const Color success = accentGreen;

@@ -227,7 +227,8 @@ class AudioExportProvider extends ChangeNotifier {
       // Poll progress until complete
       while (engine_api.exportIsExporting()) {
         if (_aborted) {
-          // TODO: Add abort FFI function
+          // G.1: Signal Rust engine to abort — cancel_flag checked per render block
+          engine_api.exportAbort();
           throw Exception('Export aborted by user');
         }
 

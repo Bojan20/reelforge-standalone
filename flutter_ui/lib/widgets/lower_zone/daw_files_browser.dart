@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
 import '../../services/audio_asset_manager.dart';
+import '../../theme/fluxforge_theme.dart';
 import '../../utils/path_validator.dart';
 import '../common/fluxforge_search_field.dart';
 import '../slot_lab/audio_hover_preview.dart';
@@ -893,14 +894,14 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
                 color: LowerZoneColors.textMuted,
               ),
               const SizedBox(width: 4),
-              const Icon(Icons.star, size: 14, color: Colors.amber),
+              const Icon(Icons.star, size: 14, color: FluxForgeTheme.brandGold),
               const SizedBox(width: 6),
               const Text(
                 'FAVORITES',
                 style: TextStyle(
                   fontSize: 9,
                   fontWeight: FontWeight.bold,
-                  color: Colors.amber,
+                  color: FluxForgeTheme.brandGold,
                   letterSpacing: 0.5,
                 ),
               ),
@@ -908,7 +909,7 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                 decoration: BoxDecoration(
-                  color: Colors.amber.withValues(alpha: 0.2),
+                  color: FluxForgeTheme.brandGold.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -916,7 +917,7 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
                   style: const TextStyle(
                     fontSize: 8,
                     fontWeight: FontWeight.bold,
-                    color: Colors.amber,
+                    color: FluxForgeTheme.brandGold,
                   ),
                 ),
               ),
@@ -952,7 +953,7 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
         margin: const EdgeInsets.only(top: 2),
         decoration: BoxDecoration(
           color: isSelected
-              ? Colors.amber.withValues(alpha: 0.15)
+              ? FluxForgeTheme.brandGold.withValues(alpha: 0.15)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
         ),
@@ -962,7 +963,7 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
               Icons.folder,
               size: 14,
               color: isSelected
-                  ? Colors.amber
+                  ? FluxForgeTheme.brandGold
                   : LowerZoneColors.textSecondary,
             ),
             const SizedBox(width: 6),
@@ -986,7 +987,7 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
               child: const Icon(
                 Icons.star,
                 size: 12,
-                color: Colors.amber,
+                color: FluxForgeTheme.brandGold,
               ),
             ),
           ],
@@ -1119,7 +1120,7 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
                   isFavorited ? Icons.star : Icons.star_border,
                   size: 12,
                   color: isFavorited
-                      ? Colors.amber
+                      ? FluxForgeTheme.brandGold
                       : LowerZoneColors.textMuted.withValues(alpha: 0.5),
                 ),
               ),

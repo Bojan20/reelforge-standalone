@@ -19290,6 +19290,18 @@ pub extern "C" fn export_is_exporting() -> i32 {
     if EXPORT_ENGINE.is_exporting() { 1 } else { 0 }
 }
 
+/// G.1: Abort ongoing export — sets internal cancel flag, checked per-block in render loop.
+/// Returns 1 if export was active and abort was requested, 0 if nothing was running.
+#[unsafe(no_mangle)]
+pub extern "C" fn export_abort() -> i32 {
+    if EXPORT_ENGINE.is_exporting() {
+        EXPORT_ENGINE.abort();
+        1
+    } else {
+        0
+    }
+}
+
 /// Export stems (individual tracks) to WAV files
 /// output_dir: Directory to save stems
 /// format: 0=Wav16, 1=Wav24, 2=Wav32Float

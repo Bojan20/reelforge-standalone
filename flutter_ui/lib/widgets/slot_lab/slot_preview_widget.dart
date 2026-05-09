@@ -23,6 +23,7 @@ import '../../providers/slot_lab_project_provider.dart';
 import '../../services/stage_configuration_service.dart';
 import '../../providers/slot_lab/slot_lab_coordinator.dart';
 import '../../services/event_registry.dart';
+import '../../services/event_orphan_detector.dart';
 import '../../services/win_analytics_service.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
@@ -605,6 +606,15 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   bool _symbolHighlightPreTriggered = false; // P0.2: Prevents double-trigger of SYMBOL_WIN
   String? _lastProcessedSpinId; // Track which spin result we've processed
   int _spinStartTimeMs = 0; // Timestamp when spin started (for Event Log ordering)
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // D.2: LIVE MATH PROBE — long-press cell shows real-time symbol stats
+  // D.3: SYMBOL AUDITION — tap in IDLE triggers reel-stop sound for that reel
+  // D.4: REEL STRIP EDITOR — right-click reel header → context menu
+  // ═══════════════════════════════════════════════════════════════════════════
+  int _totalSpinCount = 0; // D.2: bumped each spin, used for "last hit N spins ago"
+  final Map<String, int> _lastHitSpinBySymbol = {}; // D.2: symbolName → spin# when last in win position
+  final Set<int> _lockedReels = {}; // D.4: reels where outcome is locked (frozen)
   Set<int> _winningReels = {};
   Set<String> _winningPositions = {}; // "reel,row" format
 
@@ -2132,6 +2142,17 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
       _isSpinning = false;
       _spinFinalized = true; // CRITICAL: Prevent re-trigger in _onProviderUpdate
+
+      // D.2: Track spin count + winning symbol hit times for math probe
+      _totalSpinCount++;
+      if (result.isWin) {
+        for (final lineWin in result.lineWins) {
+          final name = lineWin.symbolName.toUpperCase();
+          if (name.isNotEmpty) _lastHitSpinBySymbol[name] = _totalSpinCount;
+        }
+      }
+      // B.3: Notify orphan detector after each finalized spin
+      EventOrphanDetectorService.instance.onSpinCompleted();
 
       if (result.isWin) {
         // V13: Mark win presentation as active (blocks new spin until complete)
@@ -5165,6 +5186,389 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     );
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // D.2: LIVE MATH PROBE
+  // Long-press reel cell → overlay with symbol stats in real time
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  void _showMathProbe(BuildContext context, int reelIndex, int rowIndex) {
+    final grid = (_isSpinning || _spinFinalized) ? _targetGrid : _displayGrid;
+    if (reelIndex >= grid.length || rowIndex >= grid[reelIndex].length) return;
+    final symbolId = grid[reelIndex][rowIndex];
+    final symbol = SlotSymbol.getSymbol(symbolId);
+
+    final int? lastHitSpin = _lastHitSpinBySymbol[symbol.name];
+    final String lastHitLabel = lastHitSpin == null
+        ? 'never won'
+        : _totalSpinCount - lastHitSpin == 0
+            ? 'last spin'
+            : '${_totalSpinCount - lastHitSpin} spins ago';
+
+    // Paytable multiplier hint (heuristic by symbol rank)
+    final Map<String, String> _payHints = {
+      'HP1': '5 / 10 / 50 / 200×',
+      'HP2': '4 / 8 / 40 / 150×',
+      'HP3': '3 / 6 / 25 / 100×',
+      'HP4': '2 / 5 / 20 / 75×',
+      'LP1': '1 / 3 / 10 / 40×',
+      'LP2': '1 / 2 / 8 / 30×',
+      'LP3': '1 / 2 / 6 / 25×',
+      'LP4': '1 / 2 / 5 / 20×',
+      'LP5': '1 / 2 / 4 / 15×',
+      'LP6': '1 / 2 / 4 / 12×',
+      'WILD': 'substitutes all',
+      'SCATTER': 'triggers free spins',
+      'BONUS': 'triggers bonus',
+    };
+    final payHint = _payHints[symbol.name] ?? '—';
+
+    // Estimate symbol probability from reel strips
+    final int totalCells = widget.reels * widget.rows;
+    int symbolCount = 0;
+    for (int r = 0; r < (_displayGrid.length); r++) {
+      for (int row = 0; row < (_displayGrid[r].length); row++) {
+        if (_displayGrid[r][row] == symbolId) symbolCount++;
+      }
+    }
+    final double prob = totalCells > 0 ? symbolCount / totalCells * 100 : 0;
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.transparent,
+      builder: (_) => _MathProbeOverlay(
+        symbol: symbol,
+        reelIndex: reelIndex,
+        rowIndex: rowIndex,
+        paytableHint: payHint,
+        lastHitLabel: lastHitLabel,
+        probabilityPct: prob,
+        spinCount: _totalSpinCount,
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // D.4: REEL STRIP EDITOR — right-click header → context menu
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildReelHeaderStrip(int reelIndex, double cellSize) {
+    final bool isLocked = _lockedReels.contains(reelIndex);
+
+    return GestureDetector(
+      onSecondaryTapUp: (details) =>
+          _showReelContextMenu(context, reelIndex, details.globalPosition),
+      onLongPress: () =>
+          _showReelContextMenu(context, reelIndex, null),
+      child: Container(
+        width: cellSize,
+        height: 22,
+        margin: const EdgeInsets.symmetric(horizontal: 1),
+        decoration: BoxDecoration(
+          color: isLocked
+              ? FluxForgeTheme.brandGold.withValues(alpha: 0.15)
+              : Colors.white.withValues(alpha: 0.04),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+          border: Border.all(
+            color: isLocked
+                ? FluxForgeTheme.brandGold.withValues(alpha: 0.6)
+                : Colors.white.withValues(alpha: 0.08),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isLocked ? Icons.lock : Icons.view_column_rounded,
+              size: 11,
+              color: isLocked
+                  ? FluxForgeTheme.brandGold
+                  : Colors.white.withValues(alpha: 0.35),
+            ),
+            const SizedBox(width: 3),
+            Text(
+              'R${reelIndex + 1}',
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+                color: isLocked
+                    ? FluxForgeTheme.brandGold
+                    : Colors.white.withValues(alpha: 0.4),
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showReelContextMenu(
+      BuildContext context, int reelIndex, Offset? position) async {
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject()! as RenderBox;
+    final Offset menuPosition = position ??
+        overlay.localToGlobal(overlay.size.center(Offset.zero));
+
+    final choice = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        menuPosition.dx, menuPosition.dy,
+        menuPosition.dx + 1, menuPosition.dy + 1,
+      ),
+      color: const Color(0xFF12121A),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+      ),
+      items: [
+        PopupMenuItem(
+          value: 'lock',
+          child: Row(children: [
+            Icon(
+              _lockedReels.contains(reelIndex) ? Icons.lock_open : Icons.lock,
+              size: 14,
+              color: FluxForgeTheme.brandGold,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              _lockedReels.contains(reelIndex)
+                  ? 'Unlock Reel ${reelIndex + 1}'
+                  : 'Lock Reel ${reelIndex + 1}',
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+            ),
+          ]),
+        ),
+        PopupMenuItem(
+          value: 'force',
+          child: Row(children: [
+            const Icon(Icons.adjust, size: 14, color: Color(0xFF60AAFF)),
+            const SizedBox(width: 8),
+            const Text('Force Outcome…',
+                style: TextStyle(color: Colors.white, fontSize: 13)),
+          ]),
+        ),
+        PopupMenuItem(
+          value: 'distribution',
+          child: Row(children: [
+            const Icon(Icons.bar_chart, size: 14, color: Color(0xFF80FF60)),
+            const SizedBox(width: 8),
+            const Text('Show Distribution',
+                style: TextStyle(color: Colors.white, fontSize: 13)),
+          ]),
+        ),
+        PopupMenuItem(
+          value: 'probe',
+          child: Row(children: [
+            const Icon(Icons.info_outline, size: 14, color: Color(0xFFCCCCCC)),
+            const SizedBox(width: 8),
+            Text('Probe Reel ${reelIndex + 1}',
+                style: const TextStyle(color: Colors.white, fontSize: 13)),
+          ]),
+        ),
+      ],
+    );
+
+    if (!mounted) return;
+    switch (choice) {
+      case 'lock':
+        setState(() {
+          if (_lockedReels.contains(reelIndex)) {
+            _lockedReels.remove(reelIndex);
+          } else {
+            _lockedReels.add(reelIndex);
+          }
+        });
+        _showToast(_lockedReels.contains(reelIndex)
+            ? '🔒 Reel ${reelIndex + 1} locked — outcome frozen'
+            : '🔓 Reel ${reelIndex + 1} unlocked');
+      case 'force':
+        _showForceOutcomeDialog(reelIndex);
+      case 'distribution':
+        _showDistributionOverlay(reelIndex);
+      case 'probe':
+        _showMathProbe(context, reelIndex, widget.rows ~/ 2);
+    }
+  }
+
+  void _showToast(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message,
+            style: const TextStyle(color: Colors.white, fontSize: 13)),
+        backgroundColor: const Color(0xFF1A1A28),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+        ),
+      ),
+    );
+  }
+
+  void _showForceOutcomeDialog(int reelIndex) {
+    final symbols = SlotSymbol.effectiveSymbols;
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF12121A),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+        ),
+        title: Text(
+          'Force Reel ${reelIndex + 1} Outcome',
+          style: const TextStyle(
+              color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+        ),
+        content: SizedBox(
+          width: 240,
+          height: 300,
+          child: GridView.count(
+            crossAxisCount: 4,
+            mainAxisSpacing: 6,
+            crossAxisSpacing: 6,
+            children: symbols.entries.map((e) {
+              final sym = e.value;
+              return GestureDetector(
+                onTap: () {
+                  Navigator.pop(context);
+                  setState(() {
+                    // Force all rows of this reel to the selected symbol
+                    for (int row = 0; row < widget.rows && row < _displayGrid[reelIndex].length; row++) {
+                      _displayGrid[reelIndex][row] = sym.id;
+                      if (reelIndex < _targetGrid.length &&
+                          row < _targetGrid[reelIndex].length) {
+                        _targetGrid[reelIndex][row] = sym.id;
+                      }
+                    }
+                    _lockedReels.add(reelIndex);
+                  });
+                  _showToast(
+                      '🎯 Reel ${reelIndex + 1} forced to ${sym.name} (locked)');
+                },
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: sym.gradientColors),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                        color: sym.glowColor.withValues(alpha: 0.4), width: 1),
+                  ),
+                  child: Center(
+                    child: Text(sym.displayChar,
+                        style: const TextStyle(fontSize: 18)),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel',
+                style: TextStyle(color: Colors.white54)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDistributionOverlay(int reelIndex) {
+    // Count each symbol on the current reel
+    final Map<int, int> counts = {};
+    if (reelIndex < _displayGrid.length) {
+      for (final symbolId in _displayGrid[reelIndex]) {
+        counts[symbolId] = (counts[symbolId] ?? 0) + 1;
+      }
+    }
+    final int total = counts.values.fold(0, (a, b) => a + b);
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF12121A),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+        ),
+        title: Text(
+          'Reel ${reelIndex + 1} — Symbol Distribution',
+          style: const TextStyle(
+              color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+        ),
+        content: SizedBox(
+          width: 260,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: counts.entries.map((e) {
+              final sym = SlotSymbol.getSymbol(e.key);
+              final pct = total > 0 ? e.value / total : 0.0;
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: Row(children: [
+                  Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(colors: sym.gradientColors),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Center(
+                        child: Text(sym.displayChar,
+                            style: const TextStyle(fontSize: 12))),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(sym.name,
+                            style: const TextStyle(
+                                color: Colors.white70, fontSize: 11)),
+                        const SizedBox(height: 2),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(2),
+                          child: LinearProgressIndicator(
+                            value: pct,
+                            minHeight: 4,
+                            backgroundColor: Colors.white.withValues(alpha: 0.08),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                                sym.glowColor.withValues(alpha: 0.8)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${(pct * 100).toStringAsFixed(0)}%',
+                    style: TextStyle(
+                        color: sym.glowColor,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600),
+                  ),
+                ]),
+              );
+            }).toList(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close',
+                style: TextStyle(color: Colors.white54)),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Build reel grid using Table for precise layout without overflow
   Widget _buildReelTable(double availableWidth, double availableHeight) {
     // Calculate SQUARE cell size - leave space on sides for other elements
@@ -5217,6 +5621,18 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
               child: _buildScatterCounterBadge(),
             ),
           ),
+
+        // D.4: Reel strip headers — right-click → strip editor context menu
+        ...List.generate(widget.reels, (reelIndex) {
+          final reelX = tableOffsetX + (reelIndex * cellSize);
+          return Positioned(
+            left: reelX,
+            top: tableOffsetY - 24,
+            width: cellSize,
+            height: 24,
+            child: _buildReelHeaderStrip(reelIndex, cellSize),
+          );
+        }),
       ],
     );
   }
@@ -5599,9 +6015,21 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                 builder: (context, candidateData, rejectedData) {
                   final bool isAudioHovering = candidateData.isNotEmpty;
                   return GestureDetector(
-                    onTap: widget.onCellTap != null
-                        ? () => widget.onCellTap!(reelIndex, rowIndex)
-                        : null,
+                    // D.3: Tap in IDLE → symbol audition for this reel
+                    // Always notify parent (HELIX Context Lens) as secondary effect
+                    onTap: () {
+                      widget.onCellTap?.call(reelIndex, rowIndex);
+                      if (!_isSpinning) {
+                        // Audition: trigger REEL_STOP sound for this reel
+                        final stageKey = 'REEL_STOP_$reelIndex';
+                        if (EventRegistry.instance.hasEventForStage(stageKey)) {
+                          EventRegistry.instance.triggerStage(stageKey,
+                              context: {'source': 'audition', 'row': rowIndex});
+                        }
+                      }
+                    },
+                    // D.2: Long-press → live math probe overlay
+                    onLongPress: () => _showMathProbe(context, reelIndex, rowIndex),
                     child: _clipForShape(cellShape, Container(
                       width: cellWidth,
                       height: cellHeight,
@@ -6986,6 +7414,179 @@ class SlotMiniPreview extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// D.2: MATH PROBE OVERLAY WIDGET
+// Shown on long-press of a reel cell — real-time symbol intelligence panel
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _MathProbeOverlay extends StatelessWidget {
+  final SlotSymbol symbol;
+  final int reelIndex;
+  final int rowIndex;
+  final String paytableHint;
+  final String lastHitLabel;
+  final double probabilityPct;
+  final int spinCount;
+
+  const _MathProbeOverlay({
+    required this.symbol,
+    required this.reelIndex,
+    required this.rowIndex,
+    required this.paytableHint,
+    required this.lastHitLabel,
+    required this.probabilityPct,
+    required this.spinCount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: Center(
+        child: Container(
+          width: 280,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0E0E18),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: symbol.glowColor.withValues(alpha: 0.5),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: symbol.glowColor.withValues(alpha: 0.25),
+                blurRadius: 30,
+                spreadRadius: 5,
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header: symbol badge + name
+              Row(children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: symbol.gradientColors,
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: symbol.glowColor.withValues(alpha: 0.5),
+                        blurRadius: 10,
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Text(symbol.displayChar,
+                        style: const TextStyle(fontSize: 22)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      symbol.name,
+                      style: TextStyle(
+                        color: symbol.glowColor,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    Text(
+                      'Reel ${reelIndex + 1} · Row ${rowIndex + 1}',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.45),
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+                const Spacer(),
+                if (symbol.isSpecial)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: symbol.glowColor.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                          color: symbol.glowColor.withValues(alpha: 0.4)),
+                    ),
+                    child: Text('SPECIAL',
+                        style: TextStyle(
+                            color: symbol.glowColor,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1)),
+                  ),
+              ]),
+              const SizedBox(height: 16),
+              _probeRow(Icons.casino, 'Paytable', paytableHint, symbol.glowColor),
+              const SizedBox(height: 10),
+              _probeRow(Icons.history, 'Last Win', lastHitLabel,
+                  const Color(0xFF80D4FF)),
+              const SizedBox(height: 10),
+              _probeRow(Icons.percent, 'Grid Prob.',
+                  '${probabilityPct.toStringAsFixed(1)}% (${spinCount} spins)',
+                  const Color(0xFF80FF80)),
+              const SizedBox(height: 18),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.white54,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  ),
+                  child: const Text('Close', style: TextStyle(fontSize: 13)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _probeRow(
+      IconData icon, String label, String value, Color accentColor) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: accentColor.withValues(alpha: 0.7)),
+        const SizedBox(width: 8),
+        Text('$label:',
+            style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.45),
+                fontSize: 12,
+                fontWeight: FontWeight.w500)),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            value,
+            style: TextStyle(
+                color: accentColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w600),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 }

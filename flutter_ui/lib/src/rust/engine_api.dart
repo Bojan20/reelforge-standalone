@@ -4780,6 +4780,17 @@ bool exportIsExporting() {
   }
 }
 
+/// G.1: Abort ongoing export. Returns true if export was active and abort was signalled.
+bool exportAbort() {
+  try {
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return false;
+    return ffi.exportAbort() != 0;
+  } catch (e) {
+    return false;
+  }
+}
+
 /// Export stems (individual tracks) to WAV files
 /// format: 0=Wav16, 1=Wav24, 2=Wav32Float
 /// Returns number of exported stems, or -1 on error

@@ -145,6 +145,8 @@ pub struct ExportEngine {
     progress: AtomicU64,
     /// Is exporting
     is_exporting: AtomicBool,
+    /// G.1: Cancel flag — set by export_abort() FFI call
+    pub cancel_flag: AtomicBool,
 }
 
 impl ExportEngine {
@@ -155,6 +157,7 @@ impl ExportEngine {
             track_manager,
             progress: AtomicU64::new(0),
             is_exporting: AtomicBool::new(false),
+            cancel_flag: AtomicBool::new(false),
         }
     }
 
@@ -166,6 +169,12 @@ impl ExportEngine {
     /// Is currently exporting
     pub fn is_exporting(&self) -> bool {
         self.is_exporting.load(Ordering::Relaxed)
+    }
+
+    /// G.1: Abort ongoing export — sets cancel_flag, checked inside render loop
+    pub fn abort(&self) {
+        self.cancel_flag.store(true, Ordering::SeqCst);
+        log::info!("ExportEngine: abort requested by user");
     }
 
     /// Export audio to file
@@ -210,13 +219,20 @@ impl ExportEngine {
         let mut render_l = vec![0.0f64; render_samples];
         let mut render_r = vec![0.0f64; render_samples];
 
-        // Reset progress
+        // Reset progress + cancel flag
         self.progress.store(0.0_f64.to_bits(), Ordering::Relaxed);
+        self.cancel_flag.store(false, Ordering::SeqCst); // G.1: clear any stale abort
 
         // Render in blocks at engine sample rate
         let num_blocks = render_samples.div_ceil(config.block_size);
 
         for block_idx in 0..num_blocks {
+            // G.1: Check abort flag on each block — zero-cost on hot path (atomic load)
+            if self.cancel_flag.load(Ordering::Relaxed) {
+                self.is_exporting.store(false, Ordering::Relaxed);
+                log::info!("ExportEngine: export aborted at block {}/{}", block_idx, num_blocks);
+                return Err(ExportError::Cancelled);
+            }
             let block_start = block_idx * config.block_size;
             let block_end = (block_start + config.block_size).min(render_samples);
 
@@ -626,6 +642,10 @@ pub enum ExportError {
 
     #[error("Render error: {0}")]
     RenderError(String),
+
+    /// G.1: Export was aborted by user via export_abort() FFI call
+    #[error("Export cancelled by user")]
+    Cancelled,
 }
 
 #[cfg(test)]

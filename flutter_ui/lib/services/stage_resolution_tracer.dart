@@ -15,6 +15,7 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../theme/fluxforge_theme.dart';
 
 /// Resolution step type
 enum ResolutionStepType {
@@ -99,25 +100,25 @@ class ResolutionStep {
   Color get color {
     switch (type) {
       case ResolutionStepType.trigger:
-        return Colors.blue;
+        return FluxForgeTheme.accentBlue;
       case ResolutionStepType.normalization:
-        return Colors.purple;
+        return FluxForgeTheme.accentPurple;
       case ResolutionStepType.fallback:
-        return Colors.orange;
+        return FluxForgeTheme.accentOrange;
       case ResolutionStepType.lookup:
-        return Colors.cyan;
+        return FluxForgeTheme.accentCyan;
       case ResolutionStepType.found:
-        return Colors.green;
+        return FluxForgeTheme.accentGreen;
       case ResolutionStepType.notFound:
-        return Colors.red;
+        return FluxForgeTheme.accentRed;
       case ResolutionStepType.customHandler:
-        return Colors.amber;
+        return FluxForgeTheme.brandGold;
       case ResolutionStepType.containerDelegation:
-        return Colors.teal;
+        return FluxForgeTheme.accentGreen;
       case ResolutionStepType.playback:
-        return Colors.green;
+        return FluxForgeTheme.accentGreen;
       case ResolutionStepType.error:
-        return Colors.red;
+        return FluxForgeTheme.accentRed;
     }
   }
 }
