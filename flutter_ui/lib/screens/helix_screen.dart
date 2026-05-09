@@ -80,7 +80,6 @@ import '../services/stage_configuration_service.dart';
 // `GddImportService` for the CortexEye `slot_load_sample` path.
 import '../services/grid_resize_pipeline.dart';
 import '../models/slot_lab_models.dart' show SymbolDefinition, SymbolType;
-import '../providers/recording_provider.dart';
 import '../src/rust/native_ffi.dart';
 import '../widgets/slot_lab/auto_bind_dialog_v2.dart';
 import '../widgets/slot_lab/neural_bind_orb.dart';
@@ -1344,9 +1343,12 @@ class _HelixScreenState extends State<HelixScreen>
           ComplianceLightsBadge(
             provider: GetIt.instance<LiveComplianceProvider>(),
           ),
-          const SizedBox(width: 12),
-          // Transport
-          _buildTransport(),
+          // Transport bar (Play/Stop/Record) intentionally removed from
+          // HELIX omnibar (2026-05-09) — slot design is event-driven (SPIN
+          // button on the Premium Slot Preview is the authoritative
+          // playback trigger).  The DAW screen keeps the full transport
+          // since DAW is timeline-driven and Record has a real bounce
+          // target there.
           const SizedBox(width: 12),
           // Mode badges (H-015 HELIX_AUDIT 2026-05-07: tooltip-aware)
           ..._modeDefs.map((m) =>
@@ -1474,42 +1476,10 @@ class _HelixScreenState extends State<HelixScreen>
     );
   }
 
-  Widget _buildTransport() {
-    return Consumer2<EngineProvider, RecordingProvider>(
-      builder: (context, engine, rec, _) {
-        final playing = engine.transport.isPlaying;
-        final recording = rec.isRecording;
-        return Row(
-          children: [
-            _TransportBtn(
-              icon: Icons.stop_rounded,
-              onTap: () => engine.stop(),
-            ),
-            const SizedBox(width: 4),
-            _TransportBtn(
-              icon: playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
-              color: FluxForgeTheme.accentGreen,
-              active: playing,
-              onTap: () => playing ? engine.stop() : engine.play(),
-            ),
-            const SizedBox(width: 4),
-            _TransportBtn(
-              icon: Icons.fiber_manual_record_rounded,
-              color: FluxForgeTheme.accentRed,
-              active: recording,
-              onTap: () {
-                if (recording) {
-                  rec.stopRecording();
-                } else {
-                  rec.startRecording();
-                }
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
+  // _buildTransport() removed 2026-05-09 — slot design is event-driven
+  // (SPIN button on the Premium Slot Preview owns playback).  DAW screen
+  // still has its own transport since it's timeline-driven and Record
+  // has a real bounce target there.  See `_buildOmnibar` for context.
 
   // ─────────────────────────────────────────────────────────────────────────
   // NEURAL SPINE
