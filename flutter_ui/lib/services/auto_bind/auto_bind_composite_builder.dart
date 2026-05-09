@@ -71,54 +71,81 @@ class AutoBindCompositeBuilder {
     if (!sl.isRegistered<MiddlewareProvider>()) return null;
     final mw = sl<MiddlewareProvider>();
 
-    // Smart Defaults — same chain SlotLab uses so shapes line up exactly
-    // (volume, bus, pan, fade, loop).  StageConfigurationService gives
-    // us the ducking flag + the pretty display label.
-    final stageDefault = StageDefaults.getDefaultForStage(stage);
-    final stageDef = StageConfigurationService.instance.getStage(stage);
-    final stageDucksMusic = stageDef?.ducksMusic ?? false;
+    // ─── 2026-05-09 — RAW MODE ────────────────────────────────────────
+    //
+    // Boki: "čuju se zvukovi, ali se seku, neki kraći, neki tiši —
+    // moraju da se puste kakvi su u originalnom stanju".
+    //
+    // Smart-defaults (`StageDefaults`) primenjuju fadeOut=100ms, smart
+    // pan, ducking, crossfade — sve to MENJA original.  Auto-bind je
+    // import putanja, ne mixing decision: korisnik je pažljivo nasnimio
+    // fajl, naš posao je da ga emitujemo neoštećenog.  Sve modifikacije
+    // ide kroz manual layer edit, ne kroz auto-build.
+    //
+    // Pošto REEL_STOP_<i> u StageConfigurationService ima `isPooled=true`
+    // (pool steal-ovanje sečaše prvi voice kad par reels stane u rapid
+    // succession), takođe overlap=true tako da druga voice ne ubija prvu.
+    final stageCfg = StageConfigurationService.instance;
+    final stageDef = stageCfg.getStage(stage);
+    final isMusicBus = stageDef?.bus.toString().toLowerCase().contains('music') ?? false;
+    final shouldLoop = stageCfg.isLooping(stage);
 
-    final busId = stageDefault.busId;
-    final shouldLoop = stageDefault.loop;
-    final isMusicBus = busId == SlotBusIds.music;
+    // ─── 2026-05-09 — Disable pool steal for raw playback ────────────
+    //
+    // REEL_STOP_<i>, ROLLUP_TICK*, CASCADE_STEP*, SYMBOL_WIN... ship with
+    // `isPooled=true` so rapid retriggers reuse a small voice pool.  But
+    // pool reuse runs through `AudioPool._playVoice` which spawns a
+    // fresh FFI voice without resetting the previous one's fade/trim
+    // state — and pool steal can truncate the voice that's still
+    // playing when 5 reels stop in quick succession (Boki's "neki kraći,
+    // neki tiši").  Auto-bind import is by definition not rapid-fire
+    // (one play per stage trigger), so we override the stage definition
+    // to pool=false ONLY for stages we just bound.  Manual edits in the
+    // ASSIGN spine still see the original stage config — this is a
+    // builder-time toggle.
+    if (stageDef != null && stageDef.isPooled) {
+      stageCfg.registerCustomStage(
+        stageDef.copyWith(isPooled: false),
+        silent: true,
+      );
+    }
     final isBigWinTransition =
         stage == 'BIG_WIN_START' || stage == 'BIG_WIN_END';
-    final shouldOverlap =
-        isBigWinTransition ? false : (!isMusicBus && !shouldLoop);
-    final crossfadeMs = isBigWinTransition ? 500 : (isMusicBus ? 500 : 0);
+    // Bus selection: stick with the StageDefault bus assignment so
+    // routing/mixer settings still apply, but everything else is RAW.
+    final busId = StageDefaults.getDefaultForStage(stage).busId;
+    final crossfadeMs = isBigWinTransition ? 500 : 0;
     final effectiveTargetBus = isBigWinTransition ? SlotBusIds.music : busId;
     final effectiveLoop = stage == 'BIG_WIN_START' ? true : shouldLoop;
+    // overlap=true so a second REEL_STOP_<i> (or rapid retrigger of any
+    // pooled stage) doesn't truncate the previous voice — every clip
+    // plays out to its natural end at full length.
+    const shouldOverlap = true;
 
-    // Build layers — primary Play layer + optional ducking SetBusVolume.
-    // BIG_WIN special-cases (fade/stop base music) intentionally NOT
-    // duplicated here; they require provider-side state already set up
-    // by `_createBaseGameMusicComposite`.
+    // Build layers — primary Play layer ONLY, raw playback.
+    // No fadeIn, no fadeOut, no per-reel pan, no music ducking.  The
+    // file plays at its native volume/pan/length so import sounds match
+    // their on-disk state byte-for-byte (modulo bus + master volume,
+    // which are user-controlled in the mixer).
     final layers = <SlotEventLayer>[
       SlotEventLayer(
         id: 'layer_$stage',
         name: _layerNameFromPath(audioPath),
         audioPath: audioPath,
         actionType: 'Play',
-        volume: stageDefault.volume,
-        pan: _panForStage(stage, stageDefault.pan),
-        panRight: stageDefault.panRight,
+        volume: 1.0,
+        pan: 0.0,
+        panRight: 0.0,
         busId: busId,
         loop: effectiveLoop,
-        fadeInMs: stageDefault.fadeInMs ??
-            (crossfadeMs > 0 ? crossfadeMs.toDouble() : 0.0),
-        fadeOutMs: stageDefault.fadeOutMs ?? 0.0,
+        fadeInMs: 0.0,
+        fadeOutMs: 0.0,
       ),
     ];
-    if (stageDucksMusic && busId != SlotBusIds.music) {
-      layers.add(SlotEventLayer(
-        id: 'auto_duck_$stage',
-        name: 'Duck Music Bus (auto)',
-        audioPath: '',
-        actionType: 'SetBusVolume',
-        volume: 0.3,
-        busId: SlotBusIds.music,
-      ));
-    }
+    // Suppress unused warning while keeping isMusicBus available for
+    // future tweaks (e.g. per-bus crossfade decisions).
+    // ignore: unused_local_variable
+    final _isMusicBus = isMusicBus;
 
     final eventId = 'audio_$stage';
     final now = DateTime.now();
