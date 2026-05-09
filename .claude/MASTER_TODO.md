@@ -2442,3 +2442,382 @@ Na osnovu svega gore, ovo su oblasti gde Flux može biti **prvi na svetu**:
 - `.claude/docs/TROUBLESHOOTING.md` — poznati problemi i resenja
 - `.claude/specs/SFX_PIPELINE_WIZARD.md` — SFX Pipeline 6-step spec
 - `.claude/specs/FLUXFORGE_MASTER_SPEC.md` — 17 sistema pregled
+
+---
+
+## FAZA 3.7 — GAME CONFIG: Ultimativni Slot Designer Panel
+
+> **Vizija:** HELIX levi panel GAME CONFIG postaje najmoćniji slot konfiguracioni alat na svetu.
+> Pokriva svaki mogući tip slota koji postoji u industriji — od klasičnog 3-rilnog fruit machine-a
+> do Megaways, Cluster Pays, Infinity Reels i svega između. Svaka konfiguracija je instant-valid,
+> compliance-aware i direktno vezana za audio DNA sistem.
+>
+> **Trenutno stanje:** `_SpineGameConfig` = 2 spinnera (reels×rows) + symbol editor stub.
+> **Ciljno stanje:** Full slot designer — tip, grid, math, features, compliance, audio DNA, snapshot.
+
+### Šta pokriva svaki mogući tip slota
+
+| Slot Type | Popularnost | Grid | Win Mechanism | Key Features |
+|-----------|-------------|------|---------------|--------------|
+| **Classic 3-reel** | ⭐⭐ | 3×1-3 | 1-9 fixed paylines | Nudge, Hold |
+| **Video Slot 5×3** | ⭐⭐⭐⭐⭐ | 5×3 | 10/20/25 fixed PL | Scatter, FS, Wilds |
+| **Video Slot 5×4** | ⭐⭐⭐⭐ | 5×4 | 40 paylines | Extended paytable |
+| **6×4 Standard** | ⭐⭐⭐ | 6×4 | 50 paylines / ways | BTG style |
+| **243 Ways** | ⭐⭐⭐⭐ | 5×3 | 243 ways | All-ways eval |
+| **1024 Ways** | ⭐⭐⭐ | 5×4 | 1024 ways | All-ways eval |
+| **Megaways** | ⭐⭐⭐⭐⭐ | 6×(2-7) | 117,649 ways var | Reactions, Cascade mult |
+| **Infinity Reels** | ⭐⭐ | start 3×3, expand | Ways expanding | Reel adds on win |
+| **Cluster Pays** | ⭐⭐⭐⭐ | 7×7 / 8×8 | 5+ adjacent cluster | Tumble mandatory |
+| **All Ways** | ⭐⭐ | 3×3 / 4×4 | Any-position adj | No payline concept |
+| **Hold & Win** | ⭐⭐⭐⭐ | 5×3 | 15 fixed / ways | Lock+Spin, jackpot |
+| **Book of** | ⭐⭐⭐⭐ | 5×3 | 10 paylines | 1 symbol=Wild+Scatter+FS |
+| **Power Reels** | ⭐ | up to 80 reels×1 | Paylines | Extra-wide horizontal |
+| **Feature Buy** | cross-type | any | any | Direct bonus access |
+
+---
+
+### Phase 3.7.0 — Slot Type Selector (Foundation)
+
+**Šta:** Vizuelni selector koji menja ceo konfig panel bazan na tipu slota.
+Trenutno: ni ne postoji — samo 2 spinnera.
+
+**UX:**
+```
+┌─ SLOT TYPE ──────────────────────────────────────┐
+│  ○ Classic    ● Video     ○ Megaways             │
+│  ○ Cluster    ○ Book Of   ○ Hold & Win           │
+│  ○ Ways       ○ Infinity  ○ Custom               │
+└──────────────────────────────────────────────────┘
+```
+Selekcija → auto-populate grid defaults, feature defaults, win mechanism defaults.
+
+**Implementacija:**
+- `SlotTypePreset` enum: `Classic / VideoStandard / VideoExtended / Megaways / ClusterPays / AllWays / InfinityReels / HoldAndWin / BookOf / Custom`
+- `GameConfigProvider` (Flutter singleton) — listenuju: grid, math, features, anticipation, compliance panels
+- Apply type → `GameConfigProvider.applyPreset(SlotTypePreset)` — batch sve config domene
+- Rust `SlotConfig.from_preset(SlotTypePreset)` → kanonski default za svaki tip
+
+**Reference fajlovi:**
+- `flutter_ui/lib/screens/helix_screen.dart` → `_SpineGameConfigState` (replace stub)
+- `crates/rf-slot-lab/src/config.rs` → `SlotConfig`, `GridSpec`
+- Nova: `flutter_ui/lib/providers/game_config_provider.dart`
+
+**Status:** ⏳ next
+
+---
+
+### Phase 3.7.A — Grid & Win Mechanism Config
+
+**Šta:** Zamena 2 spinnera → kompletan grid + win mechanism designer.
+
+**UX:**
+```
+┌─ GRID ────────────────────────────────────────────┐
+│  REELS  [−][  5 ][+]    ROWS [−][  3 ][+]        │
+│  ┌─ Megaways mode ──────────────────────────────┐ │
+│  │ Per-reel rows: R1[2-7] R2[2-7] ... (toggle) │ │
+│  └──────────────────────────────────────────────┘ │
+└───────────────────────────────────────────────────┘
+┌─ WIN MECHANISM ────────────────────────────────────┐
+│  ● Paylines   20  [edit patterns]                 │
+│  ○ Ways       243                                 │
+│  ○ Cluster    min 5 adj  ○ diag                   │
+│  ○ Megaways   max 117,649 ways                    │
+│  ○ All Ways   any position                        │
+│  ○ Infinity   expand on win                       │
+└───────────────────────────────────────────────────┘
+```
+
+**Implementacija:**
+- `WinMechanismSelector` → maps to `WinMechanism` enum iz `win_mechanism.rs` (postoji)
+- Megaways mode: per-reel rows sliders (min/max 2-7 per reel)
+- Payline pattern visual editor → 5×3 grid, click cells = define payline
+- Infinity Reels: `InfinityReelsConfig { start_reels: u8, max_reels: u8, expand_trigger: Symbol }`
+
+**Dependencies:** 3.7.0 | **Status:** ⏳
+
+---
+
+### Phase 3.7.B — Math Profile Editor
+
+**Šta:** RTP target + volatility + hit frequency + max win cap — sa live feasibility indicator.
+
+**UX:**
+```
+┌─ MATH PROFILE ─────────────────────────────────────┐
+│  Volatility  [━━━━━━━━●────] 7.2/10  HIGH          │
+│              LOW ←───────────────────→ EXTREME     │
+│  RTP Target  [96.5%]  ±0.1%  [ validate ]          │
+│  Hit Rate    [24.3%]  per spin                     │
+│  Bonus Freq  [1 / 120] spins                       │
+│  Max Win Cap ○ Uncapped  ● 5000x  ○ Custom          │
+│  Dead Spins  [50] max consecutive                  │
+│  ┌─ PRESET ─────────────────────────────────────┐  │
+│  │ ○ Low  ● Medium  ○ High  ○ Extreme  ○ Studio │  │
+│  └──────────────────────────────────────────────┘  │
+│  ⚡ RTP FEASIBILITY: ✓ 96.5% achievable             │
+└────────────────────────────────────────────────────┘
+```
+
+**Implementacija:**
+- Volatility: continuous slider 1.0-10.0 → maps to `VolatilityProfile.interpolate()` (postoji)
+- RTP: input field → async Rust FFI → `validate_rtp_feasibility()` → live badge
+- Max win cap: `Uncapped / X250 / X500 / X2000 / X5000 / X10000 / Custom`
+- STUDIO preset: high hit_rate (60%), high bonus_freq, uncapped — za dev/testing
+- Debounced 500ms feasibility checker
+
+**Dependencies:** 3.7.0 | **Status:** ⏳
+
+---
+
+### Phase 3.7.C — Symbol System & Paytable Designer
+
+**Šta:** Symbol presets, special symbols (Wild types, Book mechanic), pay table editor.
+
+**Symbol Presets:**
+- `ClassicFruit` → 7, BAR, Bell, Cherry, Lemon, Orange, Plum + Wild
+- `StandardRoyals` → A,K,Q,J,10,9 + 3 premium + Wild + Scatter + Bonus
+- `MinimalRoyals` → A,K,Q,J + 2 premium + Wild + Scatter
+- `BookOf` → A,K,Q,J,10,9 + 4 premium + Book (Wild+Scatter+FS-expander)
+- `Custom` → empty, manual build
+
+**Special symbol mechanics:**
+- `Standard Wild` — substitutes all except Scatter/Bonus
+- `Expanding Wild` — expands to full reel on payline hit
+- `Sticky Wild` — stays for N spins
+- `Walking Wild` — moves left/right each spin
+- `Multiplier Wild` — 2x/3x/5x random on hit
+- `Book Symbol` — simultaneously Wild, Scatter trigger, FS expanding symbol
+- `Stacked Symbols` — height 2-7, which symbols stack per reel
+
+**Pay table UX:**
+```
+│  SYM  EMOJI  3-OF  4-OF  5-OF   STACK  SPECIAL
+│  W     W     —     —     —      h=3    Expanding
+│  SC    ◈     —     —     —      —      Scatter@3+
+│  P1    ★    12x   40x  100x    h=2    —
+│  P2    ♦     8x   25x   60x    —      —
+│  A     A     3x   10x   20x    —      —
+```
+
+**Dependencies:** 3.7.0 | **Status:** ⏳
+
+---
+
+### Phase 3.7.D — Feature Stack Designer
+
+**Šta:** Toggle + inline config per feature — sve iz `FeatureConfig` expose-ovano.
+
+**Features:**
+- **Free Spins**: count range, multiplier, retrigger, extra mechanics (Expanding Wilds in FS, Sticky Wilds, Infinite retrig)
+- **Cascades/Tumble**: remove mode (win-only / all), multiplier step (cap), progression sequence
+- **Hold & Win**: respins count (default 3), reset trigger, 4-tier jackpot config (Mini/Minor/Major/Grand seeds + contribution%)
+- **Jackpot (standalone)**: tier config, trigger method (symbol count / random / purchase)
+- **Gamble**: type (card suit / color / ladder), max attempts, win size limit
+- **Pick Bonus**: grid size, reveal style (instant/sequential), prize distribution
+- **Feature Buy**: cost multiplier, jurisdiction block badge (UKGC auto-OFF)
+
+**Dependencies:** 3.7.0, 3.7.C | **Status:** ⏳
+
+---
+
+### Phase 3.7.E — Anticipation Config
+
+**Šta:** Full exposure `AnticipationConfig` sa audio stage mapping.
+
+**UX:**
+```
+┌─ ANTICIPATION ───────────────────────────────────┐
+│  Trigger symbols: [SCATTER] [BONUS] [+ add]      │
+│  Reel placement:                                 │
+│    ● Tip A: Any reel (AtLeast 3)                │
+│    ○ Tip B: Reels 0,2,4 only (Exact 3)          │
+│    ○ Custom: [R0][R1][R2][R3][R4]               │
+│  Tension escalation: ✓                           │
+│    L1●━ L2●━ L3●━ L4●  [Gold→Orange→Red]        │
+│  Near-miss guard: ✗ (⚠ UKGC requires OFF)        │
+│  Audio mapping:                                  │
+│    L1 → ANTICIPATION_LOW  [bind ▸]              │
+│    L2 → ANTICIPATION_MED  [bind ▸]              │
+│    L3 → ANTICIPATION_HIGH [bind ▸]              │
+│    L4 → ANTICIPATION_PEAK [bind ▸]              │
+└──────────────────────────────────────────────────┘
+```
+
+- `[bind ▸]` → jump fokusira AUDIO ASSIGN spine na taj stage
+- Tension orbs: `TensionLevel.color_hex()` (postoji u Rust config)
+- Tip A/B/Custom → `AnticipationConfig.tip_a()` / `tip_b()` (postoji)
+
+**Dependencies:** 3.7.0, 3.7.C | **Status:** ⏳
+
+---
+
+### Phase 3.7.F — Compliance Presets & Jurisdiction Guard
+
+**Šta:** Multi-jurisdiction toggle → auto-constrain config, per-field violation badges.
+
+| Jurisdiction | Max Bet | Auto Play | Feature Buy | Near Miss | Min RTP |
+|---|---|---|---|---|---|
+| UKGC | £2 | ✗ | ✗ | ✗ | 92% |
+| MGA | none | limited | ✓ | ✓ | 92% |
+| SE | SEK100 | ✗ | ✗ | ✗ | 92% |
+| DGA | DKK200 | ✗ | ✗ | ✗ | 92% |
+| AT | €10 | ✗ | ✗ | ✗ | 90% |
+| IoM | none | limited | ✓ | ✓ | 80% |
+| Gibraltar | none | ✓ | ✓ | ✓ | 88% |
+| Curaçao | none | ✓ | ✓ | ✓ | 85% |
+
+**Implementacija:**
+- Nova: `crates/rf-slot-lab/src/compliance.rs` — `CompliancePreset`, `JurisdictionRule`
+- `GameConfigProvider.activeJurisdictions: Set<Jurisdiction>` (Flutter)
+- Per-field violation checker: reactive → badge (✓/⚠/✗) po svakoj promeni
+- `ExportComplianceManifest` → JSON sa timestamp, config, passed/violated rules
+- Connector sa `ComplianceLightsBadge` u HELIX omnibar
+
+**Dependencies:** 3.7.0, 3.7.B, 3.7.D | **Status:** ⏳
+
+---
+
+### Phase 3.7.G — Live Grid Visualizer
+
+**Šta:** Mini canvas u panelu — živi prikaz grid-a sa simbolima, paylines overlay, Megaways resize.
+
+**UX:**
+```
+┌─ GRID PREVIEW ─────────────────────────────────────┐
+│   R1   R2   R3   R4   R5                           │
+│  ┌───┬───┬───┬───┬───┐                             │
+│  │ ★ │ A │ ◈ │ ♦ │ 7 │                             │
+│  │ ♦ │ W │ K │ ★ │ ◈ │                             │
+│  │ A │ ♠ │ W │ Q │ ♦ │                             │
+│  └───┴───┴───┴───┴───┘                             │
+│  Payline 1: ─────────── [hover to highlight]       │
+│  [ SPIN PREVIEW ] ← demo spin + audio              │
+└────────────────────────────────────────────────────┘
+```
+- Megaways: per-reel različite visine (animated)
+- Cluster mode: adjacency graph overlay
+- "SPIN PREVIEW" → 1 spin u engine + audio
+
+**Dependencies:** 3.7.A, 3.7.C | **Status:** ⏳
+
+---
+
+### Phase 3.7.H — Config Snapshot & Diff Engine
+
+**Šta:** Named snapshots, compare dva snapshots (diff view), auto-history poslednjih 10.
+
+**Implementacija:**
+- `ConfigSnapshot { name, timestamp, config: SlotConfig, hash: String }`
+- Storage: `SlotLabProjectProvider._configSnapshots`
+- Diff engine: field-by-field comparison → colored entries (unchanged/changed/added/removed)
+- Svaka "Apply" auto-snapshot u history (ne named)
+
+**Dependencies:** 3.7.A-E | **Status:** ⏳
+
+---
+
+### Phase 3.7.I — Smart Integrity Validator (Real-Time)
+
+**Šta:** Live validator, debounced 300ms, pokazuje probleme pre Apply-a.
+
+| Rule | Severity |
+|------|----------|
+| RTP <85% ili >99% | CRITICAL |
+| Paytable: 5-of < 4-of | CRITICAL |
+| Feature prob overflow (FS×count >15%) | CRITICAL |
+| Near-miss ON + UKGC | ERROR |
+| Feature Buy ON + UKGC | ERROR |
+| RTP < jurisdiction min | ERROR |
+| Hit rate >60% ili <10% | WARNING |
+| No audio bound to critical stages | WARNING |
+| Cascade + non-tumble mechanism | INFO |
+| Book mechanic + multiple scatters | INFO |
+
+- `IntegrityValidator.validate(config, jurisdictions) -> Vec<IntegrityIssue>`
+- Svaka issue: `{severity, field_path, message, auto_fix: Option<ConfigPatch>}`
+- "Fix All Auto" → applies sve auto_fix patches sa severity >= ERROR
+- NE blokira Save — samo informiše (sticky footer counter)
+
+**Dependencies:** 3.7.A, 3.7.B, 3.7.D, 3.7.E, 3.7.F | **Status:** ⏳
+
+---
+
+### Phase 3.7.J — Blueprint Round-Trip Export/Import
+
+**Šta:** `.flux` JSON export + import sa validation i share link.
+
+- `.flux` format: `{version: "3.7", type: "slot_blueprint", config: SlotConfig, metadata: {...}}`
+- Export: `serde_json::to_string_pretty` → file picker
+- Import: parse → integrity validate → preview diff → confirm apply
+- Share link: base64 compressed JSON → clipboard
+- Backward compat: verzija parser
+
+**Dependencies:** sve prethodne | **Status:** ⏳
+
+---
+
+### Panel UX arhitektura — sub-tab navigation unutar levog panela
+
+```
+┌─ GAME CONFIG ─────────────────────────────────────┐
+│  [TYPE][GRID][MATH][FEAT][COMPL][SNAP]            │  ← 6 sub-tab pills
+├───────────────────────────────────────────────────┤
+│  ← contextual content per tab →                  │
+│                                                   │
+│  ─── sticky footer ───────────────────────────── │
+│  🔴 2 err  ⚠ 1 warn  ℹ 1 info   [ Apply All ]   │
+└───────────────────────────────────────────────────┘
+```
+
+### Dependency graph
+
+```
+3.7.0 (SlotTypePreset + GameConfigProvider)
+    ↓
+  ├─ 3.7.A (Grid + Win Mechanism)
+  ├─ 3.7.B (Math Profile)
+  └─ 3.7.C (Symbol System)
+        ↓
+    ├─ 3.7.D (Feature Stack)    ← after A,C
+    ├─ 3.7.E (Anticipation)     ← after A,C
+    └─ 3.7.G (Grid Visualizer)  ← after A,C
+          ↓
+      ├─ 3.7.F (Compliance)     ← after B,D
+      └─ 3.7.H (Snapshots)      ← after A-E
+            ↓
+        ├─ 3.7.I (Integrity Validator)  ← after A,B,D,E,F
+        └─ 3.7.J (Blueprint Export)     ← after all
+```
+
+### Existing Rust code — NE piši ponovo
+
+| Struct/fn | Fajl | Koristi za |
+|-----------|------|------------|
+| `SlotConfig` | `rf-slot-lab/src/config.rs` | root config |
+| `GridSpec` | `rf-slot-lab/src/config.rs` | grid dimensions |
+| `VolatilityProfile.interpolate()` | `rf-slot-lab/src/config.rs` | math slider |
+| `FeatureConfig` | `rf-slot-lab/src/config.rs` | feature toggles |
+| `AnticipationConfig.tip_a/tip_b` | `rf-slot-lab/src/config.rs` | anticipation presets |
+| `TensionLevel.color_hex()` | `rf-slot-lab/src/config.rs` | tension colors |
+| `WinMechanism` | `rf-slot-lab/src/model/win_mechanism.rs` | win selector |
+| Feature chapters | `rf-slot-lab/src/features/*.rs` | activation |
+| `export.rs` | `rf-slot-builder/src/export.rs` | blueprint export |
+| `validator.rs` | `rf-slot-builder/src/validator.rs` | integrity basis |
+| `GridResizePipeline.apply()` | `flutter_ui` | grid apply |
+
+### CortexEye verifikacioni kriterijumi
+
+| Faza | Pass kriterijum |
+|------|----------------|
+| 3.7.0 | Type "Megaways" select → grid default 6×(2-7) |
+| 3.7.A | Megaways mode → per-reel sliders vidljivi |
+| 3.7.B | Volatility slider → hit_rate vrednost se menja |
+| 3.7.C | "Classic Fruit" preset → 7,BAR,Bell,Cherry,Lemon |
+| 3.7.D | Feature Buy toggle + UKGC → crveni badge |
+| 3.7.E | Tip B → R0/R2/R4 highlight, R1/R3 grayed |
+| 3.7.F | UKGC toggle ON → near-miss i Feature Buy auto-OFF |
+| 3.7.G | Reel count +1 → grid preview instant update |
+| 3.7.H | Save "test" snapshot → listed, load → config restored |
+| 3.7.I | RTP = 50% → CRITICAL error u footer |
+| 3.7.J | Export → import → config identičan (hash match) |
