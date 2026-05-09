@@ -89,6 +89,7 @@ import '../widgets/slot_lab/neural_bind_orb.dart';
 import '../widgets/slot_lab/orb_mixer.dart';
 import '../widgets/helix/audio_coverage_badge.dart';
 import '../widgets/helix/compliance_lights_badge.dart';
+import '../widgets/helix/session_recorder_panel.dart';
 import '../widgets/helix/stage_flow_strip.dart';
 import '../widgets/helix/timeline_intelligence.dart';
 import '../widgets/helix/ai_composer_panel.dart'; // Model 3 — multi-provider AI Composer
@@ -6451,6 +6452,18 @@ class _TimelinePanelState extends State<_TimelinePanel> {
           // = audition kroz EventRegistry.triggerStage(), isti put
           // koji TIMELINE JUMP quick-action koristi.
           const StageFlowStrip(height: 56),
+          const SizedBox(height: 4),
+          // FAZA 3.6.E — Session Recorder + Best Win Detector.
+          // Compact footer: [N spins] [REC] dugmad pokreću batch spin
+          // sequence kroz SlotLabCoordinator; snapshots (stages +
+          // result) idu u in-memory ring buffer.  Posle završetka,
+          // panel pokazuje session stats (count, hit, RTP, anti) +
+          // Best Win badge sa replay handle-om.
+          //
+          // Audio bounce u MasterRingBuffer ostaje za 3.6.F (Marketing
+          // Clip Export) — Rust crate change `expandTo60s()` je future
+          // work; replay već radi kroz stage re-fire.
+          const SessionRecorderPanel(),
           const SizedBox(height: 4),
           // Ruler — clickable to seek (T3), with scroll
           GestureDetector(
