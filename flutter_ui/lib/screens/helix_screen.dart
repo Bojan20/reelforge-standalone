@@ -87,7 +87,9 @@ import '../src/rust/native_ffi.dart';
 import '../widgets/slot_lab/auto_bind_dialog_v2.dart';
 import '../widgets/slot_lab/neural_bind_orb.dart';
 import '../widgets/slot_lab/orb_mixer.dart';
+import '../widgets/helix/audio_coverage_badge.dart';
 import '../widgets/helix/compliance_lights_badge.dart';
+import '../widgets/helix/stage_flow_strip.dart';
 import '../widgets/helix/ai_composer_panel.dart'; // Model 3 — multi-provider AI Composer
 import '../providers/mixer_dsp_provider.dart';
 import '../providers/orb_mixer_provider.dart';
@@ -1518,6 +1520,12 @@ class _HelixScreenState extends State<HelixScreen>
           ComplianceLightsBadge(
             provider: GetIt.instance<LiveComplianceProvider>(),
           ),
+          const SizedBox(width: 8),
+          // FLUX_MASTER_TODO 3.6.1 — Audio Coverage Badge.
+          // Sticky pill: bound/total stages + per-category breakdown
+          // tooltip.  Reaktivan na project audioAssignments change i
+          // StageConfigurationService palette extension.
+          const AudioCoverageBadge(),
           // Transport bar (Play/Stop/Record) intentionally removed from
           // HELIX omnibar (2026-05-09) — slot design is event-driven (SPIN
           // button on the Premium Slot Preview is the authoritative
@@ -6420,6 +6428,15 @@ class _TimelinePanelState extends State<_TimelinePanel> {
               ),
             ),
           ]),
+          const SizedBox(height: 4),
+          // FAZA 3.6.A — Stage Flow Strip (slot-native composition view).
+          // Painta horizontalnu traku sa chunk-om za svaki stage iz
+          // SlotLabCoordinator.stageProvider.lastStages, kategorije
+          // bojom-kodirane (spin/win/feature/...).  Klik na chunk
+          // = audition kroz EventRegistry.triggerStage(), isti put
+          // koji TIMELINE JUMP quick-action koristi.
+          const SizedBox(height: 4),
+          const StageFlowStrip(height: 56),
           const SizedBox(height: 4),
           // Ruler — clickable to seek (T3), with scroll
           GestureDetector(

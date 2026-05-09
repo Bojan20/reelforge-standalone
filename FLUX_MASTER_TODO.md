@@ -1001,6 +1001,12 @@ Sprint 4 (layout memory, power users):                 ✅ DONE (ce2a90a9 + c58c
 | 3.3.1 | **N1** Phase 2 ghost slot indikatori — stage-ovi bez bindinga kao ghost u orbu | ✅ SHIPPED (Phase 10) — `ghost_stage_indicator.dart` 437 LOC, kompakt header `78% ▰▰▰▰▱ 40 gaps`, expandable breakdown, missing-stage chips sa tap handlers | `lib/widgets/slot_lab/neural_bind_orb.dart` |
 | 3.3.2 | Snap-to-grid visual feedback u drag (trenutno nevidljiv) | ✅ 0a4defd4 — `TimelineGridOverlay` gold vertical indicator line tokom drag-a | `lib/widgets/slot_lab/timeline_grid_overlay.dart` |
 
+### 3.6.1 Audio Coverage Badge (HELIX Omnibar) — sticky info pill
+
+| # | Zadatak | Status | Fajl |
+|---|---|---|---|
+| 3.6.1 | **Audio Coverage Badge** — pill u HELIX omnibaru pored ComplianceLightsBadge: `🎵 X/Y · mini-arc` sa per-category breakdown tooltip-om (`spin: 5/9, win: 0/12, …`).  Color tier po pokrivenosti: <30% red, 30–70% orange, 70–99% yellow, 100% green.  Reaktivan na `SlotLabProjectProvider.audioAssignments` change + `StageConfigurationService` palette extension preko `Listenable.merge`.  Ne polluje, sve kroz dva ChangeNotifier-a koja već postoje. | ✅ landed (TBD-commit) | `widgets/helix/audio_coverage_badge.dart` (220 LOC) |
+
 ### 3.4 Regulatory (Compliance live)
 
 | # | Zadatak | Cilj | Status |
@@ -1030,7 +1036,7 @@ Sprint 4 (layout memory, power users):                 ✅ DONE (ce2a90a9 + c58c
 | # | Zadatak | Effort | Status | Što već imamo / Šta je novo |
 |---|---|---|---|---|
 | 3.6.0 | **REPLAY / JUMP / CLEAR trio** — quick actions zamenjene sa stvarno funkcionalnim akcijama nad `_lastStages` cache-om.  Empty-cache guards, mounted checks, helix_action exposure (`timeline_replay`, `timeline_jump_stage`, `timeline_clear`), info toast helper. | M | ✅ `f4d3fa66` | `helix_screen.dart:_replayLastSpin/_showJumpToStageDialog/_clearLastSpin` |
-| 3.6.A | **Phase A — Stage Flow Strip + Scrubber** — vizuelni core ispod quick actions: kanvas painter koji crta `_lastStages` kao stage rows × time-axis bars (Y=stage, X=offset_ms iz spina, color=category), gold scrubber sa `Stack`+`Positioned`+`onPanUpdate`. Drag scrubber → highlight aktivnog stage-a + audition single-stage trigger. | M | ⏳ next | `_lastStages` cache (✅), `slot_voice_mixer_provider` ima coverage paint pattern, `lower_zone/slotlab/slotlab_painters.dart` ima sličan grid painter za reuse |
+| 3.6.A | **Phase A — Stage Flow Strip + Scrubber** — vizuelni core ispod quick actions: kanvas painter koji crta `_lastStages` kao stage rows × time-axis bars (Y=stage, X=offset_ms iz spina, color=category), gold scrubber sa `Stack`+`Positioned`+`onPanUpdate`. Drag scrubber → highlight aktivnog stage-a + audition single-stage trigger. | M | ✅ landed (TBD-commit) | `widgets/helix/stage_flow_strip.dart` (374 LOC), integrated u TIMELINE Panel iznad ruler-a; klik na chunk → `EventRegistry.triggerStage(...)`; reactive na `SlotLabCoordinator` notify; per-category color (spin/win/feature/bonus/cascade/jackpot/ui/music/symbol/anticipation); empty-state hint kad cache prazan; chunk tooltip sa stageType + start/end ms + duration |
 | 3.6.B | **Phase B — Audio Clash Detector** — over each `(stage, layer)` pair compute `(start_ms, end_ms, busId)` interval; if two intervals overlap with same `busId`, render warning ribbon **"WIN_BIG L2 ⚔ REEL_STOP_4 (bus 2) at 1500-1800ms"**. Click → otvara MIX dock-tab sa offending layer-ima već selected. | M | ⏳ blocked by A | `event.layers[].offsetMs/duration/busId` (✅), MIX dock tab postoji (`slot_voice_mixer.dart`), treba samo cross-link selection state |
 | 3.6.C | **Phase C — Time Budget Compliance** — meter u TIMELINE header bar-u: total spin duration, per-segment budget vs target ("WIN_BIG: 1800ms target 1200, MGA cap 2000"), dead-air heatmap (slice-ovi gde nijedan layer nije fired). Veže se na `LiveComplianceProvider` da boja prati zelenu/žutu/crvenu po jurisdikciji. | S | ⏳ blocked by A | Compute trivijalan iz timeline frame-a, `LiveComplianceProvider` već imamo, samo treba per-stage budget table |
 | 3.6.D | **Phase D — Anticipation Density Meter** — koliko spin-ova u session-u trigger-uje `ANTICIPATION_TENSION_*`? Industry sweet spot 15–30%; nasi treba da pokažemo na timeline-u procenat + indikator GOOD/LOW/HIGH. | S | ⏳ blocked by C/E | Postojeći `_anticipationReels` Set, plus session counter iz session recorder-a |
