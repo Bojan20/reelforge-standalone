@@ -1011,6 +1011,65 @@ Sprint 4 (layout memory, power users):                 ✅ DONE (ce2a90a9 + c58c
 | 3.4.4 | Near-miss quota tracker — "2.1% near-miss, ceiling 3%" | live UI | ✅ c101b925 |
 | 3.4.5 | Compliance manifest button — jurisdiction picker + signed export | one-click | ✅ implementirano — `_exportButton` (JSON ikonica u headeru), `exportJsonAudit()` → clipboard + SnackBar sa VIEW akcijom koja otvara manifest dialog |
 
+### 3.6 TIMELINE Slot-Native Composition Tab — ULTIMATIVNA VIZIJA
+
+> **Date:** 2026-05-09 · **Status:** Phase A scoped, Phase B/C/D tracked
+>
+> Zamena bivšeg DAW-style transport HUB-a (PLAY/STOP/REC/LOOP/GOTO_START)
+> u HELIX TIMELINE dock-tabu sa **slot-native composition view-om**.
+> Glavni princip: slot je **event-driven**, ne timeline-driven — svaki
+> spin je arc, X osa je `offset_ms` od `SPIN_START`, Y osa je redovi
+> stage-ova.  Korisnik ne traži "Play music" — traži *"prikaži mi koji
+> stage-ovi su firovali u poslednjem 3.5x BIG_WIN-u, gde se sudaraju
+> bus-ovi, da li sam u MGA cap-u za WIN_BIG presentation"*.
+>
+> Već urađeno (2026-05-09 commit `f4d3fa66`): REPLAY / JUMP / CLEAR
+> trio koji koristi `_lastStages` cache + helix_action eye-automation.
+> To je **Phase 0** — kostur na koji ostatak naleže.
+
+| # | Zadatak | Effort | Status | Što već imamo / Šta je novo |
+|---|---|---|---|---|
+| 3.6.0 | **REPLAY / JUMP / CLEAR trio** — quick actions zamenjene sa stvarno funkcionalnim akcijama nad `_lastStages` cache-om.  Empty-cache guards, mounted checks, helix_action exposure (`timeline_replay`, `timeline_jump_stage`, `timeline_clear`), info toast helper. | M | ✅ `f4d3fa66` | `helix_screen.dart:_replayLastSpin/_showJumpToStageDialog/_clearLastSpin` |
+| 3.6.A | **Phase A — Stage Flow Strip + Scrubber** — vizuelni core ispod quick actions: kanvas painter koji crta `_lastStages` kao stage rows × time-axis bars (Y=stage, X=offset_ms iz spina, color=category), gold scrubber sa `Stack`+`Positioned`+`onPanUpdate`. Drag scrubber → highlight aktivnog stage-a + audition single-stage trigger. | M | ⏳ next | `_lastStages` cache (✅), `slot_voice_mixer_provider` ima coverage paint pattern, `lower_zone/slotlab/slotlab_painters.dart` ima sličan grid painter za reuse |
+| 3.6.B | **Phase B — Audio Clash Detector** — over each `(stage, layer)` pair compute `(start_ms, end_ms, busId)` interval; if two intervals overlap with same `busId`, render warning ribbon **"WIN_BIG L2 ⚔ REEL_STOP_4 (bus 2) at 1500-1800ms"**. Click → otvara MIX dock-tab sa offending layer-ima već selected. | M | ⏳ blocked by A | `event.layers[].offsetMs/duration/busId` (✅), MIX dock tab postoji (`slot_voice_mixer.dart`), treba samo cross-link selection state |
+| 3.6.C | **Phase C — Time Budget Compliance** — meter u TIMELINE header bar-u: total spin duration, per-segment budget vs target ("WIN_BIG: 1800ms target 1200, MGA cap 2000"), dead-air heatmap (slice-ovi gde nijedan layer nije fired). Veže se na `LiveComplianceProvider` da boja prati zelenu/žutu/crvenu po jurisdikciji. | S | ⏳ blocked by A | Compute trivijalan iz timeline frame-a, `LiveComplianceProvider` već imamo, samo treba per-stage budget table |
+| 3.6.D | **Phase D — Anticipation Density Meter** — koliko spin-ova u session-u trigger-uje `ANTICIPATION_TENSION_*`? Industry sweet spot 15–30%; nasi treba da pokažemo na timeline-u procenat + indikator GOOD/LOW/HIGH. | S | ⏳ blocked by C/E | Postojeći `_anticipationReels` Set, plus session counter iz session recorder-a |
+| 3.6.E | **Phase E — Session Recorder + Best Win Detector** — klik [Record N spins] → engine pusti N spin-ova zaredom (50 default), snima sve stage events + RNG seeds + master output u `MasterRingBuffer` ekstenziju. Auto-detektuje "best win moment" (highest tier × dramatic ratio: `tier_multiplier × win_to_bet_ratio × duration_ms`). Lista session-a u sub-panelu sa replay buttons. | L | ⏳ pre-req | Treba fix slot_spin pipeline issue (P2 iz `f3143077` — sample-mode spin lifecycle ne kompletira), zatim `MasterRingBuffer.expandTo60s()` + per-spin marker injekcija |
+| 3.6.F | **Phase F — Marketing Clip Export** — one-click iz "best win" entry-ja: MP4 (slot canvas screen recording) + WAV (master bounce) + JSON metadata (RNG seed, win amount, multiplier, stage timeline). Output ide u `~/Library/Application Support/FluxForge Studio/clips/`. | L | ⏳ blocked by E | `MasterRingBuffer` audio bounce (✅), screen recording: koristimo postojeći `CortexVisionService` capture loop + ffmpeg muxing (treba dep dodati) |
+| 3.6.G | **Phase G — Stress Test Mode** — generiše batch spin-ova sa biased RNG outcomes (10× near-miss, 10× big win, 10× free spins trigger), agreguje stage timing distribuciju i izveštava outliers ("WIN_BIG nekad traje 1200ms, nekad 2400ms — 100% varijacija — fix"). | M | ⏳ blocked by E | `rf_ab_sim` ima batch simulation, koristimo to + post-hoc statistika nad `_lastStages` cache-om svakog spin-a |
+| 3.6.H | **Phase H — Per-Spin Profile Compare** — overlay timeline za "volatility=high vs medium" da vidi kako se anticipation timing menja između profila.  Toggle profila u Math HUD-u → timeline strip prelazi u dual-track display. | M | ⏳ blocked by E | `SlotLabProvider.setVolatilityPreset` (✅), treba samo dual-cache state |
+
+#### Why "ultimate slot-native, not DAW"
+
+| DAW pristup (mrtav) | Ovaj predlog (slot-native) |
+|---|---|
+| Linearni timeline ruler | Stage flow strip — Y=stage, X=offset_ms iz spina, color=category |
+| Play / Stop / Rec | REPLAY (re-fire spin) / JUMP (audition stage) / SESSION (multi-spin record) |
+| Loop region | Anticipation density meter — meri retke event-e umesto da looping-uje frame |
+| Master output bounce | Marketing clip export iz "best win" detektora |
+| Cursor scrub kroz pesmu | Scrubber kroz **arc spin-a** — drag → highlight aktivnog stage-a + audition |
+
+#### 3 ULTIMATIVNE feature-e koje DAW-i nemaju
+
+1. **Audio Clash Detector** ⚔ — Wwise nema, FMOD nema.  Detektuje kad se dva audio layer-a bore za isti bus u istom vremenskom slice-u.  Click → Mixer sa offending layers selected.
+2. **Session Recorder + Best Win Detector** 🎞 — slot industrija plaća $5k/min za marketing clip production.  Ovde free, sa auto-best-moment detection iz win tier × dramaticnosti formule.
+3. **Time Budget Compliance** ⏱ — direktno se vezuje na `ComplianceLightsBadge` u omnibaru.  Per-jurisdiction caps (MGA, UKGC, NV, NJ) za WIN presentation duration kao Live linting.
+
+#### Ulazni kod / referente
+
+- `lib/screens/helix_screen.dart:_replayLastSpin/_showJumpToStageDialog/_clearLastSpin` — Phase 0 entry points
+- `lib/providers/slot_lab/slot_stage_provider.dart:_lastStages` — cache za sve faze
+- `lib/widgets/lower_zone/slotlab/slotlab_painters.dart` — grid painter pattern za reuse u Phase A
+- `crates/rf-engine/src/master_ring.rs` — base za Phase E (treba expand to 60s)
+- `lib/services/live_compliance_provider.dart` — Phase C integration target
+- `crates/rf-bridge/src/auto_spatial_ffi.rs:auto_spatial_get_all_outputs` — refernca za batch query pattern (Phase E session export)
+
+#### Sledeći commit checkpoint
+
+**Phase A (M, ~2h)** — Stage Flow Strip painter + scrubber.  Stand-alone, ne traži pipeline fix.  Vizualno radi čim ima `_lastStages` populate-ovan (manuelan SPIN klik).  Checkpoint: CortexEye snap pokazuje X×Y grid stage rows, scrubber drag radi, audition single-stage iz scrub pozicije.
+
+---
+
 ### 3.5 Atmos + spatial catch-up
 
 | # | Zadatak | Effort | Status |
