@@ -1594,6 +1594,9 @@ class _MainGameZone extends StatelessWidget {
   final bool showScatterWin;
   final bool showCascade;
   final void Function(int reelIndex, int rowIndex)? onCellTap;
+  /// FLUX_MASTER_TODO 0.5 D.1 — forwarded to inner SlotPreviewWidget.
+  final void Function(int reelIndex, int rowIndex, String audioPath)?
+      onAudioDropOnReel;
   final GlobalKey<SlotPreviewWidgetState>? previewKey;
 
   // FS Summary overlay data
@@ -1615,6 +1618,7 @@ class _MainGameZone extends StatelessWidget {
     this.showScatterWin = false,
     this.showCascade = false,
     this.onCellTap,
+    this.onAudioDropOnReel,
     this.previewKey,
     this.showFsSummary = false,
     this.fsSummaryTotalWin = 0.0,
@@ -1731,6 +1735,7 @@ class _MainGameZone extends StatelessWidget {
                       showWinPresentation: true,
                       isTransitionActive: flow.isInTransition,
                       onCellTap: onCellTap,
+                      onAudioDropOnReel: onAudioDropOnReel,
                     ),
                   ),
                   // L5 Game Flow Overlay — feature-specific UI (FS counter, H&W grid, etc.)
@@ -4779,6 +4784,12 @@ class PremiumSlotPreview extends StatefulWidget {
   /// Used by HELIX Context Lens (C1)
   final void Function(int reelIndex, int rowIndex)? onCellTap;
 
+  /// FLUX_MASTER_TODO 0.5 D.1 — Reel Cell as Audio Bind Target.
+  /// Forwarded to inner `SlotPreviewWidget` — drop audio file path
+  /// (String) na ćeliju → wire `REEL_STOP_<reelIndex>` direktno.
+  final void Function(int reelIndex, int rowIndex, String audioPath)?
+      onAudioDropOnReel;
+
   const PremiumSlotPreview({
     super.key,
     required this.onExit,
@@ -4790,6 +4801,7 @@ class PremiumSlotPreview extends StatefulWidget {
     this.onSplashComplete,
     this.onReload,
     this.onCellTap,
+    this.onAudioDropOnReel,
   });
 
   @override
@@ -6827,6 +6839,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                       rows: widget.rows,
                       winTier: _currentWinTier,
                       onCellTap: widget.onCellTap,
+                      onAudioDropOnReel: widget.onAudioDropOnReel,
                       previewKey: _previewKey,
                       showFsSummary: _showFsSummary,
                       fsSummaryTotalWin: _fsSummaryTotalWin,

@@ -41,7 +41,7 @@
 | # | Stavka | Lokacija | Effort | Status |
 |---|---|---|---|---|
 | A.1 | **Boja audit cross-screen** — fix sve `Colors.amber/grey/teal/purple` direktne reference u `flutter_ui/lib/widgets/**` i `lib/screens/**` na `FluxForgeTheme.*` token-e. Trenutno: 200+ raw `Color(0x…)` literala u kodu, nema single source of truth. | grep `'Color(0x'` u `flutter_ui/lib/` | M (4 h) | 🔴 OPEN |
-| A.2 | **Brand-pin ratchet test** — `test/lints/brand_color_ratchet_test.dart` koji broji raw `Color(0x` outside `lib/theme/`, baseline=current count, fail-CI ako raste. | `flutter_ui/test/lints/` | S (1 h) | 🔴 OPEN |
+| A.2 | **Brand-pin ratchet test** — `test/lints/brand_color_ratchet_test.dart` koji broji raw `Color(0x` outside `lib/theme/`, baseline=current count, fail-CI ako raste. | `flutter_ui/test/lints/` | S (1 h) | ✅ landed (TBD-commit) — 5 testova zelena, 3 baseline-a (Color(0x…)=7595, Color.fromARGB/RGBO=7, Colors.<material>=7068), exclude `lib/theme/` + `lib/src/rust/`, fail-CI sa top-15 offender list-om u failure poruci. |
 | A.3 | **Glassmorphism konzistencija** — sve overlays/popups koriste isti `_kGlassBg` token. Trenutno mix `withOpacity(0.72/0.85/0.9)` po fajlu. Ekstrakovati u `FluxForgeTheme.glassFill / glassBorder / glassBlur`. | `theme/flux_forge_theme.dart` + grep `withOpacity` u widgets | S (2 h) | 🔴 OPEN |
 | A.4 | **Spring animacije globalno** — sve `Duration(ms: ...)` + `Curves.easeIn*` migrirati na `FluxMotion.spring(stiffness, damping)` token (već definisan u `lib/theme/motion.dart` za neke widgete, treba rollout). | grep `Duration(milliseconds:` u widgets/ | M (3 h) | 🔴 OPEN |
 | A.5 | **Typography pin** — sve `TextStyle` calls koje hardkoduju font/size → `FluxForgeTheme.typography.*` (h1/h2/body/mono/microLabel). Eliminiše 30+ inline TextStyle definicija. | grep `TextStyle(` u widgets/ | M (3 h) | 🔴 OPEN |
@@ -53,7 +53,7 @@
 | # | Stavka | Lokacija | Effort | Status |
 |---|---|---|---|---|
 | B.1 | **Event Audit Tool** — CLI/UI tool koji ekstraktuje sve `Stage::*` variants (Rust) + `EventRegistry` entries (Dart) + composite events, generiše `audit/events_<date>.json` sa: stage_name, audio_event_name, audio_assignments, fired_count_lifetime, never_fired (orphans). | `tools/event_audit/` (novi crate) + `lib/services/event_audit_service.dart` | L (1 dan) | 🔴 OPEN |
-| B.2 | **Event Naming Convention pin** — `crates/rf-stage/tests/naming_convention_test.rs`. Pravila: snake_case, prefix po category-i (`audio_*`, `ui_*`, `compliance_*`, `compose_*`), nikad camelCase ili kebab-case. Fail-CI ako neko doda nekonvencionalan event. | `crates/rf-stage/tests/` | S (2 h) | 🔴 OPEN |
+| B.2 | **Event Naming Convention pin** — `crates/rf-stage/tests/naming_convention_test.rs`. Pravila: snake_case, no underscore artifacts, length [3..40], unique, required category prefixes (reel_/win_/rollup_/feature_/bonus_/jackpot_/cascade_/ui_/idle_/anticipation_), sane count [40..200]. Fail-CI ako neko doda nekonvencionalan stage. | `crates/rf-stage/tests/` | S (2 h) | ✅ landed (TBD-commit) — 7 testova zelena, pin-uje 60 trenutno valid stage type names. |
 | B.3 | **Orphan event detector** — runtime sweep koji u DEV builds prijavljuje events koji su registrovani ali nikad fired tokom 100 spinova. Lista u HELIX Monitor → debug sub-tab. | `lib/services/event_orphan_detector.dart` | M (3 h) | 🔴 OPEN |
 | B.4 | **Event timing trace export** — extension postojeće `_lastStages` cache: per-spin export `audit/spin_<id>_trace.json` sa `(event_name, fired_at_ms, payload, source: rust/dart)`. Ulaz u marketing clip metadata (3.6.F). | `lib/providers/slot_lab/slot_stage_provider.dart` | M (3 h) | 🔴 OPEN |
 
@@ -74,7 +74,7 @@
 
 | # | Stavka | Lokacija | Effort | Status |
 |---|---|---|---|---|
-| D.1 | **Reel Cell = Audio Bind Target** — drag audio file iznad reel cell-a → bind na `REEL_STOP_<index>` event direktno (preskače event picker). Visual: cell glow gold, drop ikonica. Persist u `audioAssignments`. | `lib/widgets/slot_lab/premium_slot_preview.dart` reel cell + `lib/providers/slot_lab/slot_lab_project_provider.dart` | M (4 h) | 🔴 OPEN |
+| D.1 | **Reel Cell = Audio Bind Target** — drag audio file iznad reel cell-a → bind na `REEL_STOP_<index>` event direktno (preskače event picker). Visual: cell glow gold, drop ikonica. Persist u `audioAssignments`. | `lib/widgets/slot_lab/premium_slot_preview.dart` reel cell + `lib/providers/slot_lab/slot_lab_project_provider.dart` | M (4 h) | ✅ landed (TBD-commit) — `DragTarget<String>` u `slot_preview_widget.dart:5587`, `onAudioDropOnReel(reelIndex,rowIndex,audioPath)` callback, propagiran kroz `PremiumSlotPreview` + `_MainGameZone`, wired u `helix_screen.dart:1865` na `proj.setAudioAssignment('REEL_STOP_$reelIndex',audioPath)` sa SnackBar feedback. Drop ignoriše tokom spina. Affordance: gold border 2px + music_note ikonica + glow shadow. Brand: koristi `FluxForgeTheme.brandGold` (no raw hex literali). |
 | D.2 | **Reel Cell = Live Math Probe** — long-press na reel cell → tooltip `"Symbol: WILD · paytable: 5/10/50/200 · last hit: 12 spinova"`. Real-time iz `MathBlueprintProvider`. | `lib/widgets/slot_lab/premium_slot_preview.dart` reel cell | M (3 h) | 🔴 OPEN |
 | D.3 | **Reel Cell = Symbol Audition** — tap na reel cell tokom IDLE state → audition `sfx_symbol_<name>` ako postoji u audioAssignments. Brz QA "kako zvuči WILD landing zvuk?". | `lib/widgets/slot_lab/premium_slot_preview.dart` reel cell + `audio_playback_service.dart` | S (2 h) | 🔴 OPEN |
 | D.4 | **Reel Strip Editor (RIGHT klik na reel header)** — context menu sa `[Edit Strip] [Lock Symbols] [Force Outcome] [Show Probability Distribution]`. Force outcome za QA scenario testing. | `lib/widgets/slot_lab/premium_slot_preview.dart` reel header | M (4 h) | 🔴 OPEN |
@@ -106,7 +106,7 @@
 | G.3 | **Apply `_eventMappingOverrides` to config** | `lib/providers/stage_provider.dart:665` | S (2 h) | 🔴 OPEN |
 | G.4 | **Comping render to single file FFI** | `lib/providers/comping_provider.dart:920` + `crates/rf-engine` | M (4 h) | 🔴 OPEN |
 | G.5 | **Beat snapping (requires tempo map)** | `lib/models/timeline/timeline_state.dart:257` | M (3 h) | 🔴 OPEN |
-| G.6 | **Plugin folder picker** | `lib/screens/settings/plugin_manager_screen.dart:686` | XS (30 min) | 🔴 OPEN |
+| G.6 | **Plugin folder picker** | `lib/screens/settings/plugin_manager_screen.dart:686` | XS (30 min) | ✅ landed (TBD-commit) — `NativeFilePicker.pickDirectory(title:'Select Plugin Scan Folder')` wired, dedupe guard sa SnackBar ako path već postoji, mounted check pre setState. |
 | G.7 | **Hot-reload audio assets from disk** | `lib/screens/helix_screen.dart:2309` | S (2 h) | 🔴 OPEN |
 | G.8 | **Test combinator save dialog** | `lib/widgets/qa/test_combinator_panel.dart:90` | S (1 h) | 🔴 OPEN |
 | G.9 | **Timing validation save dialog** | `lib/widgets/qa/timing_validation_panel.dart:63` | S (1 h) | 🔴 OPEN |

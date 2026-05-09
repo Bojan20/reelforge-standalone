@@ -7,6 +7,7 @@
 /// - Plugin paths configuration
 
 import 'package:flutter/material.dart';
+import '../../services/native_file_picker.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../../src/rust/native_ffi.dart';
 
@@ -682,11 +683,25 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: () {
-                // TODO: Open folder picker and add path
-                setState(() {
-                  _scanPaths.add('/New/Plugin/Path');
-                });
+              // FLUX_MASTER_TODO 0.5 G.6 — wire native folder picker.
+              // Returns null on cancel; ignore duplicates so the list
+              // doesn't grow unbounded if user re-picks an existing path.
+              onPressed: () async {
+                final picked = await NativeFilePicker.pickDirectory(
+                  title: 'Select Plugin Scan Folder',
+                );
+                if (picked == null || picked.isEmpty) return;
+                if (!mounted) return;
+                if (_scanPaths.contains(picked)) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      duration: const Duration(seconds: 2),
+                      content: Text('Path already in list: $picked'),
+                    ),
+                  );
+                  return;
+                }
+                setState(() => _scanPaths.add(picked));
               },
               icon: const Icon(Icons.add),
               label: const Text('Add Path'),

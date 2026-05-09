@@ -520,6 +520,14 @@ class SlotPreviewWidget extends StatefulWidget {
   /// Used by HELIX Context Lens (C1)
   final void Function(int reelIndex, int rowIndex)? onCellTap;
 
+  /// FLUX_MASTER_TODO 0.5 D.1 — Reel Cell as Audio Bind Target.
+  /// Called when user drops an audio file (path String) onto a reel cell.
+  /// Implementer typically calls `SlotLabProjectProvider.setAudioAssignment(
+  /// 'REEL_STOP_$reelIndex', audioPath)` to wire the dropped audio
+  /// directly to the reel-stop event for that reel — no event picker.
+  final void Function(int reelIndex, int rowIndex, String audioPath)?
+      onAudioDropOnReel;
+
   const SlotPreviewWidget({
     super.key,
     required this.provider,
@@ -530,6 +538,7 @@ class SlotPreviewWidget extends StatefulWidget {
     this.showWinPresentation = true, // Default: show (for standalone usage)
     this.isTransitionActive = false,
     this.onCellTap,
+    this.onAudioDropOnReel,
   });
 
   @override
@@ -5570,83 +5579,139 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             child: Opacity(
               // CRITICAL: Ensure opacity is always valid (0.0-1.0) - double guard
               opacity: (cascadeOpacity * dimOpacity).clamp(0.0, 1.0),
-              child: GestureDetector(
-                onTap: widget.onCellTap != null
-                    ? () => widget.onCellTap!(reelIndex, rowIndex)
-                    : null,
-                child: _clipForShape(cellShape, Container(
-                width: cellWidth,
-                height: cellHeight,
-                margin: const EdgeInsets.all(1),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF08080C),
-                  borderRadius: _borderRadiusForShape(cellShape),
-                  border: Border.all(
-                    color: isCascadePopPosition && _isCascading
-                        ? const Color(0xFFFFD700).withValues(alpha: cascadeOpacity)
-                        : borderColor,
-                    width: borderWidth,
-                  ),
-                  boxShadow: isCascadePopPosition && _isCascading
-                      ? [
-                          BoxShadow(
-                            color: const Color(0xFFFFD700).withValues(alpha: 0.6 * cascadeOpacity),
-                            blurRadius: 16 * cascadeScale,
-                            spreadRadius: 4 * cascadeScale,
-                          ),
-                        ]
-                      : shadows,
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: Stack(
-                  children: [
-                    // Main symbol content
-                    isReelSpinning
-                        ? _buildProfessionalSpinningContent(
-                            reelIndex, rowIndex, symbolSize, reelState,
-                            isAnticipation: isAnticipationReel && _isAnticipation,
-                          )
-                        : _buildStaticSymbolContent(
-                            reelIndex, rowIndex, symbolSize, isWinningPosition,
-                            isNearMiss: isNearMissPosition && _isNearMiss,
-                          ),
-                    // ═════════════════════════════════════════════════════════
-                    // V14: Symbol Name Label — shows which symbol is winning
-                    // Appears in bottom-right corner during win highlight
-                    // ═════════════════════════════════════════════════════════
-                    if (isWinningPosition && !isReelSpinning && symbolName != null)
-                      Positioned(
-                        bottom: 2,
-                        right: 2,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: _getWinGlowColor().withValues(alpha: 0.85),
-                            borderRadius: BorderRadius.circular(3),
-                            boxShadow: [
-                              BoxShadow(
-                                color: _getWinGlowColor().withValues(alpha: 0.5),
-                                blurRadius: 4,
-                              ),
-                            ],
-                          ),
-                          child: Text(
-                            symbolName,
-                            style: const TextStyle(
-                              fontSize: 8,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
+              // FLUX_MASTER_TODO 0.5 D.1 — Reel cell as audio bind target.
+              // Wrap GestureDetector with DragTarget<String> tako da drop
+              // audio file path-a (String) na ovu ćeliju trigger-uje
+              // `onAudioDropOnReel(reelIndex, rowIndex, audioPath)`. Drop
+              // se ignoriše tokom spina (audio bind mid-spin nema smisla).
+              child: DragTarget<String>(
+                onWillAcceptWithDetails: (details) =>
+                    widget.onAudioDropOnReel != null &&
+                    details.data.isNotEmpty &&
+                    !isReelSpinning,
+                onAcceptWithDetails: (details) {
+                  widget.onAudioDropOnReel?.call(
+                    reelIndex,
+                    rowIndex,
+                    details.data,
+                  );
+                },
+                builder: (context, candidateData, rejectedData) {
+                  final bool isAudioHovering = candidateData.isNotEmpty;
+                  return GestureDetector(
+                    onTap: widget.onCellTap != null
+                        ? () => widget.onCellTap!(reelIndex, rowIndex)
+                        : null,
+                    child: _clipForShape(cellShape, Container(
+                      width: cellWidth,
+                      height: cellHeight,
+                      margin: const EdgeInsets.all(1),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF08080C),
+                        borderRadius: _borderRadiusForShape(cellShape),
+                        border: Border.all(
+                          color: isAudioHovering
+                              ? FluxForgeTheme.brandGold
+                              : isCascadePopPosition && _isCascading
+                                  ? const Color(0xFFFFD700)
+                                      .withValues(alpha: cascadeOpacity)
+                                  : borderColor,
+                          width: isAudioHovering ? 2.0 : borderWidth,
                         ),
+                        boxShadow: isAudioHovering
+                            ? [
+                                BoxShadow(
+                                  color: FluxForgeTheme.brandGold
+                                      .withValues(alpha: 0.55),
+                                  blurRadius: 14,
+                                  spreadRadius: 2,
+                                ),
+                              ]
+                            : isCascadePopPosition && _isCascading
+                                ? [
+                                    BoxShadow(
+                                      color: const Color(0xFFFFD700)
+                                          .withValues(alpha: 0.6 * cascadeOpacity),
+                                      blurRadius: 16 * cascadeScale,
+                                      spreadRadius: 4 * cascadeScale,
+                                    ),
+                                  ]
+                                : shadows,
                       ),
-                  ],
-                ),
-              )),
-            )), // Close GestureDetector + Opacity child
-          ), // V6: Close Transform.rotate
-        ),
+                      clipBehavior: Clip.antiAlias,
+                      child: Stack(
+                        children: [
+                          // Main symbol content
+                          isReelSpinning
+                              ? _buildProfessionalSpinningContent(
+                                  reelIndex, rowIndex, symbolSize, reelState,
+                                  isAnticipation:
+                                      isAnticipationReel && _isAnticipation,
+                                )
+                              : _buildStaticSymbolContent(
+                                  reelIndex,
+                                  rowIndex,
+                                  symbolSize,
+                                  isWinningPosition,
+                                  isNearMiss:
+                                      isNearMissPosition && _isNearMiss,
+                                ),
+                          // ═══════════════════════════════════════════════
+                          // V14: Symbol Name Label — shows which symbol is winning
+                          // Appears in bottom-right corner during win highlight
+                          // ═══════════════════════════════════════════════
+                          if (isWinningPosition &&
+                              !isReelSpinning &&
+                              symbolName != null)
+                            Positioned(
+                              bottom: 2,
+                              right: 2,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 3, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: _getWinGlowColor()
+                                      .withValues(alpha: 0.85),
+                                  borderRadius: BorderRadius.circular(3),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: _getWinGlowColor()
+                                          .withValues(alpha: 0.5),
+                                      blurRadius: 4,
+                                    ),
+                                  ],
+                                ),
+                                child: Text(
+                                  symbolName,
+                                  style: const TextStyle(
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          // FLUX_MASTER_TODO 0.5 D.1 — Drop affordance icon.
+                          if (isAudioHovering)
+                            const Positioned(
+                              top: 4,
+                              right: 4,
+                              child: Icon(
+                                Icons.music_note,
+                                size: 18,
+                                color: FluxForgeTheme.brandGold,
+                              ),
+                            ),
+                        ],
+                      ),
+                    )),
+                  );
+                },
+              ),
+            ), // Close Opacity (DragTarget closed above)
+          ), // Close Transform.scale
+        ), // V6: Close Transform.rotate
         );
       },
     );

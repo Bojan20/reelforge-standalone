@@ -1860,6 +1860,28 @@ class _HelixScreenState extends State<HelixScreen>
                       }
                     });
                   },
+                  // FLUX_MASTER_TODO 0.5 D.1 — Reel cell as audio bind target.
+                  // Drop audio file path → bind direktno na REEL_STOP_<reelIndex>
+                  // event preko `setAudioAssignment` (per-reel auto-expand
+                  // takođe popunjava sve REEL_STOP_i sa stereo pan-om).
+                  onAudioDropOnReel: (reelIndex, rowIndex, audioPath) {
+                    final stage = 'REEL_STOP_$reelIndex';
+                    proj.setAudioAssignment(stage, audioPath);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          duration: const Duration(seconds: 2),
+                          backgroundColor: FluxForgeTheme.bgElevated,
+                          content: Text(
+                            '🎵 Bound to $stage',
+                            style: const TextStyle(
+                              color: FluxForgeTheme.brandGold,
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+                  },
                 );
                   },
                 ),
