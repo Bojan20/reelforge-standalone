@@ -489,6 +489,22 @@ class _HelixScreenState extends State<HelixScreen>
             );
             GetIt.instance<GameFlowProvider>().forceTransition(target);
           });
+        // TIMELINE dock-tab quick actions — eye-automation for the
+        // 2026-05-09 REPLAY / JUMP / CLEAR trio.  Used by autonomous QA
+        // tests via /eye/helix_action so the same code path the user
+        // taps fires through the same handlers.
+        case 'timeline_replay':
+          _replayLastSpin();
+        case 'timeline_jump_stage':
+          // Bypass the dialog when called from automation — stage name
+          // is supplied directly.
+          silentRun('eye.timelineJumpStage', () {
+            final stage = (params['stage'] as String?)?.toUpperCase();
+            if (stage == null || stage.isEmpty) return;
+            EventRegistry.instance.triggerStage(stage);
+          });
+        case 'timeline_clear':
+          _clearLastSpin();
         // Phase 9: Live Play Orb overlay eye-automation
         case 'orb_show':
           silentRun('eye.orbShow', () { LivePlayOrbOverlayState.current?.show(); });
@@ -997,6 +1013,162 @@ class _HelixScreenState extends State<HelixScreen>
       };
 
   /// SPRINT 1 SPEC-17 — toast shown 1.5s bottom-center after a stage shortcut.
+  // ─── TIMELINE dock-tab quick actions (2026-05-09) ───────────────────────
+  //
+  // Replaced the old PLAY/STOP/REC/LOOP/GOTO_START placeholder strip with
+  // three actions that map onto the real SlotStageProvider lifecycle.
+  // All three are scaffolded with mounted guards + empty-cache toasts so
+  // they fail loud instead of silently doing nothing.
+
+  /// Re-play the cached `_lastStages` sequence.  Uses
+  /// `setStages(stages, autoPlay: true)` which resets the cursor and
+  /// schedules the same stage-by-stage timer the real spin uses.
+  /// Toasts when there is nothing to replay.
+  void _replayLastSpin() {
+    silentRun('timeline.replayLastSpin', () {
+      final coord = GetIt.instance<SlotLabCoordinator>();
+      final stages = coord.stageProvider.lastStages;
+      if (stages.isEmpty) {
+        _showInfoToast('No spin recorded yet — press SPIN first');
+        return;
+      }
+      // Stop any in-flight playback before re-arming so timers don't race.
+      coord.stageProvider.stopStagePlayback();
+      coord.stageProvider.setStages(stages, autoPlay: true);
+      _showInfoToast('Replaying ${stages.length} stages');
+    });
+  }
+
+  /// Picker dialog over the cached stages so the user can audition a
+  /// single stage in isolation.  Each entry fires
+  /// `EventRegistry.triggerStage(stageType)` which resolves to whatever
+  /// composite is bound to that stage in the registry — the same path
+  /// the live spin engine uses.
+  Future<void> _showJumpToStageDialog() async {
+    if (!mounted) return;
+    final coord = GetIt.instance<SlotLabCoordinator>();
+    final stages = coord.stageProvider.lastStages;
+    if (stages.isEmpty) {
+      _showInfoToast('No spin recorded yet — press SPIN first');
+      return;
+    }
+
+    final picked = await showDialog<SlotLabStageEvent>(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: const Color(0xFF111118),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        child: SizedBox(
+          width: 360,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                child: Row(children: [
+                  const Icon(Icons.skip_next_rounded,
+                      size: 14, color: FluxForgeTheme.accentCyan),
+                  const SizedBox(width: 6),
+                  Text('Jump to stage  (${stages.length})',
+                      style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                          color: FluxForgeTheme.textPrimary,
+                          fontWeight: FontWeight.w600)),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(ctx),
+                    child: const Icon(Icons.close_rounded,
+                        size: 14, color: FluxForgeTheme.textTertiary),
+                  ),
+                ]),
+              ),
+              const Divider(height: 1, color: Color(0xFF222230)),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: stages.length,
+                  itemBuilder: (ctx, i) {
+                    final s = stages[i];
+                    return InkWell(
+                      onTap: () => Navigator.pop(ctx, s),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 30,
+                              child: Text('${i + 1}',
+                                  style: const TextStyle(
+                                      fontFamily: 'monospace',
+                                      fontSize: 10,
+                                      color: FluxForgeTheme.textTertiary)),
+                            ),
+                            Expanded(
+                              child: Text(s.stageType,
+                                  style: const TextStyle(
+                                      fontFamily: 'monospace',
+                                      fontSize: 11,
+                                      color: FluxForgeTheme.textPrimary)),
+                            ),
+                            Text('${s.timestampMs.toInt()} ms',
+                                style: const TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontSize: 9,
+                                    color: FluxForgeTheme.textTertiary)),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (picked == null || !mounted) return;
+    silentRun('timeline.jumpToStage', () {
+      EventRegistry.instance.triggerStage(picked.stageType.toUpperCase());
+      _showInfoToast('Triggered ${picked.stageType}');
+    });
+  }
+
+  /// Drop the cached stages so the next REPLAY/JUMP press informs the
+  /// user instead of replaying stale data.  Also stops any in-flight
+  /// playback so the cache and audio output go quiet together.
+  void _clearLastSpin() {
+    silentRun('timeline.clearLastSpin', () {
+      final coord = GetIt.instance<SlotLabCoordinator>();
+      coord.stageProvider.stopStagePlayback();
+      coord.stageProvider.setStages(const []);
+      _showInfoToast('Last spin cleared');
+    });
+  }
+
+  /// Lightweight neutral toast — single-line message, 1.4 s.
+  /// Used by TIMELINE quick actions (REPLAY / JUMP / CLEAR) when the
+  /// outcome is informational rather than an error.
+  void _showInfoToast(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message,
+            style: const TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 11,
+                color: FluxForgeTheme.textPrimary)),
+        backgroundColor: const Color(0xFF1A1A22),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(milliseconds: 1400),
+      ),
+    );
+  }
+
   void _showStageToast(String stage) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -2145,31 +2317,33 @@ class _HelixScreenState extends State<HelixScreen>
           ),
         ];
       case 3: // TIMELINE
+        // 2026-05-09 — replaced 5 placeholder dock actions (PLAY/STOP/REC/
+        // LOOP/GOTO_START) that just trigger-ed unbound TIMELINE_* stages
+        // and produced silence.  Slot game is event-driven (SPIN owns the
+        // transport), so we expose THREE actions that actually map onto
+        // the SlotStageProvider lifecycle:
+        //   • REPLAY LAST SPIN  → re-play the cached _lastStages sequence
+        //                         through the same engine path as a real spin.
+        //   • JUMP TO STAGE     → picker dialog over the cached stages so
+        //                         you can audition any single stage in
+        //                         isolation without firing a full spin.
+        //   • CLEAR LAST SPIN   → drop the cache so REPLAY/JUMP go quiet
+        //                         until the next real spin populates them.
         return [
           _QuickAction(
-            icon: Icons.skip_previous_rounded, label: 'START',
-            color: FluxForgeTheme.textTertiary,
-            onTap: () => silentRun('quickAction.timelineGotoStart', () { EventRegistry.instance.triggerStage('TIMELINE_GOTO_START'); }),
-          ),
-          _QuickAction(
-            icon: Icons.play_arrow_rounded, label: 'PLAY',
+            icon: Icons.replay_rounded, label: 'REPLAY',
             color: FluxForgeTheme.accentOrange,
-            onTap: () => silentRun('quickAction.timelinePlay', () { EventRegistry.instance.triggerStage('TIMELINE_PLAY'); }),
+            onTap: _replayLastSpin,
           ),
           _QuickAction(
-            icon: Icons.stop_rounded, label: 'STOP',
-            color: FluxForgeTheme.accentOrange,
-            onTap: () => silentRun('quickAction.timelineStop', () { EventRegistry.instance.triggerStage('TIMELINE_STOP'); }),
-          ),
-          _QuickAction(
-            icon: Icons.fiber_manual_record_rounded, label: 'REC',
-            color: const Color(0xFFFF4060),
-            onTap: () => silentRun('quickAction.timelineRecord', () { EventRegistry.instance.triggerStage('TIMELINE_RECORD'); }),
-          ),
-          _QuickAction(
-            icon: Icons.loop_rounded, label: 'LOOP',
+            icon: Icons.skip_next_rounded, label: 'JUMP',
             color: FluxForgeTheme.accentCyan,
-            onTap: () => silentRun('quickAction.timelineToggleLoop', () { EventRegistry.instance.triggerStage('TIMELINE_TOGGLE_LOOP'); }),
+            onTap: _showJumpToStageDialog,
+          ),
+          _QuickAction(
+            icon: Icons.delete_sweep_rounded, label: 'CLEAR',
+            color: FluxForgeTheme.textTertiary,
+            onTap: _clearLastSpin,
           ),
         ];
       case 4: // INTEL
