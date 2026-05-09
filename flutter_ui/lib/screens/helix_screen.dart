@@ -90,6 +90,7 @@ import '../widgets/slot_lab/orb_mixer.dart';
 import '../widgets/helix/audio_coverage_badge.dart';
 import '../widgets/helix/compliance_lights_badge.dart';
 import '../widgets/helix/stage_flow_strip.dart';
+import '../widgets/helix/timeline_intelligence.dart';
 import '../widgets/helix/ai_composer_panel.dart'; // Model 3 — multi-provider AI Composer
 import '../providers/mixer_dsp_provider.dart';
 import '../providers/orb_mixer_provider.dart';
@@ -6429,13 +6430,26 @@ class _TimelinePanelState extends State<_TimelinePanel> {
             ),
           ]),
           const SizedBox(height: 4),
+          // FAZA 3.6.B + 3.6.C + 3.6.D — Timeline Intelligence Bar.
+          // Tri slot-native indikatora iznad Stage Flow Strip-a:
+          //   ⚔ Audio Clash Detector — pairwise (stage, layer) overlap
+          //     na istom busId-u tokom poslednjeg spina; tooltip lista
+          //     do 8 najgorih clash-ova sortiranih po duration.
+          //   ⏱ Time Budget Compliance — total spin duration vs
+          //     jurisdiction cap (3500ms UKGC default), per-stage soft
+          //     caps iz industrijske matrice (`_kStageBudgets`).
+          //   🔥 Anticipation Density Meter — % poslednjih 50 spinova
+          //     koji su trigger-ovali ANTICIPATION_TENSION_*; sweet spot
+          //     15–30% (color tier: <5 red, 5–15 orange, 15–30 green,
+          //     >30 yellow).
+          const TimelineIntelligenceBar(),
+          const SizedBox(height: 4),
           // FAZA 3.6.A — Stage Flow Strip (slot-native composition view).
           // Painta horizontalnu traku sa chunk-om za svaki stage iz
           // SlotLabCoordinator.stageProvider.lastStages, kategorije
           // bojom-kodirane (spin/win/feature/...).  Klik na chunk
           // = audition kroz EventRegistry.triggerStage(), isti put
           // koji TIMELINE JUMP quick-action koristi.
-          const SizedBox(height: 4),
           const StageFlowStrip(height: 56),
           const SizedBox(height: 4),
           // Ruler — clickable to seek (T3), with scroll
