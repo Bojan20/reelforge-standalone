@@ -1459,8 +1459,11 @@ class EngineApi {
     int curve = 1, // EqualPower default
   }) {
     if (!_useMock) {
-      final nativeClipAId = int.tryParse(clipAId);
-      final nativeClipBId = int.tryParse(clipBId);
+      // BUG#5 FIX: Use _parseClipId for consistency with all other clip ops.
+      // Direct int.tryParse fails on compound IDs like "clip_12"; the helper
+      // strips the prefix and pulls the first numeric segment.
+      final nativeClipAId = _parseClipId(clipAId);
+      final nativeClipBId = _parseClipId(clipBId);
       if (nativeClipAId != null && nativeClipBId != null) {
         final xfadeId = _ffi.createCrossfade(nativeClipAId, nativeClipBId, duration, curve);
         if (xfadeId != 0) {

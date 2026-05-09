@@ -1086,7 +1086,8 @@ Sprint 4 (layout memory, power users):                 ✅ DONE (ce2a90a9 + c58c
 >   ⚡ SPIN PREVIEW staggered per-reel animacija (bez audio side-effects).
 >
 > **Detaljna spec:** `.claude/MASTER_TODO.md` FAZA 3.7.
-> **Preostalo za 3.7:** 3.7.H+ vizuelni diff overlay + 3.7.K/L/M (RTP Solver, Compliance Audit, AI Recommender).
+> **Preostalo za 3.7:** 3.7.K (RTP Solver, L), 3.7.M (AI Recommender, XL).
+> **Sad landed:** 3.7.H+ vizuelni diff side-by-side polish + 3.7.L Compliance Audit Trail.
 
 | # | Stavka | Status |
 |---|---|---|
@@ -1098,7 +1099,9 @@ Sprint 4 (layout memory, power users):                 ✅ DONE (ce2a90a9 + c58c
 | 3.7.E | Anticipation Tip A/B/Custom + per-reel checkboxes + audio `[bind ▸]` dugmad za L1–L4 → triggerStage + audition toast | ✅ `d27ac94f` |
 | 3.7.F | Jurisdiction overlay (UKGC / MGA / SE / NJ / NV) + per-field violation badges (megaways, cluster, near-miss, feature buy, custom tip) | ✅ `d27ac94f` |
 | 3.7.G | Live Grid Visualizer: `_GridVisualizerWidget` StatefulWidget, emoji simboli po ćeliji, Megaways per-reel variable height, payline color-cycling (20 patterns) + nav, cluster adjacency + diagonal, ways connections, ⚡ SPIN PREVIEW per-reel staggered anim | ✅ `[next]` |
-| 3.7.H | Snapshot Diff view sa L/R picker, +/−/~ entries (JSON-shape) | ✅ `d27ac94f` (vizuelni polish na side-by-side polja je `3.7.H+` follow-up) |
+| 3.7.H | Snapshot Diff view sa L/R picker, +/−/~ entries (JSON-shape) | ✅ `d27ac94f` |
+| 3.7.H+ | Visual Snapshot Diff polish: 3-column layout (FIELD ‖ LEFT ‖ RIGHT), per-row colored row container, statistical summary chips (~/+/−/=), filter "show unchanged" toggle, value-box highlight outline za added/removed, "✓ Snapshots are identical" empty-state | ✅ landed (TBD-commit) — `helix_screen.dart::_buildSnapshotDiffView` rewrite + `_DiffStatChip` widget |
+| 3.7.L | Compliance Audit Trail: append-only JSONL log u `~/Library/Application Support/FluxForge Studio/audit/compliance_YYYY-MM-DD.jsonl`, daily rotation; in-memory ring buffer 200 entries za UI; hooks u 3 setJurisdiction call site-a (aurexis_profile, rgai, rgai_ffi); skip pattern za idempotent re-applies | ✅ landed (TBD-commit) — `services/compliance_audit_trail.dart` (220 LOC) |
 | 3.7.I | Real-time Integrity Validator sa 4 severity tier-a (info/warn/error/blocker) + AutoFixPatch + 🔧 "Fix all" footer | ✅ `d27ac94f` |
 | 3.7.J | Blueprint Round-Trip Export/Import (paste JSON → validate → preview → apply, hash-matched round-trip) | ✅ `d27ac94f` |
 

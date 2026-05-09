@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import '../services/compliance_audit_trail.dart';
 import '../src/rust/native_ffi.dart';
 
 /// RGAI™ Provider — Responsible Gaming Audio Intelligence.
@@ -80,7 +81,26 @@ class RgaiFfiProvider extends ChangeNotifier {
 
   /// Set active jurisdictions and reinitialize.
   void setJurisdictions(List<String> codes) {
+    final before = List<String>.from(_activeJurisdictions);
     init(jurisdictions: codes);
+    // 3.7.L — audit trail.  Compare before vs after lists; skip if
+    // unchanged (e.g. user reapplied same set from preset).
+    if (!_listEquals(before, _activeJurisdictions)) {
+      ComplianceAuditTrail.instance.recordChange(
+        action: 'jurisdictions_set',
+        before: {'jurisdictions': before},
+        after: {'jurisdictions': List<String>.from(_activeJurisdictions)},
+        context: 'rgai_ffi.setJurisdictions',
+      );
+    }
+  }
+
+  static bool _listEquals(List<String> a, List<String> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 
   void _loadJurisdictions() {

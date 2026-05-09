@@ -20,6 +20,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import '../../models/aurexis_jurisdiction.dart';
+import '../../services/compliance_audit_trail.dart';
 
 // =============================================================================
 // RISK RATINGS
@@ -266,12 +267,20 @@ class RgaiProvider extends ChangeNotifier {
 
   void setJurisdiction(AurexisJurisdiction j) {
     if (_jurisdiction == j) return;
+    final before = _jurisdiction;
     _jurisdiction = j;
     // Re-analyze if we have data
     if (_liveAnalyses.isNotEmpty) {
       _regenerateReport();
     }
     notifyListeners();
+    // 3.7.L — audit trail for the RGAI jurisdiction selector.
+    ComplianceAuditTrail.instance.recordChange(
+      action: 'jurisdiction_change',
+      before: {'jurisdiction': before.name},
+      after: {'jurisdiction': j.name},
+      context: 'rgai.setJurisdiction',
+    );
   }
 
   /// Enable Safe Mode — all parameters clamped to regulatory safety range

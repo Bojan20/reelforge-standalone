@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../models/aurexis_profile.dart';
 import '../models/aurexis_jurisdiction.dart';
+import '../services/compliance_audit_trail.dart';
 import 'aurexis_provider.dart';
 
 /// Manages AUREXIS profile selection, A/B comparison, and custom profiles.
@@ -440,10 +441,21 @@ class AurexisProfileProvider extends ChangeNotifier {
 
   /// Set the active jurisdiction and apply its overrides.
   void setJurisdiction(AurexisJurisdiction jurisdiction) {
+    final before = _jurisdiction;
     _jurisdiction = jurisdiction;
     _complianceReport = null;
     _pushToEngine();
     notifyListeners();
+    // 3.7.L — Compliance Audit Trail.  Skip when before == after to
+    // avoid noise from idempotent re-applies.
+    if (before != jurisdiction) {
+      ComplianceAuditTrail.instance.recordChange(
+        action: 'jurisdiction_change',
+        before: {'jurisdiction': before.name},
+        after: {'jurisdiction': jurisdiction.name},
+        context: 'aurexis_profile.setJurisdiction',
+      );
+    }
   }
 
   /// Run compliance check against current jurisdiction.

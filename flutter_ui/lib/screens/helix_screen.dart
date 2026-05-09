@@ -9994,12 +9994,38 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
   }
 
   // ─── 3.7.H — snapshot diff view ─────────────────────────────────────────────
+  /// FAZA 3.7.H+ — Visual Snapshot Diff (side-by-side polish).
+  ///
+  /// Pre-ovog iteracije (`d27ac94f`), diff render je bio JSON-list sa
+  /// `+/-/~ field: value` linijama.  Korisnik je morao da pročita value
+  /// pa da skenira okom levo i desno.
+  ///
+  /// Sad: 3-kolone layout — `field | LEFT | RIGHT` — gde se vrednosti
+  /// prikazuju u dve kolone sa highlight-om za changed/added/removed.
+  /// Header bar sa summary statistikom (X changed · Y added · Z removed).
+  /// Filter pills isključuju kategoriju iz prikaza ako korisnik želi
+  /// samo to "šta se promenilo".
   Widget _buildSnapshotDiffView(String leftName, String rightName) {
     final left = _snapshots.firstWhere((s) => s.name == leftName,
         orElse: () => _snapshots.first);
     final right = _snapshots.firstWhere((s) => s.name == rightName,
         orElse: () => _snapshots.first);
     final entries = diffSnapshots(left, right);
+
+    // Statistical summary — quick scan of magnitude of change.
+    final changedN = entries.where((e) => e.kind == DiffChangeKind.changed).length;
+    final addedN = entries.where((e) => e.kind == DiffChangeKind.added).length;
+    final removedN = entries.where((e) => e.kind == DiffChangeKind.removed).length;
+    final unchangedN = entries.where((e) => e.kind == DiffChangeKind.unchanged).length;
+
+    // Filter user can toggle (`_diffShowUnchanged`) so the focus is on what
+    // actually moved between snapshots.  Default off — most users want to
+    // see changes only.
+    final visible = entries.where((e) {
+      if (e.kind == DiffChangeKind.unchanged && !_diffShowUnchanged) return false;
+      return true;
+    }).toList();
+
     return Container(
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
@@ -10008,38 +10034,202 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
         borderRadius: BorderRadius.circular(4),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('DIFF · $leftName ↔ $rightName', style: const TextStyle(
-          fontFamily: 'monospace', fontSize: 8, letterSpacing: 0.6,
-          color: FluxForgeTheme.accentCyan, fontWeight: FontWeight.w700)),
+        // Header — title + summary + filter toggle.
+        Row(children: [
+          Text('DIFF', style: TextStyle(
+            fontFamily: 'monospace', fontSize: 8, letterSpacing: 0.6,
+            color: FluxForgeTheme.accentCyan, fontWeight: FontWeight.w700)),
+          const SizedBox(width: 10),
+          _DiffStatChip(label: '~', count: changedN, color: FluxForgeTheme.accentYellow),
+          const SizedBox(width: 4),
+          _DiffStatChip(label: '+', count: addedN, color: FluxForgeTheme.accentGreen),
+          const SizedBox(width: 4),
+          _DiffStatChip(label: '−', count: removedN, color: FluxForgeTheme.accentRed),
+          const SizedBox(width: 4),
+          _DiffStatChip(label: '=', count: unchangedN, color: FluxForgeTheme.textTertiary),
+          const Spacer(),
+          GestureDetector(
+            onTap: () => setState(() => _diffShowUnchanged = !_diffShowUnchanged),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: _diffShowUnchanged
+                    ? FluxForgeTheme.accentCyan.withValues(alpha: 0.18)
+                    : FluxForgeTheme.bgSurface,
+                borderRadius: BorderRadius.circular(3),
+                border: Border.all(
+                  color: _diffShowUnchanged
+                      ? FluxForgeTheme.accentCyan.withValues(alpha: 0.5)
+                      : FluxForgeTheme.borderSubtle,
+                  width: 0.6,
+                ),
+              ),
+              child: Text(
+                _diffShowUnchanged ? '◉ unchanged' : '○ unchanged',
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 7,
+                  color: _diffShowUnchanged
+                      ? FluxForgeTheme.accentCyan
+                      : FluxForgeTheme.textTertiary,
+                ),
+              ),
+            ),
+          ),
+        ]),
         const SizedBox(height: 4),
-        ...entries.map(_diffEntryRow),
+        // Side-by-side column headers.
+        Row(children: [
+          const SizedBox(width: 80, child: Text('FIELD',
+            style: TextStyle(
+              fontFamily: 'monospace', fontSize: 7,
+              fontWeight: FontWeight.w700,
+              color: FluxForgeTheme.textTertiary,
+              letterSpacing: 0.6))),
+          Expanded(child: Text('  $leftName',
+            style: const TextStyle(
+              fontFamily: 'monospace', fontSize: 7,
+              fontWeight: FontWeight.w700,
+              color: FluxForgeTheme.accentBlue,
+              letterSpacing: 0.4))),
+          const SizedBox(width: 14, child: Text('→',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 8, color: FluxForgeTheme.textTertiary))),
+          Expanded(child: Text('  $rightName',
+            style: const TextStyle(
+              fontFamily: 'monospace', fontSize: 7,
+              fontWeight: FontWeight.w700,
+              color: FluxForgeTheme.accentPurple,
+              letterSpacing: 0.4))),
+        ]),
+        const Divider(height: 6, thickness: 0.5, color: FluxForgeTheme.borderSubtle),
+        ...visible.map(_diffEntryRow),
+        if (visible.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Center(child: Text(
+              changedN + addedN + removedN == 0
+                  ? '✓ Snapshots are identical'
+                  : 'No changes match current filter',
+              style: TextStyle(
+                fontFamily: 'monospace', fontSize: 8,
+                color: changedN + addedN + removedN == 0
+                    ? FluxForgeTheme.accentGreen
+                    : FluxForgeTheme.textTertiary,
+              ),
+            )),
+          ),
       ]),
     );
   }
 
+  /// Toggle for "show unchanged fields" in the diff view.  Default false
+  /// — most diff sessions want changes only.  State lives at screen
+  /// level so it persists while user toggles between snapshot pairs.
+  bool _diffShowUnchanged = false;
+
   Widget _diffEntryRow(DiffEntry e) {
-    final (color, prefix) = switch (e.kind) {
-      DiffChangeKind.unchanged => (FluxForgeTheme.textTertiary, '  '),
-      DiffChangeKind.changed   => (FluxForgeTheme.accentYellow, '~ '),
-      DiffChangeKind.added     => (FluxForgeTheme.accentGreen,  '+ '),
-      DiffChangeKind.removed   => (FluxForgeTheme.accentRed,    '- '),
+    final (bgColor, accentColor, prefix) = switch (e.kind) {
+      DiffChangeKind.unchanged => (
+          Colors.transparent,
+          FluxForgeTheme.textTertiary,
+          '='
+        ),
+      DiffChangeKind.changed => (
+          FluxForgeTheme.accentYellow.withValues(alpha: 0.06),
+          FluxForgeTheme.accentYellow,
+          '~'
+        ),
+      DiffChangeKind.added => (
+          FluxForgeTheme.accentGreen.withValues(alpha: 0.06),
+          FluxForgeTheme.accentGreen,
+          '+'
+        ),
+      DiffChangeKind.removed => (
+          FluxForgeTheme.accentRed.withValues(alpha: 0.06),
+          FluxForgeTheme.accentRed,
+          '−'
+        ),
     };
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 2),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(2),
+        border: Border.all(color: accentColor.withValues(alpha: 0.18), width: 0.5),
+      ),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        SizedBox(width: 12, child: Text(prefix, style: TextStyle(
-          fontFamily: 'monospace', fontSize: 7.5, color: color, fontWeight: FontWeight.w700))),
-        SizedBox(width: 70, child: Text(e.field, style: TextStyle(
-          fontFamily: 'monospace', fontSize: 7, color: color))),
-        Expanded(child: Text(
-          e.kind == DiffChangeKind.changed
-              ? '${_diffVal(e.before)} → ${_diffVal(e.after)}'
-              : _diffVal(e.kind == DiffChangeKind.removed ? e.before : e.after),
-          style: TextStyle(
-            fontFamily: 'monospace', fontSize: 7, color: color),
-          maxLines: 2, overflow: TextOverflow.ellipsis,
+        SizedBox(width: 80, child: Row(children: [
+          SizedBox(width: 12, child: Text(prefix, style: TextStyle(
+            fontFamily: 'monospace', fontSize: 8, color: accentColor,
+            fontWeight: FontWeight.w800))),
+          Expanded(child: Text(e.field, style: TextStyle(
+            fontFamily: 'monospace', fontSize: 7,
+            color: accentColor, fontWeight: FontWeight.w600),
+            maxLines: 1, overflow: TextOverflow.ellipsis)),
+        ])),
+        // LEFT value (before) — relevant for changed + removed; empty for added.
+        Expanded(child: _diffValueBox(
+          value: e.kind == DiffChangeKind.added ? null : e.before,
+          color: e.kind == DiffChangeKind.changed
+              ? FluxForgeTheme.accentBlue
+              : (e.kind == DiffChangeKind.removed ? accentColor : FluxForgeTheme.textTertiary),
+          highlight: e.kind == DiffChangeKind.removed,
+        )),
+        const SizedBox(width: 14, child: Text('→',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 8, color: FluxForgeTheme.textTertiary))),
+        // RIGHT value (after) — relevant for changed + added; empty for removed.
+        Expanded(child: _diffValueBox(
+          value: e.kind == DiffChangeKind.removed ? null : e.after,
+          color: e.kind == DiffChangeKind.changed
+              ? FluxForgeTheme.accentPurple
+              : (e.kind == DiffChangeKind.added ? accentColor : FluxForgeTheme.textTertiary),
+          highlight: e.kind == DiffChangeKind.added,
         )),
       ]),
+    );
+  }
+
+  /// Single value cell — empty placeholder when value is null (added on
+  /// LEFT, removed on RIGHT).  Highlight outline marks the side that
+  /// actually changed (additions on right, removals on left).
+  Widget _diffValueBox({
+    required Object? value,
+    required Color color,
+    required bool highlight,
+  }) {
+    if (value == null) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(2),
+          border: Border.all(
+            color: FluxForgeTheme.borderSubtle.withValues(alpha: 0.4),
+            width: 0.4,
+          ),
+        ),
+        child: Text('∅', style: TextStyle(
+          fontFamily: 'monospace', fontSize: 7,
+          color: FluxForgeTheme.textTertiary.withValues(alpha: 0.5),
+        )),
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      decoration: BoxDecoration(
+        color: highlight ? color.withValues(alpha: 0.12) : Colors.transparent,
+        borderRadius: BorderRadius.circular(2),
+        border: highlight
+            ? Border.all(color: color.withValues(alpha: 0.45), width: 0.5)
+            : null,
+      ),
+      child: Text(_diffVal(value), style: TextStyle(
+        fontFamily: 'monospace', fontSize: 7, color: color,
+        fontWeight: highlight ? FontWeight.w600 : FontWeight.w400),
+        maxLines: 2, overflow: TextOverflow.ellipsis,
+      ),
     );
   }
 
@@ -13751,4 +13941,51 @@ class _HelixModeDef {
     required this.label,
     required this.tooltip,
   });
+}
+
+// FAZA 3.7.H+ — Compact stat chip used in the Snapshot Diff header.
+// Renders `~ 3` or `+ 5` style summary so user sees magnitude of change
+// without parsing the full diff list.
+class _DiffStatChip extends StatelessWidget {
+  final String label;
+  final int count;
+  final Color color;
+
+  const _DiffStatChip({
+    required this.label,
+    required this.count,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isZero = count == 0;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      decoration: BoxDecoration(
+        color: isZero
+            ? Colors.transparent
+            : color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(2.5),
+        border: Border.all(
+          color: color.withValues(alpha: isZero ? 0.18 : 0.4),
+          width: 0.6,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: TextStyle(
+            fontFamily: 'monospace', fontSize: 7,
+            color: isZero ? color.withValues(alpha: 0.4) : color,
+            fontWeight: FontWeight.w800)),
+          const SizedBox(width: 3),
+          Text('$count', style: TextStyle(
+            fontFamily: 'monospace', fontSize: 7,
+            color: isZero ? color.withValues(alpha: 0.4) : color,
+            fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
 }
