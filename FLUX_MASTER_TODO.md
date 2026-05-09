@@ -1072,14 +1072,15 @@ Sprint 4 (layout memory, power users):                 ✅ DONE (ce2a90a9 + c58c
 
 ### 3.7 GAME CONFIG Ultimativni Slot Designer
 
-> **Status:** Phase 0 + A + B + C + D + E + F + H + I + J **landed** u commit `d27ac94f`
-> (2026-05-09, +3409 / −117 LOC, 1086-line `lib/models/game_config_models.dart` + 2323
-> linija u `helix_screen.dart`).
+> **Status:** Phase 0 + A + B + C + D + E + F + **G** + H + I + J **sve landed** ✅
+> - `d27ac94f` (2026-05-09): Phase 0,A,B,C,D,E,F,H,I,J (+3409/-117 LOC)
+> - `[next]` (2026-05-09): Phase G — Live Grid Visualizer ultimativno:
+>   `_GridVisualizerWidget` StatefulWidget, real emoji simboli, Megaways variable-height reels,
+>   payline color-cycling overlay (20 patterns), cluster adjacency hints, ways overlay,
+>   ⚡ SPIN PREVIEW staggered per-reel animacija (bez audio side-effects).
 >
-> **Detaljna spec:** `.claude/MASTER_TODO.md` FAZA 3.7 (379 linija, commit `c5056a4b`).
-> **Preostalo:** Phase 3.7.G (Live Grid Visualizer mini canvas) + 3.7.H+ vizuelni diff
-> overlay + 3 nove Phase 3.7.K/L/M (RTP Solver, Compliance Audit Trail, AI Slot Type
-> Recommender) — sve dokumentovano u `.claude/MASTER_TODO.md` "Preostali rad" sekciji.
+> **Detaljna spec:** `.claude/MASTER_TODO.md` FAZA 3.7.
+> **Preostalo za 3.7:** 3.7.H+ vizuelni diff overlay + 3.7.K/L/M (RTP Solver, Compliance Audit, AI Recommender).
 
 | # | Stavka | Status |
 |---|---|---|
@@ -1090,7 +1091,7 @@ Sprint 4 (layout memory, power users):                 ✅ DONE (ce2a90a9 + c58c
 | 3.7.D | Feature Stack: FreeSpins / Cascade / HoldWin sub-configs sa expand-on-tap inline editor-om | ✅ `d27ac94f` |
 | 3.7.E | Anticipation Tip A/B/Custom + per-reel checkboxes + audio `[bind ▸]` dugmad za L1–L4 → triggerStage + audition toast | ✅ `d27ac94f` |
 | 3.7.F | Jurisdiction overlay (UKGC / MGA / SE / NJ / NV) + per-field violation badges (megaways, cluster, near-miss, feature buy, custom tip) | ✅ `d27ac94f` |
-| 3.7.G | Live Grid Visualizer mini canvas + SPIN PREVIEW | ⏳ next (M effort) |
+| 3.7.G | Live Grid Visualizer: `_GridVisualizerWidget` StatefulWidget, emoji simboli po ćeliji, Megaways per-reel variable height, payline color-cycling (20 patterns) + nav, cluster adjacency + diagonal, ways connections, ⚡ SPIN PREVIEW per-reel staggered anim | ✅ `[next]` |
 | 3.7.H | Snapshot Diff view sa L/R picker, +/−/~ entries (JSON-shape) | ✅ `d27ac94f` (vizuelni polish na side-by-side polja je `3.7.H+` follow-up) |
 | 3.7.I | Real-time Integrity Validator sa 4 severity tier-a (info/warn/error/blocker) + AutoFixPatch + 🔧 "Fix all" footer | ✅ `d27ac94f` |
 | 3.7.J | Blueprint Round-Trip Export/Import (paste JSON → validate → preview → apply, hash-matched round-trip) | ✅ `d27ac94f` |

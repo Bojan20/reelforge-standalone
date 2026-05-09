@@ -9421,25 +9421,35 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
     );
   }
 
-  // ─── 3.7.G mini grid visualizer ─────────────────────────────────────────────
+  // ─── 3.7.G LIVE grid visualizer ─────────────────────────────────────────────
 
   Widget _buildGridVisualizer() {
-    return Container(
-      height: (_rows * 22.0).clamp(44, 154),
-      decoration: BoxDecoration(
-        color: FluxForgeTheme.bgElevated,
-        border: Border.all(color: FluxForgeTheme.borderSubtle),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: CustomPaint(
-        painter: _GridVisualizerPainter(
-          reels: _reels,
-          rows: _rows,
-          winMech: _winMech,
-        ),
-      ),
+    // Symbol source priority: project symbols → slot-type-mapped preset
+    final proj = GetIt.instance<SlotLabProjectProvider>();
+    final List<String> symEmojis = proj.symbols.isNotEmpty
+        ? proj.symbols.map((s) => s.emoji).toList()
+        : _slotTypeToSymbolPreset(_slotType).symbols.map((s) => s.emoji).toList();
+
+    return _GridVisualizerWidget(
+      reels: _reels,
+      rows: _rows,
+      winMech: _winMech,
+      megaways: _winMech == WinMechanismType.megaways ? _megaways : null,
+      clusterConfig: _winMech == WinMechanismType.cluster ? _cluster : null,
+      symbolEmojis: symEmojis,
+      paylines: _paylines,
     );
   }
+
+  /// Maps SlotTypePreset to a sensible default SymbolPreset for the visualizer.
+  SymbolPreset _slotTypeToSymbolPreset(SlotTypePreset type) => switch (type) {
+    SlotTypePreset.classic  => SymbolPreset.classicFruit,
+    SlotTypePreset.bookOf   => SymbolPreset.bookOf,
+    SlotTypePreset.holdWin  => SymbolPreset.highRoller,
+    SlotTypePreset.megaways => SymbolPreset.standardRoyals,
+    SlotTypePreset.cluster  => SymbolPreset.standardRoyals,
+    _                       => SymbolPreset.standardRoyals,
+  };
 
   // ─── inline symbol editor (kept functional from original) ────────────────────
 
@@ -10788,93 +10798,741 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
   }
 }
 
+// ── 3.7.G — Live Grid Visualizer StatefulWidget ──────────────────────────────
+
+class _GridVisualizerWidget extends StatefulWidget {
+  final int reels;
+  final int rows;
+  final WinMechanismType winMech;
+  final MegawaysReelConfig? megaways;
+  final ClusterConfig? clusterConfig;
+  final List<String> symbolEmojis;
+  final int paylines;
+
+  const _GridVisualizerWidget({
+    required this.reels,
+    required this.rows,
+    required this.winMech,
+    this.megaways,
+    this.clusterConfig,
+    required this.symbolEmojis,
+    required this.paylines,
+  });
+
+  @override
+  State<_GridVisualizerWidget> createState() => _GridVisualizerWidgetState();
+}
+
+class _GridVisualizerWidgetState extends State<_GridVisualizerWidget>
+    with TickerProviderStateMixin {
+  List<AnimationController> _reelCtrl = [];
+  List<String> _grid = [];
+  bool _isSpinning = false;
+  int _highlightedPayline = 0;
+  final math.Random _rng = math.Random();
+
+  @override
+  void initState() {
+    super.initState();
+    _initControllers();
+    _fillGrid();
+  }
+
+  @override
+  void didUpdateWidget(_GridVisualizerWidget old) {
+    super.didUpdateWidget(old);
+    final gridChanged = old.reels != widget.reels || old.rows != widget.rows;
+    if (gridChanged) {
+      // Stop any in-progress spin before reinitialising controllers
+      _isSpinning = false;
+      _disposeControllers();
+      _initControllers();
+      _fillGrid();
+    } else if (old.symbolEmojis.length != widget.symbolEmojis.length ||
+               (old.symbolEmojis.isNotEmpty &&
+                old.symbolEmojis.first != widget.symbolEmojis.first)) {
+      // Symbol preset changed — refill grid (only when not spinning)
+      if (!_isSpinning) _fillGrid();
+    }
+    // Clamp payline highlight when paylines count shrinks
+    if (widget.paylines > 0 && _highlightedPayline >= widget.paylines) {
+      _highlightedPayline = 0;
+    }
+  }
+
+  void _initControllers() {
+    _reelCtrl = List.generate(widget.reels, (i) {
+      final ctrl = AnimationController(
+        vsync: this,
+        duration: Duration(milliseconds: 500 + i * 60),
+      );
+      ctrl.addListener(() {
+        if (mounted) setState(() {});
+      });
+      return ctrl;
+    });
+  }
+
+  void _disposeControllers() {
+    for (final c in _reelCtrl) {
+      c.dispose();
+    }
+    _reelCtrl = [];
+  }
+
+  void _fillGrid() {
+    final src = widget.symbolEmojis.isEmpty ? const ['?'] : widget.symbolEmojis;
+    _grid = List.generate(
+      widget.reels * widget.rows,
+      (i) => src[i % src.length],
+    );
+  }
+
+  List<String> _randomGrid() {
+    final src = widget.symbolEmojis.isEmpty ? const ['?'] : widget.symbolEmojis;
+    return List.generate(
+      widget.reels * widget.rows,
+      (_) => src[_rng.nextInt(src.length)],
+    );
+  }
+
+  Future<void> _startSpinPreview() async {
+    if (_isSpinning || !mounted) return;
+    final landing = _randomGrid();
+    setState(() => _isSpinning = true);
+
+    // Start all reels spinning simultaneously
+    for (final ctrl in _reelCtrl) {
+      ctrl.repeat();
+    }
+
+    // Stop reels one by one (staggered landing)
+    for (int r = 0; r < widget.reels; r++) {
+      await Future.delayed(Duration(milliseconds: 350 + r * 220));
+      if (!mounted) return;
+      // Land symbols for this reel
+      for (int row = 0; row < widget.rows; row++) {
+        final idx = r * widget.rows + row;
+        if (idx < landing.length) _grid[idx] = landing[idx];
+      }
+      _reelCtrl[r]
+        ..stop()
+        ..reset();
+      setState(() {});
+    }
+
+    if (!mounted) return;
+    setState(() => _isSpinning = false);
+  }
+
+  @override
+  void dispose() {
+    _disposeControllers();
+    super.dispose();
+  }
+
+  String _formatWays(int ways) {
+    if (ways >= 1000000) return '${(ways / 1000000).toStringAsFixed(1)}M';
+    if (ways >= 1000) return '${(ways / 1000).toStringAsFixed(0)}k';
+    return ways.toString();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Canvas height: Megaways uses maxRows, others use fixed rows
+    final double canvasH = (() {
+      if (widget.winMech == WinMechanismType.megaways && widget.megaways != null) {
+        return (widget.megaways!.maxRows * 22.0).clamp(44.0, 154.0);
+      }
+      return (widget.rows * 22.0).clamp(44.0, 154.0);
+    })();
+
+    final spinOffsets = _reelCtrl.map((c) => c.value).toList();
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          height: canvasH,
+          decoration: BoxDecoration(
+            color: FluxForgeTheme.bgElevated,
+            border: Border.all(color: FluxForgeTheme.borderSubtle),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: CustomPaint(
+              size: Size.infinite,
+              painter: _GridVisualizerPainter(
+                reels: widget.reels,
+                rows: widget.rows,
+                winMech: widget.winMech,
+                megawaysRowsPerReel: widget.megaways?.rowsPerReel,
+                symbols: _grid,
+                reelSpinOffsets: spinOffsets,
+                highlightedPayline: _highlightedPayline,
+                paylines: widget.paylines,
+                clusterConfig: widget.clusterConfig,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Row(children: [
+          // Left: payline nav or ways badge
+          if (widget.winMech == WinMechanismType.paylines && widget.paylines > 1) ...[
+            _navBtn('◀', () => setState(() =>
+                _highlightedPayline = (_highlightedPayline - 1 + widget.paylines) % widget.paylines)),
+            const SizedBox(width: 4),
+            Text(
+              'LINE ${_highlightedPayline + 1}/${widget.paylines}',
+              style: const TextStyle(
+                fontFamily: 'monospace', fontSize: 7,
+                color: FluxForgeTheme.textTertiary,
+              ),
+            ),
+            const SizedBox(width: 4),
+            _navBtn('▶', () => setState(() =>
+                _highlightedPayline = (_highlightedPayline + 1) % widget.paylines)),
+          ] else if (widget.winMech == WinMechanismType.megaways && widget.megaways != null)
+            Text(
+              '${_formatWays(widget.megaways!.totalWays)} WAYS',
+              style: const TextStyle(
+                fontFamily: 'monospace', fontSize: 7,
+                color: Color(0xFFFF9800),
+              ),
+            )
+          else if (widget.winMech == WinMechanismType.ways)
+            Text(
+              'ALL ${widget.reels * widget.rows} POSITIONS',
+              style: const TextStyle(
+                fontFamily: 'monospace', fontSize: 7,
+                color: Color(0xFF9C27B0),
+              ),
+            )
+          else
+            const SizedBox.shrink(),
+          const Spacer(),
+          // SPIN PREVIEW button
+          GestureDetector(
+            onTap: _isSpinning ? null : _startSpinPreview,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: _isSpinning
+                    ? const Color(0xFFFF9800).withValues(alpha: 0.08)
+                    : FluxForgeTheme.accentCyan.withValues(alpha: 0.06),
+                border: Border.all(
+                  color: _isSpinning
+                      ? const Color(0xFFFF9800).withValues(alpha: 0.35)
+                      : FluxForgeTheme.accentCyan.withValues(alpha: 0.25),
+                ),
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Text(
+                _isSpinning ? '◌ SPINNING' : '⚡ SPIN',
+                style: TextStyle(
+                  fontFamily: 'monospace', fontSize: 7,
+                  color: _isSpinning
+                      ? const Color(0xFFFF9800)
+                      : FluxForgeTheme.accentCyan,
+                ),
+              ),
+            ),
+          ),
+        ]),
+      ],
+    );
+  }
+
+  Widget _navBtn(String label, VoidCallback onTap) => GestureDetector(
+    onTap: onTap,
+    child: Container(
+      width: 16, height: 16,
+      decoration: BoxDecoration(
+        color: FluxForgeTheme.bgElevated,
+        border: Border.all(color: FluxForgeTheme.borderSubtle),
+        borderRadius: BorderRadius.circular(2),
+      ),
+      child: Center(
+        child: Text(label,
+          style: const TextStyle(
+            fontFamily: 'monospace', fontSize: 7,
+            color: FluxForgeTheme.textSecondary,
+          )),
+      ),
+    ),
+  );
+}
+
 // ── 3.7.G — Grid Visualizer Painter ─────────────────────────────────────────
 
 class _GridVisualizerPainter extends CustomPainter {
   final int reels;
   final int rows;
   final WinMechanismType winMech;
+  final List<int>? megawaysRowsPerReel;
+  final List<String> symbols;          // length = reels * rows, reel-major
+  final List<double> reelSpinOffsets;  // length = reels, 0.0 = stopped
+  final int highlightedPayline;
+  final int paylines;
+  final ClusterConfig? clusterConfig;
 
-  const _GridVisualizerPainter({
+  static const _accentPaylines = Color(0xFF00B4D8);
+  static const _accentWays     = Color(0xFF9C27B0);
+  static const _accentCluster  = Color(0xFF4CAF50);
+  static const _accentMegaways = Color(0xFFFF9800);
+
+  _GridVisualizerPainter({
     required this.reels,
     required this.rows,
     required this.winMech,
+    this.megawaysRowsPerReel,
+    required this.symbols,
+    required this.reelSpinOffsets,
+    required this.highlightedPayline,
+    required this.paylines,
+    this.clusterConfig,
   });
+
+  Color get _accent => switch (winMech) {
+    WinMechanismType.paylines => _accentPaylines,
+    WinMechanismType.ways     => _accentWays,
+    WinMechanismType.cluster  => _accentCluster,
+    WinMechanismType.megaways => _accentMegaways,
+  };
+
+  // ── Entry point ──────────────────────────────────────────────────────────────
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (reels <= 0 || rows <= 0) return;
+
+    if (winMech == WinMechanismType.megaways && megawaysRowsPerReel != null) {
+      _paintMegawaysGrid(canvas, size);
+    } else {
+      _paintStandardGrid(canvas, size);
+    }
+
+    // Mechanism overlays
+    switch (winMech) {
+      case WinMechanismType.paylines:
+        if (paylines > 0) _paintPaylineOverlay(canvas, size);
+      case WinMechanismType.ways:
+        _paintWaysOverlay(canvas, size);
+      case WinMechanismType.cluster:
+        _paintClusterOverlay(canvas, size);
+      case WinMechanismType.megaways:
+        _paintMegawaysLabel(canvas, size);
+    }
+
+    _paintGridLabel(canvas, size);
+  }
+
+  // ── Standard grid ─────────────────────────────────────────────────────────
+
+  void _paintStandardGrid(Canvas canvas, Size size) {
     final cellW = size.width / reels;
     final cellH = size.height / rows;
+    final accent = _accent;
 
     final borderPaint = Paint()
       ..color = FluxForgeTheme.borderSubtle
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.5;
-
     final fillPaint = Paint()..style = PaintingStyle.fill;
 
-    // Accent based on win mechanism
-    final accent = switch (winMech) {
-      WinMechanismType.paylines => const Color(0xFF00B4D8),
-      WinMechanismType.ways     => const Color(0xFF9C27B0),
-      WinMechanismType.cluster  => const Color(0xFF4CAF50),
-      WinMechanismType.megaways => const Color(0xFFFF9800),
-    };
+    for (int r = 0; r < reels; r++) {
+      final spinAmt = r < reelSpinOffsets.length ? reelSpinOffsets[r] : 0.0;
+      final spinning = spinAmt > 0.01;
+
+      for (int row = 0; row < rows; row++) {
+        final rect = Rect.fromLTWH(
+          r * cellW + 1, row * cellH + 1, cellW - 2, cellH - 2);
+        fillPaint.color = accent.withValues(alpha: 0.04 + (row.isEven ? 0.02 : 0.0));
+        canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(2)), fillPaint);
+        canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(2)), borderPaint);
+
+        if (spinning) {
+          _paintSpinEffect(canvas, rect, accent, spinAmt);
+        } else {
+          final idx = r * rows + row;
+          _paintSymbol(canvas, rect, idx < symbols.length ? symbols[idx] : '?', cellH);
+        }
+      }
+    }
+  }
+
+  // ── Megaways grid (variable per-reel height) ─────────────────────────────
+
+  void _paintMegawaysGrid(Canvas canvas, Size size) {
+    final rwp = megawaysRowsPerReel!;
+    final safeReels = math.min(reels, rwp.length);
+    if (safeReels == 0) return;
+    final cellW = size.width / safeReels;
+    final maxRows = rwp.reduce(math.max);
+
+    final borderPaint = Paint()
+      ..color = FluxForgeTheme.borderSubtle
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.5;
+    final fillPaint = Paint()..style = PaintingStyle.fill;
+
+    for (int r = 0; r < safeReels; r++) {
+      final reelRows = rwp[r].clamp(1, 8);
+      final reelCellH = size.height / reelRows;
+      final spinAmt = r < reelSpinOffsets.length ? reelSpinOffsets[r] : 0.0;
+      final spinning = spinAmt > 0.01;
+
+      // Reel trough background
+      fillPaint.color = _accentMegaways.withValues(alpha: 0.03 + (r.isEven ? 0.02 : 0.0));
+      canvas.drawRect(
+        Rect.fromLTWH(r * cellW + 0.5, 0, cellW - 1, size.height), fillPaint);
+
+      // Cells
+      for (int row = 0; row < reelRows; row++) {
+        final rect = Rect.fromLTWH(
+          r * cellW + 1, row * reelCellH + 1, cellW - 2, reelCellH - 2);
+        fillPaint.color = _accentMegaways.withValues(alpha: 0.05 + (row.isEven ? 0.02 : 0.0));
+        canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(2)), fillPaint);
+        canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(2)), borderPaint);
+
+        if (spinning) {
+          _paintSpinEffect(canvas, rect, _accentMegaways, spinAmt);
+        } else {
+          final idx = r * rows + row;
+          _paintSymbol(canvas, rect, idx < symbols.length ? symbols[idx] : '?', reelCellH);
+        }
+      }
+
+      // Row count badge (bottom of reel)
+      _paintSmallLabel(
+        canvas,
+        Offset(r * cellW + cellW / 2, size.height - 5),
+        'R$reelRows',
+        _accentMegaways.withValues(alpha: 0.55),
+        centerX: true,
+      );
+
+      // Unused space indicator (gap between this reel's top and maxRows top)
+      if (reelRows < maxRows) {
+        final gapH = size.height - reelRows * reelCellH;
+        final gapRect = Rect.fromLTWH(r * cellW + 1, 0, cellW - 2, gapH);
+        canvas.drawRect(gapRect,
+          Paint()..color = _accentMegaways.withValues(alpha: 0.04)..style = PaintingStyle.fill);
+      }
+    }
+  }
+
+  // ── Spin blur effect ─────────────────────────────────────────────────────
+
+  void _paintSpinEffect(Canvas canvas, Rect rect, Color accent, double spinAmt) {
+    final lineH = rect.height / 4;
+    final paint = Paint()..style = PaintingStyle.fill;
+    for (int l = 0; l < 4; l++) {
+      paint.color = accent.withValues(alpha: spinAmt * (l.isEven ? 0.18 : 0.08));
+      canvas.drawRect(
+        Rect.fromLTWH(rect.left, rect.top + l * lineH, rect.width, lineH),
+        paint,
+      );
+    }
+  }
+
+  // ── Symbol emoji rendering ────────────────────────────────────────────────
+
+  void _paintSymbol(Canvas canvas, Rect rect, String emoji, double cellH) {
+    final fontSize = (cellH * 0.48).clamp(6.0, 13.0);
+    final tp = TextPainter(
+      text: TextSpan(text: emoji, style: TextStyle(fontSize: fontSize)),
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: rect.width);
+    canvas.save();
+    canvas.clipRect(rect.inflate(1));
+    tp.paint(
+      canvas,
+      Offset(
+        rect.left + (rect.width - tp.width) / 2,
+        rect.top + (rect.height - tp.height) / 2,
+      ),
+    );
+    canvas.restore();
+  }
+
+  // ── Payline overlay ──────────────────────────────────────────────────────
+
+  /// Generates reels-length row pattern for the given payline index.
+  List<int> _paylinePattern(int lineIdx) {
+    final mid = rows ~/ 2;
+    final top = 0;
+    final bot = (rows - 1).clamp(0, rows - 1);
+    final half = math.max(1, reels ~/ 2);
+    final quarter = math.max(1, reels ~/ 4);
+
+    int clamp(int v) => v.clamp(top, bot);
+    int lerp(int from, int to, int r, int steps) =>
+        clamp(from + (r * (to - from) ~/ math.max(1, steps)));
+
+    final patterns = <List<int> Function()>[
+      () => List.filled(reels, mid),                        // 0 mid straight
+      () => List.filled(reels, top),                        // 1 top straight
+      () => List.filled(reels, bot),                        // 2 bot straight
+      () => List.generate(reels, (r) =>                     // 3 V
+          r <= half ? lerp(top, mid, r, half) : lerp(mid, top, r - half, reels - 1 - half)),
+      () => List.generate(reels, (r) =>                     // 4 inv-V
+          r <= half ? lerp(bot, mid, r, half) : lerp(mid, bot, r - half, reels - 1 - half)),
+      () => List.generate(reels, (r) => lerp(top, bot, r, reels - 1)),  // 5 stair ↓
+      () => List.generate(reels, (r) => lerp(bot, top, r, reels - 1)),  // 6 stair ↑
+      () => List.generate(reels, (r) => r.isEven ? top : bot),           // 7 zigzag ↑↓
+      () => List.generate(reels, (r) => r.isEven ? bot : top),           // 8 zigzag ↓↑
+      () => List.generate(reels, (r) =>                                   // 9 brackets top
+          (r == 0 || r == reels - 1) ? top : mid),
+      () => List.generate(reels, (r) =>                                   // 10 brackets bot
+          (r == 0 || r == reels - 1) ? bot : mid),
+      () => List.generate(reels, (r) =>                                   // 11 valley center
+          clamp(mid + (r - half).abs())),
+      () => List.generate(reels, (r) =>                                   // 12 hill center
+          clamp(mid - (r - half).abs())),
+      () => List.generate(reels, (r) => r.isEven ? mid : top),            // 13 alt mid/top
+      () => List.generate(reels, (r) => r.isEven ? mid : bot),            // 14 alt mid/bot
+      () => List.generate(reels, (r) => lerp(top, mid, r, reels - 1)),   // 15 top→mid
+      () => List.generate(reels, (r) => lerp(bot, mid, r, reels - 1)),   // 16 bot→mid
+      () => List.generate(reels, (r) {                                    // 17 W-shape
+        if (r < quarter) return clamp(bot - r);
+        if (r < half)    return clamp(top + (r - quarter));
+        if (r < 3 * quarter) return clamp(bot - (r - half));
+        return clamp(top + (r - 3 * quarter));
+      }),
+      () => List.generate(reels, (r) {                                    // 18 M-shape
+        if (r < quarter) return clamp(top + r);
+        if (r < half)    return clamp(bot - (r - quarter));
+        if (r < 3 * quarter) return clamp(top + (r - half));
+        return clamp(bot - (r - 3 * quarter));
+      }),
+      () => List.generate(reels, (r) =>                                   // 19 peak at r2
+          r == reels ~/ 2 ? bot : top),
+    ];
+
+    final idx = lineIdx % patterns.length;
+    return patterns[idx]();
+  }
+
+  void _paintPaylineOverlay(Canvas canvas, Size size) {
+    if (reels == 0 || rows == 0) return;
+    final cellW = size.width / reels;
+    final cellH = size.height / rows;
+    final pattern = _paylinePattern(highlightedPayline);
+
+    // Unique hue per payline (cycle full spectrum)
+    final hue = (highlightedPayline / math.max(1, paylines) * 360.0) % 360;
+    final lineColor = HSVColor.fromAHSV(1.0, hue, 0.85, 1.0).toColor();
+
+    final glowPaint = Paint()
+      ..color = lineColor.withValues(alpha: 0.12)
+      ..strokeWidth = 5.0
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final linePaint = Paint()
+      ..color = lineColor.withValues(alpha: 0.75)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final dotPaint = Paint()
+      ..color = lineColor
+      ..style = PaintingStyle.fill;
+    final cellHighlight = Paint()
+      ..color = lineColor.withValues(alpha: 0.12)
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+    for (int r = 0; r < reels && r < pattern.length; r++) {
+      final row = pattern[r].clamp(0, rows - 1);
+      final x = r * cellW + cellW / 2;
+      final y = row * cellH + cellH / 2;
+      if (r == 0) path.moveTo(x, y); else path.lineTo(x, y);
+    }
+
+    canvas.drawPath(path, glowPaint);
+    canvas.drawPath(path, linePaint);
+
+    for (int r = 0; r < reels && r < pattern.length; r++) {
+      final row = pattern[r].clamp(0, rows - 1);
+      final x = r * cellW + cellW / 2;
+      final y = row * cellH + cellH / 2;
+      // Cell highlight
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(r * cellW + 1, row * cellH + 1, cellW - 2, cellH - 2),
+          const Radius.circular(2),
+        ),
+        cellHighlight,
+      );
+      // Dot
+      canvas.drawCircle(Offset(x, y), 2.0, dotPaint);
+    }
+
+    // Line number badge (top-left)
+    _paintSmallLabel(canvas, const Offset(3, 2),
+      '${highlightedPayline + 1}', lineColor);
+  }
+
+  // ── Ways overlay ─────────────────────────────────────────────────────────
+
+  void _paintWaysOverlay(Canvas canvas, Size size) {
+    if (reels < 2 || rows == 0) return;
+    final cellW = size.width / reels;
+    final cellH = size.height / rows;
+    final connPaint = Paint()
+      ..color = _accentWays.withValues(alpha: 0.06)
+      ..strokeWidth = 0.4
+      ..style = PaintingStyle.stroke;
+
+    for (int r = 0; r < reels - 1; r++) {
+      final x1 = r * cellW + cellW;
+      final x2 = (r + 1) * cellW;
+      for (int row = 0; row < rows; row++) {
+        final y1 = row * cellH + cellH / 2;
+        for (int nextRow = 0; nextRow < rows; nextRow++) {
+          final y2 = nextRow * cellH + cellH / 2;
+          canvas.drawLine(Offset(x1, y1), Offset(x2, y2), connPaint);
+        }
+      }
+    }
+
+    // ALL WAYS label
+    _paintSmallLabel(canvas,
+      Offset(size.width / 2, 3),
+      'ALL WAYS',
+      _accentWays.withValues(alpha: 0.55),
+      centerX: true,
+    );
+  }
+
+  // ── Cluster overlay ──────────────────────────────────────────────────────
+
+  void _paintClusterOverlay(Canvas canvas, Size size) {
+    if (reels == 0 || rows == 0) return;
+    final cellW = size.width / reels;
+    final cellH = size.height / rows;
+
+    final linePaint = Paint()
+      ..color = _accentCluster.withValues(alpha: 0.13)
+      ..strokeWidth = 0.7
+      ..style = PaintingStyle.stroke;
+    final diagPaint = Paint()
+      ..color = _accentCluster.withValues(alpha: 0.06)
+      ..strokeWidth = 0.5
+      ..style = PaintingStyle.stroke;
+    final dotPaint = Paint()
+      ..color = _accentCluster.withValues(alpha: 0.35)
+      ..style = PaintingStyle.fill;
 
     for (int r = 0; r < reels; r++) {
       for (int row = 0; row < rows; row++) {
-        final rect = Rect.fromLTWH(r * cellW + 1, row * cellH + 1, cellW - 2, cellH - 2);
-        fillPaint.color = accent.withValues(alpha: 0.06 + (r * row % 3) * 0.04);
-        canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(2)), fillPaint);
-        canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(2)), borderPaint);
+        final cx = r * cellW + cellW / 2;
+        final cy = row * cellH + cellH / 2;
+        // Right neighbor
+        if (r + 1 < reels) {
+          canvas.drawLine(Offset(cx, cy), Offset((r + 1) * cellW + cellW / 2, cy), linePaint);
+        }
+        // Bottom neighbor
+        if (row + 1 < rows) {
+          canvas.drawLine(Offset(cx, cy), Offset(cx, (row + 1) * cellH + cellH / 2), linePaint);
+        }
+        // Diagonals (if cluster allows)
+        if (clusterConfig?.allowDiagonal == true) {
+          if (r + 1 < reels && row + 1 < rows) {
+            canvas.drawLine(Offset(cx, cy),
+              Offset((r + 1) * cellW + cellW / 2, (row + 1) * cellH + cellH / 2), diagPaint);
+          }
+          if (r + 1 < reels && row > 0) {
+            canvas.drawLine(Offset(cx, cy),
+              Offset((r + 1) * cellW + cellW / 2, (row - 1) * cellH + cellH / 2), diagPaint);
+          }
+        }
+        canvas.drawCircle(Offset(cx, cy), 1.3, dotPaint);
       }
     }
 
-    // Win mechanism indicator overlay
-    if (winMech == WinMechanismType.paylines) {
-      // Draw horizontal midline payline
-      final linePaint = Paint()
-        ..color = accent.withValues(alpha: 0.4)
-        ..strokeWidth = 1.5
-        ..style = PaintingStyle.stroke;
-      final midY = size.height / 2;
-      canvas.drawLine(Offset(4, midY), Offset(size.width - 4, midY), linePaint);
-    } else if (winMech == WinMechanismType.cluster) {
-      // Draw cluster hexagon hint in center
-      final center = Offset(size.width / 2, size.height / 2);
-      final clusterPaint = Paint()
-        ..color = accent.withValues(alpha: 0.25)
-        ..style = PaintingStyle.fill;
-      canvas.drawCircle(center, math.min(cellW, cellH) * 0.4, clusterPaint);
-    } else if (winMech == WinMechanismType.megaways) {
-      // Draw variable-height bars
-      final barPaint = Paint()
-        ..color = accent.withValues(alpha: 0.3)
-        ..style = PaintingStyle.fill;
-      for (int r = 0; r < reels; r++) {
-        final heightFrac = 0.4 + (r % 3) * 0.2;
-        final barH = size.height * heightFrac;
-        canvas.drawRect(
-          Rect.fromLTWH(r * cellW + 2, size.height - barH, cellW - 4, barH),
-          barPaint,
-        );
-      }
+    // MIN badge
+    if (clusterConfig != null) {
+      _paintSmallLabel(canvas,
+        Offset(size.width / 2, 3),
+        'MIN ${clusterConfig!.minSize}',
+        _accentCluster.withValues(alpha: 0.65),
+        centerX: true,
+      );
     }
+  }
 
-    // Reel count label
-    final textPainter = TextPainter(
+  // ── Megaways label ───────────────────────────────────────────────────────
+
+  void _paintMegawaysLabel(Canvas canvas, Size size) {
+    _paintSmallLabel(canvas,
+      Offset(size.width - 3, 3),
+      'MEGAWAYS',
+      _accentMegaways.withValues(alpha: 0.45),
+      alignRight: true,
+    );
+  }
+
+  // ── Grid label (bottom-right) ────────────────────────────────────────────
+
+  void _paintGridLabel(Canvas canvas, Size size) {
+    final label = switch (winMech) {
+      WinMechanismType.paylines => '${reels}×$rows  $paylines LINES',
+      WinMechanismType.ways     => '${reels}×$rows  WAYS',
+      WinMechanismType.cluster  => '${reels}×$rows  CLUSTER',
+      WinMechanismType.megaways => '${reels}R×var  MEGAWAYS',
+    };
+    _paintSmallLabel(canvas,
+      Offset(size.width - 3, size.height - 8),
+      label,
+      _accent.withValues(alpha: 0.4),
+      alignRight: true,
+    );
+  }
+
+  // ── Shared small-text helper ─────────────────────────────────────────────
+
+  void _paintSmallLabel(Canvas canvas, Offset pos, String text, Color color,
+      {bool centerX = false, bool alignRight = false}) {
+    final tp = TextPainter(
       text: TextSpan(
-        text: '${reels}×$rows  ${winMech.label}',
-        style: TextStyle(fontFamily: 'monospace', fontSize: 7, color: accent.withValues(alpha: 0.8)),
+        text: text,
+        style: TextStyle(fontFamily: 'monospace', fontSize: 6, color: color),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
-    textPainter.paint(canvas, Offset(4, 3));
+    double dx = pos.dx;
+    if (centerX) dx -= tp.width / 2;
+    if (alignRight) dx -= tp.width;
+    tp.paint(canvas, Offset(dx, pos.dy));
   }
 
+  // ── shouldRepaint ────────────────────────────────────────────────────────
+
   @override
-  bool shouldRepaint(_GridVisualizerPainter old) =>
-      old.reels != reels || old.rows != rows || old.winMech != winMech;
+  bool shouldRepaint(_GridVisualizerPainter old) {
+    if (old.reels != reels || old.rows != rows || old.winMech != winMech ||
+        old.highlightedPayline != highlightedPayline || old.paylines != paylines) return true;
+    if (old.symbols.length != symbols.length) return true;
+    for (int i = 0; i < symbols.length; i++) {
+      if (old.symbols[i] != symbols[i]) return true;
+    }
+    if (old.reelSpinOffsets.length != reelSpinOffsets.length) return true;
+    for (int i = 0; i < reelSpinOffsets.length; i++) {
+      if ((old.reelSpinOffsets[i] - reelSpinOffsets[i]).abs() > 0.001) return true;
+    }
+    if (old.megawaysRowsPerReel?.length != megawaysRowsPerReel?.length) return true;
+    if (old.megawaysRowsPerReel != null && megawaysRowsPerReel != null) {
+      for (int i = 0; i < megawaysRowsPerReel!.length; i++) {
+        if (old.megawaysRowsPerReel![i] != megawaysRowsPerReel![i]) return true;
+      }
+    }
+    return false;
+  }
 }
 
 // ── Symbol editor row for GAME CONFIG spine ──────────────────────────────────
