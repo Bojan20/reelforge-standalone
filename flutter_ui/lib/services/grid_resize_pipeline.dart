@@ -192,12 +192,33 @@ class GridResizePipeline {
   /// Auto-create the standard slot lifecycle stages so a fresh grid is
   /// immediately spinnable without the user manually wiring 5+ events.
   ///
-  /// Idempotent — composite ids serve as the dedup key. Pre-existing
-  /// entries (e.g. user-renamed Reel Stop 1) stay untouched.
+  /// Idempotent on **two axes**:
+  ///   1. composite id (re-run keeps the same `auto_reel_stop_0` row)
+  ///   2. trigger stage (any other composite already wired to that stage
+  ///      wins — autobind / orb / user-built events must not be silently
+  ///      shadowed by the empty template)
+  ///
+  /// Pre-2026-05-09 only the id check existed.  Result: when autobind
+  /// registered `audio_REEL_STOP_0` (ReelLand1.wav, layers=1) for stage
+  /// `REEL_STOP_0`, this function later dropped an `auto_reel_stop_0`
+  /// (layers=0) for the same stage — and `EventRegistry._stageToEvent`,
+  /// which keys by stage with one event per stage, evicted the autobind
+  /// row.  SPIN then triggered an empty template event → "No audio
+  /// layers" → silence.  See CLAUDE.md "SlotLab — EventRegistry
+  /// registracija (KRITIČNO)".
   static void _autoSetupStageEvents(int reelCount) {
     try {
       final mw = GetIt.instance<MiddlewareProvider>();
       final existingIds = mw.compositeEvents.map((e) => e.id).toSet();
+      // Stages already covered by some composite event — must not be
+      // touched by the empty seed.  Uppercase comparison to match the
+      // `EventRegistry` normalization.
+      final coveredStages = <String>{};
+      for (final ev in mw.compositeEvents) {
+        for (final s in ev.triggerStages) {
+          coveredStages.add(s.toUpperCase());
+        }
+      }
       final now = DateTime.now();
 
       final defaultStages =
@@ -228,6 +249,10 @@ class GridResizePipeline {
       for (int i = 0; i < defaultStages.length; i++) {
         final (id, name, stage, color) = defaultStages[i];
         if (existingIds.contains(id)) continue;
+        // 2026-05-09 — skip if any other composite already targets this
+        // stage (autobind / user-built event).  Empty template would
+        // otherwise evict it from `EventRegistry._stageToEvent`.
+        if (coveredStages.contains(stage.toUpperCase())) continue;
         final lower = stage.toLowerCase();
         final category = lower.contains('win')
             ? 'win'

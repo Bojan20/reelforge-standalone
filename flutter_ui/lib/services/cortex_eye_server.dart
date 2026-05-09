@@ -910,6 +910,22 @@ class CortexEyeServer {
       };
     } catch (_) {}
 
+    // Project audioAssignments — diagnostic for autobind verification.
+    try {
+      final proj = GetIt.I<SlotLabProjectProvider>();
+      final assignments = <String, String>{};
+      for (final entry in proj.audioAssignments.entries) {
+        // Truncate paths to last 40 chars so the JSON stays readable.
+        final p = entry.value;
+        assignments[entry.key] = p.length > 40 ? '...${p.substring(p.length - 40)}' : p;
+      }
+      state['audioAssignments'] = {
+        'count': assignments.length,
+        'stages': assignments.keys.toList()..sort(),
+        'map': assignments,
+      };
+    } catch (_) {}
+
     // SlotVoiceMixer
     try {
       final vm = GetIt.I<SlotVoiceMixerProvider>();
