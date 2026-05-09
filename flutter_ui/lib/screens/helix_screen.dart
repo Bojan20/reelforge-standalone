@@ -55,6 +55,7 @@ import '../widgets/slot_lab/premium_slot_preview.dart';
 import '../widgets/common/command_palette.dart';
 import '../widgets/common/flux_tooltip.dart';
 import '../utils/error_log.dart'; // H-011
+import '../utils/path_validator.dart'; // 2026-05-09 — auto-bind sandbox extension
 import '../widgets/helix/math_hud_overlay.dart';
 // import '../widgets/helix/stub_tab_placeholder.dart'; // removed — no stubs remain
 // ── SPEC-14: Panel Focus ──
@@ -8025,11 +8026,22 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
 
   // ─── Filter audio paths ────────────────────────────────────────────────────
   List<String> _filterAudioPaths(List<String> paths) {
-    return paths.where((p) {
+    final filtered = paths.where((p) {
       final dotIdx = p.toLowerCase().lastIndexOf('.');
       if (dotIdx < 0) return false;
       return _audioExtensions.contains(p.toLowerCase().substring(dotIdx));
     }).toList();
+    // 2026-05-09 fix: implicitly extend PathValidator sandbox with
+    // the parent directory of every dropped audio file.  User-picked
+    // paths are inherently trusted (they walked through OS-level
+    // open panel / drag-drop), and without this hook EventRegistry's
+    // `_validateAudioPath` rejects them at SPIN time with "outside
+    // sandbox" — silent fail that wasted a day of debugging.
+    for (final p in filtered) {
+      final parent = File(p).parent.path;
+      PathValidator.addSandboxRoot(parent);
+    }
+    return filtered;
   }
 
   // ─── Build a layer from an audio file path ────────────────────────────────

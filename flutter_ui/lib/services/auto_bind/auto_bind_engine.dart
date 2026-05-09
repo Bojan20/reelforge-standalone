@@ -19,6 +19,7 @@ import 'dart:io';
 import '../ffnc/ffnc_parser.dart';
 import '../stage_configuration_service.dart';
 import '../../providers/slot_lab_project_provider.dart';
+import '../../utils/path_validator.dart';
 import 'binding_result.dart';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -258,6 +259,14 @@ class AutoBindEngine {
     if (!dir.existsSync()) {
       return const BindingAnalysis(matched: [], unmatched: [], warnings: [], stageGroups: {});
     }
+
+    // 2026-05-09 — auto-bind silent-spin fix.  Whatever folder the user
+    // picks here is implicitly trusted (NSOpenPanel / drag-drop are user
+    // gestures), so we extend the EventRegistry sandbox with it before
+    // scanning.  Without this, every dropped file would later fail the
+    // `_validateAudioPath` "outside sandbox" check at SPIN time and the
+    // play would silently exit.
+    PathValidator.addSandboxRoot(folderPath);
 
     final svc = StageConfigurationService.instance;
     final knownStages = svc.getAllStages().map((s) => s.name).toSet();

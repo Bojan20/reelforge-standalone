@@ -51,6 +51,7 @@ import 'cortex_vision_service.dart';
 import 'cortex_hands_service.dart';
 import 'cortex_log_buffer.dart';
 import 'event_registry.dart';
+import '../utils/path_validator.dart';
 import 'event_registration_service.dart';
 import 'stage_configuration_service.dart';
 import 'vision_diff_engine.dart';
@@ -635,6 +636,13 @@ class CortexEyeServer {
           {'error': 'audio_path does not exist on disk', 'path': audioPath});
       return;
     }
+
+    // 2026-05-09 fix #3: extend PathValidator sandbox with the file's
+    // parent directory.  Without this, EventRegistry._validateAudioPath
+    // rejects the path at trigger time with "outside sandbox" and the
+    // play exits silently.  Idempotent — repeated drops from the same
+    // folder are no-ops.
+    PathValidator.addSandboxRoot(file.parent.path);
 
     try {
       final mw = GetIt.instance<MiddlewareProvider>();
@@ -1302,6 +1310,9 @@ class CortexEyeServer {
         'layerCount': ev.layers.length,
         'layerIds': ev.layers.map((l) => l.id).toList(),
         'layerPaths': ev.layers.map((l) => l.audioPath).toList(),
+        'layerActionTypes': ev.layers.map((l) => l.actionType).toList(),
+        'layerBusIds': ev.layers.map((l) => l.busId).toList(),
+        'layerVolumes': ev.layers.map((l) => l.volume).toList(),
       };
     }
     final eventIds = reg.registeredEventIds.toList()..sort();

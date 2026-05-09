@@ -191,6 +191,36 @@ class PathValidator {
   /// Check if sandbox is initialized
   static bool get isInitialized => _sandboxRoots.isNotEmpty;
 
+  /// Dynamically extend the sandbox at runtime.
+  ///
+  /// Use this when the user picks a folder via NSOpenPanel / drag-drop /
+  /// auto-bind import — the chosen path is implicitly trusted (user
+  /// selected it) and must be added to the sandbox so subsequent
+  /// playback validation passes.
+  ///
+  /// Idempotent — repeated calls with the same path are no-ops.
+  /// Silently skips on canonicalize failure (path doesn't exist, dead
+  /// symlink, permission denied) so callers don't have to wrap every
+  /// drop in a try/catch.
+  ///
+  /// Returns the canonical path that was added, or `null` if it
+  /// couldn't be added.
+  static String? addSandboxRoot(String path) {
+    if (path.isEmpty) return null;
+    try {
+      final dir = Directory(path);
+      // If a file path was supplied, fall back to its parent directory.
+      final target = dir.existsSync() ? dir : Directory(p.dirname(path));
+      if (!target.existsSync()) return null;
+      final canonical = target.resolveSymbolicLinksSync();
+      if (_sandboxRoots.contains(canonical)) return canonical;
+      _sandboxRoots.add(canonical);
+      return canonical;
+    } catch (_) {
+      return null;
+    }
+  }
+
   // =============================================================================
   // VALIDATION METHODS
   // =============================================================================

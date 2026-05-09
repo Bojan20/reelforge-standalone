@@ -2247,11 +2247,23 @@ class EventRegistry extends ChangeNotifier {
   Future<void> triggerEvent(String eventId, {Map<String, dynamic>? context}) async {
     // Input validation
     if (eventId.isEmpty || eventId.length > 256) {
+      // 2026-05-09 fail-loud — pre-fix this was a silent return
+      _lastTriggerSuccess = false;
+      _lastTriggerError = 'triggerEvent: invalid eventId (empty or > 256 chars)';
+      notifyListeners();
       return;
     }
 
     final event = _events[eventId];
     if (event == null) {
+      // 2026-05-09 fail-loud — pre-fix this was a silent return.
+      // This branch fires when `_stageToEvent[stage]` resolved an event
+      // but the same id is missing from `_events` — usually a stale
+      // composite registration where stage-mapping was kept but the
+      // event itself got unregistered.
+      _lastTriggerSuccess = false;
+      _lastTriggerError = 'triggerEvent: eventId "$eventId" missing from _events map (have ${_events.length} events)';
+      notifyListeners();
       return;
     }
 
@@ -3312,6 +3324,14 @@ class EventRegistry extends ChangeNotifier {
     bool loop = false, // P0.2: Seamless loop support
     String? eventId,
   }) async {
+    // 2026-05-09 diag — pre-fix this method had no entry-side logging
+    // and a silent catch that swallowed every exception.  Track
+    // entry → effectivePath → validation → play through structured
+    // error string so /brain/registry can surface root cause.
+    debugPrint('[EventRegistry._playLayer] enter id=${layer.id}'
+        ' path=${layer.audioPath} bus=${layer.busId} actionType=${layer.actionType}'
+        ' eventKey=$eventKey eventId=$eventId loop=$loop');
+
     // Variant resolution: if VariantManager has variants for this stage,
     // pick the next variant path instead of the fixed layer path.
     final effectivePath = (eventKey != null && VariantManager.instance.hasVariants(eventKey))
@@ -3319,13 +3339,19 @@ class EventRegistry extends ChangeNotifier {
         : layer.audioPath;
 
     if (effectivePath.isEmpty) {
+      // 2026-05-09 fail-loud — pre-fix silent return.
+      _lastTriggerSuccess = false;
+      _lastTriggerError = '_playLayer: empty effectivePath (layer.id=${layer.id})';
+      debugPrint('[EventRegistry._playLayer] ${_lastTriggerError}');
       return;
     }
 
     // P1.1 SECURITY: Validate audio path before playback
     if (!_validateAudioPath(effectivePath)) {
       _lastTriggerSuccess = false;
-      _lastTriggerError = 'Invalid audio path (security)';
+      _lastTriggerError = '_playLayer: PathValidator rejected $effectivePath '
+          '(sandbox roots: ${PathValidator.sandboxRoots.length})';
+      debugPrint('[EventRegistry._playLayer] ${_lastTriggerError}');
       return;
     }
 
@@ -3604,7 +3630,19 @@ class EventRegistry extends ChangeNotifier {
         _lastTriggerSuccess = false;
         _lastTriggerError = 'FAILED: $ffiError';
       }
-    } catch (e) { /* ignored */ }
+    } catch (e, st) {
+      // 2026-05-09 fail-loud fix.  Pre-existing `catch (e) { /* ignored */ }`
+      // silently swallowed every exception in the play path, leaving
+      // `_lastTriggerError` empty and the user staring at an unresponsive
+      // SPIN button.  Anything that throws here (PathValidator sandbox
+      // rejection, FFI panic, AudioPlaybackService init issue) now
+      // surfaces as a debugPrint *and* as a structured trigger error so
+      // the diagnostic flow (`/brain/registry`, panel toasts) can see it.
+      debugPrint('[EventRegistry._playLayer] crash: $e\n  layer=${layer.id}'
+          ' path=${layer.audioPath} bus=${layer.busId}\n  ${st.toString().split("\n").first}');
+      _lastTriggerSuccess = false;
+      _lastTriggerError = '_playLayer crash: $e';
+    }
   }
 
   // ==========================================================================
