@@ -618,6 +618,48 @@ class AutoBindEngine {
       }
     }
 
+    // ─── 2026-05-09 — Per-reel index correction ──────────────────────────
+    //
+    // Spin engine fires `REEL_STOP_<i>` (0-indexed) when each reel lands,
+    // not the generic `REEL_STOP`.  Same goes for SCATTER_LAND, WILD_LAND,
+    // CASCADE_STEP, ROLLUP_TICK — all are 0-indexed numbered variants.
+    //
+    // Pre-fix: ReelLand1..ReelLand5 all collapsed to single `REEL_STOP`
+    // because `_\d$` was stripped to `noVariant` and the alias for
+    // `reel_land` resolves to `REEL_STOP`.  Result on SPIN:
+    // `REEL_STOP_0..4` triggered, no audio bound there → silent.
+    //
+    // Post-fix: when the matched stage has numbered variants in
+    // `knownStages` AND the original filename has a 1-based trailing
+    // index, remap to the 0-based variant.  Files keep their natural
+    // numbering ("ReelLand1" reads as "first reel" to a human, which
+    // _is_ engine-side `REEL_STOP_0`).
+    if (best != null) {
+      final trailing = RegExp(r'_(\d{1,2})$').firstMatch(stripped);
+      if (trailing != null) {
+        final humanIndex = int.tryParse(trailing.group(1)!);
+        if (humanIndex != null && humanIndex >= 1 && humanIndex <= 50) {
+          final zeroIndex = humanIndex - 1;
+          final candidateStage = '${best.stage}_$zeroIndex';
+          if (knownStages.contains(candidateStage)) {
+            best = _ScoreResult(
+              candidateStage,
+              best.score + 5,
+              best.method,
+            );
+          } else if (svc.ensureIndexedStage(candidateStage) != null) {
+            // Stage didn't exist statically but the service can mint it
+            // (e.g. CASCADE_STEP_<n> for variable-depth cascading slots).
+            best = _ScoreResult(
+              candidateStage,
+              best.score + 5,
+              best.method,
+            );
+          }
+        }
+      }
+    }
+
     return best;
   }
 

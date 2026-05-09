@@ -50,6 +50,7 @@ import 'audio_playback_service.dart';
 import 'cortex_vision_service.dart';
 import 'cortex_hands_service.dart';
 import 'cortex_log_buffer.dart';
+import '../src/rust/native_ffi.dart';
 import 'auto_bind/auto_bind_engine.dart';
 import 'event_registry.dart';
 import '../utils/path_validator.dart';
@@ -247,6 +248,10 @@ class CortexEyeServer {
         await _handleBrainAudioVoices(request);
       } else if (method == 'GET' && path == '/brain/registry') {
         await _handleBrainRegistry(request);
+      } else if (method == 'GET' && path == '/brain/audio_buses') {
+        await _handleBrainAudioBuses(request);
+      } else if (method == 'POST' && path == '/hands/audio_play_test') {
+        await _handleHandsAudioPlayTest(request);
 
       } else {
         request.response.statusCode = 404;
@@ -266,10 +271,12 @@ class CortexEyeServer {
               'POST /hands/key', 'POST /hands/input',
               'POST /hands/audio_drop',
               'POST /hands/auto_bind_folder',
+              'POST /hands/audio_play_test',
             ],
             'brain': [
               'GET /brain/state', 'GET /brain/logs', 'GET /brain/metrics',
               'GET /brain/audio_voices', 'GET /brain/registry',
+              'GET /brain/audio_buses',
             ],
           },
         });
@@ -1454,6 +1461,122 @@ class CortexEyeServer {
       'eventIds': eventIds,
       'lastTriggerSuccess': reg.lastTriggerSuccess,
       'lastTriggerError': reg.lastTriggerError,
+    });
+  }
+
+  /// POST /hands/audio_play_test — direct FFI playback bypass test.
+  ///
+  /// Body: `{"path": "/abs/audio.wav", "volume": 1.0, "busId": 2}`
+  ///
+  /// Plays the file straight through `AudioPlaybackService.playFileToBus`
+  /// without going through EventRegistry / composite events.  This isolates
+  /// "audio engine reaches speakers" from "stage triggering routes through
+  /// engine".  If the user hears this play but not a SPIN-driven trigger,
+  /// the bug is upstream of the engine.  If they hear neither, the engine
+  /// or the OS audio output is the culprit (master mute, wrong device,
+  /// system volume 0, exclusive-mode app blocking).
+  Future<void> _handleHandsAudioPlayTest(HttpRequest request) async {
+    final body = await utf8.decodeStream(request);
+    Map<String, dynamic> params = {};
+    try {
+      params = jsonDecode(body) as Map<String, dynamic>;
+    } catch (_) {}
+
+    final path = params['path'] as String?;
+    if (path == null || path.isEmpty) {
+      request.response.statusCode = 400;
+      await _json(request, {'error': 'Required: path (string)'});
+      return;
+    }
+    if (!File(path).existsSync()) {
+      request.response.statusCode = 400;
+      await _json(request, {'error': 'File not found', 'path': path});
+      return;
+    }
+
+    final volume = (params['volume'] as num?)?.toDouble() ?? 1.0;
+    final busId = (params['busId'] as num?)?.toInt() ?? 2; // default SFX
+
+    PathValidator.addSandboxRoot(File(path).parent.path);
+
+    final voiceId =
+        AudioPlaybackService.instance.playFileToBus(path, volume: volume, busId: busId);
+
+    await _json(request, {
+      'success': voiceId >= 0,
+      'voiceId': voiceId,
+      'path': path,
+      'volume': volume,
+      'busId': busId,
+      'note': voiceId >= 0
+          ? 'voice spawned — if no audio, check system volume / output device'
+          : 'engine refused playback — voiceId < 0',
+    });
+  }
+
+  /// GET /brain/audio_buses — engine-side mixer state.
+  ///
+  /// Reads master volume + per-bus volume/mute/solo straight from the
+  /// Rust engine via `NativeFFI`.  Used to diagnose the "voice spawned
+  /// but inaudible" case: when the trigger chain succeeds and a voice
+  /// id is returned, the only way the user hears nothing is if a bus
+  /// in the routing path is muted / cranked to 0 / soloed elsewhere.
+  ///
+  /// 0=Master, 1=Music, 2=SFX, 3=Voice, 4=Ambience, 5=Reels,
+  /// 6=Wins, 7=Anticipation (per `SlotBusIds`).
+  Future<void> _handleBrainAudioBuses(HttpRequest request) async {
+    final ffi = NativeFFI.instance;
+    final master = <String, dynamic>{};
+    try {
+      master['volume'] = ffi.getMasterVolume();
+    } catch (e) {
+      master['error'] = e.toString();
+    }
+
+    const labels = [
+      'master', 'music', 'sfx', 'voice',
+      'ambience', 'reels', 'wins', 'anticipation',
+    ];
+    final buses = <Map<String, dynamic>>[];
+    for (int i = 0; i < labels.length; i++) {
+      final entry = <String, dynamic>{
+        'busId': i,
+        'name': labels[i],
+      };
+      try {
+        entry['volume'] = ffi.getBusVolume(i);
+      } catch (e) {
+        entry['volumeError'] = e.toString();
+      }
+      try {
+        entry['mute'] = ffi.getBusMute(i);
+      } catch (e) {
+        entry['muteError'] = e.toString();
+      }
+      buses.add(entry);
+    }
+
+    // Heuristic verdict: if any bus along {master,sfx} is muted or
+    // <= 0.001 we flag that as the likely culprit so the caller's log
+    // makes the diagnosis without doing the math.
+    final issues = <String>[];
+    final masterVol = (master['volume'] as double?) ?? 1.0;
+    if (masterVol <= 0.001) issues.add('master volume is 0');
+    for (final b in buses) {
+      final v = (b['volume'] as double?) ?? 1.0;
+      final m = (b['mute'] as bool?) ?? false;
+      if (m) issues.add('bus ${b['busId']} (${b['name']}) is muted');
+      if (v <= 0.001) {
+        issues.add('bus ${b['busId']} (${b['name']}) volume is 0');
+      }
+    }
+
+    await _json(request, {
+      'timestamp': DateTime.now().toIso8601String(),
+      'master': master,
+      'buses': buses,
+      'issues': issues,
+      'verdict': issues.isEmpty ? 'all_audible' : 'silent_chain',
     });
   }
 }
