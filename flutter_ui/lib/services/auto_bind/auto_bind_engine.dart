@@ -624,23 +624,60 @@ class AutoBindEngine {
     // not the generic `REEL_STOP`.  Same goes for SCATTER_LAND, WILD_LAND,
     // CASCADE_STEP, ROLLUP_TICK — all are 0-indexed numbered variants.
     //
-    // Pre-fix: ReelLand1..ReelLand5 all collapsed to single `REEL_STOP`
-    // because `_\d$` was stripped to `noVariant` and the alias for
-    // `reel_land` resolves to `REEL_STOP`.  Result on SPIN:
-    // `REEL_STOP_0..4` triggered, no audio bound there → silent.
+    // Files keep their natural 1-based numbering ("ReelLand1" reads as
+    // "first reel" to a human, which is engine-side `REEL_STOP_0`).  We
+    // need to remap that 1 → 0, 2 → 1, … 5 → 4.
     //
-    // Post-fix: when the matched stage has numbered variants in
-    // `knownStages` AND the original filename has a 1-based trailing
-    // index, remap to the 0-based variant.  Files keep their natural
-    // numbering ("ReelLand1" reads as "first reel" to a human, which
-    // _is_ engine-side `REEL_STOP_0`).
+    // 2026-05-10 BUG (Boki "ne čuje se svaki reel land"): the original
+    // form of this block only handled the case where the prior scoring
+    // pipeline had landed `best.stage` on the *generic* form (e.g.
+    // `REEL_STOP`).  But the prefix-alias path (line ~572) actually
+    // resolves `reel_land_1` → `reel_land` + remainder `_1` →
+    // `REEL_STOP_1` directly, so by the time we got here `best.stage`
+    // was *already* indexed — just with the wrong (off-by-one) index.
+    //
+    //   Result on SPIN:
+    //     reel_land_1.wav → REEL_STOP_1   (engine reel 2, should be 0)
+    //     reel_land_2.wav → REEL_STOP_2   (engine reel 3, should be 1)
+    //     reel_land_3.wav → REEL_STOP_3   (engine reel 4, should be 2)
+    //     reel_land_4.wav → REEL_STOP_4   (engine reel 5, should be 3)
+    //     reel_land_5.wav → REEL_STOP_5   (engine reel 6, doesn't exist
+    //                                       on a 5-reel slot — orphan)
+    //   So `REEL_STOP_0` had no audio at all → first reel was silent
+    //   every spin, and `REEL_STOP_4` (the rightmost on a 5-reel slot)
+    //   was bound to the wrong file.  That matches Boki's report.
+    //
+    // Post-fix: handle BOTH cases — generic stage that needs an indexed
+    // sibling, AND already-indexed stage where the index matches the
+    // filename's 1-based trailing digit (i.e. needs a -1 shift).
     if (best != null) {
       final trailing = RegExp(r'_(\d{1,2})$').firstMatch(stripped);
       if (trailing != null) {
         final humanIndex = int.tryParse(trailing.group(1)!);
         if (humanIndex != null && humanIndex >= 1 && humanIndex <= 50) {
           final zeroIndex = humanIndex - 1;
-          final candidateStage = '${best.stage}_$zeroIndex';
+
+          // Case A: best.stage is generic (no trailing index).
+          //   e.g. best.stage = "REEL_STOP", stripped = "reel_land_1"
+          //   → candidate = "REEL_STOP_0"
+          String candidateStage = '${best.stage}_$zeroIndex';
+
+          // Case B: best.stage is *already* indexed AND the index equals
+          // the filename's 1-based digit — that's the prefix-alias
+          // off-by-one.  Strip the existing index and re-apply the
+          // 0-based one.
+          //   e.g. best.stage = "REEL_STOP_1", stripped = "reel_land_1"
+          //   → stem = "REEL_STOP", candidate = "REEL_STOP_0"
+          final bestTrailing =
+              RegExp(r'_(\d+)$').firstMatch(best.stage);
+          if (bestTrailing != null) {
+            final bestIdx = int.tryParse(bestTrailing.group(1)!);
+            if (bestIdx == humanIndex) {
+              final stem = best.stage.substring(0, bestTrailing.start);
+              candidateStage = '${stem}_$zeroIndex';
+            }
+          }
+
           if (knownStages.contains(candidateStage)) {
             best = _ScoreResult(
               candidateStage,
