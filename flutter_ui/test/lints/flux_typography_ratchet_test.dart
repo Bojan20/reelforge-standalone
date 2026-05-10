@@ -54,7 +54,9 @@ import 'package:flutter_test/flutter_test.dart';
 /// SnackBar (`_showFeatureWipToast`) koji zameni dead `() {}` na 6 stub
 /// dock tabova (SFX/BT/DNA/AI/CLOUD/A/B). Inline TextStyle za monospace
 /// snack content jer SnackBar-default Theme nije FluxForge-tokenized.
-const int _kRawTextStyleBaseline = 9252;
+/// Bumped 2026-05-10 (Sprint 14 Helix Faza 4.B.4) +1 za `_ModeIndicator`
+/// label u Omnibar-u (monospace 9px, weight 800 — dock-density tier).
+const int _kRawTextStyleBaseline = 9253;
 
 /// Frozen baseline za `fontFamily:` referenca van theme/.
 /// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` `'monospace'`
@@ -67,7 +69,9 @@ const int _kRawTextStyleBaseline = 9252;
 /// Bumped 2026-05-10 (Sprint 14 Helix Faza 4.A.2) +1 za WIP toast u
 /// `_showFeatureWipToast` — monospace fontFamily da snack izgleda
 /// konzistentno sa drugim status pillovima u dock-u.
-const int _kRawFontFamilyBaseline = 1225;
+/// Bumped 2026-05-10 (Sprint 14 Helix Faza 4.B.4) +1 za `_ModeIndicator`
+/// monospace label.
+const int _kRawFontFamilyBaseline = 1226;
 
 /// Frozen baseline za `fontSize:` referenca van theme/.
 /// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` 9px label
@@ -79,7 +83,9 @@ const int _kRawFontFamilyBaseline = 1225;
 /// fontSize ostaje. Sve manje od FluxForgeTheme.body (12px)).
 /// Bumped 2026-05-10 (Sprint 14 Helix Faza 4.A.2) +1 za WIP toast 11px
 /// label (matches dock-density tier).
-const int _kRawFontSizeBaseline = 8809;
+/// Bumped 2026-05-10 (Sprint 14 Helix Faza 4.B.4) +1 za `_ModeIndicator`
+/// 9px label.
+const int _kRawFontSizeBaseline = 8810;
 
 const Set<String> _kExcludedPathPrefixes = <String>{
   'theme/',

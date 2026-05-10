@@ -54,7 +54,11 @@ import 'package:flutter_test/flutter_test.dart';
 /// M/S buttons, parameter slider hints (FadeIn/FadeOut/TrimStart/TrimEnd
 /// "user-owned timing" callouts). Sve dynamic messages (file path /
 /// layer count); migration kad FluxTooltip dobije messageBuilder.
-const int _kRawTooltipBaseline = 250;
+/// Bumped 2026-05-10 (Sprint 14 Helix Faza 4.B.4/4.B.5) 250 → 252 — 2 raw:
+/// `_ModeIndicator` u Omnibar-u (mode + keyboard hint), i `_DockTab`
+/// tooltip wrapper (1-line description per tab — solves "what is DNA/BT?"
+/// discoverability gap).
+const int _kRawTooltipBaseline = 252;
 
 /// Files that legitimately keep a raw `Tooltip` for a reason that does
 /// not fit the canonical `FluxTooltip` surface. Each entry needs a

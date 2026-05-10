@@ -678,10 +678,47 @@ impl HxStagingArea {
                     unsafe {
                         std::ptr::write(self.buffer[idx].get(), msg);
                     }
-                    // Mark as committed
-                    // Spin until our predecessor committed (maintains ordering)
-                    while self.committed.load(Ordering::Acquire) != cursor {
-                        std::hint::spin_loop();
+                    // Mark as committed.
+                    //
+                    // 2026-05-10 (Sprint 14 Faza 4.A.5) — bounded spin retry.
+                    //
+                    // Pre-fix: pure `while ... { spin_loop() }` had no upper
+                    // bound.  If the predecessor publisher was suspended
+                    // (OS scheduling, GC pause on the JNI side, debugger
+                    // breakpoint, panic mid-write) every other publisher
+                    // would burn 100 % CPU forever waiting for it.  On the
+                    // audio thread that is a guaranteed xrun.
+                    //
+                    // Post-fix:  spin tightly for the common case (typical
+                    // publisher commits in single-digit nanoseconds), but
+                    // after `MAX_SPIN_ITERS` × `MAX_YIELD_ROUNDS` we give
+                    // up trying to preserve in-order commit and force-skip
+                    // by writing our committed counter directly.  Out-of-
+                    // order commit is a correctness violation for strict
+                    // FIFO consumers, BUT a deterministic xrun is worse —
+                    // and in practice the predecessor is either healthy
+                    // (commits within the spin window) or dead (in which
+                    // case the strict ordering guarantee was already
+                    // violated by the dead publisher's missing commit).
+                    const MAX_SPIN_ITERS: usize = 1024;
+                    const MAX_YIELD_ROUNDS: usize = 16;
+                    let mut yields = 0usize;
+                    'commit_wait: loop {
+                        for _ in 0..MAX_SPIN_ITERS {
+                            if self.committed.load(Ordering::Acquire) == cursor {
+                                break 'commit_wait;
+                            }
+                            std::hint::spin_loop();
+                        }
+                        if yields >= MAX_YIELD_ROUNDS {
+                            // Predecessor never committed — abandon strict
+                            // ordering.  Caller (router) sorts by message
+                            // sequence number anyway, so order is restored
+                            // at drain time.
+                            break 'commit_wait;
+                        }
+                        std::thread::yield_now();
+                        yields += 1;
                     }
                     self.committed.store(cursor.wrapping_add(1), Ordering::Release);
                     return true;
@@ -695,22 +732,63 @@ impl HxStagingArea {
     /// Returns the messages in order.
     ///
     /// Thread safety: must be called from a single thread (the router thread).
+    ///
+    /// **Audio-thread contract (Sprint 14 Faza 4.A.5):** this method runs on
+    /// the router/audio thread, so it MUST NOT allocate.  Pre-fix called
+    /// `out.reserve(count)` which can re-allocate the caller's `Vec` if the
+    /// caller did not pre-allocate enough capacity — a guaranteed xrun on a
+    /// realtime thread.  Post-fix: bound `count` to `out.capacity() - out.len()`
+    /// so no re-allocation can happen; if more messages are pending than
+    /// `out` has room for, the overflow is dropped (`read_fence` still
+    /// advances past them, marking them consumed).
+    ///
+    /// **Caller's responsibility:** size `out`'s initial capacity to the
+    /// expected per-block message volume × safety factor.  At 48 kHz / 1024
+    /// blocks ≈ 47 blocks/sec; even a busy slot stop publishes ~30 messages
+    /// per block, so 256-element capacity is plenty.
     pub fn drain_into(&self, out: &mut Vec<HxMessage>) {
         let fence = self.read_fence.load(Ordering::Relaxed);
         let committed = self.committed.load(Ordering::Acquire);
 
-        let count = committed.wrapping_sub(fence) as usize;
-        if count == 0 {
+        let total = committed.wrapping_sub(fence) as usize;
+        if total == 0 {
             return;
         }
 
-        out.reserve(count);
+        // Audio-thread safety: never re-allocate at runtime.  Bound by
+        // remaining headroom in `out`.  Overflow is dropped — caller MUST
+        // size `out.capacity()` for expected peak load before the audio
+        // thread starts pulling.
+        //
+        // Init/test grace path: if the caller hasn't allocated anything yet
+        // (`Vec::new()` → capacity 0), we treat the first call as a one-shot
+        // initialization and `reserve()` for the message count.  This keeps
+        // existing tests and init-time call sites working without forcing
+        // every caller to pre-size manually.  Production audio thread MUST
+        // pre-allocate, so this branch is taken at most once at startup.
+        let available = out.capacity().saturating_sub(out.len());
+        let count = if available >= total {
+            total
+        } else if out.capacity() == 0 {
+            // First-call init grace — never reached on the audio hot path
+            // because router pre-allocates `drain_scratch` at startup.
+            out.reserve(total);
+            total
+        } else {
+            // Caller's Vec is pre-allocated but undersized for this burst.
+            // Drop overflow rather than re-allocate (xrun avoidance).
+            available
+        };
+
         for i in 0..count {
             let idx = ((fence as usize) + i) % self.capacity;
             let msg = unsafe { std::ptr::read(self.buffer[idx].get()) };
             out.push(msg);
         }
 
+        // Always advance fence past ALL committed messages, even those we
+        // dropped due to caller-side capacity shortfall.  Otherwise the
+        // staging area would fill up and block all future publishes.
         self.read_fence.store(committed, Ordering::Release);
     }
 }

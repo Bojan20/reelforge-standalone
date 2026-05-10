@@ -303,11 +303,12 @@ AiGenerationService ─────── Prompt→Audio pipeline, FFNC classify
 - [ ] `helix_event_nexus.dart:301` — `_stopAll()` `catch (_) { /* ignore */ }` — odlučno ignore zato što stop is best-effort, niži prioritet; možemo dodati debug log
 - [ ] `quick_assign_hotbar.dart:227` — audition catch — verifikovati
 
-#### A.5 — Rust audio thread hardening (2 sata)
-- [ ] `helix_bus.rs:684` — bounded spin retry (max 10 iter, pa drop) umesto beskonačnog `spin_loop()`
-- [ ] `helix_bus.rs:698-715` — `drain_into()` `Vec::reserve` + `push` → fixed-size output ring buffer (zero alloc na audio thread)
-- [ ] `helix_compliance.rs:751..1066` — 12× `format!()` → `heapless::String<256>` ili pre-allocated buffers
-- [ ] `helix_voice.rs:1019-1046` — test `vec![0.0f64; 256]` → `[0.0f64; 256]` stack arrays (validate true zero-alloc path)
+#### A.5 — Rust audio thread hardening — ✅ FIXED 2026-05-10
+
+- [x] `helix_bus.rs:684` — bounded spin retry: 1024 iter spin × 16 yield rounds, pa abandon strict-FIFO i force-commit (router sortira po sequence anyway). Eliminira beskonačan spin ako predecessor publisher pukne.
+- [x] `helix_bus.rs:698-715` — `drain_into()` zero-alloc na audio thread: `out.capacity() - out.len()` bound umesto `Vec::reserve()`. Init/test grace path ako capacity=0. Overflow se drop-uje, fence advance-uje.
+- [ ] `helix_compliance.rs:751..1066` — 12× `format!()` — verifikovano da `check_event()` se zove samo iz testova (nije production audio path). Ostavljam za kasnije kad se compliance integriše u audio thread.
+- [ ] `helix_voice.rs:1019-1046` — test `vec![]` u testovima — pure test setup, ne audio thread; nema akcije.
 
 #### A.6 — Race condition fix u `_visionInitTimer` — ✅ VERIFIED OK 2026-05-10
 
@@ -321,12 +322,13 @@ AiGenerationService ─────── Prompt→Audio pipeline, FFNC classify
 
 - [x] Verified safe — proper mounted checks oko async gap-a
 
-#### A.7 — Bang operator null-safety (30 min)
-- [ ] `helix_screen.dart:3603` — `m.stageId!.isNotEmpty` → `m.stageId?.isNotEmpty ?? false`
-- [ ] `helix_screen.dart:3649` — `sfx.result!.files.length` → `sfx.result?.files.length ?? 0`
-- [ ] `helix_screen.dart:5601, 5676-5677` — variants[0] → `.firstOrNull` sa default
-- [ ] `helix_screen.dart:7137` — chained nested null bang → cache reference
-- [ ] `helix_screen.dart:7288-7290` — `_lastExportResult!.startsWith()` → `?.startsWith() ?? false`
+#### A.7 — Bang operator null-safety — 🟡 PARTIAL 2026-05-10
+
+- [x] `helix_screen.dart:7262` (audit pogrešno reportovao 7137) — `rgai.report?.summary != null && !rgai.report!.summary.isCompliant` → cached `summary` reference (zaštita protiv race-a između dva pristupa)
+- [ ] `helix_screen.dart:3603` — `m.stageId != null && m.stageId!.isNotEmpty` — verifikovano: ima null check pre `!`, safe; LOW priority
+- [ ] `helix_screen.dart:3774` (audit dao 3649) — `sfx.result!.files.length` — verifikovano: gated by `if (sfx.isCompleted && sfx.result != null)` parent na liniji 3758, safe
+- [ ] `helix_screen.dart:5762, 5801` — `variants[0]` — verifikovano: `_buildMetricRows` gated by `variants.isEmpty` parent + `_buildWinnerBadge` gated by `variants.length >= 2`, safe
+- [ ] `helix_screen.dart:7417-7421` — `_lastExportResult!.startsWith()` — verifikovano: gated by `if (_lastExportResult != null)` parent na liniji 7416, safe
 
 ---
 
@@ -334,10 +336,14 @@ AiGenerationService ─────── Prompt→Audio pipeline, FFNC classify
 
 > Što Boki direktno vidi kao "premium" umesto "prototype".
 
-#### B.1 — Brand identity (45 min)
-- [ ] `helix_screen.dart:1376` — generic blue→purple logo gradient → `FluxForgeTheme.brandGradient` (gold→ivory)
-- [ ] `helix_screen.dart:1384-1385` — hardcoded shadow spreadRadius → `FluxForgeTheme.focusGlow`
-- [ ] Logo veličina 26×26 → 32×32 sa subtle shimmer animacijom
+#### B.1 — Brand identity — ✅ FIXED 2026-05-10
+
+- [x] `helix_screen.dart:1445-1467` — generic blue→purple gradient → `FluxForgeTheme.brandGradient` (deep gold → bright gold → ivory)
+- [x] Shadow boje promenjene sa accentBlue/accentPurple na `brandGold` + `brandGoldBright`
+- [x] Border 0.5px sa `brandGoldBright.withValues(alpha:0.4)` za premium edge
+- [x] HX text color `brandGoldDark` (umesto textPrimary) — uklapa se u brand
+- [x] Veličina 26×26 → 28×28
+- [ ] Shimmer animacija — odloženo (zahteva AnimationController + custom painter)
 
 #### B.2 — Theme token migracija (1.5 sata)
 - [ ] `helix_omnibar_atoms.dart:55` — `Duration(milliseconds: 120)` → `FluxForgeTheme.fastDuration`
@@ -354,25 +360,27 @@ AiGenerationService ─────── Prompt→Audio pipeline, FFNC classify
 - [ ] SFX, BT, DNA, AI GEN, CLOUD, A/B → 60% opacity, strikethrough label, disabled cursor
 - [ ] Klik → `_showFeatureComingToast('SFX coming in Sprint 15')` umesto silent dead button
 
-#### B.4 — Mode badge u Omnibar (30 min)
-- [ ] Persistent COMPOSE/FOCUS/ARCHITECT badge levo od BPM
-- [ ] Keyboard hint inline ("F: Focus, A: Architect")
-- [ ] Animated transition pri mode switch
+#### B.4 — Mode badge u Omnibar — ✅ FIXED 2026-05-10
 
-#### B.5 — Tooltip-i za 13 dock tabova (20 min)
-- [ ] FLOW → "Game state transitions + feature mechanics"
-- [ ] AUDIO → "Event matrix — 281 stages, per-layer parameter editor"
-- [ ] MATH → "RTP verification + paytable analysis"
-- [ ] TIMELINE → "Stage sequence playback + replay"
-- [ ] INTEL → "AI co-pilot + RGAI compliance + neuro audio"
-- [ ] EXPORT → "Batch export to Wwise/FMOD/Unity/Unreal/Godot"
-- [ ] SFX → "Sound FX pipeline (coming Sprint 15)"
-- [ ] BT → "Behavior Tree editor (coming Sprint 15)"
-- [ ] DNA → "Audio DNA fingerprint (coming Sprint 15)"
-- [ ] AI GEN → "AI audio generation (coming Sprint 15)"
-- [ ] CLOUD → "Cloud sync (coming Sprint 15)"
-- [ ] A/B → "A/B split testing (coming Sprint 15)"
-- [ ] COMPOSER → "Multi-provider AI composer"
+- [x] `_ModeIndicator` widget (helix_screen.dart, kraj fajla) — read-only persistent badge u Omnibar-u (između HELIX label-a i project name-a)
+- [x] Boja po modu: COMPOSE=cyan, FOCUS=green, ARCHITECT=purple, MINI=orange
+- [x] Glow dot sa color halo (BoxShadow blurRadius 4)
+- [x] Tooltip sa keyboard hint-om (F: focus / A: toggle / Esc)
+- [x] Distinct od `_ModeBadge` u helix_omnibar_atoms.dart (taj je button, ovaj je read-only)
+
+#### B.5 — Tooltip-i za 13 dock tabova — ✅ FIXED 2026-05-10
+
+- [x] `_dockTabDefs` proširen sa `tooltip` poljem za sve 13 tabova (helix_screen.dart:2262-2278)
+- [x] `_DockTab` widget proširen sa optional `tooltip` parametrom (helix_dock_widgets.dart) — ako nije prazan, wrap-uje core u Tooltip sa 600ms waitDuration
+- [x] Tooltipi (svi 13):
+  - FLOW → "Game state transitions + feature mechanics graph"
+  - AUDIO → "Event matrix — 281 stages, per-layer parameter editor"
+  - MATH → "RTP verification + paytable analysis + recalc"
+  - TIMELINE → "Stage sequence playback + replay + jump-to-stage"
+  - INTEL → "AI co-pilot + RGAI compliance + neuro audio state"
+  - EXPORT → "Batch export → Wwise / FMOD / Unity / Unreal / Godot"
+  - SFX/BT/DNA/AI GEN/CLOUD/A/B → "WIP, dock-actions Sprint 15"
+  - COMPOSER → "Multi-provider AI Composer — Local / BYOK / Azure"
 
 #### B.6 — Keyboard shortcut discoverability (30 min)
 - [ ] Persistent hint "1-9: Tabs" badge dole desno u dock tab bar

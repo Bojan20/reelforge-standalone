@@ -40,7 +40,10 @@ import 'package:flutter_test/flutter_test.dart';
 /// `waitDuration: 600ms` + toggle thumb AnimatedAlign 120ms (Material
 /// switch microspring; FluxMotion ne pokriva 120ms tier — quick=150ms je
 /// najbliži).
-const int _kRawDurationMsBaseline = 950;
+/// Bumped 2026-05-10 (Sprint 14 Helix Faza 4.B.4/4.B.5) +2 za:
+/// `_ModeIndicator` Tooltip waitDuration 400ms + `_DockTab` tooltip
+/// wrapper waitDuration 600ms.
+const int _kRawDurationMsBaseline = 952;
 
 /// Frozen baseline za `Duration(seconds: …)` literala.
 /// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` SnackBar

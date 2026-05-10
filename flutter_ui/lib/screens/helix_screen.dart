@@ -1441,24 +1441,30 @@ class _HelixScreenState extends State<HelixScreen>
       child: Row(
         children: [
           const SizedBox(width: 12),
-          // Logo — premium gradient + subtle glow
+          // Logo — FluxForge brand identity (gold→ivory).
+          //
+          // 2026-05-10 (Sprint 14 Faza 4.B.1) — pre-fix bio je generic
+          // accentBlue→accentPurple gradijent koji je delovao kao Figma
+          // default ("startup AI vibes" per Boki audit).  Sada koristi
+          // `FluxForgeTheme.brandGradient` (deep gold → bright gold →
+          // ivory) sa subtle glow u brand boji.  Tipografija ostaje
+          // monospace radi tehnicke estetike, ali boja teksta je sad
+          // brandGoldDark da se prelivi u brand identity.
           Container(
-            width: 26, height: 26,
+            width: 28, height: 28,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft, end: Alignment.bottomRight,
-                colors: [FluxForgeTheme.accentBlue, FluxForgeTheme.accentPurple],
-              ),
+              gradient: FluxForgeTheme.brandGradient,
               borderRadius: BorderRadius.circular(7),
               boxShadow: [
-                BoxShadow(color: FluxForgeTheme.accentBlue.withValues(alpha: 0.3), blurRadius: 10, spreadRadius: -2),
-                BoxShadow(color: FluxForgeTheme.accentPurple.withValues(alpha: 0.2), blurRadius: 16, spreadRadius: -3),
+                BoxShadow(color: FluxForgeTheme.brandGold.withValues(alpha: 0.35), blurRadius: 12, spreadRadius: -2),
+                BoxShadow(color: FluxForgeTheme.brandGoldBright.withValues(alpha: 0.20), blurRadius: 18, spreadRadius: -3),
               ],
+              border: Border.all(color: FluxForgeTheme.brandGoldBright.withValues(alpha: 0.4), width: 0.5),
             ),
             child: const Center(
               child: Text('HX',
-                style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800,
-                  color: FluxForgeTheme.textPrimary, letterSpacing: 0.8)),
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900,
+                  color: FluxForgeTheme.brandGoldDark, letterSpacing: 0.8)),
             ),
           ),
           const SizedBox(width: 8),
@@ -1466,6 +1472,17 @@ class _HelixScreenState extends State<HelixScreen>
             fontFamily: 'monospace', fontSize: 11, fontWeight: FontWeight.w700,
             color: FluxForgeTheme.textPrimary, letterSpacing: 1.5)),
           const SizedBox(width: 12),
+          Container(width: 1, height: 24, color: FluxForgeTheme.borderSubtle),
+          const SizedBox(width: 8),
+          // ── Mode badge (Sprint 14 Faza 4.B.4) ─────────────────────────
+          // Pre-fix: korisnik je morao da gleda 3 mode dugmica desno
+          // (COMPOSE/FOCUS/ARCHITECT) da bi znao gde je. Ako je u FOCUS
+          // mode-u (dock sakriven) ili ARCHITECT (dock 50% screen),
+          // korisnik bi se zbunio i mislio da je app broken.
+          // Post-fix: persistent labela u Omnibar-u sa keyboard hint-om.
+          // F = FOCUS toggle, A = ARCHITECT toggle, Esc = COMPOSE.
+          _ModeIndicator(mode: _mode),
+          const SizedBox(width: 8),
           Container(width: 1, height: 24, color: FluxForgeTheme.borderSubtle),
           const SizedBox(width: 12),
           // Project name — tap to edit inline (O2)
@@ -2242,22 +2259,27 @@ class _HelixScreenState extends State<HelixScreen>
   // `DockTabRegistry` singleton with `register({id, icon, label, color, builder})`.
   // The current `switch(_dockTab)` in `_buildDockPanel` will dispatch via the
   // registry's builder for each id.
-  static const List<({String id, IconData icon, String label, Color color})> _dockTabDefs = [
-    (id: 'flow',     icon: Icons.account_tree_rounded, label: 'FLOW',     color: FluxForgeTheme.accentBlue),
-    (id: 'audio',    icon: Icons.graphic_eq_rounded,   label: 'AUDIO',    color: FluxForgeTheme.accentCyan),
-    (id: 'math',     icon: Icons.functions_rounded,    label: 'MATH',     color: FluxForgeTheme.accentGreen),
-    (id: 'timeline', icon: Icons.timeline_rounded,     label: 'TIMELINE', color: FluxForgeTheme.accentOrange),
-    (id: 'intel',    icon: Icons.psychology_rounded,   label: 'INTEL',    color: FluxForgeTheme.accentPurple),
-    (id: 'export',   icon: Icons.upload_rounded,       label: 'EXPORT',   color: FluxForgeTheme.accentYellow),
-    // ── FAZA 3 tabs ──
-    (id: 'sfx',      icon: Icons.auto_fix_high_rounded,label: 'SFX',      color: FluxForgeTheme.accentCyan),
-    (id: 'bt',       icon: Icons.hub_rounded,          label: 'BT',       color: FluxForgeTheme.accentOrange),
-    (id: 'dna',      icon: Icons.fingerprint_rounded,  label: 'DNA',      color: FluxForgeTheme.accentPink),
-    (id: 'ai_gen',   icon: Icons.auto_awesome_rounded, label: 'AI GEN',   color: FluxForgeTheme.accentPurple),
-    (id: 'cloud',    icon: Icons.cloud_sync_rounded,   label: 'CLOUD',    color: FluxForgeTheme.accentBlue),
-    (id: 'ab',       icon: Icons.science_rounded,      label: 'A/B',      color: FluxForgeTheme.accentGreen),
+  // 2026-05-10 (Sprint 14 Faza 4.B.5) — `tooltip` polje dodato za sve 13
+  // tabova.  Pre-fix: korisnik je imao 13 ikonica + label-a bez objašnjenja
+  // čemu svaki služi (šta je "DNA"? razlika "SFX" vs "AUDIO"?).  Sad svaki
+  // tab ima 1-line tooltip koji se pojavljuje na hover (proxied kroz
+  // _DockTab → FluxTooltip).
+  static const List<({String id, IconData icon, String label, Color color, String tooltip})> _dockTabDefs = [
+    (id: 'flow',     icon: Icons.account_tree_rounded, label: 'FLOW',     color: FluxForgeTheme.accentBlue,   tooltip: 'Game state transitions + feature mechanics graph'),
+    (id: 'audio',    icon: Icons.graphic_eq_rounded,   label: 'AUDIO',    color: FluxForgeTheme.accentCyan,   tooltip: 'Event matrix — 281 stages, per-layer parameter editor'),
+    (id: 'math',     icon: Icons.functions_rounded,    label: 'MATH',     color: FluxForgeTheme.accentGreen,  tooltip: 'RTP verification + paytable analysis + recalc'),
+    (id: 'timeline', icon: Icons.timeline_rounded,     label: 'TIMELINE', color: FluxForgeTheme.accentOrange, tooltip: 'Stage sequence playback + replay + jump-to-stage'),
+    (id: 'intel',    icon: Icons.psychology_rounded,   label: 'INTEL',    color: FluxForgeTheme.accentPurple, tooltip: 'AI co-pilot + RGAI compliance + neuro audio state'),
+    (id: 'export',   icon: Icons.upload_rounded,       label: 'EXPORT',   color: FluxForgeTheme.accentYellow, tooltip: 'Batch export → Wwise / FMOD / Unity / Unreal / Godot'),
+    // ── FAZA 3 tabs (UI scaffolded, quick actions WIP — Sprint 15) ──
+    (id: 'sfx',      icon: Icons.auto_fix_high_rounded,label: 'SFX',      color: FluxForgeTheme.accentCyan,   tooltip: 'Sound FX pipeline wizard — WIP, dock-actions Sprint 15'),
+    (id: 'bt',       icon: Icons.hub_rounded,          label: 'BT',       color: FluxForgeTheme.accentOrange, tooltip: 'Behavior Tree visual editor — WIP, dock-actions Sprint 15'),
+    (id: 'dna',      icon: Icons.fingerprint_rounded,  label: 'DNA',      color: FluxForgeTheme.accentPink,   tooltip: 'Audio DNA / brand fingerprint — WIP, dock-actions Sprint 15'),
+    (id: 'ai_gen',   icon: Icons.auto_awesome_rounded, label: 'AI GEN',   color: FluxForgeTheme.accentPurple, tooltip: 'AI audio generation pipeline — WIP, dock-actions Sprint 15'),
+    (id: 'cloud',    icon: Icons.cloud_sync_rounded,   label: 'CLOUD',    color: FluxForgeTheme.accentBlue,   tooltip: 'Cloud sync (Firebase/AWS/custom) — WIP, dock-actions Sprint 15'),
+    (id: 'ab',       icon: Icons.science_rounded,      label: 'A/B',      color: FluxForgeTheme.accentGreen,  tooltip: 'A/B split testing — WIP, dock-actions Sprint 15'),
     // Model 3 — multi-provider AI Composer (Local / BYOK / Azure)
-    (id: 'composer', icon: Icons.smart_toy_rounded,    label: 'COMPOSER', color: FluxForgeTheme.accentGreen),
+    (id: 'composer', icon: Icons.smart_toy_rounded,    label: 'COMPOSER', color: FluxForgeTheme.accentGreen,  tooltip: 'Multi-provider AI Composer — Local / BYOK / Azure'),
   ];
 
   /// Resolves the active dock height for the current mode.
@@ -2613,6 +2635,7 @@ class _HelixScreenState extends State<HelixScreen>
                         child: _DockTab(
                           icon: def.icon, label: def.label, color: def.color,
                           active: active,
+                          tooltip: def.tooltip, // Sprint 14 Faza 4.B.5
                           onTap: () => setState(() => _dockTab = e.key),
                         ),
                       );
@@ -7259,7 +7282,13 @@ class _ExportPanelState extends State<_ExportPanel> {
     bool _blocked = false;
     silentRun('export.rgaiComplianceGate', () {
       final rgai = GetIt.instance<RgaiProvider>();
-      if (rgai.report?.summary != null && !rgai.report!.summary.isCompliant) {
+      // 2026-05-10 (Sprint 14 Faza 4.A.7) — cache the optional reference
+      // so the second access can't see a different value.  Pre-fix used
+      // `rgai.report?.summary != null && !rgai.report!.summary.isCompliant`
+      // which reads `rgai.report` twice; if the provider notifies and
+      // sets `report = null` between those reads, the bang explodes.
+      final summary = rgai.report?.summary;
+      if (summary != null && !summary.isCompliant) {
         setState(() => _lastExportResult = '⛔ BLOCKED: RGAI compliance check failed. Fix issues first.');
         _blocked = true;
       }
@@ -14088,6 +14117,65 @@ class _HelixModeDef {
     required this.label,
     required this.tooltip,
   });
+}
+
+/// Persistent mode indicator badge in the Omnibar (Sprint 14 Faza 4.B.4).
+///
+/// Shows current COMPOSE / FOCUS / ARCHITECT mode with semantic color
+/// and an inline keyboard hint.  Replaces the discoverability gap
+/// where users couldn't tell which mode they were in unless they
+/// looked at the right-hand mode-button cluster (especially confusing
+/// in FOCUS mode where the dock is hidden — looked like the app was
+/// broken).
+///
+/// Distinct from `_ModeBadge` (in `helix_omnibar_atoms.dart`), which is
+/// a clickable BUTTON for switching modes.  This is read-only display.
+class _ModeIndicator extends StatelessWidget {
+  final int mode;
+  const _ModeIndicator({required this.mode});
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, color, hint) = switch (mode) {
+      0 => ('COMPOSE',   FluxForgeTheme.accentCyan,   'F: focus'),
+      1 => ('FOCUS',     FluxForgeTheme.accentGreen,  'F: cycle / Esc'),
+      2 => ('ARCHITECT', FluxForgeTheme.accentPurple, 'A: toggle'),
+      _ => ('MINI',      FluxForgeTheme.accentOrange, 'tap'),
+    };
+    return Tooltip(
+      message: '$label mode — $hint',
+      waitDuration: const Duration(milliseconds: 400),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: color.withValues(alpha: 0.5), width: 0.5),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 5, height: 5,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(color: color.withValues(alpha: 0.6),
+                      blurRadius: 4, spreadRadius: 0.5),
+                ],
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(label, style: TextStyle(
+              fontFamily: 'monospace', fontSize: 9,
+              fontWeight: FontWeight.w800, letterSpacing: 1.0,
+              color: color)),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // FAZA 3.7.H+ — Compact stat chip used in the Snapshot Diff header.

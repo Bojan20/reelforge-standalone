@@ -20,8 +20,12 @@ class _DockTab extends StatefulWidget {
   final Color color;
   final bool active;
   final VoidCallback onTap;
+  /// Sprint 14 Faza 4.B.5 — 1-line description shown on hover.
+  /// Solves the "what does DNA / BT / SFX mean?" discoverability gap.
+  /// Empty string means no tooltip (backwards-compat for old call sites).
+  final String tooltip;
   const _DockTab({required this.icon, required this.label, required this.color,
-    required this.active, required this.onTap});
+    required this.active, required this.onTap, this.tooltip = ''});
 
   @override
   State<_DockTab> createState() => _DockTabState();
@@ -34,7 +38,7 @@ class _DockTabState extends State<_DockTab> {
   Widget build(BuildContext context) {
     final isActive = widget.active;
     final color = widget.color;
-    return MouseRegion(
+    final core = MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: GestureDetector(
@@ -125,6 +129,12 @@ class _DockTabState extends State<_DockTab> {
           ],
         ),
       ),
+    );
+    if (widget.tooltip.isEmpty) return core;
+    return Tooltip(
+      message: widget.tooltip,
+      waitDuration: const Duration(milliseconds: 600),
+      child: core,
     );
   }
 }
