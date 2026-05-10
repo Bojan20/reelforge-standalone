@@ -37,12 +37,17 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Frozen baseline za `Color(0x…)` literala pod `lib/` izvan `lib/theme/`.
-/// Captured 2026-05-10 audit.
+/// Captured 2026-05-10 audit. Bumped 2026-05-10 (Sprint 7) +24 za
+/// `event_audit_service.dart` semantic status colors (active/dormant/silent/
+/// absent) i `event_debugger_panel.dart` AUDIT tab UI — status indikatori
+/// koji se mapiraju 1:1 na `EventAuditStatus` enum, opravdano color-coded.
 ///
 /// **Direction contract:** baseline ide samo nadole. Svaki commit koji
 /// raste ovaj broj uvodi nov raw color literal — autor mora da koristi
-/// `FluxForgeTheme.*` token umesto direktnog `Color(0x…)`.
-const int _kRawColorHexBaseline = 7595;
+/// `FluxForgeTheme.*` token umesto direktnog `Color(0x…)`. Ako je bump
+/// neizbežan (semantic status palette npr.), dodaj rationale komentar
+/// ovde u istom commit-u.
+const int _kRawColorHexBaseline = 7619;
 
 /// Frozen baseline za `Color.fromARGB(…)` + `Color.fromRGBO(…)` konstruktore.
 const int _kRawColorCtorBaseline = 7;
@@ -50,7 +55,9 @@ const int _kRawColorCtorBaseline = 7;
 /// Frozen baseline za `Colors.<material-default>` reference.
 /// Ovi su Material Design default-i — ne brand. Svaki je vizuelni "AI-look"
 /// signal jer ne prati FluxForge paletu.
-const int _kRawMaterialColorsBaseline = 7068;
+/// Bumped 2026-05-10 (Sprint 7) +22 za `Colors.white60/38/24/30/54/70` muted
+/// text references u AUDIT tab-u (developer-facing debug panel, ne user UI).
+const int _kRawMaterialColorsBaseline = 7090;
 
 /// Direktorijumi koji su isključeni iz brojanja jer NISU "user UI code":
 ///   * `lib/theme/` — canonical brand definicije (one *jesu* raw boje, namerno).

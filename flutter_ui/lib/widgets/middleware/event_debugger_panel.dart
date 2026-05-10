@@ -15,8 +15,11 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../models/slot_audio_events.dart';
 import '../../providers/middleware_provider.dart';
+import '../../providers/slot_lab_project_provider.dart';
+import '../../services/event_audit_service.dart';
 import '../../services/event_registry.dart';
 import '../../services/event_orphan_detector.dart';
+import '../../services/stage_configuration_service.dart';
 import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -86,7 +89,7 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     eventRegistry.addListener(_onEventRegistryUpdate);
   }
 
@@ -303,6 +306,7 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
                 _buildMappingsTab(),
                 _buildStatsTab(),
                 _buildOrphansTab(),
+                _buildAuditTab(),
               ],
             ),
           ),
@@ -424,6 +428,7 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
           Tab(text: 'MAPPINGS'),
           Tab(text: 'STATS'),
           Tab(text: 'ORPHANS'),
+          Tab(text: 'AUDIT'),
         ],
       ),
     );
@@ -1122,6 +1127,449 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
           ],
         );
       },
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // FLUX_MASTER_TODO 0.5 B.1 — AUDIT TAB
+  // Cross-references: stage taxonomy + EventRegistry + StageCoverageService
+  // + audioAssignments. Surface the 4-state lifecycle (active/dormant/silent
+  // /absent) per category sa health gauge + per-category roll-up + drill-down
+  // entry list + JSON export dugme.
+  // ═══════════════════════════════════════════════════════════════════════
+
+  Widget _buildAuditTab() {
+    return Consumer<SlotLabProjectProvider>(
+      builder: (context, project, _) {
+        return _AuditTabContent(project: project);
+      },
+    );
+  }
+}
+
+/// FLUX_MASTER_TODO 0.5 B.1 — AUDIT tab body. Stateful so user can hit
+/// "Refresh" without rebuilding parent debug panel + persists selected
+/// category filter across rebuilds.
+class _AuditTabContent extends StatefulWidget {
+  const _AuditTabContent({required this.project});
+  final SlotLabProjectProvider project;
+
+  @override
+  State<_AuditTabContent> createState() => _AuditTabContentState();
+}
+
+class _AuditTabContentState extends State<_AuditTabContent> {
+  StageCategory? _filterCategory;
+  EventAuditStatus? _filterStatus;
+  String? _exportNotice;
+
+  @override
+  void initState() {
+    super.initState();
+    // Generate first report on tab mount.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      EventAuditService.instance.generate(projectProvider: widget.project);
+    });
+  }
+
+  void _refresh() {
+    EventAuditService.instance.generate(projectProvider: widget.project);
+  }
+
+  Future<void> _exportJson() async {
+    final path = await EventAuditService.instance.exportToJson();
+    if (!mounted) return;
+    setState(() {
+      _exportNotice = path != null
+          ? 'Exported → $path'
+          : 'Nothing to export — generate a report first.';
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: EventAuditService.instance,
+      builder: (context, _) {
+        final report = EventAuditService.instance.lastReport;
+        if (report == null) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'Generating audit…',
+                style: TextStyle(color: Colors.white54, fontSize: 12),
+              ),
+            ),
+          );
+        }
+        // Filtered entry list
+        final entries = report.entries.where((e) {
+          if (_filterCategory != null && e.category != _filterCategory) {
+            return false;
+          }
+          if (_filterStatus != null && e.status != _filterStatus) {
+            return false;
+          }
+          return true;
+        }).toList()
+          ..sort((a, b) {
+            final byCat = a.category.index.compareTo(b.category.index);
+            if (byCat != 0) return byCat;
+            return a.stage.compareTo(b.stage);
+          });
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildAuditHeader(report),
+            const Divider(height: 1, color: Colors.white12),
+            _buildStatusFilterBar(),
+            const Divider(height: 1, color: Colors.white12),
+            _buildCategoryStrip(report),
+            const Divider(height: 1, color: Colors.white12),
+            Expanded(
+              child: entries.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'No entries match filter.',
+                        style: TextStyle(
+                            color: Colors.white38, fontSize: 11),
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      itemCount: entries.length,
+                      itemBuilder: (context, i) =>
+                          _buildAuditRow(entries[i]),
+                    ),
+            ),
+            if (_exportNotice != null)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(8),
+                color: FluxForgeTheme.brandGold.withValues(alpha: 0.10),
+                child: Text(
+                  _exportNotice!,
+                  style: const TextStyle(
+                    color: FluxForgeTheme.brandGold,
+                    fontSize: 10,
+                    fontFamily: 'monospace',
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildAuditHeader(EventAuditReport report) {
+    final score = (report.healthScore * 100).toStringAsFixed(1);
+    final scoreColor = report.healthScore >= 0.85
+        ? const Color(0xFF40FF90)
+        : report.healthScore >= 0.6
+            ? FluxForgeTheme.brandGold
+            : const Color(0xFFFF6040);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+      child: Row(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: scoreColor, width: 3),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              '$score%',
+              style: TextStyle(
+                color: scoreColor,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'EVENT AUDIT',
+                  style: TextStyle(
+                    color: FluxForgeTheme.brandGold,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${report.totalStages} stages · '
+                  '${report.activeCount} active · '
+                  '${report.dormantCount} dormant · '
+                  '${report.silentCount} silent · '
+                  '${report.absentCount} absent',
+                  style: const TextStyle(
+                      color: Colors.white60, fontSize: 10),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: _refresh,
+            icon: const Icon(Icons.refresh,
+                size: 16, color: Colors.white70),
+            tooltip: 'Refresh report',
+          ),
+          IconButton(
+            onPressed: _exportJson,
+            icon: const Icon(Icons.file_download,
+                size: 16, color: Colors.white70),
+            tooltip: 'Export JSON',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusFilterBar() {
+    Widget chip(String label, EventAuditStatus? status, Color color) {
+      final isActive = _filterStatus == status;
+      return Padding(
+        padding: const EdgeInsets.only(right: 6),
+        child: GestureDetector(
+          onTap: () => setState(() {
+            _filterStatus = isActive ? null : status;
+          }),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: isActive
+                  ? color.withValues(alpha: 0.20)
+                  : Colors.transparent,
+              border: Border.all(
+                color: isActive ? color : color.withValues(alpha: 0.4),
+                width: 1,
+              ),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                color: isActive ? color : color.withValues(alpha: 0.7),
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      child: Row(
+        children: [
+          chip('ALL', null, Colors.white70),
+          chip('ACTIVE', EventAuditStatus.active,
+              const Color(0xFF40FF90)),
+          chip('DORMANT', EventAuditStatus.dormant,
+              FluxForgeTheme.brandGold),
+          chip('SILENT', EventAuditStatus.silent,
+              const Color(0xFFFF9040)),
+          chip('ABSENT', EventAuditStatus.absent,
+              const Color(0xFFFF4040)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryStrip(EventAuditReport report) {
+    return SizedBox(
+      height: 40,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        itemCount: report.categorySummaries.length,
+        itemBuilder: (context, i) {
+          final s = report.categorySummaries[i];
+          if (s.total == 0) return const SizedBox.shrink();
+          final isActive = _filterCategory == s.category;
+          final cColor = Color(s.category.color);
+          final pct = (s.activeRatio * 100).toStringAsFixed(0);
+          return Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: GestureDetector(
+              onTap: () => setState(() {
+                _filterCategory = isActive ? null : s.category;
+              }),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isActive
+                      ? cColor.withValues(alpha: 0.20)
+                      : Colors.black26,
+                  border: Border.all(
+                      color: isActive ? cColor : cColor.withValues(alpha: 0.5),
+                      width: 1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: cColor,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      s.category.label.toUpperCase(),
+                      style: TextStyle(
+                          color: cColor,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.5),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '$pct%',
+                      style: const TextStyle(
+                          color: Colors.white60, fontSize: 10),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '(${s.active}/${s.total})',
+                      style: const TextStyle(
+                          color: Colors.white38, fontSize: 9),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildAuditRow(EventAuditEntry e) {
+    final statusColor = Color(e.status.colorHex);
+    final catColor = Color(e.category.color);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+              color: Colors.white.withValues(alpha: 0.05), width: 0.5),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 6,
+            height: 28,
+            decoration: BoxDecoration(
+              color: statusColor,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Category badge
+          Container(
+            width: 60,
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            decoration: BoxDecoration(
+              color: catColor.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(2),
+            ),
+            child: Text(
+              e.category.label.toUpperCase(),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  color: catColor,
+                  fontSize: 8,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.4),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  e.stage,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (e.audioPath != null)
+                  Text(
+                    e.audioPath!.split('/').last,
+                    style: const TextStyle(
+                        color: Colors.white38,
+                        fontSize: 9,
+                        fontFamily: 'monospace'),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
+            ),
+          ),
+          // Status badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(2),
+            ),
+            child: Text(
+              e.status.label,
+              style: TextStyle(
+                  color: statusColor,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Trigger count
+          SizedBox(
+            width: 36,
+            child: Text(
+              e.triggerCount > 0 ? '${e.triggerCount}×' : '—',
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                  color: e.triggerCount > 0
+                      ? Colors.white60
+                      : Colors.white24,
+                  fontSize: 10,
+                  fontFamily: 'monospace'),
+            ),
+          ),
+          const SizedBox(width: 4),
+          GestureDetector(
+            onTap: () =>
+                Clipboard.setData(ClipboardData(text: e.stage)),
+            child: const Icon(Icons.copy,
+                size: 12, color: Colors.white30),
+          ),
+        ],
+      ),
     );
   }
 }
