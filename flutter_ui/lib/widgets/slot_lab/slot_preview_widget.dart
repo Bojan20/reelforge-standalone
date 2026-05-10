@@ -2556,9 +2556,24 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       });
     }
 
-    // 2b. Stop all one-shot audio (LAND, REEL_STOP, etc.) immediately
+    // 2b. Stop spin LOOPS only (REEL_SPIN_LOOP, ANTICIPATION_*).
+    //
+    // FLUX_MASTER_TODO 0.5 (Sprint 13 CRITICAL FIX) — Boki: "ne znam ko ti
+    // je rekao da smes da odlucujes kolko ce zvuk da traje". Pre fix-a, ovo
+    // je zvalo `stopAllOneShotInstances()` koji fade-uje SVE one-shot voices
+    // za 30ms na svakom finalize spin-u. To znači REEL_STOP_4 audio koji je
+    // tek počeo da svira (npr. anticipation na poslednjem reel-u koji se
+    // landuje 200ms pre finalize) bivao je presečen.
+    //
+    // Pravilo: looping audio (spin loops, anticipation tension layers) MORA
+    // biti zaustavljen jer bi inače sviralo zauvek. One-shots (REEL_STOP_N,
+    // single LAND hit, anticipation impact) sviraju do prirodnog kraja audio
+    // fajla — engine sam release-uje voice kad sample cursor dođe do EOF.
     EventRegistry.instance.stopAllSpinLoops();
-    EventRegistry.instance.stopAllOneShotInstances();
+    // INTENTIONALLY NOT calling stopAllOneShotInstances() — let one-shots
+    // play to natural end. Manual STOP button handler (handleStopPress)
+    // i dalje zove stopAllOneShotInstances() jer je to user-explicit
+    // intent ("zaustavi sve, sad").
 
     // 3. Stop all win-related audio and trigger END stages
     final savedWinTier = _winTier; // Save before reset

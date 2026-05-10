@@ -694,9 +694,12 @@ class EventRegistry extends ChangeNotifier {
   // Maps reel index (0-4) to voice ID for individual fade-out on REEL_STOP_N
   final Map<int, int> _reelSpinLoopVoices = {};
 
-  // 120ms = smooth crossfade that hides the spin→stop click without
-  // delaying audio-visual sync (15ms was audibly abrupt / clicking).
-  static const int _spinLoopFadeMs = 120;
+  // 2026-05-10 — Boki direktiva: "svaki event pusti zvuk koliko taj
+  // audio fajl traje u originalu. ne odlučuješ ti koliko će da traje."
+  // Spin loop je beskonačan loop, na REEL_STOP MORA da se prekine —
+  // ali bez fade-tail-a (= 0ms instant cut). Tako REEL_STOP_N voice
+  // dobija punu prirodnu dužinu fajla bez preklapanja sa loop tail-om.
+  static const int _spinLoopFadeMs = 0;
 
   // P0-C3: Per-reel guard — old global bool blocked reels 1-4 from fading
   // while reel 0 was in progress (5 reels stopping in rapid succession).

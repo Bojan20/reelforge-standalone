@@ -100,10 +100,25 @@ class _PooledVoice {
 // OVERFLOW VOICE — Temporary voice created when pool is full
 // =============================================================================
 
-/// P0.4 FIX: Track overflow voices to prevent memory leaks
+/// P0.4 FIX: Track overflow voices to prevent memory leaks.
 /// These are created when the pool is full and all voices are busy.
-/// They have an estimated duration and auto-release when done.
-/// P1.10 FIX: Use int milliseconds instead of DateTime/Duration objects
+///
+/// FLUX_MASTER_TODO 0.5 (Sprint 13 CRITICAL BUG FIX) — Boki: "ne znam ko ti
+/// je rekao da smes da odlucujes kolko ce zvuk da traje". Pre fix-a, default
+/// `estimatedDurationMs = 2000` ms ubijao je SVAKI overflow audio fajl posle
+/// 2.5s (2000ms + 500ms buffer) bez obzira na pravu dužinu fajla. Win sting
+/// od 4s? Cut at 2.5s. Voice over od 8s? Cut at 2.5s.
+///
+/// FIX: Default je sad 60_000 ms (60s) — slot industry hard ceiling za one-shot
+/// audio (rollup ne brojimo, on je looping). Ako je realni audio kraći, FFI
+/// engine će sam release-ovati voice unutar svog `_activeVoices` book-keeping-a
+/// kad njegov internal play cursor stigne do kraja sample-a. Cleanup timer je
+/// SAMO leak prevention safety net za case gde FFI ne pozove "voice_finished"
+/// callback (rare, ali smo ga videli u dev). Caller koji ZNA dužinu fajla
+/// (npr. audio metadata reader) može da prosledi `estimatedDurationMs`
+/// eksplicitno za tightni cleanup window.
+///
+/// P1.10 FIX: Use int milliseconds instead of DateTime/Duration objects.
 class _OverflowVoice {
   final int voiceId;
   final String eventKey;
@@ -115,18 +130,21 @@ class _OverflowVoice {
     required this.voiceId,
     required this.eventKey,
     required this.busId,
-    this.estimatedDurationMs = 2000,
+    // FLUX_MASTER_TODO Sprint 13 — bumped 2_000 → 60_000. See class docs.
+    this.estimatedDurationMs = 60000,
   }) : createdAtMs = DateTime.now().millisecondsSinceEpoch;
 
-  /// Check if this overflow voice should be cleaned up
-  /// P1.10: Pure int comparison, no object allocations
+  /// Check if this overflow voice should be cleaned up.
+  /// Sprint 13: 5_000 ms buffer (umesto 500 ms) — caller-provided estimate
+  /// može biti malo off zbog file metadata read greške; bolje da pustimo
+  /// da audio završi prirodno nego da ga sečemo.
+  /// P1.10: Pure int comparison, no object allocations.
   bool get shouldCleanup {
-    // Add 500ms buffer to ensure playback completes
-    final thresholdMs = estimatedDurationMs + 500;
+    final thresholdMs = estimatedDurationMs + 5000;
     return DateTime.now().millisecondsSinceEpoch - createdAtMs > thresholdMs;
   }
 
-  /// P1.10: Age in milliseconds (allocation-free)
+  /// P1.10: Age in milliseconds (allocation-free).
   int get ageMs => DateTime.now().millisecondsSinceEpoch - createdAtMs;
 }
 

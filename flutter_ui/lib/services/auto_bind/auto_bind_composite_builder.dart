@@ -87,7 +87,6 @@ class AutoBindCompositeBuilder {
     // succession), takođe overlap=true tako da druga voice ne ubija prvu.
     final stageCfg = StageConfigurationService.instance;
     final stageDef = stageCfg.getStage(stage);
-    final isMusicBus = stageDef?.bus.toString().toLowerCase().contains('music') ?? false;
     final shouldLoop = stageCfg.isLooping(stage);
 
     // ─── 2026-05-09 — Disable pool steal for raw playback ────────────
@@ -116,32 +115,36 @@ class AutoBindCompositeBuilder {
     // routing/mixer settings still apply, but everything else is RAW.
     final busId = StageDefaults.getDefaultForStage(stage).busId;
 
-    // ── Music vs SFX semantics ─────────────────────────────────────────────
+    // ── 2026-05-10 — RAW MODE (Boki direktiva) ─────────────────────────────
     //
-    // Music stages (MUSIC_BASE_L1..L5, MUSIC_FS_L1, BONUS_MUSIC, etc.) must:
-    //   • NOT overlap — second trigger crossfades into the new track
-    //   • crossfadeMs=500  — 0.5s blend between layers/layers
-    //   • fadeInMs=200, fadeOutMs=300 — smooth entry/exit
-    //   • loop=true  — music beds are always looping
+    // "Želim da svaki event pusti zvuk koliko taj audio fajl traje u
+    // originalu. Ne znam ko ti je rekao da smeš da odlučuješ koliko će
+    // zvuk da traje."
     //
-    // SFX stages (REEL_STOP, ANTICIPATION, WIN_PRESENT, UI_*, etc.) must:
-    //   • overlap=true — rapid retriggers play out to natural end
-    //   • crossfadeMs=0, fadeInMs=0, fadeOutMs=0 — raw playback
+    // Auto-bind je IMPORT putanja, ne mixing decision.  Korisnik je
+    // pažljivo nasnimio fajl — naš posao je da ga emitujemo neoštećenog.
+    // SVA fade/crossfade/overlap modulacija ide kroz manual per-layer
+    // edit u SlotLab UI, ne kroz auto-build.
     //
-    // BIG_WIN_START/END are treated as music even if StageDefaults places
-    // them on a non-music bus (they have the crossfade semantics).
-    final effectiveMusicBus = isMusicBus || isBigWinTransition;
-    final crossfadeMs = effectiveMusicBus ? 500 : 0;
+    //   • crossfadeMs   = 0     — bez automatskog blend-a između tracks
+    //   • fadeInMs      = 0     — instant attack, fajl počinje od svog sample[0]
+    //   • fadeOutMs     = 0     — bez fade-out tail-a; fajl ide do svog kraja
+    //   • overlap       = true  — retriggers play to natural end (ne kill)
+    //   • loop          = shouldLoop iz StageConfigurationService (single
+    //                     source of truth — auto-bind ne forsira)
+    //
+    // BIG_WIN_START/END idu na music bus radi ducking konfiguracije —
+    // bus routing nije trajanje pa nije Boki-flagged.
+    const crossfadeMs = 0;
+    const effectiveFadeInMs = 0.0;
+    const effectiveFadeOutMs = 0.0;
+    const shouldOverlap = true;
+    final effectiveLoop = shouldLoop;
     final effectiveTargetBus =
         isBigWinTransition ? SlotBusIds.music : busId;
-    final effectiveLoop = effectiveMusicBus ? true : shouldLoop;
-    // Music crossfades (no overlap); SFX plays out (overlap).
-    final shouldOverlap = !effectiveMusicBus;
 
     // Per-reel stereo spread for REEL_STOP_0..4; centre for everything else.
     final effectivePan = _panForStage(stage, 0.0);
-    final effectiveFadeInMs = effectiveMusicBus ? 200.0 : 0.0;
-    final effectiveFadeOutMs = effectiveMusicBus ? 300.0 : 0.0;
 
     // Build layers — primary Play layer ONLY.
     // SFX: raw (no pan/fade changes beyond bus routing).
