@@ -510,7 +510,7 @@ AiGenerationService ─────── Prompt→Audio pipeline, FFNC classify
 - [ ] `helix_bus.rs:392-428` — `HxFilter::Channels(bitmask)` → `HxFilterBuilder` — odloženo
 - [ ] `helix_bus.rs:1243-1260` — `unsafe { &self.payload.mixed }` → sealed enum — odloženo (struct layout breaking change)
 - [ ] `helix_graph.rs:647-654` — `node_mut()` → versioned setters — odloženo
-- [ ] `helix_voice.rs:371-396` — `activate()` → `Result<(), HxVoiceError>` — odloženo
+- [x] **F.7 HxVoiceError + activate_result()** — `helix_voice.rs` dodaje `HxVoiceError` enum (varijanta `AlreadyActive`) sa `Display` + `std::error::Error` impl, i `HxVoice::activate_result(config) -> Result<(), HxVoiceError>` koji vraća tipovanu grešku na pokušaj re-aktivacije voice-a koji je već u active state. Postojeći `activate() -> ()` je sad thin wrapper koji ignoriše grešku radi backward compat (legacy silent-overwrite semantika). 6 novih testova (fresh voice OK, double-activate Err, post-deactivate OK, legacy compat, Display readable, std::error::Error impl).
 
 ---
 

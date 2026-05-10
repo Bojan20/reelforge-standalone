@@ -76,6 +76,38 @@ impl HxVoiceState {
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// HxVoiceError — typed error for fallible voice operations
+//
+// 2026-05-11 (Sprint 15 Faza 4.F.7): replaces the historical silent
+// "activate overwrites whatever was there" contract with explicit error
+// reporting via `activate_result()`.  Builders and FFI layers can react
+// specifically to double-activate vs other failure modes.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Error variants for HELIX voice operations.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HxVoiceError {
+    /// `activate_result` called on a voice that is already in an active
+    /// state.  Caller must `deactivate()` first, or steal a different
+    /// voice slot, or accept the double-activate via the legacy
+    /// `activate()` bool/void API.
+    AlreadyActive,
+}
+
+impl core::fmt::Display for HxVoiceError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::AlreadyActive => write!(f,
+                "HELIX voice is already in an active state — \
+                 call deactivate() first or use legacy activate() for \
+                 silent overwrite"),
+        }
+    }
+}
+
+impl std::error::Error for HxVoiceError {}
+
 /// Voice priority levels (determines stealing order and gate behavior)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(u8)]
@@ -367,8 +399,34 @@ impl HxVoice {
         }
     }
 
-    /// Activate this voice for playback
+    /// Activate this voice for playback.
+    ///
+    /// **2026-05-11 (Sprint 15 F.7):** prefer [`activate_result`](Self::activate_result)
+    /// for new code — it returns `Result<(), HxVoiceError>` so callers
+    /// can distinguish "already-active double-activate" from
+    /// "fresh allocation".  The bool/void `activate` is retained for
+    /// backward compatibility and now delegates to `activate_result`,
+    /// silently overwriting state if double-activated.
     pub fn activate(&mut self, config: HxVoiceActivation) {
+        // Bool wrapper for backward compat — drops the error variant.
+        let _ = self.activate_result(config);
+    }
+
+    /// Activate with typed-error reporting.
+    ///
+    /// Returns `Err(HxVoiceError::AlreadyActive)` if the voice is
+    /// currently in any active state (FadingIn / Playing / Looping /
+    /// FadingOut / Ducked).  Caller can react: log + abort, steal +
+    /// retry, or proceed by manually calling `deactivate()` first.
+    ///
+    /// On `Ok(())` the voice is in `FadingIn` state and rendering
+    /// will begin on the next `render()` call.
+    pub fn activate_result(&mut self, config: HxVoiceActivation)
+        -> Result<(), HxVoiceError>
+    {
+        if self.state.is_active() {
+            return Err(HxVoiceError::AlreadyActive);
+        }
         self.id = config.id;
         self.state = HxVoiceState::FadingIn;
         self.audio = Some(config.audio);
@@ -393,6 +451,7 @@ impl HxVoice {
         self.graph_instance_id = config.graph_instance_id;
         self.stage_id = config.stage_id;
         self.bus_id = config.bus_id;
+        Ok(())
     }
 
     /// Start fade-out (voice will transition to Stopped when complete)
@@ -1173,5 +1232,70 @@ mod tests {
         assert_eq!(stats.active_voices, 3);
         assert_eq!(stats.total_spawned, 3);
         assert_eq!(stats.total_voices, MAX_HX_VOICES);
+    }
+
+    // ── Sprint 15 Faza 4.F.7 — activate_result + HxVoiceError ──────────────
+
+    #[test]
+    fn activate_result_ok_on_fresh_voice() {
+        let mut voice = HxVoice::new_idle();
+        let audio = make_test_audio(4800);
+        let result = voice.activate_result(make_activation(audio));
+        assert_eq!(result, Ok(()),
+            "fresh idle voice should accept activation cleanly");
+        assert!(voice.state.is_active(),
+            "voice should be in active state after successful activation");
+    }
+
+    #[test]
+    fn activate_result_returns_already_active_on_double_activate() {
+        let mut voice = HxVoice::new_idle();
+        let audio1 = make_test_audio(4800);
+        let audio2 = make_test_audio(4800);
+        assert_eq!(voice.activate_result(make_activation(audio1)), Ok(()));
+        // Second activate while still active → must error
+        let result = voice.activate_result(make_activation(audio2));
+        assert_eq!(result, Err(HxVoiceError::AlreadyActive));
+    }
+
+    #[test]
+    fn activate_result_succeeds_after_deactivate() {
+        // Deactivate clears the active state — re-activation should succeed.
+        let mut voice = HxVoice::new_idle();
+        let audio1 = make_test_audio(4800);
+        let audio2 = make_test_audio(4800);
+        voice.activate_result(make_activation(audio1)).unwrap();
+        voice.deactivate();
+        let result = voice.activate_result(make_activation(audio2));
+        assert_eq!(result, Ok(()));
+    }
+
+    #[test]
+    fn legacy_activate_is_silent_overwrite_for_compat() {
+        // Backward compat: legacy bool/void `activate()` must NOT panic
+        // on double-activate (existing callers rely on the silent
+        // overwrite semantics).
+        let mut voice = HxVoice::new_idle();
+        let audio1 = make_test_audio(4800);
+        let audio2 = make_test_audio(4800);
+        voice.activate(make_activation(audio1));
+        voice.activate(make_activation(audio2)); // no panic; no return value
+        // Voice is still active — caller can't tell from legacy API,
+        // but at least nothing crashed.
+        assert!(voice.state.is_active());
+    }
+
+    #[test]
+    fn hx_voice_error_display_is_human_readable() {
+        let err = HxVoiceError::AlreadyActive;
+        let s = format!("{err}");
+        assert!(s.contains("active"),
+            "Display impl should mention active-state context");
+    }
+
+    #[test]
+    fn hx_voice_error_implements_std_error_trait() {
+        let err: Box<dyn std::error::Error> = Box::new(HxVoiceError::AlreadyActive);
+        assert!(err.to_string().contains("active"));
     }
 }

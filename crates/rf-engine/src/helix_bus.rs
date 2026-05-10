@@ -1744,7 +1744,7 @@ mod tests {
 
         // Publisher should survive after bus is dropped (Arc keeps atomics alive)
         let pub_handle = {
-            let mut bus = HxBus::new(HxBusConfig::default());
+            let bus = HxBus::new(HxBusConfig::default());
             bus.publisher()
         };
         let mut msg = HxMessage::default();
@@ -1756,7 +1756,7 @@ mod tests {
 
     #[test]
     fn publish_result_ok_on_uncontended_publish() {
-        let mut bus = HxBus::new(HxBusConfig::default());
+        let bus = HxBus::new(HxBusConfig::default());
         let pubh = bus.publisher();
         let mut msg = HxMessage::default();
         msg.channel = HxChannel::System;
@@ -1771,7 +1771,7 @@ mod tests {
         // without draining — slot 257 onwards must error.
         let mut cfg = HxBusConfig::default();
         cfg.staging_capacity = 1; // gets clamped to 256 inside new()
-        let mut bus = HxBus::new(cfg);
+        let bus = HxBus::new(cfg);
         let pubh = bus.publisher();
         let mut first_err: Option<HxBusError> = None;
         for _ in 0..300 {
@@ -1790,7 +1790,7 @@ mod tests {
     fn publish_bool_wrapper_matches_publish_result() {
         // Legacy `publish() -> bool` is now a thin wrapper around
         // `publish_result()`.  Both must agree on outcome.
-        let mut bus = HxBus::new(HxBusConfig::default());
+        let bus = HxBus::new(HxBusConfig::default());
         let pubh = bus.publisher();
         let mut msg = HxMessage::default();
         msg.channel = HxChannel::System;
