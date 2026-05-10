@@ -4640,7 +4640,8 @@ pub extern "C" fn orb_set_voice_param(
 /// Initialise or re-configure the master-output ring buffer.
 /// Safe to call before audio starts (init-time). Returns 1 on success.
 ///
-/// `seconds` is clamped to the `MAX_SECONDS` constant (currently 10 s).
+/// `seconds` is clamped to the `MAX_SECONDS` constant (currently 60 s, bumped
+/// in Sprint 9 E.4 da podrži marketing clip export 3.6.F sa `MARKETING_CLIP_SECONDS = 60.0`).
 /// If the ring was already initialised, this updates only the sample rate.
 #[unsafe(no_mangle)]
 pub extern "C" fn orb_ring_init(seconds: f32, sample_rate: u32) -> i32 {
@@ -4673,9 +4674,10 @@ pub extern "C" fn orb_ring_rearm() -> i32 {
 /// Returns the number of frames written on success, 0 on any failure
 /// (null path, invalid UTF-8, zero-length snapshot, I/O error, WAV write error).
 ///
-/// The ring buffer will auto-initialise to `master_ring::DEFAULT_SECONDS` at
-/// `master_ring::DEFAULT_SAMPLE_RATE` if it has not been configured yet — but
-/// will only contain as much audio as has been played since engine start.
+/// The ring buffer will auto-initialise to `seconds` (clamped to MAX_SECONDS
+/// = 60.0) at `master_ring::DEFAULT_SAMPLE_RATE` if it has not been
+/// configured yet — but will only contain as much audio as has been played
+/// since engine start.
 #[unsafe(no_mangle)]
 pub extern "C" fn orb_capture_last_n_seconds(
     path_ptr: *const std::os::raw::c_char,
@@ -4685,9 +4687,20 @@ pub extern "C" fn orb_capture_last_n_seconds(
         return 0;
     }
     // Lazy init if caller forgot.
+    // FLUX_MASTER_TODO 0.5 E.1 (Sprint 10) — koristi `seconds` arg (clamped na
+    // MAX_SECONDS = 60.0) umesto fiksnog DEFAULT_SECONDS = 5.0 jer marketing
+    // clip export traži 60s window. Ako caller drugi put traži vise nego sto
+    // je vec alocirano (nakon prvog `ensure_capacity`), buffer ostaje fixed
+    // (per `ensure_capacity` semantics — first call wins). Na practical level:
+    // Dart strana zove `master_ring_init(60.0)` na app start ako planira clip
+    // export, inace prva poziva `orb_capture_last_n_seconds(path, 60.0)` ce
+    // alocirati 60s buffer i sve sledece pozive ce imati 60s window.
     if MASTER_RING.capacity() == 0 {
+        let init_secs = seconds
+            .max(crate::master_ring::DEFAULT_SECONDS)
+            .min(crate::master_ring::MAX_SECONDS);
         MASTER_RING.ensure_capacity(
-            crate::master_ring::DEFAULT_SECONDS,
+            init_secs,
             crate::master_ring::DEFAULT_SAMPLE_RATE,
         );
     }

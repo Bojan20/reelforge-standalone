@@ -34,10 +34,14 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// Frozen baseline za `Duration(milliseconds: …)` literala pod `lib/`
 /// izvan `lib/theme/`. Captured 2026-05-10 audit.
-const int _kRawDurationMsBaseline = 947;
+/// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` Tooltip
+/// `waitDuration: Duration(milliseconds: 350)`.
+const int _kRawDurationMsBaseline = 948;
 
 /// Frozen baseline za `Duration(seconds: …)` literala.
-const int _kRawDurationSecBaseline = 202;
+/// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` SnackBar
+/// `duration: Duration(seconds: 4)`.
+const int _kRawDurationSecBaseline = 203;
 
 /// Frozen baseline za `Curves.<name>` referenca.
 const int _kRawCurvesBaseline = 148;

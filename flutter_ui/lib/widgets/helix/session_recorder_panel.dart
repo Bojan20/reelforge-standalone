@@ -18,8 +18,11 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
 
+import '../../services/marketing_clip_exporter.dart';
 import '../../services/session_recorder.dart';
+import '../../src/rust/native_ffi.dart' show NativeFFI;
 import '../../theme/fluxforge_theme.dart';
 
 /// Compact panel for the TIMELINE dock-tab footer.
@@ -319,7 +322,125 @@ class _LatestSessionRow extends StatelessWidget {
             ),
           ),
         ),
+      // FLUX_MASTER_TODO 0.5 E.1 (Sprint 10) — Marketing Clip Export.
+      // Pored "best win" replay badge dodaje se 📦 Export Clip dugme.
+      // Stateful child da prikazuje progress + result inline.
+      if (best != null) ...[
+        const SizedBox(width: 6),
+        _ExportClipButton(snapshot: best),
+      ],
     ]);
+  }
+}
+
+/// FLUX_MASTER_TODO 0.5 E.1 — Stateful clip export button.
+/// Vizuelna stanja: idle (📦 Export) → exporting (spinner) → success
+/// (✓ + folder path tooltip) ili error (⚠ + error tooltip).
+class _ExportClipButton extends StatefulWidget {
+  final SessionSpinSnapshot snapshot;
+  const _ExportClipButton({required this.snapshot});
+
+  @override
+  State<_ExportClipButton> createState() => _ExportClipButtonState();
+}
+
+class _ExportClipButtonState extends State<_ExportClipButton> {
+  bool _exporting = false;
+  String? _resultMsg;
+  bool _wasSuccess = false;
+
+  Future<void> _onTap() async {
+    if (_exporting) return;
+    setState(() {
+      _exporting = true;
+      _resultMsg = null;
+    });
+    final result = await MarketingClipExporter.instance.exportClip(
+      snapshot: widget.snapshot,
+      ffi: GetIt.instance<NativeFFI>(),
+    );
+    if (!mounted) return;
+    setState(() {
+      _exporting = false;
+      _wasSuccess = result.isSuccess;
+      _resultMsg = result.isSuccess
+          ? '✓ ${result.clip!.folderPath.split('/').last}'
+          : '⚠ ${result.error}';
+    });
+    if (result.isSuccess && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 4),
+          backgroundColor: FluxForgeTheme.bgElevated,
+          content: Text(
+            '📦 Clip exported → ${result.clip!.folderPath}',
+            style: const TextStyle(color: FluxForgeTheme.brandGold),
+          ),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _wasSuccess && _resultMsg != null
+        ? FluxForgeTheme.accentGreen
+        : !_wasSuccess && _resultMsg != null
+            ? FluxForgeTheme.accentRed
+            : FluxForgeTheme.brandGold;
+    return Tooltip(
+      message: _resultMsg ??
+          'Export 60s WAV + JSON metadata clip bundle for marketing.\n'
+              'Output → ~/Library/Application Support/FluxForge Studio/clips/',
+      waitDuration: const Duration(milliseconds: 350),
+      child: GestureDetector(
+        onTap: _exporting ? null : _onTap,
+        child: Container(
+          height: 22,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(11),
+            border: Border.all(
+              color: color.withValues(alpha: 0.55),
+              width: 0.8,
+            ),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            if (_exporting)
+              SizedBox(
+                width: 11,
+                height: 11,
+                child: CircularProgressIndicator(
+                  strokeWidth: 1.5,
+                  valueColor: AlwaysStoppedAnimation<Color>(color),
+                ),
+              )
+            else
+              Icon(
+                _wasSuccess && _resultMsg != null
+                    ? Icons.check_rounded
+                    : !_wasSuccess && _resultMsg != null
+                        ? Icons.warning_amber_rounded
+                        : Icons.movie_creation_outlined,
+                size: 12,
+                color: color,
+              ),
+            const SizedBox(width: 4),
+            Text(
+              _exporting ? 'EXPORTING' : 'CLIP',
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+                color: color,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ]),
+        ),
+      ),
+    );
   }
 }
 

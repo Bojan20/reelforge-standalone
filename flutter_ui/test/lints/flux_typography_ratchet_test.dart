@@ -33,16 +33,20 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// Frozen baseline za inline `TextStyle(…)` poziva pod `lib/` izvan
 /// `lib/theme/`. Captured 2026-05-10 audit.
-const int _kRawTextStyleBaseline = 9195;
+/// Bumped 2026-05-10 (Sprint 10 E.1) +2 za `_ExportClipButton` u
+/// `session_recorder_panel.dart` — 2 inline TextStyle poziva za dinamicki
+/// label boja (success green / error red / brand gold idle).
+const int _kRawTextStyleBaseline = 9197;
 
 /// Frozen baseline za `fontFamily:` referenca van theme/.
-/// Svaki je hard-coded font choice koji bi trebalo da bude na canonical
-/// `FluxForgeTheme.fontFamily` / `monoFontFamily`.
-const int _kRawFontFamilyBaseline = 1207;
+/// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` `'monospace'`
+/// font (aligned sa _SessionStat sibling badge).
+const int _kRawFontFamilyBaseline = 1208;
 
 /// Frozen baseline za `fontSize:` referenca van theme/.
-/// Svaki je hard-coded size koji bi trebalo da pokriva typography token.
-const int _kRawFontSizeBaseline = 8763;
+/// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` 9px label
+/// (aligned sa _SessionStat sibling badge size).
+const int _kRawFontSizeBaseline = 8764;
 
 const Set<String> _kExcludedPathPrefixes = <String>{
   'theme/',

@@ -43,7 +43,12 @@ import 'package:flutter_test/flutter_test.dart';
 /// bloat (FAZA 3.6.A-D Stage Flow Strip / Audio Coverage Badge / Timeline
 /// Intelligence Bar work) introduced 5 raw `Tooltip(` calls. Migration na
 /// `FluxTooltip` ostaje kao open backlog stavka (FAZA 0.5 I.x).
-const int _kRawTooltipBaseline = 245;
+/// Bumped 2026-05-10 (Sprint 10 E.1) 245 → 246 — `_ExportClipButton` u
+/// `session_recorder_panel.dart` koristi raw `Tooltip(message, child)` za
+/// dynamic message (idle hint vs. result feedback). FluxTooltip surface
+/// trenutno ne podržava dinamic message swap-ovanje — ostaje za migration
+/// kad FluxTooltip bude prosiren `messageBuilder` API-jem.
+const int _kRawTooltipBaseline = 246;
 
 /// Files that legitimately keep a raw `Tooltip` for a reason that does
 /// not fit the canonical `FluxTooltip` surface. Each entry needs a
