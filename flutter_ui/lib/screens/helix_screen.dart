@@ -34,6 +34,7 @@ import 'package:get_it/get_it.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 
 import '../theme/fluxforge_theme.dart';
+import 'helix/helpers/slot_rect_resolver.dart';
 import '../providers/engine_provider.dart';
 import '../providers/slot_lab/game_flow_provider.dart';
 import '../providers/slot_lab/rgai_provider.dart';
@@ -339,14 +340,11 @@ class _HelixScreenState extends State<HelixScreen>
     } catch (_) {
       // Fall through to constants below.
     }
-    final screenW = MediaQuery.of(context).size.width;
-    final screenH = MediaQuery.of(context).size.height;
-    final gridW = screenW * _kSlotGridWidthRatio;
-    return Rect.fromLTWH(
-      _kSlotGridLeftOffsetPx,
-      _kSlotGridVInsetPx,
-      gridW,
-      screenH - 2 * _kSlotGridVInsetPx,
+    return computeSlotRectFallback(
+      screenSize: MediaQuery.of(context).size,
+      gridWidthRatio: _kSlotGridWidthRatio,
+      leftOffsetPx: _kSlotGridLeftOffsetPx,
+      vInsetPx: _kSlotGridVInsetPx,
     );
   }
 

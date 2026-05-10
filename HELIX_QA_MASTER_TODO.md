@@ -471,10 +471,11 @@ AiGenerationService ─────── Prompt→Audio pipeline, FFNC classify
 - [ ] `test/helix_screen_lifecycle_test.dart` — Timer/Controller/Listener cleanup — odloženo (zahteva Widget tests sa mock providers)
 - [ ] `test/helix_keyboard_test.dart` — sve 19 shortcut rute (cheatsheet test) — odloženo
 
-#### D.3 — Async edge case testovi (2 sata)
-- [ ] `_visionInitTimer` race condition (mount/unmount mid-await)
-- [ ] `_resolveSlotPreviewRect()` GlobalKey null fallback
-- [ ] Provider listener cleanup verification
+#### D.3 — Async edge case testovi ✅ DONE 2026-05-10 (Sprint 15)
+- [x] `_resolveSlotPreviewRect()` GlobalKey null fallback — extracted u `helix/helpers/slot_rect_resolver.dart` kao pure `computeSlotRectFallback({screenSize, gridWidthRatio, leftOffsetPx, vInsetPx})` helper sa defensive clamping (zero ratio, negative ratio, oversize inset svi vraćaju well-formed rect bez negativnih dimenzija). 9 unit testova: happy path / leftOffset / vInset symmetry / zero-ratio / zero-width screen / oversize-inset clamp / negative-ratio clamp / production constants on common viewports / finite-and-well-formed sanity.
+- [x] `_visionInitTimer` race condition (mount/unmount mid-await) — pokriveno sa `timer_cancel_race_test.dart` koji koristi `fake_async` da simulira race: cancelled timer ne fire-uje callback / cancel-after-fire je no-op / double-cancel idempotentan / `isActive` flips immediately / Timer? null-safe pattern / mid-await `mounted` guard contract / FakeAsync pendingTimers leak detection. 7 testova.
+- [x] Provider listener cleanup — postojeći `dispose_leak_detection_test.dart` već pokriva (verifikovano u sprintu 14 A.1 audit). Memory-leak ratchet već prati AnimationController density.
+- [x] `fake_async: ^1.3.1` dodato u dev_dependencies za Timer simulaciju bez wall-clock waits.
 
 ---
 

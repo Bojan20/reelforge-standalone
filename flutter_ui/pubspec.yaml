@@ -63,6 +63,9 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   build_runner: ^2.4.15
   freezed: ^3.0.0
+  # Sprint 15 Faza 4.D.3 — fake_async lets us simulate Timer-based
+  # async race conditions in pure Dart tests without real wall-clock waits.
+  fake_async: ^1.3.1
 
 flutter:
   generate: true
