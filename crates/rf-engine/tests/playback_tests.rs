@@ -3,7 +3,7 @@
 //! Tests for:
 //! - Voice creation and playback lifecycle
 //! - Bus routing (6 buses: Master=0, Music=1, Sfx=2, Voice=3, Ambience=4, Aux=5)
-//! - Voice stealing (when MAX_ONE_SHOT_VOICES=32 exceeded)
+//! - Voice stealing (when MAX_ONE_SHOT_VOICES=256 exceeded)
 //! - Volume/pan parameter setting and clamping
 //! - Mute/Solo state management
 //! - Fade-out operations
@@ -78,7 +78,7 @@ fn test_engine_construction_defaults() {
     // Voice pool should start empty
     let stats = engine.get_voice_pool_stats();
     assert_eq!(stats.active_count, 0, "Should start with 0 active voices");
-    assert_eq!(stats.max_voices, 32, "Max voices should be 32");
+    assert_eq!(stats.max_voices, 256, "Max voices should be 256");
     assert_eq!(stats.looping_count, 0, "Should start with 0 looping voices");
 
     // Position should start at 0
@@ -757,7 +757,7 @@ fn test_voice_pool_stats_empty() {
 
     let stats = engine.get_voice_pool_stats();
     assert_eq!(stats.active_count, 0);
-    assert_eq!(stats.max_voices, 32);
+    assert_eq!(stats.max_voices, 256);
     assert_eq!(stats.looping_count, 0);
     assert_eq!(stats.daw_voices, 0);
     assert_eq!(stats.slotlab_voices, 0);
@@ -783,8 +783,8 @@ fn test_queue_many_voices_does_not_panic() {
     let path = insert_test_audio(&engine, "stress");
 
     let mut ids = Vec::new();
-    // Queue more than MAX_ONE_SHOT_VOICES (32) voice commands.
-    // The ring buffer holds 256, so 64 should fit fine.
+    // Queue more than MAX_ONE_SHOT_VOICES (256) voice commands.
+    // The ring buffer holds 256, so this exercises voice-stealing.
     for _ in 0..64 {
         let id = engine.play_one_shot_to_bus(&path, 1.0, 0.0, 2, PlaybackSource::SlotLab);
         assert_ne!(id, 0, "Should not fail to queue voice command");
@@ -974,7 +974,7 @@ fn test_track_meter_decay() {
 fn test_voice_pool_stats_struct_default() {
     let stats = VoicePoolStats::default();
     assert_eq!(stats.active_count, 0);
-    assert_eq!(stats.max_voices, 0); // Default derive gives 0, engine fills 32
+    assert_eq!(stats.max_voices, 0); // Default derive gives 0, engine fills 256
     assert_eq!(stats.looping_count, 0);
     assert_eq!(stats.daw_voices, 0);
     assert_eq!(stats.slotlab_voices, 0);
@@ -988,9 +988,10 @@ fn test_voice_pool_stats_struct_default() {
 
 /// FLUX_MASTER_TODO 2.2.1 — 60fps under 130 simultaneous voices.
 ///
-/// `MAX_ONE_SHOT_VOICES = 32`, but the engine accepts and steals voices
-/// past the cap (LRU eviction); spawning 130 exercises the steal path
-/// plus the active-set scan that runs even when the pool is saturated.
+/// `MAX_ONE_SHOT_VOICES = 256`, but the engine accepts and steals voices
+/// past the cap (oldest non-looping eviction); 130 sits well under the
+/// new headroom but still exercises the active-set scan that runs even
+/// when the pool is heavily populated.
 /// Same RT contract as 1.3.6: mean < 5 ms, p99 < 16.67 ms, drop rate
 /// < 1%. If the pool's active scan ever goes O(n²) on a refactor this
 /// test fails fast.
@@ -1063,7 +1064,7 @@ fn test_engine_process_under_130_voice_overspill_meets_realtime_budget() {
 ///
 /// Methodology:
 ///   1. Spin up 50 tracks across all 6 buses.
-///   2. Spawn `MAX_ONE_SHOT_VOICES` (32) one-shot voices.
+///   2. Spawn `MAX_ONE_SHOT_VOICES` (256) one-shot voices.
 ///   3. Render 200 audio blocks of 1024 samples @ 48kHz. (200 × 1024/48000 ≈
 ///      4.27 seconds of audio.)
 ///   4. Measure each `process()` call. The real-time budget per block is

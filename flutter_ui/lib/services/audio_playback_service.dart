@@ -63,7 +63,11 @@ class AudioPlaybackService extends ChangeNotifier {
   Timer? _voiceCleanupTimer;
 
   /// Remove voices from _activeVoices that engine reports as no longer active.
-  /// Prevents voice slot exhaustion (engine has 32 max).
+  /// Pure UI book-keeping — does NOT cut audio. Engine releases voice when its
+  /// internal play cursor reaches EOF; this loop just removes stale UI tracking
+  /// entries afterwards. Engine cap is 256 (rf-engine `MAX_ONE_SHOT_VOICES`,
+  /// 2026-05-10 bump from 32) plus voice-stealing fallback for non-looping
+  /// voices closest to natural end.
   void _cleanupFinishedVoices() {
     if (_activeVoices.isEmpty) return;
     final now = DateTime.now();

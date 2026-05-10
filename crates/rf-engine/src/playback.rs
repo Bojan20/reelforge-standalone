@@ -999,8 +999,53 @@ impl Default for PlaybackPosition {
 // ONE-SHOT VOICE — For Middleware/SlotLab event playback through buses
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Maximum concurrent one-shot voices
-const MAX_ONE_SHOT_VOICES: usize = 32;
+/// Pick a slot for a new one-shot voice.
+///
+/// Strategy (Boki direktiva 2026-05-10 "every event plays its full audio"):
+///   1. Inactive slot — preferred, costs nothing.
+///   2. Steal: non-looping voice closest to its natural end (highest
+///      `position`).  A voice that's 99 % done is the least disruptive
+///      thing to evict; a voice that just started keeps playing.
+///   3. Looping voices (REEL_SPIN, MUSIC beds) are NEVER stolen — they
+///      must run until their owner explicitly stops them.
+///   4. If all slots are looping (pathological — only happens under a
+///      music-only load that exceeds [`MAX_ONE_SHOT_VOICES`] simultaneous
+///      loops), the caller falls back to silent drop.
+///
+/// Returns `Some(index)` into the `voices` slice, or `None` only when
+/// every slot is currently a looping voice.
+#[inline]
+fn pick_one_shot_slot(voices: &[OneShotVoice]) -> Option<usize> {
+    // Fast path: any inactive slot will do.
+    if let Some(idx) = voices.iter().position(|v| !v.active) {
+        return Some(idx);
+    }
+    // Steal: oldest non-looping voice (max position = closest to EOF).
+    voices
+        .iter()
+        .enumerate()
+        .filter(|(_, v)| v.active && !v.looping)
+        .max_by_key(|(_, v)| v.position)
+        .map(|(i, _)| i)
+}
+
+/// Maximum concurrent one-shot voices.
+///
+/// 2026-05-10 (Boki direktiva): "ne čuje se svaki REEL_STOP zvuk svakog
+/// spina".  Root cause: hard cap of 32 voices was *silently* dropping
+/// commands when a 5-reel slot stop fired 5 REEL_STOP_n events while
+/// REEL_SPIN_LOOP voices (5), MUSIC layers (1–5), ANTICIPATION layers,
+/// SYMBOL_LAND chains, and a possible BIG_WIN bed were already active.
+/// Total worst-case in a slot stop chain comfortably exceeds 32.
+///
+/// Industry slot DSP engines size this at 128–512.  Bumped to 256 to
+/// give us 8× headroom over typical worst-case (~30 active voices); still
+/// trivially small in RAM (256 × ~600 B = 150 KB) and the audio thread
+/// only walks active voices, so unused slots cost zero CPU.
+///
+/// Combined with voice-stealing fallback below, silent drops are now
+/// effectively impossible in any realistic slot scenario.
+const MAX_ONE_SHOT_VOICES: usize = 256;
 
 /// One-shot voice for event-triggered audio playback
 /// Routes directly to a bus (bypasses track system)
@@ -5017,13 +5062,24 @@ impl PlaybackEngine {
                     bus,
                     source,
                 } => {
-                    // Find first inactive slot
-                    // Note: If no slot available, command is silently dropped (audio thread cannot log)
-                    if let Some(voice) = voices.iter_mut().find(|v| !v.active) {
+                    // Step 1: prefer an inactive slot.
+                    // Step 2: if all slots are taken, steal the *non-looping*
+                    // voice closest to its natural end (highest `position`
+                    // sample count). This is Boki's "everything plays in
+                    // full" contract: a voice that's 99% done is the least
+                    // disruptive thing to evict; a voice that just started
+                    // gets to keep playing.  Looping voices (REEL_SPIN,
+                    // MUSIC beds) are NEVER stolen — they have to keep
+                    // running until their owner explicitly stops them.
+                    let slot_idx = pick_one_shot_slot(&voices[..]);
+                    if let Some(idx) = slot_idx {
+                        let voice = &mut voices[idx];
                         voice.activate(id, audio, volume, pan, bus, source);
                         voice.engine_sample_rate = self.sample_rate();
                     }
-                    // Voice stealing would go here in future (oldest voice eviction)
+                    // Last resort (all 256 slots are looping): silent drop.
+                    // This only triggers under a pathological music/loop
+                    // load that no realistic slot scenario reaches.
                 }
                 OneShotCommand::PlayLooping {
                     id,
@@ -5033,12 +5089,15 @@ impl PlaybackEngine {
                     bus,
                     source,
                 } => {
-                    // Seamless looping voice (REEL_SPIN etc.)
-                    if let Some(voice) = voices.iter_mut().find(|v| !v.active) {
+                    // Seamless looping voice (REEL_SPIN etc.).
+                    // Stealing rules same as Play above — only steal a
+                    // non-looping voice that's near its natural end.
+                    let slot_idx = pick_one_shot_slot(&voices[..]);
+                    if let Some(idx) = slot_idx {
+                        let voice = &mut voices[idx];
                         voice.activate_looping(id, audio, volume, pan, bus, source);
                         voice.engine_sample_rate = self.sample_rate();
                     }
-                    // Silent drop if no voice available (audio thread rule: no logging)
                 }
                 OneShotCommand::PlayEx {
                     id,
@@ -5052,8 +5111,10 @@ impl PlaybackEngine {
                     trim_start_ms,
                     trim_end_ms,
                 } => {
-                    // Extended play with fadeIn, fadeOut, and trim
-                    if let Some(voice) = voices.iter_mut().find(|v| !v.active) {
+                    // Extended play with fadeIn, fadeOut, and trim.
+                    let slot_idx = pick_one_shot_slot(&voices[..]);
+                    if let Some(idx) = slot_idx {
+                        let voice = &mut voices[idx];
                         voice.activate_ex(
                             id,
                             audio,
@@ -5068,7 +5129,6 @@ impl PlaybackEngine {
                         );
                         voice.engine_sample_rate = self.sample_rate();
                     }
-                    // Silent drop if no voice available (audio thread rule: no logging)
                 }
                 OneShotCommand::Stop { id } => {
                     if let Some(voice) = voices.iter_mut().find(|v| v.id == id && v.active) {
