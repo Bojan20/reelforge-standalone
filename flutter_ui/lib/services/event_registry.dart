@@ -693,15 +693,20 @@ class EventRegistry extends ChangeNotifier {
   // P0: Per-reel spin loop voice tracking
   // Maps reel index (0-4) to voice ID for individual fade-out on REEL_STOP_N
   final Map<int, int> _reelSpinLoopVoices = {};
-  static const int _spinLoopFadeMs = 15; // Short fade for tight audio-visual sync
 
-  // P0-C3: Guard flag to serialize reel spin loop access and prevent concurrent modification
-  bool _processingReelStop = false;
+  // 120ms = smooth crossfade that hides the spin→stop click without
+  // delaying audio-visual sync (15ms was audibly abrupt / clicking).
+  static const int _spinLoopFadeMs = 120;
+
+  // P0-C3: Per-reel guard — old global bool blocked reels 1-4 from fading
+  // while reel 0 was in progress (5 reels stopping in rapid succession).
+  // Map allows each reel to guard itself independently.
+  final Map<int, bool> _processingReelStop = {};
 
   /// P0: Fade out a specific reel's spin loop with smooth crossfade
   void _fadeOutReelSpinLoop(int reelIndex) {
-    if (_processingReelStop) return; // Prevent concurrent access
-    _processingReelStop = true;
+    if (_processingReelStop[reelIndex] == true) return; // Only block same reel
+    _processingReelStop[reelIndex] = true;
     try {
       final voiceId = _reelSpinLoopVoices[reelIndex];
       if (voiceId != null && voiceId > 0) {
@@ -715,7 +720,7 @@ class EventRegistry extends ChangeNotifier {
         });
       }
     } finally {
-      _processingReelStop = false;
+      _processingReelStop.remove(reelIndex);
     }
   }
 

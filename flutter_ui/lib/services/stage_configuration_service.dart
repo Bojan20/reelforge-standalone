@@ -1704,6 +1704,9 @@ class StageConfigurationService extends ChangeNotifier {
     // Free Spins music
     _register('MUSIC_FS_INTRO', StageCategory.music, 20, SpatialBus.music, 'DEFAULT');
     _register('MUSIC_FS_OUTRO', StageCategory.music, 20, SpatialBus.music, 'DEFAULT');
+    // MUSIC_FS_END: alias target for 'mus_fs_end', 'freespin_end_music', 'fs_complete' etc.
+    // Semantically identical to MUSIC_FS_OUTRO but kept separate to avoid alias collision.
+    _register('MUSIC_FS_END', StageCategory.music, 20, SpatialBus.music, 'DEFAULT');
     _register('MUSIC_FS_L1', StageCategory.music, 20, SpatialBus.music, 'DEFAULT', isLooping: true);
     _register('MUSIC_FS_L2', StageCategory.music, 20, SpatialBus.music, 'DEFAULT', isLooping: true);
     _register('MUSIC_FS_L3', StageCategory.music, 20, SpatialBus.music, 'DEFAULT', isLooping: true);

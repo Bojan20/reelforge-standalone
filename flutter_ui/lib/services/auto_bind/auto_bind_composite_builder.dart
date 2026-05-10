@@ -111,22 +111,41 @@ class AutoBindCompositeBuilder {
     }
     final isBigWinTransition =
         stage == 'BIG_WIN_START' || stage == 'BIG_WIN_END';
+
     // Bus selection: stick with the StageDefault bus assignment so
     // routing/mixer settings still apply, but everything else is RAW.
     final busId = StageDefaults.getDefaultForStage(stage).busId;
-    final crossfadeMs = isBigWinTransition ? 500 : 0;
-    final effectiveTargetBus = isBigWinTransition ? SlotBusIds.music : busId;
-    final effectiveLoop = stage == 'BIG_WIN_START' ? true : shouldLoop;
-    // overlap=true so a second REEL_STOP_<i> (or rapid retrigger of any
-    // pooled stage) doesn't truncate the previous voice — every clip
-    // plays out to its natural end at full length.
-    const shouldOverlap = true;
 
-    // Build layers — primary Play layer ONLY, raw playback.
-    // No fadeIn, no fadeOut, no per-reel pan, no music ducking.  The
-    // file plays at its native volume/pan/length so import sounds match
-    // their on-disk state byte-for-byte (modulo bus + master volume,
-    // which are user-controlled in the mixer).
+    // ── Music vs SFX semantics ─────────────────────────────────────────────
+    //
+    // Music stages (MUSIC_BASE_L1..L5, MUSIC_FS_L1, BONUS_MUSIC, etc.) must:
+    //   • NOT overlap — second trigger crossfades into the new track
+    //   • crossfadeMs=500  — 0.5s blend between layers/layers
+    //   • fadeInMs=200, fadeOutMs=300 — smooth entry/exit
+    //   • loop=true  — music beds are always looping
+    //
+    // SFX stages (REEL_STOP, ANTICIPATION, WIN_PRESENT, UI_*, etc.) must:
+    //   • overlap=true — rapid retriggers play out to natural end
+    //   • crossfadeMs=0, fadeInMs=0, fadeOutMs=0 — raw playback
+    //
+    // BIG_WIN_START/END are treated as music even if StageDefaults places
+    // them on a non-music bus (they have the crossfade semantics).
+    final effectiveMusicBus = isMusicBus || isBigWinTransition;
+    final crossfadeMs = effectiveMusicBus ? 500 : 0;
+    final effectiveTargetBus =
+        isBigWinTransition ? SlotBusIds.music : busId;
+    final effectiveLoop = effectiveMusicBus ? true : shouldLoop;
+    // Music crossfades (no overlap); SFX plays out (overlap).
+    final shouldOverlap = !effectiveMusicBus;
+
+    // Per-reel stereo spread for REEL_STOP_0..4; centre for everything else.
+    final effectivePan = _panForStage(stage, 0.0);
+    final effectiveFadeInMs = effectiveMusicBus ? 200.0 : 0.0;
+    final effectiveFadeOutMs = effectiveMusicBus ? 300.0 : 0.0;
+
+    // Build layers — primary Play layer ONLY.
+    // SFX: raw (no pan/fade changes beyond bus routing).
+    // Music: smooth fade-in/out + per-reel stereo pan where applicable.
     final layers = <SlotEventLayer>[
       SlotEventLayer(
         id: 'layer_$stage',
@@ -134,18 +153,14 @@ class AutoBindCompositeBuilder {
         audioPath: audioPath,
         actionType: 'Play',
         volume: 1.0,
-        pan: 0.0,
+        pan: effectivePan,
         panRight: 0.0,
-        busId: busId,
+        busId: effectiveTargetBus,
         loop: effectiveLoop,
-        fadeInMs: 0.0,
-        fadeOutMs: 0.0,
+        fadeInMs: effectiveFadeInMs,
+        fadeOutMs: effectiveFadeOutMs,
       ),
     ];
-    // Suppress unused warning while keeping isMusicBus available for
-    // future tweaks (e.g. per-bus crossfade decisions).
-    // ignore: unused_local_variable
-    final _isMusicBus = isMusicBus;
 
     final eventId = 'audio_$stage';
     final now = DateTime.now();
