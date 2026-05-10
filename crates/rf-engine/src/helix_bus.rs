@@ -44,6 +44,134 @@ use std::sync::atomic::{AtomicU64, AtomicU32, AtomicBool, Ordering};
 use std::sync::Arc;
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Sprint 15 Faza 4.F.2 — Lock-Free Slot Store (centralized unsafe surface)
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Both `HxRingBuffer` (SPSC) and `HxStagingArea` (MPSC) need a slab of
+// pre-allocated message slots that are mutably shared across threads.  The
+// pre-refactor design slapped `unsafe impl Sync for HxRingBuffer {}` and
+// `unsafe impl Sync for HxStagingArea {}` directly on the host structs and
+// scattered raw `Box<[UnsafeCell<HxMessage>]>` access throughout `push()`,
+// `pop()`, `publish()`, `drain_into()`.  Auditing was painful — `unsafe`
+// surface area equaled the union of every method touching the buffer.
+//
+// This newtype consolidates the unsafe contract into ONE place.  The host
+// structs no longer need their own `unsafe impl Sync` — they compose
+// `LockFreeSlotStore<HxMessage>`, which is the only type in this module
+// that carries the unsafe Sync claim.
+//
+// Reviewing thread-safety now means reviewing exactly two methods:
+// `write_at` and `read_at`.  The host's atomic write/read positions enforce
+// the SPSC/MPSC discipline that makes the unsafe `Sync` claim sound; the
+// newtype encodes the invariant in the type system as "you must only call
+// write_at/read_at from inside a sync protocol you have already proved
+// correct".
+
+/// Fixed-capacity slab of `UnsafeCell<T>` slots, shared across threads via
+/// `Arc`/`&` for use as the backing storage of lock-free SPSC or MPSC
+/// queues.
+///
+/// # Safety contract
+///
+/// `LockFreeSlotStore<T>` implements `Sync` unconditionally (when
+/// `T: Send`).  The implementation is sound ONLY because every public
+/// mutation API is marked `unsafe` and documented to require the caller
+/// to enforce mutual exclusion at the slot level through some external
+/// synchronization primitive (atomic write/read cursors in this module).
+///
+/// In practice the bus owns two host types that wrap a `LockFreeSlotStore`:
+///
+/// * `HxRingBuffer` (SPSC) — single producer claims slot via `write_pos`
+///   atomic, single consumer claims slot via `read_pos` atomic.
+/// * `HxStagingArea` (MPSC) — multi-producer claim slot via CAS on
+///   `write_cursor`, single consumer drains via `read_fence`.
+///
+/// Both protocols guarantee that at any moment, each slot index has at
+/// most one thread writing AND no thread reading, OR at most one thread
+/// reading AND no thread writing.  Under that discipline the unsafe
+/// `write_at`/`read_at` calls are race-free.
+#[repr(transparent)]
+pub(crate) struct LockFreeSlotStore<T> {
+    slots: Box<[UnsafeCell<T>]>,
+}
+
+impl<T> LockFreeSlotStore<T> {
+    /// Construct a slot store of exactly `capacity` slots, each initialized
+    /// by invoking `init()` once.  Allocation happens here at construction
+    /// time only — the audio thread NEVER allocates through this type.
+    pub fn new_with<F: FnMut() -> T>(capacity: usize, mut init: F) -> Self {
+        let slots = (0..capacity)
+            .map(|_| UnsafeCell::new(init()))
+            .collect::<Vec<_>>()
+            .into_boxed_slice();
+        Self { slots }
+    }
+
+    /// Number of slots in the store (fixed at construction).
+    #[inline]
+    #[allow(dead_code)] // public-API future-proofing; host structs track their own capacity
+    pub fn capacity(&self) -> usize {
+        self.slots.len()
+    }
+
+    /// Write `value` into the slot at `idx`, overwriting any previous
+    /// contents without dropping them (matches `std::ptr::write` semantics).
+    ///
+    /// # Safety
+    ///
+    /// Caller MUST guarantee:
+    /// 1. `idx < self.capacity()`.
+    /// 2. No other thread is concurrently reading from slot `idx`.
+    /// 3. No other thread is concurrently writing to slot `idx`.
+    ///
+    /// The host queue is responsible for upholding all three via its
+    /// atomic position cursors and protocol.  Violating any of them is
+    /// undefined behavior.
+    #[inline(always)]
+    pub unsafe fn write_at(&self, idx: usize, value: T) {
+        // Rust 2024 `unsafe_op_in_unsafe_fn` lint requires an explicit
+        // `unsafe { }` block even inside an `unsafe fn`.  The outer fn's
+        // `unsafe` keyword documents what the caller must guarantee;
+        // this inner block scopes the actual UB-capable operation.
+        unsafe { std::ptr::write(self.slots[idx].get(), value); }
+    }
+
+    /// Read (move out) the value at slot `idx` via bitwise copy.  Matches
+    /// `std::ptr::read` semantics — the slot's previous contents are
+    /// logically "moved out" without running `Drop`.
+    ///
+    /// # Safety
+    ///
+    /// Caller MUST guarantee:
+    /// 1. `idx < self.capacity()`.
+    /// 2. Slot `idx` has been previously written by `write_at`.
+    /// 3. No other thread is concurrently reading from or writing to
+    ///    slot `idx`.
+    /// 4. The caller will not call `read_at(idx)` again until the slot
+    ///    has been re-written (otherwise you'd be reading a logically
+    ///    moved-out value, which is UB for non-`Copy` types).
+    ///
+    /// For `T: Copy` (like `HxMessage`) condition (4) is trivially
+    /// satisfied — `read_at` is effectively `Clone` for those types.
+    #[inline(always)]
+    pub unsafe fn read_at(&self, idx: usize) -> T {
+        // See `write_at` for why the inner `unsafe { }` is needed.
+        unsafe { std::ptr::read(self.slots[idx].get()) }
+    }
+}
+
+// Safety: see the `LockFreeSlotStore` type-level docs.  This is the ONLY
+// place in `helix_bus.rs` that carries an `unsafe impl Sync` — both
+// `HxRingBuffer` and `HxStagingArea` derive Sync compositionally because
+// every one of their fields (atomics + this newtype) is itself Sync.
+//
+// `T: Send` is required because moving a value across thread boundaries
+// (which is what SPSC/MPSC effectively does) requires `Send`.  We do NOT
+// require `T: Sync` — slots are accessed mutably only by one thread at a
+// time under the host's synchronization protocol.
+unsafe impl<T: Send> Sync for LockFreeSlotStore<T> {}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Channel System
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -301,8 +429,110 @@ impl Default for HxPayloadData {
 
 impl std::fmt::Debug for HxPayloadData {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // Safe: bytes is always valid
-        write!(f, "HxPayloadData({} bytes)", unsafe { self.bytes.len() })
+        write!(f, "HxPayloadData({} bytes)", self.as_bytes().len())
+    }
+}
+
+// ── Sprint 15 Faza 4.F.2 — POD-safe accessor & constructor API ────────────
+//
+// `HxPayloadData` is a `repr(C)` union whose every variant is a 32-byte
+// POD type (`[f64; 4]`, `[f32; 8]`, `[i64; 4]`, `[u32; 8]`, `HxMixedPayload`,
+// `[u8; 32]`).  None of those types carry validity invariants beyond their
+// raw bit pattern — every bit pattern is a valid value of every variant.
+//
+// That fact makes union reads sound regardless of which variant was last
+// written: re-interpreting the 32 bytes as a different POD variant is just
+// a bit-cast, and bit-casts between same-sized POD types are well-defined
+// in Rust.  We encode that fact ONCE here (on the POD union type), so
+// every call site can use the safe accessor API instead of sprinkling
+// `unsafe { … }` blocks throughout the codebase.
+//
+// This is the "sealed-style" enum-safety refactor from Sprint 15 Faza 4.F.4
+// done WITHOUT breaking the 64-byte `HxMessage` cache-line invariant.
+// A true `enum` would force a discriminant tag (≥ 1 byte) and either grow
+// `HxMessage` past 64 bytes or shrink the usable payload to 31 bytes —
+// both unacceptable.  Instead we encode the discriminant *semantically* in
+// the surrounding `HxChannel` field and rely on POD bit-cast safety for
+// reads, with safe constructors that statically tag which variant was
+// written.
+impl HxPayloadData {
+    /// Construct from a mixed payload (POD-safe, const-eval friendly).
+    #[inline]
+    pub const fn from_mixed(value: HxMixedPayload) -> Self {
+        Self { mixed: value }
+    }
+
+    /// Construct from `[f64; 4]`.
+    #[inline]
+    pub const fn from_f64x4(value: [f64; 4]) -> Self {
+        Self { f64x4: value }
+    }
+
+    /// Construct from `[f32; 8]`.
+    #[inline]
+    pub const fn from_f32x8(value: [f32; 8]) -> Self {
+        Self { f32x8: value }
+    }
+
+    /// Construct from `[i64; 4]`.
+    #[inline]
+    pub const fn from_i64x4(value: [i64; 4]) -> Self {
+        Self { i64x4: value }
+    }
+
+    /// Construct from `[u32; 8]`.
+    #[inline]
+    pub const fn from_u32x8(value: [u32; 8]) -> Self {
+        Self { u32x8: value }
+    }
+
+    /// Construct from `[u8; 32]`.
+    #[inline]
+    pub const fn from_bytes(value: [u8; 32]) -> Self {
+        Self { bytes: value }
+    }
+
+    /// Read the payload as a mixed-type record.
+    ///
+    /// Safe because the union variants are all 32-byte POD; the bit
+    /// pattern of any prior write is a valid value of `HxMixedPayload`.
+    #[inline]
+    pub fn as_mixed(&self) -> HxMixedPayload {
+        // Safety: see type-level docs on `HxPayloadData` — all variants
+        // are same-size POD with no validity invariants, so the read
+        // is a well-defined bit-cast regardless of which variant was
+        // written last.
+        unsafe { self.mixed }
+    }
+
+    /// Read the payload as four `f64` values.
+    #[inline]
+    pub fn as_f64x4(&self) -> [f64; 4] {
+        unsafe { self.f64x4 }
+    }
+
+    /// Read the payload as eight `f32` values.
+    #[inline]
+    pub fn as_f32x8(&self) -> [f32; 8] {
+        unsafe { self.f32x8 }
+    }
+
+    /// Read the payload as four `i64` values.
+    #[inline]
+    pub fn as_i64x4(&self) -> [i64; 4] {
+        unsafe { self.i64x4 }
+    }
+
+    /// Read the payload as eight `u32` values.
+    #[inline]
+    pub fn as_u32x8(&self) -> [u32; 8] {
+        unsafe { self.u32x8 }
+    }
+
+    /// Read the payload as 32 raw bytes.
+    #[inline]
+    pub fn as_bytes(&self) -> [u8; 32] {
+        unsafe { self.bytes }
     }
 }
 
@@ -546,9 +776,15 @@ impl HxFilterBuilder {
 ///
 /// Overflow policy: oldest messages are silently dropped (bounded latency).
 /// The `overflow_count` atomic tracks how many messages were lost.
+///
+/// **Sprint 15 Faza 4.F.2:** the slot storage lives behind
+/// [`LockFreeSlotStore`] which centralizes the `unsafe impl Sync`.  This
+/// host struct has NO direct `unsafe impl Sync` of its own — Sync is
+/// derived compositionally because every field is itself Sync.
 pub struct HxRingBuffer {
-    /// Pre-allocated message slots (UnsafeCell for interior mutability in SPSC pattern)
-    buffer: Box<[UnsafeCell<HxMessage>]>,
+    /// Pre-allocated message slots — unsafe access is encapsulated by
+    /// [`LockFreeSlotStore`] (see Sprint 15 Faza 4.F.2).
+    slots: LockFreeSlotStore<HxMessage>,
     /// Capacity (always power of 2 for fast modulo via bitmask)
     capacity: usize,
     /// Bitmask for fast modulo (capacity - 1)
@@ -561,24 +797,13 @@ pub struct HxRingBuffer {
     overflow_count: AtomicU64,
 }
 
-// Safety: HxRingBuffer is SPSC — single producer (router) and single consumer (subscriber).
-// The UnsafeCell slots are protected by atomic read_pos/write_pos fences.
-// Sync is required because HxSubscriber (containing HxRingBuffer) is shared across threads
-// via Arc; the SPSC invariant is upheld by design (single router thread writes, single
-// subscriber thread reads).
-unsafe impl Sync for HxRingBuffer {}
-
 impl HxRingBuffer {
     /// Create a new ring buffer with the given capacity (rounded up to power of 2).
     pub fn new(min_capacity: usize) -> Self {
         let capacity = min_capacity.next_power_of_two().max(64);
-        let buffer = (0..capacity)
-            .map(|_| UnsafeCell::new(HxMessage::default()))
-            .collect::<Vec<_>>()
-            .into_boxed_slice();
-
+        let slots = LockFreeSlotStore::new_with(capacity, HxMessage::default);
         Self {
-            buffer,
+            slots,
             capacity,
             mask: capacity - 1,
             write_pos: AtomicU64::new(0),
@@ -600,14 +825,13 @@ impl HxRingBuffer {
             return false;
         }
 
-        // Write to slot (safe: we're the only writer, and consumer won't read
-        // past read_pos which is behind write_pos)
+        // Safety contract upheld by SPSC invariant:
+        //   - idx < capacity (bitmask)
+        //   - producer is unique (caller contract)
+        //   - consumer won't read past read_pos, and `wp - rp < capacity`
+        //     above guarantees the slot is not still owned by the consumer.
         let idx = (wp as usize) & self.mask;
-        // Safety: single producer guarantees no concurrent writes to this slot,
-        // and consumer won't read past read_pos which is behind write_pos
-        unsafe {
-            std::ptr::write(self.buffer[idx].get(), msg);
-        }
+        unsafe { self.slots.write_at(idx, msg); }
 
         // Publish write position (Release ordering ensures data is visible)
         self.write_pos.store(wp.wrapping_add(1), Ordering::Release);
@@ -625,10 +849,15 @@ impl HxRingBuffer {
             return None; // Empty
         }
 
+        // Safety contract upheld by SPSC invariant:
+        //   - idx < capacity (bitmask)
+        //   - consumer is unique (caller contract)
+        //   - producer can't overwrite slots before read_pos (checked
+        //     via `wp - rp < capacity` in push())
+        //   - `HxMessage: Copy` so re-reading the same slot before next
+        //     push is harmless (LockFreeSlotStore docs condition #4).
         let idx = (rp as usize) & self.mask;
-        // Safety: single consumer guarantees no concurrent reads from this slot,
-        // and producer won't overwrite (checked via wrapping_sub above)
-        let msg = unsafe { std::ptr::read(self.buffer[idx].get()) };
+        let msg = unsafe { self.slots.read_at(idx) };
 
         self.read_pos.store(rp.wrapping_add(1), Ordering::Release);
         Some(msg)
@@ -723,8 +952,12 @@ impl HxSubscriber {
 ///
 /// Capacity: 4096 messages per block (covers worst case: all reels stop +
 /// cascade + feature + multiple voice spawns simultaneously)
+///
+/// **Sprint 15 Faza 4.F.2:** like [`HxRingBuffer`], the slot storage lives
+/// behind [`LockFreeSlotStore`].  No direct `unsafe impl Sync` on this
+/// host struct — Sync derived compositionally.
 pub struct HxStagingArea {
-    buffer: Box<[UnsafeCell<HxMessage>]>,
+    slots: LockFreeSlotStore<HxMessage>,
     capacity: usize,
     /// Next write position (atomic CAS for multi-producer)
     write_cursor: AtomicU32,
@@ -734,24 +967,12 @@ pub struct HxStagingArea {
     read_fence: AtomicU32,
 }
 
-// Safety: HxStagingArea is MPSC — multiple producers (atomic CAS for slot claiming)
-// and single consumer (router thread drains). UnsafeCell slots are protected by
-// write_cursor CAS + committed counter + read_fence.
-// Sync is required because HxStagingArea is referenced by multiple threads concurrently
-// (producers publish via Arc<HxStagingArea>); correctness is ensured by the lock-free CAS
-// protocol rather than by the type system.
-unsafe impl Sync for HxStagingArea {}
-
 impl HxStagingArea {
     pub fn new(capacity: usize) -> Self {
         let capacity = capacity.next_power_of_two().max(256);
-        let buffer = (0..capacity)
-            .map(|_| UnsafeCell::new(HxMessage::default()))
-            .collect::<Vec<_>>()
-            .into_boxed_slice();
-
+        let slots = LockFreeSlotStore::new_with(capacity, HxMessage::default);
         Self {
-            buffer,
+            slots,
             capacity,
             write_cursor: AtomicU32::new(0),
             committed: AtomicU32::new(0),
@@ -781,11 +1002,16 @@ impl HxStagingArea {
                 Ordering::Relaxed,
             ) {
                 Ok(_) => {
-                    // Slot claimed — write data
+                    // Slot claimed — write data.
+                    // Safety contract upheld by MPSC invariant:
+                    //   - idx < capacity (modulo).
+                    //   - CAS on write_cursor guarantees this thread is the
+                    //     only one writing to `idx` until committed advances.
+                    //   - Consumer (router) won't read past `read_fence`,
+                    //     and capacity guard above ensures `cursor - fence
+                    //     < capacity` so the slot isn't still in flight.
                     let idx = (cursor as usize) % self.capacity;
-                    unsafe {
-                        std::ptr::write(self.buffer[idx].get(), msg);
-                    }
+                    unsafe { self.slots.write_at(idx, msg); }
                     // Mark as committed.
                     //
                     // 2026-05-10 (Sprint 14 Faza 4.A.5) — bounded spin retry.
@@ -890,7 +1116,11 @@ impl HxStagingArea {
 
         for i in 0..count {
             let idx = ((fence as usize) + i) % self.capacity;
-            let msg = unsafe { std::ptr::read(self.buffer[idx].get()) };
+            // Safety: router is the sole consumer (MPSC); producers won't
+            // overwrite slots between `read_fence` and `committed` until
+            // we advance the fence below.  `HxMessage: Copy` so the
+            // logical move-out is harmless.
+            let msg = unsafe { self.slots.read_at(idx) };
             out.push(msg);
         }
 
@@ -1479,24 +1709,51 @@ impl HxMessage {
         }
     }
 
-    /// Read payload as mixed (convenience accessor)
-    pub fn mixed(&self) -> &HxMixedPayload {
-        unsafe { &self.payload.mixed }
+    /// Read payload as mixed (convenience accessor).
+    ///
+    /// **Sprint 15 Faza 4.F.4:** signature changed from `&HxMixedPayload`
+    /// to `HxMixedPayload` (by value) — `HxMixedPayload: Copy` so the
+    /// caller never paid for the reference anyway, and removing the
+    /// borrow lets us forward to the safe POD-cast accessor on
+    /// [`HxPayloadData`] without surfacing `unsafe` on call sites.
+    #[inline]
+    pub fn mixed(&self) -> HxMixedPayload {
+        self.payload.as_mixed()
     }
 
-    /// Read payload as f64x4
-    pub fn f64x4(&self) -> &[f64; 4] {
-        unsafe { &self.payload.f64x4 }
+    /// Read payload as `[f64; 4]`.
+    #[inline]
+    pub fn f64x4(&self) -> [f64; 4] {
+        self.payload.as_f64x4()
     }
 
-    /// Read payload as f32x8
-    pub fn f32x8(&self) -> &[f32; 8] {
-        unsafe { &self.payload.f32x8 }
+    /// Read payload as `[f32; 8]`.
+    #[inline]
+    pub fn f32x8(&self) -> [f32; 8] {
+        self.payload.as_f32x8()
     }
 
-    /// Read payload as u32x8
-    pub fn u32x8(&self) -> &[u32; 8] {
-        unsafe { &self.payload.u32x8 }
+    /// Read payload as `[u32; 8]`.
+    #[inline]
+    pub fn u32x8(&self) -> [u32; 8] {
+        self.payload.as_u32x8()
+    }
+
+    /// Read payload as `[i64; 4]`.
+    ///
+    /// New in Sprint 15 Faza 4.F.4 — pairs with the existing `i64x4`
+    /// union variant which previously had no convenience accessor.
+    #[inline]
+    pub fn i64x4(&self) -> [i64; 4] {
+        self.payload.as_i64x4()
+    }
+
+    /// Read payload as `[u8; 32]` (raw bytes).
+    ///
+    /// New in Sprint 15 Faza 4.F.4 — useful for serialization paths.
+    #[inline]
+    pub fn bytes(&self) -> [u8; 32] {
+        self.payload.as_bytes()
     }
 }
 
@@ -2039,5 +2296,213 @@ mod tests {
             }
             other => panic!("expected Channels (Exact subsumed), got {other:?}"),
         }
+    }
+
+    // ── Sprint 15 Faza 4.F.2 — LockFreeSlotStore newtype ───────────────────
+
+    /// Compile-time witness that the host structs now compose Sync via the
+    /// newtype, without any `unsafe impl Sync` of their own.  If anyone
+    /// re-adds raw `Box<[UnsafeCell<…>]>` to `HxRingBuffer` /
+    /// `HxStagingArea` without going through the newtype, this test fails
+    /// to compile.
+    #[test]
+    fn host_structs_are_send_and_sync_via_newtype() {
+        fn assert_send<T: Send>() {}
+        fn assert_sync<T: Sync>() {}
+
+        assert_send::<HxRingBuffer>();
+        assert_sync::<HxRingBuffer>();
+        assert_send::<HxStagingArea>();
+        assert_sync::<HxStagingArea>();
+        assert_send::<LockFreeSlotStore<HxMessage>>();
+        assert_sync::<LockFreeSlotStore<HxMessage>>();
+    }
+
+    #[test]
+    fn lock_free_slot_store_round_trip_via_unsafe_api() {
+        // Direct round-trip on the newtype to prove the unsafe contract
+        // is implementable (write_at then read_at returns the same value).
+        let store: LockFreeSlotStore<HxMessage> =
+            LockFreeSlotStore::new_with(8, HxMessage::default);
+        assert_eq!(store.capacity(), 8);
+
+        let mut msg = HxMessage::default();
+        msg.channel = HxChannel::Voice;
+        msg.sub_channel = 42;
+
+        // Safety: idx in range, no other thread, slot wasn't written
+        // before — `write_at` overwrites without dropping which is fine
+        // for the Copy `HxMessage::default()` initial value.
+        unsafe { store.write_at(3, msg); }
+
+        // Safety: idx in range, slot was just written, no concurrent
+        // access, HxMessage: Copy so re-reading is harmless.
+        let got = unsafe { store.read_at(3) };
+        assert_eq!(got.channel, HxChannel::Voice);
+        assert_eq!(got.sub_channel, 42);
+    }
+
+    #[test]
+    fn lock_free_slot_store_capacity_matches_construction_argument() {
+        let store: LockFreeSlotStore<HxMessage> =
+            LockFreeSlotStore::new_with(64, HxMessage::default);
+        assert_eq!(store.capacity(), 64);
+    }
+
+    #[test]
+    fn ring_buffer_push_pop_round_trip_after_f2_refactor() {
+        // Regression: HxRingBuffer still round-trips messages now that it
+        // composes LockFreeSlotStore instead of carrying its own
+        // `Box<[UnsafeCell<HxMessage>]>` field.
+        let rb = HxRingBuffer::new(8);
+        let mut msg = HxMessage::default();
+        msg.channel = HxChannel::Stage;
+        msg.sub_channel = 7;
+        msg.sequence = 99;
+
+        assert!(rb.push(msg));
+        let got = rb.pop().expect("ring buffer must hand back the pushed msg");
+        assert_eq!(got.channel, HxChannel::Stage);
+        assert_eq!(got.sub_channel, 7);
+        assert_eq!(got.sequence, 99);
+        assert!(rb.pop().is_none(),
+            "second pop on a 1-msg buffer must return None");
+    }
+
+    #[test]
+    fn staging_area_publish_drain_round_trip_after_f2_refactor() {
+        // Regression: HxStagingArea still round-trips messages through
+        // its newtype-backed slots.
+        let sa = HxStagingArea::new(256);
+        let mut msg = HxMessage::default();
+        msg.channel = HxChannel::Math;
+        msg.sub_channel = 11;
+        msg.sequence = 1234;
+        assert!(sa.publish(msg));
+
+        let mut out: Vec<HxMessage> = Vec::with_capacity(8);
+        sa.drain_into(&mut out);
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].channel, HxChannel::Math);
+        assert_eq!(out[0].sub_channel, 11);
+        assert_eq!(out[0].sequence, 1234);
+    }
+
+    // ── Sprint 15 Faza 4.F.4 — POD-safe HxPayloadData accessors ──────────
+
+    #[test]
+    fn payload_data_from_mixed_round_trips_through_as_mixed() {
+        let m = HxMixedPayload {
+            f64_a: 123.456,
+            f64_b: -42.0,
+            u32_a: 7,
+            u32_b: 8,
+            u32_c: 9,
+            u32_d: 10,
+        };
+        let payload = HxPayloadData::from_mixed(m);
+        let got = payload.as_mixed();
+        assert_eq!(got.f64_a, 123.456);
+        assert_eq!(got.f64_b, -42.0);
+        assert_eq!(got.u32_a, 7);
+        assert_eq!(got.u32_b, 8);
+        assert_eq!(got.u32_c, 9);
+        assert_eq!(got.u32_d, 10);
+    }
+
+    #[test]
+    fn payload_data_from_f64x4_round_trips() {
+        let v = [1.0, 2.0, 3.0, 4.0];
+        let p = HxPayloadData::from_f64x4(v);
+        assert_eq!(p.as_f64x4(), v);
+    }
+
+    #[test]
+    fn payload_data_from_f32x8_round_trips() {
+        let v: [f32; 8] = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
+        let p = HxPayloadData::from_f32x8(v);
+        assert_eq!(p.as_f32x8(), v);
+    }
+
+    #[test]
+    fn payload_data_from_i64x4_round_trips() {
+        let v: [i64; 4] = [-1, -2, i64::MAX, i64::MIN];
+        let p = HxPayloadData::from_i64x4(v);
+        assert_eq!(p.as_i64x4(), v);
+    }
+
+    #[test]
+    fn payload_data_from_u32x8_round_trips() {
+        let v: [u32; 8] = [1, 2, 3, 4, 5, 6, 7, 8];
+        let p = HxPayloadData::from_u32x8(v);
+        assert_eq!(p.as_u32x8(), v);
+    }
+
+    #[test]
+    fn payload_data_from_bytes_round_trips() {
+        let v: [u8; 32] = core::array::from_fn(|i| i as u8);
+        let p = HxPayloadData::from_bytes(v);
+        assert_eq!(p.as_bytes(), v);
+    }
+
+    #[test]
+    fn payload_data_cross_variant_read_is_bit_cast() {
+        // POD bit-cast: write as f64x4, read as bytes — same 32 bytes,
+        // different interpretation.  This is the FUNDAMENTAL safety
+        // claim behind `HxPayloadData`: all variants are 32-byte POD
+        // with no validity invariants, so any read is a well-defined
+        // bit-cast.
+        let p = HxPayloadData::from_f64x4([1.0f64, 2.0, 3.0, 4.0]);
+        let bytes = p.as_bytes();
+        // 4 × 8 bytes = 32 bytes of payload.
+        assert_eq!(bytes.len(), 32);
+        // First byte should be the low byte of f64::to_le_bytes(1.0)
+        // (or to_be_bytes on a big-endian platform — we don't constrain
+        // endianness here, just non-zero pattern is enough).
+        let recovered = p.as_f64x4();
+        assert_eq!(recovered[0], 1.0);
+        assert_eq!(recovered[3], 4.0);
+    }
+
+    #[test]
+    fn payload_size_invariant_still_32_bytes_after_f4_refactor() {
+        // Regression guard: F.4 refactor must NOT have grown the union.
+        // HxMessage layout (64 bytes total) depends on this.
+        assert_eq!(std::mem::size_of::<HxPayloadData>(), 32);
+        assert_eq!(std::mem::align_of::<HxPayloadData>(), 8); // 8B alignment for f64
+    }
+
+    #[test]
+    fn hx_message_payload_accessors_match_payload_data_accessors() {
+        // Sanity: HxMessage's convenience methods (`mixed()`, `f64x4()`,
+        // etc.) must agree with directly calling the underlying
+        // HxPayloadData accessors.
+        let v = [1.5_f64, 2.5, 3.5, 4.5];
+        let mut msg = HxMessage::default();
+        msg.payload = HxPayloadData::from_f64x4(v);
+
+        assert_eq!(msg.f64x4(), v);
+        assert_eq!(msg.f64x4(), msg.payload.as_f64x4());
+
+        // bytes() and i64x4() are new in F.4.
+        assert_eq!(msg.bytes(), msg.payload.as_bytes());
+        assert_eq!(msg.i64x4(), msg.payload.as_i64x4());
+    }
+
+    #[test]
+    fn ring_buffer_overflow_unchanged_after_f2_refactor() {
+        // Regression: SPSC overflow counter still increments correctly
+        // when capacity is exceeded.
+        let rb = HxRingBuffer::new(64);
+        let mut msg = HxMessage::default();
+        msg.channel = HxChannel::System;
+        // Fill exactly to capacity → all succeed.
+        for _ in 0..64 {
+            assert!(rb.push(msg));
+        }
+        // 65th push must fail and increment overflow_count.
+        assert!(!rb.push(msg));
+        assert!(rb.overflow_count() >= 1,
+            "post-refactor overflow counter must still tick on full buffer");
     }
 }
