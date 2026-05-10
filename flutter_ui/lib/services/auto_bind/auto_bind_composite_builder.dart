@@ -150,25 +150,22 @@ class AutoBindCompositeBuilder {
     final effectiveTargetBus =
         isBigWinTransition ? SlotBusIds.music : busId;
 
-    // ── 2026-05-10 (Boki "pan je čudan") — RAW pan for ALL stages ─────────
+    // ── Per-reel stereo spread za REEL_STOP_0..4 ──────────────────────────
     //
-    // Earlier I had auto-bind apply a hardcoded REEL_STOP_0..4 stereo
-    // spread (-0.8 / -0.4 / 0 / +0.4 / +0.8).  That's a *mixing decision*,
-    // and worse: combined with stereo dual-pan semantics in the engine
-    // (pan controls the L channel, panRight controls R independently;
-    // panRight defaults to 0.0 = centre on every voice activate), a
-    // stereo source file ended up with its L sample panned to e.g.
-    // hard-left while its R sample sat at centre — the user heard a
-    // collapsed, off-axis mono image.  That perfectly matches "pan je
-    // čudan" and the perceived volume drop on REEL_STOP_2 (the only
-    // stage that happened to land at pan=0, while every other reel got
-    // a half-collapsed image).
+    // Boki direktiva: 5-reel slot → REEL_STOP_0 levo (-0.8), REEL_STOP_4
+    // desno (+0.8), linearno raspoređeni: -0.8 / -0.4 / 0.0 / +0.4 / +0.8.
     //
-    // RAW mode contract: auto-bind is import, not mixing.  Pan stays at
-    // 0/0 for everything.  If the user wants a per-reel stereo spread,
-    // they dial it in per layer in the Helix Event Nexus parameter
-    // editor — that's exactly what the Pan-L / Pan-R sliders are for.
-    const effectivePan = 0.0;
+    // MONO fajlovi (tipični slot SFX): Rust engine koristi equal-power
+    // panning (cos/sin) za mono → svi reeli imaju isti RMS nivo, samo
+    // različitu stereo poziciju.  panRight = 0.0 je OK jer se za mono
+    // channels_src==1 path panRight uopšte ne koristi.
+    //
+    // STEREO fajlovi: dual-pan je asimetričan (pan = L, panRight = R
+    // nezavisno).  Ako korisnik ima stereo SFX, treba da postavi panRight
+    // ručno u Helix Event Nexus — auto-bind ne može da zna nameru.
+    //
+    // Za sve ostale stage-ove: centar (0.0 / 0.0).
+    final effectivePan = _panForStage(stage, 0.0);
     const effectivePanRight = 0.0;
 
     // Build layers — primary Play layer ONLY, fully RAW.
@@ -275,10 +272,18 @@ class AutoBindCompositeBuilder {
     return base.replaceAll(RegExp(r'\.[^.]+$'), '');
   }
 
-  // _panForStage removed 2026-05-10 — auto-bind no longer makes mixing
-  // decisions about stereo placement (Boki "pan je čudan").  Pan defaults
-  // to 0.0 for every layer; the user dials per-reel spread by hand in the
-  // Helix Event Nexus parameter editor where pan-L / pan-R sliders live.
+  /// Per-reel stereo spread — REEL_STOP_0 hard-left, REEL_STOP_4 hard-right.
+  /// All other stages fall back to [fallback] (default 0.0 = centre).
+  double _panForStage(String stage, double fallback) {
+    switch (stage) {
+      case 'REEL_STOP_0': return -0.8;
+      case 'REEL_STOP_1': return -0.4;
+      case 'REEL_STOP_2': return  0.0;
+      case 'REEL_STOP_3': return  0.4;
+      case 'REEL_STOP_4': return  0.8;
+    }
+    return fallback;
+  }
 
   String _categoryForStage(String stage) {
     final s = stage.toUpperCase();
