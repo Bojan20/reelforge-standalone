@@ -1019,6 +1019,41 @@ impl HxBus {
 // Publisher — Thread-safe handle for publishing messages
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// HxBusError — typed error variants for fallible bus operations
+//
+// 2026-05-10 (Sprint 14 Faza 4.F): replaces the historical "publish returns
+// bool" API where the caller had no insight into *why* a publish was rejected.
+// `HxBusError` makes failure modes explicit and exhaustive, so library users
+// (and FFI bindings) can react to specific failure types (e.g. tell the user
+// "audio bus saturated" vs "message channel not subscribed").
+//
+// The legacy `bool`-returning APIs are retained for backward compatibility;
+// new code should prefer the `_result` variants.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Error variants for HELIX bus publish operations.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HxBusError {
+    /// Staging area is full — message dropped.  Happens when publishers
+    /// outpace the router's drain rate; usually indicates a stalled
+    /// audio thread or pathologically high event rate.
+    StagingFull,
+}
+
+impl core::fmt::Display for HxBusError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::StagingFull => write!(f, "HELIX bus staging area is full"),
+        }
+    }
+}
+
+impl std::error::Error for HxBusError {}
+
+/// Typed Result alias for fallible HELIX bus operations.
+pub type HxBusResult<T> = Result<T, HxBusError>;
+
 /// A publisher handle that can be cloned and sent to any thread.
 /// Lightweight — contains only Arc references to shared staging and bus-level
 /// atomics, so it is fully safe to send across threads and may outlive the bus.
@@ -1036,7 +1071,25 @@ impl HxPublisher {
     /// worker threads, anywhere.
     ///
     /// Returns false if staging area is full (message dropped).
-    pub fn publish(&self, mut msg: HxMessage) -> bool {
+    ///
+    /// **2026-05-10 — prefer [`publish_result`](Self::publish_result) for
+    /// new code.** The bool return type loses error information; the Result
+    /// variant gives callers an `HxBusError` they can act on (e.g. retry
+    /// backoff, route to fallback channel, log specific failure mode).
+    pub fn publish(&self, msg: HxMessage) -> bool {
+        self.publish_result(msg).is_ok()
+    }
+
+    /// Publish a message to the bus with typed error reporting.
+    ///
+    /// Same semantics as [`publish`](Self::publish) but returns
+    /// `Result<(), HxBusError>` so callers can distinguish failure modes.
+    ///
+    /// Currently the only failure variant is [`HxBusError::StagingFull`],
+    /// but additional variants may be added in future (e.g. backpressure,
+    /// rate-limit, channel-not-subscribed) without further API churn —
+    /// just match exhaustively on [`HxBusError`].
+    pub fn publish_result(&self, mut msg: HxMessage) -> HxBusResult<()> {
         // Assign monotonic sequence number
         let seq = self.sequence.fetch_add(1, Ordering::Relaxed);
         msg.sequence = seq as u32;
@@ -1047,9 +1100,10 @@ impl HxPublisher {
 
         if !ok {
             self.staging_overflows.fetch_add(1, Ordering::Relaxed);
+            return Err(HxBusError::StagingFull);
         }
 
-        ok
+        Ok(())
     }
 
     /// Convenience: publish a stage event
@@ -1696,5 +1750,71 @@ mod tests {
         let mut msg = HxMessage::default();
         msg.channel = HxChannel::System;
         pub_handle.publish(msg);
+    }
+
+    // ── Sprint 14 Faza 4.F — publish_result + HxBusError ──────────────────
+
+    #[test]
+    fn publish_result_ok_on_uncontended_publish() {
+        let mut bus = HxBus::new(HxBusConfig::default());
+        let pubh = bus.publisher();
+        let mut msg = HxMessage::default();
+        msg.channel = HxChannel::System;
+        assert_eq!(pubh.publish_result(msg), Ok(()));
+    }
+
+    #[test]
+    fn publish_result_returns_staging_full_error_when_saturated() {
+        // `HxStagingArea::new` clamps capacity to 256-slot minimum.
+        // To force saturation deterministically: set config to its
+        // smallest value (clamped up to 256), then push 300 msgs
+        // without draining — slot 257 onwards must error.
+        let mut cfg = HxBusConfig::default();
+        cfg.staging_capacity = 1; // gets clamped to 256 inside new()
+        let mut bus = HxBus::new(cfg);
+        let pubh = bus.publisher();
+        let mut first_err: Option<HxBusError> = None;
+        for _ in 0..300 {
+            let mut msg = HxMessage::default();
+            msg.channel = HxChannel::System;
+            if let Err(e) = pubh.publish_result(msg) {
+                first_err = Some(e);
+                break;
+            }
+        }
+        assert_eq!(first_err, Some(HxBusError::StagingFull),
+            "saturated 256-slot staging area must surface StagingFull error");
+    }
+
+    #[test]
+    fn publish_bool_wrapper_matches_publish_result() {
+        // Legacy `publish() -> bool` is now a thin wrapper around
+        // `publish_result()`.  Both must agree on outcome.
+        let mut bus = HxBus::new(HxBusConfig::default());
+        let pubh = bus.publisher();
+        let mut msg = HxMessage::default();
+        msg.channel = HxChannel::System;
+        let ok = pubh.publish(msg);
+        let mut msg2 = HxMessage::default();
+        msg2.channel = HxChannel::System;
+        let res = pubh.publish_result(msg2);
+        assert_eq!(ok, res.is_ok(),
+            "publish() bool and publish_result().is_ok() must agree");
+    }
+
+    #[test]
+    fn hx_bus_error_display_is_human_readable() {
+        let err = HxBusError::StagingFull;
+        let s = format!("{err}");
+        assert!(s.contains("staging"),
+            "Display impl should mention staging context");
+    }
+
+    #[test]
+    fn hx_bus_error_implements_std_error_trait() {
+        // Sanity: HxBusError can be boxed as a std::error::Error trait object,
+        // which is what FFI/wrapper layers expect.
+        let err: Box<dyn std::error::Error> = Box::new(HxBusError::StagingFull);
+        assert!(err.to_string().contains("staging"));
     }
 }

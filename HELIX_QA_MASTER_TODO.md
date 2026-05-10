@@ -500,17 +500,17 @@ AiGenerationService ─────── Prompt→Audio pipeline, FFNC classify
 
 ---
 
-### 4.F — Public API design issues (Rust)
+### 4.F — Public API design issues (Rust) — 🟡 PARTIAL 2026-05-10
 
 > helix_bus / helix_graph / helix_compliance / helix_voice javni API može da bude čistiji.
 
-- [ ] `helix_bus.rs:815, 826, 840` — `HxPublisher.publish() -> bool` → `Result<(), HxBusError>`
-- [ ] `helix_bus.rs:461, 635` — `unsafe impl Sync` → newtype wrapper sa type-system enforcement (HxRingBufferSpsc / HxStagingAreaMpsc)
-- [ ] `helix_bus.rs:392-428` — `HxFilter::Channels(bitmask)` → `HxFilterBuilder::new().channel().build()`
-- [ ] `helix_bus.rs:1243-1260` — `unsafe { &self.payload.mixed }` → sealed enum `HxPayload`
-- [ ] `helix_graph.rs:647-654` — `node_mut()` → `set_param()` / `set_name()` koji bumpaju version
-- [ ] `helix_compliance.rs:441-469` — `AudioEventContext` 12 Option polja → builder pattern
-- [ ] `helix_voice.rs:371-396` — `activate()` → `Result<(), HxVoiceError>` umesto void
+- [x] **HxBusError + publish_result()** — `helix_bus.rs` dodaje `HxBusError` enum (varijanta `StagingFull`), `HxBusResult<T>` type alias, i `HxPublisher::publish_result()` koji vraća `Result<(), HxBusError>`. Postojeći `publish() -> bool` je sad thin wrapper za backward compat. 5 novih testova (ok, saturated→error, bool/result agreement, Display, std::error::Error).
+- [ ] `helix_bus.rs:461, 635` — `unsafe impl Sync` → newtype wrapper sa type-system enforcement — odloženo (breaking API change)
+- [ ] `helix_bus.rs:392-428` — `HxFilter::Channels(bitmask)` → `HxFilterBuilder` — odloženo
+- [ ] `helix_bus.rs:1243-1260` — `unsafe { &self.payload.mixed }` → sealed enum — odloženo (struct layout breaking change)
+- [ ] `helix_graph.rs:647-654` — `node_mut()` → versioned setters — odloženo
+- [ ] `helix_compliance.rs:441-469` — `AudioEventContextBuilder` — odloženo
+- [ ] `helix_voice.rs:371-396` — `activate()` → `Result<(), HxVoiceError>` — odloženo
 
 ---
 
