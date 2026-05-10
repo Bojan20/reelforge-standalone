@@ -10,9 +10,16 @@ import '../../providers/ale_provider.dart';
 class TransitionEditor extends StatefulWidget {
   final VoidCallback? onTransitionChanged;
 
+  /// FLUX_MASTER_TODO 0.5 G.13 (Sprint 12) — wire Edit button.
+  /// Callback prima `transitionId` (selected). Caller otvara full
+  /// edit panel sa rules/triggers/conditions UI-jem (van skupa
+  /// ovog widgeta — typically pun ALE editor screen).
+  final void Function(String transitionId)? onEdit;
+
   const TransitionEditor({
     super.key,
     this.onTransitionChanged,
+    this.onEdit,
   });
 
   @override
@@ -277,9 +284,13 @@ class _TransitionEditorState extends State<TransitionEditor> {
               ),
               const SizedBox(width: 8),
               TextButton.icon(
-                onPressed: () {
-                  // TODO: Implement transition editing
-                },
+                // FLUX_MASTER_TODO 0.5 G.13 — wire Edit button. Disabled
+                // ako caller nije dostavio onEdit callback (cleaner UX
+                // nego dugme bez funkcije).
+                onPressed: widget.onEdit != null &&
+                        _selectedTransitionId != null
+                    ? () => widget.onEdit!(_selectedTransitionId!)
+                    : null,
                 icon: const Icon(Icons.edit, size: 16),
                 label: const Text('Edit'),
                 style: TextButton.styleFrom(

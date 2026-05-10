@@ -38,7 +38,9 @@ import 'package:flutter_test/flutter_test.dart';
 /// label boja (success green / error red / brand gold idle).
 /// Bumped 2026-05-10 (Sprint 11 G grupa) +3 za G.7 hot-reload SnackBar
 /// label, G.21 blend preview snackbar (2× — active+empty paths).
-const int _kRawTextStyleBaseline = 9200;
+/// Bumped 2026-05-10 (Sprint 12 G grupa) +8 za G.16 (3× snackbar +
+/// dialog title), G.19 (snackbar + dialog title + hint), G.18 (—).
+const int _kRawTextStyleBaseline = 9208;
 
 /// Frozen baseline za `fontFamily:` referenca van theme/.
 /// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` `'monospace'`
@@ -48,7 +50,8 @@ const int _kRawFontFamilyBaseline = 1208;
 /// Frozen baseline za `fontSize:` referenca van theme/.
 /// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` 9px label
 /// (aligned sa _SessionStat sibling badge size).
-const int _kRawFontSizeBaseline = 8764;
+/// Bumped 2026-05-10 (Sprint 12 G grupa) +1 za G.19 dialog title fontSize.
+const int _kRawFontSizeBaseline = 8765;
 
 const Set<String> _kExcludedPathPrefixes = <String>{
   'theme/',

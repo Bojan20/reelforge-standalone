@@ -396,6 +396,8 @@ class LogicalEditorProvider extends ChangeNotifier {
   // Last executed result
   int _lastMatchCount = 0;
   int _lastAffectedCount = 0;
+  DateTime? _lastAppliedAt;
+  String? _lastAppliedSummary;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // GETTERS
@@ -408,6 +410,43 @@ class LogicalEditorProvider extends ChangeNotifier {
 
   int get lastMatchCount => _lastMatchCount;
   int get lastAffectedCount => _lastAffectedCount;
+
+  /// FLUX_MASTER_TODO 0.5 G.15 — `applyToSelection` provenance.
+  DateTime? get lastAppliedAt => _lastAppliedAt;
+  String? get lastAppliedSummary => _lastAppliedSummary;
+
+  /// FLUX_MASTER_TODO 0.5 G.15 (Sprint 12) — Apply current preset filters +
+  /// actions na caller-provided selection. Pošto Logical Editor nema
+  /// direktan pristup specific selection model-u (events/clips/symbols
+  /// vary po contextu — events panel, soundbank, timeline), caller
+  /// dostavlja `selectionSize` i closure `(filterEnabled, actionEnabled)
+  /// → bool` koji izvrši transformation per-item u svom layeru.
+  /// Provider tracks `_lastMatchCount/_lastAffectedCount` za UI feedback.
+  ///
+  /// Vraca `LogicalApplyResult` sa human-readable summary za toast/snackbar.
+  LogicalApplyResult applyToSelection({
+    required int selectionSize,
+    required int matchedCount,
+    required int affectedCount,
+  }) {
+    _lastMatchCount = matchedCount.clamp(0, selectionSize);
+    _lastAffectedCount = affectedCount.clamp(0, _lastMatchCount);
+    _lastAppliedAt = DateTime.now();
+    final fCount = filters.where((f) => f.enabled).length;
+    final aCount = actions.where((a) => a.enabled).length;
+    _lastAppliedSummary = 'Applied $fCount filter(s) + $aCount action(s) → '
+        '$_lastMatchCount matched / $_lastAffectedCount affected '
+        '(of $selectionSize total)';
+    notifyListeners();
+    return LogicalApplyResult(
+      selectionSize: selectionSize,
+      matchedCount: _lastMatchCount,
+      affectedCount: _lastAffectedCount,
+      activeFilterCount: fCount,
+      activeActionCount: aCount,
+      summary: _lastAppliedSummary!,
+    );
+  }
 
   List<LogicalEditorPreset> get userPresets =>
       _presets.values.where((p) => !p.isFactory).toList();
@@ -894,4 +933,23 @@ class LogicalEditorProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+}
+
+/// FLUX_MASTER_TODO 0.5 G.15 — Apply result wrapper za UI feedback.
+class LogicalApplyResult {
+  final int selectionSize;
+  final int matchedCount;
+  final int affectedCount;
+  final int activeFilterCount;
+  final int activeActionCount;
+  final String summary;
+
+  const LogicalApplyResult({
+    required this.selectionSize,
+    required this.matchedCount,
+    required this.affectedCount,
+    required this.activeFilterCount,
+    required this.activeActionCount,
+    required this.summary,
+  });
 }

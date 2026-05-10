@@ -11,10 +11,16 @@ class RuleEditor extends StatefulWidget {
   final String? filterContextId;
   final VoidCallback? onRuleChanged;
 
+  /// FLUX_MASTER_TODO 0.5 G.13 (Sprint 12) — wire Edit button.
+  /// Callback prima `ruleId` (selected). Caller otvara full rule editor
+  /// dialog (conditions/actions/priority).
+  final void Function(String ruleId)? onEdit;
+
   const RuleEditor({
     super.key,
     this.filterContextId,
     this.onRuleChanged,
+    this.onEdit,
   });
 
   @override
@@ -325,9 +331,11 @@ class _RuleEditorState extends State<RuleEditor> {
               ),
               const SizedBox(width: 8),
               TextButton.icon(
-                onPressed: () {
-                  // TODO: Implement rule editing
-                },
+                // FLUX_MASTER_TODO 0.5 G.13 — wire Edit button. Disabled
+                // ako caller nije dostavio onEdit callback.
+                onPressed: widget.onEdit != null && _selectedRuleId != null
+                    ? () => widget.onEdit!(_selectedRuleId!)
+                    : null,
                 icon: const Icon(Icons.edit, size: 16),
                 label: const Text('Edit'),
                 style: TextButton.styleFrom(

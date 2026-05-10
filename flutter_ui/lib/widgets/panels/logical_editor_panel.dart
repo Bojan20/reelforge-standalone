@@ -498,9 +498,25 @@ class _LogicalEditorPanelState extends State<LogicalEditorPanel> {
             provider.filters.isEmpty || provider.actions.isEmpty
                 ? null
                 : () {
-                    // TODO: Apply to selection
+                    // FLUX_MASTER_TODO 0.5 G.15 (Sprint 12) — wire apply.
+                    // Selection size je placeholder 0 dok caller ne dostavi
+                    // selection model — provider tracks _lastApplied state
+                    // pa UI moze prikazati provenance (tooltip "applied X
+                    // matched / Y affected at Z time"). Pun selection
+                    // integration zahteva caller-context (events panel,
+                    // soundbank, timeline) — ostavlja se za sledeci sprint.
+                    final result = provider.applyToSelection(
+                      selectionSize: 0,
+                      matchedCount: 0,
+                      affectedCount: 0,
+                    );
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Logical Editor applied')),
+                      SnackBar(
+                        duration: const Duration(seconds: 3),
+                        content: Text(
+                          '⚙️ ${result.summary}',
+                        ),
+                      ),
                     );
                   },
           ),

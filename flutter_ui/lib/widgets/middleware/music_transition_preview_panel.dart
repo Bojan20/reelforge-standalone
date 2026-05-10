@@ -9,6 +9,8 @@
 library;
 
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/middleware_models.dart';
@@ -685,14 +687,88 @@ class _MusicTransitionPreviewPanelState extends State<MusicTransitionPreviewPane
     });
   }
 
-  void _saveAsProfile() {
-    // TODO: Save transition profile to ALE provider
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Transition profile saved'),
-        backgroundColor: FluxForgeTheme.accent,
+  /// FLUX_MASTER_TODO 0.5 G.19 (Sprint 12) — Save transition profile.
+  /// Otvara dialog za ime preseta, snima JSON u
+  /// `~/Library/Application Support/FluxForge Studio/music_transitions/`.
+  /// JSON shape: { schema=1, name, saved_at, sync_mode, fade_in_ms,
+  /// fade_out_ms, overlap_percent, fade_in_curve, fade_out_curve }.
+  /// Ne traži ALE provider zavisnost — file-based persistence radi
+  /// samostalno; ALE integration je future work koji može da konzumira
+  /// ovaj isti JSON.
+  Future<void> _saveAsProfile() async {
+    final name = await _promptProfileName();
+    if (name == null || name.trim().isEmpty) return;
+    if (!mounted) return;
+    final home = Platform.environment['HOME'];
+    final base = (home != null && home.isNotEmpty)
+        ? '$home/Library/Application Support/FluxForge Studio'
+        : '/tmp/fluxforge-studio';
+    final dir = Directory('$base/music_transitions');
+    if (!dir.existsSync()) {
+      await dir.create(recursive: true);
+    }
+    final safeName = name.trim().replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+    final ts = DateTime.now()
+        .toIso8601String()
+        .replaceAll(':', '-')
+        .split('.')[0];
+    final filePath = '${dir.path}/${safeName}_$ts.json';
+    final f = File(filePath);
+    final json = const JsonEncoder.withIndent('  ').convert({
+      'schema': 1,
+      'type': 'music_transition_profile',
+      'name': name.trim(),
+      'saved_at': DateTime.now().toIso8601String(),
+      'sync_mode': _syncMode.name,
+      'fade_in_ms': _fadeInMs,
+      'fade_out_ms': _fadeOutMs,
+      'overlap_percent': _overlapPercent,
+      'fade_in_curve': _fadeInCurve.name,
+      'fade_out_curve': _fadeOutCurve.name,
+    });
+    await f.writeAsString(json, flush: true);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      duration: const Duration(seconds: 3),
+      content: Text(
+        '💾 "${name.trim()}" saved → ${filePath.split('/').last}',
+      ),
+      backgroundColor: FluxForgeTheme.accent,
+    ));
+  }
+
+  Future<String?> _promptProfileName() async {
+    final ctrl = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: FluxForgeTheme.bgElevated,
+        title: const Text('Save Transition Profile',
+            style: TextStyle(color: Colors.white, fontSize: 14)),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            hintText: 'profile name (e.g. "Slow Build")',
+            hintStyle: TextStyle(color: Colors.white38),
+          ),
+          onSubmitted: (v) => Navigator.of(ctx).pop(v),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(ctrl.text),
+            child: const Text('Save'),
+          ),
+        ],
       ),
     );
+    ctrl.dispose();
+    return result;
   }
 }
 

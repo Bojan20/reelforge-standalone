@@ -7,6 +7,7 @@
 library;
 
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -103,9 +104,35 @@ class _TemplateGalleryPanelState extends State<TemplateGalleryPanel> {
     return templates;
   }
 
+  /// FLUX_MASTER_TODO 0.5 G.18 (Sprint 12) — Load user templates iz local
+  /// storage. Skenira `~/Library/Application Support/FluxForge Studio/
+  /// templates/` folder za `.json` fajlove, parsuje svaki kao
+  /// `SlotTemplate.fromJson`. Skip + log invalid fajlove (corrupt JSON,
+  /// pogresna shema) — ne ruši celu listu jer jedan loš fajl postoji.
   Future<List<SlotTemplate>> _loadUserTemplates() async {
-    // TODO: Load from local storage
-    return [];
+    final home = Platform.environment['HOME'];
+    final base = (home != null && home.isNotEmpty)
+        ? '$home/Library/Application Support/FluxForge Studio'
+        : '/tmp/fluxforge-studio';
+    final dir = Directory('$base/templates');
+    if (!dir.existsSync()) return const [];
+
+    final templates = <SlotTemplate>[];
+    final entries = dir.listSync();
+    for (final entry in entries) {
+      if (entry is! File || !entry.path.endsWith('.json')) continue;
+      try {
+        final raw = await entry.readAsString();
+        final json = jsonDecode(raw) as Map<String, dynamic>;
+        templates.add(SlotTemplate.fromJson(json));
+      } catch (_) {
+        // Invalid template fajl — skip. Možda partial-write tokom save-a
+        // ili manuel-edited corrupted JSON. Sledeci put kad korisnik
+        // re-save-uje, prebrise.
+        continue;
+      }
+    }
+    return templates;
   }
 
   List<SlotTemplate> get _filteredTemplates {

@@ -67,7 +67,9 @@ const int _kRawColorCtorBaseline = 7;
 /// Bumped 2026-05-10 (Sprint 9) +19 za F.2 GameConfigRecommenderDialog
 /// (Colors.white60/54/38/24 muted labels + Colors.black foreground na gold
 /// recommend button). Same dev-tool justification kao AUDIT tab.
-const int _kRawMaterialColorsBaseline = 7109;
+/// Bumped 2026-05-10 (Sprint 12 G grupa) +3 za G.19 dialog (Colors.white,
+/// Colors.white38 hint).
+const int _kRawMaterialColorsBaseline = 7112;
 
 /// Direktorijumi koji su isključeni iz brojanja jer NISU "user UI code":
 ///   * `lib/theme/` — canonical brand definicije (one *jesu* raw boje, namerno).

@@ -13,9 +13,12 @@
 // - AI-powered problem frequency detection
 // - Export correction curves
 
+import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import '../../services/native_file_picker.dart';
 import '../../theme/fluxforge_theme.dart';
 
 /// Wizard step enum
@@ -173,6 +176,112 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
   List<DetectedProblem> _allProblems = [];
   List<double> _averageResponse = [];
   List<double> _correctionCurve = [];
+
+  /// FLUX_MASTER_TODO 0.5 G.16 — calibration file path (mic correction).
+  String? _calibrationPath;
+
+  /// FLUX_MASTER_TODO 0.5 G.16 — Save current correction curve as JSON preset
+  /// u `~/Library/Application Support/FluxForge Studio/eq_presets/room_<ts>.json`.
+  /// Async I/O da ne blokira UI. Vraca path u snackbar feedback-u.
+  Future<void> _saveCorrectionPreset() async {
+    if (_correctionCurve.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        duration: const Duration(seconds: 2),
+        backgroundColor: FluxForgeTheme.bgElevated,
+        content: const Text(
+          'No correction curve to save — run analysis first.',
+          style: TextStyle(color: FluxForgeTheme.accentOrange),
+        ),
+      ));
+      return;
+    }
+    final home = Platform.environment['HOME'];
+    final base = (home != null && home.isNotEmpty)
+        ? '$home/Library/Application Support/FluxForge Studio'
+        : '/tmp/fluxforge-studio';
+    final dir = Directory('$base/eq_presets');
+    if (!dir.existsSync()) {
+      await dir.create(recursive: true);
+    }
+    final ts = DateTime.now()
+        .toIso8601String()
+        .replaceAll(':', '-')
+        .split('.')[0];
+    final filePath = '${dir.path}/room_$ts.json';
+    final f = File(filePath);
+    final json = const JsonEncoder.withIndent('  ').convert({
+      'schema': 1,
+      'type': 'room_correction',
+      'saved_at': DateTime.now().toIso8601String(),
+      'calibration_path': _calibrationPath,
+      'num_points': _correctionCurve.length,
+      'correction_curve': _correctionCurve,
+    });
+    await f.writeAsString(json, flush: true);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      duration: const Duration(seconds: 3),
+      backgroundColor: FluxForgeTheme.bgElevated,
+      content: Text(
+        '💾 Preset saved → ${filePath.split('/').last}',
+        style: const TextStyle(color: FluxForgeTheme.accentGreen),
+      ),
+    ));
+  }
+
+  /// FLUX_MASTER_TODO 0.5 G.16 — Export correction curve kao plain .txt
+  /// kompatibilan sa REW (Room EQ Wizard), Sonarworks, Audyssey importers.
+  /// Format: `freq,gain_db` per line, header komentar pre podataka. Caller
+  /// bira path kroz NativeFilePicker.saveFile dialog.
+  Future<void> _exportCorrectionCurve() async {
+    if (_correctionCurve.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        duration: const Duration(seconds: 2),
+        backgroundColor: FluxForgeTheme.bgElevated,
+        content: const Text(
+          'No correction curve to export — run analysis first.',
+          style: TextStyle(color: FluxForgeTheme.accentOrange),
+        ),
+      ));
+      return;
+    }
+    final savePath = await NativeFilePicker.saveFile(
+      suggestedName:
+          'room_correction_${DateTime.now().millisecondsSinceEpoch}.txt',
+    );
+    if (savePath == null || savePath.isEmpty) return;
+    if (!mounted) return;
+    // Compute log-spaced frequencies (20 Hz → 20 kHz) za N points.
+    // Format: `freq_hz,gain_db` per line.
+    final n = _correctionCurve.length;
+    final lines = <String>[
+      '# FluxForge Studio — Room Correction Curve',
+      '# Exported: ${DateTime.now().toIso8601String()}',
+      '# Format: freq_hz,gain_db',
+      '# Points: $n',
+    ];
+    const fMin = 20.0;
+    const fMax = 20000.0;
+    final logRatio = math.log(fMax / fMin);
+    for (int i = 0; i < n; i++) {
+      final t = n == 1 ? 0.0 : i / (n - 1);
+      final freq = fMin * math.exp(t * logRatio);
+      lines.add('${freq.toStringAsFixed(2)},${_correctionCurve[i].toStringAsFixed(3)}');
+    }
+    final f = File(savePath);
+    await f.writeAsString(lines.join('\n'), flush: true);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      duration: const Duration(seconds: 3),
+      backgroundColor: FluxForgeTheme.bgElevated,
+      content: Text(
+        '📤 Exported → ${savePath.split('/').last}',
+        style: const TextStyle(color: FluxForgeTheme.accentGreen),
+      ),
+    ));
+  }
 
   // Preview state
   bool _correctionEnabled = true;
@@ -844,8 +953,32 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
                   ),
                 ),
                 TextButton(
-                  onPressed: () {
-                    // TODO: Open file picker
+                  // FLUX_MASTER_TODO 0.5 G.16 (Sprint 12) — wire native
+                  // file picker za microphone calibration .txt fajl. Pattern
+                  // mirror G.6 (plugin folder picker) — NativeFilePicker
+                  // sa allowedExtensions filter, mounted check, snackbar.
+                  onPressed: () async {
+                    final paths = await NativeFilePicker.pickFiles(
+                      title: 'Open Microphone Calibration',
+                      allowMultiple: false,
+                      allowedExtensions: ['txt'],
+                    );
+                    if (paths.isEmpty) return;
+                    if (!mounted) return;
+                    setState(() {
+                      _calibrationPath = paths.first;
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        duration: const Duration(seconds: 2),
+                        backgroundColor: FluxForgeTheme.bgElevated,
+                        content: Text(
+                          '🎙 Calibration loaded: ${paths.first.split('/').last}',
+                          style: const TextStyle(
+                              color: FluxForgeTheme.brandGold),
+                        ),
+                      ),
+                    );
                   },
                   child: const Text('Browse'),
                 ),
@@ -1871,18 +2004,24 @@ class _RoomCorrectionWizardState extends State<RoomCorrectionWizard>
             Icons.save,
             'Save as Preset',
             'Save correction curve for later use',
-            () {
-              // TODO: Save preset
-            },
+            // FLUX_MASTER_TODO 0.5 G.16 (Sprint 12) — save preset.
+            // Output: ~/Library/Application Support/FluxForge Studio/
+            //         eq_presets/room_<ts>.json
+            // JSON: { "schema": 1, "type": "room_correction",
+            //         "saved_at": iso, "calibration_path": ...,
+            //         "correction_curve": [...], "num_points": N }
+            _saveCorrectionPreset,
           ),
 
           _buildApplyOption(
             Icons.file_download,
             'Export Curve',
             'Export as text file for external use',
-            () {
-              // TODO: Export file
-            },
+            // FLUX_MASTER_TODO 0.5 G.16 (Sprint 12) — export curve.
+            // Output: NativeFilePicker.saveFile dialog → user-chosen path
+            // .txt format kompatibilan sa REW / Room EQ Wizard / Sonarworks
+            // (one freq+gain per row, comma-separated). Industry standard.
+            _exportCorrectionCurve,
           ),
         ],
       ),
