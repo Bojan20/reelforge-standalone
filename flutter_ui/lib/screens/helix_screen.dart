@@ -145,6 +145,36 @@ const double _kSlotGridWidthRatio = 0.6;     // PremiumSlotPreview width / scree
 const double _kSlotGridLeftOffsetPx = 60.0;  // horizontal margin on the screen
 const double _kSlotGridVInsetPx = 60.0;      // vertical inset (top == bottom)
 
+// ─── Win-line overlay timing (Sprint 14 Faza 4.G) ────────────────────────────
+//
+// Pre-fix: magic numbers 2500 / 3000 / 60 hardkodirani u Timer.periodic
+// pozivima.  Imenovani konstante daju semantičko značenje + jedno mesto
+// za podešavanje ako se vremenska politika promeni.
+//
+// Win-line fade pipeline:
+//   1. show lines (full opacity) for `_kWinLineHoldMs` (2500 ms)
+//   2. start fade — runs for `_kWinLineClearMs - _kWinLineHoldMs` = 500 ms
+//   3. clear at `_kWinLineClearMs` (3000 ms) → lines disappear
+const int _kWinLineHoldMs = 2500;
+const int _kWinLineClearMs = 3000;
+
+// ─── Playhead refresh (Sprint 14 Faza 4.G) ───────────────────────────────────
+//
+// Pre-fix: `Timer.periodic(Duration(milliseconds: 60))` magic.  60 ms ≈
+// 16.7 Hz, which is a deliberate undersample of 60 FPS display: the
+// playhead doesn't need per-frame precision (slot game tempo is BPM-
+// driven, not sample-accurate playback).  Named const documents the
+// chosen tradeoff between latency and CPU usage.
+const int _kPlayheadRefreshMs = 60;
+
+// ─── Grid pill flash (Sprint 14 Faza 4.G) ────────────────────────────────────
+//
+// Pre-fix: `Duration(milliseconds: 2500)` reused from win-line hold.
+// They happen to share the same number but are unrelated UX events;
+// separating into named constants prevents accidental coupling if one
+// timing is tuned independently.
+const int _kGridFlashMs = 2500;
+
 class HelixScreen extends StatefulWidget {
   final VoidCallback? onClose;
   final List<Map<String, dynamic>>? audioPool;
@@ -305,12 +335,12 @@ class _HelixScreenState extends State<HelixScreen>
       _lastWinLines = lines;
       _winLinesFading = false;
     });
-    // Phase 1 — start fade at 2.5 s so the user has 500 ms of fade.
-    _winLinesFadeTimer = Timer(const Duration(milliseconds: 2500), () {
+    // Phase 1 — start fade after hold period; user has 500 ms of fade.
+    _winLinesFadeTimer = Timer(const Duration(milliseconds: _kWinLineHoldMs), () {
       if (mounted) setState(() => _winLinesFading = true);
     });
     // Phase 2 — clear after the fade completes.
-    _winLinesClearTimer = Timer(const Duration(seconds: 3), () {
+    _winLinesClearTimer = Timer(const Duration(milliseconds: _kWinLineClearMs), () {
       if (mounted) {
         setState(() {
           _lastWinLines = [];
@@ -605,7 +635,7 @@ class _HelixScreenState extends State<HelixScreen>
     };
 
     // Playhead sync timer — polls engine position for timeline animation
-    _playheadTimer = Timer.periodic(const Duration(milliseconds: 60), (_) {
+    _playheadTimer = Timer.periodic(const Duration(milliseconds: _kPlayheadRefreshMs), (_) {
       if (!mounted) return;
       silentRun('playheadTimer.sync', () {
         final t = GetIt.instance<EngineProvider>().transport;
@@ -723,7 +753,7 @@ class _HelixScreenState extends State<HelixScreen>
   void _flashGrid(String text) {
     _gridFlashTimer?.cancel();
     setState(() => _gridFlash = text);
-    _gridFlashTimer = Timer(const Duration(milliseconds: 2500), () {
+    _gridFlashTimer = Timer(const Duration(milliseconds: _kGridFlashMs), () {
       if (mounted) setState(() => _gridFlash = null);
     });
   }

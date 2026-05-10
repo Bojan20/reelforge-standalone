@@ -459,10 +459,17 @@ AiGenerationService ─────── Prompt→Audio pipeline, FFNC classify
 - [x] Sort determinizam (multi-run identical execution_order)
 - [x] Validate clean DAG (smoke test bez panic-a)
 
-#### D.2 — Flutter Helix lifecycle testovi (3 sata)
-- [ ] `test/helix_screen_lifecycle_test.dart` — Timer/Controller/Listener cleanup
-- [ ] `test/helix_keyboard_test.dart` — sve 13 shortcut rute
-- [ ] `test/helix_bt_canvas_provider_test.dart` — add/move/delete/connect/cycle
+#### D.2 — Flutter Helix lifecycle testovi — 🟡 PARTIAL 2026-05-10
+
+- [x] `test/providers/helix_bt_canvas_provider_test.dart` — **21 testova** za BT canvas:
+  - Node CRUD (add monotonic ids, custom + auto position, move + unknown id, delete cascades edges + selection)
+  - Edge CRUD (self-loop reject, duplicate reject, cycle reject, multi-parent allow, disconnect)
+  - Selection (set, deselect, no-op notify)
+  - Bulk ops (clear)
+  - Notify semantics (success notifies, failure doesn't)
+  - JSON roundtrip (preserve nodes+edges, clear on load, safe no-op on malformed)
+- [ ] `test/helix_screen_lifecycle_test.dart` — Timer/Controller/Listener cleanup — odloženo (zahteva Widget tests sa mock providers)
+- [ ] `test/helix_keyboard_test.dart` — sve 19 shortcut rute (cheatsheet test) — odloženo
 
 #### D.3 — Async edge case testovi (2 sata)
 - [ ] `_visionInitTimer` race condition (mount/unmount mid-await)
@@ -507,14 +514,17 @@ AiGenerationService ─────── Prompt→Audio pipeline, FFNC classify
 
 ---
 
-### 4.G — Magic constants i dead code
+### 4.G — Magic constants i dead code — ✅ FIXED 2026-05-10
 
-- [ ] `helix_screen.dart:141-145` — `_kSlotGridWidthRatio = 0.6` itd. → dynamic LayoutBuilder lookup
-- [ ] `helix_screen.dart:307` — `2500` (win line fade) → constant na vrhu
-- [ ] `helix_screen.dart:308` — `3000` (win line clear) → constant
-- [ ] `helix_screen.dart:601` — `60` (playhead timer) → constant
-- [ ] `helix_screen.dart:234-235` — `_reelLensReel`, `_reelLensRow` — verify usage, remove ako dead
-- [ ] `helix_screen.dart:673` — `static bool _demoSeedDone` global flag → `SlotLabProjectProvider._seedTimestamp` per-project
+- [x] `helix_screen.dart:144-146` — `_kSlotGridWidthRatio` itd. — već su bili named constants (audit greška)
+- [x] `helix_screen.dart:157-162` — Sprint 14 dodate 4 nove named constants sa rationale komentarima:
+  - `_kWinLineHoldMs = 2500` (was magic na liniji 309)
+  - `_kWinLineClearMs = 3000` (was `Duration(seconds: 3)` na liniji 313)
+  - `_kPlayheadRefreshMs = 60` (was magic na liniji 608)
+  - `_kGridFlashMs = 2500` (was magic na liniji 756)
+- [x] `helix_screen.dart:235-236` — `_reelLensReel`, `_reelLensRow` — verifikovano korišćeno u line 2033 (reel context lens), nije dead
+- [ ] `helix_screen.dart:742` — `static bool _demoSeedDone` global flag → per-project — odloženo, zahteva refactor SlotLabProjectProvider
+- [ ] Dynamic GlobalKey lookup za slot grid rect — odloženo (URP-future TODO postoji na line 142)
 
 ---
 

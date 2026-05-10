@@ -43,7 +43,12 @@ import 'package:flutter_test/flutter_test.dart';
 /// Bumped 2026-05-10 (Sprint 14 Helix Faza 4.B.4/4.B.5) +2 za:
 /// `_ModeIndicator` Tooltip waitDuration 400ms + `_DockTab` tooltip
 /// wrapper waitDuration 600ms.
-const int _kRawDurationMsBaseline = 952;
+/// Bumped 2026-05-10 (Sprint 14 Helix Faza 4.G) +1 za migration win-line
+/// clear timer iz `Duration(seconds: 3)` → `Duration(milliseconds:
+/// _kWinLineClearMs)`. Nije nov literal, samo prevod jedinice; sec-baseline
+/// se reciprocno smanjuje u flux_motion ali ovde nije relevantno jer su to
+/// odvojeni regex-i.
+const int _kRawDurationMsBaseline = 953;
 
 /// Frozen baseline za `Duration(seconds: …)` literala.
 /// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` SnackBar
