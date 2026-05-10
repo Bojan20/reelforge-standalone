@@ -53,20 +53,20 @@ class _SpineAiIntelState extends State<_SpineAiIntel> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(children: [
-          const Text('8D EMOTIONAL STATE', style: TextStyle(
-            fontFamily: 'monospace', fontSize: 9, letterSpacing: 0.1,
+          Text('8D EMOTIONAL STATE', style: FluxForgeTheme.dockMono(
+            size: 9, letterSpacing: 0.1,
             color: FluxForgeTheme.textTertiary)),
           const Spacer(),
-          const Text('drag to override', style: TextStyle(
-            fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary)),
+          Text('drag to override', style: FluxForgeTheme.dockMono(
+            size: 9, color: FluxForgeTheme.textTertiary)),
         ]),
         const SizedBox(height: 8),
         ...dims.map((d) => Padding(
           padding: const EdgeInsets.only(bottom: 4),
           child: Row(
             children: [
-              SizedBox(width: 70, child: Text(d.$1, style: const TextStyle(
-                fontSize: 9, color: FluxForgeTheme.textSecondary))),
+              SizedBox(width: 70, child: Text(d.$1, style: FluxForgeTheme.dockSans(
+                size: 9, color: FluxForgeTheme.textSecondary))),
               // S5: Interactive RTPC slider
               Expanded(
                 child: LayoutBuilder(
@@ -93,16 +93,16 @@ class _SpineAiIntelState extends State<_SpineAiIntel> {
               ),
               SizedBox(width: 32, child: Text(
                 '${((_rtpcOverrides[d.$4] >= 0 ? _rtpcOverrides[d.$4] : d.$2) * 100).toStringAsFixed(0)}%',
-                style: TextStyle(fontFamily: 'monospace', fontSize: 8, color: d.$3),
+                style: FluxForgeTheme.dockMono(size: 8, color: d.$3),
                 textAlign: TextAlign.right)),
             ],
           ),
         )),
         const Spacer(),
         Row(children: [
-          const Text('Risk: ', style: TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary)),
-          Text(neuro.riskLevel.name.toUpperCase(), style: TextStyle(
-            fontFamily: 'monospace', fontSize: 10, fontWeight: FontWeight.w600,
+          Text('Risk: ', style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary)),
+          Text(neuro.riskLevel.name.toUpperCase(), style: FluxForgeTheme.dockMono(
+            size: 10, weight: FontWeight.w600,
             color: neuro.riskLevel == PlayerRiskLevel.low ? FluxForgeTheme.accentGreen
               : neuro.riskLevel == PlayerRiskLevel.high ? FluxForgeTheme.accentRed
               : FluxForgeTheme.accentYellow)),
@@ -146,17 +146,17 @@ class _SpineSettingsState extends State<_SpineSettings> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('ENGINE', style: TextStyle(
-          fontFamily: 'monospace', fontSize: 9, letterSpacing: 0.1,
+        Text('ENGINE', style: FluxForgeTheme.dockMono(
+          size: 9, letterSpacing: 0.1,
           color: FluxForgeTheme.textTertiary)),
         const SizedBox(height: 8),
         // BPM slider
         Row(children: [
-          const Text('TEMPO', style: TextStyle(
-            fontSize: 10, color: FluxForgeTheme.textTertiary)),
+          Text('TEMPO', style: FluxForgeTheme.dockSans(
+            size: 10, color: FluxForgeTheme.textTertiary)),
           const Spacer(),
-          Text('${_bpmSlider.toStringAsFixed(0)} BPM', style: const TextStyle(
-            fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.accentCyan)),
+          Text('${_bpmSlider.toStringAsFixed(0)} BPM', style: FluxForgeTheme.dockMono(
+            size: 10, color: FluxForgeTheme.accentCyan)),
         ]),
         SliderTheme(
           data: SliderThemeData(
@@ -179,8 +179,8 @@ class _SpineSettingsState extends State<_SpineSettings> {
         _SpineRow('Position', '${t.positionSeconds.toStringAsFixed(1)}s'),
         _SpineRow('Playing', t.isPlaying ? 'YES' : 'NO'),
         const SizedBox(height: 12),
-        const Text('NEURO AUDIO', style: TextStyle(
-          fontFamily: 'monospace', fontSize: 9, letterSpacing: 0.1,
+        Text('NEURO AUDIO', style: FluxForgeTheme.dockMono(
+          size: 9, letterSpacing: 0.1,
           color: FluxForgeTheme.textTertiary)),
         const SizedBox(height: 8),
         // NeuroAudio toggle
@@ -217,8 +217,8 @@ class _SpineToggle extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(
     children: [
-      Expanded(child: Text(label, style: const TextStyle(
-        fontSize: 10, color: FluxForgeTheme.textSecondary))),
+      Expanded(child: Text(label, style: FluxForgeTheme.dockSans(
+        size: 10, color: FluxForgeTheme.textSecondary))),
       GestureDetector(
         onTap: () => onChanged(!value),
         child: AnimatedContainer(
@@ -279,8 +279,8 @@ class _SpineAnalyticsState extends State<_SpineAnalytics> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('SESSION ANALYTICS', style: TextStyle(
-          fontFamily: 'monospace', fontSize: 9, letterSpacing: 0.1,
+        Text('SESSION ANALYTICS', style: FluxForgeTheme.dockMono(
+          size: 9, letterSpacing: 0.1,
           color: FluxForgeTheme.textTertiary)),
         const SizedBox(height: 8),
         _SpineRow('Spins', '${stats.totalSpins}'),
@@ -288,8 +288,8 @@ class _SpineAnalyticsState extends State<_SpineAnalytics> {
         _SpineRow('Win count', '${proj.recentWins.length}'),
         _SpineRow('Duration', '${neuro.sessionDurationMinutes.toStringAsFixed(1)} min'),
         const SizedBox(height: 12),
-        const Text('AUDIO SYSTEM', style: TextStyle(
-          fontFamily: 'monospace', fontSize: 9, letterSpacing: 0.1,
+        Text('AUDIO SYSTEM', style: FluxForgeTheme.dockMono(
+          size: 9, letterSpacing: 0.1,
           color: FluxForgeTheme.textTertiary)),
         const SizedBox(height: 8),
         _SpineRow('Events', '${mw.compositeEvents.length}'),
@@ -300,8 +300,8 @@ class _SpineAnalyticsState extends State<_SpineAnalytics> {
         // Status feedback
         if (_exportStatus != null) Padding(
           padding: const EdgeInsets.only(bottom: 6),
-          child: Text(_exportStatus!, style: TextStyle(
-            fontFamily: 'monospace', fontSize: 8,
+          child: Text(_exportStatus!, style: FluxForgeTheme.dockMono(
+            size: 8,
             color: _exportStatus!.startsWith('✓')
               ? FluxForgeTheme.accentGreen
               : FluxForgeTheme.accentOrange)),
@@ -330,11 +330,11 @@ class _SpineAnalyticsState extends State<_SpineAnalytics> {
               color: FluxForgeTheme.accentPurple.withValues(alpha: 0.06),
               border: Border.all(color: FluxForgeTheme.accentPurple.withValues(alpha: 0.2)),
               borderRadius: BorderRadius.circular(4)),
-            child: const Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(Icons.download_rounded, size: 10, color: FluxForgeTheme.accentPurple),
-              SizedBox(width: 4),
-              Text('Export Session Report', style: TextStyle(
-                fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.accentPurple)),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.download_rounded, size: 10, color: FluxForgeTheme.accentPurple),
+              const SizedBox(width: 4),
+              Text('Export Session Report', style: FluxForgeTheme.dockMono(
+                size: 8, color: FluxForgeTheme.accentPurple)),
             ]),
           ),
         ),
@@ -354,11 +354,11 @@ class _SpineRow extends StatelessWidget {
     padding: const EdgeInsets.only(bottom: 5),
     child: Row(
       children: [
-        Expanded(child: Text(label, style: const TextStyle(
-          fontSize: 10, color: FluxForgeTheme.textTertiary))),
-        Text(value, style: const TextStyle(
-          fontFamily: 'monospace', fontSize: 10,
-          color: FluxForgeTheme.textPrimary, fontWeight: FontWeight.w500)),
+        Expanded(child: Text(label, style: FluxForgeTheme.dockSans(
+          size: 10, color: FluxForgeTheme.textTertiary))),
+        Text(value, style: FluxForgeTheme.dockMono(
+          size: 10,
+          color: FluxForgeTheme.textPrimary, weight: FontWeight.w500)),
       ],
     ),
   );

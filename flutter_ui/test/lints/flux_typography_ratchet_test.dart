@@ -69,7 +69,11 @@ import 'package:flutter_test/flutter_test.dart';
 // `panels/ai_gen_panel.dart` (-28), `panels/sfx_panel.dart` (-19),
 // `panels/flow_panel.dart` (-20) — agent-driven migration koristi
 // isti dockMono/dockSans pattern. Ukupan Sprint 15 B.2 pad: -105.
-const int _kRawTextStyleBaseline = 9152;
+// Lowered 2026-05-11 (Sprint 15 Faza 4.B.2 batch 3) -91 za
+// `panels/export_panel.dart` (-22), `spine/spine_audio_assign.dart`
+// (-18), `spine/spine_misc.dart` (-17), `panels/ab_panel.dart` (-17),
+// `helpers/context_lenses.dart` (-17). Ukupan Sprint 15 B.2 pad: -196.
+const int _kRawTextStyleBaseline = 9061;
 
 /// Frozen baseline za `fontFamily:` referenca van theme/.
 /// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` `'monospace'`
@@ -91,7 +95,10 @@ const int _kRawTextStyleBaseline = 9152;
 // Lowered 2026-05-11 (Sprint 15 Faza 4.B.2 batch 2) -72 za ai_gen/
 // sfx/flow paneli — agent migration na dockMono/dockSans. Ukupan
 // Sprint 15 B.2 pad: -98.
-const int _kRawFontFamilyBaseline = 1132;
+// Lowered 2026-05-11 (Sprint 15 Faza 4.B.2 batch 3) -78 za export/
+// spine_audio_assign/spine_misc/ab/context_lenses — agent migration.
+// Ukupan Sprint 15 B.2 pad: -176.
+const int _kRawFontFamilyBaseline = 1054;
 
 /// Frozen baseline za `fontSize:` referenca van theme/.
 /// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` 9px label
@@ -111,7 +118,10 @@ const int _kRawFontFamilyBaseline = 1132;
 // `fontSize: N` literali eliminisani kroz `dockMono/dockSans(size: N, …)`.
 // Lowered 2026-05-11 (Sprint 15 Faza 4.B.2 batch 2) -75 za ai_gen/
 // sfx/flow paneli — agent migration. Ukupan Sprint 15 B.2 pad: -105.
-const int _kRawFontSizeBaseline = 8709;
+// Lowered 2026-05-11 (Sprint 15 Faza 4.B.2 batch 3) -91 za export/
+// spine_audio_assign/spine_misc/ab/context_lenses — agent migration.
+// Ukupan Sprint 15 B.2 pad: -196.
+const int _kRawFontSizeBaseline = 8618;
 
 const Set<String> _kExcludedPathPrefixes = <String>{
   'theme/',

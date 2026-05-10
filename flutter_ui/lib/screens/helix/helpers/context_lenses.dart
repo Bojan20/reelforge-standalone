@@ -61,14 +61,14 @@ class _AudioContextLensState extends State<_AudioContextLens> {
                       color: e.color, shape: BoxShape.circle)),
                     const SizedBox(width: 10),
                     Flexible(
-                      child: Text(e.name, style: TextStyle(
-                        fontFamily: 'monospace', fontSize: 14, fontWeight: FontWeight.w600,
+                      child: Text(e.name, style: FluxForgeTheme.dockMono(
+                        size: 14, weight: FontWeight.w600,
                         color: e.color),
                         overflow: TextOverflow.ellipsis)),
                     const SizedBox(width: 10),
                     Flexible(
                       child: Text('${e.category}  ·  ${e.layers.length} layers',
-                        style: const TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary),
+                        style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary),
                         overflow: TextOverflow.ellipsis)),
                     const Spacer(),
                     GestureDetector(
@@ -88,8 +88,8 @@ class _AudioContextLensState extends State<_AudioContextLens> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('LAYERS', style: TextStyle(
-                              fontFamily: 'monospace', fontSize: 9, letterSpacing: 0.1,
+                            Text('LAYERS', style: FluxForgeTheme.dockMono(
+                              size: 9, letterSpacing: 0.1,
                               color: FluxForgeTheme.textTertiary)),
                             const SizedBox(height: 8),
                             ...e.layers.take(6).map((l) => Container(
@@ -106,17 +106,17 @@ class _AudioContextLensState extends State<_AudioContextLens> {
                                 const SizedBox(width: 6),
                                 Expanded(child: Text(
                                   l.name.isNotEmpty ? l.name : l.audioPath.split('/').last,
-                                  style: TextStyle(fontFamily: 'monospace', fontSize: 10,
+                                  style: FluxForgeTheme.dockMono(size: 10,
                                     color: l.muted ? FluxForgeTheme.textTertiary : FluxForgeTheme.textSecondary),
                                   overflow: TextOverflow.ellipsis)),
                                 Text('${(l.volume * 100).toStringAsFixed(0)}%',
-                                  style: const TextStyle(fontFamily: 'monospace', fontSize: 9,
+                                  style: FluxForgeTheme.dockMono(size: 9,
                                     color: FluxForgeTheme.textTertiary)),
                               ]),
                             )),
                             if (e.layers.isEmpty)
-                              const Text('No layers', style: TextStyle(
-                                fontSize: 10, color: FluxForgeTheme.textTertiary)),
+                              Text('No layers', style: FluxForgeTheme.dockSans(
+                                size: 10, color: FluxForgeTheme.textTertiary)),
                           ],
                         ),
                       ),
@@ -126,15 +126,15 @@ class _AudioContextLensState extends State<_AudioContextLens> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('RTPC PARAMETERS', style: TextStyle(
-                              fontFamily: 'monospace', fontSize: 9, letterSpacing: 0.1,
+                            Text('RTPC PARAMETERS', style: FluxForgeTheme.dockMono(
+                              size: 9, letterSpacing: 0.1,
                               color: FluxForgeTheme.textTertiary)),
                             const SizedBox(height: 8),
                             ...List.generate(8, (i) => Padding(
                               padding: const EdgeInsets.only(bottom: 6),
                               child: Row(children: [
                                 SizedBox(width: 80, child: Text(_rtpcNames[i],
-                                  style: const TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary))),
+                                  style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary))),
                                 Expanded(
                                   child: SliderTheme(
                                     data: SliderThemeData(
@@ -162,7 +162,7 @@ class _AudioContextLensState extends State<_AudioContextLens> {
                                 ),
                                 SizedBox(width: 28, child: Text(
                                   '${(_rtpcValues[i] * 100).toStringAsFixed(0)}%',
-                                  style: TextStyle(fontFamily: 'monospace', fontSize: 8,
+                                  style: FluxForgeTheme.dockMono(size: 8,
                                     color: e.color))),
                               ]),
                             )),
@@ -175,11 +175,11 @@ class _AudioContextLensState extends State<_AudioContextLens> {
                   // Footer info
                   Row(children: [
                     Text('Track: ${e.trackIndex}  ·  Position: ${e.timelinePositionMs.toStringAsFixed(0)}ms',
-                      style: const TextStyle(fontFamily: 'monospace', fontSize: 9,
+                      style: FluxForgeTheme.dockMono(size: 9,
                         color: FluxForgeTheme.textTertiary)),
                     const Spacer(),
                     Text('Vol: ${(e.masterVolume * 100).toStringAsFixed(0)}%  ·  ${e.looping ? "Loop" : "One-shot"}',
-                      style: TextStyle(fontFamily: 'monospace', fontSize: 9,
+                      style: FluxForgeTheme.dockMono(size: 9,
                         color: e.color.withValues(alpha: 0.7))),
                   ]),
                 ],
@@ -283,11 +283,11 @@ class _CoPilotChatWidgetState extends State<_CoPilotChatWidget> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('You: $user', style: const TextStyle(
-                        fontFamily: 'monospace', fontSize: 8,
+                      Text('You: $user', style: FluxForgeTheme.dockMono(
+                        size: 8,
                         color: FluxForgeTheme.accentCyan)),
-                      Text('AI: $bot', style: const TextStyle(
-                        fontFamily: 'monospace', fontSize: 8,
+                      Text('AI: $bot', style: FluxForgeTheme.dockMono(
+                        size: 8,
                         color: FluxForgeTheme.textSecondary, height: 1.3),
                         maxLines: 2, overflow: TextOverflow.ellipsis),
                     ],
@@ -305,11 +305,11 @@ class _CoPilotChatWidgetState extends State<_CoPilotChatWidget> {
                 controller: _inputCtrl,
                 focusNode: _inputFocus,
                 onSubmitted: (_) => _submit(),
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 9,
+                style: FluxForgeTheme.dockMono(size: 9,
                   color: FluxForgeTheme.textPrimary),
                 decoration: InputDecoration(
                   hintText: 'Ask CoPilot...',
-                  hintStyle: const TextStyle(fontFamily: 'monospace', fontSize: 9,
+                  hintStyle: FluxForgeTheme.dockMono(size: 9,
                     color: FluxForgeTheme.textTertiary),
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -497,8 +497,8 @@ class _ReelContextLensState extends State<_ReelContextLens> {
             children: [
               Row(children: [
                 Text('REEL ${widget.reel + 1} × ROW ${widget.row + 1}',
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 9,
-                    fontWeight: FontWeight.w600, color: FluxForgeTheme.accentCyan,
+                  style: FluxForgeTheme.dockMono(size: 9,
+                    weight: FontWeight.w600, color: FluxForgeTheme.accentCyan,
                     letterSpacing: 0.1)),
                 const Spacer(),
                 GestureDetector(
@@ -513,7 +513,7 @@ class _ReelContextLensState extends State<_ReelContextLens> {
                     padding: const EdgeInsets.only(bottom: 4),
                     child: Row(children: [
                       SizedBox(width: 64, child: Text(_sliderNames[i],
-                        style: const TextStyle(fontFamily: 'monospace', fontSize: 9,
+                        style: FluxForgeTheme.dockMono(size: 9,
                           color: FluxForgeTheme.textTertiary),
                         overflow: TextOverflow.ellipsis)),
                       Expanded(

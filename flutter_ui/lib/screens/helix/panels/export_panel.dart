@@ -192,8 +192,8 @@ class _ExportPanelState extends State<_ExportPanel> {
           padding: const EdgeInsets.only(bottom: 8),
           child: Row(
             children: [
-              const Text('Sample Rate:', style: TextStyle(
-                fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary)),
+              Text('Sample Rate:', style: FluxForgeTheme.dockMono(
+                size: 9, color: FluxForgeTheme.textTertiary)),
               const SizedBox(width: 6),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -205,7 +205,7 @@ class _ExportPanelState extends State<_ExportPanel> {
                   child: DropdownButton<int>(
                     value: _sampleRate,
                     isDense: true,
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 9,
+                    style: FluxForgeTheme.dockMono(size: 9,
                       color: FluxForgeTheme.textSecondary),
                     dropdownColor: FluxForgeTheme.bgSurface,
                     items: _sampleRates.map((r) => DropdownMenuItem(
@@ -217,8 +217,8 @@ class _ExportPanelState extends State<_ExportPanel> {
                 ),
               ),
               const SizedBox(width: 16),
-              const Text('Bit Depth:', style: TextStyle(
-                fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary)),
+              Text('Bit Depth:', style: FluxForgeTheme.dockMono(
+                size: 9, color: FluxForgeTheme.textTertiary)),
               const SizedBox(width: 6),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -230,7 +230,7 @@ class _ExportPanelState extends State<_ExportPanel> {
                   child: DropdownButton<int>(
                     value: _bitDepth,
                     isDense: true,
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 9,
+                    style: FluxForgeTheme.dockMono(size: 9,
                       color: FluxForgeTheme.textSecondary),
                     dropdownColor: FluxForgeTheme.bgSurface,
                     items: _bitDepths.map((d) => DropdownMenuItem(
@@ -273,8 +273,8 @@ class _ExportPanelState extends State<_ExportPanel> {
                 ),
                 const SizedBox(width: 8),
                 if (_batchTotal > 0) ...[
-                  Text('$_batchComplete/$_batchTotal', style: const TextStyle(
-                    fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.accentYellow)),
+                  Text('$_batchComplete/$_batchTotal', style: FluxForgeTheme.dockMono(
+                    size: 10, color: FluxForgeTheme.accentYellow)),
                   const SizedBox(width: 6),
                   ..._batchStatus.entries.map((e) => Padding(
                     padding: const EdgeInsets.only(right: 4),
@@ -288,7 +288,7 @@ class _ExportPanelState extends State<_ExportPanel> {
                           _ => Colors.transparent,
                         },
                         borderRadius: BorderRadius.circular(3)),
-                      child: Text(e.key, style: TextStyle(fontFamily: 'monospace', fontSize: 7,
+                      child: Text(e.key, style: FluxForgeTheme.dockMono(size: 7,
                         color: switch (e.value) {
                           'done' => FluxForgeTheme.accentGreen,
                           'failed' => FluxForgeTheme.accentRed,
@@ -298,11 +298,11 @@ class _ExportPanelState extends State<_ExportPanel> {
                     ),
                   )),
                 ] else
-                const Text('Exporting...', style: TextStyle(
-                  fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.accentYellow)),
+                Text('Exporting...', style: FluxForgeTheme.dockMono(
+                  size: 10, color: FluxForgeTheme.accentYellow)),
               ] else if (_lastExportResult != null) ...[
-                Expanded(child: Text(_lastExportResult!, style: TextStyle(
-                  fontFamily: 'monospace', fontSize: 10,
+                Expanded(child: Text(_lastExportResult!, style: FluxForgeTheme.dockMono(
+                  size: 10,
                   color: _lastExportResult!.startsWith('✓')
                     ? FluxForgeTheme.accentGreen
                     : _lastExportResult!.startsWith('⛔')
@@ -319,10 +319,10 @@ class _ExportPanelState extends State<_ExportPanel> {
                     color: FluxForgeTheme.accentCyan.withValues(alpha: 0.10),
                     border: Border.all(color: FluxForgeTheme.accentCyan.withValues(alpha: 0.4)),
                     borderRadius: BorderRadius.circular(4)),
-                  child: const Text('REPORT JSON', style: TextStyle(
-                    fontFamily: 'monospace', fontSize: 9,
+                  child: Text('REPORT JSON', style: FluxForgeTheme.dockMono(
+                    size: 9,
                     color: FluxForgeTheme.accentCyan,
-                    fontWeight: FontWeight.w700,
+                    weight: FontWeight.w700,
                     letterSpacing: 0.5)),
                 ),
               ),
@@ -339,10 +339,10 @@ class _ExportPanelState extends State<_ExportPanel> {
                     color: FluxForgeTheme.accentGreen.withValues(alpha: 0.10),
                     border: Border.all(color: FluxForgeTheme.accentGreen.withValues(alpha: 0.4)),
                     borderRadius: BorderRadius.circular(4)),
-                  child: const Text('COMPLY', style: TextStyle(
-                    fontFamily: 'monospace', fontSize: 9,
+                  child: Text('COMPLY', style: FluxForgeTheme.dockMono(
+                    size: 9,
                     color: FluxForgeTheme.accentGreen,
-                    fontWeight: FontWeight.w700,
+                    weight: FontWeight.w700,
                     letterSpacing: 0.5)),
                 ),
               ),
@@ -406,10 +406,10 @@ class _ExportPanelState extends State<_ExportPanel> {
                     color: FluxForgeTheme.accentYellow.withValues(alpha: 0.12),
                     border: Border.all(color: FluxForgeTheme.accentYellow.withValues(alpha: 0.45)),
                     borderRadius: BorderRadius.circular(4)),
-                  child: const Text('EXPORT ALL', style: TextStyle(
-                    fontFamily: 'monospace', fontSize: 9,
+                  child: Text('EXPORT ALL', style: FluxForgeTheme.dockMono(
+                    size: 9,
                     color: FluxForgeTheme.accentYellow,
-                    fontWeight: FontWeight.w700,
+                    weight: FontWeight.w700,
                     letterSpacing: 0.5)),
                 ),
               ),
@@ -571,18 +571,18 @@ class _ComplianceDialogState extends State<_ComplianceDialog> {
                 color: overallPass ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentRed),
               const SizedBox(width: 8),
               Text('COMPLIANCE REPORT',
-                style: TextStyle(
-                  fontFamily: 'monospace', fontSize: 13,
+                style: FluxForgeTheme.dockMono(
+                  size: 13,
                   color: overallPass ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentRed,
-                  fontWeight: FontWeight.w700, letterSpacing: 1.0)),
+                  weight: FontWeight.w700, letterSpacing: 1.0)),
               const Spacer(),
               if (_ran) ...[
                 if (fails > 0)
                   Text('$criticalFails CRITICAL · ${fails - criticalFails} MAJOR failures',
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: Color(0xFFFF6666)))
+                    style: FluxForgeTheme.dockMono(size: 9, color: const Color(0xFFFF6666)))
                 else
-                  const Text('ALL CHECKS PASSED',
-                    style: TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.accentGreen)),
+                  Text('ALL CHECKS PASSED',
+                    style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.accentGreen)),
                 const SizedBox(width: 12),
               ],
               GestureDetector(
@@ -620,8 +620,8 @@ class _ComplianceDialogState extends State<_ComplianceDialog> {
                           child: Text(f.j == 'UKGC' ? 'UK Gambling Commission (UKGC)'
                             : f.j == 'MGA' ? 'Malta Gaming Authority (MGA)'
                             : 'Swedish Gambling Authority (SE)',
-                            style: const TextStyle(
-                              fontFamily: 'monospace', fontSize: 8,
+                            style: FluxForgeTheme.dockMono(
+                              size: 8,
                               color: FluxForgeTheme.textTertiary, letterSpacing: 1.5)),
                         ),
                       // Finding row
@@ -637,7 +637,7 @@ class _ComplianceDialogState extends State<_ComplianceDialog> {
                           SizedBox(
                             width: 52,
                             child: Text(f.id,
-                              style: const TextStyle(fontFamily: 'monospace', fontSize: 8,
+                              style: FluxForgeTheme.dockMono(size: 8,
                                 color: FluxForgeTheme.textTertiary))),
                           SizedBox(
                             width: 16,
@@ -647,10 +647,10 @@ class _ComplianceDialogState extends State<_ComplianceDialog> {
                               color: f.pass ? FluxForgeTheme.accentGreen : _sevColor(f.sev))),
                           Expanded(
                             child: Text(f.rule,
-                              style: TextStyle(
-                                fontFamily: 'monospace', fontSize: 9,
+                              style: FluxForgeTheme.dockMono(
+                                size: 9,
                                 color: f.pass ? FluxForgeTheme.textSecondary : FluxForgeTheme.textPrimary,
-                                fontWeight: f.pass ? FontWeight.normal : FontWeight.w600))),
+                                weight: f.pass ? FontWeight.normal : FontWeight.w600))),
                           SizedBox(
                             width: 60,
                             child: f.pass
@@ -661,12 +661,12 @@ class _ComplianceDialogState extends State<_ComplianceDialog> {
                                     color: _sevColor(f.sev).withValues(alpha: 0.12),
                                     borderRadius: BorderRadius.circular(3)),
                                   child: Text(f.sev,
-                                    style: TextStyle(fontFamily: 'monospace', fontSize: 7,
+                                    style: FluxForgeTheme.dockMono(size: 7,
                                       color: _sevColor(f.sev))))),
                           SizedBox(
                             width: 180,
                             child: Text(f.desc,
-                              style: TextStyle(fontFamily: 'monospace', fontSize: 8,
+                              style: FluxForgeTheme.dockMono(size: 8,
                                 color: f.pass
                                   ? FluxForgeTheme.textTertiary
                                   : _sevColor(f.sev).withValues(alpha: 0.9)),
@@ -688,7 +688,7 @@ class _ComplianceDialogState extends State<_ComplianceDialog> {
               border: Border(top: BorderSide(color: Color(0xFF1A1A28)))),
             child: Row(children: [
               Text('Generated: ${DateTime.now().toString().substring(0, 16)}',
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 8,
+                style: FluxForgeTheme.dockMono(size: 8,
                   color: FluxForgeTheme.textTertiary)),
               const Spacer(),
               GestureDetector(
@@ -699,8 +699,8 @@ class _ComplianceDialogState extends State<_ComplianceDialog> {
                     color: FluxForgeTheme.accentCyan.withValues(alpha: 0.08),
                     border: Border.all(color: FluxForgeTheme.accentCyan.withValues(alpha: 0.3)),
                     borderRadius: BorderRadius.circular(4)),
-                  child: const Text('RE-RUN', style: TextStyle(
-                    fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.accentCyan)))),
+                  child: Text('RE-RUN', style: FluxForgeTheme.dockMono(
+                    size: 9, color: FluxForgeTheme.accentCyan)))),
             ]),
           ),
         ]),
@@ -708,7 +708,7 @@ class _ComplianceDialogState extends State<_ComplianceDialog> {
     );
   }
 
-  static const _headerStyle = TextStyle(
-    fontFamily: 'monospace', fontSize: 7.5,
+  static final _headerStyle = FluxForgeTheme.dockMono(
+    size: 7.5,
     color: FluxForgeTheme.textTertiary, letterSpacing: 1.2);
 }

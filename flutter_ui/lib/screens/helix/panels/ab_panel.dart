@@ -92,8 +92,8 @@ class _AbTestPanelState extends State<_AbTestPanel> {
                     border: Border.all(color: FluxForgeTheme.accentBlue.withValues(alpha: 0.2)),
                   ),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('VARIANT A', style: TextStyle(fontFamily: 'monospace', fontSize: 9,
-                      color: FluxForgeTheme.accentBlue, fontWeight: FontWeight.w700)),
+                    Text('VARIANT A', style: FluxForgeTheme.dockMono(size: 9,
+                      color: FluxForgeTheme.accentBlue, weight: FontWeight.w700)),
                     _SfxPresetSlider(label: 'RTP', value: _variantARtp, min: 85, max: 99, suffix: '%',
                       onChanged: (v) => setState(() => _variantARtp = v)),
                     _SfxPresetSlider(label: 'Volatility', value: _variantAVolatility, min: 1, max: 5, suffix: '',
@@ -110,8 +110,8 @@ class _AbTestPanelState extends State<_AbTestPanel> {
                     border: Border.all(color: FluxForgeTheme.accentGreen.withValues(alpha: 0.2)),
                   ),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('VARIANT B', style: TextStyle(fontFamily: 'monospace', fontSize: 9,
-                      color: FluxForgeTheme.accentGreen, fontWeight: FontWeight.w700)),
+                    Text('VARIANT B', style: FluxForgeTheme.dockMono(size: 9,
+                      color: FluxForgeTheme.accentGreen, weight: FontWeight.w700)),
                     _SfxPresetSlider(label: 'RTP', value: _variantBRtp, min: 85, max: 99, suffix: '%',
                       onChanged: (v) => setState(() => _variantBRtp = v)),
                     _SfxPresetSlider(label: 'Volatility', value: _variantBVolatility, min: 1, max: 5, suffix: '',
@@ -144,8 +144,8 @@ class _AbTestPanelState extends State<_AbTestPanel> {
                         const Icon(Icons.science_rounded, size: 14, color: FluxForgeTheme.accentGreen),
                       const SizedBox(width: 8),
                       Text(_isRunning ? 'SIMULATING...' : 'RUN A/B TEST',
-                        style: const TextStyle(fontFamily: 'monospace', fontSize: 10,
-                          color: FluxForgeTheme.accentGreen, fontWeight: FontWeight.w600)),
+                        style: FluxForgeTheme.dockMono(size: 10,
+                          color: FluxForgeTheme.accentGreen, weight: FontWeight.w600)),
                     ])),
                   ),
                 ),
@@ -177,7 +177,7 @@ class _AbTestPanelState extends State<_AbTestPanel> {
                       ),
                       const SizedBox(height: 8),
                       Text('${(abSim.progress * 100).toStringAsFixed(1)}% complete',
-                        style: const TextStyle(fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textSecondary)),
+                        style: FluxForgeTheme.dockMono(size: 10, color: FluxForgeTheme.textSecondary)),
                     ]);
                   }),
                 ] else if (_results != null) ...[
@@ -189,11 +189,11 @@ class _AbTestPanelState extends State<_AbTestPanel> {
                     child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                       Icon(Icons.science_outlined, size: 48, color: FluxForgeTheme.accentGreen.withValues(alpha: 0.2)),
                       const SizedBox(height: 12),
-                      const Text('Configure variants and run simulation',
-                        style: TextStyle(fontFamily: 'monospace', fontSize: 11, color: FluxForgeTheme.textTertiary)),
+                      Text('Configure variants and run simulation',
+                        style: FluxForgeTheme.dockMono(size: 11, color: FluxForgeTheme.textTertiary)),
                       const SizedBox(height: 6),
                       Text('Up to 1M spins per variant',
-                        style: TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6))),
+                        style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6))),
                     ])),
                   ),
                 ],
@@ -208,8 +208,8 @@ class _AbTestPanelState extends State<_AbTestPanel> {
   Widget _buildResultsTable() {
     final variants = _results?['variants'] as List? ?? [];
     if (variants.isEmpty) {
-      return const Center(child: Text('No results', style: TextStyle(
-        fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textTertiary)));
+      return Center(child: Text('No results', style: FluxForgeTheme.dockMono(
+        size: 10, color: FluxForgeTheme.textTertiary)));
     }
     return ListView(
       children: [
@@ -220,15 +220,15 @@ class _AbTestPanelState extends State<_AbTestPanel> {
             color: FluxForgeTheme.bgSurface,
             borderRadius: BorderRadius.circular(4),
           ),
-          child: const Row(children: [
-            SizedBox(width: 100, child: Text('METRIC', style: TextStyle(fontFamily: 'monospace', fontSize: 9,
-              color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600))),
-            Expanded(child: Text('VARIANT A', style: TextStyle(fontFamily: 'monospace', fontSize: 9,
-              color: FluxForgeTheme.accentBlue, fontWeight: FontWeight.w600), textAlign: TextAlign.center)),
-            Expanded(child: Text('VARIANT B', style: TextStyle(fontFamily: 'monospace', fontSize: 9,
-              color: FluxForgeTheme.accentGreen, fontWeight: FontWeight.w600), textAlign: TextAlign.center)),
-            SizedBox(width: 80, child: Text('DIFF', style: TextStyle(fontFamily: 'monospace', fontSize: 9,
-              color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600), textAlign: TextAlign.center)),
+          child: Row(children: [
+            SizedBox(width: 100, child: Text('METRIC', style: FluxForgeTheme.dockMono(size: 9,
+              color: FluxForgeTheme.textTertiary, weight: FontWeight.w600))),
+            Expanded(child: Text('VARIANT A', style: FluxForgeTheme.dockMono(size: 9,
+              color: FluxForgeTheme.accentBlue, weight: FontWeight.w600), textAlign: TextAlign.center)),
+            Expanded(child: Text('VARIANT B', style: FluxForgeTheme.dockMono(size: 9,
+              color: FluxForgeTheme.accentGreen, weight: FontWeight.w600), textAlign: TextAlign.center)),
+            SizedBox(width: 80, child: Text('DIFF', style: FluxForgeTheme.dockMono(size: 9,
+              color: FluxForgeTheme.textTertiary, weight: FontWeight.w600), textAlign: TextAlign.center)),
           ]),
         ),
         const SizedBox(height: 4),
@@ -262,16 +262,16 @@ class _AbTestPanelState extends State<_AbTestPanel> {
         margin: const EdgeInsets.only(bottom: 2),
         child: Row(children: [
           SizedBox(width: 100, child: Text(label,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textSecondary))),
+            style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textSecondary))),
           Expanded(child: Text('${aNum.toStringAsFixed(2)}$suffix',
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textPrimary),
+            style: FluxForgeTheme.dockMono(size: 10, color: FluxForgeTheme.textPrimary),
             textAlign: TextAlign.center)),
           Expanded(child: Text('${bNum.toStringAsFixed(2)}$suffix',
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textPrimary),
+            style: FluxForgeTheme.dockMono(size: 10, color: FluxForgeTheme.textPrimary),
             textAlign: TextAlign.center)),
           SizedBox(width: 80, child: Text(
             '${diff >= 0 ? "+" : ""}${diff.toStringAsFixed(2)}',
-            style: TextStyle(fontFamily: 'monospace', fontSize: 9,
+            style: FluxForgeTheme.dockMono(size: 9,
               color: diff.abs() < 0.1 ? FluxForgeTheme.textTertiary
                 : diff > 0 ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentPink),
             textAlign: TextAlign.center)),
@@ -298,11 +298,11 @@ class _AbTestPanelState extends State<_AbTestPanel> {
         Icon(Icons.emoji_events_rounded, size: 18, color: winColor),
         const SizedBox(width: 8),
         Text('VARIANT $winner WINS',
-          style: TextStyle(fontFamily: 'monospace', fontSize: 12,
-            color: winColor, fontWeight: FontWeight.w700)),
+          style: FluxForgeTheme.dockMono(size: 12,
+            color: winColor, weight: FontWeight.w700)),
         const SizedBox(width: 8),
         Text('(${(aNum - bNum).abs().toStringAsFixed(2)}% RTP difference)',
-          style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textSecondary)),
+          style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textSecondary)),
       ]),
     );
   }

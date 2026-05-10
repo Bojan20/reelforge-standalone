@@ -102,9 +102,9 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
                 child: Row(children: [
                   const Icon(Icons.link_rounded, size: 14, color: FluxForgeTheme.accentCyan),
                   const SizedBox(width: 6),
-                  const Text('Assign to Stage', style: TextStyle(
-                    fontFamily: 'monospace', fontSize: 12, color: FluxForgeTheme.textPrimary,
-                    fontWeight: FontWeight.w600)),
+                  Text('Assign to Stage', style: FluxForgeTheme.dockMono(
+                    size: 12, color: FluxForgeTheme.textPrimary,
+                    weight: FontWeight.w600)),
                   const Spacer(),
                   GestureDetector(
                     onTap: () => Navigator.pop(ctx),
@@ -124,8 +124,8 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
                         Padding(
                           padding: const EdgeInsets.only(bottom: 4, top: 4),
                           child: Text(entry.key,
-                            style: const TextStyle(
-                              fontFamily: 'monospace', fontSize: 8,
+                            style: FluxForgeTheme.dockMono(
+                              size: 8,
                               color: FluxForgeTheme.textTertiary, letterSpacing: 1.2)),
                         ),
                         Wrap(
@@ -139,8 +139,8 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
                                 border: Border.all(color: const Color(0xFF333355)),
                                 borderRadius: BorderRadius.circular(4)),
                               child: Text(stage.name,
-                                style: const TextStyle(
-                                  fontFamily: 'monospace', fontSize: 9,
+                                style: FluxForgeTheme.dockMono(
+                                  size: 9,
                                   color: FluxForgeTheme.textSecondary)),
                             ),
                           )).toList(),
@@ -155,13 +155,13 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
                 child: Row(children: [
-                  const Text('Skip assignment', style: TextStyle(
-                    fontSize: 9, color: FluxForgeTheme.textTertiary)),
+                  Text('Skip assignment', style: FluxForgeTheme.dockSans(
+                    size: 9, color: FluxForgeTheme.textTertiary)),
                   const Spacer(),
                   GestureDetector(
                     onTap: () => Navigator.pop(ctx, '__SKIP__'),
-                    child: const Text('Add without stage', style: TextStyle(
-                      fontSize: 9, color: FluxForgeTheme.accentBlue))),
+                    child: Text('Add without stage', style: FluxForgeTheme.dockSans(
+                      size: 9, color: FluxForgeTheme.accentBlue))),
                 ]),
               ),
             ],
@@ -444,15 +444,15 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
             decoration: BoxDecoration(
               color: FluxForgeTheme.accentCyan.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(3)),
-            child: const Text('STEP 1',
-              style: TextStyle(
-                fontFamily: 'monospace', fontSize: 7,
+            child: Text('STEP 1',
+              style: FluxForgeTheme.dockMono(
+                size: 7,
                 color: FluxForgeTheme.accentCyan, letterSpacing: 1.2,
-                fontWeight: FontWeight.w600)),
+                weight: FontWeight.w600)),
           ),
           const SizedBox(width: 6),
-          const Expanded(child: Text('Create slot',
-            style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary))),
+          Expanded(child: Text('Create slot',
+            style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textSecondary))),
           GestureDetector(
             onTap: _createNewSlot,
             child: Container(
@@ -461,13 +461,13 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
                 color: FluxForgeTheme.accentCyan.withValues(alpha: 0.18),
                 border: Border.all(color: FluxForgeTheme.accentCyan, width: 1.0),
                 borderRadius: BorderRadius.circular(4)),
-              child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.add_circle_outline_rounded, size: 11,
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.add_circle_outline_rounded, size: 11,
                   color: FluxForgeTheme.accentCyan),
-                SizedBox(width: 4),
-                Text('New Slot', style: TextStyle(
-                  fontFamily: 'monospace', fontSize: 9,
-                  color: FluxForgeTheme.accentCyan, fontWeight: FontWeight.w600)),
+                const SizedBox(width: 4),
+                Text('New Slot', style: FluxForgeTheme.dockMono(
+                  size: 9,
+                  color: FluxForgeTheme.accentCyan, weight: FontWeight.w600)),
               ]),
             ),
           ),
@@ -480,18 +480,18 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
             decoration: BoxDecoration(
               color: FluxForgeTheme.accentBlue.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(3)),
-            child: const Text('STEP 2',
-              style: TextStyle(
-                fontFamily: 'monospace', fontSize: 7,
+            child: Text('STEP 2',
+              style: FluxForgeTheme.dockMono(
+                size: 7,
                 color: FluxForgeTheme.accentBlue, letterSpacing: 1.2,
-                fontWeight: FontWeight.w600)),
+                weight: FontWeight.w600)),
           ),
           const SizedBox(width: 6),
           Expanded(child: Text(
             events.isEmpty
               ? 'Drop audio onto a slot'
               : '${events.length} slot${events.length == 1 ? "" : "s"} — drop audio on a card',
-            style: const TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary),
+            style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary),
             overflow: TextOverflow.ellipsis,
           )),
           GestureDetector(
@@ -509,11 +509,11 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
                 color: FluxForgeTheme.accentBlue.withValues(alpha: 0.08),
                 border: Border.all(color: FluxForgeTheme.accentBlue.withValues(alpha: 0.4)),
                 borderRadius: BorderRadius.circular(4)),
-              child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.folder_open_rounded, size: 10, color: FluxForgeTheme.accentBlue),
-                SizedBox(width: 3),
-                Text('Browse', style: TextStyle(
-                  fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.accentBlue)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.folder_open_rounded, size: 10, color: FluxForgeTheme.accentBlue),
+                const SizedBox(width: 3),
+                Text('Browse', style: FluxForgeTheme.dockMono(
+                  size: 8, color: FluxForgeTheme.accentBlue)),
               ]),
             ),
           ),
@@ -528,9 +528,9 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
                   Icon(Icons.layers_outlined, size: 28,
                     color: FluxForgeTheme.textTertiary.withValues(alpha: 0.4)),
                   const SizedBox(height: 8),
-                  const Text('No slots yet.\nCreate a slot first,\nthen drop audio on it.',
+                  Text('No slots yet.\nCreate a slot first,\nthen drop audio on it.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 9,
+                    style: FluxForgeTheme.dockSans(size: 9,
                       color: FluxForgeTheme.textTertiary, height: 1.5)),
                   const SizedBox(height: 14),
                   GestureDetector(
@@ -541,12 +541,12 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
                         color: FluxForgeTheme.accentCyan.withValues(alpha: 0.18),
                         border: Border.all(color: FluxForgeTheme.accentCyan, width: 1.0),
                         borderRadius: BorderRadius.circular(4)),
-                      child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(Icons.add_rounded, size: 12, color: FluxForgeTheme.accentCyan),
-                        SizedBox(width: 5),
-                        Text('Create First Slot', style: TextStyle(
-                          fontFamily: 'monospace', fontSize: 10,
-                          color: FluxForgeTheme.accentCyan, fontWeight: FontWeight.w600)),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.add_rounded, size: 12, color: FluxForgeTheme.accentCyan),
+                        const SizedBox(width: 5),
+                        Text('Create First Slot', style: FluxForgeTheme.dockMono(
+                          size: 10,
+                          color: FluxForgeTheme.accentCyan, weight: FontWeight.w600)),
                       ]),
                     ),
                   ),
@@ -609,8 +609,8 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
                 Container(width: 4, height: 4, decoration: BoxDecoration(
                   color: e.color, shape: BoxShape.circle)),
                 const SizedBox(width: 7),
-                Expanded(child: Text(e.name, style: const TextStyle(
-                  fontFamily: 'monospace', fontSize: 10,
+                Expanded(child: Text(e.name, style: FluxForgeTheme.dockMono(
+                  size: 10,
                   color: FluxForgeTheme.textSecondary),
                   overflow: TextOverflow.ellipsis)),
                 if (!hasLayers)
@@ -621,14 +621,14 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
                       border: Border.all(
                         color: FluxForgeTheme.accentBlue.withValues(alpha: 0.4)),
                       borderRadius: BorderRadius.circular(3)),
-                    child: const Text('drop audio',
-                      style: TextStyle(
-                        fontFamily: 'monospace', fontSize: 7,
+                    child: Text('drop audio',
+                      style: FluxForgeTheme.dockMono(
+                        size: 7,
                         color: FluxForgeTheme.accentBlue, letterSpacing: 0.3)),
                   )
                 else
-                  Text('${e.layers.length}L', style: const TextStyle(
-                    fontFamily: 'monospace', fontSize: 8,
+                  Text('${e.layers.length}L', style: FluxForgeTheme.dockMono(
+                    size: 8,
                     color: FluxForgeTheme.textTertiary)),
                 const SizedBox(width: 3),
                 const Icon(Icons.chevron_right_rounded, size: 11,
@@ -658,8 +658,8 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
                           borderRadius: BorderRadius.circular(3)),
                         child: Row(mainAxisSize: MainAxisSize.min, children: [
                           Text(stage,
-                            style: TextStyle(
-                              fontFamily: 'monospace', fontSize: 7,
+                            style: FluxForgeTheme.dockMono(
+                              size: 7,
                               color: chipColor, letterSpacing: 0.3)),
                           const SizedBox(width: 3),
                           GestureDetector(
@@ -691,8 +691,8 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
                             : FluxForgeTheme.accentRed),
                         const SizedBox(width: 2),
                         Text(hasStages ? 'stage' : 'set stage (won\'t play)',
-                          style: TextStyle(
-                            fontFamily: 'monospace', fontSize: 7,
+                          style: FluxForgeTheme.dockMono(
+                            size: 7,
                             color: hasStages
                               ? FluxForgeTheme.textTertiary
                               : FluxForgeTheme.accentRed)),
