@@ -445,15 +445,19 @@ AiGenerationService ─────── Prompt→Audio pipeline, FFNC classify
 
 > 0 unit testova za 14k LOC core screen. Rust helix_graph: 0 testova.
 
-#### D.1 — Rust helix_graph testovi (4 sata)
-- [ ] `crates/rf-engine/tests/helix_graph_test.rs` — 20+ testova
-- [ ] Node add/remove/connect
-- [ ] Cycle detection (`has_cycle()`)
-- [ ] Topological sort correctness
-- [ ] RTPC curve evaluation (linear/exp/log/sCurve)
-- [ ] Graph version increment (live edit)
-- [ ] Depth level computation
-- [ ] Determinism (multi-run identical output)
+#### D.1 — Rust helix_graph testovi — ✅ FIXED 2026-05-10 (26 testova, 0 → 26)
+
+- [x] `crates/rf-engine/tests/helix_graph_tests.rs` — 26 #[test] funkcija
+- [x] Node CRUD (add / create / lookup / remove sa connection cleanup)
+- [x] Connection management (self-loop reject, valid edge, **cycle reject u connect()**)
+- [x] Topological sort (linear, diamond DAG, idempotent, recomputes after mutation)
+- [x] Cycle detection (sort vraća false na cycle inserted directly bypass-ujući connect guard)
+- [x] Depth-level computation (linear → 3 levels, diamond → 3 levels sa parallel pair)
+- [x] RTPC curve evaluation (linear lerp + endpoint clamp, step holds-left, single-point constant, empty pass-through)
+- [x] Graph version increment (monotonic kroz svaku mutaciju)
+- [x] Templates (basic_slot, helix_full) — non-empty, sort uspeva
+- [x] Sort determinizam (multi-run identical execution_order)
+- [x] Validate clean DAG (smoke test bez panic-a)
 
 #### D.2 — Flutter Helix lifecycle testovi (3 sata)
 - [ ] `test/helix_screen_lifecycle_test.dart` — Timer/Controller/Listener cleanup
@@ -467,17 +471,25 @@ AiGenerationService ─────── Prompt→Audio pipeline, FFNC classify
 
 ---
 
-### 4.E — TODO inventory (closeout)
+### 4.E — TODO inventory (closeout) — ✅ DONE 2026-05-10
 
-> 19 TODO/FIXME u Helix kodu. Određeni već implementirani ali komentari ne ažurirani.
+> 19 TODO/FIXME u Helix kodu. Većina su istorijski markeri implementiranih
+> stavki, ne aktivni "treba uraditi" TODO. Renamovani na "Implements
+> FLUX_MASTER_TODO X.X.X" da budu jasno history.
 
-- [ ] Line 46, 79, 141, 217, 636, 1515, 1566 — FLUX_MASTER_TODO 2.1.7 (REELS×ROWS inline edit) — closeout/implement
-- [ ] Line 382, 1519 — FLUX_MASTER_TODO 3.4.1 (live compliance poll) — verify status, close ako radi
-- [ ] Line 1527 — FLUX_MASTER_TODO 3.6.1 (Audio Coverage Badge) — verify
-- [ ] Line 1864 — FLUX_MASTER_TODO 0.5 D.1 (Reel cell as audio bind target) — verify, close
-- [ ] Line 2171 — TODO(URP-future) (Plugin marketplace) — defer to URP
-- [ ] Line 2332 — FLUX_MASTER_TODO 0.5 G.7 (Hot-reload audio assets) — IMPLEMENTIRANO, obrisati TODO
-- [ ] Line 7913 — FLUX_MASTER_TODO 1.2.1 (_stageToEvent map mutual eviction) — verify
+- [x] Line 218 (was 217) — FLUX_MASTER_TODO 2.1.7 grid inline edit → `Implements FLUX_MASTER_TODO 2.1.7` (radi: `_buildGridPill`)
+- [x] Line 389 (was 382) — FLUX_MASTER_TODO 3.4.1 live compliance poll → renamed na `Implements` (radi: `LiveComplianceProvider.start()`)
+- [x] Line 705 — `_submitGridPill` doc — renamed
+- [x] Line 1703 (was 1515) — REELS×ROWS Omnibar — renamed
+- [x] Line 1707 (was 1519) — ComplianceLightsBadge — renamed
+- [x] Line 1715 (was 1527) — AudioCoverageBadge — renamed
+- [x] Line 1754 (was 1566) — Grid pill build fn — renamed
+- [x] Line 2053 (was 1864) — Reel cell drop target — renamed
+- [x] Line 2531 (was 2332) — G.7 hot-reload — renamed
+- [ ] Line 46, 79, 141 — import doc komentari (FLUX_MASTER_TODO 2.1.7), nisu TODO nego history note — ostavljeni
+- [ ] Line 2359 — `TODO(URP-future)` plugin marketplace — legitiman otvoreni TODO, defer to URP phase
+- [ ] Line 8175 — `(FLUX_MASTER_TODO 1.2.1)` referenca u history doc-stringu — istorijski OK
+- Total: 9 stale tagova renamed na "Implements", 3 legitimna otvorena ili history note.
 
 ---
 

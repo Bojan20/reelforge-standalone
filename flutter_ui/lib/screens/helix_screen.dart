@@ -215,7 +215,7 @@ class _HelixScreenState extends State<HelixScreen>
   bool _projectNameEditing = false;
   late final TextEditingController _projectNameController;
 
-  // ── Grid (REELS×ROWS) inline edit (FLUX_MASTER_TODO 2.1.7) ─────────────────
+  // ── Grid (REELS×ROWS) inline edit (implements FLUX_MASTER_TODO 2.1.7) ─────────────────
   // Closes the Definition of Done metric "klika do promene reel count-a:
   // 4 → 1". Tap the pill, type `5x3`, hit Enter — the resize routes
   // through `GridResizePipeline.apply` so engine + composer + stages
@@ -386,7 +386,7 @@ class _HelixScreenState extends State<HelixScreen>
     // Seed demo composite events so panels show real data on first open
     _seedDemoEvents();
 
-    // FLUX_MASTER_TODO 3.4.1 — Pokreni live compliance poll loop.
+    // Implements FLUX_MASTER_TODO 3.4.1 — live compliance poll loop.
     // Idempotent — drugi `start()` poziv je no-op. Provider se sam
     // gasi u dispose-u; lazy singleton tako da multiple HELIX mount-a
     // ne pokreće 5 paralelnih poll-ova.
@@ -702,7 +702,7 @@ class _HelixScreenState extends State<HelixScreen>
     });
   }
 
-  /// Submit handler for the inline REELS×ROWS pill (FLUX_MASTER_TODO 2.1.7).
+  /// Submit handler for the inline REELS×ROWS pill (implements FLUX_MASTER_TODO 2.1.7).
   /// Parses `5x3` / `5×3` (case-insensitive), runs the resize through
   /// `GridResizePipeline`, flashes the result for 2.5s. The pill exits
   /// edit mode immediately on submit so the user sees the new value
@@ -1700,19 +1700,20 @@ class _HelixScreenState extends State<HelixScreen>
             ),
           ),
           const SizedBox(width: 12),
-          // FLUX_MASTER_TODO 2.1.7 — REELS×ROWS inline edit (was 4 clicks
-          // through the GAME CONFIG spine overlay; now 1 click + Enter).
+          // Implements FLUX_MASTER_TODO 2.1.7 — REELS×ROWS inline edit
+          // (was 4 clicks through the GAME CONFIG spine overlay; now
+          // 1 click + Enter).
           _buildGridPill(),
           const SizedBox(width: 12),
-          // FLUX_MASTER_TODO 3.4.1 — Live compliance traffic lights.
-          // Per-jurisdiction status (UKGC/MGA/...) + spin counter +
-          // tooltip sa worst metric utilization%. Reaguje na
-          // LiveComplianceProvider notify (200ms poll loop).
+          // Implements FLUX_MASTER_TODO 3.4.1 — live compliance traffic
+          // lights. Per-jurisdiction status (UKGC/MGA/...) + spin
+          // counter + tooltip sa worst metric utilization%. Reaguje na
+          // LiveComplianceProvider notify (200 ms poll loop).
           ComplianceLightsBadge(
             provider: GetIt.instance<LiveComplianceProvider>(),
           ),
           const SizedBox(width: 8),
-          // FLUX_MASTER_TODO 3.6.1 — Audio Coverage Badge.
+          // Implements FLUX_MASTER_TODO 3.6.1 — Audio Coverage Badge.
           // Sticky pill: bound/total stages + per-category breakdown
           // tooltip.  Reaktivan na project audioAssignments change i
           // StageConfigurationService palette extension.
@@ -1751,7 +1752,7 @@ class _HelixScreenState extends State<HelixScreen>
     );
   }
 
-  /// FLUX_MASTER_TODO 2.1.7 — Inline REELS×ROWS pill in the Omnibar.
+  /// Implements FLUX_MASTER_TODO 2.1.7 — Inline REELS×ROWS pill in the Omnibar.
   ///
   /// Two states:
   ///   * Display: shows current grid as `5×3` with a flash overlay
@@ -2049,7 +2050,7 @@ class _HelixScreenState extends State<HelixScreen>
                       }
                     });
                   },
-                  // FLUX_MASTER_TODO 0.5 D.1 — Reel cell as audio bind target.
+                  // Implements FLUX_MASTER_TODO 0.5 D.1 — Reel cell as audio bind target.
                   // Drop audio file path → bind direktno na REEL_STOP_<reelIndex>
                   // event preko `setAudioAssignment` (per-reel auto-expand
                   // takođe popunjava sve REEL_STOP_i sa stereo pan-om).
@@ -2527,7 +2528,7 @@ class _HelixScreenState extends State<HelixScreen>
             icon: Icons.refresh_rounded, label: 'RELOAD',
             color: FluxForgeTheme.textTertiary,
             onTap: () => silentRun('quickAction.audioReload', () {
-              // FLUX_MASTER_TODO 0.5 G.7 (Sprint 11) — hot-reload audio
+              // Implements FLUX_MASTER_TODO 0.5 G.7 (Sprint 11) — hot-reload audio
               // assets from disk. Validira da li svi audio path-ovi u
               // _audioAssignments još uvek postoje, uklanja broken bindings,
               // notify-uje downstream. Slot designer ne mora restartovati
