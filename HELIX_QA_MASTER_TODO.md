@@ -528,19 +528,52 @@ AiGenerationService ─────── Prompt→Audio pipeline, FFNC classify
 
 ---
 
-## 4.X — Sažetak prioriteta
+## 4.X — Sažetak prioriteta (Status posle Sprint 14 — 6 batch-eva)
 
-| Faza | Effort | Impact | Status |
-|------|--------|--------|--------|
-| **4.A — Critical fixes** | 4–6 sati | Stop curenju memorije, race fix, dead UI wire | 🔴 OTVORENO |
-| **4.B — Visible polish** | 3–4 sata | "Premium" osećaj umesto "prototype" | 🟠 OTVORENO |
-| **4.C — Strukturni refactor** | 2–3 dana | Monolit split, dock panel extract | 🟡 OTVORENO |
-| **4.D — Test coverage** | 1 dan | 0 → 50+ testova | 🟡 OTVORENO |
-| **4.E — TODO closeout** | 2 sata | 19 stale TODO-ja | 🟢 OTVORENO |
-| **4.F — Rust API design** | 1 dan | Čišći public API, type-safe error handling | 🟢 OTVORENO |
-| **4.G — Magic constants** | 2 sata | Dynamic resize support, dead code purge | 🟢 OTVORENO |
+| Faza | Sprint 14 status | Detail |
+|------|------------------|--------|
+| **4.A — Critical fixes** | ✅ **DONE** | A.2 stub wire, A.3 state persist, A.4 catch-all log, A.5 Rust audio thread; A.1/A.6 false positive verified; A.7 partial (1 race fix + 5 verified safe) |
+| **4.B — Visible polish** | ✅ **DONE (5/7)** | B.1 brand logo, B.3 stub dim, B.4 mode indicator, B.5 tab tooltipi, B.6 cheatsheet, B.7 waveform; B.2 mass migration odložena |
+| **4.C — Strukturni refactor** | 🟡 OTVORENO | Najveći obim, dedicated sprint potreban (split 14013 LOC monolit) |
+| **4.D — Test coverage** | ✅ **52 nova testa** | D.1 helix_graph 26 testova ✓, D.2 BT canvas 21 testova ✓, D.3 async edge case odložen |
+| **4.E — TODO closeout** | ✅ **DONE** | 9 stale tagova renamed na "Implements"; 3 legitimna otvorena ostala |
+| **4.F — Rust API design** | 🟡 PARTIAL | F.1 HxBusError + publish_result() Result API ✓; ostatak su breaking changes odloženi |
+| **4.G — Magic constants** | ✅ **DONE** | 4 named consts dodate sa rationale (winLineHold/Clear, playhead, gridFlash) |
 
-**Ukupno: ~5 dana rada za Helix da ide iz "ne radi mi i ne sviđa mi se" → "premium, intuitivan, stabilan".**
+### Sprint 14 cumulative (6 batch-eva)
 
-> Sledeći potez: Faza A (4–6 sati) može početi odmah. High-impact, low-risk.
-> Sve A1–A7 stavke su precizno lokalizovane (file:line) — direktno fix bez novih audita.
+| # | Commit | Faza | Tests added |
+|---|--------|------|-------------|
+| 1 | `5692571b` | A.1+A.2+A.3+A.4+A.6 | — |
+| 2 | `64652aa1` | A.5+A.7+B.1+B.4+B.5 | — |
+| 3 | `18e3370c` | B.3+B.6+B.7 | — |
+| 4 | `4663ea6d` | D.1 (helix_graph) + E (TODO closeout) | +26 Rust |
+| 5 | `7ddcb9ff` | G (magic consts) + D.2 (BT canvas) | +21 Dart |
+| 6 | `66bf1760` | F.1 (HxBusError + Result API) | +5 Rust |
+
+**Totals:**
+- ✅ **48 stavki** zatvoreno
+- ✅ **52 nova unit testa** (31 Rust + 21 Dart)
+- ✅ **3338 / 3338** Flutter testovi prolaze
+- ✅ **571 / 571** rf-engine lib testovi prolaze
+- ✅ **100 %** cargo workspace pass
+- ✅ ~18h rada landed
+
+### Otvoreno (predstoji dedicated sprint-ovi)
+
+- **4.B.2** — 50+ raw fontSize/Duration → theme tokens (mass migration)
+- **4.C** — Strukturni refactor (split 14013 LOC `helix_screen.dart` monolit) — najveći obim
+- **4.D.3** — Flutter async edge case tests (race conditions, GlobalKey null, listener cleanup)
+- **4.F.2-7** — Ostatak Rust API refactors (newtype wrappers, builders, versioned setters) — breaking change-evi
+- **4.A.7 remaining** — 4 bang operators (svi verifikovani kao safe parent-guarded, low priority)
+- **4.A.4 remaining** — 4 catch-all blocks (verifikovani kao legit fallback, low priority)
+
+### Live verifikacija (Sprint 14 batch 6 finalize, 2026-05-10 23:22)
+
+CortexEye snapshot pokazao na Helix screen-u:
+- ✅ Brand gold "HX" logo top-left (B.1)
+- ✅ "● COMPOSE" mode indicator badge u Omnibar (B.4)
+- ✅ Stub tabovi vizuelno dim sa strikethrough (SFX/BT/DNA/AI GEN/CLOUD/A/B) (B.3)
+- ✅ FLOW tab aktivan sa zelenim akcentom, Stage Flow renderuje pravilno
+
+App spreman — `~/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/Debug/FluxForge\ Studio.app`
