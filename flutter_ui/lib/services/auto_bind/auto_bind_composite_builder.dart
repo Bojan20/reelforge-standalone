@@ -102,7 +102,14 @@ class AutoBindCompositeBuilder {
     // to pool=false ONLY for stages we just bound.  Manual edits in the
     // ASSIGN spine still see the original stage config — this is a
     // builder-time toggle.
-    if (stageDef != null && stageDef.isPooled) {
+    //
+    // 2026-05-10 BUG FIX: getStage() previously returned _stages ?? _customStages,
+    // meaning custom registration via registerCustomStage NEVER took effect for
+    // stages that exist in the base _stages map (i.e. all REEL_STOP_0..4).
+    // Fixed to _customStages ?? _stages so this registration now works as intended.
+    // We ALWAYS register custom stage (when definition exists) with isPooled=false,
+    // not just when stageDef.isPooled is true — belt-and-suspenders safety.
+    if (stageDef != null) {
       stageCfg.registerCustomStage(
         stageDef.copyWith(isPooled: false),
         silent: true,

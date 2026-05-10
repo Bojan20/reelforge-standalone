@@ -1276,10 +1276,22 @@ class EventRegistry extends ChangeNotifier {
     _useAudioPool = enabled;
   }
 
-  /// Check if a stage should use pooling
-  /// Now delegated to StageConfigurationService for centralized configuration
+  /// Check if a stage should use pooling.
+  ///
+  /// REEL_STOP_* events are NEVER pooled regardless of stage config:
+  ///   - Pool steal reuses a voice slot without guaranteed fresh gain/fade state
+  ///   - 5 reels stopping in rapid succession (< 200 ms) each need an
+  ///     independent fresh voice — pool size of 1 per event causes truncation
+  ///   - The 256-slot one-shot pool in Rust has ample headroom (5 stops +
+  ///     spin loops + music = < 20 voices in worst-case slot scenario)
+  ///
+  /// This is a defensive layer on top of the stage-config fix (custom stages
+  /// now override defaults via _customStages-first lookup).
   bool _shouldUsePool(String stage) {
     if (!_useAudioPool) return false;
+    final upper = stage.toUpperCase();
+    if (upper.startsWith('REEL_STOP')) return false;
+    if (upper.startsWith('REEL_SPIN')) return false;
     return StageConfigurationService.instance.isPooled(stage);
   }
 

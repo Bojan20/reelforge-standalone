@@ -223,24 +223,28 @@ void main() {
       expect(service.getPriority('TO_REMOVE'), 50);
     });
 
-    test('default stage takes precedence over custom with same name', () {
+    test('custom stage overrides default with same name', () {
       // UI_SPIN_PRESS exists in default _stages with priority 35.
       final defaultPriority = service.getPriority('UI_SPIN_PRESS');
       expect(defaultPriority, 35);
 
-      // registerCustomStage stores in _customStages, but getStage()
-      // checks _stages first, so the default stage takes precedence
+      // registerCustomStage stores in _customStages.
+      // getStage() now checks _customStages FIRST so the override takes effect.
+      // This is the correct behavior: auto-bind builder registers custom stages
+      // with isPooled=false to disable pool steal for REEL_STOP events — if
+      // _stages had priority the override would silently fail (the bug we fixed).
       service.registerCustomStage(const StageDefinition(
         name: 'UI_SPIN_PRESS',
         category: StageCategory.spin,
         priority: 99,
       ));
 
-      // Default still wins because _stages is checked before _customStages
-      expect(service.getPriority('UI_SPIN_PRESS'), defaultPriority);
+      // Custom wins because _customStages is now checked before _stages
+      expect(service.getPriority('UI_SPIN_PRESS'), 99);
 
-      // Cleanup
+      // After removal, default stage is visible again
       service.removeCustomStage('UI_SPIN_PRESS');
+      expect(service.getPriority('UI_SPIN_PRESS'), defaultPriority);
     });
   });
 

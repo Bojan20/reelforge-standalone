@@ -198,10 +198,18 @@ class StageConfigurationService extends ChangeNotifier {
   /// All stages (custom overrides default when names overlap)
   List<StageDefinition> get allStages => ({..._stages, ..._customStages}).values.toList();
 
-  /// Get stage definition by name (case insensitive)
+  /// Get stage definition by name (case insensitive).
+  ///
+  /// Custom stages (registered via [registerCustomStage] or auto-bind builder)
+  /// MUST take priority over base `_stages` defaults.  The original `_stages ??
+  /// _customStages` order had the opposite priority: builder called
+  /// `registerCustomStage('REEL_STOP_2', isPooled: false)` but the lookup
+  /// returned the base definition (isPooled: true) because `_stages` was
+  /// non-null.  Result: pool-steal remained active for all REEL_STOP events,
+  /// causing truncated / silent / quieter voices on rapid multi-reel stops.
   StageDefinition? getStage(String name) {
     final normalized = name.toUpperCase().trim();
-    return _stages[normalized] ?? _customStages[normalized];
+    return _customStages[normalized] ?? _stages[normalized];
   }
 
   /// Get display label for stage — single source of truth for event names.
