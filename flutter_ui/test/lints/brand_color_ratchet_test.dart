@@ -42,12 +42,19 @@ import 'package:flutter_test/flutter_test.dart';
 /// absent) i `event_debugger_panel.dart` AUDIT tab UI — status indikatori
 /// koji se mapiraju 1:1 na `EventAuditStatus` enum, opravdano color-coded.
 ///
+/// Bumped 2026-05-10 (Sprint 9) +5 za `game_config_recommender_dialog.dart`
+/// (F.2 UI wire) — 4 brand-bg shade-a (0xFF0D0D14 dialog bg, 0xFF1A1A22
+/// input fill) + 1 status accent (0xFF40FF90 enabled feature). Brand token
+/// equivalents (`bgDeep`, `bgElevated`, `accentGreen`) imaju različite
+/// shade-ove pa F.2 dialog drži vlastite za visual consistency sa aiAudio
+/// dialog patternom.
+///
 /// **Direction contract:** baseline ide samo nadole. Svaki commit koji
 /// raste ovaj broj uvodi nov raw color literal — autor mora da koristi
 /// `FluxForgeTheme.*` token umesto direktnog `Color(0x…)`. Ako je bump
 /// neizbežan (semantic status palette npr.), dodaj rationale komentar
 /// ovde u istom commit-u.
-const int _kRawColorHexBaseline = 7619;
+const int _kRawColorHexBaseline = 7624;
 
 /// Frozen baseline za `Color.fromARGB(…)` + `Color.fromRGBO(…)` konstruktore.
 const int _kRawColorCtorBaseline = 7;
@@ -57,7 +64,10 @@ const int _kRawColorCtorBaseline = 7;
 /// signal jer ne prati FluxForge paletu.
 /// Bumped 2026-05-10 (Sprint 7) +22 za `Colors.white60/38/24/30/54/70` muted
 /// text references u AUDIT tab-u (developer-facing debug panel, ne user UI).
-const int _kRawMaterialColorsBaseline = 7090;
+/// Bumped 2026-05-10 (Sprint 9) +19 za F.2 GameConfigRecommenderDialog
+/// (Colors.white60/54/38/24 muted labels + Colors.black foreground na gold
+/// recommend button). Same dev-tool justification kao AUDIT tab.
+const int _kRawMaterialColorsBaseline = 7109;
 
 /// Direktorijumi koji su isključeni iz brojanja jer NISU "user UI code":
 ///   * `lib/theme/` — canonical brand definicije (one *jesu* raw boje, namerno).

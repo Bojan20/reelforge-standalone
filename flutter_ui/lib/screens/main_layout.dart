@@ -25,6 +25,7 @@ import '../providers/mixer_provider.dart';
 import '../widgets/layout/project_tree.dart' show ProjectTreeNode, TreeItemType;
 import '../widgets/common/keyboard_shortcuts_overlay.dart';
 import '../widgets/common/command_palette.dart';
+import '../widgets/helix/game_config_recommender_dialog.dart';
 import '../services/command_registry.dart';
 import '../widgets/daw/auto_color_rules_panel.dart';
 import '../widgets/slot_lab/sfx_pipeline_wizard.dart';
@@ -447,6 +448,30 @@ class _MainLayoutState extends State<MainLayout>
         controller.setSuperTab(DawSuperTab.deliver);
         controller.expand();
       },
+    );
+    // FLUX_MASTER_TODO 0.5 F.2 UI WIRE — Register AI Recommender komandu
+    // u command palette tako da je dostupna preko Cmd+K → search "recommend"
+    // ili "ai" ili "config". Single source of truth — service je vec u
+    // `lib/services/game_config_recommender.dart`, ovo samo wires UI.
+    CommandRegistry.instance.register(
+      PaletteCommand(
+        id: 'ai.game_config_recommender',
+        label: 'AI Game Config Recommender',
+        description:
+            'Heuristic recommender — math + features + audio + compliance',
+        category: PaletteCategory.tools,
+        icon: Icons.auto_awesome,
+        keywords: const [
+          'ai', 'recommend', 'config', 'math', 'rtp', 'volatility',
+          'compliance', 'preset', 'jurisdiction',
+        ],
+        onExecute: () {
+          showDialog(
+            context: context,
+            builder: (_) => const GameConfigRecommenderDialog(),
+          );
+        },
+      ),
     );
     CommandPalette.showUltimate(context);
   }

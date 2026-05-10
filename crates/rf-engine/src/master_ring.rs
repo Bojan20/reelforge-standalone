@@ -26,9 +26,21 @@ use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 /// Default window size — 5 seconds.
 pub const DEFAULT_SECONDS: f32 = 5.0;
 /// Absolute upper bound (seconds) for the ring capacity. Guards against silly SR.
-pub const MAX_SECONDS: f32 = 10.0;
+///
+/// FLUX_MASTER_TODO 0.5 E.4 (Sprint 9) — bumped 10.0 → 60.0 da podrži marketing
+/// clip export (3.6.F) sa 60-sekundskim audio bounce window-om. Memory cost
+/// na 60s × 48 kHz × stereo × f32 = 23.04 MB resident — prihvatljivo za
+/// studio app (mnogo manje od jedne audio session-e u DAW-u). Manji
+/// caller-i (Problems Inbox 5s default, Live Replay) i dalje koriste
+/// `DEFAULT_SECONDS = 5.0` pa nema regresije za njih — `ensure_capacity`
+/// alocira tačno onoliko koliko traži.
+pub const MAX_SECONDS: f32 = 60.0;
 /// Default assumed sample rate if engine has not set one yet.
 pub const DEFAULT_SAMPLE_RATE: u32 = 48_000;
+/// Marketing clip window — kanonska vrednost za 3.6.F clip export.
+/// Caller treba da pozove `ensure_capacity(MARKETING_CLIP_SECONDS, sr)` na
+/// init-time da rezerviše buffer pre nego što audio krene da piše.
+pub const MARKETING_CLIP_SECONDS: f32 = 60.0;
 
 pub struct MasterRingBuffer {
     left:  UnsafeCell<Vec<f32>>,
@@ -261,5 +273,32 @@ mod tests {
         let cap1 = r.capacity();
         r.ensure_capacity(1.0, 48000); // should NOT resize
         assert_eq!(r.capacity(), cap1);
+    }
+
+    #[test]
+    fn marketing_clip_60s_capacity_allocates_correctly() {
+        // FLUX_MASTER_TODO 0.5 E.4 (Sprint 9) — verifikuj da MAX_SECONDS bump
+        // dozvoljava 60s window za marketing clip export.
+        let r = MasterRingBuffer::empty();
+        r.ensure_capacity(MARKETING_CLIP_SECONDS, 48000);
+        // 60s × 48000 = 2,880,000 frames per channel.
+        assert_eq!(r.capacity(), 2_880_000);
+        assert_eq!(r.sample_rate(), 48000);
+    }
+
+    #[test]
+    fn over_max_seconds_clamps_to_60() {
+        // Caller koji slučajno traži 120s ne sme da alocira više nego MAX.
+        let r = MasterRingBuffer::new(120.0, 48000);
+        // 60s × 48000 = 2,880,000 — clamped na 60s plafon.
+        assert_eq!(r.capacity(), 2_880_000);
+    }
+
+    #[test]
+    fn small_window_still_small_after_max_bump() {
+        // Regression guard: Problems Inbox koristi 5s default. Bump MAX_SECONDS
+        // na 60.0 ne sme da promeni alokaciju za male prozore.
+        let r = MasterRingBuffer::new(DEFAULT_SECONDS, 48000);
+        assert_eq!(r.capacity(), 240_000); // 5 × 48000
     }
 }
