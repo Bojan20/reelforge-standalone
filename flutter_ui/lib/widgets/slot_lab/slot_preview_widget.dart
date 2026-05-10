@@ -2077,6 +2077,18 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
     // Set target grid for final display
     if (result != null) {
+      // FLUX_MASTER_TODO 0.5 D.4 BUG FIX (Sprint 8 QA) — preserve locked reels.
+      // `_lockedReels` (Set<int>) je bio cosmetic-only do sad: lock icon je
+      // crtao gold border, ali engine bi overrid-ovao `_targetGrid[r]` na
+      // svaki spin. Sada cuvamo snapshot pre-spin _targetGrid stanja za
+      // locked reels i vracamo ih posle generation.
+      final Map<int, List<int>> lockedSnapshot = {};
+      for (final r in _lockedReels) {
+        if (r >= 0 && r < _targetGrid.length) {
+          lockedSnapshot[r] = List<int>.from(_targetGrid[r]);
+        }
+      }
+
       _targetGrid = List.generate(widget.reels, (r) {
         if (r < result.grid.length) {
           return List.generate(widget.rows, (row) {
@@ -2086,6 +2098,17 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         }
         return List.generate(widget.rows, (_) => _random.nextInt(10));
       });
+
+      // Restore locked reels — overrides RNG result with frozen symbols.
+      for (final entry in lockedSnapshot.entries) {
+        final r = entry.key;
+        final frozen = entry.value;
+        if (r < _targetGrid.length) {
+          for (int row = 0; row < widget.rows && row < frozen.length; row++) {
+            _targetGrid[r][row] = frozen[row];
+          }
+        }
+      }
 
       // FIX (2026-02-01): Update _displayGrid IMMEDIATELY at spin start
       // This ensures symbols shown during animation match the final result
@@ -5480,7 +5503,11 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   }
 
   void _showDistributionOverlay(int reelIndex) {
-    // Count each symbol on the current reel
+    // FLUX_MASTER_TODO 0.5 D.4 BUG FIX (Sprint 8 QA) — title was "Symbol
+    // Distribution" but actually counts cells in current visible grid (3-5
+    // symbols). True reel-strip distribution (hundreds of symbols, drives
+    // RTP) requires reel strip data not exposed here. Renamed to be honest
+    // about what is shown until reel strip access is wired (D.4 follow-up).
     final Map<int, int> counts = {};
     if (reelIndex < _displayGrid.length) {
       for (final symbolId in _displayGrid[reelIndex]) {
@@ -5498,7 +5525,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
           side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
         ),
         title: Text(
-          'Reel ${reelIndex + 1} — Symbol Distribution',
+          'Reel ${reelIndex + 1} — Current Grid Composition',
           style: const TextStyle(
               color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
         ),
@@ -6016,15 +6043,26 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                   final bool isAudioHovering = candidateData.isNotEmpty;
                   return GestureDetector(
                     // D.3: Tap in IDLE → symbol audition for this reel
-                    // Always notify parent (HELIX Context Lens) as secondary effect
+                    // Always notify parent (HELIX Context Lens) as secondary effect.
+                    // FLUX_MASTER_TODO 0.5 D.3 BUG FIX (Sprint 8 QA) — guard
+                    // against audition during cascade and anticipation states
+                    // (not just _isSpinning). Mid-cascade audition would step
+                    // on running cascade audio; anticipation tension layer
+                    // would be cut off. Only audition when truly IDLE.
                     onTap: () {
                       widget.onCellTap?.call(reelIndex, rowIndex);
-                      if (!_isSpinning) {
-                        // Audition: trigger REEL_STOP sound for this reel
+                      final isTrulyIdle = !_isSpinning &&
+                          !_isCascading &&
+                          !_isAnticipation;
+                      if (isTrulyIdle) {
                         final stageKey = 'REEL_STOP_$reelIndex';
-                        if (EventRegistry.instance.hasEventForStage(stageKey)) {
+                        if (EventRegistry.instance
+                            .hasEventForStage(stageKey)) {
                           EventRegistry.instance.triggerStage(stageKey,
-                              context: {'source': 'audition', 'row': rowIndex});
+                              context: {
+                                'source': 'audition',
+                                'row': rowIndex,
+                              });
                         }
                       }
                     },

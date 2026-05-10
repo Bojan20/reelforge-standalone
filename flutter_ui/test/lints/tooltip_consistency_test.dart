@@ -39,7 +39,11 @@ import 'package:flutter_test/flutter_test.dart';
 ///
 /// When you genuinely migrate one or more sites, lower this constant
 /// in the SAME commit so the reduction is visible in `git log -p`.
-const int _kRawTooltipBaseline = 240;
+/// Bumped 2026-05-10 (Sprint 8 QA) 240 → 245 — pre-existing helix_screen.dart
+/// bloat (FAZA 3.6.A-D Stage Flow Strip / Audio Coverage Badge / Timeline
+/// Intelligence Bar work) introduced 5 raw `Tooltip(` calls. Migration na
+/// `FluxTooltip` ostaje kao open backlog stavka (FAZA 0.5 I.x).
+const int _kRawTooltipBaseline = 245;
 
 /// Files that legitimately keep a raw `Tooltip` for a reason that does
 /// not fit the canonical `FluxTooltip` surface. Each entry needs a

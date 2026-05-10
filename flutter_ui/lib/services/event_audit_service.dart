@@ -290,6 +290,10 @@ class EventAuditService extends ChangeNotifier {
   /// `~/Library/Application Support/FluxForge Studio/audit/events_<ts>.json`.
   /// Vraća putanju do fajla ili `null` ako nema report-a.
   /// Mirror compliance_audit_trail.dart path strategije.
+  ///
+  /// FLUX_MASTER_TODO 0.5 B.1 BUG FIX (Sprint 8 QA) — koristi async file I/O
+  /// (`writeAsString` umesto `writeAsStringSync`) da ne blokira UI thread
+  /// dok se 60+ stage izveštaj ozbiljenom JSON encoder-om serializuje.
   Future<String?> exportToJson() async {
     final report = _lastReport;
     if (report == null) return null;
@@ -299,16 +303,14 @@ class EventAuditService extends ChangeNotifier {
         : '/tmp/fluxforge-studio';
     final auditDir = Directory('$base/audit');
     if (!auditDir.existsSync()) {
-      auditDir.createSync(recursive: true);
+      await auditDir.create(recursive: true);
     }
     final ts =
         report.generatedAt.toIso8601String().replaceAll(':', '-').split('.')[0];
     final filePath = '${auditDir.path}/events_$ts.json';
     final f = File(filePath);
-    f.writeAsStringSync(
-      const JsonEncoder.withIndent('  ').convert(report.toJson()),
-      flush: true,
-    );
+    final json = const JsonEncoder.withIndent('  ').convert(report.toJson());
+    await f.writeAsString(json, flush: true);
     return filePath;
   }
 }

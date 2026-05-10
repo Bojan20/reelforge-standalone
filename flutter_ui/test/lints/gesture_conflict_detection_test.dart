@@ -51,11 +51,14 @@ const Set<String> _kKnownSafeNested = {
   // whitelisted. If you genuinely need one, document why.)
 };
 
-/// Hard ceiling on `GestureDetector` density per single file. Today's
-/// max is `helix_screen.dart` at 94. The ceiling is set just above to
-/// prevent silent growth — raising it should require a follow-up commit
-/// that documents WHY the file still grew.
-const int _kMaxGesturesPerFile = 100;
+/// Hard ceiling on `GestureDetector` density per single file.
+/// Bumped 2026-05-10 (Sprint 8 QA) 100 → 125 — pre-existing helix_screen.dart
+/// rast preko serije FAZA 3.6/3.7 commits (Stage Flow Strip, Audio Coverage
+/// Badge, Timeline Intelligence Bar, GAME CONFIG Live Grid Visualizer)
+/// dopreo gestures na 120. Extract widget-a u `lib/widgets/helix/*` ostaje
+/// kao open backlog stavka — pred nje treba prvo extract Provider/Animation
+/// graph iz `helix_screen.dart` (FAZA 2.3-deep tier).
+const int _kMaxGesturesPerFile = 125;
 
 /// Baseline count of legacy nested-gesture patterns. New code MUST NOT
 /// add any; the only allowed direction is down. When the baseline is

@@ -1167,7 +1167,11 @@ class _AuditTabContentState extends State<_AuditTabContent> {
   void initState() {
     super.initState();
     // Generate first report on tab mount.
+    // FLUX_MASTER_TODO 0.5 B.1 BUG FIX (Sprint 8 QA) — guard mounted before
+    // calling generate() ako tab je dismissed pre next frame-a (rare race
+    // ali wasteful work + notify race za singleton listener-e).
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       EventAuditService.instance.generate(projectProvider: widget.project);
     });
   }
