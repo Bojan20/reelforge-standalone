@@ -415,6 +415,23 @@ impl HxFilter {
         Self::Channels(mask)
     }
 
+    /// Begin fluent construction of a complex filter via [`HxFilterBuilder`].
+    ///
+    /// Use this when you need to combine multiple channels and/or exact
+    /// (channel, sub_channel) matches without having to manage the bitmask
+    /// or `Multi(Vec<…>)` allocation manually.
+    ///
+    /// ```ignore
+    /// let filter = HxFilter::builder()
+    ///     .with_channel(HxChannel::Stage)
+    ///     .with_channel(HxChannel::Math)
+    ///     .with_exact(HxChannel::System, 42)
+    ///     .build();
+    /// ```
+    pub fn builder() -> HxFilterBuilder {
+        HxFilterBuilder::new()
+    }
+
     /// Check if a message matches this filter
     #[inline(always)]
     pub fn matches(&self, msg: &HxMessage) -> bool {
@@ -424,6 +441,97 @@ impl HxFilter {
             HxFilter::Exact(ch, sub) => msg.channel == *ch && msg.sub_channel == *sub,
             HxFilter::Multi(pairs) => {
                 pairs.iter().any(|(ch, sub)| msg.channel == *ch && msg.sub_channel == *sub)
+            }
+        }
+    }
+}
+
+// ── Sprint 15 Faza 4.F.3 — HxFilterBuilder ───────────────────────────────────
+//
+// Type-safe fluent constructor for [`HxFilter`] that hides the raw bitmask
+// representation from callers.  Callers compose by repeatedly invoking
+// `.with_channel(ch)` and/or `.with_exact(ch, sub)`, then finalize with
+// `.build()`.  The builder picks the most specific runtime variant that can
+// represent the accumulated set:
+//
+//   - 0 channels + 0 exact pairs   → `HxFilter::Channels(0)` (matches nothing)
+//   - ≥1 channels + 0 exact pairs  → `HxFilter::Channels(mask)`
+//   - 0 channels + 1 exact pair    → `HxFilter::Exact(ch, sub)`
+//   - 0 channels + ≥2 exact pairs  → `HxFilter::Multi(vec)`
+//   - ≥1 channels + ≥1 exact pairs → channel match wins (exact pairs that
+//                                    fall on already-masked channels are
+//                                    folded into the bitmask)
+//
+// The hot-path `HxFilter::matches()` is unchanged — the builder is purely
+// a construction-time convenience and never appears in the realtime loop.
+//
+/// Fluent builder for [`HxFilter`].
+///
+/// Construct via [`HxFilter::builder()`].  Each `with_*` returns `self` for
+/// chaining; `build()` finalizes into the most specific `HxFilter` variant.
+#[derive(Debug, Default, Clone)]
+pub struct HxFilterBuilder {
+    /// Accumulated channel bitmask (bit N = HxChannel discriminant N).
+    mask: u16,
+    /// Accumulated exact (channel, sub_channel) pairs.
+    pairs: Vec<(HxChannel, u16)>,
+}
+
+impl HxFilterBuilder {
+    /// Create an empty builder. Equivalent to `HxFilter::builder()`.
+    #[inline]
+    pub fn new() -> Self {
+        Self { mask: 0, pairs: Vec::new() }
+    }
+
+    /// Include every message on the given channel (any sub_channel).
+    #[inline]
+    pub fn with_channel(mut self, ch: HxChannel) -> Self {
+        self.mask |= 1 << (ch as u16);
+        self
+    }
+
+    /// Include every message on each of the given channels.
+    #[inline]
+    pub fn with_channels(mut self, chs: &[HxChannel]) -> Self {
+        for ch in chs {
+            self.mask |= 1 << (*ch as u16);
+        }
+        self
+    }
+
+    /// Include exactly one specific (channel, sub_channel) pair.
+    #[inline]
+    pub fn with_exact(mut self, ch: HxChannel, sub: u16) -> Self {
+        self.pairs.push((ch, sub));
+        self
+    }
+
+    /// Finalize the builder into the most specific [`HxFilter`] variant.
+    ///
+    /// Note: pairs whose channel is already in the bitmask are dropped
+    /// (channel-wide match subsumes exact match on that channel).
+    pub fn build(mut self) -> HxFilter {
+        // Drop exact pairs already covered by the channel mask.
+        let mask = self.mask;
+        self.pairs.retain(|(ch, _)| (mask & (1 << (*ch as u16))) == 0);
+
+        match (self.mask, self.pairs.len()) {
+            (0, 0) => HxFilter::Channels(0),
+            (m, 0) if m != 0 => HxFilter::Channels(m),
+            (0, 1) => {
+                let (ch, sub) = self.pairs.remove(0);
+                HxFilter::Exact(ch, sub)
+            }
+            (0, _) => HxFilter::Multi(self.pairs),
+            // Hybrid: bitmask + leftover exact pairs.  We fold the exacts
+            // into the mask since the runtime `matches()` for Channels is
+            // strictly broader than Exact.
+            (mut m, _) => {
+                for (ch, _) in &self.pairs {
+                    m |= 1 << (*ch as u16);
+                }
+                HxFilter::Channels(m)
             }
         }
     }
@@ -1816,5 +1924,120 @@ mod tests {
         // which is what FFI/wrapper layers expect.
         let err: Box<dyn std::error::Error> = Box::new(HxBusError::StagingFull);
         assert!(err.to_string().contains("staging"));
+    }
+
+    // ── Sprint 15 Faza 4.F.3 — HxFilterBuilder ─────────────────────────────
+
+    fn msg_on(ch: HxChannel, sub: u16) -> HxMessage {
+        let mut m = HxMessage::default();
+        m.channel = ch;
+        m.sub_channel = sub;
+        m
+    }
+
+    #[test]
+    fn filter_builder_empty_matches_nothing() {
+        // Vacuous builder must not silently behave like `All`.
+        let f = HxFilter::builder().build();
+        assert!(!f.matches(&msg_on(HxChannel::System, 0)));
+        assert!(!f.matches(&msg_on(HxChannel::Stage, 7)));
+        assert!(!f.matches(&msg_on(HxChannel::Math, 99)));
+        // And the chosen variant should reflect zero match (Channels(0)).
+        assert!(matches!(f, HxFilter::Channels(0)));
+    }
+
+    #[test]
+    fn filter_builder_single_channel_collapses_to_channels_variant() {
+        let f = HxFilter::builder().with_channel(HxChannel::Stage).build();
+        match f {
+            HxFilter::Channels(mask) => {
+                assert_eq!(mask, 1 << (HxChannel::Stage as u16));
+            }
+            other => panic!("expected Channels variant, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn filter_builder_multiple_channels_or_into_bitmask() {
+        let f = HxFilter::builder()
+            .with_channel(HxChannel::Stage)
+            .with_channel(HxChannel::Math)
+            .with_channel(HxChannel::System)
+            .build();
+        assert!(f.matches(&msg_on(HxChannel::Stage, 0)));
+        assert!(f.matches(&msg_on(HxChannel::Math, 0)));
+        assert!(f.matches(&msg_on(HxChannel::System, 0)));
+        // A channel we did NOT add must not match.
+        assert!(!f.matches(&msg_on(HxChannel::Audio, 0)));
+    }
+
+    #[test]
+    fn filter_builder_with_channels_slice_is_equivalent_to_chain() {
+        let chained = HxFilter::builder()
+            .with_channel(HxChannel::Stage)
+            .with_channel(HxChannel::Audio)
+            .build();
+        let slice = HxFilter::builder()
+            .with_channels(&[HxChannel::Stage, HxChannel::Audio])
+            .build();
+        match (chained, slice) {
+            (HxFilter::Channels(a), HxFilter::Channels(b)) => assert_eq!(a, b),
+            other => panic!("expected matching Channels variants, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn filter_builder_single_exact_collapses_to_exact_variant() {
+        let f = HxFilter::builder().with_exact(HxChannel::Stage, 42).build();
+        assert!(matches!(f, HxFilter::Exact(HxChannel::Stage, 42)));
+        assert!(f.matches(&msg_on(HxChannel::Stage, 42)));
+        assert!(!f.matches(&msg_on(HxChannel::Stage, 41)));
+        assert!(!f.matches(&msg_on(HxChannel::Math, 42)));
+    }
+
+    #[test]
+    fn filter_builder_multiple_exact_collapses_to_multi_variant() {
+        let f = HxFilter::builder()
+            .with_exact(HxChannel::Stage, 1)
+            .with_exact(HxChannel::Math, 2)
+            .build();
+        assert!(matches!(f, HxFilter::Multi(_)));
+        assert!(f.matches(&msg_on(HxChannel::Stage, 1)));
+        assert!(f.matches(&msg_on(HxChannel::Math, 2)));
+        assert!(!f.matches(&msg_on(HxChannel::Stage, 2)));
+        assert!(!f.matches(&msg_on(HxChannel::Math, 1)));
+    }
+
+    #[test]
+    fn filter_builder_hybrid_folds_exacts_into_mask() {
+        // Mix channel + exact on a DIFFERENT channel → exact channel is
+        // promoted into the bitmask (channel match is strictly broader).
+        let f = HxFilter::builder()
+            .with_channel(HxChannel::Stage)
+            .with_exact(HxChannel::Math, 5)
+            .build();
+        assert!(matches!(f, HxFilter::Channels(_)));
+        // Both channels now match wholesale.
+        assert!(f.matches(&msg_on(HxChannel::Stage, 99)));
+        assert!(f.matches(&msg_on(HxChannel::Math, 5)));
+        assert!(f.matches(&msg_on(HxChannel::Math, 7))); // promoted!
+        assert!(!f.matches(&msg_on(HxChannel::Audio, 0)));
+    }
+
+    #[test]
+    fn filter_builder_exact_on_already_masked_channel_is_dropped() {
+        // Adding `Exact(Stage, 5)` after `with_channel(Stage)` is redundant —
+        // the channel match already covers sub 5, so build() must NOT fall
+        // through to Multi.
+        let f = HxFilter::builder()
+            .with_channel(HxChannel::Stage)
+            .with_exact(HxChannel::Stage, 5)
+            .build();
+        match f {
+            HxFilter::Channels(mask) => {
+                assert_eq!(mask, 1 << (HxChannel::Stage as u16));
+            }
+            other => panic!("expected Channels (Exact subsumed), got {other:?}"),
+        }
     }
 }
