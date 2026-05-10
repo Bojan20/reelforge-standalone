@@ -48,7 +48,13 @@ import 'package:flutter_test/flutter_test.dart';
 /// dynamic message (idle hint vs. result feedback). FluxTooltip surface
 /// trenutno ne podržava dinamic message swap-ovanje — ostaje za migration
 /// kad FluxTooltip bude prosiren `messageBuilder` API-jem.
-const int _kRawTooltipBaseline = 246;
+/// Bumped 2026-05-10 (Sprint 13 Helix Event Nexus) 246 → 250 — 4 raw
+/// `Tooltip(message, …)` poziva u `helix_event_nexus.dart`: stage-row
+/// hover (file/layer info per row), header STOP-ALL action, MicroToggle
+/// M/S buttons, parameter slider hints (FadeIn/FadeOut/TrimStart/TrimEnd
+/// "user-owned timing" callouts). Sve dynamic messages (file path /
+/// layer count); migration kad FluxTooltip dobije messageBuilder.
+const int _kRawTooltipBaseline = 250;
 
 /// Files that legitimately keep a raw `Tooltip` for a reason that does
 /// not fit the canonical `FluxTooltip` surface. Each entry needs a

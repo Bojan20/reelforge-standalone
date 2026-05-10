@@ -36,7 +36,11 @@ import 'package:flutter_test/flutter_test.dart';
 /// izvan `lib/theme/`. Captured 2026-05-10 audit.
 /// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` Tooltip
 /// `waitDuration: Duration(milliseconds: 350)`.
-const int _kRawDurationMsBaseline = 948;
+/// Bumped 2026-05-10 (Sprint 13 Helix Event Nexus) +2 za stage-row Tooltip
+/// `waitDuration: 600ms` + toggle thumb AnimatedAlign 120ms (Material
+/// switch microspring; FluxMotion ne pokriva 120ms tier — quick=150ms je
+/// najbliži).
+const int _kRawDurationMsBaseline = 950;
 
 /// Frozen baseline za `Duration(seconds: …)` literala.
 /// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` SnackBar

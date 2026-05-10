@@ -88,6 +88,7 @@ import '../widgets/slot_lab/auto_bind_dialog_v2.dart';
 import '../widgets/slot_lab/neural_bind_orb.dart';
 import '../widgets/slot_lab/orb_mixer.dart';
 import '../widgets/helix/audio_coverage_badge.dart';
+import '../widgets/helix/helix_event_nexus.dart';
 import '../widgets/helix/compliance_lights_badge.dart';
 import '../widgets/helix/session_recorder_panel.dart';
 import '../widgets/helix/stage_flow_strip.dart';
@@ -5782,9 +5783,7 @@ class _AudioPanelState extends State<_AudioPanel> {
   }
 
   Widget _buildContent(BuildContext context) {
-    final mw = GetIt.instance<MiddlewareProvider>();
     final neuro = GetIt.instance<NeuroAudioProvider>();
-    final events = mw.compositeEvents.take(8).toList();
     final out = neuro.output;
 
     // Derive master levels from neuro audio adaptation output × master fader
@@ -5793,29 +5792,31 @@ class _AudioPanelState extends State<_AudioPanel> {
     final peak = math.max(masterL, masterR);
     final peakDb = peak > 0.001 ? (20 * math.log(peak) / 2.302585) : -60.0;
 
-    // Access parent state for context lens
-    final helixState = context.findAncestorStateOfType<_HelixScreenState>();
-
+    // 2026-05-10 — EVENT NEXUS replaces the legacy 8-channel preview.  The
+    // master fader, master meters and OrbMixer remain as a compact left
+    // strip; auto-bind drop target (NeuralBindOrb) lives next to the orb.
+    // The expanded right column hosts the full pure-trigger event matrix
+    // covering EVERY stage, EVERY parameter — Boki direktiva 2026-05-10:
+    // "event samo trigeruje zvuk, niko ne odlučuje koliko traje".
     return Row(
       children: [
-        // Master meters + fader (A6) — driven by NeuroAudio × master fader
-        Flexible(
-          flex: 2,
+        // ── LEFT STRIP: master meters + fader (compact, 130px) ────────────
+        SizedBox(
+          width: 130,
           child: _DockCard(
             accent: FluxForgeTheme.accentCyan,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _DockLabel('MASTER', color: FluxForgeTheme.accentCyan),
-                const SizedBox(height: 8),
-                _MeterRow(label: 'L', value: masterL),
                 const SizedBox(height: 6),
+                _MeterRow(label: 'L', value: masterL),
+                const SizedBox(height: 4),
                 _MeterRow(label: 'R', value: masterR),
                 const SizedBox(height: 8),
-                // A6: Master fader — draggable
                 Row(children: [
                   _DockLabel('FADER', color: FluxForgeTheme.accentCyan),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 4),
                   Expanded(
                     child: LayoutBuilder(builder: (_, c) => GestureDetector(
                       onTapDown: (d) {
@@ -5829,7 +5830,7 @@ class _AudioPanelState extends State<_AudioPanel> {
                         silentRun('fader.setMasterVolume', () { NativeFFI.instance.setMasterVolume(v); });
                       },
                       child: Container(
-                        height: 10,
+                        height: 8,
                         decoration: BoxDecoration(
                           color: FluxForgeTheme.bgElevated,
                           borderRadius: BorderRadius.circular(3)),
@@ -5846,16 +5847,12 @@ class _AudioPanelState extends State<_AudioPanel> {
                       ),
                     )),
                   ),
-                  const SizedBox(width: 4),
-                  Text('${(_masterFader * 100).toStringAsFixed(0)}%',
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 8,
-                      color: FluxForgeTheme.accentCyan)),
                 ]),
+                const SizedBox(height: 4),
+                Text('${(_masterFader * 100).toStringAsFixed(0)}%  ·  ${peakDb.toStringAsFixed(1)} dB',
+                  style: TextStyle(fontFamily: 'monospace', fontSize: 8,
+                    color: peakDb > -6 ? FluxForgeTheme.accentOrange : FluxForgeTheme.accentCyan)),
                 const Spacer(),
-                Text('${peakDb.toStringAsFixed(1)} dBFS',
-                  style: TextStyle(fontFamily: 'monospace',
-                    fontSize: 10, color: peakDb > -6 ? FluxForgeTheme.accentOrange : FluxForgeTheme.accentGreen)),
-                const SizedBox(height: 6),
                 Row(children: [
                   _DockLabel('VOL', color: FluxForgeTheme.accentCyan),
                   const SizedBox(width: 2),
@@ -5873,77 +5870,46 @@ class _AudioPanelState extends State<_AudioPanel> {
             ),
           ),
         ),
-        const SizedBox(width: 12),
-        // OrbMixer — radijalni bus mixer (tap bus → voice drill-down)
-        // Wrapped in SizedBox to provide explicit width constraint
-        // (_DockCard's Column needs bounded width for CrossAxisAlignment.stretch)
+        const SizedBox(width: 8),
+        // ── ORB + BIND (148px) ─────────────────────────────────────────────
         SizedBox(
           width: 148,
           child: _DockCard(
             accent: FluxForgeTheme.accentPurple,
-            child: Builder(builder: (ctx) {
-              try {
-                return OrbMixer(
-                  dsp: GetIt.instance<MixerDSPProvider>(),
-                  size: 120,
-                );
-              } catch (e) {
-                return _renderHelixErrorFallback('ORB', e, fontSize: 8);
-              }
-            }),
-          ),
-        ),
-        const SizedBox(width: 12),
-        // Channel strips — interactive, wired to middleware
-        Expanded(
-          child: _DockCard(
-            accent: FluxForgeTheme.accentCyan,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(children: [
-                  _DockLabel('CHANNELS', color: FluxForgeTheme.accentCyan),
-                  const SizedBox(width: 8),
-                  // Neural Bind Orb — instant drag & drop audio binding
-                  Builder(builder: (ctx) {
-                    try {
-                      return NeuralBindOrb.large(
-                        onBindComplete: (analysis, path) {
-                          SlotLabScreen.triggerAutoBindReload(path);
-                        },
-                      );
-                    } catch (e) {
-                      return _renderHelixErrorFallback('BIND', e, fontSize: 8);
-                    }
-                  }),
-                  const Spacer(),
-                  Text('${events.length} events  ·  tap to open lens', style: const TextStyle(
-                    fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary)),
-                ]),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: events.isEmpty
-                    ? const Center(child: Text('No composite events loaded.\nAssign audio in AUDIO ASSIGN spine.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary, height: 1.5)))
-                    : ListView(
-                        children: events.map((e) {
-                          final name = e.name.length > 12 ? e.name.substring(0, 12) : e.name;
-                          return _ChannelStrip(
-                            key: ValueKey(e.id), // preserve state across rebuilds
-                            event: e,
-                            name: name,
-                            middleware: mw,
-                            // A3: tap channel → open context lens
-                            onTap: () => helixState?.openContextLens(e),
-                          );
-                        }).toList(),
-                      ),
-                ),
+                Builder(builder: (ctx) {
+                  try {
+                    return OrbMixer(
+                      dsp: GetIt.instance<MixerDSPProvider>(),
+                      size: 100,
+                    );
+                  } catch (e) {
+                    return _renderHelixErrorFallback('ORB', e, fontSize: 8);
+                  }
+                }),
+                const SizedBox(height: 6),
+                _DockLabel('AUTO-BIND', color: FluxForgeTheme.accentPurple),
+                const SizedBox(height: 4),
+                // Neural Bind Orb — instant drag & drop audio binding (RAW mode)
+                Builder(builder: (ctx) {
+                  try {
+                    return NeuralBindOrb.large(
+                      onBindComplete: (analysis, path) {
+                        SlotLabScreen.triggerAutoBindReload(path);
+                      },
+                    );
+                  } catch (e) {
+                    return _renderHelixErrorFallback('BIND', e, fontSize: 8);
+                  }
+                }),
               ],
             ),
           ),
         ),
+        const SizedBox(width: 8),
+        // ── EVENT NEXUS (expanded) ─────────────────────────────────────────
+        const Expanded(child: HelixEventNexus()),
       ],
     );
   }

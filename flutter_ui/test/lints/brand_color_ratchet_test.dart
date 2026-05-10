@@ -49,12 +49,16 @@ import 'package:flutter_test/flutter_test.dart';
 /// shade-ove pa F.2 dialog drži vlastite za visual consistency sa aiAudio
 /// dialog patternom.
 ///
+/// Bumped 2026-05-10 (Sprint 13 Helix Event Nexus) +1 za sole `Color(0xFF442222)`
+/// snackbar background (audition error toast — postojeći app-wide pattern
+/// za failure SnackBar boje, mirroring slot_lab_screen + helix_screen).
+///
 /// **Direction contract:** baseline ide samo nadole. Svaki commit koji
 /// raste ovaj broj uvodi nov raw color literal — autor mora da koristi
 /// `FluxForgeTheme.*` token umesto direktnog `Color(0x…)`. Ako je bump
 /// neizbežan (semantic status palette npr.), dodaj rationale komentar
 /// ovde u istom commit-u.
-const int _kRawColorHexBaseline = 7624;
+const int _kRawColorHexBaseline = 7625;
 
 /// Frozen baseline za `Color.fromARGB(…)` + `Color.fromRGBO(…)` konstruktore.
 const int _kRawColorCtorBaseline = 7;
@@ -69,7 +73,13 @@ const int _kRawColorCtorBaseline = 7;
 /// recommend button). Same dev-tool justification kao AUDIT tab.
 /// Bumped 2026-05-10 (Sprint 12 G grupa) +3 za G.19 dialog (Colors.white,
 /// Colors.white38 hint).
-const int _kRawMaterialColorsBaseline = 7112;
+/// Bumped 2026-05-10 (Sprint 13 Helix Event Nexus) +7 za pure-trigger event
+/// matrix UI: 6× `Colors.transparent` (chip/row hover backgrounds — postojeći
+/// pattern u dock cards/category chips) + 1× `Colors.white` (active toggle
+/// thumb dot za solo/loop/overlap/phase switches). Boki direktiva 2026-05-10:
+/// "event samo trigeruje zvuk, niko ne odlučuje koliko traje" — Helix sad
+/// ima full-fidelity per-layer parameter editor sa svim Slot-Lab atributima.
+const int _kRawMaterialColorsBaseline = 7119;
 
 /// Direktorijumi koji su isključeni iz brojanja jer NISU "user UI code":
 ///   * `lib/theme/` — canonical brand definicije (one *jesu* raw boje, namerno).

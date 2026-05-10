@@ -40,18 +40,37 @@ import 'package:flutter_test/flutter_test.dart';
 /// label, G.21 blend preview snackbar (2× — active+empty paths).
 /// Bumped 2026-05-10 (Sprint 12 G grupa) +8 za G.16 (3× snackbar +
 /// dialog title), G.19 (snackbar + dialog title + hint), G.18 (—).
-const int _kRawTextStyleBaseline = 9208;
+/// Bumped 2026-05-10 (Sprint 13 Helix Event Nexus) +43 za pure-trigger
+/// event matrix UI (`helix_event_nexus.dart`): per-stage row labels,
+/// per-layer parameter sliders (volume/pan/dual-pan/width/gain/delay/
+/// fadeIn/fadeOut/trim/curves), event-level controls, header badges,
+/// category chips, meta chips, dropdown labels, micro toggles. Each
+/// inline TextStyle is intentionally fontSize=8–11 (dock-density) sa
+/// monospace value displays — FluxForgeTheme typography tokens (h1/h2/
+/// body) ne pokrivaju ovu density tier (dock UI density), pa su inline
+/// styles privremeno opravdani; kad token paleta dobije .dockLabel /
+/// .dockMono varijante migration je trivial.
+const int _kRawTextStyleBaseline = 9251;
 
 /// Frozen baseline za `fontFamily:` referenca van theme/.
 /// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` `'monospace'`
 /// font (aligned sa _SessionStat sibling badge).
-const int _kRawFontFamilyBaseline = 1208;
+/// Bumped 2026-05-10 (Sprint 13 Helix Event Nexus) +16 za monospace value
+/// displays u Event Nexus parameter editor (volume %, pan L/R/C, fadeMs,
+/// trimMs, file size KB/MB, duration s, dB readout). Monospace je
+/// canonical kod numerical readout-a; FluxForgeTheme.monoFontFamily
+/// migration prati .dockMono token kreaciju.
+const int _kRawFontFamilyBaseline = 1224;
 
 /// Frozen baseline za `fontSize:` referenca van theme/.
 /// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` 9px label
 /// (aligned sa _SessionStat sibling badge size).
 /// Bumped 2026-05-10 (Sprint 12 G grupa) +1 za G.19 dialog title fontSize.
-const int _kRawFontSizeBaseline = 8765;
+/// Bumped 2026-05-10 (Sprint 13 Helix Event Nexus) +43 za dock-density
+/// parameter editor (sve 7–11px brojeve mapirano na .label/.labelTiny/
+/// .mono token, ali dok token paleta ne pokriva 7px tier, inline
+/// fontSize ostaje. Sve manje od FluxForgeTheme.body (12px)).
+const int _kRawFontSizeBaseline = 8808;
 
 const Set<String> _kExcludedPathPrefixes = <String>{
   'theme/',
