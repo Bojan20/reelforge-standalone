@@ -648,9 +648,116 @@ impl HxGraph {
         self.nodes.iter().find(|n| n.id == id)
     }
 
-    /// Get a mutable node by ID
+    /// Get a mutable node by ID.
+    ///
+    /// **WARNING (Sprint 15 Faza 4.F.5):** mutations through this raw `&mut`
+    /// handle do **not** bump the graph `version` counter, which means the
+    /// live double-buffer reader (`HxLiveGraph::active_version`) cannot
+    /// detect them and the audio thread will run on stale state.  Prefer
+    /// [`HxGraph::modify_node`] for any change that should be picked up by
+    /// the live engine.  This method is retained only for read-modify-write
+    /// patterns where the caller will explicitly call [`HxGraph::touch`]
+    /// (or rebuild) afterwards.
     pub fn node_mut(&mut self, id: HxNodeId) -> Option<&mut HxGraphNode> {
         self.nodes.iter_mut().find(|n| n.id == id)
+    }
+
+    // ── Sprint 15 Faza 4.F.5 — Versioned setters ─────────────────────────
+    //
+    // Every mutation that should be observed by the live engine MUST bump
+    // `version` and mark `dirty = true`.  These helpers centralize that
+    // bookkeeping so callers can't forget.
+
+    /// Manually mark the graph as edited.  Bumps `version`, sets `dirty`.
+    ///
+    /// Use this after a series of edits made through `node_mut()` to
+    /// publish the changes to the live reader.
+    #[inline]
+    pub fn touch(&mut self) {
+        self.version += 1;
+        self.dirty = true;
+    }
+
+    /// Run a closure with mutable access to a node, then bump `version`
+    /// and set `dirty` exactly once.  Returns the closure's value wrapped
+    /// in `Some` if the node existed, or `None` if not found.
+    ///
+    /// This is the **preferred** way to mutate node state — it guarantees
+    /// the version counter stays in sync with actual edits, which keeps
+    /// the live double-buffer reader correct.
+    ///
+    /// ```ignore
+    /// graph.modify_node(node_id, |n| {
+    ///     n.bypassed = true;
+    ///     n.set_param(PARAM_GAIN_DB, -6.0);
+    /// });
+    /// ```
+    pub fn modify_node<F, R>(&mut self, id: HxNodeId, f: F) -> Option<R>
+    where
+        F: FnOnce(&mut HxGraphNode) -> R,
+    {
+        let node = self.nodes.iter_mut().find(|n| n.id == id)?;
+        let result = f(node);
+        self.version += 1;
+        self.dirty = true;
+        Some(result)
+    }
+
+    /// Versioned setter for `bypassed` flag.  No-op if the node doesn't
+    /// exist.  Skips the version bump when the value is unchanged so
+    /// idempotent calls don't churn the live reader.
+    pub fn set_node_bypassed(&mut self, id: HxNodeId, value: bool) -> bool {
+        match self.nodes.iter_mut().find(|n| n.id == id) {
+            Some(n) if n.bypassed != value => {
+                n.bypassed = value;
+                self.version += 1;
+                self.dirty = true;
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// Versioned setter for `muted` flag.  Returns `true` if the value
+    /// actually changed.
+    pub fn set_node_muted(&mut self, id: HxNodeId, value: bool) -> bool {
+        match self.nodes.iter_mut().find(|n| n.id == id) {
+            Some(n) if n.muted != value => {
+                n.muted = value;
+                self.version += 1;
+                self.dirty = true;
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// Versioned setter for `solo` flag.  Returns `true` if changed.
+    pub fn set_node_solo(&mut self, id: HxNodeId, value: bool) -> bool {
+        match self.nodes.iter_mut().find(|n| n.id == id) {
+            Some(n) if n.solo != value => {
+                n.solo = value;
+                self.version += 1;
+                self.dirty = true;
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// Versioned setter for a node parameter.  Always bumps version when
+    /// the node exists (params are floats so equality short-circuit
+    /// would be flaky — caller is responsible for idempotency).
+    pub fn set_node_param(&mut self, id: HxNodeId, param_id: u32, value: f64) -> bool {
+        match self.nodes.iter_mut().find(|n| n.id == id) {
+            Some(n) => {
+                n.set_param(param_id, value);
+                self.version += 1;
+                self.dirty = true;
+                true
+            }
+            None => false,
+        }
     }
 
     /// Next available node ID
@@ -1412,5 +1519,112 @@ mod tests {
         assert!(stats.depth_levels > 0);
         // Should have entries in type_counts
         assert!(!stats.type_counts.is_empty());
+    }
+
+    // ── Sprint 15 Faza 4.F.5 — Versioned setters ──────────────────────────
+
+    /// Sanity: legacy `node_mut()` mutations DO NOT bump version.  This
+    /// is the bug the versioned setters address — captured here as a
+    /// regression test so future "fixes" don't accidentally make
+    /// node_mut() implicitly version-bumping (which would break the
+    /// documented contract callers rely on).
+    #[test]
+    fn node_mut_does_not_bump_version_by_design() {
+        let mut g = HxGraph::new("g", "G");
+        let nid = g.create_node(HxNodeType::Gain, "Gain");
+        let v_before = g.version;
+        if let Some(n) = g.node_mut(nid) {
+            n.bypassed = true;
+        }
+        assert_eq!(g.version, v_before,
+            "node_mut() must not bump version (callers must call touch() \
+             or use modify_node() for versioned mutation)");
+        // touch() is the escape hatch for callers who used node_mut().
+        g.touch();
+        assert_eq!(g.version, v_before + 1);
+    }
+
+    #[test]
+    fn modify_node_bumps_version_exactly_once() {
+        let mut g = HxGraph::new("g", "G");
+        let nid = g.create_node(HxNodeType::Gain, "Gain");
+        let v_before = g.version;
+        // Even multiple field writes inside the closure count as one edit.
+        let ok = g.modify_node(nid, |n| {
+            n.bypassed = true;
+            n.muted = true;
+            n.set_param(1, 0.5);
+            42
+        });
+        assert_eq!(ok, Some(42));
+        assert_eq!(g.version, v_before + 1,
+            "modify_node() must bump version exactly once regardless of \
+             how many fields are touched");
+        assert!(g.dirty);
+    }
+
+    #[test]
+    fn modify_node_returns_none_for_missing_node() {
+        let mut g = HxGraph::new("g", "G");
+        let v_before = g.version;
+        let dirty_before = g.dirty;
+        let result = g.modify_node(99_999, |n| n.bypassed = true);
+        assert_eq!(result, None);
+        // Version + dirty must NOT change when no node was touched.
+        assert_eq!(g.version, v_before);
+        assert_eq!(g.dirty, dirty_before);
+    }
+
+    #[test]
+    fn set_node_bypassed_is_idempotent() {
+        let mut g = HxGraph::new("g", "G");
+        let nid = g.create_node(HxNodeType::Gain, "Gain");
+        // Initial state is false.  Set to false → no-op.
+        let v_before = g.version;
+        assert!(!g.set_node_bypassed(nid, false));
+        assert_eq!(g.version, v_before, "idempotent false→false must not bump");
+        // false → true bumps once.
+        assert!(g.set_node_bypassed(nid, true));
+        assert_eq!(g.version, v_before + 1);
+        // true → true no-op again.
+        assert!(!g.set_node_bypassed(nid, true));
+        assert_eq!(g.version, v_before + 1);
+    }
+
+    #[test]
+    fn set_node_muted_and_solo_are_versioned() {
+        let mut g = HxGraph::new("g", "G");
+        let nid = g.create_node(HxNodeType::Gain, "Gain");
+        let v0 = g.version;
+        assert!(g.set_node_muted(nid, true));
+        assert_eq!(g.version, v0 + 1);
+        assert!(g.set_node_solo(nid, true));
+        assert_eq!(g.version, v0 + 2);
+        // Verify state actually stuck.
+        let n = g.node(nid).unwrap();
+        assert!(n.muted);
+        assert!(n.solo);
+    }
+
+    #[test]
+    fn set_node_param_bumps_version_and_writes_param() {
+        let mut g = HxGraph::new("g", "G");
+        let nid = g.create_node(HxNodeType::Gain, "Gain");
+        let v0 = g.version;
+        assert!(g.set_node_param(nid, 7, -3.5));
+        assert_eq!(g.version, v0 + 1);
+        assert!(g.dirty);
+        assert_eq!(g.node(nid).unwrap().param(7, 0.0), -3.5);
+    }
+
+    #[test]
+    fn versioned_setters_return_false_for_missing_node() {
+        let mut g = HxGraph::new("g", "G");
+        let v0 = g.version;
+        assert!(!g.set_node_bypassed(42, true));
+        assert!(!g.set_node_muted(42, true));
+        assert!(!g.set_node_solo(42, true));
+        assert!(!g.set_node_param(42, 1, 0.0));
+        assert_eq!(g.version, v0, "missing-node setters must not bump");
     }
 }
