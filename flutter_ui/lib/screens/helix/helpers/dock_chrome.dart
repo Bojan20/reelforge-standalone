@@ -13,6 +13,12 @@
 //   • _MathSlider     — math parameter slider sa label + suffix
 //
 // Extracted from helix_screen.dart 2026-05-11.
+//
+// **Sprint 15 Faza 4.B.2 — migrated 2026-05-11:** all 27 inline
+// `TextStyle(fontFamily: 'monospace', fontSize: N, …)` literals replaced
+// with `FluxForgeTheme.dockMono(size: N, …)` / `dockSans(size: N, …)`
+// factories.  Net ratchet impact: -27 `TextStyle(`, -21 `fontFamily:`,
+// -27 `fontSize:`.
 
 part of '../../helix_screen.dart';class _StageNode extends StatelessWidget {
   final String label;
@@ -40,9 +46,9 @@ part of '../../helix_screen.dart';class _StageNode extends StatelessWidget {
           shape: BoxShape.circle,
           boxShadow: active ? [BoxShadow(color: color.withValues(alpha: 0.6), blurRadius: 4)] : null)),
         const SizedBox(width: 5),
-        Text(label, style: TextStyle(
-          fontFamily: 'monospace', fontSize: 10,
-          fontWeight: active ? FontWeight.w600 : FontWeight.normal,
+        Text(label, style: FluxForgeTheme.dockMono(
+          size: 10,
+          weight: active ? FontWeight.w600 : FontWeight.normal,
           color: active ? color : FluxForgeTheme.textTertiary)),
       ],
     ),
@@ -87,8 +93,8 @@ class _FlowNodeState extends State<_FlowNode> {
         PopupMenuItem<String>(
           enabled: false,
           child: Text('STAGE: ${widget.label}',
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 10,
-              color: FluxForgeTheme.accentCyan, fontWeight: FontWeight.w600)),
+            style: FluxForgeTheme.dockMono(
+              size: 10, color: FluxForgeTheme.accentCyan, weight: FontWeight.w600)),
         ),
         const PopupMenuDivider(),
         // F2: Toggle transitions globally
@@ -99,8 +105,7 @@ class _FlowNodeState extends State<_FlowNode> {
               size: 14, color: transitionsEnabled ? FluxForgeTheme.accentGreen : FluxForgeTheme.textTertiary),
             const SizedBox(width: 6),
             Text('Transitions ${transitionsEnabled ? "ON" : "OFF"}',
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 9,
-                color: FluxForgeTheme.textSecondary)),
+              style: FluxForgeTheme.dockMono(size: 9)),
           ]),
         ),
         // F2: Show configured transition rules
@@ -109,17 +114,16 @@ class _FlowNodeState extends State<_FlowNode> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('TRANSITION RULES:', style: TextStyle(
-                fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textTertiary)),
+              Text('TRANSITION RULES:', style: FluxForgeTheme.dockMono(
+                size: 8, color: FluxForgeTheme.textTertiary)),
               const SizedBox(height: 4),
               if (configs.isEmpty)
-                const Text('  (default config)', style: TextStyle(
-                  fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textTertiary))
+                Text('  (default config)', style: FluxForgeTheme.dockMono(
+                  size: 8, color: FluxForgeTheme.textTertiary))
               else
                 ...configs.entries.take(5).map((e) => Text(
                   '  ${e.key}: ${e.value.durationMs}ms',
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 8,
-                    color: FluxForgeTheme.textSecondary),
+                  style: FluxForgeTheme.dockMono(size: 8),
                 )),
             ],
           ),
@@ -132,18 +136,16 @@ class _FlowNodeState extends State<_FlowNode> {
             Icon(Icons.play_arrow_rounded, size: 14, color: widget.color),
             const SizedBox(width: 6),
             Text('Force → ${widget.label}',
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 9,
-                color: FluxForgeTheme.textSecondary)),
+              style: FluxForgeTheme.dockMono(size: 9)),
           ]),
         ),
         // F2: Reset to base
         PopupMenuItem<String>(
           value: 'reset',
-          child: const Row(children: [
-            Icon(Icons.restart_alt_rounded, size: 14, color: FluxForgeTheme.textTertiary),
-            SizedBox(width: 6),
-            Text('Reset to BASE', style: TextStyle(
-              fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textSecondary)),
+          child: Row(children: [
+            const Icon(Icons.restart_alt_rounded, size: 14, color: FluxForgeTheme.textTertiary),
+            const SizedBox(width: 6),
+            Text('Reset to BASE', style: FluxForgeTheme.dockMono(size: 9)),
           ]),
         ),
         // F3: Remove custom stage
@@ -155,8 +157,7 @@ class _FlowNodeState extends State<_FlowNode> {
               const Icon(Icons.delete_outline_rounded, size: 14, color: FluxForgeTheme.accentPink),
               const SizedBox(width: 6),
               Text('Remove ${widget.label}',
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 9,
-                  color: FluxForgeTheme.accentPink)),
+                style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.accentPink)),
             ]),
           ),
         ],
@@ -210,8 +211,8 @@ class _FlowNodeState extends State<_FlowNode> {
                   color: widget.active ? widget.color
                     : _hovered ? widget.color.withValues(alpha: 0.7) : FluxForgeTheme.textTertiary),
                 const SizedBox(height: 2),
-                Text(widget.label, style: TextStyle(
-                  fontFamily: 'monospace', fontSize: 8,
+                Text(widget.label, style: FluxForgeTheme.dockMono(
+                  size: 8,
                   color: widget.active ? widget.color
                     : _hovered ? widget.color.withValues(alpha: 0.7) : FluxForgeTheme.textTertiary)),
               ],
@@ -220,9 +221,8 @@ class _FlowNodeState extends State<_FlowNode> {
           if (_hovered && !widget.active)
             Padding(
               padding: const EdgeInsets.only(top: 2),
-              child: Text('force', style: TextStyle(
-                fontFamily: 'monospace', fontSize: 9,
-                color: widget.color.withValues(alpha: 0.6))),
+              child: Text('force', style: FluxForgeTheme.dockMono(
+                size: 9, color: widget.color.withValues(alpha: 0.6))),
             ),
         ],
       ),
@@ -237,7 +237,7 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Text(text,
-    style: TextStyle(fontFamily: 'monospace', fontSize: 10, color: color));
+    style: FluxForgeTheme.dockMono(size: 10, color: color));
 }
 
 class _MeterRow extends StatelessWidget {
@@ -250,8 +250,8 @@ class _MeterRow extends StatelessWidget {
     final v = value.clamp(0.0, 1.0);
     return Row(
       children: [
-        Text(label, style: TextStyle(
-          fontFamily: 'monospace', fontSize: 10, fontWeight: FontWeight.w700,
+        Text(label, style: FluxForgeTheme.dockMono(
+          size: 10, weight: FontWeight.w700,
           color: v > 0.85 ? FluxForgeTheme.accentRed : FluxForgeTheme.textSecondary)),
         const SizedBox(width: 8),
         Expanded(
@@ -287,8 +287,7 @@ class _MeterRow extends StatelessWidget {
         const SizedBox(width: 8),
         SizedBox(width: 34, child: Text(
           '${(v * 100).toStringAsFixed(0)}%',
-          style: const TextStyle(fontFamily: 'monospace', fontSize: 9,
-            color: FluxForgeTheme.textSecondary),
+          style: FluxForgeTheme.dockMono(size: 9),
           textAlign: TextAlign.right)),
       ],
     );
@@ -324,16 +323,13 @@ class _MathCard extends StatelessWidget {
             color: color, shape: BoxShape.circle,
             boxShadow: [BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 4)])),
           const SizedBox(width: 5),
-          Text(label, style: TextStyle(
-            fontFamily: 'monospace', fontSize: 9, fontWeight: FontWeight.w700,
-            letterSpacing: 0.2, color: color)),
+          Text(label, style: FluxForgeTheme.dockMono(
+            size: 9, weight: FontWeight.w700, letterSpacing: 0.2, color: color)),
         ]),
         const Spacer(),
-        Text(value, style: TextStyle(
-          fontFamily: 'monospace', fontSize: 18, fontWeight: FontWeight.w300,
-          color: color, height: 1.1)),
-        Text(sub, style: const TextStyle(
-          fontSize: 9, color: FluxForgeTheme.textSecondary, height: 1.2)),
+        Text(value, style: FluxForgeTheme.dockMono(
+          size: 18, weight: FontWeight.w300, color: color, height: 1.1)),
+        Text(sub, style: FluxForgeTheme.dockSans(size: 9, height: 1.2)),
         const SizedBox(height: 3),
         Container(
           height: 3,
@@ -369,8 +365,7 @@ class _IntelRow extends StatelessWidget {
         Container(width: 4, height: 4, decoration: BoxDecoration(
           color: color, shape: BoxShape.circle)),
         const SizedBox(width: 6),
-        Expanded(child: Text(label, style: const TextStyle(
-          fontSize: 11, color: FluxForgeTheme.textSecondary))),
+        Expanded(child: Text(label, style: FluxForgeTheme.dockSans(size: 11))),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
@@ -378,9 +373,8 @@ class _IntelRow extends StatelessWidget {
             borderRadius: BorderRadius.circular(4),
             border: Border.all(color: color.withValues(alpha: 0.3)),
           ),
-          child: Text(value, style: TextStyle(
-            fontFamily: 'monospace', fontSize: 11,
-            fontWeight: FontWeight.w700, color: color)),
+          child: Text(value, style: FluxForgeTheme.dockMono(
+            size: 11, weight: FontWeight.w700, color: color)),
         ),
       ],
     ),
@@ -407,11 +401,9 @@ class _MiniMetric extends StatelessWidget {
     child: Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Text(value, style: TextStyle(
-          fontFamily: 'monospace', fontSize: 15,
-          fontWeight: FontWeight.w600, color: color)),
-        Text(label, style: const TextStyle(
-          fontSize: 9, color: FluxForgeTheme.textSecondary)),
+        Text(value, style: FluxForgeTheme.dockMono(
+          size: 15, weight: FontWeight.w600, color: color)),
+        Text(label, style: FluxForgeTheme.dockSans(size: 9)),
       ],
     ),
   );
@@ -471,12 +463,11 @@ class _ExportCardState extends State<_ExportCard> {
               child: Icon(widget.icon, size: 22, color: widget.color),
             ),
             const SizedBox(height: 10),
-            Text(widget.label, style: TextStyle(
-              fontFamily: 'monospace', fontSize: 14, fontWeight: FontWeight.w700,
-              color: widget.color)),
+            Text(widget.label, style: FluxForgeTheme.dockMono(
+              size: 14, weight: FontWeight.w700, color: widget.color)),
             const SizedBox(height: 4),
-            Text(widget.sub, style: const TextStyle(
-              fontSize: 9, color: FluxForgeTheme.textTertiary),
+            Text(widget.sub, style: FluxForgeTheme.dockSans(
+              size: 9, color: FluxForgeTheme.textTertiary),
               textAlign: TextAlign.center),
           ],
         ),
@@ -507,13 +498,12 @@ class _InfoChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label, style: TextStyle(
-            fontFamily: 'monospace', fontSize: 9, fontWeight: FontWeight.w600,
+          Text(label, style: FluxForgeTheme.dockMono(
+            size: 9, weight: FontWeight.w600,
             color: c.withValues(alpha: 0.55), letterSpacing: 0.5)),
           const SizedBox(width: 8),
-          Text(value, style: TextStyle(
-            fontFamily: 'monospace', fontSize: 13, fontWeight: FontWeight.w800,
-            color: c)),
+          Text(value, style: FluxForgeTheme.dockMono(
+            size: 13, weight: FontWeight.w800, color: c)),
         ],
       ),
     );
@@ -540,13 +530,13 @@ class _MathSlider extends StatelessWidget {
     mainAxisSize: MainAxisSize.min,
     children: [
       Row(children: [
-        Text(label, style: TextStyle(
-          fontFamily: 'monospace', fontSize: 10, fontWeight: FontWeight.w600,
-          letterSpacing: 0.2, color: color.withValues(alpha: 0.8))),
+        Text(label, style: FluxForgeTheme.dockMono(
+          size: 10, weight: FontWeight.w600, letterSpacing: 0.2,
+          color: color.withValues(alpha: 0.8))),
         const Spacer(),
         Text('${value.toStringAsFixed(value > 100 ? 0 : 1)}$suffix',
-          style: TextStyle(fontFamily: 'monospace', fontSize: 11,
-            fontWeight: FontWeight.w600, color: color)),
+          style: FluxForgeTheme.dockMono(
+            size: 11, weight: FontWeight.w600, color: color)),
       ]),
       const SizedBox(height: 4),
       SliderTheme(
@@ -569,4 +559,3 @@ class _MathSlider extends StatelessWidget {
     ],
   );
 }
-

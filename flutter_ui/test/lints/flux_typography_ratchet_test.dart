@@ -59,7 +59,13 @@ import 'package:flutter_test/flutter_test.dart';
 // Bumped 2026-05-10 (Sprint 14 Helix Faza 4.B.6) +4 za keyboard cheatsheet
 // dialog (`_KeysGroup` + dialog header) — header label, group title,
 // keyboard hint pill, description text.
-const int _kRawTextStyleBaseline = 9257;
+// Lowered 2026-05-11 (Sprint 15 Faza 4.B.2 demo migration) -30 za
+// `helix/helpers/dock_chrome.dart` — 30 inline `TextStyle(fontFamily:
+// 'monospace', fontSize: N, …)` literala zamenjeni sa novim
+// `FluxForgeTheme.dockMono(size:, …)` / `dockSans(size:, …)` factory
+// pozivima. Factory pozivi koriste `size:` argument (ne `fontSize:`)
+// pa ratchet pokazuje strict drop.
+const int _kRawTextStyleBaseline = 9227;
 
 /// Frozen baseline za `fontFamily:` referenca van theme/.
 /// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` `'monospace'`
@@ -76,7 +82,9 @@ const int _kRawTextStyleBaseline = 9257;
 /// monospace label.
 // Bumped 2026-05-10 (Sprint 14 Helix Faza 4.B.6) +4 za keyboard cheatsheet
 // monospace stilove (header + group title + key pill + description).
-const int _kRawFontFamilyBaseline = 1230;
+// Lowered 2026-05-11 (Sprint 15 Faza 4.B.2) -26 za dock_chrome.dart —
+// `fontFamily: 'monospace'` literali eliminisani kroz `dockMono(...)`.
+const int _kRawFontFamilyBaseline = 1204;
 
 /// Frozen baseline za `fontSize:` referenca van theme/.
 /// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` 9px label
@@ -92,7 +100,9 @@ const int _kRawFontFamilyBaseline = 1230;
 /// 9px label.
 // Bumped 2026-05-10 (Sprint 14 Helix Faza 4.B.6) +4 za keyboard cheatsheet
 // fontSize-ove (header 13px, group title 10px, key pill 10px, desc 10px).
-const int _kRawFontSizeBaseline = 8814;
+// Lowered 2026-05-11 (Sprint 15 Faza 4.B.2) -30 za dock_chrome.dart —
+// `fontSize: N` literali eliminisani kroz `dockMono/dockSans(size: N, …)`.
+const int _kRawFontSizeBaseline = 8784;
 
 const Set<String> _kExcludedPathPrefixes = <String>{
   'theme/',

@@ -345,7 +345,33 @@ AiGenerationService ─────── Prompt→Audio pipeline, FFNC classify
 - [x] Veličina 26×26 → 28×28
 - [ ] Shimmer animacija — odloženo (zahteva AnimationController + custom painter)
 
-#### B.2 — Theme token migracija (1.5 sata)
+#### B.2 — Theme token migracija (višesprintska — Sprint 15 demo pass)
+
+**Status:** Sprint 15 uvodi `FluxForgeTheme.dockMono(...)` / `dockSans(...)`
+factory metode koje pokrivaju 7–11 px dock-density tier nepokriven
+postojećim h1/h2/h3/body/label tokenima. Migracija je demonstrirana na
+`helix/helpers/dock_chrome.dart` kao reference pattern; ostali fajlovi
+slediće u budućim sprintovima.
+
+- [x] **B.2 dock-density factory tokens** — `FluxForgeTheme.dockMono({size,
+  color, weight, height, letterSpacing})` + `dockSans({…})` static factory
+  metode. Koriste `size:` (ne `fontSize:`) parametar tako da migracija
+  spušta ratchet baseline strict drop.
+- [x] **dock_chrome.dart demo migracija** — 27 inline `TextStyle(fontFamily:
+  'monospace', fontSize: N, …)` literala → 28× `FluxForgeTheme.dockMono/
+  dockSans(size: N, …)` poziva. Net ratchet impact (verifikovano
+  pokretanjem testa sa baseline=0):
+  - TextStyle: 9257 → **9227** (-30)
+  - fontFamily: 1230 → **1204** (-26)
+  - fontSize: 8814 → **8784** (-30)
+- [ ] Migracija ostatka helix/ panela (spine_game_config.dart 112, ai_gen_panel
+  28, sfx_panel 24, flow_panel 23, export_panel 22, …) — odložena, koristi
+  isti `dockMono/dockSans` pattern; svaka migracija spušta ratchet baseline
+  za pun broj uklonjenih `TextStyle(` literala.
+- [ ] 35+ raw `Duration(milliseconds: ...)` → `FluxForgeTheme.fastDuration/
+  normalDuration/slowDuration` tokens — odloženo, motion ratchet pokriva.
+
+**Originalna B.2 lista (preostala, defer):**
 - [ ] `helix_omnibar_atoms.dart:55` — `Duration(milliseconds: 120)` → `FluxForgeTheme.fastDuration`
 - [ ] `helix_dock_widgets.dart:62, 143` — 2× hex literal → `FluxForgeTheme.glassBorder` / `bgVoid`
 - [ ] `helix_minimode_widgets.dart:61` — `Color(0xFFFF4444)` → `FluxForgeTheme.accentRed`
@@ -353,8 +379,6 @@ AiGenerationService ─────── Prompt→Audio pipeline, FFNC classify
 - [ ] `helix_screen.dart:1067, 1094, 2081` — 3× hex literal → tokens (bgDeepest, borderSubtle, glassDecoration)
 - [ ] `audio_coverage_badge.dart:85` — hex tooltip bg → `FluxForgeTheme.bgVoid`
 - [ ] `helix_omnibar_atoms.dart:124`, `helix_dock_widgets.dart:86` — raw `fontSize: 11` → `FluxForgeTheme.fontSizeLabel`
-- [ ] 60+ raw `fontSize:` u helix_screen.dart → batch migracija na `FluxForgeTheme.body / .label / .mono / .h1`
-- [ ] 35+ raw `Duration(milliseconds: ...)` → `FluxMotion.*` tokens
 
 #### B.3 — Disabled state za 6 stub tabova — ✅ FIXED 2026-05-10
 

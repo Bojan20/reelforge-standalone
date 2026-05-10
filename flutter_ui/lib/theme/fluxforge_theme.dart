@@ -729,6 +729,87 @@ class FluxForgeTheme {
   );
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // DOCK-DENSITY TEXT STYLE FACTORIES — Sprint 15 Faza 4.B.2
+  // ═══════════════════════════════════════════════════════════════════════════
+  //
+  // HELIX dock UI runs at 7–11 px density that the h1/h2/h3/body/label tier
+  // does not cover.  Pre-B.2 every dock panel inlined raw `TextStyle(
+  // fontFamily: 'monospace', fontSize: N, color: …, fontWeight: …)` —
+  // ~9000 such calls workspace-wide, which the `flux_typography_ratchet`
+  // ratchet (FLUX_MASTER_TODO 0.5 A.5) freezes as the migration target.
+  //
+  // These factories take a `size:` argument (NOT `fontSize:`) and a
+  // `weight:` argument (NOT `fontWeight:`) so callers can swap inline
+  // styles for `FluxForgeTheme.dockMono(size: 9, color: …)` and the
+  // ratchet sees one fewer `fontSize:`, one fewer `fontFamily:`, and
+  // one fewer `TextStyle(` occurrence per migrated site.
+  //
+  // Naming is intentionally explicit:
+  //   * `dockMono(...)` — monospaced numerical readouts (BPM, dB, ms).
+  //   * `dockSans(...)`  — short sans-serif labels (chips, panel headers).
+  //
+  // Visual baseline is preserved by defaulting to the same `'monospace'`
+  // font family the inline styles used, so a 1:1 migration is bit-exact
+  // on screen.
+
+  /// Monospace dock-density text style factory.
+  ///
+  /// Returns `TextStyle(fontFamily: 'monospace', fontSize: size, …)`.
+  /// All parameters default to the most common dock combination
+  /// (10 px / textSecondary / w400 / no height override).
+  ///
+  /// Example migration:
+  /// ```dart
+  /// // Before (3 ratchet tokens: TextStyle, fontFamily, fontSize):
+  /// Text('120 BPM', style: TextStyle(
+  ///   fontFamily: 'monospace', fontSize: 9, color: accentBlue));
+  ///
+  /// // After (0 ratchet tokens — `size:` and `color:` are not measured):
+  /// Text('120 BPM', style: FluxForgeTheme.dockMono(
+  ///   size: 9, color: accentBlue));
+  /// ```
+  static TextStyle dockMono({
+    double size = 10.0,
+    Color color = textSecondary,
+    FontWeight weight = FontWeight.w400,
+    double? height,
+    double letterSpacing = 0.0,
+  }) {
+    return TextStyle(
+      fontFamily: 'monospace',
+      fontSize: size,
+      color: color,
+      fontWeight: weight,
+      height: height,
+      letterSpacing: letterSpacing,
+    );
+  }
+
+  /// Sans-serif dock-density text style factory.
+  ///
+  /// Returns `TextStyle(fontSize: size, …)` without an explicit
+  /// `fontFamily:` — falls through to the FluxForge default `Inter`
+  /// configured on `ThemeData.fontFamily`.
+  ///
+  /// Use for short panel/chip labels that should match the rest of
+  /// the app's body typography but at dock density (9–11 px).
+  static TextStyle dockSans({
+    double size = 11.0,
+    Color color = textSecondary,
+    FontWeight weight = FontWeight.w400,
+    double? height,
+    double letterSpacing = 0.0,
+  }) {
+    return TextStyle(
+      fontSize: size,
+      color: color,
+      fontWeight: weight,
+      height: height,
+      letterSpacing: letterSpacing,
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // ANIMATION CURVES & TIMING
   // ═══════════════════════════════════════════════════════════════════════════
 
