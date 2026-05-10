@@ -436,7 +436,21 @@ pub enum ComplianceAction {
 // Audio Event Context — What we're checking
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Context for an audio event being compliance-checked
+/// Context for an audio event being compliance-checked.
+///
+/// **Constructing an `AudioEventContext`:** prefer the
+/// [`AudioEventContext::builder`] / [`AudioEventContextBuilder`] over
+/// direct struct literal — 12 Option fields make struct literals
+/// error-prone and noisy at call sites (Sprint 15 Faza 4.F.6).
+///
+/// ```ignore
+/// let ctx = AudioEventContext::builder(42, AudioEventType::Celebration)
+///     .win(100.0)
+///     .bet(10.0)
+///     .duration_ms(1500)
+///     .peak_dbfs(-3.0)
+///     .build();
+/// ```
 #[derive(Debug, Clone)]
 pub struct AudioEventContext {
     /// Event ID
@@ -467,6 +481,169 @@ pub struct AudioEventContext {
     pub scatter_threshold: Option<u8>,
     /// Whether this was a near-miss (almost triggered feature)
     pub is_near_miss: bool,
+}
+
+impl AudioEventContext {
+    /// Start a fluent builder for `AudioEventContext`.  Required fields
+    /// (`event_id`, `event_type`) go through the builder constructor; all
+    /// other fields default to zero / None and are set via chainable
+    /// methods.  See [`AudioEventContextBuilder`] for the chainable API.
+    pub fn builder(event_id: u32, event_type: AudioEventType)
+        -> AudioEventContextBuilder
+    {
+        AudioEventContextBuilder::new(event_id, event_type)
+    }
+}
+
+/// Fluent builder for [`AudioEventContext`] (Sprint 15 Faza 4.F.6).
+///
+/// Replaces the painful struct-literal initialization where the caller
+/// had to spell out all 12 optional fields just to set 2 of them.
+/// Sensible defaults: numeric fields zero, optionals `None`, booleans
+/// `false`.  Win ratio auto-computes from `win`/`bet` if both set and
+/// caller hasn't overridden via `.win_ratio()`.
+#[derive(Debug, Clone)]
+pub struct AudioEventContextBuilder {
+    event_id: u32,
+    event_type: AudioEventType,
+    win_amount: Option<f64>,
+    bet_amount: Option<f64>,
+    win_ratio: Option<f64>,
+    duration_ms: u32,
+    peak_dbfs: f32,
+    is_autoplay: bool,
+    time_since_spin_ms: u32,
+    session_minutes: f64,
+    session_intensity: f32,
+    scatter_count: Option<u8>,
+    scatter_threshold: Option<u8>,
+    is_near_miss: bool,
+    /// Tracks whether caller explicitly set win_ratio; if not, build()
+    /// derives it from win/bet when both are present.
+    explicit_win_ratio: bool,
+}
+
+impl AudioEventContextBuilder {
+    /// Create a new builder.  Only the truly-required fields
+    /// (`event_id` + `event_type`) are positional; everything else is
+    /// optional and defaults to zero / None / false.
+    pub fn new(event_id: u32, event_type: AudioEventType) -> Self {
+        Self {
+            event_id,
+            event_type,
+            win_amount: None,
+            bet_amount: None,
+            win_ratio: None,
+            duration_ms: 0,
+            peak_dbfs: 0.0,
+            is_autoplay: false,
+            time_since_spin_ms: 0,
+            session_minutes: 0.0,
+            session_intensity: 0.0,
+            scatter_count: None,
+            scatter_threshold: None,
+            is_near_miss: false,
+            explicit_win_ratio: false,
+        }
+    }
+
+    /// Set win amount (currency units).
+    pub fn win(mut self, amount: f64) -> Self {
+        self.win_amount = Some(amount);
+        self
+    }
+
+    /// Set bet amount (currency units).
+    pub fn bet(mut self, amount: f64) -> Self {
+        self.bet_amount = Some(amount);
+        self
+    }
+
+    /// Override the auto-computed win/bet ratio.  Only needed for
+    /// edge cases (e.g. mock contexts that need a specific ratio
+    /// without setting matching `win` and `bet`).
+    pub fn win_ratio(mut self, ratio: f64) -> Self {
+        self.win_ratio = Some(ratio);
+        self.explicit_win_ratio = true;
+        self
+    }
+
+    pub fn duration_ms(mut self, ms: u32) -> Self {
+        self.duration_ms = ms;
+        self
+    }
+
+    pub fn peak_dbfs(mut self, db: f32) -> Self {
+        self.peak_dbfs = db;
+        self
+    }
+
+    pub fn autoplay(mut self, on: bool) -> Self {
+        self.is_autoplay = on;
+        self
+    }
+
+    pub fn time_since_spin_ms(mut self, ms: u32) -> Self {
+        self.time_since_spin_ms = ms;
+        self
+    }
+
+    pub fn session_minutes(mut self, m: f64) -> Self {
+        self.session_minutes = m;
+        self
+    }
+
+    pub fn session_intensity(mut self, i: f32) -> Self {
+        self.session_intensity = i;
+        self
+    }
+
+    pub fn scatter_count(mut self, n: u8) -> Self {
+        self.scatter_count = Some(n);
+        self
+    }
+
+    pub fn scatter_threshold(mut self, n: u8) -> Self {
+        self.scatter_threshold = Some(n);
+        self
+    }
+
+    pub fn near_miss(mut self, on: bool) -> Self {
+        self.is_near_miss = on;
+        self
+    }
+
+    /// Consume the builder and produce a finalized `AudioEventContext`.
+    ///
+    /// Convenience: if `win` and `bet` are both set but `win_ratio()`
+    /// wasn't called explicitly, `win_ratio` is computed as `win / bet`
+    /// (with a zero-bet guard returning `None`).
+    pub fn build(self) -> AudioEventContext {
+        let derived_ratio = if !self.explicit_win_ratio {
+            match (self.win_amount, self.bet_amount) {
+                (Some(w), Some(b)) if b > 0.0 => Some(w / b),
+                _ => self.win_ratio,
+            }
+        } else {
+            self.win_ratio
+        };
+        AudioEventContext {
+            event_id: self.event_id,
+            event_type: self.event_type,
+            win_amount: self.win_amount,
+            bet_amount: self.bet_amount,
+            win_ratio: derived_ratio,
+            duration_ms: self.duration_ms,
+            peak_dbfs: self.peak_dbfs,
+            is_autoplay: self.is_autoplay,
+            time_since_spin_ms: self.time_since_spin_ms,
+            session_minutes: self.session_minutes,
+            session_intensity: self.session_intensity,
+            scatter_count: self.scatter_count,
+            scatter_threshold: self.scatter_threshold,
+            is_near_miss: self.is_near_miss,
+        }
+    }
 }
 
 /// Audio event categories for compliance classification
@@ -1388,5 +1565,92 @@ mod tests {
         assert_eq!(Jurisdiction::Ukgc.name(), "UKGC (UK)");
         assert_eq!(Jurisdiction::Ukgc.code(), "UKGC");
         assert_eq!(Jurisdiction::Sweden.name(), "Spelinspektionen (Sweden)");
+    }
+
+    // ── Sprint 15 Faza 4.F.6 — AudioEventContextBuilder tests ──────────────
+
+    #[test]
+    fn builder_minimal_produces_zeroed_context() {
+        let ctx = AudioEventContext::builder(1, AudioEventType::Sfx).build();
+        assert_eq!(ctx.event_id, 1);
+        assert_eq!(ctx.event_type, AudioEventType::Sfx);
+        assert!(ctx.win_amount.is_none());
+        assert!(ctx.bet_amount.is_none());
+        assert!(ctx.win_ratio.is_none());
+        assert_eq!(ctx.duration_ms, 0);
+        assert_eq!(ctx.peak_dbfs, 0.0);
+        assert!(!ctx.is_autoplay);
+        assert!(!ctx.is_near_miss);
+    }
+
+    #[test]
+    fn builder_win_and_bet_auto_derive_ratio() {
+        let ctx = AudioEventContext::builder(2, AudioEventType::Celebration)
+            .win(50.0)
+            .bet(10.0)
+            .build();
+        assert_eq!(ctx.win_amount, Some(50.0));
+        assert_eq!(ctx.bet_amount, Some(10.0));
+        assert_eq!(ctx.win_ratio, Some(5.0), "ratio should auto-compute as win/bet");
+    }
+
+    #[test]
+    fn builder_explicit_win_ratio_overrides_auto_compute() {
+        let ctx = AudioEventContext::builder(3, AudioEventType::Celebration)
+            .win(50.0)
+            .bet(10.0)
+            .win_ratio(99.0) // explicit override
+            .build();
+        assert_eq!(ctx.win_ratio, Some(99.0),
+            "explicit win_ratio() must take precedence over auto-derive");
+    }
+
+    #[test]
+    fn builder_zero_bet_does_not_divide() {
+        let ctx = AudioEventContext::builder(4, AudioEventType::Celebration)
+            .win(50.0)
+            .bet(0.0)
+            .build();
+        assert!(ctx.win_ratio.is_none(),
+            "zero bet must not produce a derived ratio (would be infinity)");
+    }
+
+    #[test]
+    fn builder_chains_all_setters() {
+        let ctx = AudioEventContext::builder(5, AudioEventType::Anticipation)
+            .duration_ms(2000)
+            .peak_dbfs(-6.0)
+            .autoplay(true)
+            .time_since_spin_ms(500)
+            .session_minutes(45.5)
+            .session_intensity(0.7)
+            .scatter_count(2)
+            .scatter_threshold(3)
+            .near_miss(true)
+            .build();
+        assert_eq!(ctx.duration_ms, 2000);
+        assert_eq!(ctx.peak_dbfs, -6.0);
+        assert!(ctx.is_autoplay);
+        assert_eq!(ctx.time_since_spin_ms, 500);
+        assert!((ctx.session_minutes - 45.5).abs() < 1e-9);
+        assert!((ctx.session_intensity - 0.7).abs() < 1e-6);
+        assert_eq!(ctx.scatter_count, Some(2));
+        assert_eq!(ctx.scatter_threshold, Some(3));
+        assert!(ctx.is_near_miss);
+    }
+
+    #[test]
+    fn builder_compatible_with_check_event() {
+        // Integration: builder-produced ctx must work with check_event().
+        let mut engine = ComplianceEngine::new(Jurisdiction::Ukgc);
+        let ctx = AudioEventContext::builder(6, AudioEventType::Celebration)
+            .win(0.5)   // win < bet → LDW
+            .bet(1.0)
+            .duration_ms(800)
+            .build();
+        let result = engine.check_event(&ctx);
+        // We don't pin the exact status here (depends on rule set), but
+        // the call must not panic and must return some result.
+        assert_eq!(result.event_id, 6);
     }
 }
