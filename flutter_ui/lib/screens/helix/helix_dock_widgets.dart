@@ -24,8 +24,15 @@ class _DockTab extends StatefulWidget {
   /// Solves the "what does DNA / BT / SFX mean?" discoverability gap.
   /// Empty string means no tooltip (backwards-compat for old call sites).
   final String tooltip;
+  /// Sprint 14 Faza 4.B.3 — work-in-progress flag.  When true the tab
+  /// renders at 60 % opacity with a strikethrough label so the user
+  /// can see at a glance that the feature scaffolding exists but the
+  /// dock quick actions aren't wired yet.  Tab remains clickable so
+  /// the user can still open the panel and see the WIP toast from
+  /// Faza 4.A.2.
+  final bool wip;
   const _DockTab({required this.icon, required this.label, required this.color,
-    required this.active, required this.onTap, this.tooltip = ''});
+    required this.active, required this.onTap, this.tooltip = '', this.wip = false});
 
   @override
   State<_DockTab> createState() => _DockTabState();
@@ -95,6 +102,12 @@ class _DockTabState extends State<_DockTab> {
                         : _hovered
                           ? FluxForgeTheme.textSecondary    // hover: secondary
                           : FluxForgeTheme.textTertiary,    // inactive: muted
+                      // Sprint 14 Faza 4.B.3 — strikethrough za WIP tabove.
+                      decoration: widget.wip ? TextDecoration.lineThrough : null,
+                      decorationColor: widget.wip
+                          ? FluxForgeTheme.textTertiary.withValues(alpha: 0.6)
+                          : null,
+                      decorationThickness: widget.wip ? 1.2 : null,
                     ),
                     child: Text(widget.label),
                   ),
@@ -130,11 +143,14 @@ class _DockTabState extends State<_DockTab> {
         ),
       ),
     );
-    if (widget.tooltip.isEmpty) return core;
+    // Sprint 14 Faza 4.B.3 — WIP tab dim wrapper (60 % opacity).
+    // Render order: core → Opacity → Tooltip (tooltip uvek live i za WIP).
+    final dimmed = widget.wip ? Opacity(opacity: 0.6, child: core) : core;
+    if (widget.tooltip.isEmpty) return dimmed;
     return Tooltip(
       message: widget.tooltip,
       waitDuration: const Duration(milliseconds: 600),
-      child: core,
+      child: dimmed,
     );
   }
 }

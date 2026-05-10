@@ -360,7 +360,12 @@ class _HelixScreenState extends State<HelixScreen>
       CurvedAnimation(parent: _glowCtrl, curve: Curves.easeInOut),
     );
 
-    _waveTimer = Timer.periodic(const Duration(milliseconds: 120), (_) {
+    // 2026-05-10 (Sprint 14 Faza 4.B.7) — refresh rate 120ms → 200ms.
+    // 120ms = 8.3 Hz, fine for old 60Hz displays but excessive on modern
+    // 120Hz displays where every refresh paints additional GPU frame.
+    // 200ms = 5 Hz drives the same perceptual smoothness with ~40% less
+    // GPU/CPU overhead on the waveform pipeline.
+    _waveTimer = Timer.periodic(const Duration(milliseconds: 200), (_) {
       if (!mounted) return;
       setState(() {
         for (int i = 0; i < _waveBars.length; i++) {
@@ -1023,7 +1028,103 @@ class _HelixScreenState extends State<HelixScreen>
       // SPEC-01: Global Cmd+K — HELIX Quick Switcher
       _openQuickSwitcher();
       return;
+    } else if (isShift && key == LogicalKeyboardKey.slash) {
+      // 2026-05-10 (Sprint 14 Faza 4.B.6) — `?` opens keyboard cheatsheet.
+      // Solves discoverability problem: HELIX has ~15 keyboard shortcuts
+      // hidden across `_onKey` branches; new user has no way to find them.
+      _openKeyboardCheatsheet();
+      return;
     }
+  }
+
+  /// Sprint 14 Faza 4.B.6 — keyboard shortcut cheatsheet dialog.
+  ///
+  /// Activated via `?` (Shift+/).  Lists every shortcut defined in
+  /// `_onKey` so the user can discover them without reading source.
+  /// Grouped by category; rows are scrollable for future shortcut growth.
+  void _openKeyboardCheatsheet() {
+    showDialog<void>(
+      context: context,
+      barrierColor: FluxForgeTheme.bgVoid.withValues(alpha: 0.7),
+      builder: (ctx) => Dialog(
+        backgroundColor: FluxForgeTheme.bgDeepest,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: BorderSide(
+            color: FluxForgeTheme.brandGold.withValues(alpha: 0.3),
+            width: 1,
+          ),
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560, maxHeight: 640),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(
+                    color: FluxForgeTheme.borderSubtle, width: 1)),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.keyboard_rounded, size: 18,
+                      color: FluxForgeTheme.brandGold),
+                  const SizedBox(width: 8),
+                  const Text('KEYBOARD SHORTCUTS', style: TextStyle(
+                    fontFamily: 'monospace', fontSize: 13,
+                    fontWeight: FontWeight.w800, letterSpacing: 1.2,
+                    color: FluxForgeTheme.brandGold)),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    color: FluxForgeTheme.textSecondary,
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    tooltip: 'Close (Esc)',
+                  ),
+                ]),
+              ),
+              // Body — scrollable list of shortcut groups
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 12),
+                  children: const [
+                    _KeysGroup(title: 'MODES', rows: [
+                      ('F', 'Toggle FOCUS mode (hide dock)'),
+                      ('A', 'Toggle ARCHITECT mode (50 % dock)'),
+                      ('Esc', 'Return to COMPOSE mode'),
+                      ('Shift + Cmd + M', 'Cycle to MINI mode'),
+                    ]),
+                    _KeysGroup(title: 'DOCK TABS', rows: [
+                      ('1 – 9', 'Switch to tab 1–9 (FLOW–AI GEN)'),
+                      ('0', 'Switch to tab 10 (CLOUD)'),
+                      ('-', 'Switch to tab 11 (A/B)'),
+                      ('=', 'Switch to tab 12 (COMPOSER)'),
+                      ('`', 'Quick-jump to COMPOSER'),
+                      ('Cmd + [', 'Previous dock tab'),
+                      ('Cmd + ]', 'Next dock tab'),
+                    ]),
+                    _KeysGroup(title: 'PALETTE & UI', rows: [
+                      ('Cmd + K', 'Open HELIX Quick Switcher'),
+                      ('Shift + Cmd + \\', 'Toggle Spine overlay'),
+                      ('?', 'Open this cheatsheet'),
+                    ]),
+                    _KeysGroup(title: 'STAGE TRIGGERS', rows: [
+                      ('Shift + S', 'Trigger SPIN_START'),
+                      ('Shift + G', 'Trigger GAME_START'),
+                      ('Shift + C', 'Trigger CASCADE_STEP'),
+                      ('Shift + J', 'Trigger JACKPOT'),
+                      ('Shift + R', 'Trigger RETRIGGER'),
+                    ]),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   /// SPEC-01 — HELIX Quick Switcher (Cmd+K).
@@ -2259,27 +2360,32 @@ class _HelixScreenState extends State<HelixScreen>
   // `DockTabRegistry` singleton with `register({id, icon, label, color, builder})`.
   // The current `switch(_dockTab)` in `_buildDockPanel` will dispatch via the
   // registry's builder for each id.
-  // 2026-05-10 (Sprint 14 Faza 4.B.5) — `tooltip` polje dodato za sve 13
-  // tabova.  Pre-fix: korisnik je imao 13 ikonica + label-a bez objašnjenja
-  // čemu svaki služi (šta je "DNA"? razlika "SFX" vs "AUDIO"?).  Sad svaki
-  // tab ima 1-line tooltip koji se pojavljuje na hover (proxied kroz
-  // _DockTab → FluxTooltip).
-  static const List<({String id, IconData icon, String label, Color color, String tooltip})> _dockTabDefs = [
-    (id: 'flow',     icon: Icons.account_tree_rounded, label: 'FLOW',     color: FluxForgeTheme.accentBlue,   tooltip: 'Game state transitions + feature mechanics graph'),
-    (id: 'audio',    icon: Icons.graphic_eq_rounded,   label: 'AUDIO',    color: FluxForgeTheme.accentCyan,   tooltip: 'Event matrix — 281 stages, per-layer parameter editor'),
-    (id: 'math',     icon: Icons.functions_rounded,    label: 'MATH',     color: FluxForgeTheme.accentGreen,  tooltip: 'RTP verification + paytable analysis + recalc'),
-    (id: 'timeline', icon: Icons.timeline_rounded,     label: 'TIMELINE', color: FluxForgeTheme.accentOrange, tooltip: 'Stage sequence playback + replay + jump-to-stage'),
-    (id: 'intel',    icon: Icons.psychology_rounded,   label: 'INTEL',    color: FluxForgeTheme.accentPurple, tooltip: 'AI co-pilot + RGAI compliance + neuro audio state'),
-    (id: 'export',   icon: Icons.upload_rounded,       label: 'EXPORT',   color: FluxForgeTheme.accentYellow, tooltip: 'Batch export → Wwise / FMOD / Unity / Unreal / Godot'),
+  // 2026-05-10 (Sprint 14 Faza 4.B.5+B.3) — `tooltip` i `wip` polja.
+  // Pre-fix: korisnik je imao 13 ikonica + label-a bez objašnjenja čemu
+  // svaki služi.  Pa kad klikne na SFX/BT/DNA/AI/CLOUD/A/B paneli su
+  // izgledali funkcionalno — quick actions su međutim bili dead (() {}).
+  //
+  // Faza 4.B.5: svaki tab ima 1-line tooltip (hover → 600ms).
+  // Faza 4.B.3: `wip: true` tabovi se vizuelno dim-uju (60 % opacity) +
+  //             dobiju strikethrough na label-u tako da je očigledno da
+  //             je tab work-in-progress, ali ostaju klikabilni (otvore
+  //             panel + prikažu WIP toast iz Faza 4.A.2).
+  static const List<({String id, IconData icon, String label, Color color, String tooltip, bool wip})> _dockTabDefs = [
+    (id: 'flow',     icon: Icons.account_tree_rounded, label: 'FLOW',     color: FluxForgeTheme.accentBlue,   tooltip: 'Game state transitions + feature mechanics graph',                            wip: false),
+    (id: 'audio',    icon: Icons.graphic_eq_rounded,   label: 'AUDIO',    color: FluxForgeTheme.accentCyan,   tooltip: 'Event matrix — 281 stages, per-layer parameter editor',                       wip: false),
+    (id: 'math',     icon: Icons.functions_rounded,    label: 'MATH',     color: FluxForgeTheme.accentGreen,  tooltip: 'RTP verification + paytable analysis + recalc',                               wip: false),
+    (id: 'timeline', icon: Icons.timeline_rounded,     label: 'TIMELINE', color: FluxForgeTheme.accentOrange, tooltip: 'Stage sequence playback + replay + jump-to-stage',                            wip: false),
+    (id: 'intel',    icon: Icons.psychology_rounded,   label: 'INTEL',    color: FluxForgeTheme.accentPurple, tooltip: 'AI co-pilot + RGAI compliance + neuro audio state',                           wip: false),
+    (id: 'export',   icon: Icons.upload_rounded,       label: 'EXPORT',   color: FluxForgeTheme.accentYellow, tooltip: 'Batch export → Wwise / FMOD / Unity / Unreal / Godot',                        wip: false),
     // ── FAZA 3 tabs (UI scaffolded, quick actions WIP — Sprint 15) ──
-    (id: 'sfx',      icon: Icons.auto_fix_high_rounded,label: 'SFX',      color: FluxForgeTheme.accentCyan,   tooltip: 'Sound FX pipeline wizard — WIP, dock-actions Sprint 15'),
-    (id: 'bt',       icon: Icons.hub_rounded,          label: 'BT',       color: FluxForgeTheme.accentOrange, tooltip: 'Behavior Tree visual editor — WIP, dock-actions Sprint 15'),
-    (id: 'dna',      icon: Icons.fingerprint_rounded,  label: 'DNA',      color: FluxForgeTheme.accentPink,   tooltip: 'Audio DNA / brand fingerprint — WIP, dock-actions Sprint 15'),
-    (id: 'ai_gen',   icon: Icons.auto_awesome_rounded, label: 'AI GEN',   color: FluxForgeTheme.accentPurple, tooltip: 'AI audio generation pipeline — WIP, dock-actions Sprint 15'),
-    (id: 'cloud',    icon: Icons.cloud_sync_rounded,   label: 'CLOUD',    color: FluxForgeTheme.accentBlue,   tooltip: 'Cloud sync (Firebase/AWS/custom) — WIP, dock-actions Sprint 15'),
-    (id: 'ab',       icon: Icons.science_rounded,      label: 'A/B',      color: FluxForgeTheme.accentGreen,  tooltip: 'A/B split testing — WIP, dock-actions Sprint 15'),
+    (id: 'sfx',      icon: Icons.auto_fix_high_rounded,label: 'SFX',      color: FluxForgeTheme.accentCyan,   tooltip: 'Sound FX pipeline wizard — WIP, dock-actions Sprint 15',                      wip: true),
+    (id: 'bt',       icon: Icons.hub_rounded,          label: 'BT',       color: FluxForgeTheme.accentOrange, tooltip: 'Behavior Tree visual editor — WIP, dock-actions Sprint 15',                   wip: true),
+    (id: 'dna',      icon: Icons.fingerprint_rounded,  label: 'DNA',      color: FluxForgeTheme.accentPink,   tooltip: 'Audio DNA / brand fingerprint — WIP, dock-actions Sprint 15',                 wip: true),
+    (id: 'ai_gen',   icon: Icons.auto_awesome_rounded, label: 'AI GEN',   color: FluxForgeTheme.accentPurple, tooltip: 'AI audio generation pipeline — WIP, dock-actions Sprint 15',                  wip: true),
+    (id: 'cloud',    icon: Icons.cloud_sync_rounded,   label: 'CLOUD',    color: FluxForgeTheme.accentBlue,   tooltip: 'Cloud sync (Firebase/AWS/custom) — WIP, dock-actions Sprint 15',              wip: true),
+    (id: 'ab',       icon: Icons.science_rounded,      label: 'A/B',      color: FluxForgeTheme.accentGreen,  tooltip: 'A/B split testing — WIP, dock-actions Sprint 15',                             wip: true),
     // Model 3 — multi-provider AI Composer (Local / BYOK / Azure)
-    (id: 'composer', icon: Icons.smart_toy_rounded,    label: 'COMPOSER', color: FluxForgeTheme.accentGreen,  tooltip: 'Multi-provider AI Composer — Local / BYOK / Azure'),
+    (id: 'composer', icon: Icons.smart_toy_rounded,    label: 'COMPOSER', color: FluxForgeTheme.accentGreen,  tooltip: 'Multi-provider AI Composer — Local / BYOK / Azure',                           wip: false),
   ];
 
   /// Resolves the active dock height for the current mode.
@@ -2636,6 +2742,7 @@ class _HelixScreenState extends State<HelixScreen>
                           icon: def.icon, label: def.label, color: def.color,
                           active: active,
                           tooltip: def.tooltip, // Sprint 14 Faza 4.B.5
+                          wip: def.wip,         // Sprint 14 Faza 4.B.3
                           onTap: () => setState(() => _dockTab = e.key),
                         ),
                       );
@@ -14117,6 +14224,74 @@ class _HelixModeDef {
     required this.label,
     required this.tooltip,
   });
+}
+
+/// Sprint 14 Faza 4.B.6 — keyboard shortcut group used in cheatsheet dialog.
+///
+/// Renders a category header + table of (key, description) pairs.
+/// Used exclusively by `_HelixScreenState._openKeyboardCheatsheet`.
+class _KeysGroup extends StatelessWidget {
+  final String title;
+  final List<(String, String)> rows;
+  const _KeysGroup({required this.title, required this.rows});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(
+            fontFamily: 'monospace', fontSize: 10,
+            fontWeight: FontWeight.w800, letterSpacing: 1.4,
+            color: FluxForgeTheme.brandGold)),
+          const SizedBox(height: 6),
+          Container(
+            decoration: BoxDecoration(
+              color: FluxForgeTheme.bgDeep.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(
+                color: FluxForgeTheme.borderSubtle, width: 0.5),
+            ),
+            child: Column(children: [
+              for (var i = 0; i < rows.length; i++) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 6),
+                  child: Row(children: [
+                    SizedBox(
+                      width: 140,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: FluxForgeTheme.bgSurface,
+                          borderRadius: BorderRadius.circular(3),
+                          border: Border.all(
+                            color: FluxForgeTheme.borderSubtle, width: 0.5),
+                        ),
+                        child: Text(rows[i].$1, style: const TextStyle(
+                          fontFamily: 'monospace', fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: FluxForgeTheme.accentCyan)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(child: Text(rows[i].$2, style: const TextStyle(
+                      fontFamily: 'monospace', fontSize: 10,
+                      color: FluxForgeTheme.textSecondary))),
+                  ]),
+                ),
+                if (i < rows.length - 1)
+                  const Divider(height: 1, color: FluxForgeTheme.borderSubtle),
+              ],
+            ]),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Persistent mode indicator badge in the Omnibar (Sprint 14 Faza 4.B.4).

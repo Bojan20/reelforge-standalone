@@ -356,9 +356,11 @@ AiGenerationService ─────── Prompt→Audio pipeline, FFNC classify
 - [ ] 60+ raw `fontSize:` u helix_screen.dart → batch migracija na `FluxForgeTheme.body / .label / .mono / .h1`
 - [ ] 35+ raw `Duration(milliseconds: ...)` → `FluxMotion.*` tokens
 
-#### B.3 — Disabled state za 6 stub tabova (30 min)
-- [ ] SFX, BT, DNA, AI GEN, CLOUD, A/B → 60% opacity, strikethrough label, disabled cursor
-- [ ] Klik → `_showFeatureComingToast('SFX coming in Sprint 15')` umesto silent dead button
+#### B.3 — Disabled state za 6 stub tabova — ✅ FIXED 2026-05-10
+
+- [x] `_dockTabDefs` ima sad `wip` polje (`bool`) — SFX/BT/DNA/AI/CLOUD/A/B su `wip: true`, ostalih 7 `wip: false`
+- [x] `_DockTab` proširen sa `final bool wip` parametar; ako `wip` → `Opacity(0.6)` wrapper + `TextDecoration.lineThrough` na label sa decoration thickness 1.2
+- [x] Klik na WIP tab ostaje funkcionalan (otvori panel + Faza 4.A.2 WIP toast iz quick actions)
 
 #### B.4 — Mode badge u Omnibar — ✅ FIXED 2026-05-10
 
@@ -382,13 +384,18 @@ AiGenerationService ─────── Prompt→Audio pipeline, FFNC classify
   - SFX/BT/DNA/AI GEN/CLOUD/A/B → "WIP, dock-actions Sprint 15"
   - COMPOSER → "Multi-provider AI Composer — Local / BYOK / Azure"
 
-#### B.6 — Keyboard shortcut discoverability (30 min)
-- [ ] Persistent hint "1-9: Tabs" badge dole desno u dock tab bar
-- [ ] Cmd+? otvara cheatsheet dialog sa svim shortcuts
-- [ ] First-launch tooltip "Press Shift+Cmd+\\ to toggle Spine"
+#### B.6 — Keyboard shortcut discoverability — ✅ FIXED 2026-05-10
 
-#### B.7 — Waveform performance (5 min)
-- [ ] `helix_screen.dart:361` — `Timer.periodic(Duration(milliseconds: 120))` → 200ms (5 Hz → 3.33 Hz, manje GPU overhead na 120Hz displej)
+- [x] `?` (Shift+/) otvara cheatsheet dialog sa svim shortcuts (helix_screen.dart:1034+)
+- [x] `_KeysGroup` widget — kategorije: MODES, DOCK TABS, PALETTE & UI, STAGE TRIGGERS
+- [x] 19 shortcuts dokumentovano: F, A, Esc, Shift+Cmd+M, 1-9, 0, -, =, `, Cmd+[, Cmd+], Cmd+K, Shift+Cmd+\\, ?, Shift+S/G/C/J/R
+- [x] Dialog ima brand identity (gold border, brand gold accent)
+- [ ] Persistent hint "1-9: Tabs" badge dole desno — odloženo (cheatsheet dovoljan)
+- [ ] First-launch tooltip — odloženo (manja prednost dok je `?` shortcut dostupan)
+
+#### B.7 — Waveform performance — ✅ FIXED 2026-05-10
+
+- [x] `helix_screen.dart:368` (bilo 361 pre Sprint 14 izmena) — `Timer.periodic(120ms)` → `Timer.periodic(200ms)` sa rationale comment. 8.3 Hz → 5 Hz refresh, ~40% manje GPU/CPU overhead.
 
 ---
 

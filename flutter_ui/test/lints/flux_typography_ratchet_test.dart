@@ -56,7 +56,10 @@ import 'package:flutter_test/flutter_test.dart';
 /// snack content jer SnackBar-default Theme nije FluxForge-tokenized.
 /// Bumped 2026-05-10 (Sprint 14 Helix Faza 4.B.4) +1 za `_ModeIndicator`
 /// label u Omnibar-u (monospace 9px, weight 800 — dock-density tier).
-const int _kRawTextStyleBaseline = 9253;
+// Bumped 2026-05-10 (Sprint 14 Helix Faza 4.B.6) +4 za keyboard cheatsheet
+// dialog (`_KeysGroup` + dialog header) — header label, group title,
+// keyboard hint pill, description text.
+const int _kRawTextStyleBaseline = 9257;
 
 /// Frozen baseline za `fontFamily:` referenca van theme/.
 /// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` `'monospace'`
@@ -71,7 +74,9 @@ const int _kRawTextStyleBaseline = 9253;
 /// konzistentno sa drugim status pillovima u dock-u.
 /// Bumped 2026-05-10 (Sprint 14 Helix Faza 4.B.4) +1 za `_ModeIndicator`
 /// monospace label.
-const int _kRawFontFamilyBaseline = 1226;
+// Bumped 2026-05-10 (Sprint 14 Helix Faza 4.B.6) +4 za keyboard cheatsheet
+// monospace stilove (header + group title + key pill + description).
+const int _kRawFontFamilyBaseline = 1230;
 
 /// Frozen baseline za `fontSize:` referenca van theme/.
 /// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` 9px label
@@ -85,7 +90,9 @@ const int _kRawFontFamilyBaseline = 1226;
 /// label (matches dock-density tier).
 /// Bumped 2026-05-10 (Sprint 14 Helix Faza 4.B.4) +1 za `_ModeIndicator`
 /// 9px label.
-const int _kRawFontSizeBaseline = 8810;
+// Bumped 2026-05-10 (Sprint 14 Helix Faza 4.B.6) +4 za keyboard cheatsheet
+// fontSize-ove (header 13px, group title 10px, key pill 10px, desc 10px).
+const int _kRawFontSizeBaseline = 8814;
 
 const Set<String> _kExcludedPathPrefixes = <String>{
   'theme/',
