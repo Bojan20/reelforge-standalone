@@ -49,7 +49,9 @@ const int _kRawDurationMsBaseline = 950;
 /// (3s) + G.21 blend preview (2s × 2 paths).
 /// Bumped 2026-05-10 (Sprint 12 G grupa) +7 za G.16 (3× snackbar 2-3s),
 /// G.19 (3s + dialog), G.13 (—), G.15 (3s snackbar).
-const int _kRawDurationSecBaseline = 213;
+/// Bumped 2026-05-10 (Sprint 14 Helix Faza 4.A.2) +1 za WIP feature
+/// SnackBar duration 2s u `_showFeatureWipToast`.
+const int _kRawDurationSecBaseline = 214;
 
 /// Frozen baseline za `Curves.<name>` referenca.
 const int _kRawCurvesBaseline = 148;

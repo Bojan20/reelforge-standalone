@@ -50,7 +50,11 @@ import 'package:flutter_test/flutter_test.dart';
 /// body) ne pokrivaju ovu density tier (dock UI density), pa su inline
 /// styles privremeno opravdani; kad token paleta dobije .dockLabel /
 /// .dockMono varijante migration je trivial.
-const int _kRawTextStyleBaseline = 9251;
+/// Bumped 2026-05-10 (Sprint 14 Helix Faza 4.A.2) +1 za WIP feature
+/// SnackBar (`_showFeatureWipToast`) koji zameni dead `() {}` na 6 stub
+/// dock tabova (SFX/BT/DNA/AI/CLOUD/A/B). Inline TextStyle za monospace
+/// snack content jer SnackBar-default Theme nije FluxForge-tokenized.
+const int _kRawTextStyleBaseline = 9252;
 
 /// Frozen baseline za `fontFamily:` referenca van theme/.
 /// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` `'monospace'`
@@ -60,7 +64,10 @@ const int _kRawTextStyleBaseline = 9251;
 /// trimMs, file size KB/MB, duration s, dB readout). Monospace je
 /// canonical kod numerical readout-a; FluxForgeTheme.monoFontFamily
 /// migration prati .dockMono token kreaciju.
-const int _kRawFontFamilyBaseline = 1224;
+/// Bumped 2026-05-10 (Sprint 14 Helix Faza 4.A.2) +1 za WIP toast u
+/// `_showFeatureWipToast` — monospace fontFamily da snack izgleda
+/// konzistentno sa drugim status pillovima u dock-u.
+const int _kRawFontFamilyBaseline = 1225;
 
 /// Frozen baseline za `fontSize:` referenca van theme/.
 /// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` 9px label
@@ -70,7 +77,9 @@ const int _kRawFontFamilyBaseline = 1224;
 /// parameter editor (sve 7–11px brojeve mapirano na .label/.labelTiny/
 /// .mono token, ali dok token paleta ne pokriva 7px tier, inline
 /// fontSize ostaje. Sve manje od FluxForgeTheme.body (12px)).
-const int _kRawFontSizeBaseline = 8808;
+/// Bumped 2026-05-10 (Sprint 14 Helix Faza 4.A.2) +1 za WIP toast 11px
+/// label (matches dock-density tier).
+const int _kRawFontSizeBaseline = 8809;
 
 const Set<String> _kExcludedPathPrefixes = <String>{
   'theme/',

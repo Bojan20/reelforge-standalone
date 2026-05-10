@@ -1,6 +1,12 @@
 # HELIX — Master TODO
-> Updated: 2026-04-16 | Branch: feature/slotlab-ultimate-mockup
+> Updated: 2026-05-10 (Sprint 14 deep audit) | Branch: main
 > HELIX = Jedini ekran koji ti treba. Editovanje + Monitoring + Authoring.
+>
+> **STATUS:** Faze 1–3 deklarisane kao "100% kompletno" 2026-04-16, ALI dubok
+> audit 2026-05-10 (6 paralelnih agenata × 27,832 LOC) je otkrio da je veći
+> deo "kompletnog" zapravo SCAFFOLD bez wired-quick-actions, sa mem leak-ovima,
+> race conditions, monolitnom arhitekturom (14013 LOC) i 0 unit testova za
+> core screen. **Faza 4 ispod sadrži stvarno stanje + akcioni plan.**
 
 ---
 
@@ -220,3 +226,284 @@ AiGenerationService ─────── Prompt→Audio pipeline, FFNC classify
 - helix_screen.dart: ~5800+ LOC (full authoring + advanced environment)
 - 12 dock tabs: FLOW, AUDIO, MATH, TIMELINE, INTEL, EXPORT + SFX, BT, DNA, AI GEN, CLOUD, A/B
 - All providers wired to real APIs, zero fake data
+
+---
+
+## ⚠️ FAZA 4 — DUBOKI AUDIT 2026-05-10 (Sprint 14)
+
+> **Boki direktiva:** "ne radi mi kako treba i ne svidja mi se kako intuitivno
+> funkcionise i izgleda. pustis agente na sve moguce u helixu i duboka
+> najdublja analiza kolko god vremena da treba. nista nemoj da preskaces.
+> Imperativ!"
+>
+> **Skup**: 6 paralelnih agenata × 27,832 LOC (Flutter UI 21k + Rust 6.3k).
+> Trenutni file size: helix_screen.dart = **14,013 LOC monolit** (ne 5800
+> kako tvrdi Faza 3 scorecard — fajl je porastao 2.4× u međuvremenu).
+
+### 4.0 Headline nalazi — kontekst za sve ispod
+
+| Oblast | Status | Headline |
+|--------|--------|----------|
+| **UX / intuitivnost** | 🔴 LOŠ | 6/13 dock tabova izgledaju funkcionalno ali su `() {}`. 13 keyboard shortcuts skriveno. Event Nexus = cognitive overload. |
+| **Vizuelno** | 🟠 MEDIUM | 9 hex literala mimo theme, 60+ raw fontSize, 35+ raw Duration, generic logo gradient, glass morphism overuse |
+| **Funkcionalnost** | 🔴 LOŠ | Tabovi 6-12 paneli postoje ali quick actions stub. State persistence FALI. 5 nested try-catch u Audio panelu. 19 TODO/FIXME. |
+| **Arhitektura** | 🔴 LOŠ | 14013 LOC monolit. 240× setState, 140× GetIt, 21× Consumer bez `.select()`. Monolith eksplodira na sledećem feature-u. |
+| **Code quality** | 🔴 KRITIČNO | **5 memory leak-ova** (removeListener missing), 4 silent catch-all, 1 race condition, **0 unit testova za core screen**. |
+| **Rust audio thread** | 🟠 MEDIUM | spin_loop bez bounded retry, 12× format!() u compliance hot path, Vec alloc u drain_into(). helix_graph.rs = 0 testova. |
+| **Šta radi dobro** | 🟢 OK | Rust 100% deterministički, lock-free SPSC/MPSC, voice manager pravilan, Predictive engine je inovacija, HxBus testovi (15) |
+
+---
+
+### 4.A — CRITICAL fix-evi (4–6 sati ukupno)
+
+> Sve P0. Stop curenju memorije, fix race conditions, wire dead UI elements.
+
+#### A.1 — 5 `removeListener()` u dispose() — ✅ VERIFIED FALSE POSITIVE 2026-05-10
+
+> Audit agent halucinirao. Manual verifikacija pokazala da svi 5 widget-a IMAJU
+> proper `removeListener()` u dispose(). Vidi linije: 3847, 4161, 4517, 5164,
+> 5441 (sa `?.` null safety), 7028. Nema akcije potrebne.
+
+- [x] `_BehaviorTreeViewState` — line 3847 ✓ (verifikovano)
+- [x] `_AudioDnaPanelState` (_proj) — line 4161 ✓
+- [x] `_ExportPanelState` (_aiService) — line 4517 ✓
+- [x] `_ExportPanelState` (_cloud) — line 5164 ✓
+- [x] `_ABSimPanelState` — line 5441 ✓ (sa `?.`)
+- [x] `_ExportPanelState` (_proj) — line 7028 ✓
+
+#### A.2 — Wire stub dock tabova quick actions (1 sat) — ✅ FIXED 2026-05-10
+
+- [x] `_quickActionsForTab()` `default:` case (`helix_screen.dart:2453-2474`) → `onTap: () {}` zamenjeno sa `_showFeatureWipToast(tabName, action: 'RUN'/'RESET')` sa explicit "WIP — coming in next sprint" SnackBar porukom
+- [x] `_dockTabDisplayName(int tab)` helper za sve 13 tabova (linija 2477)
+- [x] `_showFeatureWipToast(String, {String? action})` helper sa `ScaffoldMessenger` + monospace 11px label (linija 2495)
+- [ ] **Future:** wire-ovati stvarne handler-e (kad feature stigne):
+  - SFX tab (case 6) → `SfxPipelineProvider.runWizardStep()` + reset
+  - BT tab (case 7) → `HelixBtCanvasProvider.runSelected()` + clear canvas
+  - DNA tab (case 8) → `_AudioDnaPanelState.applyToProject()` + reset
+  - AI tab (case 9) → `AiComposerService.startAudioBatch()` + abort
+  - CLOUD tab (case 10) → `CloudSyncService.syncAll()` + cancel
+  - AB tab (case 11) → `AbSimProvider.runSimulation()` + reset
+
+#### A.3 — State persistence (`SharedPreferences`) — ✅ FIXED 2026-05-10
+
+- [x] `_dockTab` → save/load preko `_kPrefDockTab` ('helix.dockTab')
+- [x] `_mode` → save/load preko `_kPrefMode` ('helix.mode'), validacija 0–3 range
+- [x] `_spineOpen` (bool) + `_spineIndex` (int) → save/load preko 2 prefs key-a
+- [x] `_dockExpanded` → save/load preko `_kPrefDockExpanded`
+- [x] `_restoreSession()` u `initState()` (linija 343) — async load sa mounted check + setState
+- [x] `_persistSession()` u `dispose()` (linija 635) — fire-and-forget write
+- [x] Error handling: `.catchError` sa debugPrint na oba puta
+- [ ] `_dockHeightCompose / _dockHeightArchitect` drag-resize — odloženo (per-mode logika je složenija)
+
+#### A.4 — Eliminisati 4 catch-all blokova (45 min) — 🟡 PARTIAL 2026-05-10
+
+- [ ] `helix_screen.dart:285` — `_resolveSlotPreviewRect()` `catch (_) { /* Fall through */ }` — postoji explicit fallback na constants ispod (linije 288-296), nije true catch-all; LOW priority
+- [x] `helix_screen.dart:936` — keyboard handler — `catch (_) {}` → `catch (e) { debugPrint('[HELIX KEY] stage trigger failed: $e'); }`
+- [ ] `helix_screen.dart:5725` — AB sim catch — verifikovati da li je legit fallback ili dead silent
+- [ ] `helix_event_nexus.dart:301` — `_stopAll()` `catch (_) { /* ignore */ }` — odlučno ignore zato što stop is best-effort, niži prioritet; možemo dodati debug log
+- [ ] `quick_assign_hotbar.dart:227` — audition catch — verifikovati
+
+#### A.5 — Rust audio thread hardening (2 sata)
+- [ ] `helix_bus.rs:684` — bounded spin retry (max 10 iter, pa drop) umesto beskonačnog `spin_loop()`
+- [ ] `helix_bus.rs:698-715` — `drain_into()` `Vec::reserve` + `push` → fixed-size output ring buffer (zero alloc na audio thread)
+- [ ] `helix_compliance.rs:751..1066` — 12× `format!()` → `heapless::String<256>` ili pre-allocated buffers
+- [ ] `helix_voice.rs:1019-1046` — test `vec![0.0f64; 256]` → `[0.0f64; 256]` stack arrays (validate true zero-alloc path)
+
+#### A.6 — Race condition fix u `_visionInitTimer` — ✅ VERIFIED OK 2026-05-10
+
+> Audit agent flagged ali manual verifikacija (linije 399-409) je pokazala
+> da Timer već ima `if (!mounted) return` posle SVAKOG await-a:
+>   - linija 399 (pre Timer setup)
+>   - linija 400 (start of Timer callback)
+>   - linija 403 (posle `await vision.init()`)
+> `vision.captureFullWindow()` ne koristi BuildContext → safe i bez ekstra
+> guard-a. Timer se cancel-uje u dispose() (linija 630). Nema akcije.
+
+- [x] Verified safe — proper mounted checks oko async gap-a
+
+#### A.7 — Bang operator null-safety (30 min)
+- [ ] `helix_screen.dart:3603` — `m.stageId!.isNotEmpty` → `m.stageId?.isNotEmpty ?? false`
+- [ ] `helix_screen.dart:3649` — `sfx.result!.files.length` → `sfx.result?.files.length ?? 0`
+- [ ] `helix_screen.dart:5601, 5676-5677` — variants[0] → `.firstOrNull` sa default
+- [ ] `helix_screen.dart:7137` — chained nested null bang → cache reference
+- [ ] `helix_screen.dart:7288-7290` — `_lastExportResult!.startsWith()` → `?.startsWith() ?? false`
+
+---
+
+### 4.B — Visible polish (3–4 sata ukupno)
+
+> Što Boki direktno vidi kao "premium" umesto "prototype".
+
+#### B.1 — Brand identity (45 min)
+- [ ] `helix_screen.dart:1376` — generic blue→purple logo gradient → `FluxForgeTheme.brandGradient` (gold→ivory)
+- [ ] `helix_screen.dart:1384-1385` — hardcoded shadow spreadRadius → `FluxForgeTheme.focusGlow`
+- [ ] Logo veličina 26×26 → 32×32 sa subtle shimmer animacijom
+
+#### B.2 — Theme token migracija (1.5 sata)
+- [ ] `helix_omnibar_atoms.dart:55` — `Duration(milliseconds: 120)` → `FluxForgeTheme.fastDuration`
+- [ ] `helix_dock_widgets.dart:62, 143` — 2× hex literal → `FluxForgeTheme.glassBorder` / `bgVoid`
+- [ ] `helix_minimode_widgets.dart:61` — `Color(0xFFFF4444)` → `FluxForgeTheme.accentRed`
+- [ ] `stage_flow_strip.dart:68` — hex bgVoid → token
+- [ ] `helix_screen.dart:1067, 1094, 2081` — 3× hex literal → tokens (bgDeepest, borderSubtle, glassDecoration)
+- [ ] `audio_coverage_badge.dart:85` — hex tooltip bg → `FluxForgeTheme.bgVoid`
+- [ ] `helix_omnibar_atoms.dart:124`, `helix_dock_widgets.dart:86` — raw `fontSize: 11` → `FluxForgeTheme.fontSizeLabel`
+- [ ] 60+ raw `fontSize:` u helix_screen.dart → batch migracija na `FluxForgeTheme.body / .label / .mono / .h1`
+- [ ] 35+ raw `Duration(milliseconds: ...)` → `FluxMotion.*` tokens
+
+#### B.3 — Disabled state za 6 stub tabova (30 min)
+- [ ] SFX, BT, DNA, AI GEN, CLOUD, A/B → 60% opacity, strikethrough label, disabled cursor
+- [ ] Klik → `_showFeatureComingToast('SFX coming in Sprint 15')` umesto silent dead button
+
+#### B.4 — Mode badge u Omnibar (30 min)
+- [ ] Persistent COMPOSE/FOCUS/ARCHITECT badge levo od BPM
+- [ ] Keyboard hint inline ("F: Focus, A: Architect")
+- [ ] Animated transition pri mode switch
+
+#### B.5 — Tooltip-i za 13 dock tabova (20 min)
+- [ ] FLOW → "Game state transitions + feature mechanics"
+- [ ] AUDIO → "Event matrix — 281 stages, per-layer parameter editor"
+- [ ] MATH → "RTP verification + paytable analysis"
+- [ ] TIMELINE → "Stage sequence playback + replay"
+- [ ] INTEL → "AI co-pilot + RGAI compliance + neuro audio"
+- [ ] EXPORT → "Batch export to Wwise/FMOD/Unity/Unreal/Godot"
+- [ ] SFX → "Sound FX pipeline (coming Sprint 15)"
+- [ ] BT → "Behavior Tree editor (coming Sprint 15)"
+- [ ] DNA → "Audio DNA fingerprint (coming Sprint 15)"
+- [ ] AI GEN → "AI audio generation (coming Sprint 15)"
+- [ ] CLOUD → "Cloud sync (coming Sprint 15)"
+- [ ] A/B → "A/B split testing (coming Sprint 15)"
+- [ ] COMPOSER → "Multi-provider AI composer"
+
+#### B.6 — Keyboard shortcut discoverability (30 min)
+- [ ] Persistent hint "1-9: Tabs" badge dole desno u dock tab bar
+- [ ] Cmd+? otvara cheatsheet dialog sa svim shortcuts
+- [ ] First-launch tooltip "Press Shift+Cmd+\\ to toggle Spine"
+
+#### B.7 — Waveform performance (5 min)
+- [ ] `helix_screen.dart:361` — `Timer.periodic(Duration(milliseconds: 120))` → 200ms (5 Hz → 3.33 Hz, manje GPU overhead na 120Hz displej)
+
+---
+
+### 4.C — Strukturni refactor (2–3 dana)
+
+> Razlomiti monolit. Bez ovoga, sledeći feature dodaje 200-300 LOC u `_HelixScreenState` i još 5-10 GetIt poziva.
+
+#### C.1 — Split `_HelixScreenState` u 5 providera (1 dan)
+- [ ] `OmnibarState` — BPM, grid, project name, mode, undo/redo state
+- [ ] `CanvasState` — slot preview state, win lines, anticipation glow, animation controllers
+- [ ] `DockState` — dockTab, dockHeight, quickActions, panel cache
+- [ ] `SpineState` — spineOpen, spineIndex, overlay panels
+- [ ] `HelixUIState` — kombinujući read-only provider za widgets koji čitaju cross-state
+
+#### C.2 — Extract 13 dock tab panela u zasebne fajlove (1 dan)
+- [ ] `flutter_ui/lib/screens/helix/dock_panels/flow_panel.dart` (extract iz _FlowPanel 2604-3326)
+- [ ] `audio_panel.dart` — već postoji `_AudioPanel` (5707+) → file split
+- [ ] `math_panel.dart`
+- [ ] `timeline_panel.dart`
+- [ ] `intel_panel.dart` — extract iz `_AudioContextPanel` (5785-6900)
+- [ ] `export_panel.dart` — extract iz 6900-8500+
+- [ ] `sfx_panel.dart` (extract iz `_SfxPipelinePanel` 3326-3792)
+- [ ] `bt_panel.dart` (extract iz `_BehaviorTreePanel` 3792-4130)
+- [ ] `dna_panel.dart` (extract iz `_AudioDnaPanel` 4130-4480)
+- [ ] `ai_panel.dart` (extract iz `_AiGenerationPanel` 4480-5144)
+- [ ] `cloud_panel.dart` (extract iz `_CloudSyncPanel` 5144-5406)
+- [ ] `ab_panel.dart` (extract iz `_AbTestPanel` 5406-5600)
+- [ ] `composer_panel.dart` (postoji, sad iz dock-a)
+- [ ] **Cilj**: `helix_screen.dart` 14013 → ~700 LOC (samo layout shell + state machine)
+
+#### C.3 — `Consumer` → `Selector` granularnost (4 sata)
+- [ ] 21 `Consumer/ListenableBuilder` lokacije → `Selector<Provider, SelectedType>`
+- [ ] Cilj: 1 promena = 3-5 rebuilds umesto 21
+- [ ] Posebna pažnja: GameFlowProvider listener-i (najveći fan-out)
+
+#### C.4 — `RepaintBoundary + KeepAlive` na Canvas (2 sata)
+- [ ] `PremiumSlotPreview` (helix_screen.dart:1820+) → wrap u `RepaintBoundary`
+- [ ] AnimationController glow loop → pause kad je off-screen (`VisibilityDetector`)
+
+#### C.5 — Eliminisati GetIt antipattern (4 sata)
+- [ ] 140× `GetIt.instance<X>()` u helix_screen → migracija na `context.read<X>()` / `context.watch<X>()`
+- [ ] Zadržati GetIt SAMO za `NativeFFI` (audio thread singleton)
+
+---
+
+### 4.D — Test coverage (1 dan)
+
+> 0 unit testova za 14k LOC core screen. Rust helix_graph: 0 testova.
+
+#### D.1 — Rust helix_graph testovi (4 sata)
+- [ ] `crates/rf-engine/tests/helix_graph_test.rs` — 20+ testova
+- [ ] Node add/remove/connect
+- [ ] Cycle detection (`has_cycle()`)
+- [ ] Topological sort correctness
+- [ ] RTPC curve evaluation (linear/exp/log/sCurve)
+- [ ] Graph version increment (live edit)
+- [ ] Depth level computation
+- [ ] Determinism (multi-run identical output)
+
+#### D.2 — Flutter Helix lifecycle testovi (3 sata)
+- [ ] `test/helix_screen_lifecycle_test.dart` — Timer/Controller/Listener cleanup
+- [ ] `test/helix_keyboard_test.dart` — sve 13 shortcut rute
+- [ ] `test/helix_bt_canvas_provider_test.dart` — add/move/delete/connect/cycle
+
+#### D.3 — Async edge case testovi (2 sata)
+- [ ] `_visionInitTimer` race condition (mount/unmount mid-await)
+- [ ] `_resolveSlotPreviewRect()` GlobalKey null fallback
+- [ ] Provider listener cleanup verification
+
+---
+
+### 4.E — TODO inventory (closeout)
+
+> 19 TODO/FIXME u Helix kodu. Određeni već implementirani ali komentari ne ažurirani.
+
+- [ ] Line 46, 79, 141, 217, 636, 1515, 1566 — FLUX_MASTER_TODO 2.1.7 (REELS×ROWS inline edit) — closeout/implement
+- [ ] Line 382, 1519 — FLUX_MASTER_TODO 3.4.1 (live compliance poll) — verify status, close ako radi
+- [ ] Line 1527 — FLUX_MASTER_TODO 3.6.1 (Audio Coverage Badge) — verify
+- [ ] Line 1864 — FLUX_MASTER_TODO 0.5 D.1 (Reel cell as audio bind target) — verify, close
+- [ ] Line 2171 — TODO(URP-future) (Plugin marketplace) — defer to URP
+- [ ] Line 2332 — FLUX_MASTER_TODO 0.5 G.7 (Hot-reload audio assets) — IMPLEMENTIRANO, obrisati TODO
+- [ ] Line 7913 — FLUX_MASTER_TODO 1.2.1 (_stageToEvent map mutual eviction) — verify
+
+---
+
+### 4.F — Public API design issues (Rust)
+
+> helix_bus / helix_graph / helix_compliance / helix_voice javni API može da bude čistiji.
+
+- [ ] `helix_bus.rs:815, 826, 840` — `HxPublisher.publish() -> bool` → `Result<(), HxBusError>`
+- [ ] `helix_bus.rs:461, 635` — `unsafe impl Sync` → newtype wrapper sa type-system enforcement (HxRingBufferSpsc / HxStagingAreaMpsc)
+- [ ] `helix_bus.rs:392-428` — `HxFilter::Channels(bitmask)` → `HxFilterBuilder::new().channel().build()`
+- [ ] `helix_bus.rs:1243-1260` — `unsafe { &self.payload.mixed }` → sealed enum `HxPayload`
+- [ ] `helix_graph.rs:647-654` — `node_mut()` → `set_param()` / `set_name()` koji bumpaju version
+- [ ] `helix_compliance.rs:441-469` — `AudioEventContext` 12 Option polja → builder pattern
+- [ ] `helix_voice.rs:371-396` — `activate()` → `Result<(), HxVoiceError>` umesto void
+
+---
+
+### 4.G — Magic constants i dead code
+
+- [ ] `helix_screen.dart:141-145` — `_kSlotGridWidthRatio = 0.6` itd. → dynamic LayoutBuilder lookup
+- [ ] `helix_screen.dart:307` — `2500` (win line fade) → constant na vrhu
+- [ ] `helix_screen.dart:308` — `3000` (win line clear) → constant
+- [ ] `helix_screen.dart:601` — `60` (playhead timer) → constant
+- [ ] `helix_screen.dart:234-235` — `_reelLensReel`, `_reelLensRow` — verify usage, remove ako dead
+- [ ] `helix_screen.dart:673` — `static bool _demoSeedDone` global flag → `SlotLabProjectProvider._seedTimestamp` per-project
+
+---
+
+## 4.X — Sažetak prioriteta
+
+| Faza | Effort | Impact | Status |
+|------|--------|--------|--------|
+| **4.A — Critical fixes** | 4–6 sati | Stop curenju memorije, race fix, dead UI wire | 🔴 OTVORENO |
+| **4.B — Visible polish** | 3–4 sata | "Premium" osećaj umesto "prototype" | 🟠 OTVORENO |
+| **4.C — Strukturni refactor** | 2–3 dana | Monolit split, dock panel extract | 🟡 OTVORENO |
+| **4.D — Test coverage** | 1 dan | 0 → 50+ testova | 🟡 OTVORENO |
+| **4.E — TODO closeout** | 2 sata | 19 stale TODO-ja | 🟢 OTVORENO |
+| **4.F — Rust API design** | 1 dan | Čišći public API, type-safe error handling | 🟢 OTVORENO |
+| **4.G — Magic constants** | 2 sata | Dynamic resize support, dead code purge | 🟢 OTVORENO |
+
+**Ukupno: ~5 dana rada za Helix da ide iz "ne radi mi i ne sviđa mi se" → "premium, intuitivan, stabilan".**
+
+> Sledeći potez: Faza A (4–6 sati) može početi odmah. High-impact, low-risk.
+> Sve A1–A7 stavke su precizno lokalizovane (file:line) — direktno fix bez novih audita.

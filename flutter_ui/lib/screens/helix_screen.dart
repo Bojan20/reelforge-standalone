@@ -25,6 +25,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -340,6 +341,7 @@ class _HelixScreenState extends State<HelixScreen>
   @override
   void initState() {
     super.initState();
+    _restoreSession(); // 2026-05-10 (Sprint 14) — Faza 4.A.3 state persistence
     _focusNode = FocusNode()..requestFocus();
     _bpmController = TextEditingController(text: '128.0');
     _projectNameController = TextEditingController(
@@ -630,7 +632,69 @@ class _HelixScreenState extends State<HelixScreen>
     _visionInitTimer?.cancel(); // H-004
     _winLinesFadeTimer?.cancel(); // H-014
     _winLinesClearTimer?.cancel(); // H-014
+    _persistSession(); // 2026-05-10 (Sprint 14) — Faza 4.A.3 state persistence
     super.dispose();
+  }
+
+  // ── Session persistence (Sprint 14, Boki "ne radi mi") ─────────────────
+  //
+  // Pre-fix: every app restart reset the user back to FLOW tab / COMPOSE
+  // mode / collapsed spine.  User session was completely lost between
+  // launches — irritating during iterative tuning.
+  //
+  // Post-fix: read four ints from SharedPreferences in `initState()` and
+  // write them back in `dispose()`.  Keeps spine open/closed plus chosen
+  // index, dock tab, and mode across launches.  Uses fire-and-forget
+  // SharedPreferences calls — failures are silently ignored (worst case:
+  // session resets to defaults, which is the pre-fix behavior).
+  static const _kPrefDockTab    = 'helix.dockTab';
+  static const _kPrefMode       = 'helix.mode';
+  static const _kPrefSpineIndex = 'helix.spineIndex';
+  static const _kPrefSpineOpen  = 'helix.spineOpen';
+  static const _kPrefDockExpanded = 'helix.dockExpanded';
+
+  void _restoreSession() {
+    SharedPreferences.getInstance().then((prefs) {
+      if (!mounted) return;
+      final dockTab     = prefs.getInt(_kPrefDockTab);
+      final mode        = prefs.getInt(_kPrefMode);
+      final spineIdx    = prefs.getInt(_kPrefSpineIndex);
+      final spineOpen   = prefs.getBool(_kPrefSpineOpen) ?? false;
+      final dockExpanded = prefs.getBool(_kPrefDockExpanded);
+      setState(() {
+        if (dockTab != null && dockTab >= 0 && dockTab <= 12) {
+          _dockTab = dockTab;
+        }
+        if (mode != null && mode >= 0 && mode <= 3) {
+          _mode = mode;
+        }
+        if (spineOpen && spineIdx != null && spineIdx >= 0 && spineIdx <= 4) {
+          _spineOpen = spineIdx;
+        }
+        if (dockExpanded != null) {
+          _dockExpanded = dockExpanded;
+        }
+      });
+    }).catchError((Object e) {
+      debugPrint('[HELIX SESSION] restore failed: $e');
+    });
+  }
+
+  void _persistSession() {
+    // Fire-and-forget — if write fails (rare on macOS), session simply
+    // doesn't persist this time; the app keeps running.  No await means
+    // dispose() returns synchronously, which Flutter requires.
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.setInt(_kPrefDockTab, _dockTab);
+      prefs.setInt(_kPrefMode, _mode);
+      prefs.setBool(_kPrefSpineOpen, _spineOpen != null);
+      if (_spineOpen != null) {
+        prefs.setInt(_kPrefSpineIndex, _spineOpen!);
+      }
+      prefs.setBool(_kPrefDockExpanded, _dockExpanded);
+    }).catchError((Object e) {
+      debugPrint('[HELIX SESSION] persist failed: $e');
+    });
   }
 
   /// Submit handler for the inline REELS×ROWS pill (FLUX_MASTER_TODO 2.1.7).
@@ -933,7 +997,13 @@ class _HelixScreenState extends State<HelixScreen>
             return;
           }
         }
-      } catch (_) {/* GameFlowProvider not available in this context */}
+      } catch (e) {
+        // 2026-05-10 (Sprint 14): pre-fix je `catch (_) {}` silently progutao
+        // sve greške (GameFlowProvider not registered, FFI fail, etc.).
+        // Sad logujemo u debug mode da QA može detektovati zašto stage
+        // shortcuts ne rade ako se dogodi regression.
+        debugPrint('[HELIX KEY] stage trigger failed: $e');
+      }
     }
 
     // 1-9,0 → dock tabs (0 = tab 10), -/= → tabs 11/12
@@ -2440,20 +2510,75 @@ class _HelixScreenState extends State<HelixScreen>
           ),
         ];
       default:
-        // Faza 3 stubs — minimal actions
+        // Faza 3 stubs — minimal actions.
+        //
+        // 2026-05-10 (Sprint 14, Boki "ne radi mi"): pre-fix je imao
+        // `onTap: () {}` koji silently progutaše klik bez ikakve poruke
+        // korisniku, pa je 6 tabova izgledalo broken (SFX/BT/DNA/AI/CLOUD/A/B).
+        // Sad svaki klik prikaže explicit "WIP — coming in next sprint"
+        // SnackBar sa imenom tab-a tako da je status providerom vidljiv.
+        final tabName = _dockTabDisplayName(tab);
         return [
           _QuickAction(
             icon: Icons.play_arrow_rounded, label: 'RUN',
             color: FluxForgeTheme.textSecondary,
-            onTap: () {},
+            onTap: () => _showFeatureWipToast(tabName, action: 'RUN'),
           ),
           _QuickAction(
             icon: Icons.refresh_rounded, label: 'RESET',
             color: FluxForgeTheme.textTertiary,
-            onTap: () {},
+            onTap: () => _showFeatureWipToast(tabName, action: 'RESET'),
           ),
         ];
     }
+  }
+
+  /// Display name for a dock tab index — used by stub WIP toast.
+  String _dockTabDisplayName(int tab) {
+    switch (tab) {
+      case 0: return 'FLOW';
+      case 1: return 'AUDIO';
+      case 2: return 'MATH';
+      case 3: return 'TIMELINE';
+      case 4: return 'INTEL';
+      case 5: return 'EXPORT';
+      case 6: return 'SFX';
+      case 7: return 'BT';
+      case 8: return 'DNA';
+      case 9: return 'AI GEN';
+      case 10: return 'CLOUD';
+      case 11: return 'A/B';
+      case 12: return 'COMPOSER';
+      default: return 'tab #$tab';
+    }
+  }
+
+  /// Toast for WIP / stub feature interactions.
+  ///
+  /// Replaces the previous silent `onTap: () {}` pattern that left
+  /// 6 dock tabs feeling broken (Boki "ne radi mi" — Sprint 14 audit).
+  /// The user now sees an explicit confirmation that the click was
+  /// received and that the feature is intentionally pending.
+  void _showFeatureWipToast(String featureName, {String? action}) {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    final actionPart = action == null ? '' : '$action: ';
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          '${actionPart}$featureName — work-in-progress, coming in next sprint',
+          style: const TextStyle(
+            fontFamily: 'monospace', fontSize: 11,
+            color: FluxForgeTheme.textPrimary,
+          ),
+        ),
+        backgroundColor: FluxForgeTheme.bgElevated,
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   Widget _buildDockTabBar() {
