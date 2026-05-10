@@ -364,10 +364,15 @@ slediće u budućim sprintovima.
   - TextStyle: 9257 → **9227** (-30)
   - fontFamily: 1230 → **1204** (-26)
   - fontSize: 8814 → **8784** (-30)
-- [ ] Migracija ostatka helix/ panela (spine_game_config.dart 112, ai_gen_panel
-  28, sfx_panel 24, flow_panel 23, export_panel 22, …) — odložena, koristi
-  isti `dockMono/dockSans` pattern; svaka migracija spušta ratchet baseline
-  za pun broj uklonjenih `TextStyle(` literala.
+- [x] **B.2 batch 2 — ai_gen + sfx + flow paneli** — agent-driven
+  migration: `ai_gen_panel.dart` (-28 TextStyle / -28 fontSize / -28
+  fontFamily), `sfx_panel.dart` (-19 / -19 / -19), `flow_panel.dart`
+  (-20 / -20 / -16; 4 dockSans bez monospace). Ukupno -75 TextStyle,
+  -75 fontSize, -72 fontFamily. Posle batch 2 baseline:
+  TextStyle 9152, fontFamily 1132, fontSize 8709.
+- [ ] Preostali helix/ paneli (spine_game_config.dart 112×, export_panel
+  22×, spine_audio_assign 18×, spine_misc 17×, ab_panel 17×, context_lenses
+  17×, intel_panel 13×, audio_panel 13×, …) — sledeći Sprint 16 batch-evi.
 - [ ] 35+ raw `Duration(milliseconds: ...)` → `FluxForgeTheme.fastDuration/
   normalDuration/slowDuration` tokens — odloženo, motion ratchet pokriva.
 

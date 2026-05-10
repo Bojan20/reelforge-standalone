@@ -212,7 +212,7 @@ class _AiGenerationPanelState extends State<_AiGenerationPanel> {
             const SizedBox(width: 4),
           ],
           Text(label,
-            style: TextStyle(fontFamily: 'monospace', fontSize: 8, fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockMono(size: 8, weight: FontWeight.w600,
               color: selected ? accent : FluxForgeTheme.textTertiary)),
         ]),
       ),
@@ -271,14 +271,14 @@ class _AiGenerationPanelState extends State<_AiGenerationPanel> {
                 if (!_showSettings) ...[
                   // Backend selector
                   Row(children: [
-                    const Text('Backend: ', style: TextStyle(
-                      fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary)),
+                    Text('Backend: ', style: FluxForgeTheme.dockMono(
+                      size: 9, color: FluxForgeTheme.textTertiary)),
                     _backendChip('stub', 'STUB'),
                     _backendChip('elevenlabs_sfx', '11 SFX', isLive: true),
                     _backendChip('elevenlabs_tts', '11 TTS', isLive: true),
                     if (isElBackend && !elConfigured)
-                      const Text('  ⚠ no key',
-                        style: TextStyle(fontFamily: 'monospace', fontSize: 8,
+                      Text('  ⚠ no key',
+                        style: FluxForgeTheme.dockMono(size: 8,
                           color: FluxForgeTheme.accentYellow)),
                   ]),
                   const SizedBox(height: 8),
@@ -288,7 +288,7 @@ class _AiGenerationPanelState extends State<_AiGenerationPanel> {
                     _selectedBackend == 'elevenlabs_tts'
                       ? 'Voiceover text (e.g. "Big Win!", "Jackpot activated!"):'
                       : 'Describe the sound (e.g. "epic win fanfare, 2 seconds"):',
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 9,
+                    style: FluxForgeTheme.dockMono(size: 9,
                       color: FluxForgeTheme.textSecondary)),
                   const SizedBox(height: 6),
                   SizedBox(
@@ -296,13 +296,13 @@ class _AiGenerationPanelState extends State<_AiGenerationPanel> {
                     child: TextField(
                       controller: _promptController,
                       maxLines: 4,
-                      style: const TextStyle(fontFamily: 'monospace', fontSize: 11,
+                      style: FluxForgeTheme.dockMono(size: 11,
                         color: FluxForgeTheme.textPrimary),
                       decoration: InputDecoration(
                         hintText: _selectedBackend == 'elevenlabs_tts'
                           ? '"BIG WIN! You\'ve hit the jackpot!"'
                           : '"slot machine jackpot sound, coins, 3 seconds, triumphant"',
-                        hintStyle: TextStyle(fontFamily: 'monospace', fontSize: 9,
+                        hintStyle: FluxForgeTheme.dockMono(size: 9,
                           color: FluxForgeTheme.textTertiary.withValues(alpha: 0.45)),
                         filled: true,
                         fillColor: FluxForgeTheme.bgSurface,
@@ -332,8 +332,8 @@ class _AiGenerationPanelState extends State<_AiGenerationPanel> {
                             color: FluxForgeTheme.bgSurface,
                             borderRadius: BorderRadius.circular(3),
                             border: Border.all(color: FluxForgeTheme.borderSubtle)),
-                          child: Text(p, style: const TextStyle(
-                            fontFamily: 'monospace', fontSize: 7.5,
+                          child: Text(p, style: FluxForgeTheme.dockMono(
+                            size: 7.5,
                             color: FluxForgeTheme.textTertiary)),
                         ),
                       )).toList()),
@@ -352,8 +352,8 @@ class _AiGenerationPanelState extends State<_AiGenerationPanel> {
                             color: FluxForgeTheme.bgSurface,
                             borderRadius: BorderRadius.circular(3),
                             border: Border.all(color: FluxForgeTheme.borderSubtle)),
-                          child: Text(p, style: const TextStyle(
-                            fontFamily: 'monospace', fontSize: 7.5,
+                          child: Text(p, style: FluxForgeTheme.dockMono(
+                            size: 7.5,
                             color: FluxForgeTheme.textTertiary)),
                         ),
                       )).toList()),
@@ -397,8 +397,8 @@ class _AiGenerationPanelState extends State<_AiGenerationPanel> {
                                 : FluxForgeTheme.accentPurple),
                           const SizedBox(width: 6),
                           Text(_isGenerating ? 'GENERATING...' : 'GENERATE',
-                            style: TextStyle(fontFamily: 'monospace', fontSize: 10,
-                              fontWeight: FontWeight.w600,
+                            style: FluxForgeTheme.dockMono(size: 10,
+                              weight: FontWeight.w600,
                               color: (isElBackend && elConfigured)
                                 ? FluxForgeTheme.accentGreen
                                 : FluxForgeTheme.accentPurple)),
@@ -421,7 +421,7 @@ class _AiGenerationPanelState extends State<_AiGenerationPanel> {
                             color: FluxForgeTheme.accentGreen),
                           const SizedBox(width: 6),
                           Expanded(child: Text(_lastResultText!,
-                            style: const TextStyle(fontFamily: 'monospace', fontSize: 9,
+                            style: FluxForgeTheme.dockMono(size: 9,
                               color: FluxForgeTheme.accentGreen))),
                         ]),
                         if (_lastOutputPath != null) ...[
@@ -432,7 +432,7 @@ class _AiGenerationPanelState extends State<_AiGenerationPanel> {
                             const SizedBox(width: 4),
                             Expanded(child: Text(_lastOutputPath!,
                               maxLines: 1, overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontFamily: 'monospace', fontSize: 7.5,
+                              style: FluxForgeTheme.dockMono(size: 7.5,
                                 color: FluxForgeTheme.textTertiary))),
                           ]),
                         ],
@@ -460,7 +460,7 @@ class _AiGenerationPanelState extends State<_AiGenerationPanel> {
                 Expanded(
                   child: _pipelineLog.isEmpty
                     ? Center(child: Text('Run generation to see log',
-                        style: TextStyle(fontFamily: 'monospace', fontSize: 9,
+                        style: FluxForgeTheme.dockMono(size: 9,
                           color: FluxForgeTheme.textTertiary.withValues(alpha: 0.4))))
                     : ListView(
                         children: _pipelineLog.asMap().entries.map((e) {
@@ -471,10 +471,10 @@ class _AiGenerationPanelState extends State<_AiGenerationPanel> {
                             padding: const EdgeInsets.only(bottom: 3),
                             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                               Text('${e.key + 1}. ',
-                                style: const TextStyle(fontFamily: 'monospace', fontSize: 7.5,
+                                style: FluxForgeTheme.dockMono(size: 7.5,
                                   color: FluxForgeTheme.textTertiary)),
                               Expanded(child: Text(e.value,
-                                style: TextStyle(fontFamily: 'monospace', fontSize: 7.5,
+                                style: FluxForgeTheme.dockMono(size: 7.5,
                                   color: isError ? FluxForgeTheme.accentPink
                                     : isDone || isOk ? FluxForgeTheme.accentGreen
                                     : FluxForgeTheme.textSecondary))),
@@ -498,7 +498,7 @@ class _AiGenerationPanelState extends State<_AiGenerationPanel> {
                           color: FluxForgeTheme.accentGreen.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(4)),
                         child: Text('FETCH',
-                          style: TextStyle(fontFamily: 'monospace', fontSize: 7.5,
+                          style: FluxForgeTheme.dockMono(size: 7.5,
                             color: _aiService.elIsConfigured
                               ? FluxForgeTheme.accentGreen
                               : FluxForgeTheme.textTertiary)),
@@ -508,7 +508,7 @@ class _AiGenerationPanelState extends State<_AiGenerationPanel> {
                   const SizedBox(height: 4),
                   if (_aiService.elVoices.isEmpty)
                     Text('No voices loaded. Enter API key in ⚙️ and tap FETCH.',
-                      style: TextStyle(fontFamily: 'monospace', fontSize: 8,
+                      style: FluxForgeTheme.dockMono(size: 8,
                         color: FluxForgeTheme.textTertiary.withValues(alpha: 0.5)))
                   else
                     SizedBox(
@@ -538,13 +538,13 @@ class _AiGenerationPanelState extends State<_AiGenerationPanel> {
                                     : FluxForgeTheme.textTertiary),
                                 const SizedBox(width: 5),
                                 Expanded(child: Text(v.name,
-                                  style: TextStyle(fontFamily: 'monospace', fontSize: 9,
+                                  style: FluxForgeTheme.dockMono(size: 9,
                                     color: selected
                                       ? FluxForgeTheme.accentGreen
                                       : FluxForgeTheme.textSecondary))),
                                 if (v.category != null)
                                   Text(v.category!,
-                                    style: const TextStyle(fontFamily: 'monospace', fontSize: 7,
+                                    style: FluxForgeTheme.dockMono(size: 7,
                                       color: FluxForgeTheme.textTertiary)),
                               ]),
                             ),
@@ -573,29 +573,29 @@ class _AiGenerationPanelState extends State<_AiGenerationPanel> {
         Row(children: [
           const Icon(Icons.key_rounded, size: 12, color: FluxForgeTheme.accentGreen),
           const SizedBox(width: 6),
-          const Text('ELEVENLABS CREDENTIALS',
-            style: TextStyle(fontFamily: 'monospace', fontSize: 10,
-              fontWeight: FontWeight.w700, color: FluxForgeTheme.accentGreen)),
+          Text('ELEVENLABS CREDENTIALS',
+            style: FluxForgeTheme.dockMono(size: 10,
+              weight: FontWeight.w700, color: FluxForgeTheme.accentGreen)),
         ]),
         const SizedBox(height: 2),
-        const Text('API key stored locally in SharedPreferences — never in code or cloud.',
-          style: TextStyle(fontFamily: 'monospace', fontSize: 7.5,
+        Text('API key stored locally in SharedPreferences — never in code or cloud.',
+          style: FluxForgeTheme.dockMono(size: 7.5,
             color: FluxForgeTheme.textTertiary)),
         const SizedBox(height: 10),
 
         // API key field
-        const Text('API KEY', style: TextStyle(fontFamily: 'monospace', fontSize: 8,
+        Text('API KEY', style: FluxForgeTheme.dockMono(size: 8,
           color: FluxForgeTheme.textTertiary)),
         const SizedBox(height: 4),
         Row(children: [
           Expanded(child: TextField(
             controller: _apiKeyController,
             obscureText: _obscureKey,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 10,
+            style: FluxForgeTheme.dockMono(size: 10,
               color: FluxForgeTheme.textPrimary),
             decoration: InputDecoration(
               hintText: 'sk_...',
-              hintStyle: TextStyle(fontFamily: 'monospace', fontSize: 9,
+              hintStyle: FluxForgeTheme.dockMono(size: 9,
                 color: FluxForgeTheme.textTertiary.withValues(alpha: 0.4)),
               filled: true,
               fillColor: FluxForgeTheme.bgDeepest,
@@ -616,17 +616,17 @@ class _AiGenerationPanelState extends State<_AiGenerationPanel> {
         const SizedBox(height: 8),
 
         // Voice ID field (for TTS)
-        const Text('VOICE ID  (for TTS — leave blank to select from list)',
-          style: TextStyle(fontFamily: 'monospace', fontSize: 8,
+        Text('VOICE ID  (for TTS — leave blank to select from list)',
+          style: FluxForgeTheme.dockMono(size: 8,
             color: FluxForgeTheme.textTertiary)),
         const SizedBox(height: 4),
         TextField(
           controller: _voiceIdController,
-          style: const TextStyle(fontFamily: 'monospace', fontSize: 10,
+          style: FluxForgeTheme.dockMono(size: 10,
             color: FluxForgeTheme.textPrimary),
           decoration: InputDecoration(
             hintText: 'e.g. 21m00Tcm4TlvDq8ikWAM',
-            hintStyle: TextStyle(fontFamily: 'monospace', fontSize: 9,
+            hintStyle: FluxForgeTheme.dockMono(size: 9,
               color: FluxForgeTheme.textTertiary.withValues(alpha: 0.4)),
             filled: true,
             fillColor: FluxForgeTheme.bgDeepest,
@@ -648,8 +648,8 @@ class _AiGenerationPanelState extends State<_AiGenerationPanel> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(5),
                 border: Border.all(color: FluxForgeTheme.borderSubtle)),
-              child: const Text('CANCEL',
-                style: TextStyle(fontFamily: 'monospace', fontSize: 9,
+              child: Text('CANCEL',
+                style: FluxForgeTheme.dockMono(size: 9,
                   color: FluxForgeTheme.textTertiary)),
             ),
           ),
@@ -662,9 +662,9 @@ class _AiGenerationPanelState extends State<_AiGenerationPanel> {
                 color: FluxForgeTheme.accentGreen.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(5),
                 border: Border.all(color: FluxForgeTheme.accentGreen.withValues(alpha: 0.5))),
-              child: const Text('SAVE',
-                style: TextStyle(fontFamily: 'monospace', fontSize: 9,
-                  fontWeight: FontWeight.w700, color: FluxForgeTheme.accentGreen)),
+              child: Text('SAVE',
+                style: FluxForgeTheme.dockMono(size: 9,
+                  weight: FontWeight.w700, color: FluxForgeTheme.accentGreen)),
             ),
           ),
         ]),

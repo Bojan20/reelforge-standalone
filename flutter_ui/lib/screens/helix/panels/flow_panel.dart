@@ -116,9 +116,9 @@ class _FlowPanelState extends State<_FlowPanel> {
         child: Row(children: [
           Icon(icon, size: 10, color: active ? FluxForgeTheme.accentBlue : FluxForgeTheme.textTertiary),
           const SizedBox(width: 4),
-          Text(label, style: TextStyle(fontFamily: 'monospace', fontSize: 8,
+          Text(label, style: FluxForgeTheme.dockMono(size: 8,
             color: active ? FluxForgeTheme.accentBlue : FluxForgeTheme.textTertiary,
-            fontWeight: FontWeight.w600)),
+            weight: FontWeight.w600)),
         ]),
       ),
     );
@@ -184,9 +184,9 @@ class _FlowPanelState extends State<_FlowPanel> {
                               const SizedBox(width: 6),
                               Expanded(child: Text(
                                 _mechanicLabel(mechanic),
-                                style: TextStyle(fontFamily: 'monospace', fontSize: 9,
+                                style: FluxForgeTheme.dockMono(size: 9,
                                   color: enabled ? _mechanicColor(mechanic) : FluxForgeTheme.textTertiary,
-                                  fontWeight: enabled ? FontWeight.w600 : FontWeight.normal),
+                                  weight: enabled ? FontWeight.w600 : FontWeight.normal),
                               )),
                               if (enabled) ...[
                                 // Stage count badge
@@ -197,7 +197,7 @@ class _FlowPanelState extends State<_FlowPanel> {
                                     borderRadius: BorderRadius.circular(3)),
                                   child: Text(
                                     '${fc.stagesByMechanic[mechanic]?.length ?? 0}',
-                                    style: TextStyle(fontFamily: 'monospace', fontSize: 7,
+                                    style: FluxForgeTheme.dockMono(size: 7,
                                       color: _mechanicColor(mechanic))),
                                 ),
                               ],
@@ -214,17 +214,17 @@ class _FlowPanelState extends State<_FlowPanel> {
                       color: FluxForgeTheme.bgDeep,
                       borderRadius: BorderRadius.circular(4)),
                     child: Row(children: [
-                      Text('$coreCount core', style: const TextStyle(
-                        fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.accentCyan)),
-                      const Text(' + ', style: TextStyle(
-                        fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textTertiary)),
-                      Text('$featureCount feature', style: const TextStyle(
-                        fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.accentPurple)),
-                      const Text(' = ', style: TextStyle(
-                        fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textTertiary)),
-                      Text('${stages.length} stages', style: const TextStyle(
-                        fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.accentYellow,
-                        fontWeight: FontWeight.w600)),
+                      Text('$coreCount core', style: FluxForgeTheme.dockMono(
+                        size: 8, color: FluxForgeTheme.accentCyan)),
+                      Text(' + ', style: FluxForgeTheme.dockMono(
+                        size: 8, color: FluxForgeTheme.textTertiary)),
+                      Text('$featureCount feature', style: FluxForgeTheme.dockMono(
+                        size: 8, color: FluxForgeTheme.accentPurple)),
+                      Text(' = ', style: FluxForgeTheme.dockMono(
+                        size: 8, color: FluxForgeTheme.textTertiary)),
+                      Text('${stages.length} stages', style: FluxForgeTheme.dockMono(
+                        size: 8, color: FluxForgeTheme.accentYellow,
+                        weight: FontWeight.w600)),
                     ]),
                   ),
                 ],
@@ -244,7 +244,7 @@ class _FlowPanelState extends State<_FlowPanel> {
                     _DockLabel('COMPOSED STAGES', color: FluxForgeTheme.accentYellow),
                     const Spacer(),
                     Text('${stages.length} total',
-                      style: const TextStyle(fontFamily: 'monospace', fontSize: 8,
+                      style: FluxForgeTheme.dockMono(size: 8,
                         color: FluxForgeTheme.textTertiary)),
                   ]),
                   const SizedBox(height: 6),
@@ -280,8 +280,8 @@ class _FlowPanelState extends State<_FlowPanel> {
                             // Stage name
                             Expanded(child: Text(
                               stage.displayName,
-                              style: TextStyle(fontFamily: 'monospace', fontSize: 9,
-                                color: color, fontWeight: isCore ? FontWeight.w600 : FontWeight.normal),
+                              style: FluxForgeTheme.dockMono(size: 9,
+                                color: color, weight: isCore ? FontWeight.w600 : FontWeight.normal),
                               overflow: TextOverflow.ellipsis)),
                             // Bus badge
                             Container(
@@ -290,13 +290,13 @@ class _FlowPanelState extends State<_FlowPanel> {
                                 color: FluxForgeTheme.bgDeep,
                                 borderRadius: BorderRadius.circular(2)),
                               child: Text(stage.suggestedBus.toUpperCase(),
-                                style: const TextStyle(fontFamily: 'monospace', fontSize: 6,
+                                style: FluxForgeTheme.dockMono(size: 6,
                                   color: FluxForgeTheme.textTertiary)),
                             ),
                             const SizedBox(width: 4),
                             // Priority badge
                             Text(stage.priority,
-                              style: TextStyle(fontFamily: 'monospace', fontSize: 7,
+                              style: FluxForgeTheme.dockMono(size: 7,
                                 color: stage.priority == 'P0' ? FluxForgeTheme.accentRed
                                     : stage.priority == 'P1' ? FluxForgeTheme.accentYellow
                                     : FluxForgeTheme.textTertiary)),
@@ -327,8 +327,8 @@ class _FlowPanelState extends State<_FlowPanel> {
           color: FluxForgeTheme.bgSurface,
           borderRadius: BorderRadius.circular(3),
           border: Border.all(color: FluxForgeTheme.borderSubtle)),
-        child: Text(label, style: const TextStyle(fontFamily: 'monospace', fontSize: 7,
-          color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600)),
+        child: Text(label, style: FluxForgeTheme.dockMono(size: 7,
+          color: FluxForgeTheme.textTertiary, weight: FontWeight.w600)),
       ),
     );
   }
@@ -415,8 +415,8 @@ class _FlowPanelState extends State<_FlowPanel> {
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(color: const Color(0xFF333355)),
                     ),
-                    child: const Text('CLICK NODE TO FORCE STATE',
-                      style: TextStyle(fontFamily: 'monospace', fontSize: 7,
+                    child: Text('CLICK NODE TO FORCE STATE',
+                      style: FluxForgeTheme.dockMono(size: 7,
                         color: FluxForgeTheme.textTertiary, letterSpacing: 0.5)),
                   ),
                 ]),
@@ -489,10 +489,10 @@ class _FlowPanelState extends State<_FlowPanel> {
                                       color: isActive ? node.color : node.color.withValues(alpha: 0.7)),
                                     const SizedBox(height: 2),
                                     Text(node.label,
-                                      style: TextStyle(
-                                        fontFamily: 'monospace', fontSize: 6.5,
+                                      style: FluxForgeTheme.dockMono(
+                                        size: 6.5,
                                         color: isActive ? node.color : node.color.withValues(alpha: 0.7),
-                                        fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                                        weight: isActive ? FontWeight.w700 : FontWeight.w500,
                                         letterSpacing: 0.2),
                                       overflow: TextOverflow.ellipsis),
                                   ]),
@@ -524,8 +524,8 @@ class _FlowPanelState extends State<_FlowPanel> {
                         Icon(Icons.touch_app_rounded, size: 20,
                           color: FluxForgeTheme.textTertiary.withValues(alpha: 0.3)),
                         const SizedBox(height: 6),
-                        const Text('Tap a node', style: TextStyle(
-                          fontSize: 9, color: FluxForgeTheme.textTertiary)),
+                        Text('Tap a node', style: FluxForgeTheme.dockSans(
+                          size: 9, color: FluxForgeTheme.textTertiary)),
                       ]),
                     ),
                   ),
@@ -536,11 +536,11 @@ class _FlowPanelState extends State<_FlowPanel> {
                       color: selNode.color, borderRadius: BorderRadius.circular(2))),
                     const SizedBox(width: 6),
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(selNode.label, style: TextStyle(
-                        fontFamily: 'monospace', fontSize: 11,
-                        color: selNode.color, fontWeight: FontWeight.w700)),
+                      Text(selNode.label, style: FluxForgeTheme.dockMono(
+                        size: 11,
+                        color: selNode.color, weight: FontWeight.w700)),
                       Text(selNode.state?.displayName ?? 'event trigger',
-                        style: const TextStyle(fontSize: 8, color: FluxForgeTheme.textTertiary)),
+                        style: FluxForgeTheme.dockSans(size: 8, color: FluxForgeTheme.textTertiary)),
                     ])),
                   ]),
                   const SizedBox(height: 8),
@@ -554,16 +554,16 @@ class _FlowPanelState extends State<_FlowPanel> {
                         border: Border.all(color: selNode.color.withValues(alpha: 0.4)),
                         borderRadius: BorderRadius.circular(4)),
                       child: Text('● ACTIVE NOW',
-                        style: TextStyle(fontFamily: 'monospace', fontSize: 8, color: selNode.color)),
+                        style: FluxForgeTheme.dockMono(size: 8, color: selNode.color)),
                     ),
                   // Audio events
-                  const Text('AUDIO EVENTS', style: TextStyle(
-                    fontFamily: 'monospace', fontSize: 7.5,
+                  Text('AUDIO EVENTS', style: FluxForgeTheme.dockMono(
+                    size: 7.5,
                     color: FluxForgeTheme.textTertiary, letterSpacing: 1.0)),
                   const SizedBox(height: 4),
                   if (selAudio.isEmpty)
-                    const Text('No audio assigned',
-                      style: TextStyle(fontSize: 8, color: FluxForgeTheme.textTertiary))
+                    Text('No audio assigned',
+                      style: FluxForgeTheme.dockSans(size: 8, color: FluxForgeTheme.textTertiary))
                   else
                     Expanded(
                       child: ListView(children: selAudio.map((name) => Padding(
@@ -571,8 +571,8 @@ class _FlowPanelState extends State<_FlowPanel> {
                         child: Row(children: [
                           const Icon(Icons.music_note_rounded, size: 8, color: FluxForgeTheme.accentCyan),
                           const SizedBox(width: 4),
-                          Expanded(child: Text(name, style: const TextStyle(
-                            fontFamily: 'monospace', fontSize: 8,
+                          Expanded(child: Text(name, style: FluxForgeTheme.dockMono(
+                            size: 8,
                             color: FluxForgeTheme.textSecondary),
                             overflow: TextOverflow.ellipsis)),
                         ]),
@@ -592,8 +592,8 @@ class _FlowPanelState extends State<_FlowPanel> {
                           borderRadius: BorderRadius.circular(4)),
                         child: Text('⚡ FORCE STATE',
                           textAlign: TextAlign.center,
-                          style: TextStyle(fontFamily: 'monospace', fontSize: 8,
-                            color: selNode.color, fontWeight: FontWeight.w600)),
+                          style: FluxForgeTheme.dockMono(size: 8,
+                            color: selNode.color, weight: FontWeight.w600)),
                       ),
                     ),
                 ],

@@ -66,9 +66,9 @@ class _SfxPipelinePanel extends StatelessWidget {
                                 const SizedBox(width: 8),
                                 Expanded(child: Text(
                                   '${e.key + 1}. ${s.title}',
-                                  style: TextStyle(fontFamily: 'monospace', fontSize: 10,
+                                  style: FluxForgeTheme.dockMono(size: 10,
                                     color: active ? FluxForgeTheme.accentCyan : FluxForgeTheme.textSecondary,
-                                    fontWeight: active ? FontWeight.w600 : FontWeight.normal),
+                                    weight: active ? FontWeight.w600 : FontWeight.normal),
                                 )),
                               ]),
                             ),
@@ -131,7 +131,7 @@ class _SfxPipelinePanel extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                       Text('${sfx.progress.currentFilename ?? ''}',
-                        style: const TextStyle(fontFamily: 'monospace', fontSize: 8,
+                        style: FluxForgeTheme.dockMono(size: 8,
                           color: FluxForgeTheme.textTertiary),
                         overflow: TextOverflow.ellipsis),
                     ],
@@ -142,11 +142,11 @@ class _SfxPipelinePanel extends StatelessWidget {
                           color: FluxForgeTheme.accentGreen.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: const Row(children: [
-                          Icon(Icons.check_circle, size: 14, color: FluxForgeTheme.accentGreen),
-                          SizedBox(width: 6),
-                          Text('COMPLETE', style: TextStyle(fontFamily: 'monospace', fontSize: 10,
-                            color: FluxForgeTheme.accentGreen, fontWeight: FontWeight.w600)),
+                        child: Row(children: [
+                          const Icon(Icons.check_circle, size: 14, color: FluxForgeTheme.accentGreen),
+                          const SizedBox(width: 6),
+                          Text('COMPLETE', style: FluxForgeTheme.dockMono(size: 10,
+                            color: FluxForgeTheme.accentGreen, weight: FontWeight.w600)),
                         ]),
                       ),
                   ],
@@ -166,18 +166,18 @@ class _SfxPipelinePanel extends StatelessWidget {
         children: [
           _DockLabel('IMPORT & SCAN', color: FluxForgeTheme.accentCyan),
           const SizedBox(height: 8),
-          const Text('Drop WAV/FLAC files or select a folder to scan.',
-            style: TextStyle(fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textSecondary)),
+          Text('Drop WAV/FLAC files or select a folder to scan.',
+            style: FluxForgeTheme.dockMono(size: 10, color: FluxForgeTheme.textSecondary)),
           const SizedBox(height: 12),
           Expanded(
             child: sfx.scanResults.isEmpty
               ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                   Icon(Icons.folder_open_rounded, size: 48, color: FluxForgeTheme.accentCyan.withValues(alpha: 0.15)),
                   const SizedBox(height: 12),
-                  const Text('No files scanned yet', style: TextStyle(fontFamily: 'monospace', fontSize: 11, color: FluxForgeTheme.textTertiary)),
+                  Text('No files scanned yet', style: FluxForgeTheme.dockMono(size: 11, color: FluxForgeTheme.textTertiary)),
                   const SizedBox(height: 4),
                   Text('Drop WAV/FLAC files here to begin',
-                    style: TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6))),
+                    style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6))),
                 ]))
               : ListView.builder(
                   itemCount: sfx.scanResults.length,
@@ -188,9 +188,9 @@ class _SfxPipelinePanel extends StatelessWidget {
                       dense: true,
                       leading: Icon(selected ? Icons.check_box : Icons.check_box_outline_blank,
                         size: 16, color: selected ? FluxForgeTheme.accentCyan : FluxForgeTheme.textTertiary),
-                      title: Text(r.filename, style: const TextStyle(fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textPrimary)),
+                      title: Text(r.filename, style: FluxForgeTheme.dockMono(size: 10, color: FluxForgeTheme.textPrimary)),
                       subtitle: Text('${r.sampleRate}Hz ${r.channels}ch ${r.durationSeconds.toStringAsFixed(1)}ms',
-                        style: const TextStyle(fontFamily: 'monospace', fontSize: 8, color: FluxForgeTheme.textTertiary)),
+                        style: FluxForgeTheme.dockMono(size: 8, color: FluxForgeTheme.textTertiary)),
                       onTap: () => sfx.toggleFileSelection(i),
                     );
                   },
@@ -225,7 +225,7 @@ class _SfxPipelinePanel extends StatelessWidget {
             const SizedBox(width: 6),
             Flexible(child: Text('Auto-trim silence + apply fades to ${sfx.selectedCount} files',
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary))),
+              style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textTertiary))),
           ]),
         ],
       ),
@@ -250,7 +250,7 @@ class _SfxPipelinePanel extends StatelessWidget {
               const Icon(Icons.info_outline, size: 14, color: FluxForgeTheme.accentPurple),
               const SizedBox(width: 8),
               Expanded(child: Text('Slot standard: -14 LUFS / -1.0 dBTP. Matches casino floor playback.',
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textSecondary))),
+                style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textSecondary))),
             ]),
           ),
         ],
@@ -264,11 +264,11 @@ class _SfxPipelinePanel extends StatelessWidget {
             min: 22050, max: 96000, suffix: 'Hz',
             onChanged: (v) => sfx.updatePreset((p) => p.copyWith(sampleRate: v.round()))),
           Row(children: [
-            const SizedBox(width: 120, child: Text('Output Format',
-              style: TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textSecondary))),
+            SizedBox(width: 120, child: Text('Output Format',
+              style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textSecondary))),
             Text(sfx.preset.outputFormat.name.toUpperCase(),
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 10,
-                color: FluxForgeTheme.accentCyan, fontWeight: FontWeight.w600)),
+              style: FluxForgeTheme.dockMono(size: 10,
+                color: FluxForgeTheme.accentCyan, weight: FontWeight.w600)),
           ]),
           const SizedBox(height: 12),
           Row(children: [
@@ -285,8 +285,8 @@ class _SfxPipelinePanel extends StatelessWidget {
         children: [
           _DockLabel('NAMING & ASSIGN', color: FluxForgeTheme.accentCyan),
           const SizedBox(height: 8),
-          const Text('Map processed files to game stages for auto-assignment.',
-            style: TextStyle(fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textSecondary)),
+          Text('Map processed files to game stages for auto-assignment.',
+            style: FluxForgeTheme.dockMono(size: 10, color: FluxForgeTheme.textSecondary)),
           const SizedBox(height: 8),
           _StatRow('Matched', '${sfx.matchedCount} / ${sfx.stageMappings.length}'),
           const SizedBox(height: 8),
@@ -308,10 +308,10 @@ class _SfxPipelinePanel extends StatelessWidget {
                       color: matched ? FluxForgeTheme.accentGreen : FluxForgeTheme.textTertiary),
                     const SizedBox(width: 8),
                     Expanded(child: Text(m.sourceFilename, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textPrimary))),
+                      style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textPrimary))),
                     const SizedBox(width: 8),
                     Text(m.stageId ?? 'unassigned',
-                      style: TextStyle(fontFamily: 'monospace', fontSize: 9,
+                      style: FluxForgeTheme.dockMono(size: 9,
                         color: matched ? FluxForgeTheme.accentCyan : FluxForgeTheme.textTertiary)),
                   ]),
                 );
@@ -334,22 +334,22 @@ class _SfxPipelinePanel extends StatelessWidget {
                 border: Border.all(color: FluxForgeTheme.accentGreen.withValues(alpha: 0.3)),
               ),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Row(children: [
-                  Icon(Icons.check_circle, size: 18, color: FluxForgeTheme.accentGreen),
-                  SizedBox(width: 8),
-                  Text('PIPELINE COMPLETE', style: TextStyle(fontFamily: 'monospace', fontSize: 12,
-                    color: FluxForgeTheme.accentGreen, fontWeight: FontWeight.w700)),
+                Row(children: [
+                  const Icon(Icons.check_circle, size: 18, color: FluxForgeTheme.accentGreen),
+                  const SizedBox(width: 8),
+                  Text('PIPELINE COMPLETE', style: FluxForgeTheme.dockMono(size: 12,
+                    color: FluxForgeTheme.accentGreen, weight: FontWeight.w700)),
                 ]),
                 const SizedBox(height: 8),
                 Text('${sfx.result!.files.length} files processed | ${sfx.result!.outputDirectory}',
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textSecondary)),
+                  style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textSecondary)),
               ]),
             ),
           ] else if (sfx.isProcessing) ...[
             const Center(child: CircularProgressIndicator(color: FluxForgeTheme.accentCyan)),
           ] else ...[
-            const Text('Ready to process. Click FINISH to start the pipeline.',
-              style: TextStyle(fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textSecondary)),
+            Text('Ready to process. Click FINISH to start the pipeline.',
+              style: FluxForgeTheme.dockMono(size: 10, color: FluxForgeTheme.textSecondary)),
             const Spacer(),
             _SfxNavButton(label: 'RESET PIPELINE', onTap: sfx.reset),
           ],
@@ -368,9 +368,9 @@ class _StatRow extends StatelessWidget {
     padding: const EdgeInsets.only(bottom: 4),
     child: Row(children: [
       SizedBox(width: 80, child: Text(label,
-        style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textTertiary))),
+        style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textTertiary))),
       Expanded(child: Text(value,
-        style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textSecondary),
+        style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textSecondary),
         textAlign: TextAlign.right)),
     ]),
   );
@@ -415,10 +415,10 @@ class _SfxNavButtonState extends State<_SfxNavButton> {
                   : FluxForgeTheme.borderSubtle,
             ),
           ),
-          child: Text(widget.label, style: TextStyle(
-            fontFamily: 'monospace', fontSize: 9,
+          child: Text(widget.label, style: FluxForgeTheme.dockMono(
+            size: 9,
             color: isActive ? accent : (_hovered ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary),
-            fontWeight: FontWeight.w600)),
+            weight: FontWeight.w600)),
         ),
       ),
     );
@@ -443,7 +443,7 @@ class _SfxPresetSlider extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(children: [
         SizedBox(width: 120, child: Text(label,
-          style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: FluxForgeTheme.textSecondary))),
+          style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textSecondary))),
         Expanded(child: SliderTheme(
           data: SliderThemeData(
             trackHeight: 3,
@@ -457,7 +457,7 @@ class _SfxPresetSlider extends StatelessWidget {
           child: Slider(value: value.clamp(min, max), min: min, max: max, onChanged: onChanged),
         )),
         SizedBox(width: 70, child: Text('${value.toStringAsFixed(1)} $suffix',
-          style: TextStyle(fontFamily: 'monospace', fontSize: 9, color: c),
+          style: FluxForgeTheme.dockMono(size: 9, color: c),
           textAlign: TextAlign.right)),
       ]),
     );
@@ -476,7 +476,7 @@ class _SfxToggle extends StatelessWidget {
       Icon(active ? Icons.check_box : Icons.check_box_outline_blank,
         size: 16, color: active ? FluxForgeTheme.accentCyan : FluxForgeTheme.textTertiary),
       const SizedBox(width: 6),
-      Text(label, style: TextStyle(fontFamily: 'monospace', fontSize: 10,
+      Text(label, style: FluxForgeTheme.dockMono(size: 10,
         color: active ? FluxForgeTheme.accentCyan : FluxForgeTheme.textSecondary)),
     ]),
   );
