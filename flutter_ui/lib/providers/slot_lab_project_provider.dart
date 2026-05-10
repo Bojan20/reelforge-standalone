@@ -734,7 +734,13 @@ class SlotLabProjectProvider extends ChangeNotifier {
     // Step 6: MusicLayerConfig
     _autoCreateMusicLayerConfig(primaryBindings);
 
-    // Step 7: Finalize
+    // Step 7: Belt-and-suspenders dedup — AutoBindEngine.analyze already
+    // removes generics before building primaryBindings, but if any caller
+    // passes an un-deduped map this guard prevents REEL_STOP + REEL_STOP_0..4
+    // from coexisting in _audioAssignments.
+    _sanitizeGenericIndexedConflicts();
+
+    // Step 8: Finalize
     if (primaryBindings.isNotEmpty) _markDirty();
     notifyListeners();
   }
@@ -2682,9 +2688,50 @@ class SlotLabProjectProvider extends ChangeNotifier {
   void sanitizeAssignments() {
     final beforeCount = _audioAssignments.length;
     _sanitizeNofMVariantAssignments();
+    _sanitizeGenericIndexedConflicts();
     if (_audioAssignments.length < beforeCount) {
       notifyListeners();
     }
+  }
+
+  /// Remove generic stage assignments when ANY indexed variant is present.
+  ///
+  /// Rule: if REEL_STOP_0..4 (or any REEL_STOP_N) has audio AND generic
+  /// REEL_STOP also has audio → the generic is redundant/confusing and must
+  /// be removed.  Same logic as AutoBindEngine.analyze dedup — mirrors the
+  /// single-source-of-truth dedup for every code path that mutates
+  /// _audioAssignments (folder-drop, bulk import, manual drag-drop batches).
+  ///
+  /// Purposefully does NOT call MiddlewareProvider or EventRegistry to avoid
+  /// circular dependency risk (deleteCompositeEvent calls back into
+  /// removeAudioAssignment).  The EventRegistry stale entry for the generic
+  /// stage is harmless: the engine fires REEL_STOP_N specifically, never
+  /// the generic REEL_STOP when indexed variants are registered.  The
+  /// composite event will be cleaned up on the next full sync (triggerAutoBindReload
+  /// iterates audioAssignments — without the generic — so _ensureCompositeEventForStage
+  /// is never called for it again; existing composites are replaced, not duplicated).
+  ///
+  /// Returns the list of removed stage names (used by callers for targeted cleanup).
+  List<String> _sanitizeGenericIndexedConflicts() {
+    const genericIndexedPairs = [
+      ('REEL_STOP',      'REEL_STOP_'),
+      ('SCATTER_LAND',   'SCATTER_LAND_'),
+      ('WILD_LAND',      'WILD_LAND_'),
+      ('WIN_LINE_SHOW',  'WIN_LINE_SHOW_'),
+      ('WIN_LINE_HIDE',  'WIN_LINE_HIDE_'),
+      ('CASCADE_STEP',   'CASCADE_STEP_'),
+      ('ROLLUP_TICK',    'ROLLUP_TICK_'),
+    ];
+
+    final removed = <String>[];
+    for (final (generic, prefix) in genericIndexedPairs) {
+      if (_audioAssignments.containsKey(generic) &&
+          _audioAssignments.keys.any((k) => k.startsWith(prefix))) {
+        _audioAssignments.remove(generic);
+        removed.add(generic);
+      }
+    }
+    return removed;
   }
 
   /// Import from JSON string (for GDD import, etc.)

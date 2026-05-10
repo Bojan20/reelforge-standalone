@@ -3802,18 +3802,41 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       allowedStages: allSectionStages,
     );
 
+    // ── Generic/indexed dedup ───────────────────────────────────────────────
+    // StageGroupService can return BOTH 'REEL_STOP' (generic) AND 'REEL_STOP_0..4'
+    // (indexed) for the same set of files.  Mirror AutoBindEngine.analyze dedup:
+    // if any REEL_STOP_N is in the matched set, drop the generic REEL_STOP.
+    final matchedStages = result.matched.map((m) => m.stage).toSet();
+    const genericIndexedPairs = [
+      ('REEL_STOP',      'REEL_STOP_'),
+      ('SCATTER_LAND',   'SCATTER_LAND_'),
+      ('WILD_LAND',      'WILD_LAND_'),
+      ('WIN_LINE_SHOW',  'WIN_LINE_SHOW_'),
+      ('WIN_LINE_HIDE',  'WIN_LINE_HIDE_'),
+      ('CASCADE_STEP',   'CASCADE_STEP_'),
+      ('ROLLUP_TICK',    'ROLLUP_TICK_'),
+    ];
+    final dedupedMatches = result.matched.where((m) {
+      for (final (generic, prefix) in genericIndexedPairs) {
+        if (m.stage == generic && matchedStages.any((s) => s.startsWith(prefix))) {
+          return false; // drop generic when indexed variants exist
+        }
+      }
+      return true;
+    }).toList();
+
     // Apply matched assignments
-    for (final match in result.matched) {
+    for (final match in dedupedMatches) {
       widget.onAudioAssign?.call(match.stage, match.audioPath);
     }
 
     // Show results dialog
     if (mounted) {
-      _showDistributionResult(result.matched, result.unmatched);
+      _showDistributionResult(dedupedMatches, result.unmatched);
     }
 
     // Notify callback
-    widget.onBatchDistribute?.call(result.matched, result.unmatched);
+    widget.onBatchDistribute?.call(dedupedMatches, result.unmatched);
   }
 
   void _showDistributionResult(List<StageMatch> matched, List<UnmatchedFile> unmatched) {
