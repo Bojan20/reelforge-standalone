@@ -24,17 +24,27 @@ class BreadcrumbItem {
   });
 }
 
-/// Breadcrumb trail widget showing hierarchical navigation context
+/// Breadcrumb trail widget showing hierarchical navigation context.
+///
+/// FLUX_MASTER_TODO 0.5 G.17 (Sprint 11) — `onCollapseAll` / `onExpandAll`
+/// callbacks su sada wired tako da caller (lower zone, panel header)
+/// dostavlja semantiku "collapse/expand all child entries". Ako callback
+/// nije dostavljen, dugme je sakriveno (cleaner UX nego dugme koje ne radi
+/// ništa). Tooltip ostaje za onboarding kad jeste dostavljen.
 class BreadcrumbTrail extends StatelessWidget {
   final List<BreadcrumbItem> items;
   final double height;
   final EdgeInsets padding;
+  final VoidCallback? onCollapseAll;
+  final VoidCallback? onExpandAll;
 
   const BreadcrumbTrail({
     super.key,
     required this.items,
     this.height = 24,
     this.padding = const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    this.onCollapseAll,
+    this.onExpandAll,
   });
 
   @override
@@ -94,27 +104,28 @@ class BreadcrumbTrail extends StatelessWidget {
   }
 
   Widget _buildQuickActions() {
+    // FLUX_MASTER_TODO 0.5 G.17 — sakrij dugme ako caller nije dostavio
+    // callback. Cleaner UX nego dugme koje ne radi ništa.
+    if (onCollapseAll == null && onExpandAll == null) {
+      return const SizedBox.shrink();
+    }
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Collapse all button
-        _QuickActionButton(
-          icon: Icons.unfold_less_rounded,
-          tooltip: 'Collapse All',
-          onTap: () {
-            // TODO: Wire to controller
-          },
-        ),
-        const SizedBox(width: 4),
-
-        // Expand all button
-        _QuickActionButton(
-          icon: Icons.unfold_more_rounded,
-          tooltip: 'Expand All',
-          onTap: () {
-            // TODO: Wire to controller
-          },
-        ),
+        if (onCollapseAll != null)
+          _QuickActionButton(
+            icon: Icons.unfold_less_rounded,
+            tooltip: 'Collapse All',
+            onTap: onCollapseAll!,
+          ),
+        if (onCollapseAll != null && onExpandAll != null)
+          const SizedBox(width: 4),
+        if (onExpandAll != null)
+          _QuickActionButton(
+            icon: Icons.unfold_more_rounded,
+            tooltip: 'Expand All',
+            onTap: onExpandAll!,
+          ),
       ],
     );
   }

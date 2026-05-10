@@ -6,10 +6,12 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
 import 'package:provider/provider.dart';
 import '../../models/middleware_models.dart';
 import '../../providers/middleware_provider.dart';
 import '../../providers/subsystems/blend_containers_provider.dart';
+import '../../services/audio_playback_service.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../common/audio_waveform_picker_dialog.dart';
 import 'container_ab_comparison_panel.dart';
@@ -30,6 +32,29 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
   int? _selectedChildId;
   bool _showAddContainer = false;
   double _rtpcPreviewValue = 0.5; // For RTPC slider preview
+
+  /// FLUX_MASTER_TODO 0.5 G.21 — compute crossfade volume za dete na zadatom
+  /// RTPC-u. Linear ramp u crossfade zoni (na ivicama rtpcStart/rtpcEnd),
+  /// 1.0 unutar full-volume zone (centar). Vraca 0.0 ako rtpc je van bound-a.
+  double _computeBlendVolume(BlendChild child, double rtpc) {
+    if (rtpc < child.rtpcStart || rtpc > child.rtpcEnd) return 0.0;
+    final cw = child.crossfadeWidth.clamp(0.0, 0.5);
+    final fadeInEnd = child.rtpcStart + cw;
+    final fadeOutStart = child.rtpcEnd - cw;
+    if (cw <= 0.0001 || fadeOutStart <= fadeInEnd) {
+      // Crossfade width 0 → square wave; volume je 1.0 unutar bound-a.
+      return 1.0;
+    }
+    if (rtpc < fadeInEnd) {
+      // Fade-in ramp.
+      return ((rtpc - child.rtpcStart) / cw).clamp(0.0, 1.0);
+    }
+    if (rtpc > fadeOutStart) {
+      // Fade-out ramp.
+      return ((child.rtpcEnd - rtpc) / cw).clamp(0.0, 1.0);
+    }
+    return 1.0;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -470,8 +495,58 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
           container: container,
           value: _rtpcPreviewValue,
           onChanged: (v) => setState(() => _rtpcPreviewValue = v),
+          // FLUX_MASTER_TODO 0.5 G.21 (Sprint 11) — preview blend at current
+          // RTPC value. Compute aktivne dete koje overlap-uju sa _rtpcPreviewValue
+          // (rtpcStart..rtpcEnd inclusive), pa svaki play sa pan-om proporcijonalnim
+          // crossfade poziciji unutar overlap-a. Single-shot preview u Music busu
+          // (1) — sluzi za audio-bind verifikaciju, ne za game playback.
           onPreview: () {
-            // TODO: Preview blend at current RTPC value
+            final ap = GetIt.instance<AudioPlaybackService>();
+            final rtpc = _rtpcPreviewValue;
+            final active = container.children.where((c) =>
+                rtpc >= c.rtpcStart && rtpc <= c.rtpcEnd).toList();
+            if (active.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                duration: const Duration(seconds: 2),
+                backgroundColor: FluxForgeTheme.bgElevated,
+                content: Text(
+                  'No child overlaps RTPC ${rtpc.toStringAsFixed(2)}',
+                  style: const TextStyle(color: FluxForgeTheme.accentOrange),
+                ),
+              ));
+              return;
+            }
+            int played = 0;
+            for (final child in active) {
+              final path = child.audioPath;
+              if (path == null || path.isEmpty) continue;
+              // Linear blend volume: 1.0 ako je rtpc unutar full-volume
+              // zone, smanjuje u crossfade widthu.
+              final volume = _computeBlendVolume(child, rtpc);
+              if (volume <= 0.001) continue;
+              ap.playFileToBus(
+                path,
+                volume: volume,
+                busId: 1, // Music
+                eventId: 'blend_preview_${container.id}',
+                layerId: 'child_${child.id}',
+              );
+              played++;
+            }
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              duration: const Duration(seconds: 2),
+              backgroundColor: FluxForgeTheme.bgElevated,
+              content: Text(
+                played > 0
+                    ? '🔊 Previewing $played child(ren) @ RTPC ${rtpc.toStringAsFixed(2)}'
+                    : 'Active children have no audio assigned.',
+                style: TextStyle(
+                  color: played > 0
+                      ? FluxForgeTheme.accentGreen
+                      : FluxForgeTheme.accentOrange,
+                ),
+              ),
+            ));
           },
         ),
         const SizedBox(height: 12),

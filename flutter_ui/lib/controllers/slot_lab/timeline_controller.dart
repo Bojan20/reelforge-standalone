@@ -110,8 +110,34 @@ class TimelineController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// FLUX_MASTER_TODO 0.5 G.22 (Sprint 11) — zoom to selected region.
+  /// Koristi `loopStart`/`loopEnd` kao proxy za "selected region" (nema
+  /// explicit selection u TimelineState). Ako je loop region definisan,
+  /// fit ga u ~80% timeline view-a i scroll-uj da bude centriran. Inače
+  /// fallback na `zoomToFit()` (bezopasan).
+  ///
+  /// Math: targetZoom = (totalDuration * 0.8) / regionDuration. Clamp na
+  /// [0.1, 10.0] da se poklopi sa setZoom bound-ima. ScrollOffset = 0 jer
+  /// nemamo viewport width na ovom layer-u (ostavi na renderer-u da
+  /// re-center; postavljanje 0 je safe — UI vraca scroll-bar na pocetak).
   void zoomToSelection() {
-    // TODO: Zoom to selected regions
+    final ls = _state.loopStart;
+    final le = _state.loopEnd;
+    if (ls == null || le == null) {
+      // No loop region → fall back na fit (transparent UX, ne crashuje).
+      zoomToFit();
+      return;
+    }
+    final regionDuration = (le - ls).abs();
+    if (regionDuration <= 0.001 || _state.totalDuration <= 0.001) {
+      zoomToFit();
+      return;
+    }
+    final targetZoom = (_state.totalDuration * 0.8) / regionDuration;
+    _state = _state.copyWith(
+      zoom: targetZoom.clamp(0.1, 10.0),
+      scrollOffset: 0.0,
+    );
     notifyListeners();
   }
 

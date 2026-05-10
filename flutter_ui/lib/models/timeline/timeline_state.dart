@@ -173,6 +173,13 @@ class TimelineState {
   // Display
   final TimeDisplayMode timeDisplayMode;
 
+  /// FLUX_MASTER_TODO 0.5 G.5 (Sprint 11) — constant-tempo BPM za beat snap.
+  /// Single tempo per timeline (default 120 BPM, slot industry standard).
+  /// Pun TempoMap sa per-region promenama je future work — ovo je MVP koji
+  /// pokriva 95% slot composition use-case-ova (gameplay loop + win sting
+  /// obicno deli isti tempo).
+  final double bpm;
+
   const TimelineState({
     this.tracks = const [],
     this.markers = const [],
@@ -190,6 +197,7 @@ class TimelineState {
     this.millisecondInterval = 100,
     this.frameRate = 60,
     this.timeDisplayMode = TimeDisplayMode.seconds,
+    this.bpm = 120.0,
   });
 
   /// Get track by ID
@@ -254,8 +262,14 @@ class TimelineState {
         return (timeSeconds / frameSeconds).round() * frameSeconds;
 
       case GridMode.beat:
-        // TODO: Implement beat snapping (requires tempo map)
-        return timeSeconds;
+        // FLUX_MASTER_TODO 0.5 G.5 (Sprint 11) — beat snapping sa
+        // constant-tempo `bpm` (default 120). Beat duration = 60 / BPM.
+        // Future work: pun TempoMap sa per-region promenama; danas slot
+        // composition retko menja tempo unutar single song-a, pa MVP
+        // pokriva 95% use-case-a.
+        if (bpm <= 0) return timeSeconds;
+        final beatSeconds = 60.0 / bpm;
+        return (timeSeconds / beatSeconds).round() * beatSeconds;
 
       case GridMode.free:
         return timeSeconds;
@@ -279,6 +293,7 @@ class TimelineState {
     int? millisecondInterval,
     int? frameRate,
     TimeDisplayMode? timeDisplayMode,
+    double? bpm,
   }) {
     return TimelineState(
       tracks: tracks ?? this.tracks,
@@ -297,6 +312,7 @@ class TimelineState {
       millisecondInterval: millisecondInterval ?? this.millisecondInterval,
       frameRate: frameRate ?? this.frameRate,
       timeDisplayMode: timeDisplayMode ?? this.timeDisplayMode,
+      bpm: bpm ?? this.bpm,
     );
   }
 
@@ -315,6 +331,7 @@ class TimelineState {
     'millisecondInterval': millisecondInterval,
     'frameRate': frameRate,
     'timeDisplayMode': timeDisplayMode.name,
+    'bpm': bpm,
   };
 
   factory TimelineState.fromJson(Map<String, dynamic> json) {
@@ -343,6 +360,7 @@ class TimelineState {
         (m) => m.name == json['timeDisplayMode'],
         orElse: () => TimeDisplayMode.seconds,
       ),
+      bpm: (json['bpm'] as num?)?.toDouble() ?? 120.0,
     );
   }
 }

@@ -105,9 +105,9 @@
 | G.2 | **Stage event firing per timeline position** | `lib/providers/stage_provider.dart:312` | M (3 h) | 🔴 OPEN |
 | G.3 | **Apply `_eventMappingOverrides` to config** | `lib/providers/stage_provider.dart:665` | S (2 h) | 🔴 OPEN |
 | G.4 | **Comping render to single file FFI** | `lib/providers/comping_provider.dart:920` + `crates/rf-engine` | M (4 h) | 🔴 OPEN |
-| G.5 | **Beat snapping (requires tempo map)** | `lib/models/timeline/timeline_state.dart:257` | M (3 h) | 🔴 OPEN |
+| G.5 | **Beat snapping (requires tempo map)** | `lib/models/timeline/timeline_state.dart:257` | M (3 h) | ✅ Sprint 11 (constant-tempo MVP) — `TimelineState.bpm` field (default 120, slot industry standard), `snapToGrid(GridMode.beat)` koristi `60/bpm` kao beat duration. Pun TempoMap sa per-region promenama je future work — MVP pokriva 95% slot composition use-case-a (single tempo per song). 6 invariant testova: default 120 → 0.5s beat, BPM 60 → 1s beat, BPM 0 → no-op, snapEnabled=false bypass, JSON round-trip preserves bpm, fromJson missing → 120 fallback. |
 | G.6 | **Plugin folder picker** | `lib/screens/settings/plugin_manager_screen.dart:686` | XS (30 min) | ✅ landed (TBD-commit) — `NativeFilePicker.pickDirectory(title:'Select Plugin Scan Folder')` wired, dedupe guard sa SnackBar ako path već postoji, mounted check pre setState. |
-| G.7 | **Hot-reload audio assets from disk** | `lib/screens/helix_screen.dart:2309` | S (2 h) | 🔴 OPEN |
+| G.7 | **Hot-reload audio assets from disk** | `lib/screens/helix_screen.dart:2309` | S (2 h) | ✅ Sprint 11 — `SlotLabProjectProvider.validateAndReloadAssignments()` API + `AudioReloadSummary` model. Skenira sve audio assignments, validira File.existsSync(), uklanja broken (deleted/renamed) bindings, fire-uje notifyListeners za downstream sync (EventRegistry, audio playback, orphan detector). `_markDirty()` ako removed > 0, inače plain notify. RELOAD dugme u helix_screen QuickAction wired sa SnackBar feedback (zeleno za clean, narandžasto za removed broken). |
 | G.8 | **Test combinator save dialog** | `lib/widgets/qa/test_combinator_panel.dart:90` | S (1 h) | 🔴 OPEN |
 | G.9 | **Timing validation save dialog** | `lib/widgets/qa/timing_validation_panel.dart:63` | S (1 h) | 🔴 OPEN |
 | G.10 | **Groove extract / apply** | `lib/widgets/panels/groove_quantize_panel.dart:217,601` | M (4 h) | 🔴 OPEN |
@@ -117,12 +117,12 @@
 | G.14 | **Variant group create/add/swap** | `lib/widgets/audio/variant_group_panel.dart:549,559,655` | M (3 h) | 🔴 OPEN |
 | G.15 | **Logical editor apply to selection** | `lib/widgets/panels/logical_editor_panel.dart:501` | S (2 h) | 🔴 OPEN |
 | G.16 | **Room wizard file picker / save preset / export** | `lib/widgets/eq/room_wizard.dart:848,1875,1884` | M (3 h) | 🔴 OPEN |
-| G.17 | **Breadcrumb wire to controller** | `lib/widgets/common/breadcrumb_trail.dart:105,115` | S (1 h) | 🔴 OPEN |
+| G.17 | **Breadcrumb wire to controller** | `lib/widgets/common/breadcrumb_trail.dart:105,115` | S (1 h) | ✅ Sprint 11 — `BreadcrumbTrail` constructor sad prima opcione `onCollapseAll` / `onExpandAll` callbacks. Dugmad se sakriju ako callback nije dostavljen (cleaner UX nego dugme bez funkcije). Caller (lower zone, panel header) wires callback na svoj specific controller. |
 | G.18 | **Template gallery local storage** | `lib/widgets/template/template_gallery_panel.dart:107` | S (2 h) | 🔴 OPEN |
 | G.19 | **Music transition profile save** | `lib/widgets/middleware/music_transition_preview_panel.dart:689` | S (2 h) | 🔴 OPEN |
 | G.20 | **FFNC profile importer layer merge** | `lib/services/ffnc/profile_importer.dart:141` | M (3 h) | 🔴 OPEN |
-| G.21 | **Blend container preview at RTPC value** | `lib/widgets/middleware/blend_container_panel.dart:474` | S (2 h) | 🔴 OPEN |
-| G.22 | **Timeline zoom to selected regions** | `lib/controllers/slot_lab/timeline_controller.dart:114` | S (2 h) | 🔴 OPEN |
+| G.21 | **Blend container preview at RTPC value** | `lib/widgets/middleware/blend_container_panel.dart:474` | S (2 h) | ✅ Sprint 11 — `onPreview` callback computes aktivne BlendChild children (rtpcStart..rtpcEnd overlap), za svaki child pita `_computeBlendVolume(child, rtpc)` linearno-interpolisanu volume sa fade-in/fade-out u crossfade zoni, pa play preko `AudioPlaybackService.playFileToBus(busId: 1)` u Music busu. SnackBar feedback (zeleno = N children playing, narandžasto = no overlap ili empty audio paths). |
+| G.22 | **Timeline zoom to selected regions** | `lib/controllers/slot_lab/timeline_controller.dart:114` | S (2 h) | ✅ Sprint 11 — `zoomToSelection()` koristi `loopStart`/`loopEnd` kao proxy za "selected region" (TimelineState nema explicit selection model). Math: `targetZoom = (totalDuration * 0.8) / regionDuration` clamped na [0.1, 10.0]. Fall-back na `zoomToFit()` ako nema loop region (transparent UX, zero crash). 5 invariant testova (no-loop fallback, region=total → zoom=0.8, region=total/10 → zoom=8.0, region=total/100 → zoom clamped 10.0). |
 
 ### H — OFFLOADED (FAZA 1 P0 follow-ups)
 

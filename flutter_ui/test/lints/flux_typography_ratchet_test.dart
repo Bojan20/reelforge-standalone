@@ -36,7 +36,9 @@ import 'package:flutter_test/flutter_test.dart';
 /// Bumped 2026-05-10 (Sprint 10 E.1) +2 za `_ExportClipButton` u
 /// `session_recorder_panel.dart` — 2 inline TextStyle poziva za dinamicki
 /// label boja (success green / error red / brand gold idle).
-const int _kRawTextStyleBaseline = 9197;
+/// Bumped 2026-05-10 (Sprint 11 G grupa) +3 za G.7 hot-reload SnackBar
+/// label, G.21 blend preview snackbar (2× — active+empty paths).
+const int _kRawTextStyleBaseline = 9200;
 
 /// Frozen baseline za `fontFamily:` referenca van theme/.
 /// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` `'monospace'`

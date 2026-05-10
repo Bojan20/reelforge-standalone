@@ -419,6 +419,48 @@ class SlotLabProjectProvider extends ChangeNotifier {
     }
   }
 
+  /// FLUX_MASTER_TODO 0.5 G.7 (Sprint 11) — hot-reload audio assets from disk.
+  /// Skenira sve audio assignments, validira da li file još uvek postoji,
+  /// uklanja broken (deleted/renamed) bindings, fire-uje notifyListeners za
+  /// downstream subscriber-e (EventRegistry sync, audio playback service,
+  /// orphan detector). Vraća summary: how many checked, how many removed,
+  /// how many still alive — UI prikazuje SnackBar.
+  ///
+  /// Use case: slot designer izmeni audio file na disku ili obriše ga; bez
+  /// hot-reload-a project state je stale i fire bi pao silently. Ovo je
+  /// brži put nego restart app-a. Sync I/O je OK jer je manuel-trigger
+  /// (ne audio thread) i `audioAssignments` je obično <100 entry-a.
+  AudioReloadSummary validateAndReloadAssignments() {
+    int checked = 0;
+    int removed = 0;
+    final brokenStages = <String>[];
+    for (final entry in _audioAssignments.entries.toList()) {
+      checked++;
+      final path = entry.value;
+      if (path.isEmpty || !File(path).existsSync()) {
+        brokenStages.add(entry.key);
+      }
+    }
+    for (final stage in brokenStages) {
+      _audioAssignments.remove(stage);
+      _audioVariants.remove(stage);
+      removed++;
+    }
+    if (removed > 0) {
+      _markDirty();
+    } else {
+      // Even if no removals, notify so downstream (EventRegistry sync,
+      // playback cache invalidation) can re-stat files for mtime changes.
+      notifyListeners();
+    }
+    return AudioReloadSummary(
+      checked: checked,
+      removed: removed,
+      removedStages: brokenStages,
+      alive: checked - removed,
+    );
+  }
+
   /// Bulk assign audio to similar stages (P3 Recommendation #1)
   ///
   /// When a file is assigned to a generic stage like REEL_STOP, this method
@@ -2967,4 +3009,28 @@ class SessionWin {
     required this.tier,
     required this.time,
   });
+}
+
+/// FLUX_MASTER_TODO 0.5 G.7 — return value za `validateAndReloadAssignments`.
+class AudioReloadSummary {
+  final int checked;
+  final int removed;
+  final int alive;
+  final List<String> removedStages;
+
+  const AudioReloadSummary({
+    required this.checked,
+    required this.removed,
+    required this.alive,
+    required this.removedStages,
+  });
+
+  /// Human-readable jedna linija za SnackBar / toast.
+  String get summaryLine {
+    if (checked == 0) return 'No audio assignments to reload.';
+    if (removed == 0) return 'Reloaded $checked assignments — all files OK.';
+    return 'Reloaded $checked — removed $removed broken (file gone): '
+        '${removedStages.take(3).join(", ")}'
+        '${removedStages.length > 3 ? "…" : ""}';
+  }
 }

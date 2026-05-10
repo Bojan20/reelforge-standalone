@@ -2327,10 +2327,31 @@ class _HelixScreenState extends State<HelixScreen>
           _QuickAction(
             icon: Icons.refresh_rounded, label: 'RELOAD',
             color: FluxForgeTheme.textTertiary,
-            onTap: () {
-              // TODO: implement hot-reload of audio assets from disk
-              // (requires AssetManagerProvider.scanAndReload() — not yet built)
-            },
+            onTap: () => silentRun('quickAction.audioReload', () {
+              // FLUX_MASTER_TODO 0.5 G.7 (Sprint 11) — hot-reload audio
+              // assets from disk. Validira da li svi audio path-ovi u
+              // _audioAssignments još uvek postoje, uklanja broken bindings,
+              // notify-uje downstream. Slot designer ne mora restartovati
+              // app kad obriše/preimenuje audio file na disku.
+              final proj = GetIt.instance<SlotLabProjectProvider>();
+              final summary = proj.validateAndReloadAssignments();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    duration: const Duration(seconds: 3),
+                    backgroundColor: FluxForgeTheme.bgElevated,
+                    content: Text(
+                      '🔄 ${summary.summaryLine}',
+                      style: TextStyle(
+                        color: summary.removed > 0
+                            ? FluxForgeTheme.accentOrange
+                            : FluxForgeTheme.accentGreen,
+                      ),
+                    ),
+                  ),
+                );
+              }
+            }),
           ),
         ];
       case 2: // MATH
