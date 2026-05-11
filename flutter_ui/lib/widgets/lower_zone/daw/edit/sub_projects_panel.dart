@@ -12,6 +12,7 @@ library;
 import 'package:flutter/material.dart';
 import '../../../fabfilter/fabfilter_theme.dart';
 import '../../../fabfilter/fabfilter_widgets.dart';
+import '../../../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MODEL
@@ -246,7 +247,7 @@ class _SubProjectsPanelState extends State<SubProjectsPanel> {
               FabSectionLabel('SUB-PROJECTS', color: _kSecondary),
               const SizedBox(width: 6),
               Text('${_service.count}',
-                  style: const TextStyle(fontSize: 10, color: _kSecondary)),
+                  style: FluxForgeTheme.dockSans(size: 10, color: _kSecondary)),
               const Spacer(),
               _iconBtn(Icons.add, 'Import',
                   () => setState(() => _showImport = !_showImport)),
@@ -262,8 +263,8 @@ class _SubProjectsPanelState extends State<SubProjectsPanel> {
                   child: Text(
                     'No sub-projects.\nClick + to import a .rfproj file.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                        color: FabFilterColors.textTertiary, fontSize: 11),
+                    style: FluxForgeTheme.dockSans(
+                        color: FabFilterColors.textTertiary, size: 11),
                   ),
                 )
               : ListView.builder(
@@ -288,7 +289,7 @@ class _SubProjectsPanelState extends State<SubProjectsPanel> {
             child: TextField(
               controller: _nameCtrl,
               focusNode: _nameFocus,
-              style: const TextStyle(fontSize: 11, color: _kText),
+              style: FluxForgeTheme.dockSans(size: 11, color: _kText),
               decoration: _inputDeco('Sub-project name...'),
             ),
           ),
@@ -298,7 +299,7 @@ class _SubProjectsPanelState extends State<SubProjectsPanel> {
             child: TextField(
               controller: _pathCtrl,
               focusNode: _pathFocus,
-              style: const TextStyle(fontSize: 11, color: _kText),
+              style: FluxForgeTheme.dockSans(size: 11, color: _kText),
               decoration: _inputDeco('Source .rfproj path...'),
             ),
           ),
@@ -311,7 +312,7 @@ class _SubProjectsPanelState extends State<SubProjectsPanel> {
                   child: TextField(
                     controller: _startCtrl,
                     focusNode: _startFocus,
-                    style: const TextStyle(fontSize: 11, color: _kText),
+                    style: FluxForgeTheme.dockSans(size: 11, color: _kText),
                     decoration: _inputDeco('Start (sec)'),
                     keyboardType: TextInputType.number,
                   ),
@@ -324,7 +325,7 @@ class _SubProjectsPanelState extends State<SubProjectsPanel> {
                   child: TextField(
                     controller: _durationCtrl,
                     focusNode: _durationFocus,
-                    style: const TextStyle(fontSize: 11, color: _kText),
+                    style: FluxForgeTheme.dockSans(size: 11, color: _kText),
                     decoration: _inputDeco('Duration (sec)'),
                     keyboardType: TextInputType.number,
                     onSubmitted: (_) => _doImport(),
@@ -408,9 +409,9 @@ class _SubProjectsPanelState extends State<SubProjectsPanel> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(sp.name,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight:
+                      style: FluxForgeTheme.dockSans(
+                        size: 11,
+                        weight:
                             selected ? FontWeight.w600 : FontWeight.normal,
                         color: selected
                             ? FabFilterColors.textPrimary
@@ -418,15 +419,15 @@ class _SubProjectsPanelState extends State<SubProjectsPanel> {
                       ),
                       overflow: TextOverflow.ellipsis),
                   Text(sp.sourcePath,
-                      style: const TextStyle(
-                          fontSize: 9, color: FabFilterColors.textTertiary),
+                      style: FluxForgeTheme.dockMono(
+                          size: 9, color: FabFilterColors.textTertiary),
                       overflow: TextOverflow.ellipsis),
                 ],
               ),
             ),
             const SizedBox(width: 6),
             Text(sp.startTimeFormatted,
-                style: const TextStyle(fontSize: 9, color: _kSecondary)),
+                style: FluxForgeTheme.dockMono(size: 9, color: _kSecondary)),
           ],
         ),
       ),
@@ -442,8 +443,8 @@ class _SubProjectsPanelState extends State<SubProjectsPanel> {
     if (sp == null) {
       return Center(
         child: Text('Select a sub-project to view details',
-            style:
-                TextStyle(color: FabFilterColors.textTertiary, fontSize: 12)),
+            style: FluxForgeTheme.dockSans(
+                color: FabFilterColors.textTertiary, size: 12)),
       );
     }
 
@@ -459,9 +460,9 @@ class _SubProjectsPanelState extends State<SubProjectsPanel> {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(sp.name,
-                    style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                    style: FluxForgeTheme.dockSans(
+                        size: 13,
+                        weight: FontWeight.w600,
                         color: _kText),
                     overflow: TextOverflow.ellipsis),
               ),
@@ -562,9 +563,9 @@ class _SubProjectsPanelState extends State<SubProjectsPanel> {
                 const SizedBox(width: 4),
                 Text(
                   sp.rendered ? 'Proxy Ready' : 'Needs Render',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: FontWeight.w600,
                     color: sp.rendered
                         ? FabFilterColors.green
                         : FabFilterColors.orange,
@@ -587,11 +588,11 @@ class _SubProjectsPanelState extends State<SubProjectsPanel> {
           SizedBox(
             width: 110,
             child: Text(label,
-                style: const TextStyle(fontSize: 10, color: _kSecondary)),
+                style: FluxForgeTheme.dockSans(size: 10, color: _kSecondary)),
           ),
           Expanded(
             child: Text(value,
-                style: const TextStyle(fontSize: 10, color: _kText),
+                style: FluxForgeTheme.dockSans(size: 10, color: _kText),
                 overflow: TextOverflow.ellipsis),
           ),
         ],
@@ -640,8 +641,8 @@ class _SubProjectsPanelState extends State<SubProjectsPanel> {
                   color: enabled ? _kSecondary : FabFilterColors.textDisabled),
               const SizedBox(width: 4),
               Text(label,
-                  style: TextStyle(
-                      fontSize: 10,
+                  style: FluxForgeTheme.dockSans(
+                      size: 10,
                       color: enabled
                           ? _kSecondary
                           : FabFilterColors.textDisabled)),
@@ -654,7 +655,7 @@ class _SubProjectsPanelState extends State<SubProjectsPanel> {
 
   InputDecoration _inputDeco(String hint) => InputDecoration(
         hintText: hint,
-        hintStyle: const TextStyle(color: _kSecondary, fontSize: 11),
+        hintStyle: FluxForgeTheme.dockSans(color: _kSecondary, size: 11),
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         border: OutlineInputBorder(

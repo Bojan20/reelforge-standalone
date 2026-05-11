@@ -159,13 +159,13 @@ class _DspProfilerPanelState extends State<DspProfilerPanel> {
             size: 16,
           ),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'DSP PROFILER',
-            style: TextStyle(
-              color: FluxForgeTheme.textPrimary,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.w600,
               letterSpacing: 1,
+              color: FluxForgeTheme.textPrimary,
             ),
           ),
           const Spacer(),
@@ -179,11 +179,11 @@ class _DspProfilerPanelState extends State<DspProfilerPanel> {
             ),
             child: Text(
               statusText,
-              style: TextStyle(
-                color: statusColor,
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
+              style: FluxForgeTheme.dockSans(
+                size: 9,
+                weight: FontWeight.w700,
                 letterSpacing: 0.5,
+                color: statusColor,
               ),
             ),
           ),
@@ -212,12 +212,12 @@ class _DspProfilerPanelState extends State<DspProfilerPanel> {
                 const SizedBox(width: 3),
                 Text(
                   _isRecording ? 'REC' : 'OFF',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 8,
+                    weight: FontWeight.w600,
                     color: _isRecording
                         ? FluxForgeTheme.accentRed
                         : FluxForgeTheme.textSecondary,
-                    fontSize: 8,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -252,21 +252,20 @@ class _DspProfilerPanelState extends State<DspProfilerPanel> {
             children: [
               Text(
                 load.toStringAsFixed(1),
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 28,
+                  weight: FontWeight.w700,
                   color: meterColor,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
-                  fontFamily: 'monospace',
                 ),
               ),
               Padding(
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Text(
                   '%',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 14,
+                    weight: FontWeight.w500,
                     color: meterColor.withValues(alpha: 0.7),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
@@ -364,24 +363,24 @@ class _DspProfilerPanelState extends State<DspProfilerPanel> {
             children: [
               Text(
                 '0%',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
                   color: FluxForgeTheme.textSecondary,
-                  fontSize: 8,
                 ),
               ),
               Text(
                 'Peak: ${stats.peakLoadPercent.toStringAsFixed(1)}%',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
+                  weight: FontWeight.w600,
                   color: FluxForgeTheme.accentRed.withValues(alpha: 0.8),
-                  fontSize: 8,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
               Text(
                 '100%',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
                   color: FluxForgeTheme.textSecondary,
-                  fontSize: 8,
                 ),
               ),
             ],
@@ -407,19 +406,19 @@ class _DspProfilerPanelState extends State<DspProfilerPanel> {
             children: [
               Text(
                 'LOAD HISTORY',
-                style: TextStyle(
-                  color: FluxForgeTheme.textSecondary,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
+                  weight: FontWeight.w600,
                   letterSpacing: 0.5,
+                  color: FluxForgeTheme.textSecondary,
                 ),
               ),
               const Spacer(),
               Text(
                 '${loadHistory.length} samples',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
                   color: FluxForgeTheme.textSecondary,
-                  fontSize: 8,
                 ),
               ),
             ],
@@ -457,11 +456,11 @@ class _DspProfilerPanelState extends State<DspProfilerPanel> {
         children: [
           Text(
             'STAGE BREAKDOWN',
-            style: TextStyle(
-              color: FluxForgeTheme.textSecondary,
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 9,
+              weight: FontWeight.w600,
               letterSpacing: 0.5,
+              color: FluxForgeTheme.textSecondary,
             ),
           ),
           const SizedBox(height: 8),
@@ -479,10 +478,10 @@ class _DspProfilerPanelState extends State<DspProfilerPanel> {
                     children: [
                       Text(
                         stage.shortName,
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 8,
+                          weight: FontWeight.w600,
                           color: color,
-                          fontSize: 8,
-                          fontWeight: FontWeight.w600,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -508,9 +507,9 @@ class _DspProfilerPanelState extends State<DspProfilerPanel> {
                       const SizedBox(height: 4),
                       Text(
                         '${percent.toStringAsFixed(0)}%',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 8,
                           color: FluxForgeTheme.textSecondary,
-                          fontSize: 8,
                         ),
                       ),
                     ],
@@ -571,19 +570,19 @@ class _DspProfilerPanelState extends State<DspProfilerPanel> {
           children: [
             Text(
               label,
-              style: TextStyle(
-                color: color.withValues(alpha: 0.7),
-                fontSize: 7,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockSans(
+                size: 7,
+                weight: FontWeight.w600,
                 letterSpacing: 0.3,
+                color: color.withValues(alpha: 0.7),
               ),
             ),
             Text(
               value,
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 10,
+                weight: FontWeight.w700,
                 color: color,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
               ),
             ),
           ],
@@ -654,10 +653,10 @@ class _DspProfilerPanelState extends State<DspProfilerPanel> {
             const SizedBox(width: 4),
             Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 9,
+                weight: FontWeight.w600,
                 color: color ?? FluxForgeTheme.textSecondary,
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
               ),
             ),
           ],

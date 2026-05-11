@@ -13,6 +13,7 @@ import '../../../../providers/automation_provider.dart';
 import '../../../../services/service_locator.dart';
 import '../../../../src/rust/native_ffi.dart';
 import '../../lower_zone_types.dart';
+import '../../../../theme/flux_forge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // AUTOMATION PANEL
@@ -162,11 +163,11 @@ class _AutomationPanelState extends State<AutomationPanel> {
             children: [
               const Icon(Icons.auto_graph, size: 16, color: LowerZoneColors.dawAccent),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'AUTOMATION',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  weight: FontWeight.bold,
                   color: LowerZoneColors.dawAccent,
                   letterSpacing: 1.0,
                 ),
@@ -181,8 +182,8 @@ class _AutomationPanelState extends State<AutomationPanel> {
                 ),
                 child: Text(
                   selectedTrackName,
-                  style: TextStyle(
-                    fontSize: 9,
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
                     color: trackId != null
                         ? LowerZoneColors.textPrimary
                         : LowerZoneColors.textMuted,
@@ -201,9 +202,9 @@ class _AutomationPanelState extends State<AutomationPanel> {
           // Parameter selection + tools row
           Row(
             children: [
-              const Text(
+              Text(
                 'Parameter:',
-                style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted),
+                style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textMuted),
               ),
               const SizedBox(width: 8),
               PopupMenuButton<String>(
@@ -245,8 +246,8 @@ class _AutomationPanelState extends State<AutomationPanel> {
                     children: [
                       Text(
                         _automationParameter,
-                        style: const TextStyle(
-                          fontSize: 10,
+                        style: FluxForgeTheme.dockSans(
+                          size: 10,
                           color: LowerZoneColors.textPrimary,
                         ),
                       ),
@@ -282,9 +283,9 @@ class _AutomationPanelState extends State<AutomationPanel> {
                       }
                     : null,
                 icon: const Icon(Icons.clear, size: 14, color: LowerZoneColors.textMuted),
-                label: const Text(
+                label: Text(
                   'Clear',
-                  style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted),
+                  style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textMuted),
                 ),
               ),
               const SizedBox(width: 12),
@@ -308,7 +309,7 @@ class _AutomationPanelState extends State<AutomationPanel> {
                       Icon(Icons.grid_4x4, size: 10,
                         color: _snapToGrid ? LowerZoneColors.dawAccent : LowerZoneColors.textMuted),
                       const SizedBox(width: 3),
-                      Text('SNAP', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold,
+                      Text('SNAP', style: FluxForgeTheme.dockSans(size: 8, weight: FontWeight.bold,
                         color: _snapToGrid ? LowerZoneColors.dawAccent : LowerZoneColors.textMuted)),
                     ],
                   ),
@@ -327,7 +328,7 @@ class _AutomationPanelState extends State<AutomationPanel> {
                       borderRadius: BorderRadius.circular(3),
                     ),
                     child: Text('1/${_gridSubdivision * 4}',
-                      style: const TextStyle(fontSize: 8, color: LowerZoneColors.textSecondary)),
+                      style: FluxForgeTheme.dockMono(size: 8, color: LowerZoneColors.textSecondary)),
                   ),
                   itemBuilder: (_) => const [
                     PopupMenuItem(value: 1, child: Text('1/4 (Quarter)')),
@@ -345,7 +346,7 @@ class _AutomationPanelState extends State<AutomationPanel> {
               ),
               const SizedBox(width: 4),
               Text('${(_zoomLevel * 100).toInt()}%',
-                style: const TextStyle(fontSize: 8, color: LowerZoneColors.textSecondary, fontFamily: 'monospace')),
+                style: FluxForgeTheme.dockMono(size: 8, color: LowerZoneColors.textSecondary)),
               const SizedBox(width: 4),
               GestureDetector(
                 onTap: () => setState(() => _zoomLevel = (_zoomLevel * 1.5).clamp(0.25, 4.0)),
@@ -356,7 +357,7 @@ class _AutomationPanelState extends State<AutomationPanel> {
               if (pointCount > 0)
                 Text(
                   '$pointCount points',
-                  style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted),
+                  style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textMuted),
                 ),
             ],
           ),
@@ -390,10 +391,10 @@ class _AutomationPanelState extends State<AutomationPanel> {
               color: LowerZoneColors.textMuted.withValues(alpha: 0.3),
             ),
             const SizedBox(height: 12),
-            const Text(
+            Text(
               'Select a track to edit automation',
-              style: TextStyle(
-                fontSize: 11,
+              style: FluxForgeTheme.dockSans(
+                size: 11,
                 color: LowerZoneColors.textMuted,
               ),
             ),
@@ -524,7 +525,7 @@ class _AutomationPanelState extends State<AutomationPanel> {
         height: 24,
         child: Text(
           'Slot $slot — ${automatableParams.length} params',
-          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white54),
+          style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.bold, color: Colors.white54),
         ),
       ));
 
@@ -536,7 +537,7 @@ class _AutomationPanelState extends State<AutomationPanel> {
         final label = 'Plugin S$slot P${param.paramIndex} (${param.name})';
         items.add(PopupMenuItem(
           value: label,
-          child: Text(label, style: const TextStyle(fontSize: 11)),
+          child: Text(label, style: FluxForgeTheme.dockSans(size: 11)),
         ));
       }
     }
@@ -561,9 +562,9 @@ class _AutomationPanelState extends State<AutomationPanel> {
         ),
         child: Text(
           label,
-          style: TextStyle(
-            fontSize: 9,
-            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+          style: FluxForgeTheme.dockSans(
+            size: 9,
+            weight: isActive ? FontWeight.bold : FontWeight.normal,
             color: isActive ? LowerZoneColors.dawAccent : LowerZoneColors.textMuted,
           ),
         ),

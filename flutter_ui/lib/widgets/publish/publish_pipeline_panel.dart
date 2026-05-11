@@ -110,10 +110,10 @@ class _PublishPipelinePanelState extends State<PublishPipelinePanel> {
           const SizedBox(width: 8),
           Text(
             'Publish Pipeline',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 13,
+              weight: FontWeight.w600,
               color: FluxForgeTheme.textPrimary,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
             ),
           ),
           const Spacer(),
@@ -130,10 +130,9 @@ class _PublishPipelinePanelState extends State<PublishPipelinePanel> {
           else
             Text(
               'v${_service.currentVersion}',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 10,
                 color: FluxForgeTheme.textTertiary,
-                fontSize: 10,
-                fontFamily: 'monospace',
               ),
             ),
         ],
@@ -178,10 +177,10 @@ class _PublishPipelinePanelState extends State<PublishPipelinePanel> {
                     ),
                   Text(
                     target.label,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
+                      weight: selected ? FontWeight.w600 : FontWeight.normal,
                       color: selected ? Colors.cyan : FluxForgeTheme.textTertiary,
-                      fontSize: 10,
-                      fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
                     ),
                   ),
                 ],
@@ -225,10 +224,10 @@ class _PublishPipelinePanelState extends State<PublishPipelinePanel> {
                   child: Center(
                     child: Text(
                       label,
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 10,
+                        weight: selected ? FontWeight.w600 : FontWeight.normal,
                         color: selected ? Colors.cyan : FluxForgeTheme.textTertiary,
-                        fontSize: 10,
-                        fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
                       ),
                     ),
                   ),
@@ -248,10 +247,10 @@ class _PublishPipelinePanelState extends State<PublishPipelinePanel> {
       TextField(
         controller: _outputPathCtrl,
         onChanged: (v) => _outputPath = v,
-        style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+        style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textSecondary),
         decoration: InputDecoration(
           hintText: '/path/to/publish/output...',
-          hintStyle: TextStyle(color: FluxForgeTheme.textTertiary.withValues(alpha: 0.5)),
+          hintStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary.withValues(alpha: 0.5)),
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
           contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           isDense: true,
@@ -290,7 +289,7 @@ class _PublishPipelinePanelState extends State<PublishPipelinePanel> {
             }
           : null,
       icon: const Icon(Icons.rocket_launch, size: 16),
-      label: const Text('Publish', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+      label: Text('Publish', style: FluxForgeTheme.dockSans(size: 13, weight: FontWeight.w600)),
       style: ElevatedButton.styleFrom(
         backgroundColor: canPublish ? Colors.cyan : FluxForgeTheme.bgElevated,
         foregroundColor: canPublish ? Colors.white : FluxForgeTheme.textTertiary,
@@ -334,20 +333,19 @@ class _PublishPipelinePanelState extends State<PublishPipelinePanel> {
                 const SizedBox(width: 8),
                 Text(
                   step.stepName,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
+                    weight: FontWeight.w500,
                     color: FluxForgeTheme.textSecondary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 const Spacer(),
                 if (step.duration != null)
                   Text(
                     '${step.duration!.inMilliseconds}ms',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockMono(
+                      size: 9,
                       color: FluxForgeTheme.textTertiary,
-                      fontSize: 9,
-                      fontFamily: 'monospace',
                     ),
                   ),
                 if (step.message != null) ...[
@@ -355,9 +353,9 @@ class _PublishPipelinePanelState extends State<PublishPipelinePanel> {
                   Flexible(
                     child: Text(
                       step.message!,
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 10,
                         color: color.withValues(alpha: 0.8),
-                        fontSize: 10,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -380,7 +378,7 @@ class _PublishPipelinePanelState extends State<PublishPipelinePanel> {
           ),
           child: Text(
             _service.lastError!,
-            style: TextStyle(color: Colors.red, fontSize: 10),
+            style: FluxForgeTheme.dockSans(size: 10, color: Colors.red),
           ),
         ),
     ]);
@@ -405,30 +403,28 @@ class _PublishPipelinePanelState extends State<PublishPipelinePanel> {
                 const SizedBox(width: 6),
                 Text(
                   'v${entry['version']}',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
+                    size: 10,
+                    weight: FontWeight.w600,
                     color: FluxForgeTheme.textSecondary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    fontFamily: 'monospace',
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     (entry['targets'] as List).join(', '),
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
                       color: FluxForgeTheme.textTertiary,
-                      fontSize: 10,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 Text(
                   '${entry['duration']}s',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
+                    size: 9,
                     color: FluxForgeTheme.textTertiary,
-                    fontSize: 9,
-                    fontFamily: 'monospace',
                   ),
                 ),
               ],
@@ -447,11 +443,11 @@ class _PublishPipelinePanelState extends State<PublishPipelinePanel> {
       children: [
         Text(
           title,
-          style: TextStyle(
-            color: FluxForgeTheme.textTertiary,
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: FontWeight.w600,
             letterSpacing: 0.5,
+            color: FluxForgeTheme.textTertiary,
           ),
         ),
         const SizedBox(height: 4),
@@ -475,10 +471,10 @@ class _PublishPipelinePanelState extends State<PublishPipelinePanel> {
         ),
         child: Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: value ? FontWeight.w600 : FontWeight.normal,
             color: value ? Colors.cyan : FluxForgeTheme.textTertiary,
-            fontSize: 10,
-            fontWeight: value ? FontWeight.w600 : FontWeight.normal,
           ),
         ),
       ),

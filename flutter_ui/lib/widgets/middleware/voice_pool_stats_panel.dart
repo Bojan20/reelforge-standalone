@@ -93,18 +93,17 @@ class _VoicePoolStatsBadgeState extends State<VoicePoolStatsBadge> {
             const SizedBox(width: 6),
             Text(
               '${_stats.activeCount}/${_stats.maxVoices}',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 10,
                 color: Colors.white70,
-                fontSize: 10,
-                fontFamily: 'monospace',
               ),
             ),
             const SizedBox(width: 4),
             Text(
               'voices',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 10,
                 color: Colors.white38,
-                fontSize: 10,
               ),
             ),
           ],
@@ -199,11 +198,11 @@ class _VoicePoolStatsPanelState extends State<VoicePoolStatsPanel> {
               const SizedBox(width: 8),
               Text(
                 'VOICE POOL',
-                style: TextStyle(
-                  color: statusColor,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.bold,
                   letterSpacing: 1,
+                  color: statusColor,
                 ),
               ),
               const Spacer(),
@@ -279,9 +278,9 @@ class _VoicePoolStatsPanelState extends State<VoicePoolStatsPanel> {
           const SizedBox(height: 12),
           Text(
             'Updated: ${_formatTime(_stats.timestamp)}',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 9,
               color: Colors.white24,
-              fontSize: 9,
             ),
           ),
         ],
@@ -315,10 +314,10 @@ class _VoicePoolStatsPanelState extends State<VoicePoolStatsPanel> {
                 ),
                 Text(
                   '${_stats.activeCount}',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
+                    size: 10,
+                    weight: FontWeight.bold,
                     color: Colors.white70,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -331,17 +330,17 @@ class _VoicePoolStatsPanelState extends State<VoicePoolStatsPanel> {
             children: [
               Text(
                 '${_stats.utilizationPercent.toStringAsFixed(0)}%',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 11,
+                  weight: FontWeight.bold,
                   color: statusColor,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
               Text(
                 '${_stats.activeCount}/${_stats.maxVoices} voices',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
                   color: Colors.white38,
-                  fontSize: 9,
                 ),
               ),
             ],
@@ -360,18 +359,17 @@ class _VoicePoolStatsPanelState extends State<VoicePoolStatsPanel> {
           children: [
             Text(
               'Utilization',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 10,
                 color: Colors.white54,
-                fontSize: 10,
               ),
             ),
             Text(
               '${_stats.utilizationPercent.toStringAsFixed(1)}%',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 14,
+                weight: FontWeight.bold,
                 color: statusColor,
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'monospace',
               ),
             ),
           ],
@@ -452,18 +450,17 @@ class _VoicePoolStatsPanelState extends State<VoicePoolStatsPanel> {
         children: [
           Text(
             value,
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 12,
+              weight: FontWeight.bold,
               color: color,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'monospace',
             ),
           ),
           Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 9,
               color: Colors.white38,
-              fontSize: 9,
             ),
           ),
         ],
@@ -485,11 +482,11 @@ class _VoicePoolStatsPanelState extends State<VoicePoolStatsPanel> {
         const SizedBox(width: 6),
         Text(
           title,
-          style: TextStyle(
-            color: Colors.white38,
-            fontSize: 9,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: 9,
+            weight: FontWeight.bold,
             letterSpacing: 0.5,
+            color: Colors.white38,
           ),
         ),
       ],
@@ -541,19 +538,18 @@ class _VoicePoolStatsPanelState extends State<VoicePoolStatsPanel> {
         children: [
           Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 9,
               color: hasVoices ? color : Colors.white38,
-              fontSize: 9,
             ),
           ),
           const SizedBox(width: 4),
           Text(
             '$count',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 9,
+              weight: FontWeight.bold,
               color: hasVoices ? color : Colors.white38,
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'monospace',
             ),
           ),
         ],
@@ -622,18 +618,17 @@ class _VoicePoolInlineStatsState extends State<VoicePoolInlineStats> {
         const SizedBox(width: 4),
         Text(
           '${_stats.activeCount}/${_stats.maxVoices}',
-          style: TextStyle(
+          style: FluxForgeTheme.dockMono(
+            size: 10,
             color: color,
-            fontSize: 10,
-            fontFamily: 'monospace',
           ),
         ),
         const SizedBox(width: 4),
         Text(
           '(${_stats.utilizationPercent.toStringAsFixed(0)}%)',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 10,
             color: Colors.white38,
-            fontSize: 10,
           ),
         ),
       ],

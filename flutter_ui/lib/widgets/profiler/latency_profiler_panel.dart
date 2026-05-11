@@ -7,6 +7,7 @@
 
 import 'package:flutter/material.dart';
 import '../../services/latency_profiler.dart';
+import '../../theme/fluxforge_theme.dart';
 
 class LatencyProfilerPanel extends StatefulWidget {
   const LatencyProfilerPanel({super.key});
@@ -58,9 +59,9 @@ class _LatencyProfilerPanelState extends State<LatencyProfilerPanel> {
           // Title
           const Icon(Icons.speed, size: 20, color: Colors.blue),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Latency Profiler',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            style: FluxForgeTheme.dockSans(size: 16, weight: FontWeight.bold),
           ),
           const Spacer(),
 
@@ -79,9 +80,9 @@ class _LatencyProfilerPanelState extends State<LatencyProfilerPanel> {
           const SizedBox(width: 8),
           Text(
             profiler.enabled ? 'Enabled' : 'Disabled',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 12,
               color: profiler.enabled ? Colors.green : Colors.grey,
-              fontSize: 12,
             ),
           ),
 
@@ -179,16 +180,16 @@ class _LatencyProfilerPanelState extends State<LatencyProfilerPanel> {
                 const SizedBox(width: 4),
                 Text(
                   label,
-                  style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+                  style: FluxForgeTheme.dockSans(size: 11, color: Colors.grey[400]!),
                 ),
               ],
             ),
             const SizedBox(height: 4),
             Text(
               value,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockMono(
+                size: 16,
+                weight: FontWeight.bold,
                 color: color,
               ),
             ),
@@ -210,12 +211,12 @@ class _LatencyProfilerPanelState extends State<LatencyProfilerPanel> {
             const SizedBox(height: 16),
             Text(
               'No measurements yet',
-              style: TextStyle(color: Colors.grey[500]),
+              style: FluxForgeTheme.dockSans(color: Colors.grey[500]!),
             ),
             const SizedBox(height: 8),
             Text(
               'Enable profiling and trigger audio events',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              style: FluxForgeTheme.dockSans(size: 12, color: Colors.grey[600]!),
             ),
           ],
         ),
@@ -270,7 +271,7 @@ class _LatencyProfilerPanelState extends State<LatencyProfilerPanel> {
               flex: 3,
               child: Text(
                 measurement.source,
-                style: const TextStyle(fontSize: 13),
+                style: FluxForgeTheme.dockSans(size: 13),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -280,9 +281,9 @@ class _LatencyProfilerPanelState extends State<LatencyProfilerPanel> {
               flex: 2,
               child: Text(
                 '${totalMs.toStringAsFixed(2)}ms',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockMono(
+                  size: 13,
+                  weight: FontWeight.bold,
                   color: color,
                 ),
               ),
@@ -369,7 +370,7 @@ class _LatencyProfilerPanelState extends State<LatencyProfilerPanel> {
               const SizedBox(width: 8),
               Text(
                 'Measurement Details: ${measurement.source}',
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                style: FluxForgeTheme.dockSans(size: 14, weight: FontWeight.bold),
               ),
               const Spacer(),
               IconButton(
@@ -413,9 +414,9 @@ class _LatencyProfilerPanelState extends State<LatencyProfilerPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Timestamps',
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+          style: FluxForgeTheme.dockSans(size: 12, weight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         _buildTimestampRow('Dart Trigger', measurement.dartTriggerUs),
@@ -440,12 +441,12 @@ class _LatencyProfilerPanelState extends State<LatencyProfilerPanel> {
             width: 120,
             child: Text(
               label,
-              style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+              style: FluxForgeTheme.dockSans(size: 11, color: Colors.grey[400]!),
             ),
           ),
           Text(
             '${timestampUs}µs',
-            style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
+            style: FluxForgeTheme.dockMono(size: 11),
           ),
         ],
       ),
@@ -456,9 +457,9 @@ class _LatencyProfilerPanelState extends State<LatencyProfilerPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Latency Breakdown',
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+          style: FluxForgeTheme.dockSans(size: 12, weight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         if (measurement.dartToFfiUs != null)
@@ -501,27 +502,26 @@ class _LatencyProfilerPanelState extends State<LatencyProfilerPanel> {
             width: 120,
             child: Text(
               label,
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.grey[400],
-                fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+              style: FluxForgeTheme.dockSans(
+                size: 11,
+                weight: bold ? FontWeight.bold : FontWeight.normal,
+                color: Colors.grey[400]!,
               ),
             ),
           ),
           Text(
             '${latencyUs}µs',
-            style: TextStyle(
-              fontSize: 11,
-              fontFamily: 'monospace',
+            style: FluxForgeTheme.dockMono(size: 11).copyWith(
               fontWeight: bold ? FontWeight.bold : FontWeight.normal,
             ),
           ),
           const SizedBox(width: 8),
           Text(
             '(${latencyMs.toStringAsFixed(2)}ms)',
-            style: TextStyle(
-              fontSize: 11,
+            style: FluxForgeTheme.dockMono(
+              size: 11,
               color: color,
+            ).copyWith(
               fontWeight: bold ? FontWeight.bold : FontWeight.normal,
             ),
           ),

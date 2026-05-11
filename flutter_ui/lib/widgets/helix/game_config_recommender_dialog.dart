@@ -99,8 +99,8 @@ class _GameConfigRecommenderDialogState
                 children: [
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Close',
-                        style: TextStyle(color: Colors.white60)),
+                    child: Text('Close',
+                        style: FluxForgeTheme.dockSans(color: Colors.white60)),
                   ),
                   const SizedBox(width: 8),
                   ElevatedButton.icon(
@@ -139,23 +139,23 @@ class _GameConfigRecommenderDialogState
           ),
         ),
         const SizedBox(width: 10),
-        const Expanded(
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'AI GAME CONFIG RECOMMENDER',
-                style: TextStyle(
-                  color: FluxForgeTheme.brandGold,
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 13,
+                  weight: FontWeight.bold,
                   letterSpacing: 1.2,
+                  color: FluxForgeTheme.brandGold,
                 ),
               ),
-              SizedBox(height: 3),
+              const SizedBox(height: 3),
               Text(
                 'Heuristic rule engine — math + features + audio + compliance, sa rationale-om za svako polje.',
-                style: TextStyle(color: Colors.white60, fontSize: 11),
+                style: FluxForgeTheme.dockSans(size: 11, color: Colors.white60),
               ),
             ],
           ),
@@ -186,14 +186,14 @@ class _GameConfigRecommenderDialogState
         const SizedBox(height: 10),
         Row(
           children: [
-            const SizedBox(
+            SizedBox(
               width: 130,
               child: Text(
                 'TARGET MAX WIN',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: Colors.white54,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
+                  size: 10,
+                  weight: FontWeight.w600,
                   letterSpacing: 0.6,
                 ),
               ),
@@ -202,10 +202,10 @@ class _GameConfigRecommenderDialogState
               child: TextField(
                 controller: _maxWinCtrl,
                 keyboardType: TextInputType.number,
-                style: const TextStyle(color: Colors.white, fontSize: 13),
+                style: FluxForgeTheme.dockSans(color: Colors.white, size: 13),
                 decoration: InputDecoration(
                   hintText: 'optional (e.g. 5000)',
-                  hintStyle: const TextStyle(color: Colors.white24, fontSize: 12),
+                  hintStyle: FluxForgeTheme.dockSans(color: Colors.white24, size: 12),
                   filled: true,
                   fillColor: const Color(0xFF1A1A22),
                   border: OutlineInputBorder(
@@ -215,8 +215,8 @@ class _GameConfigRecommenderDialogState
                   contentPadding: const EdgeInsets.symmetric(
                       horizontal: 10, vertical: 8),
                   suffixText: '× bet',
-                  suffixStyle: const TextStyle(
-                      color: Colors.white38, fontSize: 11),
+                  suffixStyle: FluxForgeTheme.dockSans(
+                      color: Colors.white38, size: 11),
                 ),
               ),
             ),
@@ -239,10 +239,10 @@ class _GameConfigRecommenderDialogState
           width: 130,
           child: Text(
             label,
-            style: const TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white54,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
+              size: 10,
+              weight: FontWeight.w600,
               letterSpacing: 0.6,
             ),
           ),
@@ -259,7 +259,7 @@ class _GameConfigRecommenderDialogState
               isExpanded: true,
               dropdownColor: const Color(0xFF1A1A22),
               underline: const SizedBox.shrink(),
-              style: const TextStyle(color: Colors.white, fontSize: 13),
+              style: FluxForgeTheme.dockSans(color: Colors.white, size: 13),
               items: items
                   .map((m) =>
                       DropdownMenuItem<T>(value: m, child: Text(getLabel(m))))
@@ -283,9 +283,9 @@ class _GameConfigRecommenderDialogState
             color: Colors.white.withValues(alpha: 0.18),
           ),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             'Click "Recommend" to generate config blueprint.',
-            style: TextStyle(color: Colors.white38, fontSize: 12),
+            style: FluxForgeTheme.dockSans(color: Colors.white38, size: 12),
           ),
         ],
       ),
@@ -352,10 +352,10 @@ class _GameConfigRecommenderDialogState
       padding: const EdgeInsets.fromLTRB(0, 4, 0, 6),
       child: Text(
         text,
-        style: TextStyle(
+        style: FluxForgeTheme.dockSans(
           color: FluxForgeTheme.brandGold.withValues(alpha: 0.85),
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
+          size: 10,
+          weight: FontWeight.bold,
           letterSpacing: 1.4,
         ),
       ),
@@ -390,16 +390,16 @@ class _GameConfigRecommenderDialogState
               width: 160,
               child: Text(
                 label,
-                style: const TextStyle(color: Colors.white60, fontSize: 12),
+                style: FluxForgeTheme.dockSans(color: Colors.white60, size: 12),
               ),
             ),
             Expanded(
               child: Text(
                 value,
-                style: const TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                  size: 13,
+                  weight: FontWeight.w600,
                 ),
               ),
             ),
@@ -445,10 +445,10 @@ class _GameConfigRecommenderDialogState
               const SizedBox(width: 6),
               Text(
                 'WHY: ${r.field}',
-                style: const TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.brandGold,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+                  size: 10,
+                  weight: FontWeight.bold,
                   letterSpacing: 0.8,
                 ),
               ),
@@ -457,16 +457,14 @@ class _GameConfigRecommenderDialogState
           const SizedBox(height: 8),
           Text(
             r.reason,
-            style: const TextStyle(
-                color: Colors.white, fontSize: 12, height: 1.45),
+            style: FluxForgeTheme.dockSans(
+                color: Colors.white, size: 12, height: 1.45),
           ),
           const SizedBox(height: 8),
           Text(
             'Source rule: ${r.source}',
-            style: const TextStyle(
-                color: Colors.white38,
-                fontSize: 10,
-                fontFamily: 'monospace',
+            style: FluxForgeTheme.dockMono(
+                color: Colors.white38, size: 10).copyWith(
                 fontStyle: FontStyle.italic),
           ),
         ],
