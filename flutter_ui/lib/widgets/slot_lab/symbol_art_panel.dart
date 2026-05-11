@@ -19,6 +19,7 @@ import '../../providers/slot_lab/config_undo_manager.dart';
 import '../../providers/slot_lab_project_provider.dart';
 import '../../models/slot_lab_models.dart';
 import '../../services/native_file_picker.dart';
+import '../../theme/fluxforge_theme.dart';
 import 'slot_preview_widget.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -34,9 +35,9 @@ class SymbolArtPanel extends StatelessWidget {
       builder: (context, projectProvider, _) {
         final symbols = projectProvider.symbols;
         if (symbols.isEmpty) {
-          return const Center(
+          return Center(
             child: Text('No symbols defined',
-                style: TextStyle(color: Color(0xFF888888), fontSize: 11)),
+                style: FluxForgeTheme.dockSans(color: const Color(0xFF888888), size: 11)),
           );
         }
 
@@ -77,9 +78,9 @@ class SymbolArtPanel extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             'SYMBOL ART',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.w700,
               color: Colors.white.withValues(alpha: 0.9),
               letterSpacing: 1.2,
             ),
@@ -95,8 +96,8 @@ class SymbolArtPanel extends StatelessWidget {
             ),
             child: Text(
               '$assignedCount/${symbols.length}',
-              style: TextStyle(
-                fontSize: 9,
+              style: FluxForgeTheme.dockMono(
+                size: 9,
                 color: assignedCount > 0
                     ? const Color(0xFF00BCD4)
                     : const Color(0xFF888888),
@@ -167,9 +168,9 @@ class SymbolArtPanel extends StatelessWidget {
                           ),
                           child: Text(
                             symbol.type.name.toUpperCase(),
-                            style: TextStyle(
-                              fontSize: 8,
-                              fontWeight: FontWeight.w600,
+                            style: FluxForgeTheme.dockSans(
+                              size: 8,
+                              weight: FontWeight.w600,
                               color: typeColor,
                               letterSpacing: 0.5,
                             ),
@@ -178,9 +179,9 @@ class SymbolArtPanel extends StatelessWidget {
                         const SizedBox(width: 6),
                         Text(
                           symbol.name,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
+                          style: FluxForgeTheme.dockSans(
+                            size: 11,
+                            weight: FontWeight.w600,
                             color: Colors.white,
                           ),
                         ),
@@ -191,24 +192,23 @@ class SymbolArtPanel extends StatelessWidget {
                         padding: const EdgeInsets.only(top: 2),
                         child: Text(
                           symbol.artworkPath!.split('/').last,
-                          style: const TextStyle(
-                            fontSize: 9,
-                            color: Color(0xFF00BCD4),
+                          style: FluxForgeTheme.dockMono(
+                            size: 9,
+                            color: const Color(0xFF00BCD4),
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                       )
                     else
-                      const Padding(
-                        padding: EdgeInsets.only(top: 2),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
                         child: Text(
                           'Click to assign artwork',
-                          style: TextStyle(
-                            fontSize: 9,
-                            color: Color(0xFF666666),
-                            fontStyle: FontStyle.italic,
-                          ),
+                          style: FluxForgeTheme.dockSans(
+                            size: 9,
+                            color: const Color(0xFF666666),
+                          ).copyWith(fontStyle: FontStyle.italic),
                         ),
                       ),
                   ],
@@ -255,12 +255,12 @@ class SymbolArtPanel extends StatelessWidget {
                 fit: BoxFit.cover,
                 errorBuilder: (_, _, _) => Center(
                   child: Text(symbol.emoji,
-                      style: const TextStyle(fontSize: 16)),
+                      style: FluxForgeTheme.dockSans(size: 16)),
                 ),
               )
             : Center(
                 child: Text(symbol.emoji,
-                    style: const TextStyle(fontSize: 16)),
+                    style: FluxForgeTheme.dockSans(size: 16)),
               ),
       ),
     );
@@ -399,12 +399,12 @@ class SymbolArtPanel extends StatelessWidget {
             children: [
               const Icon(Icons.grid_view, color: Color(0xFF606068), size: 10),
               const SizedBox(width: 4),
-              const Text(
+              Text(
                 'REEL PREVIEW',
-                style: TextStyle(
-                  color: Color(0xFF606068),
-                  fontSize: 8,
-                  fontWeight: FontWeight.w700,
+                style: FluxForgeTheme.dockSans(
+                  color: const Color(0xFF606068),
+                  size: 8,
+                  weight: FontWeight.w700,
                   letterSpacing: 1,
                 ),
               ),
@@ -459,14 +459,14 @@ class SymbolArtPanel extends StatelessWidget {
               errorBuilder: (_, e, st) => Center(
                 child: Text(
                   sym.name.length > 2 ? sym.name.substring(0, 2) : sym.name,
-                  style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w700),
+                  style: FluxForgeTheme.dockSans(color: color, size: 9, weight: FontWeight.w700),
                 ),
               ),
             )
           : Center(
               child: Text(
                 sym.name.length > 2 ? sym.name.substring(0, 2) : sym.name,
-                style: TextStyle(color: color.withValues(alpha: 0.5), fontSize: 9, fontWeight: FontWeight.w700),
+                style: FluxForgeTheme.dockSans(color: color.withValues(alpha: 0.5), size: 9, weight: FontWeight.w700),
               ),
             ),
     );
@@ -556,9 +556,9 @@ class _HeaderButton extends StatelessWidget {
             const SizedBox(width: 3),
             Text(
               label,
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockSans(
+                size: 9,
+                weight: FontWeight.w600,
                 color: color,
                 letterSpacing: 0.5,
               ),

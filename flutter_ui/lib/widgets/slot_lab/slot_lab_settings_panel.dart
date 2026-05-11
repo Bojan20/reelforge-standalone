@@ -214,12 +214,12 @@ class _SlotLabSettingsPanelState extends State<SlotLabSettingsPanel> {
             size: 18,
           ),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Slot Lab Settings',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+              size: 14,
+              weight: FontWeight.w600,
             ),
           ),
           const Spacer(),
@@ -239,10 +239,10 @@ class _SlotLabSettingsPanelState extends State<SlotLabSettingsPanel> {
   Widget _buildSectionHeader(String title) {
     return Text(
       title.toUpperCase(),
-      style: const TextStyle(
+      style: FluxForgeTheme.dockSans(
         color: FluxForgeTheme.textTertiary,
-        fontSize: 10,
-        fontWeight: FontWeight.w600,
+        size: 10,
+        weight: FontWeight.w600,
         letterSpacing: 1.2,
       ),
     );
@@ -261,11 +261,11 @@ class _SlotLabSettingsPanelState extends State<SlotLabSettingsPanel> {
           ),
         ),
         const SizedBox(width: 16),
-        const Text(
+        Text(
           '×',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textSecondary,
-            fontSize: 16,
+            size: 16,
           ),
         ),
         const SizedBox(width: 16),
@@ -294,9 +294,9 @@ class _SlotLabSettingsPanelState extends State<SlotLabSettingsPanel> {
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textSecondary,
-            fontSize: 11,
+            size: 11,
           ),
         ),
         const SizedBox(height: 6),
@@ -316,10 +316,10 @@ class _SlotLabSettingsPanelState extends State<SlotLabSettingsPanel> {
                 child: Center(
                   child: Text(
                     value.toString(),
-                    style: const TextStyle(
+                    style: FluxForgeTheme.dockMono(
                       color: FluxForgeTheme.textPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                      size: 16,
+                      weight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -444,19 +444,19 @@ class _SlotLabSettingsPanelState extends State<SlotLabSettingsPanel> {
                 children: [
                   Text(
                     label,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: isSelected
                           ? FluxForgeTheme.textPrimary
                           : FluxForgeTheme.textSecondary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                      size: 12,
+                      weight: FontWeight.w500,
                     ),
                   ),
                   Text(
                     description,
-                    style: const TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: FluxForgeTheme.textTertiary,
-                      fontSize: 10,
+                      size: 10,
                     ),
                   ),
                 ],
@@ -531,17 +531,17 @@ class _SlotLabSettingsPanelState extends State<SlotLabSettingsPanel> {
           children: [
             Text(
               label,
-              style: const TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 12,
+                size: 12,
               ),
             ),
             Text(
               '${(value * 100).toInt()}%',
-              style: const TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: FluxForgeTheme.textPrimary,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
+                size: 12,
+                weight: FontWeight.w500,
               ),
             ),
           ],
@@ -580,16 +580,16 @@ class _SlotLabSettingsPanelState extends State<SlotLabSettingsPanel> {
             children: [
               Text(
                 label,
-                style: const TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textSecondary,
-                  fontSize: 12,
+                  size: 12,
                 ),
               ),
               Text(
                 description,
-                style: const TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textTertiary,
-                  fontSize: 10,
+                  size: 10,
                 ),
               ),
             ],
@@ -681,17 +681,17 @@ class _SlotLabSettingsPanelState extends State<SlotLabSettingsPanel> {
                 children: [
                   Text(
                     label,
-                    style: const TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: FluxForgeTheme.textSecondary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                      size: 12,
+                      weight: FontWeight.w500,
                     ),
                   ),
                   Text(
                     description,
-                    style: const TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: FluxForgeTheme.textTertiary,
-                      fontSize: 10,
+                      size: 10,
                     ),
                   ),
                 ],

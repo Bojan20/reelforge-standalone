@@ -307,11 +307,10 @@ class _NeuralBindOrbState extends State<NeuralBindOrb>
 
     return Text(
       label,
-      style: TextStyle(
-        fontSize: 9,
-        fontWeight: FontWeight.w600,
+      style: FluxForgeTheme.dockMono(
+        size: 9,
+        weight: FontWeight.w600,
         color: color,
-        fontFamily: 'monospace',
       ),
     );
   }
@@ -830,13 +829,11 @@ class _NeuralBindSheetState extends State<NeuralBindSheet>
                   const SizedBox(width: 10),
                   Text(
                     '${a.uniqueStageCount} STAGES BOUND',
-                    style: const TextStyle(
-                      color: Color(0xFF50FF98),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.5,
-                      fontFamily: 'monospace',
-                    ),
+                    style: FluxForgeTheme.dockMono(
+                      color: const Color(0xFF50FF98),
+                      size: 12,
+                      weight: FontWeight.w800,
+                    ).copyWith(letterSpacing: 1.5),
                   ),
                   const SizedBox(width: 12),
                   // Match rate badge
@@ -853,7 +850,7 @@ class _NeuralBindSheetState extends State<NeuralBindSheet>
                       ),
                       child: Text(
                         '${a.unmatchedCount} unmatched',
-                        style: const TextStyle(color: Colors.orange, fontSize: 9, fontFamily: 'monospace'),
+                        style: FluxForgeTheme.dockMono(color: Colors.orange, size: 9),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -868,7 +865,7 @@ class _NeuralBindSheetState extends State<NeuralBindSheet>
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
                       ),
-                      child: const Text('Details ↗', style: TextStyle(color: Colors.white38, fontSize: 9)),
+                      child: Text('Details ↗', style: FluxForgeTheme.dockSans(color: Colors.white38, size: 9)),
                     ),
                   ),
                 ],
@@ -1082,11 +1079,10 @@ class _GhostBindRatioChip extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             '$bound',
-            style: const TextStyle(
-              color: Color(0xFF50FF98),
-              fontFamily: 'JetBrainsMono',
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
+            style: FluxForgeTheme.dockMono(
+              color: const Color(0xFF50FF98),
+              size: 10,
+              weight: FontWeight.w800,
             ),
           ),
           const SizedBox(width: 8),
@@ -1102,22 +1098,19 @@ class _GhostBindRatioChip extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             '$ghost',
-            style: const TextStyle(
-              color: Color(0xFFFFC85E),
-              fontFamily: 'JetBrainsMono',
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
+            style: FluxForgeTheme.dockMono(
+              color: const Color(0xFFFFC85E),
+              size: 10,
+              weight: FontWeight.w800,
             ),
           ),
           const SizedBox(width: 6),
-          const Text(
+          Text(
             'ghost',
-            style: TextStyle(
-              color: Color(0xFF8A8AA0),
-              fontFamily: 'JetBrainsMono',
-              fontSize: 8,
-              letterSpacing: 0.6,
-            ),
+            style: FluxForgeTheme.dockMono(
+              color: const Color(0xFF8A8AA0),
+              size: 8,
+            ).copyWith(letterSpacing: 0.6),
           ),
         ],
       ),
@@ -1412,11 +1405,10 @@ class _TopMatchesList extends StatelessWidget {
             Expanded(
               child: Text(
                 m.stage,
-                style: const TextStyle(
-                  color: Color(0xFF50FF98),
-                  fontSize: 8,
-                  fontFamily: 'monospace',
-                  fontWeight: FontWeight.w500,
+                style: FluxForgeTheme.dockMono(
+                  color: const Color(0xFF50FF98),
+                  size: 8,
+                  weight: FontWeight.w500,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -1424,10 +1416,9 @@ class _TopMatchesList extends StatelessWidget {
             // Score
             Text(
               '${m.score}',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: methodColor.withValues(alpha: 0.6),
-                fontSize: 8,
-                fontFamily: 'monospace',
+                size: 8,
               ),
             ),
           ],
@@ -1474,14 +1465,14 @@ class _BottomBar extends StatelessWidget {
                 Flexible(
                   child: Text(
                     folder,
-                    style: const TextStyle(color: Colors.white24, fontSize: 9, fontFamily: 'monospace'),
+                    style: FluxForgeTheme.dockMono(color: Colors.white24, size: 9),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 const SizedBox(width: 8),
                 Text(
                   '${analysis.totalFiles} files',
-                  style: const TextStyle(color: Colors.white12, fontSize: 8),
+                  style: FluxForgeTheme.dockMono(color: Colors.white12, size: 8),
                 ),
               ],
             ),
@@ -1495,7 +1486,7 @@ class _BottomBar extends StatelessWidget {
                 color: Colors.white.withValues(alpha: 0.04),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: const Text('Dismiss', style: TextStyle(color: Colors.white38, fontSize: 9)),
+              child: Text('Dismiss', style: FluxForgeTheme.dockSans(color: Colors.white38, size: 9)),
             ),
           ),
         ],
@@ -1532,7 +1523,7 @@ class _RateBadge extends StatelessWidget {
       ),
       child: Text(
         '$pct%',
-        style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w700, fontFamily: 'monospace'),
+        style: FluxForgeTheme.dockMono(color: color, size: 9, weight: FontWeight.w700),
       ),
     );
   }

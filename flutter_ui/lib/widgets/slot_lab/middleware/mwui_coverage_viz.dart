@@ -89,11 +89,11 @@ class _MwuiCoverageVizState extends State<MwuiCoverageViz> {
         children: [
           const Icon(Icons.grid_on, size: 14, color: Color(0xFF66BB6A)),
           const SizedBox(width: 6),
-          Text('Coverage', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11, fontWeight: FontWeight.w600)),
+          Text('Coverage', style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.7), size: 11, weight: FontWeight.w600)),
           const Spacer(),
-          Text('${pct.toStringAsFixed(0)}%', style: TextStyle(
+          Text('${pct.toStringAsFixed(0)}%', style: FluxForgeTheme.dockMono(
             color: pct >= 80 ? const Color(0xFF66BB6A) : pct >= 50 ? const Color(0xFFFFB74D) : const Color(0xFFEF5350),
-            fontSize: 11, fontWeight: FontWeight.w700)),
+            size: 11, weight: FontWeight.w700)),
         ],
       ),
     );
@@ -131,10 +131,10 @@ class _MwuiCoverageVizState extends State<MwuiCoverageViz> {
         alignment: Alignment.center,
         child: Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: isSelected ? const Color(0xFF66BB6A) : Colors.white.withValues(alpha: 0.4),
-            fontSize: 9,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+            size: 9,
+            weight: isSelected ? FontWeight.w600 : FontWeight.normal,
           ),
         ),
       ),
@@ -165,7 +165,7 @@ class _MwuiCoverageVizState extends State<MwuiCoverageViz> {
     final tree = _treeProvider;
     if (tree == null) {
       return Center(
-        child: Text('Behavior tree not available', style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 11)),
+        child: Text('Behavior tree not available', style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.3), size: 11)),
       );
     }
 
@@ -176,7 +176,7 @@ class _MwuiCoverageVizState extends State<MwuiCoverageViz> {
 
     if (nodes.isEmpty) {
       return Center(
-        child: Text('No nodes in this category', style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 11)),
+        child: Text('No nodes in this category', style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.2), size: 11)),
       );
     }
 
@@ -237,7 +237,7 @@ class _MwuiCoverageVizState extends State<MwuiCoverageViz> {
                 Expanded(
                   child: Text(
                     node.nodeType.displayName,
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 9, fontWeight: FontWeight.w500),
+                    style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.7), size: 9, weight: FontWeight.w500),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -246,7 +246,7 @@ class _MwuiCoverageVizState extends State<MwuiCoverageViz> {
             const SizedBox(height: 2),
             Text(
               total > 0 ? '${tested + verified}/$total stages' : 'no stages',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 7),
+              style: FluxForgeTheme.dockMono(color: Colors.white.withValues(alpha: 0.3), size: 7),
             ),
           ],
         ),
@@ -278,10 +278,10 @@ class _MwuiCoverageVizState extends State<MwuiCoverageViz> {
               children: [
                 Text(
                   node?.nodeType.displayName ?? nodeId,
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12, fontWeight: FontWeight.w600),
+                  style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.8), size: 12, weight: FontWeight.w600),
                 ),
                 if (node != null)
-                  Text(node.category.displayName, style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 9)),
+                  Text(node.category.displayName, style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.3), size: 9)),
               ],
             ),
           ),
@@ -302,9 +302,9 @@ class _MwuiCoverageVizState extends State<MwuiCoverageViz> {
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 10),
               children: [
-                Text('STAGE ENTRIES', style: TextStyle(
+                Text('STAGE ENTRIES', style: FluxForgeTheme.dockSans(
                   color: const Color(0xFF66BB6A).withValues(alpha: 0.6),
-                  fontSize: 8, fontWeight: FontWeight.w700, letterSpacing: 1)),
+                  size: 8, weight: FontWeight.w700, letterSpacing: 1)),
                 const SizedBox(height: 4),
                 for (final entry in entries)
                   Padding(
@@ -328,7 +328,7 @@ class _MwuiCoverageVizState extends State<MwuiCoverageViz> {
                         Expanded(
                           child: Text(
                             entry.stageName,
-                            style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 9),
+                            style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.5), size: 9),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -348,8 +348,8 @@ class _MwuiCoverageVizState extends State<MwuiCoverageViz> {
       padding: const EdgeInsets.symmetric(vertical: 1),
       child: Row(
         children: [
-          SizedBox(width: 80, child: Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 9))),
-          Text(value, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 9, fontWeight: FontWeight.w500)),
+          SizedBox(width: 80, child: Text(label, style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.3), size: 9))),
+          Text(value, style: FluxForgeTheme.dockMono(color: Colors.white.withValues(alpha: 0.7), size: 9, weight: FontWeight.w500)),
         ],
       ),
     );

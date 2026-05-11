@@ -451,10 +451,13 @@ class _ShortcutsSettingsScreenState extends State<ShortcutsSettingsScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: FluxForgeTheme.bgMid,
-        title: const Text('Reset Shortcuts', style: TextStyle(color: FluxForgeTheme.textPrimary)),
-        content: const Text(
+        title: Text(
+          'Reset Shortcuts',
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
+        ),
+        content: Text(
           'This will reset all keyboard shortcuts to their default values. Continue?',
-          style: TextStyle(color: FluxForgeTheme.textSecondary),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
         ),
         actions: [
           TextButton(
@@ -471,7 +474,10 @@ class _ShortcutsSettingsScreenState extends State<ShortcutsSettingsScreen> {
               setState(() {});
               if (mounted) Navigator.pop(ctx);
             },
-            child: const Text('Reset', style: TextStyle(color: FluxForgeTheme.accentRed)),
+            child: Text(
+              'Reset',
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentRed),
+            ),
           ),
         ],
       ),
@@ -593,7 +599,10 @@ class _ShortcutsSettingsScreenState extends State<ShortcutsSettingsScreen> {
       backgroundColor: FluxForgeTheme.bgDeep,
       appBar: AppBar(
         backgroundColor: FluxForgeTheme.bgMid,
-        title: const Text('Keyboard Shortcuts', style: TextStyle(color: FluxForgeTheme.textPrimary)),
+        title: Text(
+          'Keyboard Shortcuts',
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
+        ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: FluxForgeTheme.textPrimary),
           onPressed: () => Navigator.pop(context),
@@ -618,7 +627,7 @@ class _ShortcutsSettingsScreenState extends State<ShortcutsSettingsScreen> {
                   child: TextField(
                     decoration: InputDecoration(
                       hintText: 'Search shortcuts...',
-                      hintStyle: const TextStyle(color: FluxForgeTheme.textMuted),
+                      hintStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted),
                       prefixIcon: const Icon(Icons.search, color: FluxForgeTheme.textMuted),
                       filled: true,
                       fillColor: FluxForgeTheme.bgDeep,
@@ -628,23 +637,32 @@ class _ShortcutsSettingsScreenState extends State<ShortcutsSettingsScreen> {
                       ),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                     ),
-                    style: const TextStyle(color: FluxForgeTheme.textPrimary),
+                    style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
                     onChanged: (v) => setState(() => _searchQuery = v),
                   ),
                 ),
                 const SizedBox(width: 12),
                 DropdownButton<ShortcutCategory?>(
                   value: _filterCategory,
-                  hint: const Text('All Categories', style: TextStyle(color: FluxForgeTheme.textSecondary)),
+                  hint: Text(
+                    'All Categories',
+                    style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
+                  ),
                   dropdownColor: FluxForgeTheme.bgMid,
                   items: [
-                    const DropdownMenuItem(
+                    DropdownMenuItem(
                       value: null,
-                      child: Text('All Categories', style: TextStyle(color: FluxForgeTheme.textPrimary)),
+                      child: Text(
+                        'All Categories',
+                        style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
+                      ),
                     ),
                     ...ShortcutCategory.values.map((c) => DropdownMenuItem(
                           value: c,
-                          child: Text(c.label, style: const TextStyle(color: FluxForgeTheme.textPrimary)),
+                          child: Text(
+                            c.label,
+                            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
+                          ),
                         )),
                   ],
                   onChanged: (v) => setState(() => _filterCategory = v),
@@ -664,10 +682,10 @@ class _ShortcutsSettingsScreenState extends State<ShortcutsSettingsScreen> {
                     padding: const EdgeInsets.only(top: 16, bottom: 8),
                     child: Text(
                       category.label,
-                      style: const TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: FluxForgeTheme.accentOrange,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                        size: 14,
+                        weight: FontWeight.w600,
                         letterSpacing: 1,
                       ),
                     ),
@@ -722,17 +740,17 @@ class _ShortcutsSettingsScreenState extends State<ShortcutsSettingsScreen> {
                   children: [
                     Text(
                       entry.name,
-                      style: const TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: FluxForgeTheme.textPrimary,
-                        fontSize: 13,
+                        size: 13,
                       ),
                     ),
                     if (entry.isCustomized)
-                      const Text(
+                      Text(
                         'Customized',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: FluxForgeTheme.accentCyan,
-                          fontSize: 10,
+                          size: 10,
                         ),
                       ),
                   ],
@@ -748,12 +766,12 @@ class _ShortcutsSettingsScreenState extends State<ShortcutsSettingsScreen> {
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(color: FluxForgeTheme.accentBlue),
                   ),
-                  child: const Text(
+                  child: Text(
                     'Press key...',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockMono(
                       color: FluxForgeTheme.accentBlue,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                      size: 12,
+                      weight: FontWeight.w500,
                     ),
                   ),
                 )
@@ -766,13 +784,12 @@ class _ShortcutsSettingsScreenState extends State<ShortcutsSettingsScreen> {
                   ),
                   child: Text(
                     entry.currentDef.display,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockMono(
                       color: entry.isCustomized
                           ? FluxForgeTheme.accentCyan
                           : FluxForgeTheme.textSecondary,
-                      fontSize: 12,
-                      fontFamily: 'monospace',
-                      fontWeight: FontWeight.w500,
+                      size: 12,
+                      weight: FontWeight.w500,
                     ),
                   ),
                 ),

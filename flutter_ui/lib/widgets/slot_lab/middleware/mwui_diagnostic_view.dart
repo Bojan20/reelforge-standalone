@@ -107,9 +107,9 @@ class _MwuiDiagnosticViewState extends State<MwuiDiagnosticView> {
         children: [
           const Icon(Icons.developer_mode, size: 14, color: Color(0xFFFF7043)),
           const SizedBox(width: 6),
-          Text('Diagnostics', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11, fontWeight: FontWeight.w600)),
+          Text('Diagnostics', style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.7), size: 11, weight: FontWeight.w600)),
           const Spacer(),
-          Text('RAW', style: TextStyle(color: const Color(0xFFFF7043).withValues(alpha: 0.4), fontSize: 8, fontWeight: FontWeight.w700)),
+          Text('RAW', style: FluxForgeTheme.dockMono(color: const Color(0xFFFF7043).withValues(alpha: 0.4), size: 8, weight: FontWeight.w700)),
         ],
       ),
     );
@@ -140,10 +140,10 @@ class _MwuiDiagnosticViewState extends State<MwuiDiagnosticView> {
               ),
               child: Text(
                 _tabName(tab),
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: isActive ? Colors.white.withValues(alpha: 0.8) : Colors.white.withValues(alpha: 0.4),
-                  fontSize: 9,
-                  fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                  size: 9,
+                  weight: isActive ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),
             ),
@@ -230,7 +230,7 @@ class _MwuiDiagnosticViewState extends State<MwuiDiagnosticView> {
     final profiler = _profiler;
     if (profiler == null) {
       return Center(
-        child: Text('Profiler not available', style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 11)),
+        child: Text('Profiler not available', style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.3), size: 11)),
       );
     }
 
@@ -263,7 +263,7 @@ class _MwuiDiagnosticViewState extends State<MwuiDiagnosticView> {
     final vp = _voicePool;
     if (vp == null) {
       return Center(
-        child: Text('Voice pool not available', style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 11)),
+        child: Text('Voice pool not available', style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.3), size: 11)),
       );
     }
 
@@ -306,7 +306,7 @@ class _MwuiDiagnosticViewState extends State<MwuiDiagnosticView> {
         const SizedBox(height: 4),
         Text(
           '${vp.engineUtilization.toStringAsFixed(1)}% voice budget used',
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 9),
+          style: FluxForgeTheme.dockMono(color: Colors.white.withValues(alpha: 0.4), size: 9),
         ),
         const SizedBox(height: 12),
         _sectionLabel('BY SOURCE'),
@@ -338,7 +338,7 @@ class _MwuiDiagnosticViewState extends State<MwuiDiagnosticView> {
         children: [
           SizedBox(
             width: 80,
-            child: Text(pool.type.displayName, style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 9)),
+            child: Text(pool.type.displayName, style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.5), size: 9)),
           ),
           Expanded(
             child: SizedBox(
@@ -355,7 +355,7 @@ class _MwuiDiagnosticViewState extends State<MwuiDiagnosticView> {
             child: Text(
               '${pool.activeVoices}/${pool.maxVoices}',
               textAlign: TextAlign.right,
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 8, fontFamily: 'monospace'),
+              style: FluxForgeTheme.dockMono(color: Colors.white.withValues(alpha: 0.5), size: 8),
             ),
           ),
         ],
@@ -367,8 +367,8 @@ class _MwuiDiagnosticViewState extends State<MwuiDiagnosticView> {
     return Expanded(
       child: Column(
         children: [
-          Text(value, style: TextStyle(color: color, fontSize: 18, fontWeight: FontWeight.w700)),
-          Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 8)),
+          Text(value, style: FluxForgeTheme.dockMono(color: color, size: 18, weight: FontWeight.w700)),
+          Text(label, style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.3), size: 8)),
         ],
       ),
     );
@@ -391,10 +391,10 @@ class _MwuiDiagnosticViewState extends State<MwuiDiagnosticView> {
   Widget _sectionLabel(String text) {
     return Text(
       text,
-      style: TextStyle(
+      style: FluxForgeTheme.dockSans(
         color: const Color(0xFFFF7043).withValues(alpha: 0.6),
-        fontSize: 8,
-        fontWeight: FontWeight.w700,
+        size: 8,
+        weight: FontWeight.w700,
         letterSpacing: 1,
       ),
     );
@@ -407,9 +407,9 @@ class _MwuiDiagnosticViewState extends State<MwuiDiagnosticView> {
         children: [
           SizedBox(
             width: 120,
-            child: Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 9, fontFamily: 'monospace')),
+            child: Text(label, style: FluxForgeTheme.dockMono(color: Colors.white.withValues(alpha: 0.3), size: 9)),
           ),
-          Text(value, style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 9, fontFamily: 'monospace')),
+          Text(value, style: FluxForgeTheme.dockMono(color: Colors.white.withValues(alpha: 0.6), size: 9)),
         ],
       ),
     );

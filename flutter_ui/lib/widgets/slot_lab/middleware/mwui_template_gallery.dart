@@ -63,9 +63,9 @@ class _MwuiTemplateGalleryState extends State<MwuiTemplateGallery> {
         children: [
           const Icon(Icons.dashboard, size: 14, color: Color(0xFF7E57C2)),
           const SizedBox(width: 6),
-          Text('Template Gallery', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11, fontWeight: FontWeight.w600)),
+          Text('Template Gallery', style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.7), size: 11, weight: FontWeight.w600)),
           const Spacer(),
-          Text('${_templates.length} templates', style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 9)),
+          Text('${_templates.length} templates', style: FluxForgeTheme.dockMono(color: Colors.white.withValues(alpha: 0.3), size: 9)),
         ],
       ),
     );
@@ -98,10 +98,10 @@ class _MwuiTemplateGalleryState extends State<MwuiTemplateGallery> {
               alignment: Alignment.center,
               child: Text(
                 cat.displayName,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: isSelected ? const Color(0xFF7E57C2) : Colors.white.withValues(alpha: 0.4),
-                  fontSize: 9,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  size: 9,
+                  weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),
             ),
@@ -118,7 +118,7 @@ class _MwuiTemplateGalleryState extends State<MwuiTemplateGallery> {
 
     if (filtered.isEmpty) {
       return Center(
-        child: Text('No templates in this category', style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 11)),
+        child: Text('No templates in this category', style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.2), size: 11)),
       );
     }
 
@@ -165,7 +165,7 @@ class _MwuiTemplateGalleryState extends State<MwuiTemplateGallery> {
                       ),
                       child: Text(
                         tpl.category.shortName,
-                        style: TextStyle(color: tpl.color, fontSize: 7, fontWeight: FontWeight.w600),
+                        style: FluxForgeTheme.dockMono(color: tpl.color, size: 7, weight: FontWeight.w600),
                       ),
                     ),
                   ],
@@ -173,25 +173,25 @@ class _MwuiTemplateGalleryState extends State<MwuiTemplateGallery> {
                 const SizedBox(height: 6),
                 Text(
                   tpl.name,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.white.withValues(alpha: 0.8),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
+                    size: 10,
+                    weight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   tpl.description,
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 8),
+                  style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.3), size: 8),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const Spacer(),
                 Row(
                   children: [
-                    Text('${tpl.nodeCount} nodes', style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 7)),
+                    Text('${tpl.nodeCount} nodes', style: FluxForgeTheme.dockMono(color: Colors.white.withValues(alpha: 0.2), size: 7)),
                     const Spacer(),
-                    Text('${tpl.stageCount} stages', style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 7)),
+                    Text('${tpl.stageCount} stages', style: FluxForgeTheme.dockMono(color: Colors.white.withValues(alpha: 0.2), size: 7)),
                   ],
                 ),
               ],
@@ -215,17 +215,17 @@ class _MwuiTemplateGalleryState extends State<MwuiTemplateGallery> {
         children: [
           Icon(tpl.icon, size: 14, color: tpl.color),
           const SizedBox(width: 6),
-          Text(tpl.name, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11, fontWeight: FontWeight.w600)),
+          Text(tpl.name, style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.7), size: 11, weight: FontWeight.w600)),
           const SizedBox(width: 12),
           Text('${tpl.nodeCount} nodes, ${tpl.stageCount} stages',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 9)),
+            style: FluxForgeTheme.dockMono(color: Colors.white.withValues(alpha: 0.3), size: 9)),
           const Spacer(),
           GestureDetector(
             onTap: () {
               // Template apply
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Applied template: ${tpl.name}', style: const TextStyle(fontSize: 11)),
+                  content: Text('Applied template: ${tpl.name}', style: FluxForgeTheme.dockSans(size: 11)),
                   duration: const Duration(seconds: 2),
                   behavior: SnackBarBehavior.floating,
                   backgroundColor: const Color(0xFF2A2A4A),
@@ -239,7 +239,7 @@ class _MwuiTemplateGalleryState extends State<MwuiTemplateGallery> {
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(color: tpl.color.withValues(alpha: 0.3), width: 0.5),
               ),
-              child: Text('Apply Template', style: TextStyle(color: tpl.color, fontSize: 10, fontWeight: FontWeight.w600)),
+              child: Text('Apply Template', style: FluxForgeTheme.dockSans(color: tpl.color, size: 10, weight: FontWeight.w600)),
             ),
           ),
         ],

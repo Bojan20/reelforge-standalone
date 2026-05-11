@@ -116,9 +116,9 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                   onPressed: widget.onSkip,
                   child: Text(
                     'Skip',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: FluxForgeTheme.textSecondary,
-                      fontSize: 12,
+                      size: 12,
                     ),
                   ),
                 ),
@@ -200,8 +200,8 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                 // Version
                 Text(
                   'FluxForge Studio v0.1.0',
-                  style: TextStyle(
-                    fontSize: 11,
+                  style: FluxForgeTheme.dockMono(
+                    size: 11,
                     color: FluxForgeTheme.textSecondary.withAlpha(128),
                   ),
                 ),
@@ -220,9 +220,9 @@ class _WelcomeScreenState extends State<WelcomeScreen>
               children: [
                 Text(
                   'RECENT PROJECTS',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
+                    weight: FontWeight.w600,
                     letterSpacing: 2,
                     color: FluxForgeTheme.textSecondary,
                   ),
@@ -244,9 +244,9 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                         child: Center(
                           child: Text(
                             'No recent projects',
-                            style: TextStyle(
+                            style: FluxForgeTheme.dockSans(
                               color: FluxForgeTheme.textSecondary,
-                              fontSize: 13,
+                              size: 13,
                             ),
                           ),
                         ),
@@ -300,11 +300,11 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                 ],
                 stops: [0.0, 0.4, 0.75, 1.0],
               ).createShader(bounds),
-              child: const Text(
+              child: Text(
                 'FluxForge Studio',
-                style: TextStyle(
-                  fontSize: 40,
-                  fontWeight: FontWeight.w300,
+                style: FluxForgeTheme.dockSans(
+                  size: 40,
+                  weight: FontWeight.w300,
                   letterSpacing: 5,
                   color: FluxForgeTheme.textPrimary,
                 ),
@@ -312,9 +312,9 @@ class _WelcomeScreenState extends State<WelcomeScreen>
             ),
             Text(
               'AUTHORING TOOL & DAW',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
+              style: FluxForgeTheme.dockSans(
+                size: 12,
+                weight: FontWeight.w500,
                 letterSpacing: 4,
                 color: FluxForgeTheme.textSecondary.withAlpha(179),
               ),
@@ -375,9 +375,9 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                 children: [
                   Text(
                     label,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
+                    style: FluxForgeTheme.dockSans(
+                      size: 14,
+                      weight: FontWeight.w500,
                       color: primary
                           ? FluxForgeTheme.textPrimary
                           : FluxForgeTheme.textSecondary,
@@ -386,8 +386,8 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                   const SizedBox(height: 2),
                   Text(
                     sublabel,
-                    style: TextStyle(
-                      fontSize: 11,
+                    style: FluxForgeTheme.dockSans(
+                      size: 11,
                       color: FluxForgeTheme.textSecondary.withAlpha(179),
                     ),
                   ),
@@ -440,8 +440,8 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                   children: [
                     Text(
                       project.name,
-                      style: TextStyle(
-                        fontSize: 13,
+                      style: FluxForgeTheme.dockSans(
+                        size: 13,
                         color: FluxForgeTheme.textPrimary,
                       ),
                       maxLines: 1,
@@ -450,8 +450,8 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                     const SizedBox(height: 2),
                     Text(
                       timeAgo,
-                      style: TextStyle(
-                        fontSize: 10,
+                      style: FluxForgeTheme.dockMono(
+                        size: 10,
                         color: FluxForgeTheme.textSecondary.withAlpha(179),
                       ),
                     ),
@@ -489,9 +489,9 @@ class _WelcomeScreenState extends State<WelcomeScreen>
         children: [
           Text(
             'New Project',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w500,
+            style: FluxForgeTheme.dockSans(
+              size: 18,
+              weight: FontWeight.w500,
               color: FluxForgeTheme.textPrimary,
             ),
           ),
@@ -500,9 +500,9 @@ class _WelcomeScreenState extends State<WelcomeScreen>
           // Project name
           Text(
             'PROJECT NAME',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.w600,
               letterSpacing: 1.5,
               color: FluxForgeTheme.textSecondary,
             ),
@@ -511,8 +511,8 @@ class _WelcomeScreenState extends State<WelcomeScreen>
           TextField(
             controller: _projectNameController,
             autofocus: true,
-            style: TextStyle(
-              fontSize: 14,
+            style: FluxForgeTheme.dockSans(
+              size: 14,
               color: FluxForgeTheme.textPrimary,
             ),
             decoration: InputDecoration(
@@ -554,7 +554,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                 onPressed: () => setState(() => _showNewProjectDialog = false),
                 child: Text(
                   'Cancel',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: FluxForgeTheme.textSecondary,
                   ),
                 ),
