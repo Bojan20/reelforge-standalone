@@ -7,6 +7,7 @@
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Latency histogram bucket
 class LatencyBucket {
@@ -306,17 +307,16 @@ class _LatencyHistogramPanelState extends State<LatencyHistogramPanel> {
       children: [
         Text(
           '$label: ',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: Colors.white.withValues(alpha: 0.5),
-            fontSize: 10,
+            size: 10,
           ),
         ),
         Text(
           '${value.toStringAsFixed(1)}ms',
-          style: const TextStyle(
+          style: FluxForgeTheme.dockMono(
             color: Colors.white,
-            fontSize: 10,
-            fontFamily: 'monospace',
+            size: 10,
           ),
         ),
       ],
@@ -341,18 +341,18 @@ class _LatencyHistogramPanelState extends State<LatencyHistogramPanel> {
           const SizedBox(width: 8),
           Text(
             widget.title,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white.withValues(alpha: 0.9),
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
+              size: 13,
+              weight: FontWeight.w500,
             ),
           ),
           const Spacer(),
           Text(
             '${_histogram.stats.sampleCount} samples',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: Colors.white.withValues(alpha: 0.5),
-              fontSize: 11,
+              size: 11,
             ),
           ),
         ],
@@ -393,19 +393,18 @@ class _LatencyHistogramPanelState extends State<LatencyHistogramPanel> {
         children: [
           Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white.withValues(alpha: 0.6),
-              fontSize: 9,
+              size: 9,
             ),
           ),
           const SizedBox(height: 2),
           Text(
             '${value.toStringAsFixed(1)}ms',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: color,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              fontFamily: 'monospace',
+              size: 12,
+              weight: FontWeight.w600,
             ),
           ),
         ],
@@ -418,7 +417,9 @@ class _LatencyHistogramPanelState extends State<LatencyHistogramPanel> {
       return Center(
         child: Text(
           'No data',
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
+          style: FluxForgeTheme.dockSans(
+            color: Colors.white.withValues(alpha: 0.3),
+          ),
         ),
       );
     }
@@ -502,9 +503,9 @@ class _LatencyHistogramPanelState extends State<LatencyHistogramPanel> {
         const SizedBox(width: 4),
         Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: Colors.white.withValues(alpha: 0.6),
-            fontSize: 10,
+            size: 10,
           ),
         ),
       ],
@@ -781,11 +782,10 @@ class LatencyHistogramBadge extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               '${stats.avg.toStringAsFixed(0)}ms',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: _getHealthColor(stats),
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-                fontFamily: 'monospace',
+                size: 10,
+                weight: FontWeight.w500,
               ),
             ),
           ],

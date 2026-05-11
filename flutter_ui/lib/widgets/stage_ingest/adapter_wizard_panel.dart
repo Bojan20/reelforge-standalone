@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../providers/stage_ingest_provider.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Visual wizard for auto-configuring engine adapters
 class AdapterWizardPanel extends StatefulWidget {
@@ -171,10 +172,10 @@ class _AdapterWizardPanelState extends State<AdapterWizardPanel> {
           const SizedBox(width: 8),
           Text(
             'Adapter Wizard',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white.withValues(alpha: 0.9),
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
+              size: 13,
+              weight: FontWeight.w500,
             ),
           ),
           const Spacer(),
@@ -197,9 +198,9 @@ class _AdapterWizardPanelState extends State<AdapterWizardPanel> {
       children: [
         Text(
           'Paste JSON samples from your slot engine:',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: Colors.white.withValues(alpha: 0.7),
-            fontSize: 12,
+            size: 12,
           ),
         ),
         const SizedBox(height: 8),
@@ -217,14 +218,12 @@ class _AdapterWizardPanelState extends State<AdapterWizardPanel> {
           child: TextField(
             controller: _jsonController,
             maxLines: null,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 11,
-              fontFamily: 'monospace',
+            style: FluxForgeTheme.dockMono(
+              size: 11,
             ),
             decoration: InputDecoration(
               hintText: '{"type": "spin_start", "balance": 1000, ...}',
-              hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
+              hintStyle: FluxForgeTheme.dockMono(color: Colors.white.withValues(alpha: 0.3)),
               border: InputBorder.none,
               contentPadding: const EdgeInsets.all(8),
             ),
@@ -235,9 +234,9 @@ class _AdapterWizardPanelState extends State<AdapterWizardPanel> {
             padding: const EdgeInsets.only(top: 4),
             child: Text(
               _pasteError,
-              style: const TextStyle(
-                color: Color(0xFFff4040),
-                fontSize: 11,
+              style: FluxForgeTheme.dockSans(
+                color: const Color(0xFFff4040),
+                size: 11,
               ),
             ),
           ),
@@ -266,17 +265,17 @@ class _AdapterWizardPanelState extends State<AdapterWizardPanel> {
             _sampleCount > 0
                 ? '$_sampleCount sample${_sampleCount > 1 ? 's' : ''} loaded'
                 : 'No samples added yet',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white.withValues(alpha: 0.7),
-              fontSize: 12,
+              size: 12,
             ),
           ),
           const Spacer(),
           Text(
             'Tip: Add 3-5 diverse samples for best results',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white.withValues(alpha: 0.4),
-              fontSize: 10,
+              size: 10,
             ),
           ),
         ],
@@ -353,10 +352,9 @@ class _AdapterWizardPanelState extends State<AdapterWizardPanel> {
                 result.config != null
                     ? 'Config Generated Successfully'
                     : 'Analysis Complete',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
+                style: FluxForgeTheme.dockSans(
+                  size: 13,
+                  weight: FontWeight.w500,
                 ),
               ),
               const Spacer(),
@@ -368,9 +366,9 @@ class _AdapterWizardPanelState extends State<AdapterWizardPanel> {
                 ),
                 child: Text(
                   '${(result.confidence * 100).toInt()}% confidence',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
                     color: _getConfidenceColor(result.confidence),
-                    fontSize: 11,
+                    size: 11,
                   ),
                 ),
               ),
@@ -380,9 +378,9 @@ class _AdapterWizardPanelState extends State<AdapterWizardPanel> {
           if (result.detectedFields.isNotEmpty) ...[
             Text(
               'Detected Fields:',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.white.withValues(alpha: 0.7),
-                fontSize: 11,
+                size: 11,
               ),
             ),
             const SizedBox(height: 4),
@@ -398,10 +396,9 @@ class _AdapterWizardPanelState extends State<AdapterWizardPanel> {
                   ),
                   child: Text(
                     field,
-                    style: const TextStyle(
-                      color: Color(0xFF4a9eff),
-                      fontSize: 10,
-                      fontFamily: 'monospace',
+                    style: FluxForgeTheme.dockMono(
+                      color: const Color(0xFF4a9eff),
+                      size: 10,
                     ),
                   ),
                 );
@@ -412,9 +409,9 @@ class _AdapterWizardPanelState extends State<AdapterWizardPanel> {
           if (result.recommendedLayer != null)
             Text(
               'Recommended layer: ${result.recommendedLayer}',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.white.withValues(alpha: 0.6),
-                fontSize: 11,
+                size: 11,
               ),
             ),
           if (result.config != null) ...[

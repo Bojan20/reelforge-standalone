@@ -102,9 +102,9 @@ class _MwuiFlowViewState extends State<MwuiFlowView> {
         children: [
           const Icon(Icons.route, size: 14, color: Color(0xFF4FC3F7)),
           const SizedBox(width: 6),
-          Text('Middleware Pipeline Flow', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11, fontWeight: FontWeight.w600)),
+          Text('Middleware Pipeline Flow', style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.7), size: 11, weight: FontWeight.w600)),
           const Spacer(),
-          Text('10 Layers', style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 9)),
+          Text('10 Layers', style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.3), size: 9)),
         ],
       ),
     );
@@ -158,7 +158,7 @@ class _MwuiFlowViewState extends State<MwuiFlowView> {
               child: Center(
                 child: Text(
                   '${index + 1}',
-                  style: TextStyle(color: layer.color, fontSize: 10, fontWeight: FontWeight.w700),
+                  style: FluxForgeTheme.dockMono(color: layer.color, size: 10, weight: FontWeight.w700),
                 ),
               ),
             ),
@@ -169,15 +169,15 @@ class _MwuiFlowViewState extends State<MwuiFlowView> {
                 children: [
                   Text(
                     layer.name,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: isActive ? Colors.white.withValues(alpha: 0.9) : Colors.white.withValues(alpha: 0.6),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
+                      size: 11,
+                      weight: FontWeight.w600,
                     ),
                   ),
                   Text(
                     layer.description,
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 8),
+                    style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.3), size: 8),
                   ),
                 ],
               ),
@@ -205,7 +205,7 @@ class _MwuiFlowViewState extends State<MwuiFlowView> {
       ),
       child: Text(
         status,
-        style: TextStyle(color: layer.color.withValues(alpha: 0.7), fontSize: 7, fontFamily: 'monospace'),
+        style: FluxForgeTheme.dockMono(color: layer.color.withValues(alpha: 0.7), size: 7),
       ),
     );
   }
@@ -226,7 +226,7 @@ class _MwuiFlowViewState extends State<MwuiFlowView> {
   Widget _buildDetailPanel() {
     if (_hoveredLayer < 0 || _hoveredLayer >= _layers.length) {
       return Center(
-        child: Text('Hover a layer for details', style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 10)),
+        child: Text('Hover a layer for details', style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.2), size: 10)),
       );
     }
 
@@ -250,11 +250,11 @@ class _MwuiFlowViewState extends State<MwuiFlowView> {
                   children: [
                     Icon(layer.icon, size: 14, color: layer.color),
                     const SizedBox(width: 6),
-                    Text(layer.name, style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12, fontWeight: FontWeight.w600)),
+                    Text(layer.name, style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.8), size: 12, weight: FontWeight.w600)),
                   ],
                 ),
                 const SizedBox(height: 4),
-                Text(layer.detailDescription, style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 9)),
+                Text(layer.detailDescription, style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.4), size: 9)),
               ],
             ),
           ),
@@ -262,7 +262,7 @@ class _MwuiFlowViewState extends State<MwuiFlowView> {
             child: ListView(
               padding: const EdgeInsets.all(10),
               children: [
-                Text('PARAMETERS', style: TextStyle(color: layer.color.withValues(alpha: 0.6), fontSize: 8, fontWeight: FontWeight.w700, letterSpacing: 1)),
+                Text('PARAMETERS', style: FluxForgeTheme.dockSans(color: layer.color.withValues(alpha: 0.6), size: 8, weight: FontWeight.w700, letterSpacing: 1)),
                 const SizedBox(height: 4),
                 for (final p in params)
                   Padding(
@@ -271,9 +271,9 @@ class _MwuiFlowViewState extends State<MwuiFlowView> {
                       children: [
                         SizedBox(
                           width: 100,
-                          child: Text(p.key, style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 9)),
+                          child: Text(p.key, style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.4), size: 9)),
                         ),
-                        Text(p.value, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 9, fontFamily: 'monospace')),
+                        Text(p.value, style: FluxForgeTheme.dockMono(color: Colors.white.withValues(alpha: 0.7), size: 9)),
                       ],
                     ),
                   ),

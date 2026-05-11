@@ -139,7 +139,7 @@ class _AuxSendsPanelState extends State<AuxSendsPanel>
           const SizedBox(height: 8),
           Text(
             'Select aux bus',
-            style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 11),
           ),
         ],
       ),
@@ -165,9 +165,9 @@ class _AuxSendsPanelState extends State<AuxSendsPanel>
               Expanded(
                 child: Text(
                   '${aux.name} SENDS',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: FontWeight.w700,
                     letterSpacing: 0.5,
                     color: aux.color.computeLuminance() > 0.5
                         ? FluxForgeTheme.bgVoid
@@ -177,8 +177,8 @@ class _AuxSendsPanelState extends State<AuxSendsPanel>
               ),
               Text(
                 aux.effectType.toUpperCase(),
-                style: TextStyle(
-                  fontSize: 8,
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
                   color: (aux.color.computeLuminance() > 0.5
                           ? FluxForgeTheme.bgVoid
                           : FluxForgeTheme.textPrimary)
@@ -303,9 +303,9 @@ class _AuxReturnStripState extends State<_AuxReturnStrip> {
       alignment: Alignment.center,
       child: Text(
         widget.aux.name.toUpperCase(),
-        style: TextStyle(
-          fontSize: 9,
-          fontWeight: FontWeight.w700,
+        style: FluxForgeTheme.dockSans(
+          size: 9,
+          weight: FontWeight.w700,
           letterSpacing: 0.3,
           color: widget.aux.color.computeLuminance() > 0.5
               ? FluxForgeTheme.bgVoid
@@ -328,9 +328,9 @@ class _AuxReturnStripState extends State<_AuxReturnStrip> {
       alignment: Alignment.center,
       child: Text(
         widget.aux.effectType.toUpperCase(),
-        style: TextStyle(
-          fontSize: 8,
-          fontWeight: FontWeight.w600,
+        style: FluxForgeTheme.dockSans(
+          size: 8,
+          weight: FontWeight.w600,
           color: widget.aux.color.withValues(alpha: 0.7),
           letterSpacing: 0.5,
         ),
@@ -514,8 +514,8 @@ class _AuxReturnStripState extends State<_AuxReturnStrip> {
           top: y - 4,
           child: Text(
             '$db',
-            style: TextStyle(
-              fontSize: 7,
+            style: FluxForgeTheme.dockMono(
+              size: 7,
               color: db == 0
                   ? FluxForgeTheme.accentGreen.withValues(alpha: 0.6)
                   : FluxForgeTheme.textTertiary.withValues(alpha: 0.5),
@@ -613,10 +613,9 @@ class _AuxReturnStripState extends State<_AuxReturnStrip> {
       alignment: Alignment.center,
       child: Text(
         '$db dB',
-        style: TextStyle(
-          fontSize: 9,
-          fontFamily: 'monospace',
-          fontWeight: FontWeight.w600,
+        style: FluxForgeTheme.dockMono(
+          size: 9,
+          weight: FontWeight.w600,
           color: isHot ? FluxForgeTheme.accentRed : FluxForgeTheme.textSecondary,
         ),
       ),
@@ -670,9 +669,9 @@ class _AuxReturnStripState extends State<_AuxReturnStrip> {
         alignment: Alignment.center,
         child: Text(
           label,
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: FontWeight.bold,
             color: active ? FluxForgeTheme.bgDeepest : FluxForgeTheme.textTertiary,
           ),
         ),
@@ -693,7 +692,7 @@ class _AuxReturnStripState extends State<_AuxReturnStrip> {
       alignment: Alignment.center,
       child: Text(
         'Master',
-        style: TextStyle(fontSize: 8, color: FluxForgeTheme.textSecondary),
+        style: FluxForgeTheme.dockSans(size: 8, color: FluxForgeTheme.textSecondary),
         overflow: TextOverflow.ellipsis,
       ),
     );
@@ -748,8 +747,8 @@ class _SendRowState extends State<_SendRow> {
             width: 56,
             child: Text(
               widget.trackName,
-              style: TextStyle(
-                fontSize: 9,
+              style: FluxForgeTheme.dockSans(
+                size: 9,
                 color: FluxForgeTheme.textSecondary,
               ),
               overflow: TextOverflow.ellipsis,
@@ -777,9 +776,9 @@ class _SendRowState extends State<_SendRow> {
               alignment: Alignment.center,
               child: Text(
                 widget.isPreFader ? 'PRE' : 'PST',
-                style: TextStyle(
-                  fontSize: 7,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 7,
+                  weight: FontWeight.bold,
                   color: widget.isPreFader
                       ? widget.color
                       : FluxForgeTheme.textTertiary,
@@ -923,10 +922,9 @@ class _SendRowState extends State<_SendRow> {
               alignment: Alignment.center,
               child: Text(
                 dbStr,
-                style: TextStyle(
-                  fontSize: 8,
-                  fontFamily: 'monospace',
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockMono(
+                  size: 8,
+                  weight: FontWeight.w600,
                   color: FluxForgeTheme.textTertiary,
                 ),
               ),

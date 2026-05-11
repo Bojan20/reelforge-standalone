@@ -189,13 +189,13 @@ class FreezeTrackOverlay extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             label,
-            style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w600),
+            style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w600, color: color),
           ),
           if (info.isProcessing && info.progress != null) ...[
             const SizedBox(width: 4),
             Text(
               '${(info.progress! * 100).toInt()}%',
-              style: TextStyle(color: color.withValues(alpha: 0.8), fontSize: 9),
+              style: FluxForgeTheme.dockMono(size: 9, color: color.withValues(alpha: 0.8)),
             ),
           ],
         ],
@@ -218,13 +218,13 @@ class FreezeTrackOverlay extends StatelessWidget {
             const SizedBox(width: 3),
             Text(
               '-${info.cpuSavings.toStringAsFixed(0)}% CPU',
-              style: const TextStyle(color: FluxForgeTheme.accentGreen, fontSize: 9),
+              style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.accentGreen),
             ),
             const SizedBox(width: 6),
           ],
           Text(
             '${info.frozenPlugins.length} plugins frozen',
-            style: const TextStyle(color: Colors.white54, fontSize: 9),
+            style: FluxForgeTheme.dockSans(size: 9, color: Colors.white54),
           ),
         ],
       ),
@@ -350,7 +350,7 @@ class _FreezeOptionsDialogState extends State<FreezeOptionsDialog> {
           const SizedBox(width: 8),
           Text(
             'Freeze Track: ${widget.trackName}',
-            style: const TextStyle(color: Colors.white, fontSize: 16),
+            style: FluxForgeTheme.dockSans(size: 16, color: Colors.white),
           ),
         ],
       ),
@@ -360,18 +360,18 @@ class _FreezeOptionsDialogState extends State<FreezeOptionsDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'This will render the track with all effects to reduce CPU usage.',
-              style: TextStyle(color: Colors.white70, fontSize: 12),
+              style: FluxForgeTheme.dockSans(size: 12, color: Colors.white70),
             ),
             const SizedBox(height: 16),
             CheckboxListTile(
               value: _includeInserts,
               onChanged: (v) => setState(() => _includeInserts = v ?? true),
-              title: const Text('Include Insert Effects', style: TextStyle(color: Colors.white, fontSize: 13)),
+              title: Text('Include Insert Effects', style: FluxForgeTheme.dockSans(size: 13, color: Colors.white)),
               subtitle: Text(
                 '${widget.plugins.length} plugins',
-                style: const TextStyle(color: Colors.white54, fontSize: 11),
+                style: FluxForgeTheme.dockSans(size: 11, color: Colors.white54),
               ),
               activeColor: const Color(0xFF00BCD4),
               contentPadding: EdgeInsets.zero,
@@ -380,7 +380,7 @@ class _FreezeOptionsDialogState extends State<FreezeOptionsDialog> {
             CheckboxListTile(
               value: _includeSends,
               onChanged: (v) => setState(() => _includeSends = v ?? false),
-              title: const Text('Include Send Effects', style: TextStyle(color: Colors.white, fontSize: 13)),
+              title: Text('Include Send Effects', style: FluxForgeTheme.dockSans(size: 13, color: Colors.white)),
               activeColor: const Color(0xFF00BCD4),
               contentPadding: EdgeInsets.zero,
               dense: true,
@@ -389,7 +389,7 @@ class _FreezeOptionsDialogState extends State<FreezeOptionsDialog> {
             CheckboxListTile(
               value: _tailMode,
               onChanged: (v) => setState(() => _tailMode = v ?? true),
-              title: const Text('Extend for Effect Tail', style: TextStyle(color: Colors.white, fontSize: 13)),
+              title: Text('Extend for Effect Tail', style: FluxForgeTheme.dockSans(size: 13, color: Colors.white)),
               activeColor: const Color(0xFF00BCD4),
               contentPadding: EdgeInsets.zero,
               dense: true,
@@ -397,7 +397,7 @@ class _FreezeOptionsDialogState extends State<FreezeOptionsDialog> {
             if (_tailMode) ...[
               Row(
                 children: [
-                  const Text('Tail Length:', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                  Text('Tail Length:', style: FluxForgeTheme.dockSans(size: 12, color: Colors.white54)),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Slider(
@@ -412,7 +412,7 @@ class _FreezeOptionsDialogState extends State<FreezeOptionsDialog> {
                   ),
                   Text(
                     '${_tailLength.toStringAsFixed(1)}s',
-                    style: const TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'JetBrains Mono'),
+                    style: FluxForgeTheme.dockMono(size: 12, color: Colors.white),
                   ),
                 ],
               ),

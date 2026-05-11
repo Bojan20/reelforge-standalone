@@ -75,7 +75,7 @@ class _ProfileImportDialogState extends State<ProfileImportDialog> {
           child: _loading
               ? const Center(child: CircularProgressIndicator())
               : _preview == null
-                  ? const Center(child: Text('Failed to read profile', style: TextStyle(color: Colors.orange)))
+                  ? Center(child: Text('Failed to read profile', style: FluxForgeTheme.dockSans(color: Colors.orange)))
                   : _buildContent(),
         ),
       ),
@@ -90,12 +90,12 @@ class _ProfileImportDialogState extends State<ProfileImportDialog> {
         // Title
         Text(
           'Import: ${p.manifest.name}',
-          style: const TextStyle(color: FluxForgeTheme.accentCyan, fontSize: 14, fontWeight: FontWeight.bold),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentCyan, size: 14, weight: FontWeight.bold),
         ),
         const SizedBox(height: 4),
         Text(
           '${p.eventCount} events  •  ${p.winTierCount} win tiers  •  ${p.musicLayerCount} music layers',
-          style: const TextStyle(color: Colors.white54, fontSize: 11),
+          style: FluxForgeTheme.dockSans(color: Colors.white54, size: 11),
         ),
         const SizedBox(height: 12),
 
@@ -106,7 +106,7 @@ class _ProfileImportDialogState extends State<ProfileImportDialog> {
         const SizedBox(height: 12),
 
         // Audio remap
-        const Text('Audio files:', style: TextStyle(color: Colors.white54, fontSize: 11)),
+        Text('Audio files:', style: FluxForgeTheme.dockSans(color: Colors.white54, size: 11)),
         const SizedBox(height: 4),
         _buildRadio('Keep original paths', _remapFolder == null, () => setState(() => _remapFolder = null)),
         Row(
@@ -117,7 +117,7 @@ class _ProfileImportDialogState extends State<ProfileImportDialog> {
               Expanded(
                 child: Text(
                   _remapFolder!,
-                  style: const TextStyle(color: Colors.white38, fontSize: 9, fontFamily: 'monospace'),
+                  style: FluxForgeTheme.dockMono(color: Colors.white38, size: 9),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -127,7 +127,7 @@ class _ProfileImportDialogState extends State<ProfileImportDialog> {
         const SizedBox(height: 12),
 
         // Conflict resolution
-        const Text('Conflicts:', style: TextStyle(color: Colors.white54, fontSize: 11)),
+        Text('Conflicts:', style: FluxForgeTheme.dockSans(color: Colors.white54, size: 11)),
         const SizedBox(height: 4),
         Row(
           children: [
@@ -151,7 +151,7 @@ class _ProfileImportDialogState extends State<ProfileImportDialog> {
             child: SingleChildScrollView(
               child: Text(
                 p.readme,
-                style: const TextStyle(color: Colors.white54, fontSize: 9, fontFamily: 'monospace', height: 1.4),
+                style: FluxForgeTheme.dockMono(color: Colors.white54, size: 9).copyWith(height: 1.4),
               ),
             ),
           ),
@@ -164,7 +164,7 @@ class _ProfileImportDialogState extends State<ProfileImportDialog> {
           children: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(null),
-              child: const Text('Cancel', style: TextStyle(color: Colors.white38)),
+              child: Text('Cancel', style: FluxForgeTheme.dockSans(color: Colors.white38)),
             ),
             const SizedBox(width: 8),
             ElevatedButton(
@@ -174,7 +174,7 @@ class _ProfileImportDialogState extends State<ProfileImportDialog> {
               ),
               child: _importing
                   ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('Import', style: TextStyle(color: FluxForgeTheme.accentCyan)),
+                  : Text('Import', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentCyan)),
             ),
           ],
         ),
@@ -193,7 +193,7 @@ class _ProfileImportDialogState extends State<ProfileImportDialog> {
             Icon(value ? Icons.check_box : Icons.check_box_outline_blank, size: 16,
                 color: value ? FluxForgeTheme.accentCyan : Colors.white38),
             const SizedBox(width: 6),
-            Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+            Text(label, style: FluxForgeTheme.dockSans(color: Colors.white70, size: 11)),
           ],
         ),
       ),
@@ -211,7 +211,7 @@ class _ProfileImportDialogState extends State<ProfileImportDialog> {
             Icon(selected ? Icons.radio_button_checked : Icons.radio_button_unchecked, size: 14,
                 color: selected ? FluxForgeTheme.accentCyan : Colors.white38),
             const SizedBox(width: 4),
-            Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+            Text(label, style: FluxForgeTheme.dockSans(color: Colors.white70, size: 11)),
           ],
         ),
       ),
@@ -228,7 +228,7 @@ class _ProfileImportDialogState extends State<ProfileImportDialog> {
           Icon(selected ? Icons.radio_button_checked : Icons.radio_button_unchecked, size: 14,
               color: selected ? FluxForgeTheme.accentCyan : Colors.white38),
           const SizedBox(width: 4),
-          Text(label, style: TextStyle(color: selected ? Colors.white70 : Colors.white38, fontSize: 11)),
+          Text(label, style: FluxForgeTheme.dockSans(color: selected ? Colors.white70 : Colors.white38, size: 11)),
         ],
       ),
     );

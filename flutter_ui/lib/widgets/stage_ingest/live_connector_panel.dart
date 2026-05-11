@@ -5,6 +5,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../providers/stage_ingest_provider.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Panel for managing live engine connections
 class LiveConnectorPanel extends StatefulWidget {
@@ -134,10 +135,10 @@ class _LiveConnectorPanelState extends State<LiveConnectorPanel> {
           const SizedBox(width: 8),
           Text(
             'Live Connection',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 13,
+              weight: FontWeight.w500,
               color: Colors.white.withValues(alpha: 0.9),
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
             ),
           ),
           const Spacer(),
@@ -150,10 +151,10 @@ class _LiveConnectorPanelState extends State<LiveConnectorPanel> {
               ),
               child: Text(
                 _getStateText(),
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.w500,
                   color: _getStateColor(),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),
@@ -275,12 +276,12 @@ class _LiveConnectorPanelState extends State<LiveConnectorPanel> {
             const SizedBox(width: 6),
             Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 12,
+                weight: isSelected ? FontWeight.w500 : FontWeight.normal,
                 color: isSelected
                     ? const Color(0xFF4a9eff)
                     : Colors.white.withValues(alpha: isConnected ? 0.3 : 0.7),
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
               ),
             ),
           ],
@@ -300,9 +301,9 @@ class _LiveConnectorPanelState extends State<LiveConnectorPanel> {
       children: [
         Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 11,
             color: Colors.white.withValues(alpha: 0.6),
-            fontSize: 11,
           ),
         ),
         const SizedBox(height: 4),
@@ -316,13 +317,13 @@ class _LiveConnectorPanelState extends State<LiveConnectorPanel> {
           child: TextField(
             controller: controller,
             enabled: enabled,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 12,
               color: Colors.white.withValues(alpha: enabled ? 1 : 0.5),
-              fontSize: 12,
             ),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
+              hintStyle: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.3)),
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
               isDense: true,
@@ -347,9 +348,9 @@ class _LiveConnectorPanelState extends State<LiveConnectorPanel> {
             const SizedBox(width: 8),
             Text(
               'Not connected',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 12,
                 color: Colors.white.withValues(alpha: 0.5),
-                fontSize: 12,
               ),
             ),
           ],
@@ -377,10 +378,9 @@ class _LiveConnectorPanelState extends State<LiveConnectorPanel> {
           Expanded(
             child: Text(
               _activeConnector!.address,
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 12,
                 color: Colors.white.withValues(alpha: 0.7),
-                fontSize: 12,
-                fontFamily: 'monospace',
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -388,9 +388,9 @@ class _LiveConnectorPanelState extends State<LiveConnectorPanel> {
           const SizedBox(width: 8),
           Text(
             '${_recentEvents.length} events',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 11,
               color: Colors.white.withValues(alpha: 0.5),
-              fontSize: 11,
             ),
           ),
         ],
@@ -403,7 +403,7 @@ class _LiveConnectorPanelState extends State<LiveConnectorPanel> {
       return Center(
         child: Text(
           'No events received yet',
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+          style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.4)),
         ),
       );
     }
@@ -440,19 +440,17 @@ class _LiveConnectorPanelState extends State<LiveConnectorPanel> {
           Expanded(
             child: Text(
               event.stage,
-              style: const TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 11,
                 color: Colors.white,
-                fontSize: 11,
-                fontFamily: 'monospace',
               ),
             ),
           ),
           Text(
             '${event.timestampMs.toStringAsFixed(0)}ms',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 10,
               color: Colors.white.withValues(alpha: 0.5),
-              fontSize: 10,
-              fontFamily: 'monospace',
             ),
           ),
         ],

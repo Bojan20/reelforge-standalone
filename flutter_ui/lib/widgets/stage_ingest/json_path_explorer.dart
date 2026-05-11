@@ -5,6 +5,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Known path types for ingest configuration
 enum JsonPathType {
@@ -133,10 +134,10 @@ class _JsonPathExplorerState extends State<JsonPathExplorer> {
           const SizedBox(width: 8),
           Text(
             'JSON Path Explorer',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white.withValues(alpha: 0.9),
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
+              size: 13,
+              weight: FontWeight.w500,
             ),
           ),
           const Spacer(),
@@ -178,14 +179,13 @@ class _JsonPathExplorerState extends State<JsonPathExplorer> {
             child: TextField(
               controller: _controller,
               maxLines: null,
-              style: const TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: Colors.white,
-                fontSize: 11,
-                fontFamily: 'monospace',
+                size: 11,
               ),
               decoration: InputDecoration(
                 hintText: '{"events": [...], "balance": 1000}',
-                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
+                hintStyle: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.3)),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.all(8),
               ),
@@ -196,7 +196,10 @@ class _JsonPathExplorerState extends State<JsonPathExplorer> {
               padding: const EdgeInsets.only(top: 4),
               child: Text(
                 _error!,
-                style: const TextStyle(color: Color(0xFFff4040), fontSize: 10),
+                style: FluxForgeTheme.dockSans(
+                  color: const Color(0xFFff4040),
+                  size: 10,
+                ),
               ),
             ),
           const SizedBox(height: 8),
@@ -223,12 +226,17 @@ class _JsonPathExplorerState extends State<JsonPathExplorer> {
           const SizedBox(height: 12),
           Text(
             'No JSON data loaded',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+            style: FluxForgeTheme.dockSans(
+              color: Colors.white.withValues(alpha: 0.5),
+            ),
           ),
           const SizedBox(height: 4),
           Text(
             'Paste JSON to explore its structure',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 12),
+            style: FluxForgeTheme.dockSans(
+              color: Colors.white.withValues(alpha: 0.3),
+              size: 12,
+            ),
           ),
         ],
       ),
@@ -323,11 +331,10 @@ class _JsonPathExplorerState extends State<JsonPathExplorer> {
                           padding: const EdgeInsets.only(left: 16, top: 4),
                           child: Text(
                             '... and ${array.length - 5} more items',
-                            style: TextStyle(
+                            style: FluxForgeTheme.dockSans(
                               color: Colors.white.withValues(alpha: 0.4),
-                              fontSize: 10,
-                              fontStyle: FontStyle.italic,
-                            ),
+                              size: 10,
+                            ).copyWith(fontStyle: FontStyle.italic),
                           ),
                         ),
                       ]
@@ -393,19 +400,18 @@ class _JsonPathExplorerState extends State<JsonPathExplorer> {
             const SizedBox(width: 4),
             Text(
               key,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.white.withValues(alpha: 0.9),
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
+                size: 11,
+                weight: FontWeight.w500,
               ),
             ),
             const SizedBox(width: 6),
             Text(
               suffix,
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: color.withValues(alpha: 0.7),
-                fontSize: 10,
-                fontFamily: 'monospace',
+                size: 10,
               ),
             ),
           ],
@@ -428,18 +434,17 @@ class _JsonPathExplorerState extends State<JsonPathExplorer> {
             children: [
               Text(
                 'Selected: ',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: Colors.white.withValues(alpha: 0.6),
-                  fontSize: 11,
+                  size: 11,
                 ),
               ),
               Expanded(
                 child: Text(
                   _selectedPath!,
-                  style: const TextStyle(
-                    color: Color(0xFF4a9eff),
-                    fontSize: 11,
-                    fontFamily: 'monospace',
+                  style: FluxForgeTheme.dockMono(
+                    color: const Color(0xFF4a9eff),
+                    size: 11,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -487,7 +492,7 @@ class _JsonPathExplorerState extends State<JsonPathExplorer> {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         minimumSize: Size.zero,
       ),
-      child: Text(label, style: const TextStyle(fontSize: 10)),
+      child: Text(label, style: FluxForgeTheme.dockSans(size: 10)),
     );
   }
 
