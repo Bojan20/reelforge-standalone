@@ -10,6 +10,9 @@
 /// Created: 2026-01-30 (P4.26)
 
 import 'package:flutter/foundation.dart';
+import 'package:get_it/get_it.dart';
+import '../audio_playback_service.dart';
+import '../event_registry.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SCRIPT COMMAND TYPES
@@ -289,11 +292,20 @@ class ScriptingApiService extends ChangeNotifier {
       context.addLog(message);
     });
 
-    // Trigger stage handler (placeholder - integrate with EventRegistry)
+    // Trigger stage handler — G.11: integrated with EventRegistry
     registerHandler(ScriptCommandType.triggerStage, (command, context) async {
       final stage = command.args['stage'] as String? ?? '';
-      context.addLog('Triggering stage: $stage');
-      // TODO: Integrate with EventRegistry.triggerStage(stage)
+      if (stage.isEmpty) {
+        context.addLog('[WARN] triggerStage: missing stage name');
+        return;
+      }
+      try {
+        final reg = GetIt.instance<EventRegistry>();
+        await reg.triggerStage(stage);
+        context.addLog('Stage triggered: $stage');
+      } catch (e) {
+        context.addLog('[ERR] triggerStage failed: $e');
+      }
     });
 
     // Set parameter handler
@@ -304,19 +316,42 @@ class ScriptingApiService extends ChangeNotifier {
       context.addLog('Set $param = $value');
     });
 
-    // Play audio handler (placeholder)
+    // Play audio handler — G.11: integrated with AudioPlaybackService
     registerHandler(ScriptCommandType.playAudio, (command, context) async {
       final path = command.args['path'] as String? ?? '';
       final volume = (command.args['volume'] as num?)?.toDouble() ?? 1.0;
-      context.addLog('Playing audio: $path (volume: $volume)');
-      // TODO: Integrate with AudioPlaybackService
+      if (path.isEmpty) {
+        context.addLog('[WARN] playAudio: missing path');
+        return;
+      }
+      try {
+        final svc = GetIt.instance<AudioPlaybackService>();
+        final voiceId = svc.previewFile(path, volume: volume);
+        if (voiceId >= 0) {
+          context.addLog('Playing audio: $path (voice: $voiceId, vol: $volume)');
+        } else {
+          context.addLog('[ERR] playAudio: previewFile returned -1 for $path');
+        }
+      } catch (e) {
+        context.addLog('[ERR] playAudio failed: $e');
+      }
     });
 
-    // Stop audio handler (placeholder)
+    // Stop audio handler — G.11: integrated with AudioPlaybackService
     registerHandler(ScriptCommandType.stopAudio, (command, context) async {
       final eventId = command.args['eventId'] as String?;
-      context.addLog('Stopping audio${eventId != null ? ': $eventId' : ''}');
-      // TODO: Integrate with AudioPlaybackService
+      try {
+        final svc = GetIt.instance<AudioPlaybackService>();
+        if (eventId != null && eventId.isNotEmpty) {
+          svc.stopEvent(eventId);
+          context.addLog('Stopped audio event: $eventId');
+        } else {
+          svc.stopAll();
+          context.addLog('Stopped all audio');
+        }
+      } catch (e) {
+        context.addLog('[ERR] stopAudio failed: $e');
+      }
     });
 
     // Set volume handler (placeholder)
