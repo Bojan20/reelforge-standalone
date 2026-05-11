@@ -150,10 +150,10 @@ class _MusicTransitionPreviewPanelState extends State<MusicTransitionPreviewPane
           const SizedBox(width: 8),
           Text(
             'Transition Preview',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 13,
+              weight: FontWeight.w600,
               color: FluxForgeTheme.textPrimary,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
             ),
           ),
           const Spacer(),
@@ -193,10 +193,9 @@ class _MusicTransitionPreviewPanelState extends State<MusicTransitionPreviewPane
             ),
             child: Text(
               _formatPosition(_playbackPosition),
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 11,
                 color: FluxForgeTheme.textPrimary,
-                fontSize: 11,
-                fontFamily: 'monospace',
               ),
             ),
           ),
@@ -218,10 +217,10 @@ class _MusicTransitionPreviewPanelState extends State<MusicTransitionPreviewPane
           // Segment A selector
           Text(
             'FROM (Segment A)',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.w600,
               color: Colors.cyan,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 8),
@@ -235,10 +234,10 @@ class _MusicTransitionPreviewPanelState extends State<MusicTransitionPreviewPane
           // Segment B selector
           Text(
             'TO (Segment B)',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.w600,
               color: Colors.orange,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 8),
@@ -293,10 +292,10 @@ class _MusicTransitionPreviewPanelState extends State<MusicTransitionPreviewPane
       child: DropdownButtonHideUnderline(
         child: DropdownButton<int>(
           value: value,
-          hint: Text('Select segment', style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 12)),
+          hint: Text('Select segment', style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textMuted)),
           isExpanded: true,
           dropdownColor: FluxForgeTheme.surface,
-          style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
+          style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textPrimary),
           items: segments.map((segment) {
             return DropdownMenuItem(
               value: segment.id,
@@ -325,12 +324,12 @@ class _MusicTransitionPreviewPanelState extends State<MusicTransitionPreviewPane
         children: [
           Text(
             segment.name,
-            style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600),
+            style: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.w600, color: color),
           ),
           const SizedBox(height: 4),
           Text(
             '${segment.tempo.toStringAsFixed(1)} BPM • ${segment.beatsPerBar}/4 • ${segment.durationBars} bars',
-            style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 10),
+            style: FluxForgeTheme.dockMono(size: 10, color: FluxForgeTheme.textMuted),
           ),
         ],
       ),
@@ -388,7 +387,7 @@ class _MusicTransitionPreviewPanelState extends State<MusicTransitionPreviewPane
         Expanded(
           child: Text(
             'Segment A (Fade Out)',
-            style: TextStyle(color: Colors.cyan, fontSize: 10),
+            style: FluxForgeTheme.dockSans(size: 10, color: Colors.cyan),
             textAlign: TextAlign.center,
           ),
         ),
@@ -397,7 +396,7 @@ class _MusicTransitionPreviewPanelState extends State<MusicTransitionPreviewPane
           width: 100,
           child: Text(
             'Transition',
-            style: TextStyle(color: Colors.pink, fontSize: 10, fontWeight: FontWeight.w600),
+            style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w600, color: Colors.pink),
             textAlign: TextAlign.center,
           ),
         ),
@@ -405,7 +404,7 @@ class _MusicTransitionPreviewPanelState extends State<MusicTransitionPreviewPane
         Expanded(
           child: Text(
             'Segment B (Fade In)',
-            style: TextStyle(color: Colors.orange, fontSize: 10),
+            style: FluxForgeTheme.dockSans(size: 10, color: Colors.orange),
             textAlign: TextAlign.center,
           ),
         ),
@@ -484,7 +483,7 @@ class _MusicTransitionPreviewPanelState extends State<MusicTransitionPreviewPane
                   width: 40,
                   child: Text(
                     '${_overlapPercent.round()}%',
-                    style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 11),
+                    style: FluxForgeTheme.dockMono(size: 11, color: FluxForgeTheme.textMuted),
                   ),
                 ),
               ],
@@ -512,10 +511,10 @@ class _MusicTransitionPreviewPanelState extends State<MusicTransitionPreviewPane
   Widget _buildSettingLabel(String label) {
     return Text(
       label,
-      style: TextStyle(
+      style: FluxForgeTheme.dockSans(
+        size: 10,
+        weight: FontWeight.w600,
         color: FluxForgeTheme.textMuted,
-        fontSize: 10,
-        fontWeight: FontWeight.w600,
       ),
     );
   }
@@ -540,10 +539,10 @@ class _MusicTransitionPreviewPanelState extends State<MusicTransitionPreviewPane
                 ),
                 child: Text(
                   _getSyncModeLabel(mode),
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
+                    weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                     color: isSelected ? Colors.pink : FluxForgeTheme.textMuted,
-                    fontSize: 9,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -574,7 +573,7 @@ class _MusicTransitionPreviewPanelState extends State<MusicTransitionPreviewPane
             ),
             child: Text(
               '${value}ms',
-              style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 11),
+              style: FluxForgeTheme.dockMono(size: 11, color: FluxForgeTheme.textPrimary),
               textAlign: TextAlign.center,
             ),
           ),
@@ -743,15 +742,15 @@ class _MusicTransitionPreviewPanelState extends State<MusicTransitionPreviewPane
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: FluxForgeTheme.bgElevated,
-        title: const Text('Save Transition Profile',
-            style: TextStyle(color: Colors.white, fontSize: 14)),
+        title: Text('Save Transition Profile',
+            style: FluxForgeTheme.dockSans(size: 14, color: Colors.white)),
         content: TextField(
           controller: ctrl,
           autofocus: true,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
+          style: FluxForgeTheme.dockSans(color: Colors.white),
+          decoration: InputDecoration(
             hintText: 'profile name (e.g. "Slow Build")',
-            hintStyle: TextStyle(color: Colors.white38),
+            hintStyle: FluxForgeTheme.dockSans(color: Colors.white38),
           ),
           onSubmitted: (v) => Navigator.of(ctx).pop(v),
         ),

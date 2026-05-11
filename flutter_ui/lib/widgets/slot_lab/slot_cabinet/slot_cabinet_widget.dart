@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../theme/fluxforge_theme.dart';
 
 /// FluxForge SlotLab — 5×3 Professional Slot Cabinet Widget
 ///
@@ -473,10 +474,9 @@ class _SlotCabinetWidgetState extends State<SlotCabinetWidget>
           children: [
             Text(
               label,
-              style: TextStyle(
-                fontFamily: 'Space Grotesk',
-                fontSize: 7,
-                fontWeight: FontWeight.w700,
+              style: FluxForgeTheme.dockSans(
+                size: 7,
+                weight: FontWeight.w700,
                 letterSpacing: 1.4,
                 color: color.withValues(alpha: 0.85),
               ),
@@ -484,10 +484,9 @@ class _SlotCabinetWidgetState extends State<SlotCabinetWidget>
             const SizedBox(height: 2),
             Text(
               '€ ${value.toStringAsFixed(2).replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+\.)'), (m) => '${m[1]},')}',
-              style: TextStyle(
-                fontFamily: 'JetBrains Mono',
-                fontSize: fontSize,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockMono(
+                size: fontSize,
+                weight: FontWeight.w600,
                 color: color.withValues(alpha: 0.75),
               ),
             ),
@@ -743,7 +742,7 @@ class _SlotCabinetWidgetState extends State<SlotCabinetWidget>
                     ? const SizedBox.shrink()
                     : Text(
                         sym.icon,
-                        style: const TextStyle(fontSize: 32, height: 1),
+                        style: FluxForgeTheme.dockSans(size: 32, height: 1),
                       ),
               ),
               // Win golden border
@@ -800,10 +799,9 @@ class _SlotCabinetWidgetState extends State<SlotCabinetWidget>
               children: [
                 Text(
                   tierLabel,
-                  style: TextStyle(
-                    fontFamily: 'Space Grotesk',
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
+                  style: FluxForgeTheme.dockSans(
+                    size: 15,
+                    weight: FontWeight.w700,
                     letterSpacing: 4,
                     color: tierColor,
                   ),
@@ -811,25 +809,22 @@ class _SlotCabinetWidgetState extends State<SlotCabinetWidget>
                 const SizedBox(height: 8),
                 Text(
                   '€ ${outcome.winAmount.toStringAsFixed(2)}',
-                  style: TextStyle(
-                    fontFamily: 'JetBrains Mono',
-                    fontSize: 52,
-                    fontWeight: FontWeight.w700,
+                  style: FluxForgeTheme.dockMono(
+                    size: 52,
+                    weight: FontWeight.w700,
                     color: const Color(0xFFFFD700),
-                    shadows: [
-                      Shadow(
-                        color: const Color(0xFFFFD700).withValues(alpha: 0.6),
-                        blurRadius: 40,
-                      ),
-                    ],
-                  ),
+                  ).copyWith(shadows: [
+                    Shadow(
+                      color: const Color(0xFFFFD700).withValues(alpha: 0.6),
+                      blurRadius: 40,
+                    ),
+                  ]),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   '${(outcome.winAmount / (_bets[_betIdx] * 25)).toStringAsFixed(1)}× BET',
-                  style: TextStyle(
-                    fontFamily: 'Space Grotesk',
-                    fontSize: 10,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
                     letterSpacing: 2,
                     color: Colors.white.withValues(alpha: 0.55),
                   ),
@@ -863,10 +858,9 @@ class _SlotCabinetWidgetState extends State<SlotCabinetWidget>
         ),
         child: Text(
           label,
-          style: TextStyle(
-            fontFamily: 'Space Grotesk',
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: FontWeight.w700,
             letterSpacing: 2,
             color: color,
           ),
@@ -912,10 +906,9 @@ class _SlotCabinetWidgetState extends State<SlotCabinetWidget>
       children: [
         Text(
           label,
-          style: TextStyle(
-            fontFamily: 'Space Grotesk',
-            fontSize: 7,
-            fontWeight: FontWeight.w700,
+          style: FluxForgeTheme.dockSans(
+            size: 7,
+            weight: FontWeight.w700,
             letterSpacing: 1.2,
             color: Colors.white.withValues(alpha: 0.28),
           ),
@@ -926,15 +919,13 @@ class _SlotCabinetWidgetState extends State<SlotCabinetWidget>
           child: Text(
             value,
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontFamily: 'JetBrains Mono',
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
+            style: FluxForgeTheme.dockMono(
+              size: 15,
+              weight: FontWeight.w500,
               color: isGold ? const Color(0xFFFFD700) : Colors.white.withValues(alpha: 0.93),
-              shadows: isGold
-                  ? [Shadow(color: const Color(0xFFFFD700).withValues(alpha: 0.4), blurRadius: 10)]
-                  : null,
-            ),
+            ).copyWith(shadows: isGold
+                ? [Shadow(color: const Color(0xFFFFD700).withValues(alpha: 0.4), blurRadius: 10)]
+                : null),
           ),
         ),
       ],
@@ -975,10 +966,9 @@ class _SlotCabinetWidgetState extends State<SlotCabinetWidget>
       ),
       child: Text(
         label,
-        style: TextStyle(
-          fontFamily: 'Space Grotesk',
-          fontSize: 8,
-          fontWeight: FontWeight.w700,
+        style: FluxForgeTheme.dockSans(
+          size: 8,
+          weight: FontWeight.w700,
           letterSpacing: 0.8,
           color: color,
         ),
@@ -1015,10 +1005,9 @@ class _SlotCabinetWidgetState extends State<SlotCabinetWidget>
       children: [
         Text(
           'BET / LINE',
-          style: TextStyle(
-            fontFamily: 'Space Grotesk',
-            fontSize: 7,
-            fontWeight: FontWeight.w700,
+          style: FluxForgeTheme.dockSans(
+            size: 7,
+            weight: FontWeight.w700,
             letterSpacing: 1.2,
             color: Colors.white.withValues(alpha: 0.28),
           ),
@@ -1033,11 +1022,10 @@ class _SlotCabinetWidgetState extends State<SlotCabinetWidget>
               child: Text(
                 '€ ${_bets[_betIdx].toStringAsFixed(2)}',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontFamily: 'JetBrains Mono',
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFFFFD700),
+                style: FluxForgeTheme.dockMono(
+                  size: 15,
+                  weight: FontWeight.w600,
+                  color: const Color(0xFFFFD700),
                 ),
               ),
             ),
@@ -1063,9 +1051,9 @@ class _SlotCabinetWidgetState extends State<SlotCabinetWidget>
         child: Center(
           child: Text(
             label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
+            style: FluxForgeTheme.dockSans(
+              size: 13,
+              weight: FontWeight.w700,
               color: Colors.white.withValues(alpha: 0.55),
             ),
           ),
@@ -1131,13 +1119,12 @@ class _SlotCabinetWidgetState extends State<SlotCabinetWidget>
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(icon, style: TextStyle(fontSize: 20, color: iconColor)),
+                      Text(icon, style: FluxForgeTheme.dockSans(size: 20, color: iconColor)),
                       Text(
                         label,
-                        style: TextStyle(
-                          fontFamily: 'Space Grotesk',
-                          fontSize: 8,
-                          fontWeight: FontWeight.w700,
+                        style: FluxForgeTheme.dockSans(
+                          size: 8,
+                          weight: FontWeight.w700,
                           letterSpacing: 1.2,
                           color: labelColor,
                         ),
@@ -1163,13 +1150,12 @@ class _SlotCabinetWidgetState extends State<SlotCabinetWidget>
       ),
       child: Column(
         children: [
-          Text(icon, style: const TextStyle(fontSize: 14)),
+          Text(icon, style: FluxForgeTheme.dockSans(size: 14)),
           Text(
             label,
-            style: TextStyle(
-              fontFamily: 'Space Grotesk',
-              fontSize: 6,
-              fontWeight: FontWeight.w700,
+            style: FluxForgeTheme.dockSans(
+              size: 6,
+              weight: FontWeight.w700,
               letterSpacing: 0.8,
               color: Colors.white.withValues(alpha: 0.28),
             ),

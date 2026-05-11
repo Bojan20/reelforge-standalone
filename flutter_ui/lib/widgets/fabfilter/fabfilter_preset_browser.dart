@@ -9,6 +9,7 @@
 /// - Import/Export support
 
 import 'package:flutter/material.dart';
+import '../../theme/fluxforge_theme.dart';
 import 'fabfilter_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -310,12 +311,12 @@ class _FabFilterPresetBrowserState extends State<FabFilterPresetBrowser> {
               const SizedBox(width: 4),
               Text(
                 category.label,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.bold,
                   color: isSelected
                       ? widget.accentColor
                       : FabFilterColors.textSecondary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
@@ -337,15 +338,15 @@ class _FabFilterPresetBrowserState extends State<FabFilterPresetBrowser> {
       child: TextField(
         controller: _searchController,
         focusNode: _searchFocus,
-        style: const TextStyle(
+        style: FluxForgeTheme.dockSans(
+          size: 12,
           color: FabFilterColors.textPrimary,
-          fontSize: 12,
         ),
         decoration: InputDecoration(
           hintText: 'Search presets...',
-          hintStyle: const TextStyle(
+          hintStyle: FluxForgeTheme.dockSans(
+            size: 12,
             color: FabFilterColors.textTertiary,
-            fontSize: 12,
           ),
           prefixIcon: const Icon(
             Icons.search,
@@ -454,22 +455,22 @@ class _FabFilterPresetBrowserState extends State<FabFilterPresetBrowser> {
                 children: [
                   Text(
                     preset.name,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 11,
+                      weight: FontWeight.bold,
                       color: isSelected
                           ? widget.accentColor
                           : FabFilterColors.textPrimary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    ).copyWith(overflow: TextOverflow.ellipsis),
                     overflow: TextOverflow.ellipsis,
                   ),
                   if (preset.author != null) ...[
                     const SizedBox(height: 2),
                     Text(
                       preset.author!,
-                      style: const TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 9,
                         color: FabFilterColors.textTertiary,
-                        fontSize: 9,
                       ),
                     ),
                   ],
@@ -501,14 +502,14 @@ class _FabFilterPresetBrowserState extends State<FabFilterPresetBrowser> {
                 constraints: const BoxConstraints(minWidth: 20),
                 color: FabFilterColors.bgMid,
                 itemBuilder: (context) => [
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'rename',
-                    child: Text('Rename', style: TextStyle(fontSize: 12)),
+                    child: Text('Rename', style: FluxForgeTheme.dockSans(size: 12)),
                   ),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'delete',
                     child: Text('Delete',
-                        style: TextStyle(fontSize: 12, color: FabFilterColors.red)),
+                        style: FluxForgeTheme.dockSans(size: 12, color: FabFilterColors.red)),
                   ),
                 ],
                 onSelected: (action) {
@@ -540,9 +541,9 @@ class _FabFilterPresetBrowserState extends State<FabFilterPresetBrowser> {
         children: [
           Text(
             '${_filteredPresets.length} presets',
-            style: const TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: FabFilterColors.textTertiary,
-              fontSize: 10,
             ),
           ),
           Row(
@@ -581,17 +582,17 @@ class _FabFilterPresetBrowserState extends State<FabFilterPresetBrowser> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: FabFilterColors.bgDeep,
-        title: const Text(
+        title: Text(
           'Save Preset',
-          style: TextStyle(color: FabFilterColors.textPrimary),
+          style: FluxForgeTheme.dockSans(color: FabFilterColors.textPrimary),
         ),
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: const TextStyle(color: FabFilterColors.textPrimary),
+          style: FluxForgeTheme.dockSans(color: FabFilterColors.textPrimary),
           decoration: InputDecoration(
             hintText: 'Preset name',
-            hintStyle: const TextStyle(color: FabFilterColors.textTertiary),
+            hintStyle: FluxForgeTheme.dockSans(color: FabFilterColors.textTertiary),
             enabledBorder: OutlineInputBorder(
               borderSide: const BorderSide(color: FabFilterColors.borderMedium),
             ),
@@ -614,7 +615,7 @@ class _FabFilterPresetBrowserState extends State<FabFilterPresetBrowser> {
             },
             child: Text(
               'Save',
-              style: TextStyle(color: widget.accentColor),
+              style: FluxForgeTheme.dockSans(color: widget.accentColor),
             ),
           ),
         ],
@@ -629,14 +630,14 @@ class _FabFilterPresetBrowserState extends State<FabFilterPresetBrowser> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: FabFilterColors.bgDeep,
-        title: const Text(
+        title: Text(
           'Rename Preset',
-          style: TextStyle(color: FabFilterColors.textPrimary),
+          style: FluxForgeTheme.dockSans(color: FabFilterColors.textPrimary),
         ),
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: const TextStyle(color: FabFilterColors.textPrimary),
+          style: FluxForgeTheme.dockSans(color: FabFilterColors.textPrimary),
           decoration: InputDecoration(
             enabledBorder: OutlineInputBorder(
               borderSide: const BorderSide(color: FabFilterColors.borderMedium),
@@ -658,7 +659,7 @@ class _FabFilterPresetBrowserState extends State<FabFilterPresetBrowser> {
             },
             child: Text(
               'Rename',
-              style: TextStyle(color: widget.accentColor),
+              style: FluxForgeTheme.dockSans(color: widget.accentColor),
             ),
           ),
         ],
@@ -779,13 +780,13 @@ class _FabFilterABComparisonState<T> extends State<FabFilterABComparison<T>> {
           color: FabFilterColors.bgMid,
           tooltip: 'Copy settings',
           itemBuilder: (context) => [
-            const PopupMenuItem(
+            PopupMenuItem(
               value: 'a_to_b',
-              child: Text('Copy A to B', style: TextStyle(fontSize: 11)),
+              child: Text('Copy A to B', style: FluxForgeTheme.dockSans(size: 11)),
             ),
-            const PopupMenuItem(
+            PopupMenuItem(
               value: 'b_to_a',
-              child: Text('Copy B to A', style: TextStyle(fontSize: 11)),
+              child: Text('Copy B to A', style: FluxForgeTheme.dockSans(size: 11)),
             ),
           ],
           onSelected: (action) {
@@ -818,11 +819,10 @@ class _FabFilterABComparisonState<T> extends State<FabFilterABComparison<T>> {
         child: Center(
           child: Text(
             label,
-            style: TextStyle(
-              color:
-                  isActive ? widget.accentColor : FabFilterColors.textTertiary,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.bold,
+              color: isActive ? widget.accentColor : FabFilterColors.textTertiary,
             ),
           ),
         ),

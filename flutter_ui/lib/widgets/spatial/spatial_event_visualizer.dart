@@ -14,6 +14,7 @@ import 'package:provider/provider.dart';
 
 import '../../providers/auto_spatial_provider.dart';
 import '../../spatial/auto_spatial.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Spatial Event Visualizer widget
 class SpatialEventVisualizer extends StatefulWidget {
@@ -279,20 +280,20 @@ class _SpatialEventVisualizerState extends State<SpatialEventVisualizer> {
           ),
 
           // Labels
-          const Positioned(
+          Positioned(
             left: 8,
             top: 0,
             bottom: 0,
             child: Center(
-              child: Text('L', style: TextStyle(color: Colors.white38, fontSize: 9)),
+              child: Text('L', style: FluxForgeTheme.dockMono(size: 9, color: Colors.white38)),
             ),
           ),
-          const Positioned(
+          Positioned(
             right: 8,
             top: 0,
             bottom: 0,
             child: Center(
-              child: Text('R', style: TextStyle(color: Colors.white38, fontSize: 9)),
+              child: Text('R', style: FluxForgeTheme.dockMono(size: 9, color: Colors.white38)),
             ),
           ),
         ],
@@ -312,12 +313,12 @@ class _SpatialEventVisualizerState extends State<SpatialEventVisualizer> {
             children: [
               const Icon(Icons.radar, color: Colors.white54, size: 14),
               const SizedBox(width: 6),
-              const Text(
+              Text(
                 'Active Events',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
                   color: Colors.white70,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+                  weight: FontWeight.w600,
                 ),
               ),
               const Spacer(),
@@ -329,10 +330,10 @@ class _SpatialEventVisualizerState extends State<SpatialEventVisualizer> {
                 ),
                 child: Text(
                   '${_outputs.length}',
-                  style: const TextStyle(
-                    color: Color(0xFF40ff90),
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockMono(
+                    size: 10,
+                    color: const Color(0xFF40ff90),
+                    weight: FontWeight.bold,
                   ),
                 ),
               ),
@@ -345,21 +346,27 @@ class _SpatialEventVisualizerState extends State<SpatialEventVisualizer> {
         // Event list
         Expanded(
           child: _outputs.isEmpty
-              ? const Center(
+              ? Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.radio_button_unchecked,
+                      const Icon(Icons.radio_button_unchecked,
                           color: Colors.white24, size: 32),
-                      SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       Text(
                         'No active events',
-                        style: TextStyle(color: Colors.white38, fontSize: 11),
+                        style: FluxForgeTheme.dockSans(
+                          size: 11,
+                          color: Colors.white38,
+                        ),
                       ),
-                      SizedBox(height: 4),
+                      const SizedBox(height: 4),
                       Text(
                         'Send test events to see them here',
-                        style: TextStyle(color: Colors.white24, fontSize: 9),
+                        style: FluxForgeTheme.dockSans(
+                          size: 9,
+                          color: Colors.white24,
+                        ),
                       ),
                     ],
                   ),
@@ -404,12 +411,12 @@ class _SpatialEventVisualizerState extends State<SpatialEventVisualizer> {
           // Header
           Row(
             children: [
-              const Text(
+              Text(
                 'Event Details',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
                   color: Colors.white70,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
+                  weight: FontWeight.w600,
                 ),
               ),
               const Spacer(),
@@ -475,12 +482,12 @@ class _SpatialEventVisualizerState extends State<SpatialEventVisualizer> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Test Events',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: Colors.white70,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
+              weight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 8),
@@ -543,7 +550,7 @@ class _SpatialEventVisualizerState extends State<SpatialEventVisualizer> {
                 side: const BorderSide(color: Colors.white24),
               ),
               onPressed: provider.clearEvents,
-              child: const Text('Clear All Events', style: TextStyle(fontSize: 10)),
+              child: Text('Clear All Events', style: FluxForgeTheme.dockSans(size: 10)),
             ),
           ),
         ],
@@ -709,7 +716,7 @@ class _LegendItem extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 4),
-          Text(label, style: const TextStyle(color: Colors.white54, fontSize: 8)),
+          Text(label, style: FluxForgeTheme.dockSans(size: 8, color: Colors.white54)),
         ],
       ),
     );
@@ -752,26 +759,26 @@ class _EventListTile extends StatelessWidget {
                       : output.pan > 0.3
                           ? 'R'
                           : 'C',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
+                    size: 9,
                     color: const Color(0xFF4a9eff),
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
+                    weight: FontWeight.bold,
                   ),
                 ),
               ),
               Expanded(
                 child: Text(
                   eventId.length > 20 ? '${eventId.substring(0, 18)}...' : eventId,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
                     color: isSelected ? Colors.white : Colors.white70,
-                    fontSize: 10,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               Text(
                 '${(output.confidence * 100).round()}%',
-                style: const TextStyle(color: Colors.white38, fontSize: 9),
+                style: FluxForgeTheme.dockMono(size: 9, color: Colors.white38),
               ),
             ],
           ),
@@ -794,14 +801,13 @@ class _DetailRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 1),
       child: Row(
         children: [
-          Text(label, style: const TextStyle(color: Colors.white38, fontSize: 9)),
+          Text(label, style: FluxForgeTheme.dockSans(size: 9, color: Colors.white38)),
           const Spacer(),
           Text(
             value,
-            style: const TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 9,
               color: Colors.white70,
-              fontSize: 9,
-              fontFamily: 'monospace',
             ),
           ),
         ],
@@ -835,7 +841,7 @@ class _TestEventButton extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: const TextStyle(color: Colors.white70, fontSize: 9),
+          style: FluxForgeTheme.dockSans(size: 9, color: Colors.white70),
         ),
       ),
     );

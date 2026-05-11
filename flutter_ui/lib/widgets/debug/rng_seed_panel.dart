@@ -213,9 +213,9 @@ class _RngSeedPanelState extends State<RngSeedPanel> {
               const SizedBox(width: 6),
               Text(
                 'RNG Seed Control',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  weight: FontWeight.w600,
                   color: FluxForgeTheme.textPrimary,
                 ),
               ),
@@ -295,8 +295,8 @@ class _RngSeedPanelState extends State<RngSeedPanel> {
                 const SizedBox(width: 4),
                 Text(
                   _isLoggingEnabled ? 'Recording' : 'Paused',
-                  style: TextStyle(
-                    fontSize: 10,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
                     color: _isLoggingEnabled
                         ? FluxForgeTheme.accentGreen
                         : FluxForgeTheme.textSecondary,
@@ -316,10 +316,9 @@ class _RngSeedPanelState extends State<RngSeedPanel> {
           ),
           child: Text(
             '$count entries',
-            style: TextStyle(
-              fontSize: 10,
+            style: FluxForgeTheme.dockMono(
+              size: 10,
               color: FluxForgeTheme.textSecondary,
-              fontFamily: 'monospace',
             ),
           ),
         ),
@@ -334,10 +333,9 @@ class _RngSeedPanelState extends State<RngSeedPanel> {
             ),
             child: Text(
               _currentRngState!.substring(0, 8),
-              style: TextStyle(
-                fontSize: 10,
+              style: FluxForgeTheme.dockMono(
+                size: 10,
                 color: FluxForgeTheme.accentBlue,
-                fontFamily: 'monospace',
               ),
             ),
           ),
@@ -357,9 +355,9 @@ class _RngSeedPanelState extends State<RngSeedPanel> {
         children: [
           Text(
             'MANUAL SEED INJECTION',
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 9,
+              weight: FontWeight.w600,
               color: FluxForgeTheme.textSecondary,
               letterSpacing: 0.5,
             ),
@@ -372,17 +370,16 @@ class _RngSeedPanelState extends State<RngSeedPanel> {
                 width: 60,
                 child: TextField(
                   controller: _containerIdController,
-                  style: TextStyle(
-                    fontSize: 10,
+                  style: FluxForgeTheme.dockMono(
+                    size: 10,
                     color: FluxForgeTheme.textPrimary,
-                    fontFamily: 'monospace',
                   ),
                   decoration: InputDecoration(
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
                     hintText: 'ID',
-                    hintStyle: TextStyle(
-                      fontSize: 10,
+                    hintStyle: FluxForgeTheme.dockSans(
+                      size: 10,
                       color: FluxForgeTheme.textSecondary,
                     ),
                     border: OutlineInputBorder(
@@ -406,17 +403,16 @@ class _RngSeedPanelState extends State<RngSeedPanel> {
               Expanded(
                 child: TextField(
                   controller: _seedInputController,
-                  style: TextStyle(
-                    fontSize: 10,
+                  style: FluxForgeTheme.dockMono(
+                    size: 10,
                     color: FluxForgeTheme.textPrimary,
-                    fontFamily: 'monospace',
                   ),
                   decoration: InputDecoration(
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
                     hintText: 'Seed (hex)',
-                    hintStyle: TextStyle(
-                      fontSize: 10,
+                    hintStyle: FluxForgeTheme.dockSans(
+                      size: 10,
                       color: FluxForgeTheme.textSecondary,
                     ),
                     border: OutlineInputBorder(
@@ -447,8 +443,8 @@ class _RngSeedPanelState extends State<RngSeedPanel> {
                   ),
                   child: Text(
                     'Apply',
-                    style: TextStyle(
-                      fontSize: 10,
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
                       color: FluxForgeTheme.accentBlue,
                     ),
                   ),
@@ -476,9 +472,9 @@ class _RngSeedPanelState extends State<RngSeedPanel> {
   Widget _buildGridHeader(String label) {
     return Text(
       label,
-      style: TextStyle(
-        fontSize: 9,
-        fontWeight: FontWeight.w600,
+      style: FluxForgeTheme.dockSans(
+        size: 9,
+        weight: FontWeight.w600,
         color: FluxForgeTheme.textSecondary,
       ),
     );
@@ -495,8 +491,8 @@ class _RngSeedPanelState extends State<RngSeedPanel> {
         ),
         child: Text(
           _isLoggingEnabled ? 'Waiting for RNG events...' : 'Enable logging to capture seeds',
-          style: TextStyle(
-            fontSize: 10,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
             color: FluxForgeTheme.textSecondary,
           ),
         ),
@@ -534,10 +530,9 @@ class _RngSeedPanelState extends State<RngSeedPanel> {
             width: 45,
             child: Text(
               '${entry.tick}',
-              style: TextStyle(
-                fontSize: 9,
+              style: FluxForgeTheme.dockMono(
+                size: 9,
                 color: FluxForgeTheme.textSecondary,
-                fontFamily: 'monospace',
               ),
             ),
           ),
@@ -546,10 +541,9 @@ class _RngSeedPanelState extends State<RngSeedPanel> {
             width: 30,
             child: Text(
               '${entry.containerId}',
-              style: TextStyle(
-                fontSize: 9,
+              style: FluxForgeTheme.dockMono(
+                size: 9,
                 color: FluxForgeTheme.textPrimary,
-                fontFamily: 'monospace',
               ),
             ),
           ),
@@ -568,10 +562,9 @@ class _RngSeedPanelState extends State<RngSeedPanel> {
               },
               child: Text(
                 shortSeed,
-                style: TextStyle(
-                  fontSize: 9,
+                style: FluxForgeTheme.dockMono(
+                  size: 9,
                   color: FluxForgeTheme.accentBlue,
-                  fontFamily: 'monospace',
                 ),
               ),
             ),
@@ -581,10 +574,9 @@ class _RngSeedPanelState extends State<RngSeedPanel> {
             width: 30,
             child: Text(
               '${entry.selectedId}',
-              style: TextStyle(
-                fontSize: 9,
+              style: FluxForgeTheme.dockMono(
+                size: 9,
                 color: FluxForgeTheme.accentOrange,
-                fontFamily: 'monospace',
               ),
             ),
           ),
@@ -602,8 +594,8 @@ class _RngSeedPanelState extends State<RngSeedPanel> {
                 child: Text(
                   'Replay',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 8,
+                  style: FluxForgeTheme.dockSans(
+                    size: 8,
                     color: FluxForgeTheme.accentGreen,
                   ),
                 ),
@@ -688,13 +680,12 @@ class _RngStatusBadgeState extends State<RngStatusBadge> {
             const SizedBox(width: 4),
             Text(
               '$_entryCount',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockMono(
+                size: 10,
+                weight: FontWeight.w600,
                 color: _isLogging
                     ? FluxForgeTheme.accentGreen
                     : FluxForgeTheme.textSecondary,
-                fontFamily: 'monospace',
               ),
             ),
           ],

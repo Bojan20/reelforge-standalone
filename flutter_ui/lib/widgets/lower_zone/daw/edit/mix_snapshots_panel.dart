@@ -12,6 +12,7 @@ library;
 import 'package:flutter/material.dart';
 import '../../../fabfilter/fabfilter_theme.dart';
 import '../../../fabfilter/fabfilter_widgets.dart';
+import '../../../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MODELS
@@ -258,8 +259,8 @@ class _MixSnapshotsPanelState extends State<MixSnapshotsPanel> {
                   child: Text(
                     'No snapshots captured.\nClick + to capture mixer state.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                        color: FabFilterColors.textTertiary, fontSize: 11),
+                    style: FluxForgeTheme.dockSans(
+                        size: 11, color: FabFilterColors.textTertiary),
                   ),
                 )
               : ListView.builder(
@@ -283,8 +284,8 @@ class _MixSnapshotsPanelState extends State<MixSnapshotsPanel> {
               child: TextField(
                 controller: _nameCtrl,
                 focusNode: _nameFocus,
-                style: const TextStyle(
-                    fontSize: 11, color: FabFilterColors.textPrimary),
+                style: FluxForgeTheme.dockSans(
+                    size: 11, color: FabFilterColors.textPrimary),
                 decoration: _inputDeco('Snapshot name...'),
                 onSubmitted: (_) => _captureSnapshot(),
               ),
@@ -348,8 +349,8 @@ class _MixSnapshotsPanelState extends State<MixSnapshotsPanel> {
                       child: TextField(
                         controller: _renameCtrl,
                         focusNode: _renameFocus,
-                        style: const TextStyle(
-                            fontSize: 11, color: FabFilterColors.textPrimary),
+                        style: FluxForgeTheme.dockSans(
+                            size: 11, color: FabFilterColors.textPrimary),
                         decoration: _inputDeco(''),
                         onSubmitted: (val) {
                           _service.renameSnapshot(snapshot.id, val.trim());
@@ -362,10 +363,9 @@ class _MixSnapshotsPanelState extends State<MixSnapshotsPanel> {
                       children: [
                         Text(
                           snapshot.name,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight:
-                                selected ? FontWeight.w600 : FontWeight.normal,
+                          style: FluxForgeTheme.dockSans(
+                            size: 11,
+                            weight: selected ? FontWeight.w600 : FontWeight.normal,
                             color: selected
                                 ? FabFilterColors.textPrimary
                                 : FabFilterColors.textSecondary,
@@ -374,8 +374,8 @@ class _MixSnapshotsPanelState extends State<MixSnapshotsPanel> {
                         ),
                         Text(
                           '${snapshot.timeLabel}  •  ${snapshot.channelCount} ch',
-                          style: TextStyle(
-                              fontSize: 9, color: FabFilterColors.textTertiary),
+                          style: FluxForgeTheme.dockMono(
+                              size: 9, color: FabFilterColors.textTertiary),
                         ),
                       ],
                     ),
@@ -408,8 +408,8 @@ class _MixSnapshotsPanelState extends State<MixSnapshotsPanel> {
     if (snapshot == null) {
       return Center(
           child: Text('Select a snapshot to view details',
-              style: TextStyle(
-                  color: FabFilterColors.textTertiary, fontSize: 12)));
+              style: FluxForgeTheme.dockSans(
+                  size: 12, color: FabFilterColors.textTertiary)));
     }
 
     return Column(
@@ -421,8 +421,8 @@ class _MixSnapshotsPanelState extends State<MixSnapshotsPanel> {
             children: [
               FabSectionLabel('CHANNELS'),
               const SizedBox(width: 8),
-              Text(snapshot.name, style: const TextStyle(
-                  fontSize: 11, color: FabFilterColors.cyan)),
+              Text(snapshot.name, style: FluxForgeTheme.dockSans(
+                  size: 11, color: FabFilterColors.cyan)),
               const Spacer(),
               _recallButton(snapshot),
             ],
@@ -470,23 +470,23 @@ class _MixSnapshotsPanelState extends State<MixSnapshotsPanel> {
         children: [
           SizedBox(
             width: 60,
-            child: Text(channelId, style: const TextStyle(
-                fontSize: 10, color: FabFilterColors.textSecondary),
+            child: Text(channelId, style: FluxForgeTheme.dockSans(
+                size: 10, color: FabFilterColors.textSecondary),
                 overflow: TextOverflow.ellipsis),
           ),
           SizedBox(
             width: 50,
             child: Text(
               '${(ch.volume * 100).toStringAsFixed(0)}%',
-              style: TextStyle(fontSize: 10, color: FabFilterColors.textPrimary,
-                  fontFeatures: const [FontFeature.tabularFigures()]),
+              style: FluxForgeTheme.dockMono(size: 10, color: FabFilterColors.textPrimary)
+                  .copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
             ),
           ),
           SizedBox(
             width: 40,
             child: Text(
               ch.pan == 0 ? 'C' : '${ch.pan > 0 ? "R" : "L"}${(ch.pan.abs() * 100).toStringAsFixed(0)}',
-              style: TextStyle(fontSize: 10, color: FabFilterColors.textPrimary),
+              style: FluxForgeTheme.dockMono(size: 10, color: FabFilterColors.textPrimary),
             ),
           ),
           SizedBox(
@@ -509,7 +509,7 @@ class _MixSnapshotsPanelState extends State<MixSnapshotsPanel> {
             child: Text(
               ch.sends.entries.map((e) =>
                   '${e.key}: ${(e.value * 100).toStringAsFixed(0)}%').join(', '),
-              style: TextStyle(fontSize: 9, color: FabFilterColors.textTertiary),
+              style: FluxForgeTheme.dockMono(size: 9, color: FabFilterColors.textTertiary),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -549,8 +549,8 @@ class _MixSnapshotsPanelState extends State<MixSnapshotsPanel> {
             Icon(Icons.restore, size: 12,
                 color: isActive ? FabFilterColors.green : FabFilterColors.textSecondary),
             const SizedBox(width: 4),
-            Text('Recall', style: TextStyle(
-              fontSize: 10,
+            Text('Recall', style: FluxForgeTheme.dockSans(
+              size: 10,
               color: isActive ? FabFilterColors.green : FabFilterColors.textSecondary,
             )),
           ],
@@ -625,8 +625,8 @@ class _MixSnapshotsPanelState extends State<MixSnapshotsPanel> {
                       borderRadius: BorderRadius.circular(3),
                       border: Border.all(color: FabFilterColors.border),
                     ),
-                    child: Text('All', style: TextStyle(
-                        fontSize: 9, color: FabFilterColors.textSecondary)),
+                    child: Text('All', style: FluxForgeTheme.dockSans(
+                        size: 9, color: FabFilterColors.textSecondary)),
                   ),
                 ),
               ),
@@ -648,8 +648,8 @@ class _MixSnapshotsPanelState extends State<MixSnapshotsPanel> {
                       borderRadius: BorderRadius.circular(3),
                       border: Border.all(color: FabFilterColors.border),
                     ),
-                    child: Text('None', style: TextStyle(
-                        fontSize: 9, color: FabFilterColors.textSecondary)),
+                    child: Text('None', style: FluxForgeTheme.dockSans(
+                        size: 9, color: FabFilterColors.textSecondary)),
                   ),
                 ),
               ),
@@ -658,12 +658,12 @@ class _MixSnapshotsPanelState extends State<MixSnapshotsPanel> {
           const Spacer(),
           const Divider(color: FabFilterColors.border, height: 16),
           Text('${_service.count} snapshot${_service.count == 1 ? "" : "s"}',
-              style: TextStyle(
-                  fontSize: 10, color: FabFilterColors.textTertiary)),
+              style: FluxForgeTheme.dockMono(
+                  size: 10, color: FabFilterColors.textTertiary)),
           if (_service.activeSnapshotId != null)
             Text(
               'Active: ${_service.getSnapshot(_service.activeSnapshotId!)?.name ?? "-"}',
-              style: TextStyle(fontSize: 10, color: FabFilterColors.green),
+              style: FluxForgeTheme.dockSans(size: 10, color: FabFilterColors.green),
               overflow: TextOverflow.ellipsis,
             ),
         ],
@@ -675,9 +675,9 @@ class _MixSnapshotsPanelState extends State<MixSnapshotsPanel> {
   // HELPERS
   // ═════════════════════════════════════════════════════════════════════════
 
-  TextStyle get _headerStyle => const TextStyle(
-        fontSize: 8,
-        fontWeight: FontWeight.w600,
+  TextStyle get _headerStyle => FluxForgeTheme.dockSans(
+        size: 8,
+        weight: FontWeight.w600,
         color: FabFilterColors.textTertiary,
         letterSpacing: 0.5,
       );
@@ -699,7 +699,7 @@ class _MixSnapshotsPanelState extends State<MixSnapshotsPanel> {
   InputDecoration _inputDeco(String hint) => InputDecoration(
         hintText: hint,
         hintStyle:
-            TextStyle(color: FabFilterColors.textTertiary, fontSize: 11),
+            FluxForgeTheme.dockSans(size: 11, color: FabFilterColors.textTertiary),
         isDense: true,
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 8, vertical: 6),

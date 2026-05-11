@@ -100,11 +100,11 @@ class _ContainerSelectorPanelState extends State<_ContainerSelectorPanel> {
                 const SizedBox(width: 8),
                 Text(
                   title,
-                  style: const TextStyle(
-                    color: FluxForgeTheme.accentPurple,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: FontWeight.bold,
                     letterSpacing: 1,
+                    color: FluxForgeTheme.accentPurple,
                   ),
                 ),
               ],
@@ -130,12 +130,12 @@ class _ContainerSelectorPanelState extends State<_ContainerSelectorPanel> {
                     _buildContainerRow(s.id, s.name, 'sequence', FluxForgeTheme.accentCyan),
                 ],
                 if (blends.isEmpty && randoms.isEmpty && sequences.isEmpty)
-                  const Center(
+                  Center(
                     child: Padding(
-                      padding: EdgeInsets.all(24),
+                      padding: const EdgeInsets.all(24),
                       child: Text(
                         'No containers available',
-                        style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10),
+                        style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary),
                       ),
                     ),
                   ),
@@ -152,11 +152,11 @@ class _ContainerSelectorPanelState extends State<_ContainerSelectorPanel> {
       padding: const EdgeInsets.only(top: 8, bottom: 4),
       child: Text(
         label.toUpperCase(),
-        style: const TextStyle(
-          color: FluxForgeTheme.textTertiary,
-          fontSize: 9,
-          fontWeight: FontWeight.bold,
+        style: FluxForgeTheme.dockSans(
+          size: 9,
+          weight: FontWeight.bold,
           letterSpacing: 1,
+          color: FluxForgeTheme.textTertiary,
         ),
       ),
     );
@@ -187,12 +187,12 @@ class _ContainerSelectorPanelState extends State<_ContainerSelectorPanel> {
             Expanded(
               child: Text(
                 name,
-                style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 10),
+                style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textPrimary),
               ),
             ),
             Text(
               type.toUpperCase(),
-              style: TextStyle(color: color, fontSize: 8, fontWeight: FontWeight.bold),
+              style: FluxForgeTheme.dockSans(size: 8, weight: FontWeight.bold, color: color),
             ),
           ],
         ),
@@ -225,14 +225,14 @@ class _SequenceTimelinePanelState extends State<_SequenceTimelinePanel> {
           children: [
             Icon(Icons.timeline, size: 28, color: FluxForgeTheme.textTertiary.withValues(alpha: 0.4)),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'No sequence containers',
-              style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
+              style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textTertiary),
             ),
             const SizedBox(height: 4),
-            const Text(
+            Text(
               'Create sequences in the Sequence tab',
-              style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 9),
+              style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary),
             ),
           ],
         ),
@@ -272,13 +272,13 @@ class _SequenceTimelinePanelState extends State<_SequenceTimelinePanel> {
         children: [
           const Icon(Icons.timeline, size: 14, color: FluxForgeTheme.accentCyan),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'SEQUENCE TIMELINE',
-            style: TextStyle(
-              color: FluxForgeTheme.accentCyan,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.bold,
               letterSpacing: 1,
+              color: FluxForgeTheme.accentCyan,
             ),
           ),
           const SizedBox(width: 16),
@@ -288,13 +288,10 @@ class _SequenceTimelinePanelState extends State<_SequenceTimelinePanel> {
               value: selected?.id ?? sequences.first.id,
               isDense: true,
               dropdownColor: FluxForgeTheme.bgMid,
-              style: const TextStyle(
-                color: FluxForgeTheme.textPrimary,
-                fontSize: 10,
-              ),
+              style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textPrimary),
               items: sequences.map((s) => DropdownMenuItem(
                 value: s.id,
-                child: Text(s.name, style: const TextStyle(fontSize: 10)),
+                child: Text(s.name, style: FluxForgeTheme.dockSans(size: 10)),
               )).toList(),
               onChanged: (id) => setState(() => _selectedContainerId = id),
             ),
@@ -308,7 +305,7 @@ class _SequenceTimelinePanelState extends State<_SequenceTimelinePanel> {
           const SizedBox(width: 4),
           Text(
             '${(_zoom * 100).toInt()}%',
-            style: const TextStyle(fontSize: 9, color: FluxForgeTheme.textSecondary, fontFamily: 'monospace'),
+            style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textSecondary),
           ),
           const SizedBox(width: 4),
           GestureDetector(
@@ -323,8 +320,8 @@ class _SequenceTimelinePanelState extends State<_SequenceTimelinePanel> {
   Widget _buildTimeline(SequenceContainer seq) {
     final steps = seq.steps;
     if (steps.isEmpty) {
-      return const Center(
-        child: Text('No steps in sequence', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10)),
+      return Center(
+        child: Text('No steps in sequence', style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary)),
       );
     }
 
@@ -412,10 +409,10 @@ class _SequenceTimelinePanelState extends State<_SequenceTimelinePanel> {
                 child: Center(
                   child: Text(
                     '${index + 1}',
-                    style: const TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 9,
+                      weight: FontWeight.bold,
                       color: Colors.black,
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
@@ -424,10 +421,10 @@ class _SequenceTimelinePanelState extends State<_SequenceTimelinePanel> {
               Expanded(
                 child: Text(
                   step.childName,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: FontWeight.w600,
                     color: color,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -437,11 +434,7 @@ class _SequenceTimelinePanelState extends State<_SequenceTimelinePanel> {
           const Spacer(),
           Text(
             '${step.durationMs > 0 ? step.durationMs : 500} ms',
-            style: const TextStyle(
-              color: FluxForgeTheme.textSecondary,
-              fontSize: 9,
-              fontFamily: 'monospace',
-            ),
+            style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textSecondary),
           ),
         ],
       ),
@@ -461,14 +454,14 @@ class _SequenceTimelinePanelState extends State<_SequenceTimelinePanel> {
         children: [
           Text(
             '$label: ',
-            style: const TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 9),
+            style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary),
           ),
           Text(
             value,
-            style: const TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 9,
+              weight: FontWeight.bold,
               color: FluxForgeTheme.textPrimary,
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
             ),
           ),
         ],

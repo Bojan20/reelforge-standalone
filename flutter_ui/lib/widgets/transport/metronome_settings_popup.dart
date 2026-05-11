@@ -294,9 +294,9 @@ class _MetronomeSettingsDialogState extends State<_MetronomeSettingsDialog> {
           const SizedBox(width: 8),
           Text(
             'METRONOME',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.w700,
               letterSpacing: 1.2,
               color: FluxForgeTheme.textPrimary,
             ),
@@ -331,9 +331,9 @@ class _MetronomeSettingsDialogState extends State<_MetronomeSettingsDialog> {
         ),
         child: Text(
           'TAP',
-          style: TextStyle(
-            fontSize: 9,
-            fontWeight: FontWeight.w700,
+          style: FluxForgeTheme.dockSans(
+            size: 9,
+            weight: FontWeight.w700,
             letterSpacing: 1.0,
             color: FluxForgeTheme.textSecondary,
           ),
@@ -418,19 +418,18 @@ class _MetronomeSettingsDialogState extends State<_MetronomeSettingsDialog> {
           // Beat number
           Text(
             '${_countInBeat + 1}',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              fontFamily: 'JetBrains Mono',
+            style: FluxForgeTheme.dockMono(
+              size: 18,
+              weight: FontWeight.w800,
               color: FluxForgeTheme.accentOrange,
             ),
           ),
           const SizedBox(width: 4),
           Text(
             'COUNT-IN',
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 9,
+              weight: FontWeight.w600,
               letterSpacing: 1.0,
               color: FluxForgeTheme.accentBlue,
             ),
@@ -454,10 +453,9 @@ class _MetronomeSettingsDialogState extends State<_MetronomeSettingsDialog> {
             const Spacer(),
             Text(
               '${_tempo.round()} BPM',
-              style: TextStyle(
-                fontSize: 10,
+              style: FluxForgeTheme.dockMono(
+                size: 10,
                 color: FluxForgeTheme.textSecondary,
-                fontFamily: 'JetBrains Mono',
               ),
             ),
           ],
@@ -516,13 +514,12 @@ class _MetronomeSettingsDialogState extends State<_MetronomeSettingsDialog> {
                   alignment: Alignment.center,
                   child: Text(
                     '$beats/4',
-                    style: TextStyle(
-                      fontSize: 10,
+                    style: FluxForgeTheme.dockMono(
+                      size: 10,
                       color: isSelected
                           ? FluxForgeTheme.accentOrange
                           : FluxForgeTheme.textSecondary,
-                      fontWeight:
-                          isSelected ? FontWeight.w600 : FontWeight.normal,
+                      weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                     ),
                   ),
                 ),
@@ -568,13 +565,12 @@ class _MetronomeSettingsDialogState extends State<_MetronomeSettingsDialog> {
                 ),
                 child: Text(
                   _patternLabels[i],
-                  style: TextStyle(
-                    fontSize: 10,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
                     color: isSelected
                         ? FluxForgeTheme.accentOrange
                         : FluxForgeTheme.textSecondary,
-                    fontWeight:
-                        isSelected ? FontWeight.w600 : FontWeight.normal,
+                    weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                   ),
                 ),
               ),
@@ -619,13 +615,12 @@ class _MetronomeSettingsDialogState extends State<_MetronomeSettingsDialog> {
                   alignment: Alignment.center,
                   child: Text(
                     _countInLabels[i],
-                    style: TextStyle(
-                      fontSize: 10,
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
                       color: isSelected
                           ? FluxForgeTheme.accentBlue
                           : FluxForgeTheme.textSecondary,
-                      fontWeight:
-                          isSelected ? FontWeight.w600 : FontWeight.normal,
+                      weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                     ),
                   ),
                 ),
@@ -679,13 +674,12 @@ class _MetronomeSettingsDialogState extends State<_MetronomeSettingsDialog> {
                     ),
                     child: Text(
                       _presetLabels[i],
-                      style: TextStyle(
-                        fontSize: 10,
+                      style: FluxForgeTheme.dockSans(
+                        size: 10,
                         color: isSelected
                             ? FluxForgeTheme.accentOrange
                             : FluxForgeTheme.textSecondary,
-                        fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.normal,
+                        weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                       ),
                     ),
                   ),
@@ -751,17 +745,17 @@ class _MetronomeSettingsDialogState extends State<_MetronomeSettingsDialog> {
           width: 20,
           child: Text(
             icon,
-            style: TextStyle(fontSize: 11, color: color),
+            style: FluxForgeTheme.dockSans(size: 11, color: color),
           ),
         ),
         SizedBox(
           width: 36,
           child: Text(
             label,
-            style: TextStyle(
-              fontSize: 9,
+            style: FluxForgeTheme.dockSans(
+              size: 9,
               color: FluxForgeTheme.textSecondary,
-              fontWeight: FontWeight.w500,
+              weight: FontWeight.w500,
             ),
           ),
         ),
@@ -789,10 +783,9 @@ class _MetronomeSettingsDialogState extends State<_MetronomeSettingsDialog> {
           child: Text(
             '${(value * 100).round()}%',
             textAlign: TextAlign.right,
-            style: TextStyle(
-              fontSize: 9,
+            style: FluxForgeTheme.dockMono(
+              size: 9,
               color: FluxForgeTheme.textSecondary,
-              fontFamily: 'JetBrains Mono',
             ),
           ),
         ),
@@ -810,10 +803,9 @@ class _MetronomeSettingsDialogState extends State<_MetronomeSettingsDialog> {
             const Spacer(),
             Text(
               '${(_volume * 100).round()}%',
-              style: TextStyle(
-                fontSize: 10,
+              style: FluxForgeTheme.dockMono(
+                size: 10,
                 color: FluxForgeTheme.textSecondary,
-                fontFamily: 'JetBrains Mono',
               ),
             ),
           ],
@@ -858,10 +850,9 @@ class _MetronomeSettingsDialogState extends State<_MetronomeSettingsDialog> {
             const Spacer(),
             Text(
               panLabel,
-              style: TextStyle(
-                fontSize: 10,
+              style: FluxForgeTheme.dockMono(
+                size: 10,
                 color: FluxForgeTheme.textSecondary,
-                fontFamily: 'JetBrains Mono',
               ),
             ),
           ],
@@ -920,11 +911,10 @@ class _MetronomeSettingsDialogState extends State<_MetronomeSettingsDialog> {
                   alignment: Alignment.center,
                   child: Text(
                     _audibilityLabels[i],
-                    style: TextStyle(
-                      fontSize: 10,
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
                       color: isSelected ? color : FluxForgeTheme.textSecondary,
-                      fontWeight:
-                          isSelected ? FontWeight.w600 : FontWeight.normal,
+                      weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                     ),
                   ),
                 ),
@@ -952,9 +942,9 @@ class _MetronomeSettingsDialogState extends State<_MetronomeSettingsDialog> {
         children: [
           Text(
             text,
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
+            style: FluxForgeTheme.dockSans(
+              size: 9,
+              weight: FontWeight.w700,
               letterSpacing: 1.5,
               color: FluxForgeTheme.textSecondary.withValues(alpha: 0.6),
             ),
@@ -975,9 +965,9 @@ class _MetronomeSettingsDialogState extends State<_MetronomeSettingsDialog> {
   Widget _label(String text) {
     return Text(
       text,
-      style: TextStyle(
-        fontSize: 10,
-        fontWeight: FontWeight.w600,
+      style: FluxForgeTheme.dockSans(
+        size: 10,
+        weight: FontWeight.w600,
         color: FluxForgeTheme.textSecondary,
         letterSpacing: 0.5,
       ),
