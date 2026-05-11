@@ -65,7 +65,7 @@ class StageFlowStrip extends StatelessWidget {
         return Container(
           height: height,
           decoration: BoxDecoration(
-            color: const Color(0xFF06060A).withValues(alpha: 0.6),
+            color: FluxForgeTheme.bgVoid.withValues(alpha: 0.6),
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
               color: FluxForgeTheme.borderSubtle,

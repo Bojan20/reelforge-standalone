@@ -1442,7 +1442,7 @@ class _HelixScreenState extends State<HelixScreen>
         return Container(
           height: 200,
           decoration: const BoxDecoration(
-            color: Color(0xFF08080C),
+            color: FluxForgeTheme.bgDeepest,
             border: Border(top: BorderSide(color: FluxForgeTheme.borderSubtle, width: 1)),
           ),
           child: Column(
@@ -1452,7 +1452,7 @@ class _HelixScreenState extends State<HelixScreen>
                 height: 28,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: const BoxDecoration(
-                  color: Color(0xFF0A0A12),
+                  color: FluxForgeTheme.bgVoid,
                   border: Border(bottom: BorderSide(color: FluxForgeTheme.borderSubtle, width: 1)),
                 ),
                 child: Row(
@@ -2484,7 +2484,7 @@ class _HelixScreenState extends State<HelixScreen>
     return Container(
       height: 32,
       decoration: const BoxDecoration(
-        color: Color(0xFF0A0A10),
+        color: FluxForgeTheme.bgVoid,
         border: Border(
           bottom: BorderSide(color: FluxForgeTheme.borderSubtle, width: 1),
         ),

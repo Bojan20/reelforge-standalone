@@ -70,7 +70,7 @@ class _DockTabState extends State<_DockTab> {
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(
                   color: isActive
-                    ? const Color(0x0EFFFFFF) // rgba(255,255,255,0.055) — mockup --border
+                    ? FluxForgeTheme.glassBorder // mockup --border ~8% white edge highlight
                     : Colors.transparent,
                   width: 1,
                 ),
@@ -94,7 +94,7 @@ class _DockTabState extends State<_DockTab> {
                   AnimatedDefaultTextStyle(
                     duration: FluxMotion.quick,
                     style: TextStyle(
-                      fontFamily: 'monospace', fontSize: 11,
+                      fontFamily: 'monospace', fontSize: FluxForgeTheme.fontSizeLabel,
                       fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
                       letterSpacing: 0.05,
                       color: isActive
@@ -166,7 +166,7 @@ class _DockCard extends StatelessWidget {
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: const Color(0x7F06060A), // rgba(6,6,10,0.5) — mockup .flow-stage-map bg
+        color: FluxForgeTheme.bgVoid.withValues(alpha: 0.5), // mockup .flow-stage-map bg
         border: Border.all(
           color: a?.withValues(alpha: 0.2) ?? FluxForgeTheme.borderSubtle,
           width: 1,
@@ -228,7 +228,7 @@ class _DockLabel extends StatelessWidget {
         const SizedBox(width: 7),
         Text(text,
           style: TextStyle(
-            fontFamily: 'monospace', fontSize: 11, fontWeight: FontWeight.w700,
+            fontFamily: 'monospace', fontSize: FluxForgeTheme.fontSizeLabel, fontWeight: FontWeight.w700,
             color: c, letterSpacing: 0.3)),
       ],
     );

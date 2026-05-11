@@ -58,7 +58,7 @@ class _ComplianceDot extends StatelessWidget {
           width: 8, height: 8,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: ok ? FluxForgeTheme.accentGreen : const Color(0xFFFF4444),
+            color: ok ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentRed,
           ),
         ),
         const SizedBox(height: 2),

@@ -77,12 +77,12 @@ class AudioCoverageBadge extends StatelessWidget {
           waitDuration: const Duration(milliseconds: 500),
           textStyle: const TextStyle(
             fontFamily: 'monospace',
-            fontSize: 11,
+            fontSize: FluxForgeTheme.fontSizeLabel,
             color: Colors.white,
             height: 1.4,
           ),
           decoration: BoxDecoration(
-            color: const Color(0xFF0A0A12),
+            color: FluxForgeTheme.bgVoid,
             borderRadius: BorderRadius.circular(6),
             border: Border.all(color: color.withValues(alpha: 0.4)),
           ),
@@ -91,7 +91,7 @@ class AudioCoverageBadge extends StatelessWidget {
             height: 22,
             padding: const EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
-              color: const Color(0xFF0A0A12).withValues(alpha: 0.7),
+              color: FluxForgeTheme.bgVoid.withValues(alpha: 0.7),
               borderRadius: BorderRadius.circular(11),
               border: Border.all(
                 color: color.withValues(alpha: 0.45),

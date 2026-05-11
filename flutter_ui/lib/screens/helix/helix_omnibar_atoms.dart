@@ -121,7 +121,7 @@ class _ModeBadgeState extends State<_ModeBadge> {
             ] : null,
           ),
           child: Text(widget.label, style: TextStyle(
-            fontFamily: 'monospace', fontSize: 11, fontWeight: FontWeight.w800,
+            fontFamily: 'monospace', fontSize: FluxForgeTheme.fontSizeLabel, fontWeight: FontWeight.w800,
             letterSpacing: 1.0,
             color: isActive
               ? FluxForgeTheme.accentBlue
