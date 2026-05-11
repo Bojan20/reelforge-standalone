@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 
 import '../../providers/auto_spatial_provider.dart';
 import '../../spatial/auto_spatial.dart';
+import '../../theme/flux_forge_theme.dart';
 import 'spatial_widgets.dart';
 
 /// Intent Rule Editor widget
@@ -67,10 +68,11 @@ class _IntentRuleEditorState extends State<IntentRuleEditor> {
             Expanded(
               child: provider.selectedRule != null
                   ? _buildRuleEditor(provider, provider.selectedRule!)
-                  : const Center(
+                  : Center(
                       child: Text(
                         'Select a rule to edit',
-                        style: TextStyle(color: Colors.white38, fontSize: 12),
+                        style: FluxForgeTheme.dockSans(size: 12)
+                            .copyWith(color: Colors.white38),
                       ),
                     ),
             ),
@@ -182,10 +184,10 @@ class _IntentRuleEditorState extends State<IntentRuleEditor> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: TextField(
         controller: _searchController,
-        style: const TextStyle(color: Colors.white, fontSize: 11),
+        style: FluxForgeTheme.dockSans(size: 11).copyWith(color: Colors.white),
         decoration: InputDecoration(
           hintText: 'Search intents...',
-          hintStyle: const TextStyle(color: Colors.white38, fontSize: 11),
+          hintStyle: FluxForgeTheme.dockSans(size: 11).copyWith(color: Colors.white38),
           prefixIcon: const Icon(Icons.search, color: Colors.white38, size: 14),
           contentPadding: const EdgeInsets.symmetric(vertical: 0),
           filled: true,
@@ -219,17 +221,16 @@ class _IntentRuleEditorState extends State<IntentRuleEditor> {
                 ),
                 child: Text(
                   rule.intent,
-                  style: const TextStyle(
-                    color: Color(0xFF4a9eff),
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
+                    weight: FontWeight.bold,
+                  ).copyWith(color: const Color(0xFF4a9eff)),
                 ),
               ),
               const Spacer(),
               TextButton.icon(
                 icon: const Icon(Icons.refresh, size: 14),
-                label: const Text('Reset', style: TextStyle(fontSize: 11)),
+                label: Text('Reset', style: FluxForgeTheme.dockSans(size: 11)),
                 style: TextButton.styleFrom(foregroundColor: Colors.white54),
                 onPressed: () => provider.resetRuleToDefault(rule.intent),
               ),
@@ -541,15 +542,15 @@ class _IntentRuleEditorState extends State<IntentRuleEditor> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF242430),
-        title: const Text('New Intent Rule',
-            style: TextStyle(color: Colors.white, fontSize: 14)),
+        title: Text('New Intent Rule',
+            style: FluxForgeTheme.dockSans(size: 14).copyWith(color: Colors.white)),
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: const TextStyle(color: Colors.white, fontSize: 12),
-          decoration: const InputDecoration(
+          style: FluxForgeTheme.dockSans(size: 12).copyWith(color: Colors.white),
+          decoration: InputDecoration(
             hintText: 'Intent name (e.g., MY_CUSTOM_INTENT)',
-            hintStyle: TextStyle(color: Colors.white38),
+            hintStyle: FluxForgeTheme.dockSans().copyWith(color: Colors.white38),
           ),
         ),
         actions: [
@@ -581,15 +582,15 @@ class _IntentRuleEditorState extends State<IntentRuleEditor> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF242430),
-        title: const Text('Duplicate Rule',
-            style: TextStyle(color: Colors.white, fontSize: 14)),
+        title: Text('Duplicate Rule',
+            style: FluxForgeTheme.dockSans(size: 14).copyWith(color: Colors.white)),
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: const TextStyle(color: Colors.white, fontSize: 12),
-          decoration: const InputDecoration(
+          style: FluxForgeTheme.dockSans(size: 12).copyWith(color: Colors.white),
+          decoration: InputDecoration(
             hintText: 'New intent name',
-            hintStyle: TextStyle(color: Colors.white38),
+            hintStyle: FluxForgeTheme.dockSans().copyWith(color: Colors.white38),
           ),
         ),
         actions: [
@@ -620,11 +621,11 @@ class _IntentRuleEditorState extends State<IntentRuleEditor> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF242430),
-        title: const Text('Delete Rule?',
-            style: TextStyle(color: Colors.white, fontSize: 14)),
+        title: Text('Delete Rule?',
+            style: FluxForgeTheme.dockSans(size: 14).copyWith(color: Colors.white)),
         content: Text(
           'Are you sure you want to delete "${provider.selectedRuleIntent}"?',
-          style: const TextStyle(color: Colors.white70, fontSize: 12),
+          style: FluxForgeTheme.dockSans(size: 12).copyWith(color: Colors.white70),
         ),
         actions: [
           TextButton(
@@ -664,8 +665,8 @@ class _IntentRuleEditorState extends State<IntentRuleEditor> {
         final controller = TextEditingController();
         return AlertDialog(
           backgroundColor: const Color(0xFF242430),
-          title: const Text('Import Rules JSON',
-              style: TextStyle(color: Colors.white, fontSize: 14)),
+          title: Text('Import Rules JSON',
+              style: FluxForgeTheme.dockSans(size: 14).copyWith(color: Colors.white)),
           content: SizedBox(
             width: 400,
             height: 200,
@@ -673,11 +674,11 @@ class _IntentRuleEditorState extends State<IntentRuleEditor> {
               controller: controller,
               maxLines: null,
               expands: true,
-              style: const TextStyle(color: Colors.white, fontSize: 11),
-              decoration: const InputDecoration(
+              style: FluxForgeTheme.dockMono(size: 11).copyWith(color: Colors.white),
+              decoration: InputDecoration(
                 hintText: 'Paste JSON here...',
-                hintStyle: TextStyle(color: Colors.white38),
-                border: OutlineInputBorder(),
+                hintStyle: FluxForgeTheme.dockMono().copyWith(color: Colors.white38),
+                border: const OutlineInputBorder(),
               ),
             ),
           ),
@@ -739,10 +740,11 @@ class _RuleListTile extends StatelessWidget {
               Expanded(
                 child: Text(
                   rule.intent,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: compact ? 10 : 11,
+                    weight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  ).copyWith(
                     color: isSelected ? Colors.white : Colors.white70,
-                    fontSize: compact ? 10 : 11,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -784,7 +786,8 @@ class _TagBadge extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: TextStyle(color: color, fontSize: 8, fontWeight: FontWeight.bold),
+        style: FluxForgeTheme.dockSans(size: 8, weight: FontWeight.bold)
+            .copyWith(color: color),
       ),
     );
   }
@@ -802,12 +805,11 @@ class _SectionHeader extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         title,
-        style: const TextStyle(
-          color: Colors.white54,
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
+        style: FluxForgeTheme.dockSans(
+          size: 10,
+          weight: FontWeight.w600,
           letterSpacing: 0.5,
-        ),
+        ).copyWith(color: Colors.white54),
       ),
     );
   }

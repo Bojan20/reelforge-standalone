@@ -379,20 +379,20 @@ class _DawHubScreenState extends State<DawHubScreen>
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'FluxForge Studio',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
+              style: FluxForgeTheme.dockSans(
+                size: 16,
+                weight: FontWeight.w500,
                 color: Colors.white,
                 letterSpacing: 1,
               ),
             ),
             Text(
               'DAW MODE',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.w600,
                 color: FluxForgeTheme.accentBlue,
                 letterSpacing: 2,
               ),
@@ -450,8 +450,8 @@ class _DawHubScreenState extends State<DawHubScreen>
               const SizedBox(width: 8),
               Text(
                 label,
-                style: TextStyle(
-                  fontSize: 12,
+                style: FluxForgeTheme.dockSans(
+                  size: 12,
                   color: Colors.white.withValues(alpha: 0.7),
                 ),
               ),
@@ -469,13 +469,13 @@ class _DawHubScreenState extends State<DawHubScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Section title
-          const Text(
+          Text(
             'CREATE NEW PROJECT',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.w600,
               letterSpacing: 3,
-              color: Color(0xFF666666),
+              color: const Color(0xFF666666),
             ),
           ),
 
@@ -487,13 +487,13 @@ class _DawHubScreenState extends State<DawHubScreen>
           const SizedBox(height: 32),
 
           // Templates section
-          const Text(
+          Text(
             'TEMPLATES',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.w600,
               letterSpacing: 2,
-              color: Color(0xFF555555),
+              color: const Color(0xFF555555),
             ),
           ),
 
@@ -529,14 +529,14 @@ class _DawHubScreenState extends State<DawHubScreen>
         controller: _nameController,
         focusNode: _nameFocusNode,
         onChanged: (value) => setState(() => _projectName = value),
-        style: const TextStyle(
-          fontSize: 16,
+        style: FluxForgeTheme.dockSans(
+          size: 16,
           color: Colors.white,
           letterSpacing: 0.5,
         ),
         decoration: InputDecoration(
           hintText: 'Project Name',
-          hintStyle: TextStyle(
+          hintStyle: FluxForgeTheme.dockSans(
             color: Colors.white.withValues(alpha: 0.3),
           ),
           prefixIcon: Icon(
@@ -627,17 +627,17 @@ class _DawHubScreenState extends State<DawHubScreen>
                 const Spacer(),
                 Text(
                   template.name,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+                  style: FluxForgeTheme.dockSans(
+                    size: 13,
+                    weight: FontWeight.w500,
                     color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.8),
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   template.description,
-                  style: TextStyle(
-                    fontSize: 10,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
                     color: Colors.white.withValues(alpha: 0.4),
                   ),
                   maxLines: 2,
@@ -684,9 +684,9 @@ class _DawHubScreenState extends State<DawHubScreen>
               const SizedBox(width: 10),
               Text(
                 'Create ${template.name} Project',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockSans(
+                  size: 14,
+                  weight: FontWeight.w600,
                   color: Colors.white,
                   letterSpacing: 0.5,
                 ),
@@ -707,13 +707,13 @@ class _DawHubScreenState extends State<DawHubScreen>
           // Section title
           Row(
             children: [
-              const Text(
+              Text(
                 'RECENT PROJECTS',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  weight: FontWeight.w600,
                   letterSpacing: 3,
-                  color: Color(0xFF666666),
+                  color: const Color(0xFF666666),
                 ),
               ),
               const Spacer(),
@@ -721,8 +721,8 @@ class _DawHubScreenState extends State<DawHubScreen>
                 onPressed: () => _showOpenDialog(),
                 child: Text(
                   'Browse All',
-                  style: TextStyle(
-                    fontSize: 11,
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
                     color: FluxForgeTheme.accentBlue,
                   ),
                 ),
@@ -761,16 +761,16 @@ class _DawHubScreenState extends State<DawHubScreen>
           const SizedBox(height: 16),
           Text(
             'No recent projects',
-            style: TextStyle(
-              fontSize: 14,
+            style: FluxForgeTheme.dockSans(
+              size: 14,
               color: Colors.white.withValues(alpha: 0.4),
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Create a new project or open an existing one',
-            style: TextStyle(
-              fontSize: 12,
+            style: FluxForgeTheme.dockSans(
+              size: 12,
               color: Colors.white.withValues(alpha: 0.25),
             ),
           ),
@@ -828,9 +828,9 @@ class _DawHubScreenState extends State<DawHubScreen>
                     children: [
                       Text(
                         project.name,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
+                        style: FluxForgeTheme.dockSans(
+                          size: 13,
+                          weight: FontWeight.w500,
                           color: Colors.white,
                         ),
                         maxLines: 1,
@@ -839,8 +839,8 @@ class _DawHubScreenState extends State<DawHubScreen>
                       const SizedBox(height: 3),
                       Text(
                         project.path,
-                        style: TextStyle(
-                          fontSize: 10,
+                        style: FluxForgeTheme.dockMono(
+                          size: 10,
                           color: Colors.white.withValues(alpha: 0.35),
                         ),
                         maxLines: 1,
@@ -853,8 +853,8 @@ class _DawHubScreenState extends State<DawHubScreen>
                 if (project.lastOpened != null)
                   Text(
                     _formatDate(project.lastOpened!),
-                    style: TextStyle(
-                      fontSize: 10,
+                    style: FluxForgeTheme.dockMono(
+                      size: 10,
                       color: Colors.white.withValues(alpha: 0.3),
                     ),
                   ),
@@ -894,8 +894,8 @@ class _DawHubScreenState extends State<DawHubScreen>
           // Version
           Text(
             'v0.1.0',
-            style: TextStyle(
-              fontSize: 10,
+            style: FluxForgeTheme.dockMono(
+              size: 10,
               color: Colors.white.withValues(alpha: 0.2),
               letterSpacing: 1,
             ),
@@ -916,9 +916,9 @@ class _DawHubScreenState extends State<DawHubScreen>
           ),
           child: Text(
             shortcut,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
+            style: FluxForgeTheme.dockMono(
+              size: 10,
+              weight: FontWeight.w500,
               color: Colors.white.withValues(alpha: 0.4),
             ),
           ),
@@ -926,8 +926,8 @@ class _DawHubScreenState extends State<DawHubScreen>
         const SizedBox(width: 6),
         Text(
           action,
-          style: TextStyle(
-            fontSize: 10,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
             color: Colors.white.withValues(alpha: 0.3),
           ),
         ),

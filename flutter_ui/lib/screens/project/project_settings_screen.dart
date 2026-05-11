@@ -232,9 +232,9 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
                 children: [
                   Text(
                     'Tempo (BPM)',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 12,
                       color: FluxForgeTheme.textSecondary,
-                      fontSize: 12,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -281,9 +281,9 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
           children: [
             Text(
               'Time Signature',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 12,
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 12,
               ),
             ),
             const SizedBox(width: 16),
@@ -300,7 +300,7 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
         DropdownButton<int>(
           value: _timeSigNum,
           dropdownColor: FluxForgeTheme.bgMid,
-          style: TextStyle(color: FluxForgeTheme.textPrimary),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
           items: [1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 16].map((num) {
             return DropdownMenuItem(
               value: num,
@@ -318,16 +318,16 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 8),
           child: Text(
             '/',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 20,
               color: FluxForgeTheme.textPrimary,
-              fontSize: 20,
             ),
           ),
         ),
         DropdownButton<int>(
           value: _timeSigDenom,
           dropdownColor: FluxForgeTheme.bgMid,
-          style: TextStyle(color: FluxForgeTheme.textPrimary),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
           items: [2, 4, 8, 16].map((num) {
             return DropdownMenuItem(
               value: num,
@@ -352,9 +352,9 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
       children: [
         Text(
           'Project Sample Rate',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 12,
             color: FluxForgeTheme.textSecondary,
-            fontSize: 12,
           ),
         ),
         const SizedBox(height: 8),
@@ -372,7 +372,7 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
               },
               backgroundColor: FluxForgeTheme.bgSurface,
               selectedColor: FluxForgeTheme.accentBlue,
-              labelStyle: TextStyle(
+              labelStyle: FluxForgeTheme.dockSans(
                 color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textPrimary,
               ),
             );
@@ -389,9 +389,9 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
             const SizedBox(width: 8),
             Text(
               'Changing sample rate will resample all audio',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 12,
                 color: FluxForgeTheme.accentOrange,
-                fontSize: 12,
               ),
             ),
           ],
@@ -407,9 +407,9 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
       children: [
         Text(
           'Playback Sample Rate Conversion',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 12,
             color: FluxForgeTheme.textSecondary,
-            fontSize: 12,
           ),
         ),
         const SizedBox(height: 8),
@@ -425,8 +425,8 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
               value: _srcQuality,
               isExpanded: true,
               dropdownColor: FluxForgeTheme.bgSurface,
-              style: const TextStyle(
-                fontSize: 13,
+              style: FluxForgeTheme.dockSans(
+                size: 13,
                 color: FluxForgeTheme.textPrimary,
               ),
               items: SrcQuality.values.map((q) {
@@ -455,11 +455,10 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
             SrcQuality.sinc384 => 'Ultra quality. Maximum fidelity, higher CPU.',
             SrcQuality.r8brain => 'Offline r8brain SRC. Best quality, not for real-time.',
           },
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 11,
             color: FluxForgeTheme.textTertiary,
-            fontSize: 11,
-            fontStyle: FontStyle.italic,
-          ),
+          ).copyWith(fontStyle: FontStyle.italic),
         ),
       ],
     );
@@ -499,11 +498,11 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
           stats.isOverBudget
               ? 'Over budget — background voices degraded to Sinc 16'
               : 'Within CPU budget — all voices at full quality',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 11,
             color: stats.isOverBudget
                 ? FluxForgeTheme.accentOrange
                 : FluxForgeTheme.textTertiary,
-            fontSize: 11,
           ),
         ),
       ],
@@ -517,22 +516,20 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
         children: [
           Text(
             label,
-            style: TextStyle(
-              fontSize: 11,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
               color: FluxForgeTheme.textTertiary,
             ),
           ),
           const Spacer(),
           Text(
             value,
-            style: TextStyle(
-              fontSize: 11,
-              fontFamily: 'JetBrains Mono',
+            style: FluxForgeTheme.dockMono(
+              size: 11,
               color: highlight
                   ? FluxForgeTheme.accentOrange
                   : FluxForgeTheme.textSecondary,
-              fontWeight: highlight ? FontWeight.bold : FontWeight.normal,
-            ),
+            ).copyWith(fontWeight: highlight ? FontWeight.bold : FontWeight.normal),
           ),
         ],
       ),
@@ -600,18 +597,18 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
             width: 100,
             child: Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 12,
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 12,
               ),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 12,
                 color: FluxForgeTheme.textPrimary,
-                fontSize: 12,
               ),
             ),
           ),
@@ -632,9 +629,9 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
       children: [
         Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 12,
             color: FluxForgeTheme.textSecondary,
-            fontSize: 12,
           ),
         ),
         const SizedBox(height: 8),
@@ -642,12 +639,12 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
           controller: controller,
           onChanged: onChanged,
           maxLines: maxLines,
-          style: TextStyle(color: FluxForgeTheme.textPrimary),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
           decoration: InputDecoration(
             filled: true,
             fillColor: FluxForgeTheme.bgSurface,
             hintText: hintText,
-            hintStyle: TextStyle(color: FluxForgeTheme.textTertiary),
+            hintStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide(color: FluxForgeTheme.borderSubtle),
@@ -691,10 +688,10 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
               const SizedBox(width: 8),
               Text(
                 title,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 14,
+                  weight: FontWeight.bold,
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],

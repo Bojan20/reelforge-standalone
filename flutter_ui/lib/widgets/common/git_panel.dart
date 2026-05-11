@@ -7,6 +7,7 @@ library;
 
 import 'package:flutter/material.dart';
 import '../../services/version_control_service.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Git panel for version control operations
 class GitPanel extends StatefulWidget {
@@ -127,12 +128,12 @@ class _GitPanelState extends State<GitPanel> with SingleTickerProviderStateMixin
         children: [
           const Icon(Icons.merge_type, color: Color(0xFFff9040), size: 20),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Version Control',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 14,
+              weight: FontWeight.w600,
               color: Colors.white,
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
             ),
           ),
           if (_repoInfo?.currentBranch != null) ...[
@@ -150,10 +151,10 @@ class _GitPanelState extends State<GitPanel> with SingleTickerProviderStateMixin
                   const SizedBox(width: 4),
                   Text(
                     _repoInfo!.currentBranch!,
-                    style: const TextStyle(
-                      color: Color(0xFF40ff90),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
+                    style: FluxForgeTheme.dockSans(
+                      size: 11,
+                      weight: FontWeight.w500,
+                      color: const Color(0xFF40ff90),
                     ),
                   ),
                 ],
@@ -184,9 +185,9 @@ class _GitPanelState extends State<GitPanel> with SingleTickerProviderStateMixin
           const SizedBox(height: 12),
           Text(
             _error ?? 'Unknown error',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 13,
               color: Colors.white.withValues(alpha: 0.5),
-              fontSize: 13,
             ),
           ),
         ],
@@ -207,9 +208,9 @@ class _GitPanelState extends State<GitPanel> with SingleTickerProviderStateMixin
           const SizedBox(height: 12),
           Text(
             'Not a Git repository',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 13,
               color: Colors.white.withValues(alpha: 0.5),
-              fontSize: 13,
             ),
           ),
           const SizedBox(height: 16),
@@ -261,10 +262,10 @@ class _GitPanelState extends State<GitPanel> with SingleTickerProviderStateMixin
                         ),
                         child: Text(
                           '${_status.length}',
-                          style: const TextStyle(
+                          style: FluxForgeTheme.dockSans(
+                            size: 10,
+                            weight: FontWeight.bold,
                             color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
@@ -321,11 +322,11 @@ class _GitPanelState extends State<GitPanel> with SingleTickerProviderStateMixin
           padding: const EdgeInsets.all(12),
           child: TextField(
             controller: _commitMessageController,
-            style: const TextStyle(color: Colors.white, fontSize: 13),
+            style: FluxForgeTheme.dockSans(size: 13, color: Colors.white),
             maxLines: 3,
             decoration: InputDecoration(
               hintText: 'Commit message...',
-              hintStyle: const TextStyle(color: Color(0xFF888888)),
+              hintStyle: FluxForgeTheme.dockSans(color: const Color(0xFF888888)),
               filled: true,
               fillColor: const Color(0xFF0a0a0c),
               border: OutlineInputBorder(
@@ -413,9 +414,9 @@ class _GitPanelState extends State<GitPanel> with SingleTickerProviderStateMixin
                   child: Center(
                     child: Text(
                       'No changes',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 13,
                         color: Colors.white.withValues(alpha: 0.5),
-                        fontSize: 13,
                       ),
                     ),
                   ),
@@ -435,10 +436,10 @@ class _GitPanelState extends State<GitPanel> with SingleTickerProviderStateMixin
         children: [
           Text(
             title,
-            style: const TextStyle(
-              color: Color(0xFF888888),
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.w500,
+              color: const Color(0xFF888888),
             ),
           ),
           const SizedBox(width: 6),
@@ -450,9 +451,9 @@ class _GitPanelState extends State<GitPanel> with SingleTickerProviderStateMixin
             ),
             child: Text(
               '$count',
-              style: const TextStyle(
-                color: Color(0xFF888888),
-                fontSize: 10,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                color: const Color(0xFF888888),
               ),
             ),
           ),
@@ -471,8 +472,8 @@ class _GitPanelState extends State<GitPanel> with SingleTickerProviderStateMixin
       ),
       title: Text(
         entry.path,
-        style: const TextStyle(color: Colors.white, fontSize: 12),
-        overflow: TextOverflow.ellipsis,
+        style: FluxForgeTheme.dockSans(size: 12, color: Colors.white)
+            .copyWith(overflow: TextOverflow.ellipsis),
       ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
@@ -517,9 +518,9 @@ class _GitPanelState extends State<GitPanel> with SingleTickerProviderStateMixin
       return Center(
         child: Text(
           'No commits yet',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 13,
             color: Colors.white.withValues(alpha: 0.5),
-            fontSize: 13,
           ),
         ),
       );
@@ -541,23 +542,23 @@ class _GitPanelState extends State<GitPanel> with SingleTickerProviderStateMixin
             child: Center(
               child: Text(
                 commit.author[0].toUpperCase(),
-                style: const TextStyle(
-                  color: Color(0xFF4a9eff),
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
+                style: FluxForgeTheme.dockSans(
+                  size: 12,
+                  weight: FontWeight.w600,
+                  color: const Color(0xFF4a9eff),
                 ),
               ),
             ),
           ),
           title: Text(
             commit.message,
-            style: const TextStyle(color: Colors.white, fontSize: 12),
+            style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
           subtitle: Text(
             '${commit.shortHash} · ${commit.author} · ${_formatDate(commit.date)}',
-            style: const TextStyle(color: Color(0xFF888888), fontSize: 10),
+            style: FluxForgeTheme.dockMono(size: 10, color: const Color(0xFF888888)),
           ),
         );
       },
@@ -606,10 +607,10 @@ class _GitPanelState extends State<GitPanel> with SingleTickerProviderStateMixin
                 ),
                 title: Text(
                   branch.name,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
+                    weight: branch.isCurrent ? FontWeight.w600 : FontWeight.normal,
                     color: branch.isCurrent ? const Color(0xFF40ff90) : Colors.white,
-                    fontSize: 12,
-                    fontWeight: branch.isCurrent ? FontWeight.w600 : FontWeight.normal,
                   ),
                 ),
                 trailing: branch.isCurrent
@@ -621,9 +622,9 @@ class _GitPanelState extends State<GitPanel> with SingleTickerProviderStateMixin
                             value: 'checkout',
                             child: Text('Checkout'),
                           ),
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'delete',
-                            child: Text('Delete', style: TextStyle(color: Colors.red)),
+                            child: Text('Delete', style: FluxForgeTheme.dockSans(color: Colors.red)),
                           ),
                         ],
                         onSelected: (value) async {
@@ -654,14 +655,14 @@ class _GitPanelState extends State<GitPanel> with SingleTickerProviderStateMixin
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1a1a20),
-        title: const Text('New Branch', style: TextStyle(color: Colors.white)),
+        title: Text('New Branch', style: FluxForgeTheme.dockSans(color: Colors.white)),
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
+          style: FluxForgeTheme.dockSans(color: Colors.white),
+          decoration: InputDecoration(
             hintText: 'Branch name',
-            hintStyle: TextStyle(color: Color(0xFF888888)),
+            hintStyle: FluxForgeTheme.dockSans(color: const Color(0xFF888888)),
           ),
         ),
         actions: [

@@ -104,10 +104,10 @@ class _VisionDashboardState extends State<VisionDashboard> {
           const SizedBox(width: 6),
           Text(
             'CORTEX VISION',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.w700,
               color: FluxForgeTheme.accentCyan,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
               letterSpacing: 1.2,
             ),
           ),
@@ -191,7 +191,7 @@ class _VisionDashboardState extends State<VisionDashboard> {
       return Center(
         child: Text(
           'No vision regions registered',
-          style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 13),
+          style: FluxForgeTheme.dockSans(size: 13, color: FluxForgeTheme.textTertiary),
         ),
       );
     }
@@ -304,13 +304,12 @@ class _VisionDashboardState extends State<VisionDashboard> {
                   Expanded(
                     child: Text(
                       regionName.replaceAll('_', ' ').toUpperCase(),
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 10,
+                        weight: FontWeight.w600,
                         color: FluxForgeTheme.textPrimary,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
                         letterSpacing: 0.8,
-                      ),
-                      overflow: TextOverflow.ellipsis,
+                      ).copyWith(overflow: TextOverflow.ellipsis),
                     ),
                   ),
                   // Diff change indicator
@@ -323,10 +322,10 @@ class _VisionDashboardState extends State<VisionDashboard> {
                       ),
                       child: Text(
                         '${(diff.changePercent * 100).toStringAsFixed(1)}%',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 9,
+                          weight: FontWeight.w600,
                           color: _diffColor(diff.changePercent),
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -335,9 +334,9 @@ class _VisionDashboardState extends State<VisionDashboard> {
                     const SizedBox(width: 4),
                     Text(
                       snapshot.sizeKB,
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 9,
                         color: FluxForgeTheme.textTertiary,
-                        fontSize: 9,
                       ),
                     ),
                   ],
@@ -358,7 +357,7 @@ class _VisionDashboardState extends State<VisionDashboard> {
         child: Center(
           child: Text(
             'File removed',
-            style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10),
+            style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary),
           ),
         ),
       );
@@ -412,10 +411,10 @@ class _VisionDashboardState extends State<VisionDashboard> {
               children: [
                 Text(
                   regionName.replaceAll('_', ' ').toUpperCase(),
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
+                    weight: FontWeight.w700,
                     color: FluxForgeTheme.accentCyan,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
                     letterSpacing: 1.0,
                   ),
                 ),
@@ -424,9 +423,9 @@ class _VisionDashboardState extends State<VisionDashboard> {
                     padding: const EdgeInsets.only(top: 2),
                     child: Text(
                       region.description,
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 10,
                         color: FluxForgeTheme.textTertiary,
-                        fontSize: 10,
                       ),
                     ),
                   ),
@@ -470,7 +469,7 @@ class _VisionDashboardState extends State<VisionDashboard> {
                 icon: Icon(Icons.camera_alt, size: 14, color: FluxForgeTheme.textPrimary),
                 label: Text(
                   'Capture Now',
-                  style: TextStyle(fontSize: 11, color: FluxForgeTheme.textPrimary),
+                  style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textPrimary),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: FluxForgeTheme.accentBlue.withValues(alpha: 0.2),
@@ -503,18 +502,17 @@ class _VisionDashboardState extends State<VisionDashboard> {
                       children: [
                         Text(
                           _formatTimestamp(s.capturedAt),
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockMono(
+                            size: 10,
                             color: FluxForgeTheme.textSecondary,
-                            fontSize: 10,
-                            fontFamily: 'monospace',
                           ),
                         ),
                         const Spacer(),
                         Text(
                           s.sizeKB,
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
+                            size: 10,
                             color: FluxForgeTheme.textTertiary,
-                            fontSize: 10,
                           ),
                         ),
                       ],
@@ -539,7 +537,7 @@ class _VisionDashboardState extends State<VisionDashboard> {
       return Center(
         child: Text(
           'No vision events recorded yet',
-          style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 13),
+          style: FluxForgeTheme.dockSans(size: 13, color: FluxForgeTheme.textTertiary),
         ),
       );
     }
@@ -578,17 +576,17 @@ class _VisionDashboardState extends State<VisionDashboard> {
               children: [
                 Text(
                   event.description,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
                     color: FluxForgeTheme.textPrimary,
-                    fontSize: 11,
                   ),
                 ),
                 if (event.snapshot != null)
                   Text(
                     '${event.snapshot!.regionName} — ${event.snapshot!.resolution} — ${event.snapshot!.sizeKB}',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
                       color: FluxForgeTheme.textTertiary,
-                      fontSize: 10,
                     ),
                   ),
               ],
@@ -596,10 +594,9 @@ class _VisionDashboardState extends State<VisionDashboard> {
           ),
           Text(
             _formatTimestamp(event.timestamp),
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 10,
               color: FluxForgeTheme.textTertiary,
-              fontSize: 10,
-              fontFamily: 'monospace',
             ),
           ),
         ],
@@ -614,7 +611,7 @@ class _VisionDashboardState extends State<VisionDashboard> {
   Widget _buildStatChip(String text, Color color) {
     return Text(
       text,
-      style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w500),
+      style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w500, color: color),
     );
   }
 
@@ -632,10 +629,10 @@ class _VisionDashboardState extends State<VisionDashboard> {
         ),
         child: Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: FontWeight.w600,
             color: active ? FluxForgeTheme.accentCyan : FluxForgeTheme.textTertiary,
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
           ),
         ),
       ),
@@ -659,7 +656,7 @@ class _VisionDashboardState extends State<VisionDashboard> {
             const SizedBox(width: 4),
             Text(
               label,
-              style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w600),
+              style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w600, color: color),
             ),
           ],
         ),
@@ -676,16 +673,15 @@ class _VisionDashboardState extends State<VisionDashboard> {
             width: 80,
             child: Text(
               label,
-              style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10),
+              style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 10,
                 color: FluxForgeTheme.textPrimary,
-                fontSize: 10,
-                fontFamily: 'monospace',
               ),
             ),
           ),

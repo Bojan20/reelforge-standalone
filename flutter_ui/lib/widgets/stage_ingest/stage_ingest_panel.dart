@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/stage_ingest_provider.dart';
+import '../../theme/flux_forge_theme.dart';
 import 'adapter_wizard_panel.dart';
 import 'live_connector_panel.dart';
 import 'mock_engine_panel.dart';
@@ -89,13 +90,10 @@ class _StageIngestPanelState extends State<StageIngestPanel>
         children: [
           const Icon(Icons.layers, color: Color(0xFF4a9eff), size: 20),
           const SizedBox(width: 10),
-          const Text(
+          Text(
             'Stage Ingest',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
+            style: FluxForgeTheme.dockSans(size: 14, weight: FontWeight.w600)
+                .copyWith(color: Colors.white),
           ),
           const Spacer(),
           // Staging mode badge
@@ -120,13 +118,10 @@ class _StageIngestPanelState extends State<StageIngestPanel>
                     ),
                   ),
                   const SizedBox(width: 4),
-                  const Text(
+                  Text(
                     'STAGING',
-                    style: TextStyle(
-                      color: Colors.green,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.bold)
+                        .copyWith(color: Colors.green),
                   ),
                 ],
               ),
@@ -151,10 +146,8 @@ class _StageIngestPanelState extends State<StageIngestPanel>
           const SizedBox(width: 4),
           Text(
             value,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
-              fontSize: 12,
-            ),
+            style: FluxForgeTheme.dockSans(size: 12)
+                .copyWith(color: Colors.white.withValues(alpha: 0.7)),
           ),
         ],
       ),
@@ -176,7 +169,7 @@ class _StageIngestPanelState extends State<StageIngestPanel>
         indicatorWeight: 2,
         labelColor: const Color(0xFF4a9eff),
         unselectedLabelColor: Colors.white.withValues(alpha: 0.5),
-        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+        labelStyle: FluxForgeTheme.dockSans(size: 12, weight: FontWeight.w500),
         tabs: [
           const Tab(text: 'Traces'),
           const Tab(text: 'Wizard'),
@@ -240,7 +233,7 @@ class _StageIngestPanelState extends State<StageIngestPanel>
                 value: provider.timingProfile,
                 dropdownColor: const Color(0xFF242430),
                 underline: const SizedBox(),
-                style: const TextStyle(color: Colors.white, fontSize: 12),
+                style: FluxForgeTheme.dockSans(size: 12).copyWith(color: Colors.white),
                 items: TimingProfile.values.map((p) {
                   return DropdownMenuItem(
                     value: p,
@@ -266,12 +259,14 @@ class _StageIngestPanelState extends State<StageIngestPanel>
                         const SizedBox(height: 12),
                         Text(
                           'No traces loaded',
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+                          style: FluxForgeTheme.dockSans()
+                              .copyWith(color: Colors.white.withValues(alpha: 0.5)),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           'Import JSON or create a new trace',
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 12),
+                          style: FluxForgeTheme.dockSans(size: 12)
+                              .copyWith(color: Colors.white.withValues(alpha: 0.3)),
                         ),
                       ],
                     ),
@@ -349,20 +344,19 @@ class _StageIngestPanelState extends State<StageIngestPanel>
                 children: [
                   Text(
                     trace.traceId,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockMono(
+                      size: 12,
+                      weight: isSelected ? FontWeight.w500 : FontWeight.normal,
+                    ).copyWith(
                       color: Colors.white.withValues(alpha: isSelected ? 1 : 0.8),
-                      fontSize: 12,
-                      fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 2),
                   Text(
                     '${trace.eventCount} events | ${_formatDuration(trace.durationMs)}',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.5),
-                      fontSize: 10,
-                    ),
+                    style: FluxForgeTheme.dockMono(size: 10)
+                        .copyWith(color: Colors.white.withValues(alpha: 0.5)),
                   ),
                 ],
               ),
@@ -376,12 +370,10 @@ class _StageIngestPanelState extends State<StageIngestPanel>
                   color: const Color(0xFFff9040).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: const Text(
+                child: Text(
                   'Feature',
-                  style: TextStyle(
-                    color: Color(0xFFff9040),
-                    fontSize: 9,
-                  ),
+                  style: FluxForgeTheme.dockSans(size: 9)
+                      .copyWith(color: const Color(0xFFff9040)),
                 ),
               ),
             if (provider.traceHasJackpot(trace.handle))
@@ -391,12 +383,10 @@ class _StageIngestPanelState extends State<StageIngestPanel>
                   color: const Color(0xFFff4040).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: const Text(
+                child: Text(
                   'Jackpot',
-                  style: TextStyle(
-                    color: Color(0xFFff4040),
-                    fontSize: 9,
-                  ),
+                  style: FluxForgeTheme.dockSans(size: 9)
+                      .copyWith(color: const Color(0xFFff4040)),
                 ),
               ),
             const SizedBox(width: 8),
@@ -490,20 +480,19 @@ class _StageIngestPanelState extends State<StageIngestPanel>
                     children: [
                       Text(
                         provider.isStagingMode ? 'Staging Mode Active' : 'Staging Mode Disabled',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 13,
+                          weight: FontWeight.w500,
+                        ).copyWith(
                           color: provider.isStagingMode ? Colors.green : Colors.grey,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 13,
                         ),
                       ),
                       Text(
                         provider.isStagingMode
                             ? 'Mock engine events are being forwarded to audio system'
                             : 'Enable to test audio without connecting to a real engine',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.5),
-                          fontSize: 11,
-                        ),
+                        style: FluxForgeTheme.dockSans(size: 11)
+                            .copyWith(color: Colors.white.withValues(alpha: 0.5)),
                       ),
                     ],
                   ),
@@ -643,9 +632,10 @@ class _ImportJsonDialogState extends State<_ImportJsonDialog> {
         children: [
           const Icon(Icons.file_upload, color: Color(0xFF4a9eff)),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Import JSON Trace',
-            style: TextStyle(color: Colors.white, fontSize: 16),
+            style: FluxForgeTheme.dockSans(size: 16)
+                .copyWith(color: Colors.white),
           ),
         ],
       ),
@@ -657,7 +647,8 @@ class _ImportJsonDialogState extends State<_ImportJsonDialog> {
           children: [
             Text(
               'Paste JSON from your slot engine:',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12),
+              style: FluxForgeTheme.dockSans(size: 12)
+                  .copyWith(color: Colors.white.withValues(alpha: 0.7)),
             ),
             const SizedBox(height: 8),
             Container(
@@ -674,14 +665,12 @@ class _ImportJsonDialogState extends State<_ImportJsonDialog> {
               child: TextField(
                 controller: _controller,
                 maxLines: null,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontFamily: 'monospace',
-                ),
+                style: FluxForgeTheme.dockMono(size: 11)
+                    .copyWith(color: Colors.white),
                 decoration: InputDecoration(
                   hintText: '{"events": [...], "game_id": "..."}',
-                  hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
+                  hintStyle: FluxForgeTheme.dockMono()
+                      .copyWith(color: Colors.white.withValues(alpha: 0.3)),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.all(8),
                 ),
@@ -692,7 +681,8 @@ class _ImportJsonDialogState extends State<_ImportJsonDialog> {
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
                   _error,
-                  style: const TextStyle(color: Color(0xFFff4040), fontSize: 11),
+                  style: FluxForgeTheme.dockSans(size: 11)
+                      .copyWith(color: const Color(0xFFff4040)),
                 ),
               ),
           ],
@@ -703,7 +693,8 @@ class _ImportJsonDialogState extends State<_ImportJsonDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: Text(
             'Cancel',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+            style: FluxForgeTheme.dockSans()
+                .copyWith(color: Colors.white.withValues(alpha: 0.7)),
           ),
         ),
         ElevatedButton(

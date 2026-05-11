@@ -84,7 +84,7 @@ class _MwuiInspectorPanelState extends State<MwuiInspectorPanel> {
           const Icon(Icons.info_outline, size: 14, color: Color(0xFF42A5F5)),
           const SizedBox(width: 6),
           if (node != null) ...[
-            Text(node.nodeType.displayName, style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 11, fontWeight: FontWeight.w600)),
+            Text(node.nodeType.displayName, style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.8), size: 11, weight: FontWeight.w600)),
             const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
@@ -93,10 +93,10 @@ class _MwuiInspectorPanelState extends State<MwuiInspectorPanel> {
                 borderRadius: BorderRadius.circular(2),
               ),
               child: Text(node.category.displayName,
-                style: TextStyle(color: _categoryColor(node.category), fontSize: 7, fontWeight: FontWeight.w600)),
+                style: FluxForgeTheme.dockSans(color: _categoryColor(node.category), size: 7, weight: FontWeight.w600)),
             ),
           ] else
-            Text('Inspector', style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11)),
+            Text('Inspector', style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.5), size: 11)),
           const Spacer(),
           if (_inspector != null)
             GestureDetector(
@@ -146,10 +146,10 @@ class _MwuiInspectorPanelState extends State<MwuiInspectorPanel> {
                   const SizedBox(width: 3),
                   Text(
                     tab.displayName,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: isActive == true ? Colors.white.withValues(alpha: 0.8) : Colors.white.withValues(alpha: 0.4),
-                      fontSize: 9,
-                      fontWeight: isActive == true ? FontWeight.w600 : FontWeight.normal,
+                      size: 9,
+                      weight: isActive == true ? FontWeight.w600 : FontWeight.normal,
                     ),
                   ),
                 ],
@@ -169,7 +169,7 @@ class _MwuiInspectorPanelState extends State<MwuiInspectorPanel> {
           children: [
             Icon(Icons.touch_app, size: 28, color: Colors.white.withValues(alpha: 0.08)),
             const SizedBox(height: 6),
-            Text('Select a behavior node to inspect', style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 11)),
+            Text('Select a behavior node to inspect', style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.2), size: 11)),
           ],
         ),
       );
@@ -178,7 +178,7 @@ class _MwuiInspectorPanelState extends State<MwuiInspectorPanel> {
     final node = _inspector!.selectedNode;
     if (node == null) {
       return Center(
-        child: Text('Node not found', style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 11)),
+        child: Text('Node not found', style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.3), size: 11)),
       );
     }
 
@@ -222,7 +222,7 @@ class _MwuiInspectorPanelState extends State<MwuiInspectorPanel> {
       children: [
         _section('SOUND ASSIGNMENTS', [
           if (assignments.isEmpty)
-            Text('No sounds assigned', style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 9))
+            Text('No sounds assigned', style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.2), size: 9))
           else
             for (int i = 0; i < assignments.length; i++)
               _soundRow('Sound ${i + 1}', assignments[i].displayName),
@@ -244,7 +244,7 @@ class _MwuiInspectorPanelState extends State<MwuiInspectorPanel> {
       children: [
         _section('CONTEXT OVERRIDES (${overrides.length})', [
           if (overrides.isEmpty)
-            Text('No context overrides', style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 9))
+            Text('No context overrides', style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.2), size: 9))
           else
             for (final co in overrides)
               Padding(
@@ -252,7 +252,7 @@ class _MwuiInspectorPanelState extends State<MwuiInspectorPanel> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(co.contextId, style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 10, fontWeight: FontWeight.w600)),
+                    Text(co.contextId, style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.6), size: 10, weight: FontWeight.w600)),
                     if (co.gainOverride != null)
                       _propRow('  Gain', '${co.gainOverride!.toStringAsFixed(1)} dB'),
                     if (co.busRouteOverride != null)
@@ -276,7 +276,7 @@ class _MwuiInspectorPanelState extends State<MwuiInspectorPanel> {
       children: [
         _section('BINDINGS (${hookNames.length})', [
           if (hookNames.isEmpty)
-            Text('No bindings', style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 9))
+            Text('No bindings', style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.2), size: 9))
           else
             for (final hookName in hookNames)
               Padding(
@@ -286,7 +286,7 @@ class _MwuiInspectorPanelState extends State<MwuiInspectorPanel> {
                     Icon(Icons.link, size: 10, color: const Color(0xFF66BB6A)),
                     const SizedBox(width: 6),
                     Expanded(
-                      child: Text(hookName, style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 9)),
+                      child: Text(hookName, style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.6), size: 9)),
                     ),
                   ],
                 ),
@@ -316,7 +316,7 @@ class _MwuiInspectorPanelState extends State<MwuiInspectorPanel> {
             _propRow('Verified', '${stats.verifiedStages}'),
             _propRow('Coverage', '${stats.totalStages > 0 ? ((stats.testedStages + stats.verifiedStages) / stats.totalStages * 100).toStringAsFixed(0) : 0}%'),
           ] else
-            Text('No coverage data', style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 9)),
+            Text('No coverage data', style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.2), size: 9)),
         ]),
         const SizedBox(height: 10),
         _section('STAGE ENTRIES', [
@@ -328,11 +328,11 @@ class _MwuiInspectorPanelState extends State<MwuiInspectorPanel> {
                   _statusDot(entry.status),
                   const SizedBox(width: 4),
                   Expanded(
-                    child: Text(entry.stageName, style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 9)),
+                    child: Text(entry.stageName, style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.5), size: 9)),
                   ),
                   Text(
                     entry.triggerCount > 0 ? '${entry.triggerCount}x' : '-',
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 8),
+                    style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.3), size: 8),
                   ),
                 ],
               ),
@@ -350,9 +350,9 @@ class _MwuiInspectorPanelState extends State<MwuiInspectorPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: TextStyle(
+        Text(title, style: FluxForgeTheme.dockSans(
           color: const Color(0xFF42A5F5).withValues(alpha: 0.6),
-          fontSize: 8, fontWeight: FontWeight.w700, letterSpacing: 1)),
+          size: 8, weight: FontWeight.w700, letterSpacing: 1)),
         const SizedBox(height: 4),
         ...children,
       ],
@@ -364,8 +364,8 @@ class _MwuiInspectorPanelState extends State<MwuiInspectorPanel> {
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
-          SizedBox(width: 90, child: Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 10))),
-          Expanded(child: Text(value, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 10))),
+          SizedBox(width: 90, child: Text(label, style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.4), size: 10))),
+          Expanded(child: Text(value, style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.7), size: 10))),
         ],
       ),
     );
@@ -376,10 +376,10 @@ class _MwuiInspectorPanelState extends State<MwuiInspectorPanel> {
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
-          SizedBox(width: 70, child: Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 10))),
+          SizedBox(width: 70, child: Text(label, style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.4), size: 10))),
           Icon(Icons.music_note, size: 10, color: Colors.white.withValues(alpha: 0.2)),
           const SizedBox(width: 4),
-          Expanded(child: Text(value, style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 10), overflow: TextOverflow.ellipsis)),
+          Expanded(child: Text(value, style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.6), size: 10), overflow: TextOverflow.ellipsis)),
         ],
       ),
     );

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../../../providers/slot_lab/spatial_audio_provider.dart';
+import '../../../theme/fluxforge_theme.dart';
 
 /// UCP-15: 3D Spatial Audio Panel — VR/AR Slot Audio Authoring
 ///
@@ -40,9 +41,9 @@ class _SpatialAudioPanelState extends State<SpatialAudioPanel> {
   Widget build(BuildContext context) {
     final p = _provider;
     if (p == null) {
-      return const Center(
+      return Center(
         child: Text('Spatial Audio not available',
-            style: TextStyle(color: Colors.grey)),
+            style: FluxForgeTheme.dockSans(color: Colors.grey)),
       );
     }
 
@@ -77,15 +78,15 @@ class _SpatialAudioPanelState extends State<SpatialAudioPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Row(
+        Row(
           children: [
-            Icon(Icons.view_in_ar, color: Color(0xFF44CCCC), size: 14),
-            SizedBox(width: 6),
+            const Icon(Icons.view_in_ar, color: Color(0xFF44CCCC), size: 14),
+            const SizedBox(width: 6),
             Text('Room Setup',
-                style: TextStyle(
-                    color: Color(0xFFCCCCCC),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600)),
+                style: FluxForgeTheme.dockSans(
+                    color: const Color(0xFFCCCCCC),
+                    size: 11,
+                    weight: FontWeight.w600)),
           ],
         ),
         const SizedBox(height: 6),
@@ -168,8 +169,7 @@ class _SpatialAudioPanelState extends State<SpatialAudioPanel> {
             ),
             const SizedBox(width: 4),
             Text('${rt60.toStringAsFixed(2)}s',
-                style: TextStyle(
-                    color: color, fontSize: 9, fontFamily: 'monospace')),
+                style: FluxForgeTheme.dockMono(color: color, size: 9)),
           ],
         ),
       ],
@@ -199,11 +199,11 @@ class _SpatialAudioPanelState extends State<SpatialAudioPanel> {
                     width: 0.5),
               ),
               child: Text(m.displayName,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                       color: m == current
                           ? const Color(0xFF44CCCC)
                           : const Color(0xFF888888),
-                      fontSize: 8)),
+                      size: 8)),
             ),
           ),
       ],
@@ -232,10 +232,8 @@ class _SpatialAudioPanelState extends State<SpatialAudioPanel> {
         SizedBox(
           width: 28,
           child: Text('${(value * 100).toStringAsFixed(0)}%',
-              style: const TextStyle(
-                  color: Color(0xFF888888),
-                  fontSize: 8,
-                  fontFamily: 'monospace')),
+              style: FluxForgeTheme.dockMono(
+                  color: const Color(0xFF888888), size: 8)),
         ),
       ],
     );
@@ -258,11 +256,11 @@ class _SpatialAudioPanelState extends State<SpatialAudioPanel> {
             ),
             const SizedBox(width: 4),
             Text(h.displayName,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                     color: active
                         ? const Color(0xFFCCCCCC)
                         : const Color(0xFF888888),
-                    fontSize: 9)),
+                    size: 9)),
           ],
         ),
       ),
@@ -285,11 +283,11 @@ class _SpatialAudioPanelState extends State<SpatialAudioPanel> {
             ),
             const SizedBox(width: 4),
             Text(label,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                     color: value
                         ? const Color(0xFFCCCCCC)
                         : const Color(0xFF888888),
-                    fontSize: 9)),
+                    size: 9)),
           ],
         ),
       ),
@@ -304,15 +302,15 @@ class _SpatialAudioPanelState extends State<SpatialAudioPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Row(
+        Row(
           children: [
-            Icon(Icons.map, color: Color(0xFF888888), size: 14),
-            SizedBox(width: 6),
+            const Icon(Icons.map, color: Color(0xFF888888), size: 14),
+            const SizedBox(width: 6),
             Text('Casino Floor (Top-Down)',
-                style: TextStyle(
-                    color: Color(0xFFCCCCCC),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600)),
+                style: FluxForgeTheme.dockSans(
+                    color: const Color(0xFFCCCCCC),
+                    size: 11,
+                    weight: FontWeight.w600)),
           ],
         ),
         const SizedBox(height: 4),
@@ -350,11 +348,11 @@ class _SpatialAudioPanelState extends State<SpatialAudioPanel> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Per-reel spatial params
-        const Text('Per-Reel Spatial',
-            style: TextStyle(
-                color: Color(0xFFCCCCCC),
-                fontSize: 11,
-                fontWeight: FontWeight.w600)),
+        Text('Per-Reel Spatial',
+            style: FluxForgeTheme.dockSans(
+                color: const Color(0xFFCCCCCC),
+                size: 11,
+                weight: FontWeight.w600)),
         const SizedBox(height: 4),
         for (int i = 0; i < reelParams.length; i++)
           _buildReelRow(i, reelParams[i]),
@@ -362,11 +360,11 @@ class _SpatialAudioPanelState extends State<SpatialAudioPanel> {
         const SizedBox(height: 8),
 
         // Ambient sources
-        const Text('Ambient Sources',
-            style: TextStyle(
-                color: Color(0xFF888888),
-                fontSize: 9,
-                fontWeight: FontWeight.w600)),
+        Text('Ambient Sources',
+            style: FluxForgeTheme.dockSans(
+                color: const Color(0xFF888888),
+                size: 9,
+                weight: FontWeight.w600)),
         const SizedBox(height: 2),
         for (final s in p.ambientSources)
           _buildAmbientRow(s, ambientAtt[s.id] ?? 0),
@@ -374,11 +372,11 @@ class _SpatialAudioPanelState extends State<SpatialAudioPanel> {
         const SizedBox(height: 8),
 
         // Export formats
-        const Text('VR Export Formats',
-            style: TextStyle(
-                color: Color(0xFF888888),
-                fontSize: 9,
-                fontWeight: FontWeight.w600)),
+        Text('VR Export Formats',
+            style: FluxForgeTheme.dockSans(
+                color: const Color(0xFF888888),
+                size: 9,
+                weight: FontWeight.w600)),
         const SizedBox(height: 2),
         Expanded(
           child: SingleChildScrollView(
@@ -402,10 +400,10 @@ class _SpatialAudioPanelState extends State<SpatialAudioPanel> {
           SizedBox(
             width: 35,
             child: Text('R${index + 1}',
-                style: const TextStyle(
-                    color: Color(0xFF44CCCC),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600)),
+                style: FluxForgeTheme.dockSans(
+                    color: const Color(0xFF44CCCC),
+                    size: 10,
+                    weight: FontWeight.w600)),
           ),
           Expanded(
             child: Column(
@@ -414,18 +412,14 @@ class _SpatialAudioPanelState extends State<SpatialAudioPanel> {
                 Text(
                   'az: ${params['azimuth']?.toStringAsFixed(1)}° '
                   'el: ${params['elevation']?.toStringAsFixed(1)}°',
-                  style: const TextStyle(
-                      color: Color(0xFF999999),
-                      fontSize: 8,
-                      fontFamily: 'monospace'),
+                  style: FluxForgeTheme.dockMono(
+                      color: const Color(0xFF999999), size: 8),
                 ),
                 Text(
                   'dist: ${params['distance']?.toStringAsFixed(2)}m '
                   'ITD: ${params['itd_us']?.toStringAsFixed(0)}μs',
-                  style: const TextStyle(
-                      color: Color(0xFF777777),
-                      fontSize: 8,
-                      fontFamily: 'monospace'),
+                  style: FluxForgeTheme.dockMono(
+                      color: const Color(0xFF777777), size: 8),
                 ),
               ],
             ),
@@ -442,7 +436,8 @@ class _SpatialAudioPanelState extends State<SpatialAudioPanel> {
         children: [
           Expanded(
             child: Text(source.name,
-                style: const TextStyle(color: Color(0xFF999999), fontSize: 8)),
+                style: FluxForgeTheme.dockSans(
+                    color: const Color(0xFF999999), size: 8)),
           ),
           Container(
             width: 40,
@@ -464,10 +459,8 @@ class _SpatialAudioPanelState extends State<SpatialAudioPanel> {
           ),
           const SizedBox(width: 4),
           Text('${(attenuation * 100).toStringAsFixed(0)}%',
-              style: const TextStyle(
-                  color: Color(0xFF888888),
-                  fontSize: 8,
-                  fontFamily: 'monospace')),
+              style: FluxForgeTheme.dockMono(
+                  color: const Color(0xFF888888), size: 8)),
         ],
       ),
     );
@@ -491,11 +484,11 @@ class _SpatialAudioPanelState extends State<SpatialAudioPanel> {
             const SizedBox(width: 4),
             Expanded(
               child: Text(f.displayName,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                       color: active
                           ? const Color(0xFFCCCCCC)
                           : const Color(0xFF888888),
-                      fontSize: 9)),
+                      size: 9)),
             ),
           ],
         ),
@@ -509,18 +502,16 @@ class _SpatialAudioPanelState extends State<SpatialAudioPanel> {
 
   Widget _configLabel(String label) {
     return Text(label,
-        style: const TextStyle(
-            color: Color(0xFF888888),
-            fontSize: 9,
-            fontWeight: FontWeight.w600));
+        style: FluxForgeTheme.dockSans(
+            color: const Color(0xFF888888),
+            size: 9,
+            weight: FontWeight.w600));
   }
 
   Widget _configValue(String value) {
     return Text(value,
-        style: const TextStyle(
-            color: Color(0xFFCCCCCC),
-            fontSize: 9,
-            fontFamily: 'monospace'));
+        style: FluxForgeTheme.dockMono(
+            color: const Color(0xFFCCCCCC), size: 9));
   }
 }
 
