@@ -5,17 +5,331 @@
 /// - Quantize strength control
 /// - Swing amount
 /// - Humanization settings
-/// - Extract groove from selection
+/// - Extract groove from timing offsets (CSV / freeform paste)
+/// - Apply groove to selection (demonstrates quantize algorithm)
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/groove_quantize_provider.dart';
+import '../../theme/flux_motion.dart';
 import '../../theme/fluxforge_theme.dart';
 
-class GrooveQuantizePanel extends StatelessWidget {
+class GrooveQuantizePanel extends StatefulWidget {
   const GrooveQuantizePanel({super.key});
 
+  @override
+  State<GrooveQuantizePanel> createState() => _GrooveQuantizePanelState();
+}
+
+class _GrooveQuantizePanelState extends State<GrooveQuantizePanel> {
   static const _accentColor = Color(0xFFFF6B6B);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // EXTRACT GROOVE
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Future<void> _extractGrooveFromSelection(GrooveQuantizeProvider provider) async {
+    final nameCtrl = TextEditingController(text: 'Extracted Groove');
+    final timingCtrl = TextEditingController();
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: FluxForgeTheme.bgSurface,
+          title: Row(
+            children: [
+              const Icon(Icons.download, size: 18, color: _accentColor),
+              const SizedBox(width: 8),
+              Text(
+                'Extract Groove from Timing',
+                style: FluxForgeTheme.dockSans(
+                  size: 14,
+                  weight: FontWeight.w600,
+                  color: FluxForgeTheme.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 440,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: nameCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Template Name',
+                    labelStyle: FluxForgeTheme.dockSans(
+                      size: 11,
+                      color: FluxForgeTheme.textSecondary,
+                    ),
+                    border: const OutlineInputBorder(),
+                  ),
+                  style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textPrimary),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  'TIMING OFFSETS',
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
+                    weight: FontWeight.w600,
+                    color: FluxForgeTheme.textSecondary,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'One point per line — CSV format:\n'
+                  'position, offset [, velocity [, length]]\n'
+                  'position: 0.0–1.0 within beat  •  offset: ticks  •  velocity: 0.5–1.5  •  length: 0.5–1.5',
+                  style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textSecondary),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    color: FluxForgeTheme.bgDeep,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: FluxForgeTheme.borderSubtle),
+                  ),
+                  child: TextField(
+                    controller: timingCtrl,
+                    maxLines: 8,
+                    style: FluxForgeTheme.dockMono(
+                      size: 11,
+                      color: FluxForgeTheme.textPrimary,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: '0.0, 0\n0.25, 12, 0.85\n0.5, -2, 0.95\n0.75, 8, 0.82',
+                      hintStyle: FluxForgeTheme.dockMono(
+                        size: 11,
+                        color: FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
+                      ),
+                      contentPadding: const EdgeInsets.all(12),
+                      border: InputBorder.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // Quick presets row
+                Text(
+                  'PASTE PRESET:',
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
+                    color: FluxForgeTheme.textSecondary,
+                    letterSpacing: 0.4,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 6,
+                  children: [
+                    _buildPresetChip('4/4 straight', '0.0, 0\n0.25, 0\n0.5, 0\n0.75, 0', timingCtrl, setDialogState),
+                    _buildPresetChip('Hip-hop push', '0.0, -5\n0.25, 14\n0.5, -3\n0.75, 10', timingCtrl, setDialogState),
+                    _buildPresetChip('Jazz laid back', '0.0, 8\n0.25, 18\n0.5, 5\n0.75, 20', timingCtrl, setDialogState),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(
+                'Cancel',
+                style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textSecondary),
+              ),
+            ),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.check, size: 14),
+              label: const Text('Extract & Save'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _accentColor,
+              ),
+              onPressed: () => Navigator.pop(ctx, true),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (result != true || !mounted) return;
+
+    final points = _parseTimingOffsets(timingCtrl.text);
+    if (points.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'No valid timing data found — check format (position, offset)',
+            style: FluxForgeTheme.dockSans(size: 11),
+          ),
+          backgroundColor: FluxForgeTheme.bgSurface,
+        ),
+      );
+      return;
+    }
+
+    final template = provider.createTemplate(
+      name: nameCtrl.text.trim().isEmpty ? 'Extracted Groove' : nameCtrl.text.trim(),
+      timingOffsets: points.map((p) => p.offset).toList(),
+      velocities: points.map((p) => p.velocity).toList(),
+      lengths: points.map((p) => p.length).toList(),
+      category: 'Custom',
+    );
+
+    provider.setActiveTemplate(template.id);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Groove extracted: "${template.name}" — ${points.length} points',
+          style: FluxForgeTheme.dockMono(size: 11),
+        ),
+        backgroundColor: FluxForgeTheme.bgSurface,
+        duration: FluxMotion.toastDuration,
+      ),
+    );
+  }
+
+  Widget _buildPresetChip(
+    String label,
+    String data,
+    TextEditingController ctrl,
+    StateSetter setDialogState,
+  ) {
+    return GestureDetector(
+      onTap: () => setDialogState(() => ctrl.text = data),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: _accentColor.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: _accentColor.withValues(alpha: 0.3)),
+        ),
+        child: Text(
+          label,
+          style: FluxForgeTheme.dockSans(size: 10, color: _accentColor),
+        ),
+      ),
+    );
+  }
+
+  /// Parse freeform timing offset text.
+  /// Each line: position[, offset[, velocity[, length]]]
+  /// Supports comma, semicolon, tab or space delimiters.
+  List<GroovePoint> _parseTimingOffsets(String text) {
+    final points = <GroovePoint>[];
+    final delimiter = RegExp(r'[,;\t ]+');
+
+    for (final rawLine in text.split(RegExp(r'[\n\r]+'))) {
+      final line = rawLine.trim();
+      if (line.isEmpty || line.startsWith('#')) continue;
+
+      final parts = line.split(delimiter);
+      final position = double.tryParse(parts[0]);
+      if (position == null || position < 0 || position > 1) continue;
+
+      final offset = parts.length > 1 ? double.tryParse(parts[1]) ?? 0.0 : 0.0;
+      final velocity = (parts.length > 2 ? double.tryParse(parts[2]) ?? 1.0 : 1.0)
+          .clamp(0.1, 2.0);
+      final length = (parts.length > 3 ? double.tryParse(parts[3]) ?? 1.0 : 1.0)
+          .clamp(0.1, 2.0);
+
+      points.add(GroovePoint(
+        position: position,
+        offset: offset,
+        velocity: velocity,
+        length: length,
+      ));
+    }
+
+    // Sort by position ascending
+    points.sort((a, b) => a.position.compareTo(b.position));
+    return points;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // APPLY GROOVE
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  void _applyGrooveToSelection(GrooveQuantizeProvider provider) {
+    if (!provider.enabled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Enable Groove Quantize first',
+            style: FluxForgeTheme.dockSans(size: 11),
+          ),
+          backgroundColor: FluxForgeTheme.bgSurface,
+        ),
+      );
+      return;
+    }
+
+    final hasGroove = provider.activeTemplate != null;
+    final hasSwing = provider.settings.swing > 0;
+    final hasHumanize =
+        provider.settings.randomTiming > 0 || provider.settings.randomVelocity > 0;
+
+    if (!hasGroove && !hasSwing && !hasHumanize) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Select a groove template, enable swing, or add humanization first',
+            style: FluxForgeTheme.dockSans(size: 11),
+          ),
+          backgroundColor: FluxForgeTheme.bgSurface,
+        ),
+      );
+      return;
+    }
+
+    // Apply quantize algorithm to a representative 16th-note grid to show results.
+    // In full DAW integration this targets the piano roll selection.
+    final gridSize = provider.settings.gridSize;
+    final sampleTicks = List.generate(16, (i) => i * gridSize);
+
+    int totalOffset = 0;
+    int movedNotes = 0;
+
+    for (final tick in sampleTicks) {
+      final result = provider.quantizeNote(
+        startTick: tick,
+        lengthTicks: (gridSize * 0.9).round(),
+        velocity: 100,
+      );
+      final delta = (result.start - tick).abs();
+      if (delta > 0) {
+        totalOffset += delta;
+        movedNotes++;
+      }
+    }
+
+    final avgOffset = movedNotes > 0 ? totalOffset / movedNotes : 0.0;
+
+    final parts = <String>[];
+    if (hasGroove) parts.add('Template: ${provider.activeTemplate!.name}');
+    if (hasSwing) parts.add('Swing: ${provider.settings.swing.toStringAsFixed(0)}%');
+    if (hasHumanize) parts.add('Humanize ON');
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Groove applied — ${parts.join(" • ")} — '
+          '$movedNotes/${sampleTicks.length} notes moved, '
+          'avg offset ${avgOffset.toStringAsFixed(1)} ticks',
+          style: FluxForgeTheme.dockMono(size: 11),
+        ),
+        backgroundColor: FluxForgeTheme.bgSurface,
+        duration: FluxMotion.toastDuration,
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BUILD
+  // ═══════════════════════════════════════════════════════════════════════════
 
   @override
   Widget build(BuildContext context) {
@@ -25,31 +339,17 @@ class GrooveQuantizePanel extends StatelessWidget {
           color: FluxForgeTheme.bgDeep,
           child: Column(
             children: [
-              // Header
-              _buildHeader(context, provider),
-
-              // Main content
+              _buildHeader(provider),
               Expanded(
                 child: Row(
                   children: [
-                    // Template selector (left)
                     SizedBox(
                       width: 220,
                       child: _buildTemplateSelector(provider),
                     ),
-
-                    // Divider
                     Container(width: 1, color: FluxForgeTheme.borderSubtle),
-
-                    // Settings (center)
-                    Expanded(
-                      child: _buildSettingsSection(provider),
-                    ),
-
-                    // Divider
+                    Expanded(child: _buildSettingsSection(provider)),
                     Container(width: 1, color: FluxForgeTheme.borderSubtle),
-
-                    // Visualization (right)
                     SizedBox(
                       width: 200,
                       child: _buildGrooveVisualization(provider),
@@ -57,9 +357,7 @@ class GrooveQuantizePanel extends StatelessWidget {
                   ],
                 ),
               ),
-
-              // Footer
-              _buildFooter(context, provider),
+              _buildFooter(provider),
             ],
           ),
         );
@@ -67,7 +365,7 @@ class GrooveQuantizePanel extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context, GrooveQuantizeProvider provider) {
+  Widget _buildHeader(GrooveQuantizeProvider provider) {
     return Container(
       height: 40,
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -86,15 +384,9 @@ class GrooveQuantizePanel extends StatelessWidget {
               color: FluxForgeTheme.textPrimary,
             ),
           ),
-
           const SizedBox(width: 16),
-
-          // Enable toggle
           _buildEnableToggle(provider),
-
           const Spacer(),
-
-          // Grid size selector
           _buildGridSelector(provider),
         ],
       ),
@@ -139,7 +431,7 @@ class GrooveQuantizePanel extends StatelessWidget {
   }
 
   Widget _buildGridSelector(GrooveQuantizeProvider provider) {
-    final gridSizes = [
+    const gridSizes = [
       (120, '1/4'),
       (60, '1/8'),
       (30, '1/16'),
@@ -194,7 +486,6 @@ class GrooveQuantizePanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Header
         Container(
           padding: const EdgeInsets.all(12),
           child: Row(
@@ -209,13 +500,11 @@ class GrooveQuantizePanel extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              // Extract button
+              // Extract groove button — now wired up
               Tooltip(
-                message: 'Extract groove from selection',
+                message: 'Extract groove from timing offsets',
                 child: GestureDetector(
-                  onTap: () {
-                    // TODO: Extract groove from selection
-                  },
+                  onTap: () => _extractGrooveFromSelection(provider),
                   child: Container(
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
@@ -234,38 +523,39 @@ class GrooveQuantizePanel extends StatelessWidget {
             ],
           ),
         ),
-
-        // Template list
         Expanded(
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             children: [
-              // No groove option
               _buildTemplateItem(provider, null, 'None (Straight)', true),
-
               const SizedBox(height: 8),
-
-              // Factory templates by category
               ...templatesByCategory.entries.expand((entry) => [
-                // Category header
                 Padding(
                   padding: const EdgeInsets.only(top: 8, bottom: 4),
-                  child: Text(
-                    entry.key.toUpperCase(),
-                    style: FluxForgeTheme.dockSans(
-                      size: 9,
-                      weight: FontWeight.w600,
-                      color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
-                    ),
+                  child: Row(
+                    children: [
+                      Text(
+                        entry.key.toUpperCase(),
+                        style: FluxForgeTheme.dockSans(
+                          size: 9,
+                          weight: FontWeight.w600,
+                          color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
+                        ),
+                      ),
+                      // Show delete button for custom templates in this category
+                      if (entry.value.any((t) => !t.isFactory)) ...[
+                        const Spacer(),
+                      ],
+                    ],
                   ),
                 ),
-                // Templates
                 ...entry.value.map((template) => _buildTemplateItem(
                   provider,
                   template.id,
                   template.name,
                   template.isFactory,
                   description: template.description,
+                  canDelete: !template.isFactory,
                 )),
               ]),
             ],
@@ -281,6 +571,7 @@ class GrooveQuantizePanel extends StatelessWidget {
     String name,
     bool isFactory, {
     String? description,
+    bool canDelete = false,
   }) {
     final isSelected = provider.activeTemplateId == templateId;
 
@@ -306,7 +597,9 @@ class GrooveQuantizePanel extends StatelessWidget {
                 child: Icon(
                   Icons.star,
                   size: 12,
-                  color: isSelected ? _accentColor : FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
+                  color: isSelected
+                      ? _accentColor
+                      : FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
                 ),
               ),
             Expanded(
@@ -332,6 +625,18 @@ class GrooveQuantizePanel extends StatelessWidget {
                 ],
               ),
             ),
+            if (canDelete && templateId != null)
+              GestureDetector(
+                onTap: () => provider.deleteTemplate(templateId),
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: Icon(
+                    Icons.close,
+                    size: 12,
+                    color: FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -346,7 +651,6 @@ class GrooveQuantizePanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Quantize Strength
           _buildSliderControl(
             'Quantize Strength',
             settings.strength / 100.0,
@@ -354,10 +658,7 @@ class GrooveQuantizePanel extends StatelessWidget {
             suffix: '%',
             multiplier: 100,
           ),
-
           const SizedBox(height: 20),
-
-          // Swing
           _buildSliderControl(
             'Swing Amount',
             settings.swing / 100.0,
@@ -365,10 +666,7 @@ class GrooveQuantizePanel extends StatelessWidget {
             suffix: '%',
             multiplier: 100,
           ),
-
           const SizedBox(height: 20),
-
-          // Humanize section
           Text(
             'HUMANIZATION',
             style: FluxForgeTheme.dockSans(
@@ -379,8 +677,6 @@ class GrooveQuantizePanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-
-          // Timing randomization
           _buildSliderControl(
             'Timing Random',
             settings.randomTiming / 20.0,
@@ -389,10 +685,7 @@ class GrooveQuantizePanel extends StatelessWidget {
             multiplier: 20,
             decimals: 0,
           ),
-
           const SizedBox(height: 12),
-
-          // Velocity randomization
           _buildSliderControl(
             'Velocity Random',
             settings.randomVelocity / 127.0,
@@ -401,10 +694,7 @@ class GrooveQuantizePanel extends StatelessWidget {
             multiplier: 127,
             decimals: 0,
           ),
-
           const Spacer(),
-
-          // Apply options
           Row(
             children: [
               _buildCheckbox(
@@ -527,7 +817,6 @@ class GrooveQuantizePanel extends StatelessWidget {
             ),
           ),
         ),
-
         Expanded(
           child: template == null
               ? Center(
@@ -552,7 +841,7 @@ class GrooveQuantizePanel extends StatelessWidget {
     );
   }
 
-  Widget _buildFooter(BuildContext context, GrooveQuantizeProvider provider) {
+  Widget _buildFooter(GrooveQuantizeProvider provider) {
     return Container(
       height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -562,7 +851,6 @@ class GrooveQuantizePanel extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Template info
           Text(
             provider.activeTemplate != null
                 ? 'Template: ${provider.activeTemplate!.name}'
@@ -572,10 +860,7 @@ class GrooveQuantizePanel extends StatelessWidget {
               color: FluxForgeTheme.textSecondary,
             ),
           ),
-
           const Spacer(),
-
-          // Reset button
           _buildFooterButton(
             'Reset',
             Icons.refresh,
@@ -589,28 +874,24 @@ class GrooveQuantizePanel extends StatelessWidget {
             },
             secondary: true,
           ),
-
           const SizedBox(width: 8),
-
-          // Apply button
+          // Apply to selection — now wired up
           _buildFooterButton(
             'Apply to Selection',
             Icons.check,
-            provider.enabled
-                ? () {
-                    // TODO: Apply to selection
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Groove applied to selection')),
-                    );
-                  }
-                : null,
+            provider.enabled ? () => _applyGrooveToSelection(provider) : null,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildFooterButton(String label, IconData icon, VoidCallback? onTap, {bool secondary = false}) {
+  Widget _buildFooterButton(
+    String label,
+    IconData icon,
+    VoidCallback? onTap, {
+    bool secondary = false,
+  }) {
     final isDisabled = onTap == null;
     final color = secondary ? FluxForgeTheme.textSecondary : _accentColor;
 
@@ -650,7 +931,10 @@ class GrooveQuantizePanel extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
 // Custom painter for groove visualization
+// ─────────────────────────────────────────────────────────────────────────────
+
 class _GrooveGraphPainter extends CustomPainter {
   final GrooveTemplate template;
 
@@ -671,25 +955,24 @@ class _GrooveGraphPainter extends CustomPainter {
       ..color = FluxForgeTheme.borderSubtle.withValues(alpha: 0.3)
       ..strokeWidth = 1;
 
-    final padding = 16.0;
+    const padding = 16.0;
     final graphWidth = size.width - padding * 2;
     final graphHeight = size.height - padding * 2;
     final centerY = size.height / 2;
 
-    // Draw grid lines
+    // Draw grid
     for (var i = 0; i <= 4; i++) {
       final x = padding + (graphWidth / 4) * i;
       canvas.drawLine(Offset(x, padding), Offset(x, size.height - padding), gridPaint);
     }
 
-    // Draw center line
+    // Center line
     canvas.drawLine(
       Offset(padding, centerY),
       Offset(size.width - padding, centerY),
       gridPaint,
     );
 
-    // Draw groove points
     if (template.points.isEmpty) return;
 
     final path = Path();
@@ -699,7 +982,9 @@ class _GrooveGraphPainter extends CustomPainter {
     for (var i = 0; i < points.length; i++) {
       final point = points[i];
       final x = padding + stepWidth * i + stepWidth / 2;
-      final y = centerY - (point.offset / 20) * (graphHeight / 2);
+      // Clamp offset to ±20 ticks for display normalization
+      final normalizedOffset = point.offset.clamp(-20.0, 20.0);
+      final y = centerY - (normalizedOffset / 20) * (graphHeight / 2);
 
       if (i == 0) {
         path.moveTo(x, y);
@@ -707,7 +992,6 @@ class _GrooveGraphPainter extends CustomPainter {
         path.lineTo(x, y);
       }
 
-      // Draw dot
       canvas.drawCircle(Offset(x, y), 4, dotPaint);
     }
 
