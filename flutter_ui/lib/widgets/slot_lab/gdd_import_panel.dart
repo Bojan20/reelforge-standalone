@@ -212,10 +212,10 @@ class _GddImportPanelState extends State<GddImportPanel> {
         children: [
           Icon(Icons.upload_file, size: 18, color: FluxForgeTheme.accent),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'GDD Import',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              weight: FontWeight.bold,
               color: Colors.white,
             ),
           ),
@@ -235,13 +235,13 @@ class _GddImportPanelState extends State<GddImportPanel> {
 
   Widget _buildContent() {
     if (_isLoading) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('Validating GDD...', style: TextStyle(color: Colors.white70)),
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text('Validating GDD...', style: FluxForgeTheme.dockSans(color: Colors.white70)),
           ],
         ),
       );
@@ -309,20 +309,20 @@ class _GddImportPanelState extends State<GddImportPanel> {
                 color: FluxForgeTheme.accent.withValues(alpha: 0.7),
               ),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'Click to select GDD file',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
+                  size: 16,
+                  weight: FontWeight.w500,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 'or drag & drop a .json file',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textMuted,
-                  fontSize: 12,
+                  size: 12,
                 ),
               ),
               const SizedBox(height: 16),
@@ -332,9 +332,9 @@ class _GddImportPanelState extends State<GddImportPanel> {
                   color: FluxForgeTheme.accent,
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: const Text(
+                child: Text(
                   'Browse Files',
-                  style: TextStyle(color: Colors.white, fontSize: 12),
+                  style: FluxForgeTheme.dockSans(color: Colors.white, size: 12),
                 ),
               ),
             ],
@@ -373,12 +373,12 @@ class _GddImportPanelState extends State<GddImportPanel> {
               children: [
                 Text(
                   fileName,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+                  style: FluxForgeTheme.dockMono(color: Colors.white, weight: FontWeight.w500),
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
                   '${(fileSize / 1024).toStringAsFixed(1)} KB',
-                  style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 11),
+                  style: FluxForgeTheme.dockMono(color: FluxForgeTheme.textMuted, size: 11),
                 ),
               ],
             ),
@@ -425,9 +425,9 @@ class _GddImportPanelState extends State<GddImportPanel> {
               const SizedBox(width: 8),
               Text(
                 isValid ? 'Validation Passed' : 'Validation Failed',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: isValid ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentRed,
-                  fontWeight: FontWeight.bold,
+                  weight: FontWeight.bold,
                 ),
               ),
             ],
@@ -439,11 +439,11 @@ class _GddImportPanelState extends State<GddImportPanel> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('• ', style: TextStyle(color: FluxForgeTheme.accentRed)),
+                  Text('• ', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentRed)),
                   Expanded(
                     child: Text(
                       error,
-                      style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 12),
+                      style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted, size: 12),
                     ),
                   ),
                 ],
@@ -470,7 +470,7 @@ class _GddImportPanelState extends State<GddImportPanel> {
           Expanded(
             child: Text(
               _errorMessage!,
-              style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 12),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted, size: 12),
             ),
           ),
         ],
@@ -495,12 +495,12 @@ class _GddImportPanelState extends State<GddImportPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Model Preview',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
+              weight: FontWeight.bold,
+              size: 14,
             ),
           ),
           const SizedBox(height: 12),
@@ -529,13 +529,13 @@ class _GddImportPanelState extends State<GddImportPanel> {
             width: 100,
             child: Text(
               label,
-              style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 12),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted, size: 12),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(color: Colors.white, fontSize: 12),
+              style: FluxForgeTheme.dockSans(color: Colors.white, size: 12),
             ),
           ),
         ],

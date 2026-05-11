@@ -168,9 +168,9 @@ class _TempoTrackState extends State<TempoTrack> {
           const SizedBox(width: 4),
           const Icon(Icons.speed, size: 14, color: FluxForgeTheme.accentOrange),
           const SizedBox(width: 6),
-          const Text(
+          Text(
             'Tempo',
-            style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+            style: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.w600, color: Colors.white),
           ),
           const SizedBox(width: 12),
           // Current BPM display
@@ -182,18 +182,17 @@ class _TempoTrackState extends State<TempoTrack> {
             ),
             child: Text(
               '${currentTempo.toStringAsFixed(1)} BPM',
-              style: const TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 11,
+                weight: FontWeight.bold,
                 color: FluxForgeTheme.accentOrange,
-                fontSize: 11,
-                fontFamily: 'JetBrains Mono',
-                fontWeight: FontWeight.bold,
               ),
             ),
           ),
           const Spacer(),
           Text(
             '${widget.tempoPoints.length} points',
-            style: const TextStyle(color: Colors.white38, fontSize: 10),
+            style: FluxForgeTheme.dockSans(size: 10, color: Colors.white38),
           ),
         ],
       ),
@@ -328,7 +327,7 @@ class _TempoTrackState extends State<TempoTrack> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           backgroundColor: FluxForgeTheme.bgMid,
-          title: const Text('Edit Tempo Point', style: TextStyle(color: Colors.white)),
+          title: Text('Edit Tempo Point', style: FluxForgeTheme.dockSans(color: Colors.white)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -337,16 +336,16 @@ class _TempoTrackState extends State<TempoTrack> {
               TextField(
                 controller: bpmController,
                 keyboardType: TextInputType.number,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
+                style: FluxForgeTheme.dockSans(color: Colors.white),
+                decoration: InputDecoration(
                   labelText: 'BPM',
-                  labelStyle: TextStyle(color: Colors.white54),
+                  labelStyle: FluxForgeTheme.dockSans(color: Colors.white54),
                   suffixText: 'BPM',
                 ),
               ),
               const SizedBox(height: 16),
               // Ramp type
-              const Text('Ramp Type', style: TextStyle(color: Colors.white54, fontSize: 12)),
+              Text('Ramp Type', style: FluxForgeTheme.dockSans(size: 12, color: Colors.white54)),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -358,33 +357,33 @@ class _TempoTrackState extends State<TempoTrack> {
                     onSelected: (_) => setDialogState(() => selectedRampType = type),
                     backgroundColor: FluxForgeTheme.bgDeep,
                     selectedColor: FluxForgeTheme.accentOrange,
-                    labelStyle: TextStyle(
+                    labelStyle: FluxForgeTheme.dockSans(
+                      size: 11,
                       color: isSelected ? Colors.white : Colors.white70,
-                      fontSize: 11,
                     ),
                   );
                 }).toList(),
               ),
               const SizedBox(height: 16),
               // Time signature
-              const Text('Time Signature', style: TextStyle(color: Colors.white54, fontSize: 12)),
+              Text('Time Signature', style: FluxForgeTheme.dockSans(size: 12, color: Colors.white54)),
               const SizedBox(height: 8),
               Row(
                 children: [
                   DropdownButton<int>(
                     value: tsNum,
                     dropdownColor: FluxForgeTheme.bgMid,
-                    style: const TextStyle(color: Colors.white),
+                    style: FluxForgeTheme.dockSans(color: Colors.white),
                     items: [2, 3, 4, 5, 6, 7, 8, 9, 12].map((n) {
                       return DropdownMenuItem(value: n, child: Text('$n'));
                     }).toList(),
                     onChanged: (v) => setDialogState(() => tsNum = v ?? 4),
                   ),
-                  const Text(' / ', style: TextStyle(color: Colors.white, fontSize: 16)),
+                  Text(' / ', style: FluxForgeTheme.dockSans(size: 16, color: Colors.white)),
                   DropdownButton<int>(
                     value: tsDenom,
                     dropdownColor: FluxForgeTheme.bgMid,
-                    style: const TextStyle(color: Colors.white),
+                    style: FluxForgeTheme.dockSans(color: Colors.white),
                     items: [2, 4, 8, 16].map((n) {
                       return DropdownMenuItem(value: n, child: Text('$n'));
                     }).toList(),
@@ -400,7 +399,7 @@ class _TempoTrackState extends State<TempoTrack> {
                 widget.onTempoPointDelete?.call(point.id);
                 Navigator.pop(ctx);
               },
-              child: const Text('Delete', style: TextStyle(color: FluxForgeTheme.accentRed)),
+              child: Text('Delete', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentRed)),
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx),

@@ -8,6 +8,7 @@ import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Input mode for the application
 enum InputMode {
@@ -353,16 +354,12 @@ class _TouchSliderState extends State<TouchSlider> {
                 if (widget.label != null)
                   Text(
                     widget.label!,
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF808080)),
+                    style: FluxForgeTheme.dockSans(size: 11, color: const Color(0xFF808080)),
                   ),
                 if (widget.showValue)
                   Text(
                     (_activeValue ?? widget.value).toStringAsFixed(2),
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontFamily: 'monospace',
-                      color: Color(0xFF4A9EFF),
-                    ),
+                    style: FluxForgeTheme.dockMono(size: 11, color: const Color(0xFF4A9EFF)),
                   ),
               ],
             ),
@@ -455,9 +452,9 @@ class _TouchButtonState extends State<TouchButton> {
           borderRadius: BorderRadius.circular(8),
         ),
         child: DefaultTextStyle(
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: widget.foregroundColor ?? Colors.white,
-            fontWeight: FontWeight.w500,
+            weight: FontWeight.w500,
           ),
           child: IconTheme(
             data: IconThemeData(color: widget.foregroundColor ?? Colors.white),
@@ -511,11 +508,11 @@ class _TouchPenModePanelState extends State<TouchPenModePanel> {
       children: [
         const Icon(Icons.touch_app, size: 18, color: Color(0xFF4A9EFF)),
         const SizedBox(width: 8),
-        const Text(
+        Text(
           'Touch & Pen Settings',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: 14,
+            weight: FontWeight.bold,
             color: Colors.white,
           ),
         ),
@@ -527,9 +524,9 @@ class _TouchPenModePanelState extends State<TouchPenModePanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Input Mode',
-          style: TextStyle(fontSize: 12, color: Color(0xFF808080)),
+          style: FluxForgeTheme.dockSans(size: 12, color: const Color(0xFF808080)),
         ),
         const SizedBox(height: 8),
         Wrap(
@@ -565,8 +562,8 @@ class _TouchPenModePanelState extends State<TouchPenModePanel> {
                     const SizedBox(width: 6),
                     Text(
                       mode.displayName,
-                      style: TextStyle(
-                        fontSize: 12,
+                      style: FluxForgeTheme.dockSans(
+                        size: 12,
                         color: isSelected
                             ? const Color(0xFF4A9EFF)
                             : const Color(0xFF808080),
@@ -601,16 +598,16 @@ class _TouchPenModePanelState extends State<TouchPenModePanel> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Detected Input',
-                style: TextStyle(fontSize: 10, color: Color(0xFF808080)),
+                style: FluxForgeTheme.dockSans(size: 10, color: const Color(0xFF808080)),
               ),
               Text(
                 provider.detectedMode.displayName,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF40FF90),
+                style: FluxForgeTheme.dockSans(
+                  size: 12,
+                  weight: FontWeight.w500,
+                  color: const Color(0xFF40FF90),
                 ),
               ),
             ],
@@ -619,16 +616,16 @@ class _TouchPenModePanelState extends State<TouchPenModePanel> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              const Text(
+              Text(
                 'Effective Mode',
-                style: TextStyle(fontSize: 10, color: Color(0xFF808080)),
+                style: FluxForgeTheme.dockSans(size: 10, color: const Color(0xFF808080)),
               ),
               Text(
                 provider.effectiveMode.displayName,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF4A9EFF),
+                style: FluxForgeTheme.dockSans(
+                  size: 12,
+                  weight: FontWeight.w500,
+                  color: const Color(0xFF4A9EFF),
                 ),
               ),
             ],
@@ -685,11 +682,11 @@ class _TouchPenModePanelState extends State<TouchPenModePanel> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(fontSize: 12, color: Colors.white),
+                  style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
                 ),
                 Text(
                   subtitle,
-                  style: const TextStyle(fontSize: 10, color: Color(0xFF808080)),
+                  style: FluxForgeTheme.dockSans(size: 10, color: const Color(0xFF808080)),
                 ),
               ],
             ),
@@ -711,17 +708,13 @@ class _TouchPenModePanelState extends State<TouchPenModePanel> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               'Pressure Sensitivity',
-              style: TextStyle(fontSize: 12, color: Colors.white),
+              style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
             ),
             Text(
               '${(config.pressureSensitivity * 100).toInt()}%',
-              style: const TextStyle(
-                fontSize: 12,
-                fontFamily: 'monospace',
-                color: Color(0xFF4A9EFF),
-              ),
+              style: FluxForgeTheme.dockMono(size: 12, color: const Color(0xFF4A9EFF)),
             ),
           ],
         ),

@@ -191,10 +191,10 @@ class _DelayPanelState extends State<DelayPanel> {
         const SizedBox(width: 8),
         Text(
           'Delay',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textPrimary,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
+            size: 16,
+            weight: FontWeight.bold,
           ),
         ),
         const Spacer(),
@@ -218,10 +218,10 @@ class _DelayPanelState extends State<DelayPanel> {
         ),
         child: Text(
           'BYPASS',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: _bypassed ? Colors.orange : FluxForgeTheme.textSecondary,
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
+            size: 10,
+            weight: FontWeight.bold,
           ),
         ),
       ),
@@ -237,9 +237,9 @@ class _DelayPanelState extends State<DelayPanel> {
       ),
       child: Text(
         _initialized ? 'Ready' : 'Init...',
-        style: TextStyle(
+        style: FluxForgeTheme.dockSans(
           color: _initialized ? Colors.green : Colors.red,
-          fontSize: 10,
+          size: 10,
         ),
       ),
     );
@@ -268,10 +268,10 @@ class _DelayPanelState extends State<DelayPanel> {
             child: Text(
               _getTypeName(type),
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: _delayType == type ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
-                fontSize: 11,
-                fontWeight: _delayType == type ? FontWeight.bold : FontWeight.normal,
+                size: 11,
+                weight: _delayType == type ? FontWeight.bold : FontWeight.normal,
               ),
             ),
           ),
@@ -352,7 +352,7 @@ class _DelayPanelState extends State<DelayPanel> {
       children: [
         Text(
           'Tempo Sync',
-          style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12),
         ),
         const Spacer(),
         GestureDetector(
@@ -387,10 +387,10 @@ class _DelayPanelState extends State<DelayPanel> {
           const SizedBox(width: 12),
           Text(
             '${widget.bpm.toStringAsFixed(0)} BPM',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: FluxForgeTheme.accentBlue,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
+              size: 11,
+              weight: FontWeight.bold,
             ),
           ),
         ],
@@ -444,7 +444,7 @@ class _DelayPanelState extends State<DelayPanel> {
         children: [
           Row(
             children: [
-              Text('Filter', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11)),
+              Text('Filter', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11)),
               const Spacer(),
               GestureDetector(
                 onTap: () {
@@ -460,9 +460,9 @@ class _DelayPanelState extends State<DelayPanel> {
                   ),
                   child: Text(
                     _filterEnabled ? 'ON' : 'OFF',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: _filterEnabled ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
-                      fontSize: 10,
+                      size: 10,
                     ),
                   ),
                 ),
@@ -529,7 +529,7 @@ class _DelayPanelState extends State<DelayPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Tap Configuration', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11)),
+          Text('Tap Configuration', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11)),
           const SizedBox(height: 12),
           ...List.generate(_numTaps.clamp(1, 4), (i) => Padding(
             padding: EdgeInsets.only(bottom: i < _numTaps - 1 ? 8 : 0),
@@ -548,7 +548,7 @@ class _DelayPanelState extends State<DelayPanel> {
           width: 30,
           child: Text(
             '${index + 1}',
-            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+            style: FluxForgeTheme.dockMono(color: FluxForgeTheme.textSecondary, size: 11),
           ),
         ),
         Expanded(
@@ -565,7 +565,7 @@ class _DelayPanelState extends State<DelayPanel> {
           width: 50,
           child: Text(
             '${tap.delayMs.toStringAsFixed(0)}ms',
-            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 10),
+            style: FluxForgeTheme.dockMono(color: FluxForgeTheme.textSecondary, size: 10),
             textAlign: TextAlign.right,
           ),
         ),
@@ -585,7 +585,7 @@ class _DelayPanelState extends State<DelayPanel> {
           // Preset selector
           Row(
             children: [
-              Text('Preset', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11)),
+              Text('Preset', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11)),
               const Spacer(),
               ...ModulatedDelayPreset.values.map((preset) => Padding(
                 padding: EdgeInsets.only(left: preset != ModulatedDelayPreset.custom ? 8 : 0),
@@ -607,9 +607,9 @@ class _DelayPanelState extends State<DelayPanel> {
                     ),
                     child: Text(
                       _getPresetName(preset),
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: _modPreset == preset ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
-                        fontSize: 10,
+                        size: 10,
                       ),
                     ),
                   ),
@@ -669,7 +669,7 @@ class _DelayPanelState extends State<DelayPanel> {
           width: 70,
           child: Text(
             label,
-            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12),
           ),
         ),
         Expanded(child: child),
@@ -677,10 +677,10 @@ class _DelayPanelState extends State<DelayPanel> {
           width: 70,
           child: Text(
             value,
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: FluxForgeTheme.accentBlue,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
+              size: 12,
+              weight: FontWeight.bold,
             ),
             textAlign: TextAlign.right,
           ),

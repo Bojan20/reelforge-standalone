@@ -170,12 +170,12 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
         children: [
           const Icon(Icons.tune, color: Color(0xFF40C8FF), size: 20),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'CHANNEL STRIP',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
+              size: 14,
+              weight: FontWeight.bold,
               letterSpacing: 1.2,
             ),
           ),
@@ -197,7 +197,7 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
       child: DropdownButton<ChannelStripProcessingOrder>(
         value: _processingOrder,
         dropdownColor: FluxForgeTheme.bgMid,
-        style: const TextStyle(color: Color(0xFF808090), fontSize: 10),
+        style: FluxForgeTheme.dockSans(color: const Color(0xFF808090), size: 10),
         underline: const SizedBox(),
         isDense: true,
         items: const [
@@ -257,7 +257,7 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
           const SizedBox(height: 8),
           Row(
             children: [
-              const Text('Slope:', style: TextStyle(color: Color(0xFF606070), fontSize: 10)),
+              Text('Slope:', style: FluxForgeTheme.dockSans(color: const Color(0xFF606070), size: 10)),
               const SizedBox(width: 8),
               for (final slope in [12, 24, 48])
                 Padding(
@@ -288,10 +288,10 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
         ),
         child: Text(
           '$slope',
-          style: TextStyle(
+          style: FluxForgeTheme.dockMono(
             color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
+            size: 10,
+            weight: FontWeight.bold,
           ),
         ),
       ),
@@ -459,7 +459,7 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(color: Color(0xFF606070), fontSize: 9, fontWeight: FontWeight.bold)),
+          Text(label, style: FluxForgeTheme.dockSans(color: const Color(0xFF606070), size: 9, weight: FontWeight.bold)),
           const SizedBox(height: 4),
           Row(
             children: [
@@ -468,7 +468,7 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('${freq.toInt()} Hz', style: const TextStyle(color: Color(0xFF40C8FF), fontSize: 10)),
+                    Text('${freq.toInt()} Hz', style: FluxForgeTheme.dockMono(color: const Color(0xFF40C8FF), size: 10)),
                     Slider(
                       value: freq,
                       min: minFreq,
@@ -484,7 +484,7 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('${gain >= 0 ? '+' : ''}${gain.toStringAsFixed(1)} dB', style: const TextStyle(color: Color(0xFFFF9040), fontSize: 10)),
+                    Text('${gain >= 0 ? '+' : ''}${gain.toStringAsFixed(1)} dB', style: FluxForgeTheme.dockMono(color: const Color(0xFFFF9040), size: 10)),
                     Slider(
                       value: gain,
                       min: -18,
@@ -501,7 +501,7 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Q ${q.toStringAsFixed(1)}', style: const TextStyle(color: Color(0xFF40FF90), fontSize: 10)),
+                      Text('Q ${q.toStringAsFixed(1)}', style: FluxForgeTheme.dockMono(color: const Color(0xFF40FF90), size: 10)),
                       Slider(
                         value: q,
                         min: 0.1,
@@ -621,10 +621,10 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
                     ),
                   Text(
                     title,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: enabled ? color : FluxForgeTheme.textTertiary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
+                      size: 11,
+                      weight: FontWeight.bold,
                       letterSpacing: 1.0,
                     ),
                   ),
@@ -654,7 +654,7 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
           width: 50,
           child: Text(
             label,
-            style: const TextStyle(color: Color(0xFF606070), fontSize: 10),
+            style: FluxForgeTheme.dockSans(color: const Color(0xFF606070), size: 10),
           ),
         ),
         Expanded(
@@ -677,7 +677,7 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
           width: 60,
           child: Text(
             displayValue,
-            style: const TextStyle(color: Color(0xFF40C8FF), fontSize: 10),
+            style: FluxForgeTheme.dockMono(color: const Color(0xFF40C8FF), size: 10),
             textAlign: TextAlign.right,
           ),
         ),
@@ -691,7 +691,7 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
       children: [
         SizedBox(
           width: 50,
-          child: Text(label, style: const TextStyle(color: Color(0xFF606070), fontSize: 10)),
+          child: Text(label, style: FluxForgeTheme.dockSans(color: const Color(0xFF606070), size: 10)),
         ),
         Expanded(
           child: Container(
@@ -718,7 +718,7 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
           width: 50,
           child: Text(
             '${level.toStringAsFixed(1)} dB',
-            style: TextStyle(color: color, fontSize: 10),
+            style: FluxForgeTheme.dockMono(color: color, size: 10),
             textAlign: TextAlign.right,
           ),
         ),
@@ -732,7 +732,7 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
       children: [
         SizedBox(
           width: 50,
-          child: Text(label, style: const TextStyle(color: Color(0xFF606070), fontSize: 10)),
+          child: Text(label, style: FluxForgeTheme.dockSans(color: const Color(0xFF606070), size: 10)),
         ),
         Expanded(
           child: Container(
@@ -757,7 +757,7 @@ class _ChannelStripPanelState extends State<ChannelStripPanel> {
           width: 50,
           child: Text(
             '${gr.toStringAsFixed(1)} dB',
-            style: TextStyle(color: color, fontSize: 10),
+            style: FluxForgeTheme.dockMono(color: color, size: 10),
             textAlign: TextAlign.right,
           ),
         ),

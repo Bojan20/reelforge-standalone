@@ -52,10 +52,10 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
         ),
         title: Text(
           'EQ Test Lab',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textPrimary,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
+            size: 18,
+            weight: FontWeight.w600,
           ),
         ),
         bottom: TabBar(
@@ -128,7 +128,7 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
         children: [
           Icon(icon, size: 14, color: FluxForgeTheme.accentBlue),
           const SizedBox(width: 6),
-          Text(label, style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12)),
+          Text(label, style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12)),
         ],
       ),
     );
@@ -142,19 +142,16 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
         children: [
           Text(
             'FF EQP-1A',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textPrimary,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
+              size: 24,
+              weight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Legendary passive tube EQ • Famous "Boost & Cut" trick • Smooth musical curves',
-            style: TextStyle(
-              color: FluxForgeTheme.textTertiary,
-              fontSize: 14,
-            ),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 14),
           ),
           const SizedBox(height: 16),
           Expanded(
@@ -188,7 +185,7 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
           Expanded(
             child: Text(
               'Pro tip: Boost AND cut at the same frequency for the famous "Pultec trick" - adds harmonic richness!',
-              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 13),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 13),
             ),
           ),
         ],
@@ -204,19 +201,16 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
         children: [
           Text(
             'FF 550A',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textPrimary,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
+              size: 24,
+              weight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             '3-band discrete EQ • Proportional Q • Punchy American character',
-            style: TextStyle(
-              color: FluxForgeTheme.textTertiary,
-              fontSize: 14,
-            ),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 14),
           ),
           const SizedBox(height: 16),
           Expanded(
@@ -250,7 +244,7 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
           Expanded(
             child: Text(
               'Classic on drums, vocals, and guitars. The proportional Q gives it that "musical" feel.',
-              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 13),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 13),
             ),
           ),
         ],
@@ -266,19 +260,16 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
         children: [
           Text(
             'FF 1073',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textPrimary,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
+              size: 24,
+              weight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Legendary preamp/EQ • Inductor-based filters • Transformer saturation',
-            style: TextStyle(
-              color: FluxForgeTheme.textTertiary,
-              fontSize: 14,
-            ),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 14),
           ),
           const SizedBox(height: 16),
           Expanded(
@@ -312,7 +303,7 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
           Expanded(
             child: Text(
               'The sound of countless hit records. Smooth highs, punchy lows, musical in any setting.',
-              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 13),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 13),
             ),
           ),
         ],
@@ -328,19 +319,16 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
         children: [
           Text(
             'Preset Morph Pad',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textPrimary,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
+              size: 24,
+              weight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'XY pad for blending between 4 presets • Smooth interpolation • Exclusive to FF-Q!',
-            style: TextStyle(
-              color: FluxForgeTheme.textTertiary,
-              fontSize: 14,
-            ),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 14),
           ),
           const SizedBox(height: 16),
           Expanded(
@@ -401,14 +389,14 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
               const SizedBox(width: 12),
               Text(
                 'Drag to blend between presets',
-                style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 13),
+                style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 13),
               ),
             ],
           ),
           const SizedBox(height: 8),
           Text(
             'Position: X=${_morphPosition.dx.toStringAsFixed(2)}, Y=${_morphPosition.dy.toStringAsFixed(2)}',
-            style: TextStyle(color: FluxForgeTheme.accentBlue, fontSize: 12, fontFamily: 'monospace'),
+            style: FluxForgeTheme.dockMono(color: FluxForgeTheme.accentBlue, size: 12),
           ),
         ],
       ),

@@ -83,13 +83,13 @@ class _ProblemsInboxPanelState extends State<ProblemsInboxPanel> {
                 children: [
                   const Icon(Icons.flag, color: Colors.redAccent, size: 18),
                   const SizedBox(width: 8),
-                  const Text(
+                  Text(
                     'Problems Inbox',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
+                    style: FluxForgeTheme.dockSans(
+                      size: 14,
+                      weight: FontWeight.w700,
                       letterSpacing: 0.5,
+                      color: Colors.white,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -102,10 +102,10 @@ class _ProblemsInboxPanelState extends State<ProblemsInboxPanel> {
                     ),
                     child: Text(
                       '${items.length}',
-                      style: const TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 11,
+                        weight: FontWeight.w700,
                         color: Colors.redAccent,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
@@ -117,9 +117,9 @@ class _ProblemsInboxPanelState extends State<ProblemsInboxPanel> {
                       },
                       icon: const Icon(Icons.delete_sweep,
                           size: 14, color: Colors.white70),
-                      label: const Text(
+                      label: Text(
                         'Clear all',
-                        style: TextStyle(color: Colors.white70, fontSize: 12),
+                        style: FluxForgeTheme.dockSans(size: 12, color: Colors.white70),
                       ),
                     ),
                   IconButton(
@@ -164,18 +164,18 @@ class _ProblemsInboxPanelState extends State<ProblemsInboxPanel> {
           const SizedBox(height: 12),
           Text(
             'No problems captured',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 13,
+              weight: FontWeight.w600,
               color: Colors.white.withValues(alpha: 0.7),
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             'Tap the 🚩 button on the Live Play orb while something sounds off.',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 11,
               color: Colors.white.withValues(alpha: 0.4),
-              fontSize: 11,
             ),
           ),
         ],
@@ -288,11 +288,10 @@ class _ProblemRowState extends State<_ProblemRow> {
               const SizedBox(width: 6),
               Text(
                 _hms(p.markedAt),
-                style: const TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 12,
+                  weight: FontWeight.w600,
                   color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  fontFamily: 'monospace',
                 ),
               ),
               const SizedBox(width: 10),
@@ -305,19 +304,19 @@ class _ProblemRowState extends State<_ProblemRow> {
                   ),
                   child: Text(
                     p.fsmState!,
-                    style: const TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
+                      weight: FontWeight.w700,
                       color: Colors.blueAccent,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
               const SizedBox(width: 8),
               Text(
                 '${p.voiceCount} voices',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
                   color: Colors.white.withValues(alpha: 0.55),
-                  fontSize: 11,
                 ),
               ),
               const Spacer(),
@@ -354,10 +353,10 @@ class _ProblemRowState extends State<_ProblemRow> {
                   ),
                   child: Text(
                     '${a.type.toUpperCase()}$bus',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 9,
+                      weight: FontWeight.w700,
                       color: color,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 );
@@ -380,16 +379,16 @@ class _ProblemRowState extends State<_ProblemRow> {
           const SizedBox(height: 8),
           TextFormField(
             initialValue: p.note,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 11,
               color: Colors.white.withValues(alpha: 0.8),
-              fontSize: 11,
             ),
             decoration: InputDecoration(
               isDense: true,
               hintText: 'Add a note…',
-              hintStyle: TextStyle(
+              hintStyle: FluxForgeTheme.dockSans(
+                size: 11,
                 color: Colors.white.withValues(alpha: 0.3),
-                fontSize: 11,
               ),
               border: const UnderlineInputBorder(
                 borderSide: BorderSide(color: Color(0xFF2A2A32)),
@@ -476,10 +475,9 @@ class _ClipReplayRow extends StatelessWidget {
         if (duration != null)
           Text(
             duration!,
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 10,
               color: Colors.white.withValues(alpha: 0.45),
-              fontSize: 10,
-              fontFamily: 'monospace',
             ),
           ),
         const Spacer(),
@@ -493,7 +491,7 @@ class _ClipReplayRow extends StatelessWidget {
           ),
           child: Text(
             isPlaying ? 'PLAYING' : 'AUDIO CLIP',
-            style: TextStyle(color: color, fontSize: 8, fontWeight: FontWeight.w700),
+            style: FluxForgeTheme.dockSans(size: 8, weight: FontWeight.w700, color: color),
           ),
         ),
       ],
@@ -625,9 +623,9 @@ class _BusPeaksBar extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   bus.label,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 8,
                     color: Colors.white.withValues(alpha: 0.5),
-                    fontSize: 8,
                   ),
                 ),
               ],

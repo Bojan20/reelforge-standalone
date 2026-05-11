@@ -72,9 +72,9 @@ class _MwuiExportPanelState extends State<MwuiExportPanel> {
         children: [
           const Icon(Icons.upload_file, size: 14, color: Color(0xFF26C6DA)),
           const SizedBox(width: 6),
-          Text('Export', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11, fontWeight: FontWeight.w600)),
+          Text('Export', style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.7), size: 11, weight: FontWeight.w600)),
           const Spacer(),
-          Text('7 formats', style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 9)),
+          Text('7 formats', style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.3), size: 9)),
         ],
       ),
     );
@@ -112,15 +112,15 @@ class _MwuiExportPanelState extends State<MwuiExportPanel> {
                     children: [
                       Text(
                         fmt.name,
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: isSelected ? Colors.white.withValues(alpha: 0.8) : Colors.white.withValues(alpha: 0.5),
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
+                          size: 10,
+                          weight: FontWeight.w600,
                         ),
                       ),
                       Text(
                         fmt.extension,
-                        style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 8, fontFamily: 'monospace'),
+                        style: FluxForgeTheme.dockMono(color: Colors.white.withValues(alpha: 0.2), size: 8),
                       ),
                     ],
                   ),
@@ -149,8 +149,8 @@ class _MwuiExportPanelState extends State<MwuiExportPanel> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(fmt.name, style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13, fontWeight: FontWeight.w600)),
-                  Text(fmt.description, style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 9)),
+                  Text(fmt.name, style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.8), size: 13, weight: FontWeight.w600)),
+                  Text(fmt.description, style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.3), size: 9)),
                 ],
               ),
             ],
@@ -209,7 +209,7 @@ class _MwuiExportPanelState extends State<MwuiExportPanel> {
             ),
             const SizedBox(height: 4),
             Text('Exporting... ${(_progress * 100).toStringAsFixed(0)}%',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 9)),
+              style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.5), size: 9)),
           ] else
             GestureDetector(
               onTap: _startExport,
@@ -228,7 +228,7 @@ class _MwuiExportPanelState extends State<MwuiExportPanel> {
                     Icon(Icons.download, size: 14, color: fmt.color),
                     const SizedBox(width: 6),
                     Text('Export as ${fmt.extension}',
-                      style: TextStyle(color: fmt.color, fontSize: 11, fontWeight: FontWeight.w600)),
+                      style: FluxForgeTheme.dockSans(color: fmt.color, size: 11, weight: FontWeight.w600)),
                   ],
                 ),
               ),
@@ -254,7 +254,7 @@ class _MwuiExportPanelState extends State<MwuiExportPanel> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Export complete: ${_formats[_selectedFormat].name}', style: const TextStyle(fontSize: 11)),
+              content: Text('Export complete: ${_formats[_selectedFormat].name}', style: FluxForgeTheme.dockSans(size: 11)),
               duration: const Duration(seconds: 2),
               behavior: SnackBarBehavior.floating,
               backgroundColor: const Color(0xFF2A2A4A),
@@ -274,10 +274,10 @@ class _MwuiExportPanelState extends State<MwuiExportPanel> {
   Widget _sectionLabel(String text) {
     return Text(
       text,
-      style: TextStyle(
+      style: FluxForgeTheme.dockSans(
         color: const Color(0xFF26C6DA).withValues(alpha: 0.6),
-        fontSize: 8,
-        fontWeight: FontWeight.w700,
+        size: 8,
+        weight: FontWeight.w700,
         letterSpacing: 1,
       ),
     );
@@ -303,7 +303,7 @@ class _MwuiExportPanelState extends State<MwuiExportPanel> {
             ),
           ),
           const SizedBox(width: 8),
-          Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 10)),
+          Text(label, style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.6), size: 10)),
         ],
       ),
     );
@@ -316,7 +316,7 @@ class _MwuiExportPanelState extends State<MwuiExportPanel> {
         children: [
           SizedBox(
             width: 80,
-            child: Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 10)),
+            child: Text(label, style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.4), size: 10)),
           ),
           ...options.map((opt) {
             final isSelected = opt == value;
@@ -333,9 +333,9 @@ class _MwuiExportPanelState extends State<MwuiExportPanel> {
                     width: 0.5,
                   ),
                 ),
-                child: Text(opt, style: TextStyle(
+                child: Text(opt, style: FluxForgeTheme.dockMono(
                   color: isSelected ? const Color(0xFF26C6DA) : Colors.white.withValues(alpha: 0.4),
-                  fontSize: 9,
+                  size: 9,
                 )),
               ),
             );
@@ -352,7 +352,7 @@ class _MwuiExportPanelState extends State<MwuiExportPanel> {
         children: [
           Icon(Icons.check_circle_outline, size: 10, color: const Color(0xFF66BB6A).withValues(alpha: 0.5)),
           const SizedBox(width: 6),
-          Text(text, style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 9)),
+          Text(text, style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.4), size: 9)),
         ],
       ),
     );
