@@ -25,6 +25,7 @@ import 'package:flutter/foundation.dart';
 
 import '../src/rust/native_ffi.dart' show NativeFFI;
 import 'event_timing_trace_exporter.dart';
+import 'marketing/mp4_clip_builder.dart';
 import 'session_recorder.dart';
 
 /// Marketing clip — 60s WAV + metadata bundle.
@@ -37,6 +38,14 @@ class MarketingClip {
   final String readmePath;
   final int wavFrames;
 
+  /// FAZA 3.6.F Phase 2 — opcioni MP4 poster (null ako poster nije dat
+  /// ili ako ffmpeg nije instaliran). Null je legitiman fallback —
+  /// WAV+JSON+README ostaju potpuno funkcionalni za marketing tim.
+  final String? mp4Path;
+
+  /// MP4 size u bajtovima (null ako mp4Path == null).
+  final int? mp4SizeBytes;
+
   const MarketingClip({
     required this.clipId,
     required this.exportedAt,
@@ -45,6 +54,8 @@ class MarketingClip {
     required this.metadataPath,
     required this.readmePath,
     required this.wavFrames,
+    this.mp4Path,
+    this.mp4SizeBytes,
   });
 
   /// Trajanje klipa u sekundama (frame count / 48k, fallback 60.0).
@@ -59,6 +70,8 @@ class MarketingClip {
         'readme_path': readmePath,
         'wav_frames': wavFrames,
         'duration_seconds': durationSeconds,
+        if (mp4Path != null) 'mp4_path': mp4Path,
+        if (mp4SizeBytes != null) 'mp4_size_bytes': mp4SizeBytes,
       };
 }
 
@@ -88,10 +101,15 @@ class MarketingClipExporter extends ChangeNotifier {
 
   /// Eksportuje marketing clip za dati `SessionSpinSnapshot` (best-win).
   /// Vraca uspeh/gresku — caller prikazuje SnackBar.
+  ///
+  /// **`posterImagePath`** (FAZA 3.6.F Phase 2) — opcioni PNG/JPG koji se
+  /// koristi kao video poster za MP4 export. Ako je null ili ffmpeg nije
+  /// instaliran, MP4 se preskače (WAV+JSON+README ostaju useable).
   Future<MarketingClipResult> exportClip({
     required SessionSpinSnapshot snapshot,
     required NativeFFI ffi,
     String? extraNote,
+    String? posterImagePath,
   }) async {
     // 1. Resolve clips folder.
     final clipsRoot = _resolveClipsRoot();
@@ -172,6 +190,35 @@ class MarketingClipExporter extends ChangeNotifier {
     );
     await readmeFile.writeAsString(readme, flush: true);
 
+    // 6. FAZA 3.6.F Phase 2 — MP4 poster (opcionalno).
+    String? mp4Path;
+    int? mp4SizeBytes;
+    if (posterImagePath != null && File(posterImagePath).existsSync()) {
+      final mp4Out = '${folder.path}/clip.mp4';
+      final durationSec = wavFrames / 48000.0;
+      final result = await Mp4ClipBuilder.buildPoster(
+        wavPath: wavPath,
+        posterImagePath: posterImagePath,
+        outPath: mp4Out,
+        durationSec: durationSec > 0 ? durationSec : clipWindowSeconds,
+      );
+      if (result is Mp4Success) {
+        mp4Path = result.outputPath;
+        mp4SizeBytes = result.sizeBytes;
+      } else if (result is Mp4Failure) {
+        // Append a note to README — MP4 step nije fatal.
+        try {
+          await readmeFile.writeAsString(
+            '\n\n[MP4 export skipped] ${result.reason}\n',
+            mode: FileMode.append,
+            flush: true,
+          );
+        } catch (_) {
+          // Nije fatal.
+        }
+      }
+    }
+
     final clip = MarketingClip(
       clipId: clipId,
       exportedAt: DateTime.now(),
@@ -180,6 +227,8 @@ class MarketingClipExporter extends ChangeNotifier {
       metadataPath: metadataPath,
       readmePath: readmePath,
       wavFrames: wavFrames,
+      mp4Path: mp4Path,
+      mp4SizeBytes: mp4SizeBytes,
     );
     _lastExported = clip;
     notifyListeners();

@@ -177,6 +177,8 @@ import '../services/cortex_eye_server.dart';
 import '../widgets/common/flux_tooltip.dart';
 import '../widgets/predictive/predictive_badge_overlay.dart';
 import '../services/predictive/predictive_analyzer.dart';
+// 4.2.4: Compliance Warning Banner — live AudioComplianceGuard stream overlay
+import '../widgets/compliance/compliance_warning_banner.dart';
 // =============================================================================
 // SLOT LAB TRACK ID ISOLATION
 // =============================================================================
@@ -4027,6 +4029,22 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         ],
       );
     }
+
+    // 4.2.4: Compliance Warning Banner — top-right overlay, IgnorePointer on
+    // surrounding area so normal gestures pass through. Banner pops up whenever
+    // AudioComplianceGuard emits a warning (LDW, near-miss quota, LUFS).
+    slotLabContent = Stack(
+      children: [
+        slotLabContent,
+        Positioned(
+          top: 0,
+          right: 0,
+          child: SafeArea(
+            child: const ComplianceWarningBanner(),
+          ),
+        ),
+      ],
+    );
 
     if (visionKey != null) {
       return RepaintBoundary(key: visionKey, child: slotLabContent);

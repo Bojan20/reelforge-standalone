@@ -20,6 +20,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 
+import '../../services/cortex_vision_service.dart';
 import '../../services/marketing_clip_exporter.dart';
 import '../../services/session_recorder.dart';
 import '../../src/rust/native_ffi.dart' show NativeFFI;
@@ -356,25 +357,42 @@ class _ExportClipButtonState extends State<_ExportClipButton> {
       _exporting = true;
       _resultMsg = null;
     });
+
+    // 3.6.F Phase 2: Capture full-window snapshot as MP4 poster image.
+    // Uses CortexVisionService — non-fatal if snapshot fails (MP4 is optional).
+    String? posterPath;
+    try {
+      final snap = await CortexVisionService.instance.captureFullWindow(
+        metadata: const {'reason': 'marketing_clip_poster'},
+      );
+      posterPath = snap?.filePath;
+    } catch (_) {
+      // Graceful degrade — no poster, but WAV+JSON still export.
+    }
+
     final result = await MarketingClipExporter.instance.exportClip(
       snapshot: widget.snapshot,
       ffi: GetIt.instance<NativeFFI>(),
+      posterImagePath: posterPath,
     );
     if (!mounted) return;
     setState(() {
       _exporting = false;
       _wasSuccess = result.isSuccess;
       _resultMsg = result.isSuccess
-          ? '✓ ${result.clip!.folderPath.split('/').last}'
+          ? '✓ ${result.clip!.folderPath.split('/').last}${result.clip!.mp4Path != null ? " + MP4" : ""}'
           : '⚠ ${result.error}';
     });
     if (result.isSuccess && mounted) {
+      final hasMp4 = result.clip!.mp4Path != null;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           duration: const Duration(seconds: 4),
           backgroundColor: FluxForgeTheme.bgElevated,
           content: Text(
-            '📦 Clip exported → ${result.clip!.folderPath}',
+            hasMp4
+                ? '📦 Clip exported (WAV + MP4) → ${result.clip!.folderPath}'
+                : '📦 Clip exported (WAV) → ${result.clip!.folderPath}',
             style: FluxForgeTheme.dockSans(color: FluxForgeTheme.brandGold),
           ),
         ),
