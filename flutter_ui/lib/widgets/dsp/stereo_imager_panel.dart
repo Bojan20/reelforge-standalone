@@ -176,20 +176,23 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
         children: [
           const Icon(Icons.spatial_audio, color: FluxForgeTheme.accentCyan, size: 20),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'STEREO IMAGER',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
+              size: 14,
+              weight: FontWeight.bold,
               letterSpacing: 1.2,
             ),
           ),
           const Spacer(),
           if (!_initialized)
-            const Text(
+            Text(
               'Initializing...',
-              style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
+              style: FluxForgeTheme.dockSans(
+                color: FluxForgeTheme.textTertiary,
+                size: 11,
+              ),
             )
           else
             GestureDetector(
@@ -210,12 +213,12 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
                   color: FluxForgeTheme.bgMid,
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: const Text(
+                child: Text(
                   'RESET',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: FluxForgeTheme.textTertiary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                    size: 10,
+                    weight: FontWeight.bold,
                   ),
                 ),
               ),
@@ -258,21 +261,21 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               'CORRELATION',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.textTertiary,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+                size: 10,
+                weight: FontWeight.bold,
                 letterSpacing: 1.0,
               ),
             ),
             Text(
               _correlation.toStringAsFixed(2),
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: correlationColor,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
+                size: 12,
+                weight: FontWeight.bold,
               ),
             ),
           ],
@@ -290,10 +293,10 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
               Positioned.fill(
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: const [
-                    Text('-1', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 8)),
-                    Text('0', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 8)),
-                    Text('+1', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 8)),
+                  children: [
+                    Text('-1', style: FluxForgeTheme.dockMono(color: FluxForgeTheme.textTertiary, size: 8)),
+                    Text('0', style: FluxForgeTheme.dockMono(color: FluxForgeTheme.textTertiary, size: 8)),
+                    Text('+1', style: FluxForgeTheme.dockMono(color: FluxForgeTheme.textTertiary, size: 8)),
                   ],
                 ),
               ),
@@ -316,10 +319,10 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
         const SizedBox(height: 4),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: const [
-            Text('Out of Phase', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 9)),
-            Text('Mono', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 9)),
-            Text('In Phase', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 9)),
+          children: [
+            Text('Out of Phase', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 9)),
+            Text('Mono', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 9)),
+            Text('In Phase', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 9)),
           ],
         ),
       ],
@@ -340,13 +343,13 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Width', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11)),
+              Text('Width', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 11)),
               Text(
                 '${(_width * 100).round()}%',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
                   color: _width == 1.0 ? FluxForgeTheme.textTertiary : FluxForgeTheme.accentCyan,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+                  size: 12,
+                  weight: FontWeight.bold,
                 ),
               ),
             ],
@@ -367,10 +370,10 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
           ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              Text('Mono', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 9)),
-              Text('Stereo', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 9)),
-              Text('Wide', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 9)),
+            children: [
+              Text('Mono', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 9)),
+              Text('Stereo', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 9)),
+              Text('Wide', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 9)),
             ],
           ),
         ],
@@ -392,13 +395,13 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Position', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11)),
+              Text('Position', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 11)),
               Text(
                 _pan == 0 ? 'C' : _pan < 0 ? 'L${(_pan.abs() * 100).round()}' : 'R${(_pan * 100).round()}',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
                   color: _pan == 0 ? FluxForgeTheme.textTertiary : FluxForgeTheme.accentCyan,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+                  size: 12,
+                  weight: FontWeight.bold,
                 ),
               ),
             ],
@@ -421,11 +424,11 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Pan Law', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11)),
+              Text('Pan Law', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 11)),
               DropdownButton<PanLaw>(
                 value: _panLaw,
                 dropdownColor: FluxForgeTheme.bgMid,
-                style: const TextStyle(color: Color(0xFF40C8FF), fontSize: 11),
+                style: FluxForgeTheme.dockSans(color: const Color(0xFF40C8FF), size: 11),
                 underline: const SizedBox(),
                 items: PanLaw.values.map((law) {
                   return DropdownMenuItem(
@@ -476,13 +479,13 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('L/R Balance', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11)),
+              Text('L/R Balance', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 11)),
               Text(
                 _balance == 0 ? 'C' : _balance < 0 ? 'L${(_balance.abs() * 100).round()}' : 'R${(_balance * 100).round()}',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
                   color: _balance == 0 ? FluxForgeTheme.textTertiary : FluxForgeTheme.accentCyan,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+                  size: 12,
+                  weight: FontWeight.bold,
                 ),
               ),
             ],
@@ -565,13 +568,13 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Angle', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11)),
+              Text('Angle', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 11)),
               Text(
                 '${_rotation.round()}°',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
                   color: _rotation == 0 ? FluxForgeTheme.textTertiary : FluxForgeTheme.accentCyan,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+                  size: 12,
+                  weight: FontWeight.bold,
                 ),
               ),
             ],
@@ -618,10 +621,10 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
             children: [
               Text(
                 title,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: enabled ? FluxForgeTheme.accentCyan : FluxForgeTheme.textTertiary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+                  size: 10,
+                  weight: FontWeight.bold,
                   letterSpacing: 1.0,
                 ),
               ),
@@ -678,10 +681,10 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            color: Color(0xFF808090),
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            color: const Color(0xFF808090),
+            size: 10,
+            weight: FontWeight.bold,
             letterSpacing: 1.0,
           ),
         ),
@@ -712,10 +715,10 @@ class _StereoImagerPanelState extends State<StereoImagerPanel> {
         const SizedBox(height: 8),
         Text(
           format(value),
-          style: TextStyle(
+          style: FluxForgeTheme.dockMono(
             color: enabled ? FluxForgeTheme.accentCyan : FluxForgeTheme.textTertiary,
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
+            size: 11,
+            weight: FontWeight.bold,
           ),
         ),
       ],

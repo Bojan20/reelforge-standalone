@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../../providers/slot_lab/ail_provider.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// RGAI™ Compliance Dashboard — powered by AIL (Authoring Intelligence Layer).
 ///
@@ -81,10 +82,10 @@ class _RgaiCompliancePanelState extends State<RgaiCompliancePanel>
         const SizedBox(width: 4),
         Text(
           'AIL Compliance',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 11,
             color: Colors.white.withValues(alpha: 0.9),
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
+            weight: FontWeight.w600,
           ),
         ),
         const SizedBox(width: 8),
@@ -99,10 +100,10 @@ class _RgaiCompliancePanelState extends State<RgaiCompliancePanel>
             ),
             child: Text(
               '${_provider.score.toStringAsFixed(0)} ${_provider.status.displayName}',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 9,
                 color: statusColor,
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
+                weight: FontWeight.w700,
               ),
             ),
           ),
@@ -113,12 +114,12 @@ class _RgaiCompliancePanelState extends State<RgaiCompliancePanel>
               color: const Color(0xFFFFBB33).withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(4),
             ),
-            child: const Text(
+            child: Text(
               'ANALYZING...',
-              style: TextStyle(
-                color: Color(0xFFFFBB33),
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
+              style: FluxForgeTheme.dockSans(
+                size: 9,
+                color: const Color(0xFFFFBB33),
+                weight: FontWeight.w700,
               ),
             ),
           ),
@@ -134,10 +135,10 @@ class _RgaiCompliancePanelState extends State<RgaiCompliancePanel>
             ),
             child: Text(
               'PBSE ${_provider.pbsePassed! ? "PASS" : "FAIL"}',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 8,
                 color: _provider.pbsePassed! ? const Color(0xFF4CAF50) : const Color(0xFFFF5252),
-                fontSize: 8,
-                fontWeight: FontWeight.w700,
+                weight: FontWeight.w700,
               ),
             ),
           ),
@@ -158,8 +159,8 @@ class _RgaiCompliancePanelState extends State<RgaiCompliancePanel>
         unselectedLabelColor: Colors.white54,
         indicatorColor: const Color(0xFF40C8FF),
         indicatorWeight: 2,
-        labelStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
-        unselectedLabelStyle: const TextStyle(fontSize: 10),
+        labelStyle: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w600),
+        unselectedLabelStyle: FluxForgeTheme.dockSans(size: 10),
         tabs: [
           const Tab(text: 'DOMAINS'),
           Tab(
@@ -177,7 +178,7 @@ class _RgaiCompliancePanelState extends State<RgaiCompliancePanel>
                     ),
                     child: Text(
                       '${_provider.criticalCount}',
-                      style: const TextStyle(fontSize: 7, color: Colors.white, fontWeight: FontWeight.w700),
+                      style: FluxForgeTheme.dockSans(size: 7, color: Colors.white, weight: FontWeight.w700),
                     ),
                   ),
                 ],
@@ -248,19 +249,19 @@ class _RgaiCompliancePanelState extends State<RgaiCompliancePanel>
               Expanded(
                 child: Text(
                   domain.name,
-                  style: const TextStyle(
-                    color: Color(0xFF40C8FF),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    color: const Color(0xFF40C8FF),
+                    weight: FontWeight.w600,
                   ),
                 ),
               ),
               Text(
                 '${domain.score.toStringAsFixed(1)}',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
                   color: Colors.white.withValues(alpha: 0.8),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
+                  weight: FontWeight.w700,
                 ),
               ),
             ],
@@ -282,7 +283,7 @@ class _RgaiCompliancePanelState extends State<RgaiCompliancePanel>
         SizedBox(
           width: 35,
           child: Text(label,
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 8)),
+              style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.4), size: 8)),
         ),
         Expanded(
           child: Container(
@@ -308,7 +309,7 @@ class _RgaiCompliancePanelState extends State<RgaiCompliancePanel>
           width: 28,
           child: Text(
             '${(value * 100).toStringAsFixed(0)}%',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 8),
+            style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.5), size: 8),
             textAlign: TextAlign.right,
           ),
         ),
@@ -372,11 +373,11 @@ class _RgaiCompliancePanelState extends State<RgaiCompliancePanel>
           ),
           child: Text(
             '$count',
-            style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w700),
+            style: FluxForgeTheme.dockSans(color: color, size: 9, weight: FontWeight.w700),
           ),
         ),
         const SizedBox(width: 3),
-        Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 8)),
+        Text(label, style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.5), size: 8)),
       ],
     );
   }
@@ -409,31 +410,31 @@ class _RgaiCompliancePanelState extends State<RgaiCompliancePanel>
                 ),
                 child: Text(
                   rec.level.displayName,
-                  style: TextStyle(color: levelColor, fontSize: 8, fontWeight: FontWeight.w700),
+                  style: FluxForgeTheme.dockSans(color: levelColor, size: 8, weight: FontWeight.w700),
                 ),
               ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   rec.title,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
                     color: Colors.white.withValues(alpha: 0.9),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
+                    weight: FontWeight.w600,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               Text(
                 'Impact: ${rec.impactScore.toStringAsFixed(1)}',
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 8),
+                style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.4), size: 8),
               ),
             ],
           ),
           const SizedBox(height: 4),
           Text(
             rec.description,
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 9),
+            style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.6), size: 9),
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
           ),
@@ -478,10 +479,10 @@ class _RgaiCompliancePanelState extends State<RgaiCompliancePanel>
                 const SizedBox(width: 6),
                 Text(
                   'Risk Level: ${fatigue.riskLevel}',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
                     color: Colors.white.withValues(alpha: 0.8),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
+                    weight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -507,7 +508,7 @@ class _RgaiCompliancePanelState extends State<RgaiCompliancePanel>
           SizedBox(
             width: 110,
             child: Text(label,
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 9)),
+                style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.6), size: 9)),
           ),
           Expanded(
             child: Container(
@@ -533,7 +534,7 @@ class _RgaiCompliancePanelState extends State<RgaiCompliancePanel>
             width: 40,
             child: Text(
               value.toStringAsFixed(2),
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 9),
+              style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.7), size: 9),
               textAlign: TextAlign.right,
             ),
           ),
@@ -588,17 +589,17 @@ class _RgaiCompliancePanelState extends State<RgaiCompliancePanel>
                     children: [
                       Text(
                         '${ve.utilizationPct.toStringAsFixed(0)}%',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 18,
                           color: Colors.white.withValues(alpha: 0.9),
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
+                          weight: FontWeight.w700,
                         ),
                       ),
                       Text(
                         'Utilization',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 9,
                           color: Colors.white.withValues(alpha: 0.5),
-                          fontSize: 9,
                         ),
                       ),
                     ],
@@ -630,7 +631,7 @@ class _RgaiCompliancePanelState extends State<RgaiCompliancePanel>
             icon: const Icon(Icons.play_arrow, size: 14),
             label: Text(
               _provider.hasResults ? 'Re-analyze' : 'Run Analysis',
-              style: const TextStyle(fontSize: 10),
+              style: FluxForgeTheme.dockSans(size: 10),
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF40C8FF),
@@ -652,7 +653,7 @@ class _RgaiCompliancePanelState extends State<RgaiCompliancePanel>
                 padding: const EdgeInsets.symmetric(vertical: 6),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
               ),
-              child: const Text('Reset', style: TextStyle(fontSize: 10)),
+              child: Text('Reset', style: FluxForgeTheme.dockSans(size: 10)),
             ),
           ),
         ],
@@ -674,7 +675,7 @@ class _RgaiCompliancePanelState extends State<RgaiCompliancePanel>
           Text(
             message,
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.35), fontSize: 11),
+            style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.35), size: 11),
           ),
         ],
       ),
@@ -684,10 +685,10 @@ class _RgaiCompliancePanelState extends State<RgaiCompliancePanel>
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
-      style: TextStyle(
+      style: FluxForgeTheme.dockSans(
+        size: 10,
         color: Colors.white.withValues(alpha: 0.8),
-        fontSize: 10,
-        fontWeight: FontWeight.w600,
+        weight: FontWeight.w600,
       ),
     );
   }
@@ -700,11 +701,11 @@ class _RgaiCompliancePanelState extends State<RgaiCompliancePanel>
           SizedBox(
             width: 100,
             child: Text(key,
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 9)),
+                style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.5), size: 9)),
           ),
           Expanded(
             child: Text(value,
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 9)),
+                style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.8), size: 9)),
           ),
         ],
       ),

@@ -270,10 +270,10 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
             Expanded(
               child: Text(
                 widget.vca.name,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+                  size: 11,
+                  weight: FontWeight.w600,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -311,10 +311,10 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
             ),
           Text(
             'VCA',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: widget.vca.color,
-              fontSize: 8,
-              fontWeight: FontWeight.w700,
+              size: 8,
+              weight: FontWeight.w700,
             ),
           ),
           if (hasChildren)
@@ -368,10 +368,10 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
                       widget.vca.linkMode == VcaLinkMode.relative
                           ? 'REL'
                           : 'ABS',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: FluxForgeTheme.textSecondary,
-                        fontSize: 8,
-                        fontWeight: FontWeight.w600,
+                        size: 8,
+                        weight: FontWeight.w600,
                       ),
                     ),
                   ],
@@ -402,12 +402,12 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
               child: Center(
                 child: Text(
                   'SPILL',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: widget.vca.spillActive
                         ? widget.vca.color
                         : FluxForgeTheme.textTertiary,
-                    fontSize: 7,
-                    fontWeight: FontWeight.w700,
+                    size: 7,
+                    weight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -459,12 +459,12 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
   Widget _dbLabel(String text, {bool highlight = false}) {
     return Text(
       text,
-      style: TextStyle(
+      style: FluxForgeTheme.dockMono(
         color: highlight
             ? FluxForgeTheme.accentBlue.withValues(alpha: 0.8)
             : FluxForgeTheme.textTertiary,
-        fontSize: 7,
-        fontWeight: highlight ? FontWeight.w600 : FontWeight.normal,
+        size: 7,
+        weight: highlight ? FontWeight.w600 : FontWeight.normal,
       ),
     );
   }
@@ -664,17 +664,17 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
           // Current value
           Text(
             _levelDb <= -72 ? '-∞' : _levelDb.toStringAsFixed(1),
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: widget.vca.color,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
+              size: 10,
+              weight: FontWeight.w700,
             ),
           ),
-          const Text(
+          Text(
             'dB',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textTertiary,
-              fontSize: 7,
+              size: 7,
             ),
           ),
           const SizedBox(height: 8),
@@ -691,13 +691,13 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
                   width: 1,
                 ),
               ),
-              child: const Center(
+              child: Center(
                 child: Text(
                   'A',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: FluxForgeTheme.accentGreen,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
+                    size: 9,
+                    weight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -795,10 +795,10 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
         child: Center(
           child: Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: active ? FluxForgeTheme.bgVoid : FluxForgeTheme.textTertiary,
-              fontSize: fontSize,
-              fontWeight: FontWeight.w700,
+              size: fontSize,
+              weight: FontWeight.w700,
             ),
           ),
         ),
@@ -833,10 +833,10 @@ class _VcaFaderStripState extends State<VcaFaderStrip>
         const SizedBox(width: 4),
         Text(
           '$memberCount',
-          style: TextStyle(
+          style: FluxForgeTheme.dockMono(
             color: widget.vca.color,
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
+            size: 13,
+            weight: FontWeight.w600,
           ),
         ),
         const SizedBox(width: 8),
@@ -915,9 +915,9 @@ class _VcaMemberTrimRow extends StatelessWidget {
           Expanded(
             child: Text(
               member.name,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 8,
+                size: 8,
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -927,12 +927,12 @@ class _VcaMemberTrimRow extends StatelessWidget {
             width: 32,
             child: Text(
               '${member.trimDb >= 0 ? '+' : ''}${member.trimDb.toStringAsFixed(1)}',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: member.trimDb == 0
                     ? FluxForgeTheme.textTertiary
                     : vcaColor,
-                fontSize: 8,
-                fontWeight: FontWeight.w600,
+                size: 8,
+                weight: FontWeight.w600,
               ),
               textAlign: TextAlign.right,
             ),
@@ -1029,18 +1029,18 @@ class _VcaMemberEditorState extends State<VcaMemberEditor> {
         const SizedBox(width: 10),
         Text(
           'Edit ${widget.vca.name} Members',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textPrimary,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
+            size: 14,
+            weight: FontWeight.w600,
           ),
         ),
         const Spacer(),
         Text(
           '${_selectedIds.length} selected',
-          style: TextStyle(
+          style: FluxForgeTheme.dockMono(
             color: widget.vca.color,
-            fontSize: 11,
+            size: 11,
           ),
         ),
       ],
@@ -1059,15 +1059,15 @@ class _VcaMemberEditorState extends State<VcaMemberEditor> {
         ),
       ),
       child: TextField(
-        style: TextStyle(
+        style: FluxForgeTheme.dockSans(
           color: FluxForgeTheme.textPrimary,
-          fontSize: 12,
+          size: 12,
         ),
         decoration: InputDecoration(
           hintText: 'Search tracks...',
-          hintStyle: TextStyle(
+          hintStyle: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textTertiary,
-            fontSize: 12,
+            size: 12,
           ),
           prefixIcon: Icon(
             Icons.search,
@@ -1159,9 +1159,9 @@ class _VcaMemberEditorState extends State<VcaMemberEditor> {
             Expanded(
               child: Text(
                 track.name,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 12,
+                  size: 12,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -1180,7 +1180,7 @@ class _VcaMemberEditorState extends State<VcaMemberEditor> {
           onPressed: () => Navigator.of(context).pop(),
           child: Text(
             'Cancel',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textSecondary,
             ),
           ),
@@ -1199,9 +1199,9 @@ class _VcaMemberEditorState extends State<VcaMemberEditor> {
             foregroundColor: FluxForgeTheme.bgVoid,
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
           ),
-          child: const Text(
+          child: Text(
             'Apply',
-            style: TextStyle(fontWeight: FontWeight.w600),
+            style: FluxForgeTheme.dockSans(weight: FontWeight.w600),
           ),
         ),
       ],
@@ -1285,9 +1285,9 @@ class _VcaCreateDialogState extends State<VcaCreateDialog> {
           const SizedBox(width: 10),
           Text(
             widget.parentVcaId != null ? 'Create Nested VCA' : 'Create VCA Fader',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textPrimary,
-              fontSize: 16,
+              size: 16,
             ),
           ),
         ],
@@ -1300,10 +1300,10 @@ class _VcaCreateDialogState extends State<VcaCreateDialog> {
           TextField(
             controller: _nameController,
             focusNode: _focusNode,
-            style: TextStyle(color: FluxForgeTheme.textPrimary),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
             decoration: InputDecoration(
               labelText: 'Name',
-              labelStyle: TextStyle(color: FluxForgeTheme.textSecondary),
+              labelStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
               enabledBorder: OutlineInputBorder(
                 borderSide: BorderSide(color: FluxForgeTheme.borderSubtle),
               ),
@@ -1316,9 +1316,9 @@ class _VcaCreateDialogState extends State<VcaCreateDialog> {
           // Color selection
           Text(
             'Color:',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textSecondary,
-              fontSize: 12,
+              size: 12,
             ),
           ),
           const SizedBox(height: 10),
@@ -1367,7 +1367,7 @@ class _VcaCreateDialogState extends State<VcaCreateDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: Text(
             'Cancel',
-            style: TextStyle(color: FluxForgeTheme.textSecondary),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
           ),
         ),
         ElevatedButton(
@@ -1383,9 +1383,9 @@ class _VcaCreateDialogState extends State<VcaCreateDialog> {
             backgroundColor: _selectedColor,
             foregroundColor: FluxForgeTheme.bgVoid,
           ),
-          child: const Text(
+          child: Text(
             'Create',
-            style: TextStyle(fontWeight: FontWeight.w600),
+            style: FluxForgeTheme.dockSans(weight: FontWeight.w600),
           ),
         ),
       ],
@@ -1436,21 +1436,21 @@ class VcaGroupHeader extends StatelessWidget {
             color: Color(0xFFff9040),
           ),
           const SizedBox(width: 6),
-          const Text(
+          Text(
             'VCA FADERS',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Color(0xFFff9040),
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
+              size: 10,
+              weight: FontWeight.w700,
               letterSpacing: 1.2,
             ),
           ),
           const Spacer(),
           Text(
             '${vcas.length}',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: FluxForgeTheme.textTertiary,
-              fontSize: 10,
+              size: 10,
             ),
           ),
           const SizedBox(width: 8),

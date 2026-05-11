@@ -13,6 +13,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../../services/loudness_analysis_service.dart';
+import '../../theme/fluxforge_theme.dart';
 import '../lower_zone/lower_zone_types.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -98,9 +99,9 @@ class _LoudnessAnalysisPanelState extends State<LoudnessAnalysisPanel> {
         const SizedBox(width: 8),
         Text(
           'LOUDNESS ANALYSIS',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: 11,
+            weight: FontWeight.bold,
             color: widget.accentColor,
             letterSpacing: 1.0,
           ),
@@ -138,9 +139,9 @@ class _LoudnessAnalysisPanelState extends State<LoudnessAnalysisPanel> {
           const SizedBox(width: 4),
           Text(
             compliance.isCompliant ? 'COMPLIANT' : 'NON-COMPLIANT',
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 9,
+              weight: FontWeight.bold,
               color: compliance.isCompliant ? LowerZoneColors.success : LowerZoneColors.error,
             ),
           ),
@@ -218,7 +219,7 @@ class _LoudnessAnalysisPanelState extends State<LoudnessAnalysisPanel> {
               const SizedBox(width: 4),
               Text(
                 'Duration: ${_formatDuration(widget.result!.duration)}',
-                style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted),
+                style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textMuted),
               ),
             ],
           ),
@@ -251,14 +252,14 @@ class _LoudnessAnalysisPanelState extends State<LoudnessAnalysisPanel> {
           const SizedBox(height: 12),
           Text(
             'Analyzing audio...',
-            style: TextStyle(fontSize: 11, color: widget.accentColor),
+            style: FluxForgeTheme.dockSans(size: 11, color: widget.accentColor),
           ),
           const SizedBox(height: 4),
           Text(
             '${(widget.progress * 100).toStringAsFixed(0)}%',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 16,
+              weight: FontWeight.bold,
               color: widget.accentColor,
             ),
           ),
@@ -284,14 +285,14 @@ class _LoudnessAnalysisPanelState extends State<LoudnessAnalysisPanel> {
             color: LowerZoneColors.textMuted.withValues(alpha: 0.5),
           ),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             'No Analysis',
-            style: TextStyle(fontSize: 11, color: LowerZoneColors.textMuted),
+            style: FluxForgeTheme.dockSans(size: 11, color: LowerZoneColors.textMuted),
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Click Analyze to measure loudness',
-            style: TextStyle(fontSize: 9, color: LowerZoneColors.textMuted),
+            style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textMuted),
             textAlign: TextAlign.center,
           ),
         ],
@@ -311,20 +312,19 @@ class _LoudnessAnalysisPanelState extends State<LoudnessAnalysisPanel> {
           children: [
             Text(
               label,
-              style: TextStyle(
-                fontSize: 8,
+              style: FluxForgeTheme.dockSans(
+                size: 8,
                 color: isPrimary ? widget.accentColor : LowerZoneColors.textMuted,
-                fontWeight: isPrimary ? FontWeight.bold : FontWeight.normal,
+                weight: isPrimary ? FontWeight.bold : FontWeight.normal,
               ),
             ),
             const Spacer(),
             Text(
               LoudnessResult.formatLufs(value),
-              style: TextStyle(
-                fontSize: isPrimary ? 11 : 9,
+              style: FluxForgeTheme.dockMono(
+                size: isPrimary ? 11 : 9,
                 color: isPrimary ? widget.accentColor : LowerZoneColors.textPrimary,
-                fontWeight: isPrimary ? FontWeight.bold : FontWeight.normal,
-                fontFamily: 'monospace',
+                weight: isPrimary ? FontWeight.bold : FontWeight.normal,
               ),
             ),
           ],
@@ -355,15 +355,14 @@ class _LoudnessAnalysisPanelState extends State<LoudnessAnalysisPanel> {
       children: [
         Row(
           children: [
-            Text(label, style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+            Text(label, style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
             const Spacer(),
             Text(
               LoudnessResult.formatPeak(value),
-              style: TextStyle(
-                fontSize: 9,
+              style: FluxForgeTheme.dockMono(
+                size: 9,
                 color: isClipping ? LowerZoneColors.error : LowerZoneColors.textPrimary,
-                fontWeight: isClipping ? FontWeight.bold : FontWeight.normal,
-                fontFamily: 'monospace',
+                weight: isClipping ? FontWeight.bold : FontWeight.normal,
               ),
             ),
           ],
@@ -392,14 +391,13 @@ class _LoudnessAnalysisPanelState extends State<LoudnessAnalysisPanel> {
       children: [
         Row(
           children: [
-            const Text('LRA', style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+            Text('LRA', style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
             const Spacer(),
             Text(
               LoudnessResult.formatLra(lra),
-              style: const TextStyle(
-                fontSize: 9,
+              style: FluxForgeTheme.dockMono(
+                size: 9,
                 color: LowerZoneColors.textPrimary,
-                fontFamily: 'monospace',
               ),
             ),
           ],
@@ -441,9 +439,9 @@ class _LoudnessAnalysisPanelState extends State<LoudnessAnalysisPanel> {
         children: [
           Text(
             'TARGET',
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 9,
+              weight: FontWeight.bold,
               color: widget.accentColor,
               letterSpacing: 0.5,
             ),
@@ -471,16 +469,16 @@ class _LoudnessAnalysisPanelState extends State<LoudnessAnalysisPanel> {
               children: [
                 Text(
                   _selectedTarget.name,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: FontWeight.bold,
                     color: widget.accentColor,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   _selectedTarget.description,
-                  style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted),
+                  style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted),
                 ),
                 const SizedBox(height: 8),
                 _buildTargetRow('Target LUFS', '${_selectedTarget.targetLufs.toStringAsFixed(1)} LUFS'),
@@ -517,10 +515,10 @@ class _LoudnessAnalysisPanelState extends State<LoudnessAnalysisPanel> {
         ),
         child: Text(
           target.name,
-          style: TextStyle(
-            fontSize: 9,
+          style: FluxForgeTheme.dockSans(
+            size: 9,
             color: isSelected ? widget.accentColor : LowerZoneColors.textMuted,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            weight: isSelected ? FontWeight.bold : FontWeight.normal,
           ),
         ),
       ),
@@ -532,14 +530,13 @@ class _LoudnessAnalysisPanelState extends State<LoudnessAnalysisPanel> {
       padding: const EdgeInsets.only(bottom: 2),
       child: Row(
         children: [
-          Text(label, style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+          Text(label, style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
           const Spacer(),
           Text(
             value,
-            style: const TextStyle(
-              fontSize: 9,
+            style: FluxForgeTheme.dockMono(
+              size: 9,
               color: LowerZoneColors.textPrimary,
-              fontFamily: 'monospace',
             ),
           ),
         ],
@@ -572,18 +569,17 @@ class _LoudnessAnalysisPanelState extends State<LoudnessAnalysisPanel> {
             const Divider(height: 12, color: LowerZoneColors.border),
             Row(
               children: [
-                const Text(
+                Text(
                   'Recommended Gain:',
-                  style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted),
+                  style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted),
                 ),
                 const Spacer(),
                 Text(
                   '${recommendedGain >= 0 ? '+' : ''}${recommendedGain.toStringAsFixed(1)} dB',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockMono(
+                    size: 10,
+                    weight: FontWeight.bold,
                     color: widget.accentColor,
-                    fontFamily: 'monospace',
                   ),
                 ),
               ],
@@ -607,15 +603,15 @@ class _LoudnessAnalysisPanelState extends State<LoudnessAnalysisPanel> {
           const SizedBox(width: 4),
           Text(
             label,
-            style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted),
+            style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted),
           ),
           const Spacer(),
           Text(
             status,
-            style: TextStyle(
-              fontSize: 9,
+            style: FluxForgeTheme.dockSans(
+              size: 9,
               color: isOk ? LowerZoneColors.success : LowerZoneColors.warning,
-              fontWeight: isOk ? FontWeight.normal : FontWeight.bold,
+              weight: isOk ? FontWeight.normal : FontWeight.bold,
             ),
           ),
         ],
@@ -658,9 +654,9 @@ class _LoudnessAnalysisPanelState extends State<LoudnessAnalysisPanel> {
                   const SizedBox(height: 8),
                   Text(
                     widget.isAnalyzing ? 'ANALYZING...' : 'ANALYZE',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
+                      weight: FontWeight.bold,
                       color: widget.isAnalyzing ? LowerZoneColors.textMuted : widget.accentColor,
                     ),
                   ),
@@ -829,9 +825,9 @@ class LoudnessBadge extends StatelessWidget {
           color: LowerZoneColors.bgMid,
           borderRadius: BorderRadius.circular(4),
         ),
-        child: const Text(
+        child: Text(
           'N/A',
-          style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted),
+          style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted),
         ),
       );
     }
@@ -849,11 +845,10 @@ class LoudnessBadge extends StatelessWidget {
         ),
         child: Text(
           '${result!.integratedLufs.toStringAsFixed(1)}',
-          style: TextStyle(
-            fontSize: 9,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockMono(
+            size: 9,
+            weight: FontWeight.bold,
             color: compliance.isCompliant ? LowerZoneColors.success : LowerZoneColors.warning,
-            fontFamily: 'monospace',
           ),
         ),
       );
@@ -881,17 +876,17 @@ class LoudnessBadge extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             LoudnessResult.formatLufs(result!.integratedLufs),
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 9,
+              weight: FontWeight.bold,
               color: compliance.isCompliant ? LowerZoneColors.success : LowerZoneColors.warning,
             ),
           ),
           const SizedBox(width: 4),
           Text(
             '/ ${result!.truePeak.toStringAsFixed(1)} dBTP',
-            style: const TextStyle(
-              fontSize: 8,
+            style: FluxForgeTheme.dockSans(
+              size: 8,
               color: LowerZoneColors.textMuted,
             ),
           ),

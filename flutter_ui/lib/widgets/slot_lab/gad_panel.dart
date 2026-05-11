@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../../providers/slot_lab/gad_provider.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// GAD Panel — Gameplay-Aware DAW (MASTER_SPEC §15).
 ///
@@ -73,10 +74,10 @@ class _GadPanelState extends State<GadPanel> with SingleTickerProviderStateMixin
         const SizedBox(width: 4),
         Text(
           'Gameplay-Aware DAW',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: Colors.white.withValues(alpha: 0.9),
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
+            size: 11,
+            weight: FontWeight.w600,
           ),
         ),
         const Spacer(),
@@ -89,13 +90,13 @@ class _GadPanelState extends State<GadPanel> with SingleTickerProviderStateMixin
           ),
           child: Text(
             '${_provider.bpm.toStringAsFixed(0)} BPM  |  ${_provider.lengthBars} bars',
-            style: const TextStyle(color: Color(0xFF40C8FF), fontSize: 9, fontWeight: FontWeight.w500),
+            style: FluxForgeTheme.dockMono(color: Color(0xFF40C8FF), size: 9, weight: FontWeight.w500),
           ),
         ),
         const SizedBox(width: 4),
         Text(
           '${_provider.trackCount} tracks',
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 9),
+          style: FluxForgeTheme.dockMono(color: Colors.white.withValues(alpha: 0.4), size: 9),
         ),
       ],
     );
@@ -115,8 +116,8 @@ class _GadPanelState extends State<GadPanel> with SingleTickerProviderStateMixin
         labelPadding: const EdgeInsets.symmetric(horizontal: 10),
         labelColor: const Color(0xFF40C8FF),
         unselectedLabelColor: Colors.white54,
-        labelStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
-        unselectedLabelStyle: const TextStyle(fontSize: 10),
+        labelStyle: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w600),
+        unselectedLabelStyle: FluxForgeTheme.dockSans(size: 10),
         dividerColor: Colors.transparent,
         tabs: const [
           Tab(text: 'Tracks'),
@@ -157,10 +158,10 @@ class _GadPanelState extends State<GadPanel> with SingleTickerProviderStateMixin
             height: 24,
             child: TextField(
               controller: _trackNameCtrl,
-              style: const TextStyle(color: Colors.white, fontSize: 10),
+              style: FluxForgeTheme.dockSans(color: Colors.white, size: 10),
               decoration: InputDecoration(
                 hintText: 'Track name...',
-                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 10),
+                hintStyle: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.3), size: 10),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
                 filled: true,
                 fillColor: const Color(0xFF2A2A3E),
@@ -199,10 +200,10 @@ class _GadPanelState extends State<GadPanel> with SingleTickerProviderStateMixin
         underline: const SizedBox.shrink(),
         isDense: true,
         dropdownColor: const Color(0xFF2A2A3E),
-        style: const TextStyle(color: Colors.white, fontSize: 10),
+        style: FluxForgeTheme.dockSans(color: Colors.white, size: 10),
         items: GadTrackType.values.map((t) => DropdownMenuItem(
           value: t,
-          child: Text(t.label, style: const TextStyle(fontSize: 10)),
+          child: Text(t.label, style: FluxForgeTheme.dockSans(size: 10)),
         )).toList(),
       ),
     );
@@ -213,7 +214,7 @@ class _GadPanelState extends State<GadPanel> with SingleTickerProviderStateMixin
       return Center(
         child: Text(
           'No tracks — add tracks above',
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 10),
+          style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.3), size: 10),
         ),
       );
     }
@@ -255,11 +256,11 @@ class _GadPanelState extends State<GadPanel> with SingleTickerProviderStateMixin
               children: [
                 Text(
                   track.name,
-                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w500),
+                  style: FluxForgeTheme.dockSans(color: Colors.white, size: 10, weight: FontWeight.w500),
                 ),
                 Text(
                   '${track.trackType}  ${track.hookBinding != null ? "→ ${track.hookBinding}" : "• No binding"}',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 8),
+                  style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.4), size: 8),
                 ),
               ],
             ),
@@ -287,7 +288,7 @@ class _GadPanelState extends State<GadPanel> with SingleTickerProviderStateMixin
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(3),
       ),
-      child: Text(label, style: TextStyle(color: color, fontSize: 8, fontWeight: FontWeight.w500)),
+      child: Text(label, style: FluxForgeTheme.dockMono(color: color, size: 8, weight: FontWeight.w500)),
     );
   }
 
@@ -319,7 +320,7 @@ class _GadPanelState extends State<GadPanel> with SingleTickerProviderStateMixin
   Widget _buildBpmRow() {
     return Row(
       children: [
-        Text('BPM', style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 10)),
+        Text('BPM', style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.5), size: 10)),
         const SizedBox(width: 6),
         Expanded(
           child: SliderTheme(
@@ -342,7 +343,7 @@ class _GadPanelState extends State<GadPanel> with SingleTickerProviderStateMixin
           width: 44,
           child: Text(
             '${_provider.bpm.toStringAsFixed(0)}',
-            style: const TextStyle(color: Color(0xFF40C8FF), fontSize: 11, fontWeight: FontWeight.w600),
+            style: FluxForgeTheme.dockMono(color: Color(0xFF40C8FF), size: 11, weight: FontWeight.w600),
             textAlign: TextAlign.right,
           ),
         ),
@@ -379,7 +380,7 @@ class _GadPanelState extends State<GadPanel> with SingleTickerProviderStateMixin
             child: Center(
               child: Text(
                 'Add anchors to sync Musical ↔ Gameplay timelines',
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.25), fontSize: 9),
+                style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.25), size: 9),
               ),
             ),
           ),
@@ -398,9 +399,9 @@ class _GadPanelState extends State<GadPanel> with SingleTickerProviderStateMixin
             decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
           const SizedBox(width: 6),
-          Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w600)),
+          Text(label, style: FluxForgeTheme.dockSans(color: color, size: 10, weight: FontWeight.w600)),
           const SizedBox(width: 8),
-          Text(desc, style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 9)),
+          Text(desc, style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.4), size: 9)),
         ],
       ),
     );
@@ -428,12 +429,12 @@ class _GadPanelState extends State<GadPanel> with SingleTickerProviderStateMixin
                   const SizedBox(height: 8),
                   Text(
                     '11-Step Bake To Slot Pipeline',
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 10),
+                    style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.3), size: 10),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'Freeze → Validate → Stems → Mapping → DPM\nSAMCL → PBSE → Safety → DRC → Manifest → Trace',
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 8),
+                    style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.2), size: 8),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -470,9 +471,9 @@ class _GadPanelState extends State<GadPanel> with SingleTickerProviderStateMixin
             ),
             child: Text(
               _provider.bakeSuccess! ? 'PASSED' : 'FAILED',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: _provider.bakeSuccess! ? const Color(0xFF4CAF50) : const Color(0xFFF44336),
-                fontSize: 9, fontWeight: FontWeight.w700,
+                size: 9, weight: FontWeight.w700,
               ),
             ),
           ),
@@ -486,7 +487,7 @@ class _GadPanelState extends State<GadPanel> with SingleTickerProviderStateMixin
             ),
             child: Text(
               '${_provider.validationErrors.length} errors',
-              style: const TextStyle(color: Color(0xFFF44336), fontSize: 9),
+              style: FluxForgeTheme.dockSans(color: Color(0xFFF44336), size: 9),
             ),
           ),
         ],
@@ -511,7 +512,7 @@ class _GadPanelState extends State<GadPanel> with SingleTickerProviderStateMixin
         const SizedBox(height: 2),
         Text(
           '${(_provider.bakeProgress * 100).toStringAsFixed(0)}% complete',
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 8),
+          style: FluxForgeTheme.dockMono(color: Colors.white.withValues(alpha: 0.4), size: 8),
         ),
       ],
     );
@@ -534,9 +535,9 @@ class _GadPanelState extends State<GadPanel> with SingleTickerProviderStateMixin
               const SizedBox(width: 6),
               Text(
                 '${i + 1}. ${step.name}',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: Colors.white.withValues(alpha: step.passed ? 0.7 : 0.5),
-                  fontSize: 10,
+                  size: 10,
                 ),
               ),
               if (step.error != null) ...[
@@ -544,7 +545,7 @@ class _GadPanelState extends State<GadPanel> with SingleTickerProviderStateMixin
                 Expanded(
                   child: Text(
                     step.error!,
-                    style: const TextStyle(color: Color(0xFFF44336), fontSize: 8),
+                    style: FluxForgeTheme.dockSans(color: Color(0xFFF44336), size: 8),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -581,10 +582,10 @@ class _GadPanelState extends State<GadPanel> with SingleTickerProviderStateMixin
             const SizedBox(width: 4),
             Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: color.withValues(alpha: onTap != null ? 0.9 : 0.3),
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
+                size: 10,
+                weight: FontWeight.w500,
               ),
             ),
           ],
@@ -623,9 +624,9 @@ class _BarRulerPainter extends CustomPainter {
       ..color = const Color(0xFF3A3A5C)
       ..strokeWidth = 0.5;
 
-    final textStyle = TextStyle(
+    final textStyle = FluxForgeTheme.dockMono(
       color: Colors.white.withValues(alpha: 0.3),
-      fontSize: 8,
+      size: 8,
     );
 
     final barWidth = size.width / totalBars.clamp(1, totalBars);

@@ -27,6 +27,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../providers/brain_provider.dart';
 import '../../services/service_locator.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PALETA — FluxForge futuristic
@@ -314,7 +315,7 @@ class _BrainChatState extends State<BrainChat> with TickerProviderStateMixin {
     final messenger = ScaffoldMessenger.maybeOf(context);
     messenger?.showSnackBar(
       SnackBar(
-        content: Text(msg, style: const TextStyle(fontSize: 12)),
+        content: Text(msg, style: FluxForgeTheme.dockSans(size: 12)),
         duration: const Duration(seconds: 2),
         backgroundColor: _Palette.bgElev2,
         behavior: SnackBarBehavior.floating,
@@ -434,10 +435,10 @@ class _BrainChatState extends State<BrainChat> with TickerProviderStateMixin {
               const SizedBox(width: 8),
               Text(
                 connected ? 'BRAIN ONLINE' : 'BRAIN OFFLINE',
-                style: TextStyle(
-                  fontSize: 10,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
                   letterSpacing: 1.6,
-                  fontWeight: FontWeight.w600,
+                  weight: FontWeight.w600,
                   color: connected ? _Palette.text : _Palette.textMuted,
                 ),
               ),
@@ -582,8 +583,8 @@ class _BrainChatState extends State<BrainChat> with TickerProviderStateMixin {
               Text(
                 'Ask anything. Stream live. Built for FluxForge.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
+                style: FluxForgeTheme.dockSans(
+                  size: 12,
                   color: _Palette.textMuted,
                   letterSpacing: 0.4,
                   height: 1.4,
@@ -836,8 +837,8 @@ class _BrainChatState extends State<BrainChat> with TickerProviderStateMixin {
                                   focusNode: _inputFocus,
                                   cursorColor: _Palette.neonCyan,
                                   cursorWidth: 2,
-                                  style: const TextStyle(
-                                    fontSize: 13,
+                                  style: FluxForgeTheme.dockSans(
+                                    size: 13,
                                     color: _Palette.text,
                                     height: 1.5,
                                   ),
@@ -847,8 +848,8 @@ class _BrainChatState extends State<BrainChat> with TickerProviderStateMixin {
                                     hintText: _brain.isDaemonConnected
                                         ? 'Ask the Brain...   (Enter to send · Shift+Enter for newline · / for commands)'
                                         : 'Daemon offline — start cortex-daemon',
-                                    hintStyle: const TextStyle(
-                                      fontSize: 12,
+                                    hintStyle: FluxForgeTheme.dockSans(
+                                      size: 12,
                                       color: _Palette.textFaint,
                                     ),
                                     border: InputBorder.none,
@@ -884,16 +885,16 @@ class _BrainChatState extends State<BrainChat> with TickerProviderStateMixin {
                       const SizedBox(width: 4),
                       Text(
                         '${_estimateTokens(_inputController.text)} tokens',
-                        style: const TextStyle(
-                          fontSize: 10,
+                        style: FluxForgeTheme.dockMono(
+                          size: 10,
                           color: _Palette.textFaint,
                         ),
                       ),
                       const Spacer(),
                       Text(
                         '$charCount chars',
-                        style: const TextStyle(
-                          fontSize: 10,
+                        style: FluxForgeTheme.dockMono(
+                          size: 10,
                           color: _Palette.textFaint,
                         ),
                       ),
@@ -966,10 +967,10 @@ class _BrainChatState extends State<BrainChat> with TickerProviderStateMixin {
                         const SizedBox(width: 8),
                         Text(
                           m.$1,
-                          style: const TextStyle(
-                            fontSize: 12,
+                          style: FluxForgeTheme.dockSans(
+                            size: 12,
                             color: _Palette.text,
-                            fontWeight: FontWeight.w600,
+                            weight: FontWeight.w600,
                             letterSpacing: 0.4,
                           ),
                         ),
@@ -977,8 +978,8 @@ class _BrainChatState extends State<BrainChat> with TickerProviderStateMixin {
                         Expanded(
                           child: Text(
                             m.$2,
-                            style: const TextStyle(
-                              fontSize: 11,
+                            style: FluxForgeTheme.dockSans(
+                              size: 11,
                               color: _Palette.textMuted,
                             ),
                           ),
@@ -1081,8 +1082,8 @@ class _UserBubbleState extends State<_UserBubble> {
                         ),
                         child: SelectableText(
                           widget.text,
-                          style: const TextStyle(
-                            fontSize: 13,
+                          style: FluxForgeTheme.dockSans(
+                            size: 13,
                             color: _Palette.text,
                             height: 1.45,
                           ),
@@ -1287,27 +1288,27 @@ class _BrainBubbleState extends State<_BrainBubble> {
         if (showTimestamp) ...[
           Text(
             _BrainChatState._relativeTime(widget.timestamp),
-            style: const TextStyle(fontSize: 9.5, color: _Palette.textFaint),
+            style: FluxForgeTheme.dockMono(size: 9.5, color: _Palette.textFaint),
           ),
           const SizedBox(width: 8),
         ],
         if (widget.model.isNotEmpty)
           Text(
             widget.model,
-            style: const TextStyle(fontSize: 9.5, color: _Palette.textFaint),
+            style: FluxForgeTheme.dockSans(size: 9.5, color: _Palette.textFaint),
           ),
         if (widget.latencyMs > 0) ...[
           const SizedBox(width: 8),
           Text(
             '${widget.latencyMs}ms',
-            style: const TextStyle(fontSize: 9.5, color: _Palette.textFaint),
+            style: FluxForgeTheme.dockMono(size: 9.5, color: _Palette.textFaint),
           ),
         ],
         if (widget.costUsd > 0) ...[
           const SizedBox(width: 8),
           Text(
             '\$${widget.costUsd.toStringAsFixed(4)}',
-            style: const TextStyle(fontSize: 9.5, color: _Palette.textFaint),
+            style: FluxForgeTheme.dockMono(size: 9.5, color: _Palette.textFaint),
           ),
         ],
         const Spacer(),
@@ -1424,9 +1425,9 @@ class _MarkdownLite extends StatelessWidget {
         ).createShader(rect),
         child: Text(
           text,
-          style: TextStyle(
-            fontSize: fontSize,
-            fontWeight: weight,
+          style: FluxForgeTheme.dockSans(
+            size: fontSize,
+            weight: weight,
             color: Colors.white,
             letterSpacing: 0.2,
             height: 1.3,
@@ -1440,8 +1441,8 @@ class _MarkdownLite extends StatelessWidget {
     final spans = _parseInline(raw, base);
     return SelectableText.rich(
       TextSpan(children: spans),
-      style: TextStyle(
-        fontSize: 13,
+      style: FluxForgeTheme.dockSans(
+        size: 13,
         color: base,
         height: 1.5,
       ),
@@ -1536,24 +1537,22 @@ class _MarkdownLite extends StatelessWidget {
       if (t.startsWith('**')) {
         spans.add(TextSpan(
           text: t.substring(2, t.length - 2),
-          style: const TextStyle(
-            fontWeight: FontWeight.w700,
+          style: FluxForgeTheme.dockSans(
+            weight: FontWeight.w700,
             color: _Palette.text,
           ),
         ));
       } else if (t.startsWith('`')) {
         spans.add(TextSpan(
           text: t.substring(1, t.length - 1),
-          style: const TextStyle(
-            fontFamily: 'monospace',
-            backgroundColor: Color(0xCC1A1A24),
+          style: FluxForgeTheme.dockMono(
             color: _Palette.neonCyan,
-          ),
+          ).copyWith(backgroundColor: const Color(0xCC1A1A24)),
         ));
       } else if (t.startsWith('*')) {
         spans.add(TextSpan(
           text: t.substring(1, t.length - 1),
-          style: const TextStyle(fontStyle: FontStyle.italic),
+          style: FluxForgeTheme.dockSans().copyWith(fontStyle: FontStyle.italic),
         ));
       }
       last = m.end;
@@ -1639,12 +1638,12 @@ class _CodeBlockState extends State<_CodeBlock> {
                 const SizedBox(width: 8),
                 Text(
                   widget.language.isEmpty ? 'code' : widget.language,
-                  style: TextStyle(
-                    fontSize: 10,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
                     color: _Palette.langColor(widget.language)
                         .withValues(alpha: 0.85),
                     letterSpacing: 1.0,
-                    fontWeight: FontWeight.w600,
+                    weight: FontWeight.w600,
                   ),
                 ),
                 const Spacer(),
@@ -1666,8 +1665,8 @@ class _CodeBlockState extends State<_CodeBlock> {
                         const SizedBox(width: 4),
                         Text(
                           _copied ? 'Copied' : 'Copy',
-                          style: TextStyle(
-                            fontSize: 10,
+                          style: FluxForgeTheme.dockSans(
+                            size: 10,
                             color: _copied
                                 ? _Palette.neonMint
                                 : _Palette.textMuted,
@@ -1684,9 +1683,8 @@ class _CodeBlockState extends State<_CodeBlock> {
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
             child: SelectableText(
               widget.content,
-              style: const TextStyle(
-                fontSize: 12,
-                fontFamily: 'monospace',
+              style: FluxForgeTheme.dockMono(
+                size: 12,
                 color: _Palette.text,
                 height: 1.45,
               ),
@@ -1754,9 +1752,9 @@ class _HoloHeadline extends StatelessWidget {
       ).createShader(rect),
       child: Text(
         text,
-        style: const TextStyle(
-          fontSize: 36,
-          fontWeight: FontWeight.w800,
+        style: FluxForgeTheme.dockSans(
+          size: 36,
+          weight: FontWeight.w800,
           color: Colors.white,
           letterSpacing: 8,
         ),
@@ -1861,10 +1859,10 @@ class _MetaPill extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: TextStyle(
-          fontSize: 10,
+        style: FluxForgeTheme.dockSans(
+          size: 10,
           color: color,
-          fontWeight: FontWeight.w600,
+          weight: FontWeight.w600,
           letterSpacing: 0.4,
         ),
       ),
@@ -1963,8 +1961,8 @@ class _PromptChipState extends State<_PromptChip> {
                   widget.text,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 11.5,
+                  style: FluxForgeTheme.dockSans(
+                    size: 11.5,
                     color: _Palette.text,
                   ),
                 ),
@@ -1990,10 +1988,9 @@ class _ShortcutLegend extends StatelessWidget {
           ),
           child: Text(
             s,
-            style: const TextStyle(
-              fontSize: 10,
+            style: FluxForgeTheme.dockMono(
+              size: 10,
               color: _Palette.textMuted,
-              fontFamily: 'monospace',
             ),
           ),
         );
@@ -2006,12 +2003,12 @@ class _ShortcutLegend extends StatelessWidget {
               for (int i = 0; i < keys.length; i++) ...[
                 kbd(keys[i]),
                 if (i < keys.length - 1)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 3),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 3),
                     child: Text(
                       '+',
-                      style: TextStyle(
-                        fontSize: 10,
+                      style: FluxForgeTheme.dockSans(
+                        size: 10,
                         color: _Palette.textFaint,
                       ),
                     ),
@@ -2020,8 +2017,8 @@ class _ShortcutLegend extends StatelessWidget {
               const SizedBox(width: 10),
               Text(
                 label,
-                style: const TextStyle(
-                  fontSize: 10.5,
+                style: FluxForgeTheme.dockSans(
+                  size: 10.5,
                   color: _Palette.textMuted,
                 ),
               ),

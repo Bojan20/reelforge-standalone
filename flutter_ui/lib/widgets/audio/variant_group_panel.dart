@@ -71,11 +71,11 @@ class _VariantGroupPanelState extends State<VariantGroupPanel> {
         children: [
           Icon(Icons.compare_arrows, size: 20, color: FluxForgeTheme.accentBlue),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Audio Variants',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 13,
+              weight: FontWeight.w600,
               color: Colors.white,
             ),
           ),
@@ -88,9 +88,9 @@ class _VariantGroupPanelState extends State<VariantGroupPanel> {
             ),
             child: Text(
               '${service.groups.length}',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.w600,
                 color: FluxForgeTheme.accentBlue,
               ),
             ),
@@ -103,10 +103,10 @@ class _VariantGroupPanelState extends State<VariantGroupPanel> {
             child: TextField(
               controller: _searchController,
               onChanged: (value) => setState(() => _searchQuery = value),
-              style: const TextStyle(fontSize: 11, color: Colors.white),
+              style: FluxForgeTheme.dockSans(size: 11, color: Colors.white),
               decoration: InputDecoration(
                 hintText: 'Search groups...',
-                hintStyle: const TextStyle(fontSize: 11, color: Colors.white38),
+                hintStyle: FluxForgeTheme.dockSans(size: 11, color: Colors.white38),
                 prefixIcon: const Icon(Icons.search, size: 16, color: Colors.white38),
                 filled: true,
                 fillColor: const Color(0xFF0D0D10),
@@ -122,7 +122,7 @@ class _VariantGroupPanelState extends State<VariantGroupPanel> {
           // Create group button
           ElevatedButton.icon(
             icon: const Icon(Icons.add, size: 16),
-            label: const Text('New Group', style: TextStyle(fontSize: 11)),
+            label: Text('New Group', style: FluxForgeTheme.dockSans(size: 11)),
             onPressed: () => _showCreateGroupDialog(context, service),
             style: ElevatedButton.styleFrom(
               backgroundColor: FluxForgeTheme.accentGreen,
@@ -146,17 +146,17 @@ class _VariantGroupPanelState extends State<VariantGroupPanel> {
           const SizedBox(height: 16),
           Text(
             'No Variant Groups',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 14,
+              weight: FontWeight.w600,
               color: Colors.white.withValues(alpha: 0.3),
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Create a group to compare audio variants',
-            style: TextStyle(
-              fontSize: 11,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
               color: Colors.white.withValues(alpha: 0.2),
             ),
           ),
@@ -236,17 +236,17 @@ class _VariantGroupPanelState extends State<VariantGroupPanel> {
                       children: [
                         Text(
                           group.name,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                          style: FluxForgeTheme.dockSans(
+                            size: 13,
+                            weight: FontWeight.w600,
                             color: Colors.white,
                           ),
                         ),
                         if (group.description != null)
                           Text(
                             group.description!,
-                            style: const TextStyle(
-                              fontSize: 10,
+                            style: FluxForgeTheme.dockSans(
+                              size: 10,
                               color: Colors.white38,
                             ),
                           ),
@@ -263,9 +263,9 @@ class _VariantGroupPanelState extends State<VariantGroupPanel> {
                     ),
                     child: Text(
                       '${group.variants.length} variants',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
+                      style: FluxForgeTheme.dockSans(
+                        size: 10,
+                        weight: FontWeight.w600,
                         color: FluxForgeTheme.accentPurple,
                       ),
                     ),
@@ -290,9 +290,9 @@ class _VariantGroupPanelState extends State<VariantGroupPanel> {
                           const SizedBox(width: 4),
                           Text(
                             activeVariant.label,
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
+                            style: FluxForgeTheme.dockSans(
+                              size: 10,
+                              weight: FontWeight.w600,
                               color: FluxForgeTheme.accentGreen,
                             ),
                           ),
@@ -341,7 +341,7 @@ class _VariantGroupPanelState extends State<VariantGroupPanel> {
                       if (group.variants.length >= 2)
                         ElevatedButton.icon(
                           icon: const Icon(Icons.compare, size: 14),
-                          label: const Text('A/B Compare', style: TextStyle(fontSize: 11)),
+                          label: Text('A/B Compare', style: FluxForgeTheme.dockSans(size: 11)),
                           onPressed: () => _showABComparison(context, service, group),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: FluxForgeTheme.accentBlue,
@@ -355,7 +355,7 @@ class _VariantGroupPanelState extends State<VariantGroupPanel> {
                       // Add variant button
                       ElevatedButton.icon(
                         icon: const Icon(Icons.add, size: 14),
-                        label: const Text('Add Variant', style: TextStyle(fontSize: 11)),
+                        label: Text('Add Variant', style: FluxForgeTheme.dockSans(size: 11)),
                         onPressed: () => _showAddVariantDialog(context, service, group),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF2A2A35),
@@ -370,7 +370,7 @@ class _VariantGroupPanelState extends State<VariantGroupPanel> {
                       if (activeVariant != null)
                         ElevatedButton.icon(
                           icon: const Icon(Icons.find_replace, size: 14),
-                          label: const Text('Replace All', style: TextStyle(fontSize: 11)),
+                          label: Text('Replace All', style: FluxForgeTheme.dockSans(size: 11)),
                           onPressed: () => _showReplaceDialog(context, service, group),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: FluxForgeTheme.accentOrange,
@@ -427,9 +427,9 @@ class _VariantGroupPanelState extends State<VariantGroupPanel> {
           // Label
           Text(
             variant.label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.w600,
               color: isActive ? FluxForgeTheme.accentGreen : Colors.white,
             ),
           ),
@@ -438,7 +438,7 @@ class _VariantGroupPanelState extends State<VariantGroupPanel> {
           Expanded(
             child: Text(
               fileName,
-              style: const TextStyle(fontSize: 10, color: Colors.white54),
+              style: FluxForgeTheme.dockMono(size: 10, color: Colors.white54),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -497,10 +497,9 @@ class _VariantGroupPanelState extends State<VariantGroupPanel> {
       ),
       child: Text(
         text,
-        style: const TextStyle(
-          fontSize: 9,
+        style: FluxForgeTheme.dockMono(
+          size: 9,
           color: Colors.white38,
-          fontFamily: 'monospace',
         ),
       ),
     );
@@ -571,14 +570,14 @@ class _VariantGroupPanelState extends State<VariantGroupPanel> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A22),
-        title: const Text('Rename Group', style: TextStyle(color: Colors.white)),
+        title: Text('Rename Group', style: FluxForgeTheme.dockSans(color: Colors.white)),
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
+          style: FluxForgeTheme.dockSans(color: Colors.white),
+          decoration: InputDecoration(
             hintText: 'Group name',
-            hintStyle: TextStyle(color: Colors.white38),
+            hintStyle: FluxForgeTheme.dockSans(color: Colors.white38),
           ),
         ),
         actions: [
@@ -607,10 +606,10 @@ class _VariantGroupPanelState extends State<VariantGroupPanel> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A22),
-        title: const Text('Delete Group?', style: TextStyle(color: Colors.white)),
+        title: Text('Delete Group?', style: FluxForgeTheme.dockSans(color: Colors.white)),
         content: Text(
           'Delete "${group.name}" and all its variants?',
-          style: const TextStyle(color: Colors.white70),
+          style: FluxForgeTheme.dockSans(color: Colors.white70),
         ),
         actions: [
           TextButton(
@@ -680,34 +679,34 @@ class _VariantGroupPanelState extends State<VariantGroupPanel> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A22),
-        title: const Text('Replace All Occurrences', style: TextStyle(color: Colors.white)),
+        title: Text('Replace All Occurrences', style: FluxForgeTheme.dockSans(color: Colors.white)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'Replace all uses of:',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+              style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.7)),
             ),
             const SizedBox(height: 8),
             Text(
               activeVariant.label,
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockSans(
+                weight: FontWeight.w600,
                 color: FluxForgeTheme.accentGreen,
               ),
             ),
             const SizedBox(height: 16),
             Text(
               'With:',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+              style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.7)),
             ),
             const SizedBox(height: 8),
             ...otherVariants.map((v) => ListTile(
-                  title: Text(v.label, style: const TextStyle(color: Colors.white)),
+                  title: Text(v.label, style: FluxForgeTheme.dockSans(color: Colors.white)),
                   subtitle: Text(
                     v.audioPath.split('/').last,
-                    style: const TextStyle(color: Colors.white38, fontSize: 10),
+                    style: FluxForgeTheme.dockSans(color: Colors.white38, size: 10),
                   ),
                   onTap: () {
                     Navigator.pop(context);

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
 import '../../../providers/slot_lab/neural_fingerprint_provider.dart';
+import '../../../theme/fluxforge_theme.dart';
 
 /// UCP-14: Neural Fingerprint Panel — Audio Watermarking & Anti-Piracy
 ///
@@ -40,9 +41,9 @@ class _NeuralFingerprintPanelState extends State<NeuralFingerprintPanel> {
   Widget build(BuildContext context) {
     final p = _provider;
     if (p == null) {
-      return const Center(
+      return Center(
         child: Text('Neural Fingerprint not available',
-            style: TextStyle(color: Colors.grey)),
+            style: FluxForgeTheme.dockSans(color: Colors.grey)),
       );
     }
 
@@ -77,15 +78,15 @@ class _NeuralFingerprintPanelState extends State<NeuralFingerprintPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Row(
+        Row(
           children: [
-            Icon(Icons.fingerprint, color: Color(0xFFFFCC00), size: 14),
-            SizedBox(width: 6),
+            const Icon(Icons.fingerprint, color: Color(0xFFFFCC00), size: 14),
+            const SizedBox(width: 6),
             Text('Fingerprint Config',
-                style: TextStyle(
-                    color: Color(0xFFCCCCCC),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600)),
+                style: FluxForgeTheme.dockSans(
+                    color: const Color(0xFFCCCCCC),
+                    size: 11,
+                    weight: FontWeight.w600)),
           ],
         ),
         const SizedBox(height: 6),
@@ -108,8 +109,8 @@ class _NeuralFingerprintPanelState extends State<NeuralFingerprintPanel> {
                     : const Color(0xFF555577),
               ),
               const SizedBox(width: 4),
-              const Text('Auto-embed on export',
-                  style: TextStyle(color: Color(0xFF999999), fontSize: 9)),
+              Text('Auto-embed on export',
+                  style: FluxForgeTheme.dockSans(color: const Color(0xFF999999), size: 9)),
             ],
           ),
         ),
@@ -142,11 +143,11 @@ class _NeuralFingerprintPanelState extends State<NeuralFingerprintPanel> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Statistics',
-                  style: TextStyle(
-                      color: Color(0xFF888888),
-                      fontSize: 9,
-                      fontWeight: FontWeight.w600)),
+              Text('Statistics',
+                  style: FluxForgeTheme.dockSans(
+                      color: const Color(0xFF888888),
+                      size: 9,
+                      weight: FontWeight.w600)),
               const SizedBox(height: 4),
               _statRow('Embedded', '${p.totalEmbedded}', const Color(0xFF44CC44)),
               _statRow('Verified', '${p.totalVerified}', const Color(0xFF4488CC)),
@@ -184,11 +185,11 @@ class _NeuralFingerprintPanelState extends State<NeuralFingerprintPanel> {
             const SizedBox(width: 4),
             Expanded(
               child: Text(s.displayName,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                       color: active
                           ? const Color(0xFFCCCCCC)
                           : const Color(0xFF888888),
-                      fontSize: 9)),
+                      size: 9)),
             ),
           ],
         ),
@@ -220,11 +221,11 @@ class _NeuralFingerprintPanelState extends State<NeuralFingerprintPanel> {
             ),
             const SizedBox(width: 4),
             Text(l.displayName,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                     color: active
                         ? const Color(0xFFCCCCCC)
                         : const Color(0xFF777777),
-                    fontSize: 9)),
+                    size: 9)),
           ],
         ),
       ),
@@ -240,15 +241,15 @@ class _NeuralFingerprintPanelState extends State<NeuralFingerprintPanel> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Survival matrix
-        const Row(
+        Row(
           children: [
-            Icon(Icons.shield, color: Color(0xFF888888), size: 14),
-            SizedBox(width: 6),
+            const Icon(Icons.shield, color: Color(0xFF888888), size: 14),
+            const SizedBox(width: 6),
             Text('Fingerprint Survival Matrix',
-                style: TextStyle(
-                    color: Color(0xFFCCCCCC),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600)),
+                style: FluxForgeTheme.dockSans(
+                    color: const Color(0xFFCCCCCC),
+                    size: 11,
+                    weight: FontWeight.w600)),
           ],
         ),
         const SizedBox(height: 4),
@@ -256,20 +257,20 @@ class _NeuralFingerprintPanelState extends State<NeuralFingerprintPanel> {
         const SizedBox(height: 8),
 
         // Recent fingerprinted assets
-        const Text('Recent Fingerprinted Assets',
-            style: TextStyle(
-                color: Color(0xFF888888),
-                fontSize: 9,
-                fontWeight: FontWeight.w600)),
+        Text('Recent Fingerprinted Assets',
+            style: FluxForgeTheme.dockSans(
+                color: const Color(0xFF888888),
+                size: 9,
+                weight: FontWeight.w600)),
         const SizedBox(height: 4),
         Expanded(
           child: p.fingerprintedAssets.isEmpty
-              ? const Center(
+              ? Center(
                   child: Text(
                     'No assets fingerprinted yet.\n'
                     'Embed fingerprints on export or manually.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Color(0xFF555577), fontSize: 10),
+                    style: FluxForgeTheme.dockSans(color: const Color(0xFF555577), size: 10),
                   ),
                 )
               : ListView.builder(
@@ -303,10 +304,10 @@ class _NeuralFingerprintPanelState extends State<NeuralFingerprintPanel> {
                 Expanded(
                   child: Text(pt,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                          color: Color(0xFF888888),
-                          fontSize: 7,
-                          fontWeight: FontWeight.w600)),
+                      style: FluxForgeTheme.dockSans(
+                          color: const Color(0xFF888888),
+                          size: 7,
+                          weight: FontWeight.w600)),
                 ),
             ],
           ),
@@ -332,12 +333,12 @@ class _NeuralFingerprintPanelState extends State<NeuralFingerprintPanel> {
           SizedBox(
             width: 60,
             child: Text(strength.name,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                     color: active
                         ? const Color(0xFFFFCC00)
                         : const Color(0xFF888888),
-                    fontSize: 8,
-                    fontWeight: active ? FontWeight.w600 : FontWeight.normal)),
+                    size: 8,
+                    weight: active ? FontWeight.w600 : FontWeight.normal)),
           ),
           for (final v in values.values)
             Expanded(
@@ -350,10 +351,9 @@ class _NeuralFingerprintPanelState extends State<NeuralFingerprintPanel> {
                   ),
                   child: Text(
                     '${(v * 100).toStringAsFixed(0)}%',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockMono(
                         color: _survivalColor(v),
-                        fontSize: 8,
-                        fontFamily: 'monospace'),
+                        size: 8),
                   ),
                 ),
               ),
@@ -394,13 +394,13 @@ class _NeuralFingerprintPanelState extends State<NeuralFingerprintPanel> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(asset.assetName,
-                    style: const TextStyle(
-                        color: Color(0xFFCCCCCC), fontSize: 9)),
+                    style: FluxForgeTheme.dockSans(
+                        color: const Color(0xFFCCCCCC), size: 9)),
                 Text(
                   '${asset.metadata.licenseType.displayName} | '
                   '${asset.strength.name} | ${asset.sampleRate}Hz',
-                  style: const TextStyle(
-                      color: Color(0xFF777777), fontSize: 8),
+                  style: FluxForgeTheme.dockSans(
+                      color: const Color(0xFF777777), size: 8),
                 ),
               ],
             ),
@@ -415,7 +415,7 @@ class _NeuralFingerprintPanelState extends State<NeuralFingerprintPanel> {
           ),
           const SizedBox(width: 6),
           Text(agoStr,
-              style: const TextStyle(color: Color(0xFF555577), fontSize: 8)),
+              style: FluxForgeTheme.dockSans(color: const Color(0xFF555577), size: 8)),
         ],
       ),
     );
@@ -434,11 +434,11 @@ class _NeuralFingerprintPanelState extends State<NeuralFingerprintPanel> {
           children: [
             const Icon(Icons.bug_report, color: Color(0xFFCC4444), size: 14),
             const SizedBox(width: 6),
-            const Text('Honeypots',
-                style: TextStyle(
-                    color: Color(0xFFCCCCCC),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600)),
+            Text('Honeypots',
+                style: FluxForgeTheme.dockSans(
+                    color: const Color(0xFFCCCCCC),
+                    size: 11,
+                    weight: FontWeight.w600)),
             const Spacer(),
             GestureDetector(
               onTap: () => p.createHoneypot(
@@ -454,10 +454,10 @@ class _NeuralFingerprintPanelState extends State<NeuralFingerprintPanel> {
         SizedBox(
           height: 80,
           child: p.honeypots.isEmpty
-              ? const Center(
+              ? Center(
                   child: Text('No honeypot exports',
-                      style: TextStyle(
-                          color: Color(0xFF555577), fontSize: 9)),
+                      style: FluxForgeTheme.dockSans(
+                          color: const Color(0xFF555577), size: 9)),
                 )
               : ListView.builder(
                   itemCount: p.honeypots.length,
@@ -468,24 +468,24 @@ class _NeuralFingerprintPanelState extends State<NeuralFingerprintPanel> {
         const SizedBox(height: 8),
 
         // Verification history
-        const Row(
+        Row(
           children: [
-            Icon(Icons.verified, color: Color(0xFF4488CC), size: 14),
-            SizedBox(width: 6),
+            const Icon(Icons.verified, color: Color(0xFF4488CC), size: 14),
+            const SizedBox(width: 6),
             Text('Verification Log',
-                style: TextStyle(
-                    color: Color(0xFFCCCCCC),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600)),
+                style: FluxForgeTheme.dockSans(
+                    color: const Color(0xFFCCCCCC),
+                    size: 11,
+                    weight: FontWeight.w600)),
           ],
         ),
         const SizedBox(height: 4),
         Expanded(
           child: p.verificationHistory.isEmpty
-              ? const Center(
+              ? Center(
                   child: Text('No verifications yet',
-                      style: TextStyle(
-                          color: Color(0xFF555577), fontSize: 9)),
+                      style: FluxForgeTheme.dockSans(
+                          color: const Color(0xFF555577), size: 9)),
                 )
               : ListView.builder(
                   itemCount: p.verificationHistory.length,
@@ -515,13 +515,11 @@ class _NeuralFingerprintPanelState extends State<NeuralFingerprintPanel> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(hp.targetRecipient,
-                    style: const TextStyle(
-                        color: Color(0xFFCC8888), fontSize: 9)),
+                    style: FluxForgeTheme.dockSans(
+                        color: const Color(0xFFCC8888), size: 9)),
                 Text(hp.honeypotId,
-                    style: const TextStyle(
-                        color: Color(0xFF664444),
-                        fontSize: 7,
-                        fontFamily: 'monospace')),
+                    style: FluxForgeTheme.dockMono(
+                        color: const Color(0xFF664444), size: 7)),
               ],
             ),
           ),
@@ -561,12 +559,12 @@ class _NeuralFingerprintPanelState extends State<NeuralFingerprintPanel> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(v.status.displayName,
-                    style: TextStyle(color: statusColor, fontSize: 9)),
+                    style: FluxForgeTheme.dockSans(color: statusColor, size: 9)),
                 if (v.metadata != null)
                   Text(
                     '${v.metadata!.assetId} | conf: ${(v.confidence * 100).toStringAsFixed(0)}%',
-                    style: const TextStyle(
-                        color: Color(0xFF777777), fontSize: 8),
+                    style: FluxForgeTheme.dockSans(
+                        color: const Color(0xFF777777), size: 8),
                   ),
               ],
             ),
@@ -582,18 +580,17 @@ class _NeuralFingerprintPanelState extends State<NeuralFingerprintPanel> {
 
   Widget _configLabel(String label) {
     return Text(label,
-        style: const TextStyle(
-            color: Color(0xFF888888),
-            fontSize: 9,
-            fontWeight: FontWeight.w600));
+        style: FluxForgeTheme.dockSans(
+            color: const Color(0xFF888888),
+            size: 9,
+            weight: FontWeight.w600));
   }
 
   Widget _configValue(String value) {
     return Text(value,
-        style: const TextStyle(
-            color: Color(0xFFCCCCCC),
-            fontSize: 9,
-            fontFamily: 'monospace'));
+        style: FluxForgeTheme.dockMono(
+            color: const Color(0xFFCCCCCC),
+            size: 9));
   }
 
   Widget _statRow(String label, String value, Color color) {
@@ -603,13 +600,12 @@ class _NeuralFingerprintPanelState extends State<NeuralFingerprintPanel> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label,
-              style: const TextStyle(color: Color(0xFF888888), fontSize: 9)),
+              style: FluxForgeTheme.dockSans(color: const Color(0xFF888888), size: 9)),
           Text(value,
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                   color: color,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
-                  fontFamily: 'monospace')),
+                  size: 9,
+                  weight: FontWeight.w600)),
         ],
       ),
     );
