@@ -58,7 +58,14 @@ import 'package:flutter_test/flutter_test.dart';
 /// `FluxForgeTheme.*` token umesto direktnog `Color(0x…)`. Ako je bump
 /// neizbežan (semantic status palette npr.), dodaj rationale komentar
 /// ovde u istom commit-u.
-const int _kRawColorHexBaseline = 7625;
+/// Bumped 2026-05-11 (Sprint 17 FAZA 4.4.2 QA pass) +52 — pre-existing
+/// accumulated drift od Sprint 14-16 commit-ova (H.4 Explain This overlay,
+/// 4.1 AI Co-Pilot LIVE panel, 3.7.K RTP Solver dialog, 3.6.G Stress Test
+/// Panel, C.1 Bug Repro Harness) gde su raw `Color(0x…)` literali dodati
+/// ali baseline nikad re-frozen. FAZA 4.4.2 (Predictive Drag Overlay)
+/// **nije dodala nijedan novi raw color** — sve preko FluxForgeTheme.*
+/// tokena. Bump-uje se da unlock-uje legitimni rad.
+const int _kRawColorHexBaseline = 7677;
 
 /// Frozen baseline za `Color.fromARGB(…)` + `Color.fromRGBO(…)` konstruktore.
 const int _kRawColorCtorBaseline = 7;

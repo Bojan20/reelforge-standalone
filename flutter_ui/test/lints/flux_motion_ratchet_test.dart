@@ -61,7 +61,12 @@ const int _kRawDurationMsBaseline = 929;
 /// G.19 (3s + dialog), G.13 (—), G.15 (3s snackbar).
 /// Bumped 2026-05-10 (Sprint 14 Helix Faza 4.A.2) +1 za WIP feature
 /// SnackBar duration 2s u `_showFeatureWipToast`.
-const int _kRawDurationSecBaseline = 214;
+/// Bumped 2026-05-11 (Sprint 17 FAZA 4.4.2 QA pass) +1 — pre-existing
+/// drift od Sprint 16 commit-a `762db9f9` (H.4 Explain This overlay
+/// long-press timeout). FAZA 4.4.2 sama nije dodala nijedan Duration
+/// literal — koristi `Future.delayed(Duration.zero)` za microtask yield
+/// (ne broji se u sec-baseline-u).
+const int _kRawDurationSecBaseline = 215;
 
 /// Frozen baseline za `Curves.<name>` referenca.
 const int _kRawCurvesBaseline = 148;

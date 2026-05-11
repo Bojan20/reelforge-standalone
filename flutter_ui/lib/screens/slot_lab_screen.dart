@@ -175,6 +175,8 @@ import '../widgets/slot_lab/sss_panel.dart';
 import '../models/template_models.dart' show BuiltTemplate, FeatureModuleType;
 import '../services/cortex_eye_server.dart';
 import '../widgets/common/flux_tooltip.dart';
+import '../widgets/predictive/predictive_badge_overlay.dart';
+import '../services/predictive/predictive_analyzer.dart';
 // =============================================================================
 // SLOT LAB TRACK ID ISOLATION
 // =============================================================================
@@ -11704,30 +11706,69 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             (e) => e.id == event.id,
             orElse: () => event,
           );
+          // FAZA 4.4.5 — log feedback (user accepted drop on this stage).
+          final stageHint = _getEventStage(event);
+          // Best-effort: if we have a cached prediction, record what it
+          // suggested vs the actual stage. analyzeFile is sync-fast (cache)
+          // so we can read it without await.
+          PredictiveAnalyzer.instance
+              .predictFor(details.data, stageHint: stageHint)
+              .then((c) {
+            if (c != null) {
+              PredictiveAnalyzer.instance.recordFeedback(
+                audioPath: details.data,
+                suggestedStage: c.stage,
+                suggestedConfidence: c.confidence,
+                actualStage: stageHint,
+                accepted: true,
+              );
+            }
+          });
           _addLayerToEvent(freshEvent, details.data);
         },
         builder: (context, candidateData, rejectedData) {
           final isHovering = candidateData.isNotEmpty;
+          final hoverPath = candidateData.isNotEmpty ? candidateData.first : null;
+          final stageHint = _getEventStage(event);
           return GestureDetector(
             onTap: () {
               _selectedEventId = event.id;
               _setEventExpanded(event.id, !_isEventExpanded(event.id));
             },
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 6),
-              decoration: BoxDecoration(
-                color: isHovering
-                    ? FluxForgeTheme.accentGreen.withValues(alpha: 0.2)
-                    : (isSelected ? FluxForgeTheme.accentBlue.withValues(alpha: 0.15) : const Color(0xFF1A1A22)),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: isHovering
-                      ? FluxForgeTheme.accentGreen
-                      : (isSelected ? FluxForgeTheme.accentBlue : Colors.white.withValues(alpha: 0.1)),
-                  width: isHovering ? 2 : 1,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(bottom: 6),
+                  decoration: BoxDecoration(
+                    color: isHovering
+                        ? FluxForgeTheme.accentGreen.withValues(alpha: 0.2)
+                        : (isSelected ? FluxForgeTheme.accentBlue.withValues(alpha: 0.15) : const Color(0xFF1A1A22)),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: isHovering
+                          ? FluxForgeTheme.accentGreen
+                          : (isSelected ? FluxForgeTheme.accentBlue : Colors.white.withValues(alpha: 0.1)),
+                      width: isHovering ? 2 : 1,
+                    ),
+                  ),
+                  child: _buildCompositeEventContent(event, isSelected),
                 ),
-              ),
-              child: _buildCompositeEventContent(event, isSelected),
+                // FAZA 4.4.2 — Predictive Confidence Badge.
+                // Pokazuje se TOKOM drag-a (hoverPath != null), pre-analyze
+                // sa caching-om (LRU 100), non-blocking async.
+                if (isHovering)
+                  Positioned(
+                    top: -14,
+                    right: 8,
+                    child: IgnorePointer(
+                      child: PredictiveBadgeOverlay(
+                        candidatePath: hoverPath,
+                        stageHint: stageHint,
+                      ),
+                    ),
+                  ),
+              ],
             ),
           );
         },

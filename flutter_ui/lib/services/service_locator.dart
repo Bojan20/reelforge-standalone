@@ -69,6 +69,7 @@ import 'unified_search_service.dart';
 import 'recent_favorites_service.dart';
 import 'plugin_state_service.dart';
 import 'missing_plugin_detector.dart';
+import 'predictive/predictive_analyzer.dart';
 import '../controllers/middleware_timeline_sync_controller.dart';
 import '../providers/event_folder_provider.dart';
 import '../providers/aurexis_provider.dart';
@@ -207,6 +208,11 @@ class ServiceLocator {
     // LAYER 1: Core FFI (no dependencies)
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<NativeFFI>(() => NativeFFI.instance);
+
+    // FAZA 4.4 — Predictive Event Routing (wraps SpectralDnaClassifier).
+    sl.registerLazySingleton<PredictiveAnalyzer>(
+      () => PredictiveAnalyzer(sl<NativeFFI>()),
+    );
 
     // ═══════════════════════════════════════════════════════════════════════════
     // LAYER 1b: Hook Graph Engine (initialized immediately after FFI)
