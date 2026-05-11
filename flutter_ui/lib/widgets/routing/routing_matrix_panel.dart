@@ -289,12 +289,12 @@ class _RoutingMatrixPanelState extends State<RoutingMatrixPanel> {
         children: [
           Icon(Icons.route, color: FluxForgeTheme.accentBlue, size: 16),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'ROUTING MATRIX',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textPrimary,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+              size: 11,
+              weight: FontWeight.w600,
               letterSpacing: 1,
             ),
           ),
@@ -333,10 +333,10 @@ class _RoutingMatrixPanelState extends State<RoutingMatrixPanel> {
         ),
         child: Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: value ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
-            fontSize: 9,
-            fontWeight: FontWeight.w600,
+            size: 9,
+            weight: FontWeight.w600,
           ),
         ),
       ),
@@ -366,10 +366,10 @@ class _RoutingMatrixPanelState extends State<RoutingMatrixPanel> {
                     child: Center(
                       child: Text(
                         'TRACK → BUS',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: FluxForgeTheme.textSecondary,
-                          fontSize: 8,
-                          fontWeight: FontWeight.w600,
+                          size: 8,
+                          weight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -414,18 +414,18 @@ class _RoutingMatrixPanelState extends State<RoutingMatrixPanel> {
           children: [
             Text(
               bus.typeLabel,
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: bus.color.withValues(alpha: 0.7),
-                fontSize: 7,
-                fontWeight: FontWeight.w600,
+                size: 7,
+                weight: FontWeight.w600,
               ),
             ),
             Text(
               bus.name,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: isHovered ? bus.color : FluxForgeTheme.textPrimary,
-                fontSize: _compactMode ? 8 : 9,
-                fontWeight: FontWeight.w500,
+                size: _compactMode ? 8 : 9,
+                weight: FontWeight.w500,
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -486,12 +486,12 @@ class _RoutingMatrixPanelState extends State<RoutingMatrixPanel> {
                       padding: const EdgeInsets.symmetric(horizontal: 4),
                       child: Text(
                         track.name,
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: isSelected || isHovered
                               ? FluxForgeTheme.textPrimary
                               : FluxForgeTheme.textSecondary,
-                          fontSize: _compactMode ? 9 : 10,
-                          fontWeight: FontWeight.w500,
+                          size: _compactMode ? 9 : 10,
+                          weight: FontWeight.w500,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -581,10 +581,10 @@ class _RoutingMatrixPanelState extends State<RoutingMatrixPanel> {
           ),
           Text(
             '${(connection.sendLevel * 100).toInt()}%',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: bus.color,
-              fontSize: cellSize * 0.2,
-              fontWeight: FontWeight.w600,
+              size: cellSize * 0.2,
+              weight: FontWeight.w600,
             ),
           ),
         ],
@@ -610,9 +610,9 @@ class _RoutingMatrixPanelState extends State<RoutingMatrixPanel> {
         backgroundColor: FluxForgeTheme.bgMid,
         title: Text(
           '${track.name} → ${bus.name}',
-          style: const TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textPrimary,
-            fontSize: 14,
+            size: 14,
           ),
         ),
         content: Column(
@@ -620,9 +620,9 @@ class _RoutingMatrixPanelState extends State<RoutingMatrixPanel> {
           children: [
             Text(
               'Send Level',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 11,
+                size: 11,
               ),
             ),
             StatefulBuilder(
@@ -636,10 +636,10 @@ class _RoutingMatrixPanelState extends State<RoutingMatrixPanel> {
                   ),
                   Text(
                     '${(tempLevel * 100).toInt()}%',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockMono(
                       color: bus.color,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                      size: 16,
+                      weight: FontWeight.w600,
                     ),
                   ),
                 ],
@@ -687,9 +687,9 @@ class _RoutingMatrixPanelState extends State<RoutingMatrixPanel> {
           const SizedBox(width: 16),
           Text(
             '${_tracks.length} tracks · ${_buses.length} buses · ${_connections.where((c) => c.enabled).length} connections',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: FluxForgeTheme.textSecondary,
-              fontSize: 9,
+              size: 9,
             ),
           ),
         ],
@@ -704,9 +704,9 @@ class _RoutingMatrixPanelState extends State<RoutingMatrixPanel> {
         const SizedBox(width: 4),
         Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textSecondary,
-            fontSize: 9,
+            size: 9,
           ),
         ),
       ],

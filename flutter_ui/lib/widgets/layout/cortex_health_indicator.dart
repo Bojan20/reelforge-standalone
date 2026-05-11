@@ -14,6 +14,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/cortex_provider.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Compact CORTEX health indicator for status bars.
 /// Shows a colored dot + health percentage. Expands on tap.
@@ -112,12 +113,11 @@ class _CortexHealthIndicatorState extends State<CortexHealthIndicator>
                       const SizedBox(width: 4),
                       Text(
                         'CTX $pct%',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockMono(
                           color: color,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: 0.5,
-                        ),
+                          size: 10,
+                          weight: FontWeight.w500,
+                        ).copyWith(letterSpacing: 0.5),
                       ),
                     ],
                   ],
@@ -274,10 +274,9 @@ class _CortexDashboardDialog extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(vertical: 1),
                             child: Text(
                               _eventLabel(event),
-                              style: TextStyle(
+                              style: FluxForgeTheme.dockMono(
                                 color: _eventColor(event).withValues(alpha: 0.7),
-                                fontSize: 10,
-                                fontFamily: 'monospace',
+                                size: 10,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -296,9 +295,9 @@ class _CortexDashboardDialog extends StatelessWidget {
                       onPressed: () => Navigator.of(context).pop(),
                       child: Text(
                         'Close',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: Colors.white.withValues(alpha: 0.5),
-                          fontSize: 12,
+                          size: 12,
                         ),
                       ),
                     ),
@@ -329,10 +328,10 @@ class _CortexDashboardDialog extends StatelessWidget {
         const SizedBox(width: 10),
         Text(
           'CORTEX Nervous System',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: Colors.white.withValues(alpha: 0.9),
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
+            size: 14,
+            weight: FontWeight.w600,
             letterSpacing: 0.5,
           ),
         ),
@@ -345,12 +344,12 @@ class _CortexDashboardDialog extends StatelessWidget {
               borderRadius: BorderRadius.circular(4),
               border: Border.all(color: const Color(0xFFFF4060).withValues(alpha: 0.3)),
             ),
-            child: const Text(
+            child: Text(
               'DEGRADED',
-              style: TextStyle(
-                color: Color(0xFFFF4060),
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
+              style: FluxForgeTheme.dockSans(
+                color: const Color(0xFFFF4060),
+                size: 9,
+                weight: FontWeight.w700,
                 letterSpacing: 1,
               ),
             ),
@@ -383,10 +382,10 @@ class _CortexDashboardDialog extends StatelessWidget {
       children: [
         Text(
           'Healing Rate',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: Colors.white.withValues(alpha: 0.35),
-            fontSize: 9,
-            fontWeight: FontWeight.w600,
+            size: 9,
+            weight: FontWeight.w600,
           ),
         ),
         const SizedBox(width: 8),
@@ -406,10 +405,10 @@ class _CortexDashboardDialog extends StatelessWidget {
         const SizedBox(width: 8),
         Text(
           '${(rate * 100).round()}%',
-          style: TextStyle(
+          style: FluxForgeTheme.dockMono(
             color: color,
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
+            size: 10,
+            weight: FontWeight.w600,
           ),
         ),
       ],
@@ -419,10 +418,10 @@ class _CortexDashboardDialog extends StatelessWidget {
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
-      style: TextStyle(
+      style: FluxForgeTheme.dockSans(
         color: Colors.white.withValues(alpha: 0.3),
-        fontSize: 9,
-        fontWeight: FontWeight.w700,
+        size: 9,
+        weight: FontWeight.w700,
         letterSpacing: 1.5,
       ),
     );
@@ -444,9 +443,9 @@ class _CortexDashboardDialog extends StatelessWidget {
             width: 100,
             child: Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.white.withValues(alpha: 0.5),
-                fontSize: 11,
+                size: 11,
               ),
             ),
           ),
@@ -469,10 +468,10 @@ class _CortexDashboardDialog extends StatelessWidget {
             child: Text(
               isAvailable ? '$pct%' : '\u2014',
               textAlign: TextAlign.right,
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: color,
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
+                size: 10,
+                weight: FontWeight.w600,
               ),
             ),
           ),
@@ -494,20 +493,20 @@ class _CortexDashboardDialog extends StatelessWidget {
         children: [
           Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white.withValues(alpha: 0.35),
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
+              size: 9,
+              weight: FontWeight.w600,
               letterSpacing: 0.5,
             ),
           ),
           const SizedBox(height: 2),
           Text(
             value,
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: color,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
+              size: 12,
+              weight: FontWeight.w700,
             ),
           ),
         ],

@@ -48,9 +48,9 @@ class _EventProfilerAdvancedState extends State<EventProfilerAdvanced> {
         Icon(Icons.speed, size: 16, color: FluxForgeTheme.accentCyan),
         const SizedBox(width: 6),
         Text('ADVANCED PROFILER',
-            style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+                size: 11,
+                weight: FontWeight.bold,
                 color: FluxForgeTheme.accentCyan,
                 letterSpacing: 1.0)),
         const Spacer(),
@@ -72,8 +72,8 @@ class _EventProfilerAdvancedState extends State<EventProfilerAdvanced> {
           ),
         ),
         child: Text(label,
-            style: TextStyle(
-                fontSize: 9,
+            style: FluxForgeTheme.dockSans(
+                size: 9,
                 color: value ? FluxForgeTheme.accentCyan : Colors.white38)),
       ),
     );
@@ -115,10 +115,10 @@ class _EventProfilerAdvancedState extends State<EventProfilerAdvanced> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 8, color: Colors.white38)),
+        Text(label, style: FluxForgeTheme.dockSans(size: 8, color: Colors.white38)),
         Text(value,
-            style: TextStyle(
-                fontSize: 11, fontWeight: FontWeight.bold, color: color)),
+            style: FluxForgeTheme.dockMono(
+                size: 11, weight: FontWeight.bold, color: color)),
       ],
     );
   }
@@ -151,10 +151,10 @@ class _EventProfilerAdvancedState extends State<EventProfilerAdvanced> {
               border: Border.all(color: Colors.white12),
             ),
             child: TextField(
-              style: const TextStyle(fontSize: 10, color: Colors.white70),
-              decoration: const InputDecoration(
+              style: FluxForgeTheme.dockMono(size: 10, color: Colors.white70),
+              decoration: InputDecoration(
                 hintText: 'Search events...',
-                hintStyle: TextStyle(fontSize: 10, color: Colors.white24),
+                hintStyle: FluxForgeTheme.dockSans(size: 10, color: Colors.white24),
                 prefixIcon: Icon(Icons.search, size: 12, color: Colors.white24),
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.only(bottom: 12),
@@ -182,8 +182,8 @@ class _EventProfilerAdvancedState extends State<EventProfilerAdvanced> {
                       color: active ? FluxForgeTheme.accentCyan.withValues(alpha: 0.4) : Colors.white12),
                 ),
                 child: Text(e.value,
-                    style: TextStyle(
-                        fontSize: 9,
+                    style: FluxForgeTheme.dockSans(
+                        size: 9,
                         color: active ? FluxForgeTheme.accentCyan : Colors.white38)),
               ),
             ),
@@ -216,10 +216,10 @@ class _EventProfilerAdvancedState extends State<EventProfilerAdvanced> {
             Icon(Icons.analytics_outlined, size: 22, color: Colors.white24),
             const SizedBox(height: 8),
             Text('No profiler data',
-                style: TextStyle(fontSize: 11, color: Colors.white38)),
+                style: FluxForgeTheme.dockSans(size: 11, color: Colors.white38)),
             const SizedBox(height: 4),
             Text('Trigger events to see profiling metrics',
-                style: TextStyle(fontSize: 9, color: Colors.white24)),
+                style: FluxForgeTheme.dockSans(size: 9, color: Colors.white24)),
           ],
         ),
       );
@@ -255,18 +255,18 @@ class _EventProfilerAdvancedState extends State<EventProfilerAdvanced> {
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(e.eventId,
-                        style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
+                        style: FluxForgeTheme.dockMono(
+                            size: 10,
+                            weight: FontWeight.bold,
                             color: Colors.white)),
                   ),
                   Text('${e.callCount} calls',
-                      style: TextStyle(fontSize: 9, color: FluxForgeTheme.accentBlue)),
+                      style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.accentBlue)),
                   const SizedBox(width: 12),
                   Text('${e.avgLatencyUs.toStringAsFixed(1)}μs',
-                      style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
+                      style: FluxForgeTheme.dockMono(
+                          size: 9,
+                          weight: FontWeight.bold,
                           color: latencyColor)),
                 ],
               ),

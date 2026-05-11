@@ -84,11 +84,10 @@ class PdcIndicator extends StatelessWidget {
               const SizedBox(width: 4),
               Text(
                 '${totalLatencyMs.toStringAsFixed(1)}ms',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockMono(
+                  size: 10,
+                  weight: FontWeight.w600,
                   color: color,
-                  fontFamily: 'JetBrains Mono',
                 ),
               ),
             ],
@@ -175,10 +174,10 @@ class _PdcDetailPanelState extends State<PdcDetailPanel> {
               const SizedBox(width: 8),
               Text(
                 'Plugin Delay Compensation',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                  size: 14,
+                  weight: FontWeight.w600,
                 ),
               ),
               const Spacer(),
@@ -192,9 +191,9 @@ class _PdcDetailPanelState extends State<PdcDetailPanel> {
                 ),
                 child: Text(
                   _isEnabled ? 'ENABLED' : 'DISABLED',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
+                  style: FluxForgeTheme.dockMono(
+                    size: 10,
+                    weight: FontWeight.w600,
                     color: _isEnabled
                         ? FluxForgeTheme.accentGreen
                         : FluxForgeTheme.textTertiary,
@@ -239,9 +238,9 @@ class _PdcDetailPanelState extends State<PdcDetailPanel> {
           // Track latencies header
           Text(
             'Track Insert Latencies',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.w600,
               color: FluxForgeTheme.textSecondary,
             ),
           ),
@@ -268,8 +267,8 @@ class _PdcDetailPanelState extends State<PdcDetailPanel> {
           const SizedBox(height: 8),
           Text(
             'Sample Rate: ${widget.sampleRate.toInt()} Hz',
-            style: TextStyle(
-              fontSize: 10,
+            style: FluxForgeTheme.dockMono(
+              size: 10,
               color: FluxForgeTheme.textTertiary,
             ),
           ),
@@ -326,21 +325,20 @@ class _LatencyCard extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: TextStyle(
-                    fontSize: 11,
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
                     color: FluxForgeTheme.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   hasLatency ? '${ms.toStringAsFixed(2)} ms' : '0 ms',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
+                  style: FluxForgeTheme.dockMono(
+                    size: 20,
+                    weight: FontWeight.w600,
                     color: isHigh
                         ? FluxForgeTheme.warningOrange
                         : FluxForgeTheme.textPrimary,
-                    fontFamily: 'JetBrains Mono',
                   ),
                 ),
               ],
@@ -351,17 +349,16 @@ class _LatencyCard extends StatelessWidget {
             children: [
               Text(
                 '$samples',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
+                style: FluxForgeTheme.dockMono(
+                  size: 14,
+                  weight: FontWeight.w500,
                   color: FluxForgeTheme.textSecondary,
-                  fontFamily: 'JetBrains Mono',
                 ),
               ),
               Text(
                 'samples',
-                style: TextStyle(
-                  fontSize: 9,
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
                   color: FluxForgeTheme.textTertiary,
                 ),
               ),
@@ -406,20 +403,19 @@ class _LatencyRow extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: TextStyle(
-                fontSize: 12,
+              style: FluxForgeTheme.dockSans(
+                size: 12,
                 color: FluxForgeTheme.textPrimary,
               ),
             ),
           ),
           Text(
             hasLatency ? msString : '-',
-            style: TextStyle(
-              fontSize: 11,
+            style: FluxForgeTheme.dockMono(
+              size: 11,
               color: hasLatency
                   ? FluxForgeTheme.textSecondary
                   : FluxForgeTheme.textTertiary,
-              fontFamily: 'JetBrains Mono',
             ),
           ),
           const SizedBox(width: 8),
@@ -428,12 +424,9 @@ class _LatencyRow extends StatelessWidget {
             child: Text(
               hasLatency ? '$samples' : '-',
               textAlign: TextAlign.right,
-              style: TextStyle(
-                fontSize: 11,
-                color: hasLatency
-                    ? FluxForgeTheme.textTertiary
-                    : FluxForgeTheme.textTertiary,
-                fontFamily: 'JetBrains Mono',
+              style: FluxForgeTheme.dockMono(
+                size: 11,
+                color: FluxForgeTheme.textTertiary,
               ),
             ),
           ),

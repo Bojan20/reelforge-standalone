@@ -142,9 +142,9 @@ class _SessionNotesPanelState extends State<SessionNotesPanel> {
           const SizedBox(width: 6),
           Text(
             'SESSION NOTES',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.bold,
               color: FluxForgeTheme.textSecondary,
               letterSpacing: 0.5,
             ),
@@ -266,12 +266,10 @@ class _SessionNotesPanelState extends State<SessionNotesPanel> {
           maxLines: null,
           expands: true,
           textAlignVertical: TextAlignVertical.top,
-          style: TextStyle(
-            fontSize: 12,
+          style: FluxForgeTheme.dockMono(
+            size: 12,
             color: FluxForgeTheme.textPrimary,
-            fontFamily: 'monospace',
-            height: 1.5,
-          ),
+          ).copyWith(height: 1.5),
           decoration: InputDecoration(
             contentPadding: const EdgeInsets.all(12),
             border: InputBorder.none,
@@ -280,10 +278,9 @@ class _SessionNotesPanelState extends State<SessionNotesPanel> {
                 '• Client feedback\n'
                 '• TODO items\n'
                 '• Revision history',
-            hintStyle: TextStyle(
-              fontSize: 12,
+            hintStyle: FluxForgeTheme.dockMono(
+              size: 12,
               color: FluxForgeTheme.textSecondary.withAlpha(100),
-              fontFamily: 'monospace',
             ),
           ),
         ),
@@ -304,10 +301,9 @@ class _SessionNotesPanelState extends State<SessionNotesPanel> {
           // Word count
           Text(
             '$_wordCount words',
-            style: TextStyle(
-              fontSize: 9,
+            style: FluxForgeTheme.dockMono(
+              size: 9,
               color: FluxForgeTheme.textSecondary,
-              fontFamily: 'monospace',
             ),
           ),
 
@@ -316,10 +312,9 @@ class _SessionNotesPanelState extends State<SessionNotesPanel> {
           // Character count
           Text(
             '$_charCount chars',
-            style: TextStyle(
-              fontSize: 9,
+            style: FluxForgeTheme.dockMono(
+              size: 9,
               color: FluxForgeTheme.textSecondary,
-              fontFamily: 'monospace',
             ),
           ),
 
@@ -342,12 +337,12 @@ class _SessionNotesPanelState extends State<SessionNotesPanel> {
                     color: Colors.orange,
                   ),
                   const SizedBox(width: 2),
-                  const Text(
+                  Text(
                     'EDITING',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: Colors.orange,
-                      fontSize: 7,
-                      fontWeight: FontWeight.bold,
+                      size: 7,
+                      weight: FontWeight.bold,
                     ),
                   ),
                 ],
@@ -371,10 +366,10 @@ class _SessionNotesPanelState extends State<SessionNotesPanel> {
                   const SizedBox(width: 2),
                   Text(
                     'SAVED',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: FluxForgeTheme.accentGreen,
-                      fontSize: 7,
-                      fontWeight: FontWeight.bold,
+                      size: 7,
+                      weight: FontWeight.bold,
                     ),
                   ),
                 ],
@@ -485,16 +480,16 @@ class _SessionNotesPanelState extends State<SessionNotesPanel> {
         backgroundColor: FluxForgeTheme.bgDeep,
         title: Text(
           'Clear Notes',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textPrimary,
-            fontSize: 14,
+            size: 14,
           ),
         ),
         content: Text(
           'Are you sure you want to clear all session notes?\nThis action cannot be undone.',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textSecondary,
-            fontSize: 12,
+            size: 12,
           ),
         ),
         actions: [
@@ -502,7 +497,7 @@ class _SessionNotesPanelState extends State<SessionNotesPanel> {
             onPressed: () => Navigator.of(context).pop(),
             child: Text(
               'Cancel',
-              style: TextStyle(color: FluxForgeTheme.textSecondary),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
             ),
           ),
           TextButton(
@@ -511,9 +506,9 @@ class _SessionNotesPanelState extends State<SessionNotesPanel> {
               _controller.clear();
               widget.onNotesChanged?.call('');
             },
-            child: const Text(
+            child: Text(
               'Clear',
-              style: TextStyle(color: Colors.red),
+              style: FluxForgeTheme.dockSans(color: Colors.red),
             ),
           ),
         ],
@@ -562,8 +557,8 @@ class NotesIndicator extends StatelessWidget {
               const SizedBox(width: 4),
               Text(
                 '$wordCount',
-                style: TextStyle(
-                  fontSize: 9,
+                style: FluxForgeTheme.dockMono(
+                  size: 9,
                   color: FluxForgeTheme.accentBlue,
                 ),
               ),

@@ -224,10 +224,10 @@ class _ContainerPresetBrowserState extends State<ContainerPresetBrowser> {
           const SizedBox(width: 8),
           Text(
             'Container Presets',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
+              size: 14,
+              weight: FontWeight.bold,
             ),
           ),
           const Spacer(),
@@ -250,13 +250,13 @@ class _ContainerPresetBrowserState extends State<ContainerPresetBrowser> {
           value: _selectedCategory,
           hint: Text(
             'All Categories',
-            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11),
           ),
           icon: Icon(Icons.arrow_drop_down,
               size: 16, color: FluxForgeTheme.textSecondary),
           isDense: true,
           dropdownColor: FluxForgeTheme.surfaceDark,
-          style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 11),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary, size: 11),
           items: [
             const DropdownMenuItem(value: null, child: Text('All Categories')),
             ..._allCategories.map(
@@ -317,10 +317,10 @@ class _ContainerPresetBrowserState extends State<ContainerPresetBrowser> {
             const SizedBox(width: 4),
             Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: isSelected ? color : FluxForgeTheme.textSecondary,
-                fontSize: 10,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                size: 10,
+                weight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
             ),
           ],
@@ -346,11 +346,11 @@ class _ContainerPresetBrowserState extends State<ContainerPresetBrowser> {
             Expanded(
               child: TextField(
                 onChanged: (v) => setState(() => _searchQuery = v),
-                style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
+                style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary, size: 12),
                 decoration: InputDecoration(
                   hintText: 'Search presets...',
-                  hintStyle: TextStyle(
-                      color: FluxForgeTheme.textSecondary, fontSize: 12),
+                  hintStyle: FluxForgeTheme.dockSans(
+                      color: FluxForgeTheme.textSecondary, size: 12),
                   border: InputBorder.none,
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(vertical: 8),
@@ -381,7 +381,7 @@ class _ContainerPresetBrowserState extends State<ContainerPresetBrowser> {
             const SizedBox(height: 8),
             Text(
               'No presets found',
-              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12),
             ),
           ],
         ),
@@ -432,10 +432,10 @@ class _ContainerPresetBrowserState extends State<ContainerPresetBrowser> {
                 const SizedBox(width: 8),
                 Text(
                   preset.name,
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+                    size: 12,
+                    weight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -479,10 +479,10 @@ class _ContainerPresetBrowserState extends State<ContainerPresetBrowser> {
               Expanded(
                 child: Text(
                   preset.name,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: FluxForgeTheme.textPrimary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
+                    size: 11,
+                    weight: FontWeight.bold,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -492,7 +492,7 @@ class _ContainerPresetBrowserState extends State<ContainerPresetBrowser> {
           const SizedBox(height: 4),
           Text(
             preset.description,
-            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 9),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 9),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -507,10 +507,10 @@ class _ContainerPresetBrowserState extends State<ContainerPresetBrowser> {
                 ),
                 child: Text(
                   preset.type.name.toUpperCase(),
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
                     color: preset.typeColor,
-                    fontSize: 8,
-                    fontWeight: FontWeight.bold,
+                    size: 8,
+                    weight: FontWeight.bold,
                   ),
                 ),
               ),
@@ -523,9 +523,9 @@ class _ContainerPresetBrowserState extends State<ContainerPresetBrowser> {
                 ),
                 child: Text(
                   preset.category,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: FluxForgeTheme.textSecondary,
-                    fontSize: 8,
+                    size: 8,
                   ),
                 ),
               ),

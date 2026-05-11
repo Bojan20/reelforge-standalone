@@ -154,10 +154,10 @@ class _PluginEditorWindowState extends State<PluginEditorWindow> {
               ),
               child: Text(
                 _getFormatName(instance.format),
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: _getFormatColor(instance.format),
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
+                  size: 9,
+                  weight: FontWeight.bold,
                 ),
               ),
             ),
@@ -167,10 +167,10 @@ class _PluginEditorWindowState extends State<PluginEditorWindow> {
             Expanded(
               child: Text(
                 instance.name,
-                style: const TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+                  size: 12,
+                  weight: FontWeight.w500,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -231,13 +231,13 @@ class _PluginEditorWindowState extends State<PluginEditorWindow> {
           Icon(Icons.extension, size: 48,
               color: FluxForgeTheme.textSecondary.withValues(alpha: 0.3)),
           const SizedBox(height: 12),
-          Text(instance.name, style: TextStyle(
+          Text(instance.name, style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
-            fontSize: 16, fontWeight: FontWeight.w500)),
+            size: 16, weight: FontWeight.w500)),
           const SizedBox(height: 4),
-          Text('No parameters exposed', style: TextStyle(
+          Text('No parameters exposed', style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textSecondary.withValues(alpha: 0.4),
-            fontSize: 11)),
+            size: 11)),
         ],
       ),
     );
@@ -259,13 +259,13 @@ class _PluginEditorWindowState extends State<PluginEditorWindow> {
           child: Row(
             children: [
               Text('${params.length} Parameters',
-                style: TextStyle(color: FluxForgeTheme.textSecondary.withValues(alpha: 0.6),
-                  fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 0.5)),
+                style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary.withValues(alpha: 0.6),
+                  size: 10, weight: FontWeight.w600, letterSpacing: 0.5)),
               const Spacer(),
               GestureDetector(
                 onTap: () => _resetAllParams(provider, instance.instanceId, params),
-                child: Text('Reset All', style: TextStyle(
-                  color: FluxForgeTheme.accentBlue.withValues(alpha: 0.7), fontSize: 10)),
+                child: Text('Reset All', style: FluxForgeTheme.dockSans(
+                  color: FluxForgeTheme.accentBlue.withValues(alpha: 0.7), size: 10)),
               ),
             ],
           ),
@@ -378,9 +378,9 @@ class _PluginEditorWindowState extends State<PluginEditorWindow> {
     final count = ffi.pluginFactoryPresetCount(instance.instanceId);
     if (count == 0) {
       return [
-        const PopupMenuItem<void>(
+        PopupMenuItem<void>(
           enabled: false,
-          child: Text('No Factory Presets', style: TextStyle(fontSize: 12)),
+          child: Text('No Factory Presets', style: FluxForgeTheme.dockSans(size: 12)),
         ),
       ];
     }
@@ -389,7 +389,7 @@ class _PluginEditorWindowState extends State<PluginEditorWindow> {
       PopupMenuItem<void>(
         enabled: false,
         child: Text('Factory Presets ($count)',
-          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+          style: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.bold)),
       ),
     ];
 
@@ -399,7 +399,7 @@ class _PluginEditorWindowState extends State<PluginEditorWindow> {
       final name = ffi.pluginFactoryPresetName(instance.instanceId, i);
       items.add(PopupMenuItem<void>(
         child: Text(name.isEmpty ? 'Preset $i' : name,
-          style: const TextStyle(fontSize: 12)),
+          style: FluxForgeTheme.dockSans(size: 12)),
         onTap: () {
           ffi.pluginLoadFactoryPreset(instance.instanceId, i);
           // Trigger rebuild to refresh param values
@@ -412,7 +412,7 @@ class _PluginEditorWindowState extends State<PluginEditorWindow> {
       items.add(PopupMenuItem<void>(
         enabled: false,
         child: Text('... and ${count - 50} more',
-          style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic)),
+          style: FluxForgeTheme.dockSans(size: 11).copyWith(fontStyle: FontStyle.italic)),
       ));
     }
 
@@ -512,9 +512,9 @@ class _PluginParamSliderState extends State<_PluginParamSlider> {
               width: 120,
               child: Text(
                 p.name,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textSecondary.withValues(alpha: 0.8),
-                  fontSize: 10,
+                  size: 10,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -565,10 +565,9 @@ class _PluginParamSliderState extends State<_PluginParamSlider> {
               width: 50,
               child: Text(
                 '${_formatValue(_value)}${p.unit.isNotEmpty ? ' ${p.unit}' : ''}',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
                   color: FluxForgeTheme.textPrimary.withValues(alpha: 0.7),
-                  fontSize: 9,
-                  fontFamily: 'monospace',
+                  size: 9,
                 ),
                 textAlign: TextAlign.right,
                 overflow: TextOverflow.ellipsis,

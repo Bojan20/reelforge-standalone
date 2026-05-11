@@ -130,10 +130,9 @@ class _ContainerMetricsBadgeState extends State<ContainerMetricsBadge> {
             const SizedBox(width: 4),
             Text(
               '${_metrics.totalCount} containers',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 10,
                 color: Colors.white54,
-                fontSize: 10,
-                fontFamily: 'monospace',
               ),
             ),
           ],
@@ -204,10 +203,10 @@ class _ContainerStorageMetricsPanelState
               const SizedBox(width: 8),
               Text(
                 'CONTAINER STORAGE',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.bold,
                   color: FluxForgeTheme.accentBlue,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
                   letterSpacing: 1,
                 ),
               ),
@@ -241,19 +240,18 @@ class _ContainerStorageMetricsPanelState
             children: [
               Text(
                 'Total',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  weight: FontWeight.w600,
                   color: Colors.white70,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
               Text(
                 '${_metrics.totalCount}',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 12,
+                  weight: FontWeight.bold,
                   color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'monospace',
                 ),
               ),
             ],
@@ -267,17 +265,16 @@ class _ContainerStorageMetricsPanelState
               children: [
                 Text(
                   'Est. Memory',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
                     color: Colors.white38,
-                    fontSize: 10,
                   ),
                 ),
                 Text(
                   _metrics.estimatedMemoryFormatted,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
+                    size: 10,
                     color: Colors.white54,
-                    fontSize: 10,
-                    fontFamily: 'monospace',
                   ),
                 ),
               ],
@@ -288,9 +285,9 @@ class _ContainerStorageMetricsPanelState
           const SizedBox(height: 8),
           Text(
             'Updated: ${_formatTime(_metrics.timestamp)}',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 9,
               color: Colors.white24,
-              fontSize: 9,
             ),
           ),
         ],
@@ -314,19 +311,18 @@ class _ContainerStorageMetricsPanelState
         Expanded(
           child: Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 11,
               color: Colors.white54,
-              fontSize: 11,
             ),
           ),
         ),
         Text(
           '$count',
-          style: TextStyle(
+          style: FluxForgeTheme.dockMono(
+            size: 11,
+            weight: FontWeight.w600,
             color: count > 0 ? color : Colors.white38,
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            fontFamily: 'monospace',
           ),
         ),
       ],
@@ -390,10 +386,9 @@ class _ContainerMetricsRowState extends State<ContainerMetricsRow> {
         const SizedBox(width: 8),
         Text(
           '= ${_metrics.totalCount}',
-          style: TextStyle(
+          style: FluxForgeTheme.dockMono(
+            size: 10,
             color: Colors.white54,
-            fontSize: 10,
-            fontFamily: 'monospace',
           ),
         ),
       ],
@@ -416,19 +411,18 @@ class _ContainerMetricsRowState extends State<ContainerMetricsRow> {
         children: [
           Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 9,
+              weight: FontWeight.bold,
               color: count > 0 ? color : Colors.white38,
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(width: 2),
           Text(
             '$count',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 9,
               color: count > 0 ? color : Colors.white38,
-              fontSize: 9,
-              fontFamily: 'monospace',
             ),
           ),
         ],
