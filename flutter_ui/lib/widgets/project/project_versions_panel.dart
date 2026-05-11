@@ -119,16 +119,16 @@ class _ProjectVersionsPanelState extends State<ProjectVersionsPanel> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: FluxForgeTheme.bgMid,
-        title: const Text('Create Version', style: TextStyle(color: Colors.white)),
+        title: Text('Create Version', style: FluxForgeTheme.dockSans(color: Colors.white)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: nameController,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
+              style: FluxForgeTheme.dockSans(color: Colors.white),
+              decoration: InputDecoration(
                 labelText: 'Version Name',
-                labelStyle: TextStyle(color: Colors.white54),
+                labelStyle: FluxForgeTheme.dockSans(color: Colors.white54),
                 enabledBorder: UnderlineInputBorder(
                   borderSide: BorderSide(color: Colors.white24),
                 ),
@@ -140,11 +140,11 @@ class _ProjectVersionsPanelState extends State<ProjectVersionsPanel> {
             const SizedBox(height: 16),
             TextField(
               controller: descController,
-              style: const TextStyle(color: Colors.white),
+              style: FluxForgeTheme.dockSans(color: Colors.white),
               maxLines: 3,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Description (optional)',
-                labelStyle: TextStyle(color: Colors.white54),
+                labelStyle: FluxForgeTheme.dockSans(color: Colors.white54),
                 enabledBorder: OutlineInputBorder(
                   borderSide: BorderSide(color: Colors.white24),
                 ),
@@ -195,12 +195,12 @@ class _ProjectVersionsPanelState extends State<ProjectVersionsPanel> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: FluxForgeTheme.bgMid,
-        title: const Text('Delete Version?', style: TextStyle(color: Colors.white)),
+        title: Text('Delete Version?', style: FluxForgeTheme.dockSans(color: Colors.white)),
         content: Text(
           version.isMilestone
               ? '"${version.name}" is a milestone. Force delete?'
               : 'Are you sure you want to delete "${version.name}"?',
-          style: const TextStyle(color: Colors.white70),
+          style: FluxForgeTheme.dockSans(color: Colors.white70),
         ),
         actions: [
           TextButton(
@@ -250,19 +250,19 @@ class _ProjectVersionsPanelState extends State<ProjectVersionsPanel> {
         children: [
           const Icon(Icons.history, color: FluxForgeTheme.accentGreen, size: 18),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'PROJECT VERSIONS',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
+              size: 12,
+              weight: FontWeight.bold,
               letterSpacing: 1.2,
             ),
           ),
           const Spacer(),
           Text(
             '${_versions.length} versions',
-            style: const TextStyle(color: Colors.white54, fontSize: 11),
+            style: FluxForgeTheme.dockSans(color: Colors.white54, size: 11),
           ),
         ],
       ),
@@ -280,7 +280,7 @@ class _ProjectVersionsPanelState extends State<ProjectVersionsPanel> {
           ElevatedButton.icon(
             onPressed: _createVersion,
             icon: const Icon(Icons.add, size: 14),
-            label: const Text('Save Version', style: TextStyle(fontSize: 11)),
+            label: Text('Save Version', style: FluxForgeTheme.dockSans(size: 11)),
             style: ElevatedButton.styleFrom(
               backgroundColor: FluxForgeTheme.accentGreen,
               foregroundColor: Colors.black,
@@ -292,7 +292,7 @@ class _ProjectVersionsPanelState extends State<ProjectVersionsPanel> {
           // Milestones filter
           FilterChip(
             selected: _showMilestonesOnly,
-            label: const Text('Milestones', style: TextStyle(fontSize: 10)),
+            label: Text('Milestones', style: FluxForgeTheme.dockSans(size: 10)),
             avatar: Icon(
               Icons.star,
               size: 14,
@@ -305,7 +305,7 @@ class _ProjectVersionsPanelState extends State<ProjectVersionsPanel> {
             backgroundColor: FluxForgeTheme.bgDeep,
             selectedColor: Colors.amber,
             checkmarkColor: Colors.black,
-            labelStyle: TextStyle(
+            labelStyle: FluxForgeTheme.dockSans(
               color: _showMilestonesOnly ? Colors.black : Colors.white70,
             ),
           ),
@@ -332,14 +332,14 @@ class _ProjectVersionsPanelState extends State<ProjectVersionsPanel> {
           children: [
             Icon(Icons.history, size: 48, color: Colors.white.withValues(alpha: 0.2)),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'No versions yet',
-              style: TextStyle(color: Colors.white38, fontSize: 14),
+              style: FluxForgeTheme.dockSans(color: Colors.white38, size: 14),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Click "Save Version" to create a snapshot',
-              style: TextStyle(color: Colors.white24, fontSize: 11),
+              style: FluxForgeTheme.dockSans(color: Colors.white24, size: 11),
             ),
           ],
         ),
@@ -394,10 +394,10 @@ class _ProjectVersionsPanelState extends State<ProjectVersionsPanel> {
                     ? const Icon(Icons.star, size: 16, color: Colors.amber)
                     : Text(
                         'v${version.number}',
-                        style: const TextStyle(
+                        style: FluxForgeTheme.dockMono(
                           color: Colors.white70,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
+                          size: 10,
+                          weight: FontWeight.bold,
                         ),
                       ),
               ),
@@ -410,10 +410,10 @@ class _ProjectVersionsPanelState extends State<ProjectVersionsPanel> {
                 children: [
                   Text(
                     version.name,
-                    style: const TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                      size: 13,
+                      weight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -421,12 +421,12 @@ class _ProjectVersionsPanelState extends State<ProjectVersionsPanel> {
                     children: [
                       Text(
                         version.formattedDate,
-                        style: const TextStyle(color: Colors.white38, fontSize: 10),
+                        style: FluxForgeTheme.dockMono(color: Colors.white38, size: 10),
                       ),
                       const SizedBox(width: 8),
                       Text(
                         version.formattedSize,
-                        style: const TextStyle(color: Colors.white38, fontSize: 10),
+                        style: FluxForgeTheme.dockMono(color: Colors.white38, size: 10),
                       ),
                     ],
                   ),
@@ -434,7 +434,7 @@ class _ProjectVersionsPanelState extends State<ProjectVersionsPanel> {
                     const SizedBox(height: 4),
                     Text(
                       version.description,
-                      style: const TextStyle(color: Colors.white54, fontSize: 11),
+                      style: FluxForgeTheme.dockSans(color: Colors.white54, size: 11).copyWith(overflow: TextOverflow.ellipsis),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),

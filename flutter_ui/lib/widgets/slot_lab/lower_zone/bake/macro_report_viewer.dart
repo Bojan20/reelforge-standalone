@@ -65,12 +65,12 @@ class _MacroReportViewerState extends State<MacroReportViewer> {
         children: [
           const Icon(Icons.assessment, size: 14, color: FluxForgeTheme.accentPink),
           const SizedBox(width: 6),
-          const Text(
+          Text(
             'REPORTS',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textSecondary,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
+              size: 11,
+              weight: FontWeight.w700,
               letterSpacing: 1.2,
             ),
           ),
@@ -94,12 +94,12 @@ class _MacroReportViewerState extends State<MacroReportViewer> {
                   ),
                   child: Text(
                     label,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: selected
                           ? FluxForgeTheme.accentPink
                           : FluxForgeTheme.textTertiary,
-                      fontSize: 10,
-                      fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                      size: 10,
+                      weight: selected ? FontWeight.w600 : FontWeight.w400,
                     ),
                   ),
                 ),
@@ -122,16 +122,16 @@ class _MacroReportViewerState extends State<MacroReportViewer> {
             color: FluxForgeTheme.textTertiary.withValues(alpha: 0.2),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'No report available',
-            style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 11),
           ),
           const SizedBox(height: 4),
           Text(
             'Run a macro to generate a report',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6),
-              fontSize: 10,
+              size: 10,
             ),
           ),
         ],
@@ -200,10 +200,10 @@ class _MacroReportViewerState extends State<MacroReportViewer> {
                 const SizedBox(width: 6),
                 Text(
                   result.success ? 'ALL CHECKS PASSED' : 'CHECKS FAILED',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: result.success ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentRed,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
+                    size: 12,
+                    weight: FontWeight.w700,
                   ),
                 ),
               ],
@@ -236,20 +236,19 @@ class _MacroReportViewerState extends State<MacroReportViewer> {
             width: 80,
             child: Text(
               label,
-              style: const TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.textTertiary,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
+                size: 11,
+                weight: FontWeight.w500,
               ),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 11,
-                fontFamily: 'JetBrains Mono',
+                size: 11,
               ),
             ),
           ),
@@ -266,10 +265,10 @@ class _MacroReportViewerState extends State<MacroReportViewer> {
     final qaResults = _provider.getQaResults();
 
     if (qaResults == null) {
-      return const Center(
+      return Center(
         child: Text(
           'No QA results available',
-          style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 11),
         ),
       );
     }
@@ -306,18 +305,18 @@ class _MacroReportViewerState extends State<MacroReportViewer> {
                   children: [
                     Text(
                       name,
-                      style: const TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: FluxForgeTheme.textSecondary,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
+                        size: 11,
+                        weight: FontWeight.w500,
                       ),
                     ),
                     if (detail.isNotEmpty)
                       Text(
                         detail,
-                        style: const TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: FluxForgeTheme.textTertiary,
-                          fontSize: 10,
+                          size: 10,
                         ),
                       ),
                   ],
@@ -336,10 +335,10 @@ class _MacroReportViewerState extends State<MacroReportViewer> {
 
   Widget _buildArtifactsTab(FluxMacroRunResult result) {
     if (result.artifacts.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           'No artifacts generated',
-          style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 11),
         ),
       );
     }
@@ -363,10 +362,9 @@ class _MacroReportViewerState extends State<MacroReportViewer> {
               Expanded(
                 child: Text(
                   artifact,
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockMono(
                     color: FluxForgeTheme.textSecondary,
-                    fontSize: 11,
-                    fontFamily: 'JetBrains Mono',
+                    size: 11,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -389,10 +387,10 @@ class _MacroReportViewerState extends State<MacroReportViewer> {
     ];
 
     if (items.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           'No warnings or errors',
-          style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 11),
         ),
       );
     }
@@ -426,11 +424,11 @@ class _MacroReportViewerState extends State<MacroReportViewer> {
               Expanded(
                 child: Text(
                   message,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: isError
                         ? FluxForgeTheme.accentRed.withValues(alpha: 0.9)
                         : FluxForgeTheme.accentOrange.withValues(alpha: 0.9),
-                    fontSize: 11,
+                    size: 11,
                   ),
                 ),
               ),
@@ -453,12 +451,12 @@ class _MacroReportViewerState extends State<MacroReportViewer> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'METRICS',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.textTertiary,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
+                size: 10,
+                weight: FontWeight.w700,
                 letterSpacing: 1.0,
               ),
             ),
@@ -472,22 +470,21 @@ class _MacroReportViewerState extends State<MacroReportViewer> {
             _buildMetric('Warnings', '${result.warnings.length}', FluxForgeTheme.accentOrange),
             _buildMetric('Errors', '${result.errors.length}', FluxForgeTheme.accentRed),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'HASH',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.textTertiary,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
+                size: 10,
+                weight: FontWeight.w700,
                 letterSpacing: 1.0,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               result.runHash,
-              style: const TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: FluxForgeTheme.textTertiary,
-                fontSize: 9,
-                fontFamily: 'JetBrains Mono',
+                size: 9,
               ),
             ),
           ],
@@ -504,18 +501,17 @@ class _MacroReportViewerState extends State<MacroReportViewer> {
         children: [
           Text(
             label,
-            style: const TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textTertiary,
-              fontSize: 10,
+              size: 10,
             ),
           ),
           Text(
             value,
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: valueColor,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              fontFamily: 'JetBrains Mono',
+              size: 11,
+              weight: FontWeight.w600,
             ),
           ),
         ],

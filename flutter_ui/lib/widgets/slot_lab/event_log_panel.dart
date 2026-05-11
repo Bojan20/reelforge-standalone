@@ -440,11 +440,11 @@ class _EventLogPanelState extends State<EventLogPanel> {
           const SizedBox(width: 8),
           Text(
             'EVENT LOG',
-            style: TextStyle(
-              color: FluxForgeTheme.textSecondary,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockMono(
+              size: 10,
+              weight: FontWeight.bold,
               letterSpacing: 1,
+              color: FluxForgeTheme.textSecondary,
             ),
           ),
           const Spacer(),
@@ -455,10 +455,10 @@ class _EventLogPanelState extends State<EventLogPanel> {
             height: 20,
             child: TextField(
               controller: _searchController,
-              style: const TextStyle(color: Colors.white, fontSize: 10),
+              style: FluxForgeTheme.dockSans(size: 10, color: Colors.white),
               decoration: InputDecoration(
                 hintText: 'Search...',
-                hintStyle: TextStyle(color: Colors.white38, fontSize: 10),
+                hintStyle: FluxForgeTheme.dockSans(size: 10, color: Colors.white38),
                 prefixIcon: Icon(Icons.search, size: 12, color: Colors.white38),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 8),
                 border: OutlineInputBorder(
@@ -550,7 +550,7 @@ class _EventLogPanelState extends State<EventLogPanel> {
         children: [
           Text(
             'Filter:',
-            style: TextStyle(color: Colors.white38, fontSize: 9),
+            style: FluxForgeTheme.dockSans(size: 9, color: Colors.white38),
           ),
           const SizedBox(width: 8),
           ...EventLogType.values.map((type) {
@@ -600,12 +600,12 @@ class _EventLogPanelState extends State<EventLogPanel> {
                       const SizedBox(width: 4),
                       Text(
                         entry.typeLabel,
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 8,
+                          weight: FontWeight.bold,
                           color: isActive
                               ? entry.typeColor
                               : entry.typeColor.withValues(alpha: 0.5),
-                          fontSize: 8,
-                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ],
@@ -633,10 +633,7 @@ class _EventLogPanelState extends State<EventLogPanel> {
                 _activeFilters.length == EventLogType.values.length
                     ? 'HIDE ALL'
                     : 'SHOW ALL',
-                style: TextStyle(
-                  color: Colors.white38,
-                  fontSize: 8,
-                ),
+                style: FluxForgeTheme.dockSans(size: 8, color: Colors.white38),
               ),
             ),
           ),
@@ -663,7 +660,7 @@ class _EventLogPanelState extends State<EventLogPanel> {
               _searchQuery.isNotEmpty
                   ? 'No matching events'
                   : 'Waiting for events...',
-              style: TextStyle(color: Colors.white38, fontSize: 11),
+              style: FluxForgeTheme.dockSans(size: 11, color: Colors.white38),
             ),
             if (_isPaused)
               Padding(
@@ -676,10 +673,10 @@ class _EventLogPanelState extends State<EventLogPanel> {
                   ),
                   child: Text(
                     'PAUSED',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 9,
+                      weight: FontWeight.bold,
                       color: FluxForgeTheme.accentOrange,
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
@@ -779,11 +776,11 @@ class _EventLogPanelState extends State<EventLogPanel> {
                 // Event name — bold, colored
                 Text(
                   entry.eventName,
-                  style: TextStyle(
-                    color: textColor,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
+                    weight: FontWeight.w600,
                     height: 1.2,
+                    color: textColor,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -794,10 +791,9 @@ class _EventLogPanelState extends State<EventLogPanel> {
                     padding: const EdgeInsets.only(top: 2),
                     child: Text(
                       entry.details!,
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockMono(
+                        size: 9,
                         color: textColor.withValues(alpha: 0.6),
-                        fontSize: 9,
-                        fontFamily: 'monospace',
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -822,11 +818,10 @@ class _EventLogPanelState extends State<EventLogPanel> {
             entry.stageTimestampMs > 0
                 ? '${entry.stageTimestampMs.toStringAsFixed(0)}ms'
                 : entry.formattedTime.substring(0, 8), // Fallback to wall-clock
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 9,
+              weight: entry.stageTimestampMs > 0 ? FontWeight.w600 : FontWeight.normal,
               color: entry.stageTimestampMs > 0 ? Colors.white38 : Colors.white24,
-              fontSize: 9,
-              fontFamily: 'monospace',
-              fontWeight: entry.stageTimestampMs > 0 ? FontWeight.w600 : FontWeight.normal,
             ),
           ),
         ],
@@ -890,10 +885,10 @@ class _EventLogPanelState extends State<EventLogPanel> {
               const SizedBox(width: 3),
               Text(
                 typeName,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
+                  weight: FontWeight.bold,
                   color: badgeColor,
-                  fontSize: 8,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
@@ -902,9 +897,9 @@ class _EventLogPanelState extends State<EventLogPanel> {
         const SizedBox(width: 4),
         Text(
           '${entry.containerName ?? "?"} (${entry.containerChildCount ?? 0} $childLabel)',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 8,
             color: badgeColor.withValues(alpha: 0.7),
-            fontSize: 8,
           ),
         ),
       ],
@@ -948,7 +943,7 @@ class _EventLogPanelState extends State<EventLogPanel> {
           // Entry count (dimmed)
           Text(
             '${_filteredEntries.length} log entries',
-            style: const TextStyle(color: Colors.white30, fontSize: 9),
+            style: FluxForgeTheme.dockSans(size: 9, color: Colors.white30),
           ),
 
           const Spacer(),
@@ -975,10 +970,10 @@ class _EventLogPanelState extends State<EventLogPanel> {
                 const SizedBox(width: 6),
                 Text(
                   statusText,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: FontWeight.w600,
                     color: statusColor,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -1001,10 +996,10 @@ class _EventLogPanelState extends State<EventLogPanel> {
                   const SizedBox(width: 2),
                   Text(
                     'PAUSED',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 7,
+                      weight: FontWeight.bold,
                       color: FluxForgeTheme.accentOrange,
-                      fontSize: 7,
-                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ],
@@ -1018,10 +1013,7 @@ class _EventLogPanelState extends State<EventLogPanel> {
                 const SizedBox(width: 2),
                 Text(
                   'AUTO-SCROLL',
-                  style: TextStyle(
-                    color: FluxForgeTheme.accentBlue,
-                    fontSize: 7,
-                  ),
+                  style: FluxForgeTheme.dockSans(size: 7, color: FluxForgeTheme.accentBlue),
                 ),
               ],
             ),
@@ -1083,7 +1075,7 @@ class EventLogStrip extends StatelessWidget {
                 child: visibleStages.isEmpty
                     ? Text(
                         'No events',
-                        style: TextStyle(color: Colors.white38, fontSize: 9),
+                        style: FluxForgeTheme.dockSans(size: 9, color: Colors.white38),
                       )
                     : ListView.builder(
                         scrollDirection: Axis.horizontal,
@@ -1113,13 +1105,12 @@ class EventLogStrip extends StatelessWidget {
                               ),
                               child: Text(
                                 stage.stageType.replaceAll('_', ' ').toUpperCase(),
-                                style: TextStyle(
+                                style: FluxForgeTheme.dockSans(
+                                  size: 8,
+                                  weight: isLatest ? FontWeight.bold : FontWeight.normal,
                                   color: isLatest
                                       ? FluxForgeTheme.accentBlue
                                       : Colors.white54,
-                                  fontSize: 8,
-                                  fontWeight:
-                                      isLatest ? FontWeight.bold : FontWeight.normal,
                                 ),
                               ),
                             ),

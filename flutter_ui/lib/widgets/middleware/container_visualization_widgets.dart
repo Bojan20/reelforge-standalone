@@ -52,20 +52,19 @@ class _BlendRtpcSliderState extends State<BlendRtpcSlider> {
               const SizedBox(width: 8),
               Text(
                 'RTPC Preview',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 12,
+                  weight: FontWeight.w600,
                   color: Colors.purple,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
               const Spacer(),
               Text(
                 widget.value.toStringAsFixed(2),
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 14,
+                  weight: FontWeight.bold,
                   color: Colors.purple,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'monospace',
                 ),
               ),
             ],
@@ -135,7 +134,7 @@ class _BlendRtpcSliderState extends State<BlendRtpcSlider> {
                     const SizedBox(width: 4),
                     Text(
                       'Preview Blend',
-                      style: TextStyle(color: Colors.purple, fontSize: 11),
+                      style: FluxForgeTheme.dockSans(size: 11, color: Colors.purple),
                     ),
                   ],
                 ),
@@ -162,12 +161,11 @@ class _BlendRtpcSliderState extends State<BlendRtpcSlider> {
               children: [
                 Text(
                   child.name,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
+                    weight: volume > 0.5 ? FontWeight.bold : FontWeight.normal,
                     color: volume > 0.1 ? Colors.purple : FluxForgeTheme.textSecondary,
-                    fontSize: 9,
-                    fontWeight: volume > 0.5 ? FontWeight.bold : FontWeight.normal,
-                  ),
-                  overflow: TextOverflow.ellipsis,
+                  ).copyWith(overflow: TextOverflow.ellipsis),
                 ),
                 const SizedBox(height: 4),
                 // Volume bar
@@ -196,10 +194,9 @@ class _BlendRtpcSliderState extends State<BlendRtpcSlider> {
                 const SizedBox(height: 2),
                 Text(
                   '${(volume * 100).toInt()}%',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
+                    size: 8,
                     color: FluxForgeTheme.textSecondary,
-                    fontSize: 8,
-                    fontFamily: 'monospace',
                   ),
                 ),
               ],
@@ -248,7 +245,7 @@ class RandomWeightPieChart extends StatelessWidget {
       return Center(
         child: Text(
           'No children',
-          style: TextStyle(color: FluxForgeTheme.textSecondary),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
         ),
       );
     }
@@ -422,7 +419,7 @@ class RandomSelectionHistory extends StatelessWidget {
         ),
         child: Text(
           'No selection history',
-          style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 10),
+          style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textSecondary),
         ),
       );
     }
@@ -443,10 +440,10 @@ class RandomSelectionHistory extends StatelessWidget {
               const SizedBox(width: 4),
               Text(
                 'Recent Selections',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.w600,
                   color: Colors.amber,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -472,9 +469,9 @@ class RandomSelectionHistory extends StatelessWidget {
                 ),
                 child: Text(
                   child?.name ?? 'Unknown',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
                     color: Colors.amber.withValues(alpha: opacity),
-                    fontSize: 9,
                   ),
                 ),
               );
@@ -546,18 +543,15 @@ class SequenceTimelineVisualization extends StatelessWidget {
             // Total duration
             Text(
               'Duration: ${_formatDuration(totalDuration)}',
-              style: TextStyle(
-                color: FluxForgeTheme.textSecondary,
-                fontSize: 11,
-              ),
+              style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textSecondary),
             ),
             const SizedBox(width: 12),
             Text(
               '${container.steps.length} steps',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 11,
+                weight: FontWeight.w600,
                 color: Colors.teal,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
               ),
             ),
             const Spacer(),
@@ -579,9 +573,9 @@ class SequenceTimelineVisualization extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     container.endBehavior.displayName,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
                       color: _getEndBehaviorColor(),
-                      fontSize: 10,
                     ),
                   ),
                 ],
@@ -609,7 +603,7 @@ class SequenceTimelineVisualization extends StatelessWidget {
                         const SizedBox(height: 8),
                         Text(
                           'No steps in sequence',
-                          style: TextStyle(color: FluxForgeTheme.textSecondary),
+                          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
                         ),
                       ],
                     ),
@@ -857,10 +851,10 @@ class ContainerTypeBadge extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: compact ? 8 : 10,
+                weight: FontWeight.w600,
                 color: color,
-                fontSize: compact ? 8 : 10,
-                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -945,18 +939,17 @@ class ContainerPreviewCard extends StatelessWidget {
                 children: [
                   Text(
                     name,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 12,
+                      weight: FontWeight.w500,
                       color: FluxForgeTheme.textPrimary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+                    ).copyWith(overflow: TextOverflow.ellipsis),
                   ),
                   Text(
                     '$childCount ${childCount == 1 ? "child" : "children"}',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
                       color: FluxForgeTheme.textSecondary,
-                      fontSize: 10,
                     ),
                   ),
                 ],

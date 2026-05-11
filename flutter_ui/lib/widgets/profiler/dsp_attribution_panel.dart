@@ -6,6 +6,7 @@
 
 import 'package:flutter/material.dart';
 import '../../services/dsp_attribution_profiler.dart';
+import '../../theme/fluxforge_theme.dart';
 
 class DspAttributionPanel extends StatefulWidget {
   const DspAttributionPanel({super.key});
@@ -52,9 +53,9 @@ class _DspAttributionPanelState extends State<DspAttributionPanel> {
         children: [
           const Icon(Icons.pie_chart, size: 20, color: Colors.purple),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'DSP Attribution',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            style: FluxForgeTheme.dockSans(size: 16, weight: FontWeight.bold),
           ),
           const Spacer(),
 
@@ -74,9 +75,9 @@ class _DspAttributionPanelState extends State<DspAttributionPanel> {
           const SizedBox(width: 8),
           Text(
             profiler.enabled ? 'Enabled' : 'Disabled',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: profiler.enabled ? Colors.green : Colors.grey,
-              fontSize: 12,
+              size: 12,
             ),
           ),
 
@@ -172,18 +173,18 @@ class _DspAttributionPanelState extends State<DspAttributionPanel> {
                 const SizedBox(width: 4),
                 Text(
                   label,
-                  style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+                  style: FluxForgeTheme.dockSans(size: 11, color: Colors.grey[400]!),
                 ),
               ],
             ),
             const SizedBox(height: 4),
             Text(
               value,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(
+                size: 14,
+                weight: FontWeight.bold,
                 color: color,
-              ),
+              ).copyWith(overflow: TextOverflow.ellipsis),
               overflow: TextOverflow.ellipsis,
             ),
           ],
@@ -229,10 +230,10 @@ class _DspAttributionPanelState extends State<DspAttributionPanel> {
           child: Text(
             label,
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              color: isSelected ? Colors.purple : Colors.grey[400],
+            style: FluxForgeTheme.dockSans(
+              size: 13,
+              weight: isSelected ? FontWeight.bold : FontWeight.normal,
+              color: isSelected ? Colors.purple : Colors.grey[400]!,
             ),
           ),
         ),
@@ -295,10 +296,10 @@ class _DspAttributionPanelState extends State<DspAttributionPanel> {
                 width: 40,
                 child: Text(
                   '#$rank',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[500],
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockMono(
+                    size: 12,
+                    color: Colors.grey[500]!,
+                    weight: FontWeight.bold,
                   ),
                 ),
               ),
@@ -307,7 +308,7 @@ class _DspAttributionPanelState extends State<DspAttributionPanel> {
               Expanded(
                 child: Text(
                   stats.source,
-                  style: const TextStyle(fontSize: 13),
+                  style: FluxForgeTheme.dockSans(size: 13),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -315,7 +316,7 @@ class _DspAttributionPanelState extends State<DspAttributionPanel> {
               // Total time
               Text(
                 '${stats.totalProcessingTimeMs.toStringAsFixed(1)}ms',
-                style: TextStyle(fontSize: 13, color: color, fontWeight: FontWeight.bold),
+                style: FluxForgeTheme.dockMono(size: 13, color: color, weight: FontWeight.bold),
               ),
             ],
           ),
@@ -347,17 +348,17 @@ class _DspAttributionPanelState extends State<DspAttributionPanel> {
               const SizedBox(width: 40),
               Text(
                 'Ops: ${stats.operationCount}',
-                style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                style: FluxForgeTheme.dockMono(size: 11, color: Colors.grey[500]!),
               ),
               const SizedBox(width: 12),
               Text(
                 'Avg: ${stats.avgProcessingTimeMs.toStringAsFixed(1)}ms',
-                style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                style: FluxForgeTheme.dockMono(size: 11, color: Colors.grey[500]!),
               ),
               const SizedBox(width: 12),
               Text(
                 'Peak: ${stats.peakProcessingTimeMs.toStringAsFixed(1)}ms',
-                style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                style: FluxForgeTheme.dockMono(size: 11, color: Colors.grey[500]!),
               ),
               const Spacer(),
               if (stats.mostExpensiveOperation != null)
@@ -369,7 +370,7 @@ class _DspAttributionPanelState extends State<DspAttributionPanel> {
                   ),
                   child: Text(
                     stats.mostExpensiveOperation!.name,
-                    style: TextStyle(fontSize: 10, color: color),
+                    style: FluxForgeTheme.dockSans(size: 10, color: color),
                   ),
                 ),
             ],
@@ -421,12 +422,12 @@ class _DspAttributionPanelState extends State<DspAttributionPanel> {
               Expanded(
                 child: Text(
                   operation.name.toUpperCase(),
-                  style: const TextStyle(fontSize: 13),
+                  style: FluxForgeTheme.dockSans(size: 13),
                 ),
               ),
               Text(
                 '${timeMs.toStringAsFixed(1)}ms',
-                style: TextStyle(fontSize: 13, color: color, fontWeight: FontWeight.bold),
+                style: FluxForgeTheme.dockMono(size: 13, color: color, weight: FontWeight.bold),
               ),
             ],
           ),
@@ -495,12 +496,12 @@ class _DspAttributionPanelState extends State<DspAttributionPanel> {
               Expanded(
                 child: Text(
                   busName,
-                  style: const TextStyle(fontSize: 13),
+                  style: FluxForgeTheme.dockSans(size: 13),
                 ),
               ),
               Text(
                 '${timeMs.toStringAsFixed(1)}ms',
-                style: TextStyle(fontSize: 13, color: color, fontWeight: FontWeight.bold),
+                style: FluxForgeTheme.dockMono(size: 13, color: color, weight: FontWeight.bold),
               ),
             ],
           ),
@@ -552,12 +553,12 @@ class _DspAttributionPanelState extends State<DspAttributionPanel> {
           const SizedBox(height: 16),
           Text(
             message,
-            style: TextStyle(color: Colors.grey[500]),
+            style: FluxForgeTheme.dockSans(color: Colors.grey[500]!),
           ),
           const SizedBox(height: 8),
           Text(
             'Enable profiling and trigger audio events',
-            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            style: FluxForgeTheme.dockSans(size: 12, color: Colors.grey[600]!),
           ),
         ],
       ),

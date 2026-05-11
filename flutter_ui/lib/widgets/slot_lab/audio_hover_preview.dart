@@ -758,12 +758,12 @@ class _AudioBrowserItemState extends State<AudioBrowserItem>
                       children: [
                         Text(
                           widget.audioInfo.name,
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
+                            size: 11,
+                            weight: FontWeight.w500,
                             color: widget.isSelected
                                 ? FluxForgeTheme.accentBlue
                                 : Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -772,22 +772,22 @@ class _AudioBrowserItemState extends State<AudioBrowserItem>
                           children: [
                             Text(
                               widget.audioInfo.format,
-                              style: const TextStyle(
+                              style: FluxForgeTheme.dockSans(
+                                size: 9,
                                 color: Colors.white38,
-                                fontSize: 9,
                               ),
                             ),
                             const SizedBox(width: 4),
-                            const Text(
+                            Text(
                               '·',
-                              style: TextStyle(color: Colors.white24),
+                              style: FluxForgeTheme.dockSans(color: Colors.white24),
                             ),
                             const SizedBox(width: 4),
                             Text(
                               widget.audioInfo.channelLabel,
-                              style: const TextStyle(
+                              style: FluxForgeTheme.dockSans(
+                                size: 9,
                                 color: Colors.white38,
-                                fontSize: 9,
                               ),
                             ),
                           ],
@@ -799,10 +799,9 @@ class _AudioBrowserItemState extends State<AudioBrowserItem>
                   // Duration
                   Text(
                     widget.audioInfo.durationFormatted,
-                    style: const TextStyle(
+                    style: FluxForgeTheme.dockMono(
+                      size: 10,
                       color: Colors.white54,
-                      fontSize: 10,
-                      fontFamily: 'monospace',
                     ),
                   ),
 
@@ -836,9 +835,9 @@ class _AudioBrowserItemState extends State<AudioBrowserItem>
                       ),
                       child: Text(
                         tag,
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 8,
                           color: FluxForgeTheme.accentOrange,
-                          fontSize: 8,
                         ),
                       ),
                     );
@@ -993,9 +992,9 @@ class _AudioBrowserItemState extends State<AudioBrowserItem>
                   ),
                   child: Text(
                     widget.audioInfo.qualityLabel,
-                    style: const TextStyle(
+                    style: FluxForgeTheme.dockMono(
+                      size: 8,
                       color: Colors.white54,
-                      fontSize: 8,
                     ),
                   ),
                 ),
@@ -1012,10 +1011,10 @@ class _AudioBrowserItemState extends State<AudioBrowserItem>
                       const SizedBox(width: 4),
                       Text(
                         'PLAYING',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 7,
+                          weight: FontWeight.bold,
                           color: FluxForgeTheme.accentGreen,
-                          fontSize: 7,
-                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ],
@@ -1053,10 +1052,10 @@ class _AudioBrowserItemState extends State<AudioBrowserItem>
             Expanded(
               child: Text(
                 widget.audioInfo.name,
-                style: const TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 12,
+                  weight: FontWeight.w500,
                   color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -1407,11 +1406,11 @@ class _AudioBrowserPanelState extends State<AudioBrowserPanel> {
           const SizedBox(width: 8),
           Text(
             'AUDIO BROWSER',
-            style: TextStyle(
-              color: FluxForgeTheme.textSecondary,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockMono(
+              size: 10,
+              weight: FontWeight.bold,
               letterSpacing: 1,
+              color: FluxForgeTheme.textSecondary,
             ),
           ),
           const Spacer(),
@@ -1440,9 +1439,9 @@ class _AudioBrowserPanelState extends State<AudioBrowserPanel> {
                       const SizedBox(width: 4),
                       Text(
                         '$queueSize',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 9,
                           color: FluxForgeTheme.textSecondary,
-                          fontSize: 9,
                         ),
                       ),
                     ],
@@ -1459,10 +1458,10 @@ class _AudioBrowserPanelState extends State<AudioBrowserPanel> {
             height: 24,
             child: TextField(
               controller: _searchController,
-              style: const TextStyle(color: Colors.white, fontSize: 11),
+              style: FluxForgeTheme.dockSans(size: 11, color: Colors.white),
               decoration: InputDecoration(
                 hintText: 'Search files...',
-                hintStyle: const TextStyle(color: Colors.white38, fontSize: 11),
+                hintStyle: FluxForgeTheme.dockSans(size: 11, color: Colors.white38),
                 prefixIcon:
                     const Icon(Icons.search, size: 14, color: Colors.white38),
                 suffixIcon: _searchQuery.isNotEmpty
@@ -1510,9 +1509,9 @@ class _AudioBrowserPanelState extends State<AudioBrowserPanel> {
       ),
       child: Row(
         children: [
-          const Text(
+          Text(
             'Format:',
-            style: TextStyle(color: Colors.white38, fontSize: 10),
+            style: FluxForgeTheme.dockSans(size: 10, color: Colors.white38),
           ),
           const SizedBox(width: 8),
           ..._formatFilters.map((format) {
@@ -1540,12 +1539,12 @@ class _AudioBrowserPanelState extends State<AudioBrowserPanel> {
                   ),
                   child: Text(
                     format,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 9,
+                      weight: isActive ? FontWeight.bold : FontWeight.normal,
                       color: isActive
                           ? FluxForgeTheme.accentBlue
                           : Colors.white54,
-                      fontSize: 9,
-                      fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),
                 ),
@@ -1575,7 +1574,7 @@ class _AudioBrowserPanelState extends State<AudioBrowserPanel> {
               _searchQuery.isNotEmpty
                   ? 'No files match your search'
                   : 'No audio files',
-              style: const TextStyle(color: Colors.white38, fontSize: 12),
+              style: FluxForgeTheme.dockSans(size: 12, color: Colors.white38),
             ),
           ],
         ),
@@ -1635,7 +1634,7 @@ class _AudioBrowserPanelState extends State<AudioBrowserPanel> {
         children: [
           Text(
             '${_filteredFiles.length} files',
-            style: const TextStyle(color: Colors.white38, fontSize: 9),
+            style: FluxForgeTheme.dockSans(size: 9, color: Colors.white38),
           ),
           if (_selectedFormat != 'All') ...[
             const SizedBox(width: 8),
@@ -1647,9 +1646,9 @@ class _AudioBrowserPanelState extends State<AudioBrowserPanel> {
               ),
               child: Text(
                 _selectedFormat,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
                   color: FluxForgeTheme.accentBlue,
-                  fontSize: 8,
                 ),
               ),
             ),
@@ -1668,10 +1667,9 @@ class _AudioBrowserPanelState extends State<AudioBrowserPanel> {
                     const SizedBox(width: 4),
                     Text(
                       '${(event.progress * 100).toInt()}%',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockMono(
+                        size: 9,
                         color: FluxForgeTheme.accentGreen,
-                        fontSize: 9,
-                        fontFamily: 'monospace',
                       ),
                     ),
                   ],

@@ -132,7 +132,7 @@ class _CompositeEditorPanelState extends State<CompositeEditorPanel> {
         children: [
           Icon(Icons.audiotrack, size: 14, color: FluxForgeTheme.accentBlue),
           const SizedBox(width: 6),
-          const Text('Event:', style: TextStyle(fontSize: 10, color: Colors.white54)),
+          Text('Event:', style: FluxForgeTheme.dockSans(size: 10, color: Colors.white54)),
           const SizedBox(width: 6),
           Expanded(
             child: DropdownButtonHideUnderline(
@@ -141,15 +141,15 @@ class _CompositeEditorPanelState extends State<CompositeEditorPanel> {
                 isDense: true,
                 isExpanded: true,
                 dropdownColor: const Color(0xFF1A1A22),
-                style: const TextStyle(fontSize: 11, color: Colors.white),
-                hint: const Text('Select event...', style: TextStyle(fontSize: 11, color: Colors.white38)),
+                style: FluxForgeTheme.dockSans(size: 11, color: Colors.white),
+                hint: Text('Select event...', style: FluxForgeTheme.dockSans(size: 11, color: Colors.white38)),
                 items: events.map((e) {
                   final stageLabel = e.triggerStages.isNotEmpty ? e.triggerStages.first : '';
                   return DropdownMenuItem<String>(
                     value: e.id,
                     child: Text(
                       '${e.name}${stageLabel.isNotEmpty ? '  [$stageLabel]' : ''}  (${e.layers.length}L)',
-                      style: const TextStyle(fontSize: 11),
+                      style: FluxForgeTheme.dockSans(size: 11),
                       overflow: TextOverflow.ellipsis,
                     ),
                   );
@@ -166,7 +166,7 @@ class _CompositeEditorPanelState extends State<CompositeEditorPanel> {
             const SizedBox(width: 4),
             Text(
               '${selected.layers.length} layers',
-              style: const TextStyle(fontSize: 9, color: Colors.white38, fontFamily: 'monospace'),
+              style: FluxForgeTheme.dockMono(size: 9, color: Colors.white38),
             ),
           ],
         ],
@@ -247,7 +247,7 @@ class _CompositeEditorPanelState extends State<CompositeEditorPanel> {
           const SizedBox(width: 2),
           Text(
             '${_pixelsPerSecond.toInt()}px/s',
-            style: const TextStyle(fontSize: 8, color: Colors.white24, fontFamily: 'monospace'),
+            style: FluxForgeTheme.dockMono(size: 8, color: Colors.white24),
           ),
           const SizedBox(width: 2),
           MouseRegion(
@@ -282,7 +282,7 @@ class _CompositeEditorPanelState extends State<CompositeEditorPanel> {
           children: [
             Icon(icon, size: 12, color: color),
             const SizedBox(width: 3),
-            Text(label, style: TextStyle(fontSize: 9, color: color)),
+            Text(label, style: FluxForgeTheme.dockSans(size: 9, color: color)),
           ],
         ),
       ),
@@ -301,9 +301,9 @@ class _CompositeEditorPanelState extends State<CompositeEditorPanel> {
           children: [
             Icon(Icons.layers_outlined, size: 32, color: Colors.white12),
             const SizedBox(height: 8),
-            const Text('No layers', style: TextStyle(fontSize: 11, color: Colors.white24)),
+            Text('No layers', style: FluxForgeTheme.dockSans(size: 11, color: Colors.white24)),
             const SizedBox(height: 4),
-            const Text('Click "Add Layer" to add audio', style: TextStyle(fontSize: 9, color: Colors.white12)),
+            Text('Click "Add Layer" to add audio', style: FluxForgeTheme.dockSans(size: 9, color: Colors.white12)),
           ],
         ),
       );
@@ -341,7 +341,7 @@ class _CompositeEditorPanelState extends State<CompositeEditorPanel> {
                   color: const Color(0xFF14141A),
                   alignment: Alignment.centerLeft,
                   padding: const EdgeInsets.only(left: 4),
-                  child: const Text('', style: TextStyle(fontSize: 7, color: Colors.white24)),
+                  child: Text('', style: FluxForgeTheme.dockSans(size: 7, color: Colors.white24)),
                 ),
                 // Track labels (vertically scrollable if many tracks)
                 Expanded(
@@ -446,14 +446,14 @@ class _CompositeEditorPanelState extends State<CompositeEditorPanel> {
                 alignment: Alignment.center,
                 child: Text(
                   '${index + 1}',
-                  style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: trackColor),
+                  style: FluxForgeTheme.dockSans(size: 8, weight: FontWeight.bold, color: trackColor),
                 ),
               ),
               const SizedBox(width: 3),
               Expanded(
                 child: Text(
                   layer.name,
-                  style: const TextStyle(fontSize: 8, color: Colors.white70),
+                  style: FluxForgeTheme.dockSans(size: 8, color: Colors.white70),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -609,7 +609,7 @@ class _CompositeEditorPanelState extends State<CompositeEditorPanel> {
                               hasAudio
                                   ? (_waveformCache.containsKey(layer.id) ? 'No waveform' : 'Loading...')
                                   : 'No audio',
-                              style: const TextStyle(fontSize: 8, color: Colors.white24),
+                              style: FluxForgeTheme.dockSans(size: 8, color: Colors.white24),
                             ),
                           ),
                         // File name label
@@ -621,10 +621,10 @@ class _CompositeEditorPanelState extends State<CompositeEditorPanel> {
                             fileName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 8,
+                            style: FluxForgeTheme.dockMono(
+                              size: 8,
                               color: trackColor.withValues(alpha: 0.9),
-                              fontWeight: FontWeight.w500,
+                              weight: FontWeight.w500,
                             ),
                           ),
                         ),
@@ -634,10 +634,9 @@ class _CompositeEditorPanelState extends State<CompositeEditorPanel> {
                           bottom: 2,
                           child: Text(
                             '${layer.offsetMs.toInt()}ms  ${duration.toStringAsFixed(1)}s',
-                            style: const TextStyle(
-                              fontSize: 7,
+                            style: FluxForgeTheme.dockMono(
+                              size: 7,
                               color: Colors.white38,
-                              fontFamily: 'monospace',
                             ),
                           ),
                         ),
@@ -660,7 +659,7 @@ class _CompositeEditorPanelState extends State<CompositeEditorPanel> {
         onTap: onTap,
         child: Text(
           label,
-          style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: color),
+          style: FluxForgeTheme.dockSans(size: 8, weight: FontWeight.bold, color: color),
         ),
       ),
     );
@@ -742,9 +741,9 @@ class _CompositeEditorPanelState extends State<CompositeEditorPanel> {
         children: [
           const Icon(Icons.edit_note, size: 48, color: Colors.white12),
           const SizedBox(height: 12),
-          Text(title, style: const TextStyle(fontSize: 14, color: Colors.white38, fontWeight: FontWeight.w500)),
+          Text(title, style: FluxForgeTheme.dockSans(size: 14, color: Colors.white38, weight: FontWeight.w500)),
           const SizedBox(height: 6),
-          Text(message, style: const TextStyle(fontSize: 11, color: Colors.white24), textAlign: TextAlign.center),
+          Text(message, style: FluxForgeTheme.dockSans(size: 11, color: Colors.white24), textAlign: TextAlign.center),
         ],
       ),
     );

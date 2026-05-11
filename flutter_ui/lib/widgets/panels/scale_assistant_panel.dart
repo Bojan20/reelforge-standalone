@@ -94,10 +94,10 @@ class ScaleAssistantPanel extends StatelessWidget {
             ),
             child: Text(
               provider.globalKey.displayName,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFFFFD700),
+              style: FluxForgeTheme.dockSans(
+                size: 12,
+                weight: FontWeight.w600,
+                color: const Color(0xFFFFD700),
               ),
             ),
           ),
@@ -127,7 +127,7 @@ class ScaleAssistantPanel extends StatelessWidget {
       children: [
         Text(
           'Mode:',
-          style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary),
+          style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textSecondary),
         ),
         const SizedBox(width: 6),
         ...ScaleConstraintMode.values.map((mode) {
@@ -153,9 +153,9 @@ class ScaleAssistantPanel extends StatelessWidget {
                   ),
                   child: Text(
                     _getConstraintModeName(mode),
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    style: FluxForgeTheme.dockSans(
+                      size: 9,
+                      weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                       color: isSelected
                           ? FluxForgeTheme.accentBlue
                           : FluxForgeTheme.textSecondary,
@@ -197,8 +197,8 @@ class ScaleAssistantPanel extends StatelessWidget {
               const SizedBox(width: 4),
               Text(
                 label,
-                style: TextStyle(
-                  fontSize: 10,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
                   color: isActive ? FluxForgeTheme.accentGreen : FluxForgeTheme.textSecondary,
                 ),
               ),
@@ -221,9 +221,9 @@ class ScaleAssistantPanel extends StatelessWidget {
             children: [
               Text(
                 'ROOT NOTE',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.w600,
                   color: FluxForgeTheme.textSecondary,
                   letterSpacing: 0.5,
                 ),
@@ -245,9 +245,9 @@ class ScaleAssistantPanel extends StatelessWidget {
               children: [
                 Text(
                   'SCALE TYPE',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: FontWeight.w600,
                     color: FluxForgeTheme.textSecondary,
                     letterSpacing: 0.5,
                   ),
@@ -297,9 +297,9 @@ class ScaleAssistantPanel extends StatelessWidget {
             child: Center(
               child: Text(
                 note.displayName,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                   color: isSelected
                       ? const Color(0xFFFFD700)
                       : FluxForgeTheme.textPrimary,
@@ -360,9 +360,9 @@ class ScaleAssistantPanel extends StatelessWidget {
             padding: const EdgeInsets.only(top: 8, bottom: 4),
             child: Text(
               entry.key,
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockSans(
+                size: 9,
+                weight: FontWeight.w600,
                 color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
               ),
             ),
@@ -383,9 +383,9 @@ class ScaleAssistantPanel extends StatelessWidget {
                 ),
                 child: Text(
                   scale.displayName,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
+                    weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                     color: isSelected
                         ? const Color(0xFFFFD700)
                         : FluxForgeTheme.textPrimary,
@@ -410,9 +410,9 @@ class ScaleAssistantPanel extends StatelessWidget {
             children: [
               Text(
                 'SCALE NOTES',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.w600,
                   color: FluxForgeTheme.textSecondary,
                   letterSpacing: 0.5,
                 ),
@@ -468,9 +468,9 @@ class ScaleAssistantPanel extends StatelessWidget {
                 child: Center(
                   child: Text(
                     note.displayName,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                    style: FluxForgeTheme.dockSans(
+                      size: 13,
+                      weight: FontWeight.w600,
                       color: isRoot
                           ? const Color(0xFFFFD700)
                           : FluxForgeTheme.accentBlue,
@@ -481,10 +481,7 @@ class ScaleAssistantPanel extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 _getIntervalName(interval),
-                style: TextStyle(
-                  fontSize: 9,
-                  color: FluxForgeTheme.textSecondary,
-                ),
+                style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textSecondary),
               ),
             ],
           ),
@@ -544,9 +541,9 @@ class ScaleAssistantPanel extends StatelessWidget {
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Text(
                         NoteName.fromSemitone(semitone).displayName,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: isInScale ? FontWeight.w600 : FontWeight.normal,
+                        style: FluxForgeTheme.dockSans(
+                          size: 10,
+                          weight: isInScale ? FontWeight.w600 : FontWeight.normal,
                           color: isRoot
                               ? const Color(0xFFFFD700)
                               : isInScale
@@ -616,9 +613,9 @@ class ScaleAssistantPanel extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           child: Text(
             'DIATONIC CHORDS',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.w600,
               color: FluxForgeTheme.textSecondary,
               letterSpacing: 0.5,
             ),
@@ -647,9 +644,9 @@ class ScaleAssistantPanel extends StatelessWidget {
             children: [
               Text(
                 'RELATED KEYS',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.w600,
                   color: FluxForgeTheme.textSecondary,
                   letterSpacing: 0.5,
                 ),
@@ -697,9 +694,9 @@ class ScaleAssistantPanel extends StatelessWidget {
             child: Center(
               child: Text(
                 chord.romanNumeral ?? '',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.w600,
                   color: color,
                 ),
               ),
@@ -710,9 +707,9 @@ class ScaleAssistantPanel extends StatelessWidget {
           Expanded(
             child: Text(
               chord.name,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
+              style: FluxForgeTheme.dockSans(
+                size: 12,
+                weight: FontWeight.w500,
                 color: FluxForgeTheme.textPrimary,
               ),
             ),
@@ -743,10 +740,7 @@ class ScaleAssistantPanel extends StatelessWidget {
         children: [
           Text(
             '$type:',
-            style: TextStyle(
-              fontSize: 10,
-              color: FluxForgeTheme.textSecondary,
-            ),
+            style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textSecondary),
           ),
           const SizedBox(width: 8),
           Container(
@@ -757,9 +751,9 @@ class ScaleAssistantPanel extends StatelessWidget {
             ),
             child: Text(
               key,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.w500,
                 color: color,
               ),
             ),
