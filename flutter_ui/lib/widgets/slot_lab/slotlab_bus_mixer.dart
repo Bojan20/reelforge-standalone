@@ -314,9 +314,9 @@ class _BusStripState extends State<_BusStrip> {
       alignment: Alignment.center,
       child: Text(
         widget.bus.name.toUpperCase(),
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
+        style: FluxForgeTheme.dockSans(
+          size: 10,
+          weight: FontWeight.w700,
           letterSpacing: 0.5,
           color: _headerTextColor(),
         ),
@@ -347,9 +347,9 @@ class _BusStripState extends State<_BusStrip> {
             padding: const EdgeInsets.only(bottom: 2),
             child: Text(
               'INSERTS',
-              style: TextStyle(
-                fontSize: 7,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(
+                size: 7,
+                weight: FontWeight.bold,
                 color: FluxForgeTheme.textTertiary,
                 letterSpacing: 0.5,
               ),
@@ -406,13 +406,13 @@ class _BusStripState extends State<_BusStrip> {
           children: [
             Text(
               '${index + 1}',
-              style: TextStyle(fontSize: 7, color: FluxForgeTheme.textTertiary),
+              style: FluxForgeTheme.dockMono(size: 7, color: FluxForgeTheme.textTertiary),
             ),
             const SizedBox(width: 3),
             Expanded(
               child: Text(
                 insert?.name ?? '—',
-                style: TextStyle(fontSize: 8, color: textColor),
+                style: FluxForgeTheme.dockSans(size: 8, color: textColor),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -486,9 +486,9 @@ class _BusStripState extends State<_BusStrip> {
                 child: Center(
                   child: Text(
                     _panToString(pan),
-                    style: TextStyle(
-                      fontSize: 8,
-                      fontWeight: FontWeight.w600,
+                    style: FluxForgeTheme.dockMono(
+                      size: 8,
+                      weight: FontWeight.w600,
                       color: FluxForgeTheme.textTertiary,
                     ),
                   ),
@@ -741,8 +741,8 @@ class _BusStripState extends State<_BusStrip> {
           top: y - 4,
           child: Text(
             '$db',
-            style: TextStyle(
-              fontSize: 7,
+            style: FluxForgeTheme.dockMono(
+              size: 7,
               color: db == 0
                   ? FluxForgeTheme.accentGreen.withValues(alpha: 0.6)
                   : FluxForgeTheme.textTertiary.withValues(alpha: 0.5),
@@ -840,10 +840,9 @@ class _BusStripState extends State<_BusStrip> {
       alignment: Alignment.center,
       child: Text(
         '$db dB',
-        style: TextStyle(
-          fontSize: 9,
-          fontFamily: 'monospace',
-          fontWeight: FontWeight.w600,
+        style: FluxForgeTheme.dockMono(
+          size: 9,
+          weight: FontWeight.w600,
           color: isHot
               ? FluxForgeTheme.accentRed
               : FluxForgeTheme.textSecondary,
@@ -899,9 +898,9 @@ class _BusStripState extends State<_BusStrip> {
         alignment: Alignment.center,
         child: Text(
           label,
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: FontWeight.bold,
             color: active ? FluxForgeTheme.bgDeepest : FluxForgeTheme.textTertiary,
           ),
         ),
@@ -922,8 +921,8 @@ class _BusStripState extends State<_BusStrip> {
       alignment: Alignment.center,
       child: Text(
         widget.isMaster ? 'OUT 1-2' : 'Master',
-        style: TextStyle(
-          fontSize: 8,
+        style: FluxForgeTheme.dockSans(
+          size: 8,
           color: FluxForgeTheme.textSecondary,
         ),
         overflow: TextOverflow.ellipsis,

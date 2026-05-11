@@ -138,8 +138,8 @@ class _GhostStageIndicatorState extends State<GhostStageIndicator>
               // Ghost glyph — fades to dim as coverage approaches 100%.
               Text(
                 report.isFull ? '✨' : '🫥',
-                style: TextStyle(
-                  fontSize: 14,
+                style: FluxForgeTheme.dockSans(
+                  size: 14,
                   color: Colors.white.withValues(alpha: 0.9),
                 ),
               ),
@@ -147,22 +147,20 @@ class _GhostStageIndicatorState extends State<GhostStageIndicator>
               // "142 / 182 bound"
               Text(
                 '${report.boundStages} / ${report.totalStages} bound',
-                style: const TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: Colors.white,
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w700,
-                  fontFamily: 'SpaceGrotesk',
+                  size: 11.5,
+                  weight: FontWeight.w700,
                 ),
               ),
               const SizedBox(width: 8),
               // Percentage
               Text(
                 '${(report.coverage * 100).toStringAsFixed(0)}%',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
                   color: color,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  fontFamily: 'SpaceGrotesk',
+                  size: 11,
+                  weight: FontWeight.w800,
                 ),
               ),
               const SizedBox(width: 10),
@@ -183,11 +181,10 @@ class _GhostStageIndicatorState extends State<GhostStageIndicator>
                   ),
                   child: Text(
                     '${report.missingCount} gap${report.missingCount == 1 ? '' : 's'}',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockMono(
                       color: FluxForgeTheme.accentRed,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w800,
-                      fontFamily: 'SpaceGrotesk',
+                      size: 9,
+                      weight: FontWeight.w800,
                     ),
                   ),
                 ),
@@ -246,10 +243,9 @@ class _GhostStageIndicatorState extends State<GhostStageIndicator>
         padding: const EdgeInsets.all(12),
         child: Text(
           'No stages defined',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: Colors.white.withValues(alpha: 0.5),
-            fontSize: 10,
-            fontFamily: 'SpaceGrotesk',
+            size: 10,
           ),
         ),
       );
@@ -307,11 +303,10 @@ class _GhostStageIndicatorState extends State<GhostStageIndicator>
                     width: 62,
                     child: Text(
                       slice.category.label,
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: Colors.white.withValues(alpha: 0.85),
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w700,
-                        fontFamily: 'SpaceGrotesk',
+                        size: 10.5,
+                        weight: FontWeight.w700,
                       ),
                     ),
                   ),
@@ -323,11 +318,10 @@ class _GhostStageIndicatorState extends State<GhostStageIndicator>
                     child: Text(
                       '${slice.bound}/${slice.total}',
                       textAlign: TextAlign.right,
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockMono(
                         color: Colors.white.withValues(alpha: 0.85),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: 'SpaceGrotesk',
+                        size: 10,
+                        weight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -339,12 +333,11 @@ class _GhostStageIndicatorState extends State<GhostStageIndicator>
                           ? '—'
                           : '${slice.missingCount} missing',
                       textAlign: TextAlign.right,
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockMono(
                         color: slice.missingCount == 0
                             ? Colors.white.withValues(alpha: 0.25)
                             : FluxForgeTheme.accentRed.withValues(alpha: 0.75),
-                        fontSize: 9.5,
-                        fontFamily: 'SpaceGrotesk',
+                        size: 9.5,
                       ),
                     ),
                   ),
@@ -415,10 +408,9 @@ class _GhostStageIndicatorState extends State<GhostStageIndicator>
             ),
             child: Text(
               stage,
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: Colors.white.withValues(alpha: 0.70),
-                fontSize: 8.5,
-                fontFamily: 'SpaceGrotesk',
+                size: 8.5,
               ),
             ),
           ),

@@ -274,10 +274,10 @@ class _PickBonusPanelState extends State<PickBonusPanel>
         const SizedBox(width: 8),
         Text(
           'PICK BONUS',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: _gameOver ? Colors.green : Colors.purple,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
+            size: 12,
+            weight: FontWeight.bold,
             letterSpacing: 1.2,
           ),
         ),
@@ -297,19 +297,18 @@ class _PickBonusPanelState extends State<PickBonusPanel>
                 const SizedBox(width: 4),
                 Text(
                   '$_picksRemaining',
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockMono(
                     color: Colors.purple,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'monospace',
+                    size: 14,
+                    weight: FontWeight.bold,
                   ),
                 ),
-                const Text(
+                Text(
                   ' PICKS',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.purple,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
+                    size: 10,
+                    weight: FontWeight.w500,
                   ),
                 ),
               ],
@@ -323,17 +322,17 @@ class _PickBonusPanelState extends State<PickBonusPanel>
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.green.withValues(alpha: 0.5)),
             ),
-            child: const Row(
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.check, size: 14, color: Colors.green),
-                SizedBox(width: 4),
+                const Icon(Icons.check, size: 14, color: Colors.green),
+                const SizedBox(width: 4),
                 Text(
                   'COMPLETE',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.green,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                    size: 10,
+                    weight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -475,11 +474,10 @@ class _PickBonusPanelState extends State<PickBonusPanel>
         const SizedBox(height: 2),
         Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockMono(
             color: item.prizeType.color,
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            fontFamily: 'monospace',
+            size: 11,
+            weight: FontWeight.bold,
           ),
         ),
       ],
@@ -537,10 +535,10 @@ class _PickBonusPanelState extends State<PickBonusPanel>
               const SizedBox(width: 4),
               Text(
                 label,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: color,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w500,
+                  size: 9,
+                  weight: FontWeight.w500,
                 ),
               ),
             ],
@@ -548,11 +546,9 @@ class _PickBonusPanelState extends State<PickBonusPanel>
           const SizedBox(height: 2),
           Text(
             value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'monospace',
+            style: FluxForgeTheme.dockMono(
+              size: 14,
+              weight: FontWeight.bold,
             ),
           ),
         ],
@@ -572,23 +568,21 @@ class _PickBonusPanelState extends State<PickBonusPanel>
           ),
           child: Column(
             children: [
-              const Text(
+              Text(
                 'BONUS COMPLETE!',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: Colors.green,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+                  size: 16,
+                  weight: FontWeight.bold,
                   letterSpacing: 1.2,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 'Total Win: ${_formatValue(_totalWin)}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'monospace',
+                style: FluxForgeTheme.dockMono(
+                  size: 24,
+                  weight: FontWeight.bold,
                 ),
               ),
             ],

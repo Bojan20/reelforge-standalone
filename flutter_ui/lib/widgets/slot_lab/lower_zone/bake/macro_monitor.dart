@@ -127,12 +127,12 @@ class _MacroMonitorState extends State<MacroMonitor> {
                 : FluxForgeTheme.textTertiary,
           ),
           const SizedBox(width: 6),
-          const Text(
+          Text(
             'MONITOR',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textSecondary,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
+              size: 11,
+              weight: FontWeight.w700,
               letterSpacing: 1.2,
             ),
           ),
@@ -203,11 +203,10 @@ class _MacroMonitorState extends State<MacroMonitor> {
                 ),
                 Text(
                   '$percent',
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockMono(
                     color: FluxForgeTheme.accentYellow,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                    fontFamily: 'JetBrains Mono',
+                    size: 9,
+                    weight: FontWeight.w700,
                   ),
                 ),
               ],
@@ -221,10 +220,10 @@ class _MacroMonitorState extends State<MacroMonitor> {
               children: [
                 Text(
                   currentStep,
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: FluxForgeTheme.textSecondary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
+                    size: 11,
+                    weight: FontWeight.w500,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -262,19 +261,19 @@ class _MacroMonitorState extends State<MacroMonitor> {
               color: FluxForgeTheme.textTertiary.withValues(alpha: 0.2),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'No log output',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.textTertiary,
-                fontSize: 11,
+                size: 11,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               'Run a macro to see log stream',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6),
-                fontSize: 10,
+                size: 10,
               ),
             ),
           ],
@@ -323,10 +322,9 @@ class _MacroMonitorState extends State<MacroMonitor> {
               entry.timestamp.length > 8
                   ? entry.timestamp.substring(entry.timestamp.length - 8)
                   : entry.timestamp,
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: FluxForgeTheme.textTertiary.withValues(alpha: 0.4),
-                fontSize: 10,
-                fontFamily: 'JetBrains Mono',
+                size: 10,
               ),
             ),
           ),
@@ -335,11 +333,10 @@ class _MacroMonitorState extends State<MacroMonitor> {
           width: 28,
           child: Text(
             levelTag,
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: color,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              fontFamily: 'JetBrains Mono',
+              size: 10,
+              weight: FontWeight.w700,
             ),
           ),
         ),
@@ -349,10 +346,9 @@ class _MacroMonitorState extends State<MacroMonitor> {
             width: 100,
             child: Text(
               entry.source,
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: FluxForgeTheme.accentCyan.withValues(alpha: 0.6),
-                fontSize: 10,
-                fontFamily: 'JetBrains Mono',
+                size: 10,
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -361,10 +357,9 @@ class _MacroMonitorState extends State<MacroMonitor> {
         Expanded(
           child: Text(
             entry.message,
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: color.withValues(alpha: 0.8),
-              fontSize: 10,
-              fontFamily: 'JetBrains Mono',
+              size: 10,
             ),
             overflow: TextOverflow.ellipsis,
           ),

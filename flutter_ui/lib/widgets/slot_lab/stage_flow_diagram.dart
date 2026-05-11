@@ -183,12 +183,12 @@ class _StageFlowDiagramState extends State<StageFlowDiagram>
         children: [
           Icon(Icons.timeline, size: 16, color: widget.accentColor),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Stage Flow',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 12,
+              weight: FontWeight.w600,
               color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(width: 12),
@@ -201,9 +201,9 @@ class _StageFlowDiagramState extends State<StageFlowDiagram>
             ),
             child: Text(
               '${widget.events.length} stages',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 10,
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 10,
               ),
             ),
           ),
@@ -216,9 +216,9 @@ class _StageFlowDiagramState extends State<StageFlowDiagram>
             ),
             child: Text(
               '${(_totalDuration / 1000).toStringAsFixed(1)}s',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 10,
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 10,
               ),
             ),
           ),
@@ -233,7 +233,7 @@ class _StageFlowDiagramState extends State<StageFlowDiagram>
           ),
           Text(
             '${(_scale * 100).round()}%',
-            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 10),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 10),
           ),
           IconButton(
             icon: const Icon(Icons.zoom_in, size: 16),
@@ -350,17 +350,17 @@ class _StageFlowDiagramState extends State<StageFlowDiagram>
                     children: [
                       Text(
                         event.stageName,
-                        style: const TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 10,
+                          weight: FontWeight.w600,
                           color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
                         ),
                       ),
                       Text(
                         '${event.timestampMs}ms',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockMono(
+                          size: 9,
                           color: FluxForgeTheme.textSecondary,
-                          fontSize: 9,
                         ),
                       ),
                       if (event.hasAudio)
@@ -371,9 +371,9 @@ class _StageFlowDiagramState extends State<StageFlowDiagram>
                             const SizedBox(width: 2),
                             Text(
                               'Has audio',
-                              style: TextStyle(
+                              style: FluxForgeTheme.dockSans(
+                                size: 9,
                                 color: FluxForgeTheme.accentGreen,
-                                fontSize: 9,
                               ),
                             ),
                           ],
@@ -457,9 +457,9 @@ class _StageFlowDiagramState extends State<StageFlowDiagram>
         const SizedBox(width: 4),
         Text(
           '${category.label} ($count)',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 10,
             color: FluxForgeTheme.textSecondary,
-            fontSize: 10,
           ),
         ),
       ],

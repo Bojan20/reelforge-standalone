@@ -111,12 +111,12 @@ class _KeyboardShortcutsDialog extends StatelessWidget {
               children: [
                 const Icon(Icons.keyboard, color: LowerZoneColors.textPrimary, size: 20),
                 const SizedBox(width: 8),
-                const Text(
+                Text(
                   'Keyboard Shortcuts',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: LowerZoneColors.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                    size: 16,
+                    weight: FontWeight.bold,
                   ),
                 ),
                 const Spacer(),
@@ -172,9 +172,9 @@ class _KeyboardShortcutsDialog extends StatelessWidget {
             Center(
               child: Text(
                 'Press Esc or click outside to close',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: LowerZoneColors.textMuted,
-                  fontSize: 11,
+                  size: 11,
                 ),
               ),
             ),
@@ -190,10 +190,10 @@ class _KeyboardShortcutsDialog extends StatelessWidget {
       children: [
         Text(
           title,
-          style: const TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: LowerZoneColors.textSecondary,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
+            size: 12,
+            weight: FontWeight.w600,
           ),
         ),
         const SizedBox(height: 8),
@@ -218,20 +218,19 @@ class _KeyboardShortcutsDialog extends StatelessWidget {
             child: Text(
               key,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: LowerZoneColors.textPrimary,
-                fontSize: 12,
-                fontFamily: 'monospace',
-                fontWeight: FontWeight.w500,
+                size: 12,
+                weight: FontWeight.w500,
               ),
             ),
           ),
           const SizedBox(width: 12),
           Text(
             description,
-            style: const TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: LowerZoneColors.textSecondary,
-              fontSize: 12,
+              size: 12,
             ),
           ),
         ],

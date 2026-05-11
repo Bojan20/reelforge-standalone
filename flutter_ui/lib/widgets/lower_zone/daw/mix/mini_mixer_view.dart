@@ -126,9 +126,9 @@ class _MiniMixerViewState extends State<MiniMixerView> {
           const SizedBox(width: 6),
           Text(
             'MINI MIXER',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.bold,
               color: FluxForgeTheme.textSecondary,
               letterSpacing: 1.2,
             ),
@@ -143,9 +143,9 @@ class _MiniMixerViewState extends State<MiniMixerView> {
             ),
             child: Text(
               '${widget.channels.length + widget.buses.length + 1}',
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockMono(
+                size: 9,
+                weight: FontWeight.bold,
                 color: FluxForgeTheme.accentBlue,
               ),
             ),
@@ -171,9 +171,9 @@ class _MiniMixerViewState extends State<MiniMixerView> {
                       const SizedBox(width: 4),
                       Text(
                         'FULL',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
+                        style: FluxForgeTheme.dockSans(
+                          size: 9,
+                          weight: FontWeight.bold,
                           color: FluxForgeTheme.textSecondary,
                         ),
                       ),
@@ -255,9 +255,9 @@ class _MiniMixerViewState extends State<MiniMixerView> {
       child: Center(
         child: Text(
           channel.name,
-          style: TextStyle(
-            fontSize: 8,
-            fontWeight: FontWeight.w500,
+          style: FluxForgeTheme.dockSans(
+            size: 8,
+            weight: FontWeight.w500,
             color: FluxForgeTheme.textPrimary,
           ),
           maxLines: 1,
@@ -342,9 +342,9 @@ class _MiniMixerViewState extends State<MiniMixerView> {
         child: Center(
           child: Text(
             label,
-            style: TextStyle(
-              fontSize: 7,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 7,
+              weight: FontWeight.bold,
               color: active ? Colors.white : FluxForgeTheme.textMuted,
             ),
           ),
@@ -374,9 +374,9 @@ class _MiniMixerViewState extends State<MiniMixerView> {
         child: Center(
           child: Text(
             label,
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 9,
+              weight: FontWeight.bold,
               color: active ? Colors.white : FluxForgeTheme.textSecondary,
             ),
           ),
@@ -499,9 +499,8 @@ class _MiniMixerViewState extends State<MiniMixerView> {
   Widget _buildVolumeReadout(UltimateMixerChannel channel) {
     return Text(
       FaderCurve.linearToDbString(channel.volume),
-      style: TextStyle(
-        fontSize: 8,
-        fontFamily: FluxForgeTheme.monoFontFamily,
+      style: FluxForgeTheme.dockMono(
+        size: 8,
         color: channel.volume > 1.0
             ? FluxForgeTheme.accentOrange
             : FluxForgeTheme.textSecondary,
@@ -546,9 +545,9 @@ class _MiniMixerViewState extends State<MiniMixerView> {
             child: Center(
               child: Text(
                 'MASTER',
-                style: TextStyle(
-                  fontSize: 8,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
+                  weight: FontWeight.bold,
                   color: FluxForgeTheme.accentOrange,
                   letterSpacing: 0.5,
                 ),
@@ -708,9 +707,9 @@ class MixerViewToggle extends StatelessWidget {
               const SizedBox(width: 4),
               Text(
                 isMiniView ? 'MINI' : 'FULL',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.bold,
                   color: isMiniView
                       ? FluxForgeTheme.accentBlue
                       : FluxForgeTheme.textSecondary,

@@ -318,8 +318,8 @@ class _SpectrumWaterfallPanelState extends State<SpectrumWaterfallPanel>
                   const SizedBox(width: 4),
                   Text(
                     mode.label,
-                    style: TextStyle(
-                      fontSize: 10,
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
                       color: isSelected ? FluxForgeTheme.accentBlue : Colors.white54,
                     ),
                   ),
@@ -353,7 +353,7 @@ class _SpectrumWaterfallPanelState extends State<SpectrumWaterfallPanel>
             value: value,
             isDense: true,
             dropdownColor: FluxForgeTheme.bgMid,
-            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 10),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 10),
             items: items.map((e) => DropdownMenuItem(
               value: e,
               child: Text(labelBuilder(e)),
@@ -404,9 +404,9 @@ class _SpectrumWaterfallPanelState extends State<SpectrumWaterfallPanel>
           return Center(
             child: Text(
               'Awaiting spectrum data...',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 12,
+                size: 12,
               ),
             ),
           );
@@ -444,10 +444,9 @@ class _SpectrumWaterfallPanelState extends State<SpectrumWaterfallPanel>
         children: [
           Text(
             '${_history.length} frames',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: FluxForgeTheme.textSecondary,
-              fontSize: 9,
-              fontFamily: 'monospace',
+              size: 9,
             ),
           ),
 
@@ -455,10 +454,9 @@ class _SpectrumWaterfallPanelState extends State<SpectrumWaterfallPanel>
 
           Text(
             '${_minFreq.toInt()} Hz - ${(_maxFreq / 1000).toStringAsFixed(0)} kHz',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: FluxForgeTheme.textSecondary,
-              fontSize: 9,
-              fontFamily: 'monospace',
+              size: 9,
             ),
           ),
 
@@ -471,9 +469,9 @@ class _SpectrumWaterfallPanelState extends State<SpectrumWaterfallPanel>
                 color: Colors.orange.withAlpha(51),
                 borderRadius: BorderRadius.circular(2),
               ),
-              child: const Text(
+              child: Text(
                 'PAUSED',
-                style: TextStyle(color: Colors.orange, fontSize: 8, fontWeight: FontWeight.bold),
+                style: FluxForgeTheme.dockSans(color: Colors.orange, size: 8, weight: FontWeight.bold),
               ),
             ),
 
@@ -490,10 +488,10 @@ class _SpectrumWaterfallPanelState extends State<SpectrumWaterfallPanel>
             ),
             child: Text(
               _ffiConnected ? 'FFI' : 'OFFLINE',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: _ffiConnected ? Colors.green : Colors.orange,
-                fontSize: 8,
-                fontWeight: FontWeight.bold,
+                size: 8,
+                weight: FontWeight.bold,
               ),
             ),
           ),
