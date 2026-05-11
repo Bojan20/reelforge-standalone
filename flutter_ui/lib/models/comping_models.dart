@@ -442,6 +442,12 @@ class CompState {
   /// Recording start time
   final double? recordingStartTime;
 
+  /// Path to last flattened comp WAV (null = not yet flattened)
+  final String? flattenedPath;
+
+  /// Timestamp of last flatten operation
+  final DateTime? lastFlattenedAt;
+
   const CompState({
     required this.trackId,
     this.mode = CompMode.single,
@@ -452,6 +458,8 @@ class CompState {
     this.nextTakeNumber = 1,
     this.isRecording = false,
     this.recordingStartTime,
+    this.flattenedPath,
+    this.lastFlattenedAt,
   });
 
   /// Get active lane
@@ -488,6 +496,8 @@ class CompState {
     int? nextTakeNumber,
     bool? isRecording,
     double? recordingStartTime,
+    String? flattenedPath,
+    DateTime? lastFlattenedAt,
   }) {
     return CompState(
       trackId: trackId ?? this.trackId,
@@ -499,6 +509,8 @@ class CompState {
       nextTakeNumber: nextTakeNumber ?? this.nextTakeNumber,
       isRecording: isRecording ?? this.isRecording,
       recordingStartTime: recordingStartTime ?? this.recordingStartTime,
+      flattenedPath: flattenedPath ?? this.flattenedPath,
+      lastFlattenedAt: lastFlattenedAt ?? this.lastFlattenedAt,
     );
   }
 

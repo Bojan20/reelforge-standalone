@@ -9,6 +9,8 @@
 //
 // Integration with rf-core/comping.rs via FFI
 
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../models/comping_models.dart';
@@ -911,20 +913,94 @@ class CompingProvider extends ChangeNotifier {
   // FLATTEN COMP
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Flatten comp regions to a single clip (returns the new clip path)
-  /// This would typically call into Rust to render the comp
+  /// Flatten comp regions to a single WAV clip via engine FFI.
+  ///
+  /// The Rust engine already has the full comp state (all comping_* calls were
+  /// mirrored to the engine). This calls export_audio() over the exact time span
+  /// of the comp regions — format 2 (WAV 32-bit float) for lossless downstream use.
+  ///
+  /// Returns [outputPath] on success, null on failure (missing takes, FFI error,
+  /// invalid time range, or empty comp).
   Future<String?> flattenComp(String trackId, String outputPath) async {
     final state = _compStates[trackId];
     if (state == null || state.compRegions.isEmpty) return null;
 
-    // TODO: Call Rust FFI to render comp regions to single file
-    // This would involve:
-    // 1. For each region, get audio from the referenced take
-    // 2. Apply crossfades between regions
-    // 3. Render to output file
+    // Sort regions ascending by startTime to get the true time range
+    final regions = [...state.compRegions]
+      ..sort((a, b) => a.startTime.compareTo(b.startTime));
 
-    // For now, return null (not implemented)
-    return null;
+    final startTime = regions.first.startTime;
+    final endTime = regions.last.endTime;
+    if (endTime <= startTime) return null;
+
+    // Verify all referenced take source files exist on disk
+    final allTakes = state.lanes.expand((l) => l.takes).toList();
+    final missingPaths = <String>[];
+    for (final region in regions) {
+      final take = allTakes.where((t) => t.id == region.takeId).firstOrNull;
+      if (take == null) continue;
+      if (take.sourcePath.isNotEmpty && !File(take.sourcePath).existsSync()) {
+        missingPaths.add(take.sourcePath);
+      }
+    }
+    if (missingPaths.isNotEmpty) {
+      debugPrint(
+        '[CompingProvider] flattenComp: missing source files:\n'
+        '  ${missingPaths.join("\n  ")}',
+      );
+      return null;
+    }
+
+    // Ensure output directory exists
+    final outDir = File(outputPath).parent;
+    if (!outDir.existsSync()) {
+      try {
+        outDir.createSync(recursive: true);
+      } catch (e) {
+        debugPrint('[CompingProvider] flattenComp: cannot create output dir: $e');
+        return null;
+      }
+    }
+
+    // Render via engine FFI.
+    // export_audio renders the engine's current output — which reflects the
+    // active comp for this track — from startTime to endTime into a WAV file.
+    // format=2 → WAV 32-bit float (lossless, suitable for further processing)
+    // sample_rate=44100, normalize=true
+    final ffi = NativeFFI.instance;
+    if (!ffi.isLoaded) return null;
+
+    final result = ffi.exportAudio(
+      outputPath,
+      2,      // WAV 32-bit float
+      44100,
+      startTime,
+      endTime,
+      true,   // normalize
+    );
+
+    if (result != 1) {
+      debugPrint('[CompingProvider] flattenComp: exportAudio failed (result=$result)');
+      return null;
+    }
+
+    // Record flatten provenance in state
+    _compStates[trackId] = state.copyWith(
+      flattenedPath: outputPath,
+      lastFlattenedAt: DateTime.now(),
+    );
+    notifyListeners();
+
+    return outputPath;
+  }
+
+  /// Returns the flattened path for a track if available.
+  String? getFlattenedPath(String trackId) => _compStates[trackId]?.flattenedPath;
+
+  /// Returns true if this track's comp has been flattened and the file still exists.
+  bool isFlattenedValid(String trackId) {
+    final path = getFlattenedPath(trackId);
+    return path != null && File(path).existsSync();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
