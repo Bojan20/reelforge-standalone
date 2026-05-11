@@ -15,6 +15,7 @@ import '../../../../widgets/dsp/chain_history_bar.dart';
 import '../../../../widgets/dsp/chain_preset_library_panel.dart';
 import '../../../../widgets/dsp/internal_processor_editor_window.dart';
 import '../shared/processor_cpu_meter.dart';
+import '../../../../theme/fluxforge_theme.dart';
 
 class FxChainPanel extends StatelessWidget {
   final int? selectedTrackId;
@@ -53,7 +54,7 @@ class FxChainPanel extends StatelessWidget {
                     child: Text(
                       'FX CHAIN — Track $trackId',
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: LowerZoneColors.dawAccent, letterSpacing: 1.0),
+                      style: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.bold, color: LowerZoneColors.dawAccent, letterSpacing: 1.0),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -127,7 +128,7 @@ class FxChainPanel extends StatelessWidget {
               color: bypassed ? Colors.orange : LowerZoneColors.textSecondary),
             const SizedBox(width: 4),
             Text(bypassed ? 'BYPASSED' : 'ACTIVE',
-              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, 
+              style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.w600,
                 color: bypassed ? Colors.orange : LowerZoneColors.textSecondary)),
           ],
         ),
@@ -149,7 +150,7 @@ class FxChainPanel extends StatelessWidget {
           children: [
             Icon(_nodeTypeIcon(type), size: 14, color: LowerZoneColors.dawAccent),
             const SizedBox(width: 8),
-            Text(type.fullName, style: const TextStyle(fontSize: 11, color: LowerZoneColors.textPrimary)),
+            Text(type.fullName, style: FluxForgeTheme.dockSans(size: 11, color: LowerZoneColors.textPrimary)),
           ],
         ),
       )).toList(),
@@ -160,12 +161,12 @@ class FxChainPanel extends StatelessWidget {
           borderRadius: BorderRadius.circular(4),
           border: Border.all(color: LowerZoneColors.dawAccent.withValues(alpha: 0.3)),
         ),
-        child: const Row(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.add, size: 12, color: LowerZoneColors.dawAccent),
-            SizedBox(width: 4),
-            Text('Add', style: TextStyle(fontSize: 10, color: LowerZoneColors.dawAccent, fontWeight: FontWeight.w500)),
+            const Icon(Icons.add, size: 12, color: LowerZoneColors.dawAccent),
+            const SizedBox(width: 4),
+            Text('Add', style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.dawAccent, weight: FontWeight.w500)),
           ],
         ),
       ),
@@ -187,9 +188,9 @@ class FxChainPanel extends StatelessWidget {
               color: isHovering ? LowerZoneColors.dawAccent : LowerZoneColors.border,
               width: 2, style: BorderStyle.solid),
           ),
-          child: const Center(
-            child: Text('Drop here\nor click Add', 
-              style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted), textAlign: TextAlign.center),
+          child: Center(
+            child: Text('Drop here\nor click Add',
+              style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textMuted), textAlign: TextAlign.center),
           ),
         );
       },
@@ -247,7 +248,7 @@ class FxChainPanel extends StatelessWidget {
                 const SizedBox(height: 14),
                 Icon(_nodeTypeIcon(node.type), size: 16, color: isActive ? LowerZoneColors.dawAccent : LowerZoneColors.textMuted),
                 const SizedBox(height: 2),
-                Text(node.type.shortName, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold,
+                Text(node.type.shortName, style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.bold,
                   color: isActive ? LowerZoneColors.textPrimary : LowerZoneColors.textMuted)),
                 const SizedBox(height: 3),
                 // Wet/Dry slider (host-level, #32)
@@ -272,7 +273,7 @@ class FxChainPanel extends StatelessWidget {
                     },
                     child: Column(
                       children: [
-                        Text('W/D $wetPct%', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w500,
+                        Text('W/D $wetPct%', style: FluxForgeTheme.dockMono(size: 8, weight: FontWeight.w500,
                           color: isFullWet ? LowerZoneColors.textTertiary : LowerZoneColors.dawAccent)),
                         SizedBox(
                           height: 14,
@@ -296,7 +297,7 @@ class FxChainPanel extends StatelessWidget {
                     ),
                   ),
                 ) else
-                  Text(isFullWet ? '' : '$wetPct%', style: const TextStyle(fontSize: 8, color: LowerZoneColors.textTertiary)),
+                  Text(isFullWet ? '' : '$wetPct%', style: FluxForgeTheme.dockMono(size: 8, color: LowerZoneColors.textTertiary)),
                 const SizedBox(height: 2),
                 // CPU meter (P3.2)
                 Padding(
@@ -402,7 +403,7 @@ class FxChainPanel extends StatelessWidget {
           children: [
             Icon(icon, size: 12, color: LowerZoneColors.textSecondary),
             const SizedBox(width: 4),
-            Text(label, style: const TextStyle(fontSize: 10, color: LowerZoneColors.textSecondary)),
+            Text(label, style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textSecondary)),
           ],
         ),
       ),
@@ -422,7 +423,7 @@ class FxChainPanel extends StatelessWidget {
         children: [
           Icon(icon, size: 20, color: isEndpoint ? LowerZoneColors.textMuted : LowerZoneColors.dawAccent),
           const SizedBox(height: 4),
-          Text(label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, 
+          Text(label, style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.bold,
             color: isEndpoint ? LowerZoneColors.textMuted : LowerZoneColors.textPrimary)),
         ],
       ),

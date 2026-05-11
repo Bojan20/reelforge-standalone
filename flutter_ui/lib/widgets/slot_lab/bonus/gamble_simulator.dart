@@ -306,10 +306,10 @@ class _GambleSimulatorState extends State<GambleSimulator>
         const SizedBox(width: 8),
         Text(
           widget.config.gameType.displayName.toUpperCase(),
-          style: const TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: Colors.orange,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
+            size: 12,
+            weight: FontWeight.bold,
             letterSpacing: 1.2,
           ),
         ),
@@ -323,10 +323,10 @@ class _GambleSimulatorState extends State<GambleSimulator>
           ),
           child: Text(
             '${(widget.config.gameType.winChance * 100).toInt()}% / ${widget.config.gameType.winMultiplier.toInt()}x',
-            style: const TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: Colors.orange,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
+              size: 10,
+              weight: FontWeight.bold,
             ),
           ),
         ),
@@ -374,21 +374,20 @@ class _GambleSimulatorState extends State<GambleSimulator>
             children: [
               Text(
                 'CURRENT STAKE',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: textColor.withValues(alpha: 0.7),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
+                  size: 10,
+                  weight: FontWeight.w500,
                   letterSpacing: 1.2,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 _formatValue(_currentAmount),
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
                   color: textColor,
-                  fontSize: 36,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'monospace',
+                  size: 36,
+                  weight: FontWeight.bold,
                 ),
               ),
               if (_lastResult != null) ...[
@@ -399,10 +398,10 @@ class _GambleSimulatorState extends State<GambleSimulator>
                       : _lastResult == GambleResult.lose
                           ? 'YOU LOSE'
                           : 'DRAW',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: textColor,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
+                    size: 14,
+                    weight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -422,12 +421,12 @@ class _GambleSimulatorState extends State<GambleSimulator>
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: FluxForgeTheme.borderSubtle),
         ),
-        child: const Center(
+        child: Center(
           child: Text(
             'Make your choice!',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white54,
-              fontSize: 14,
+              size: 14,
             ),
           ),
         ),
@@ -450,12 +449,12 @@ class _GambleSimulatorState extends State<GambleSimulator>
           children: [
             Text(
               _winningChoice!.label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: _winningChoice!.color == Colors.black87
                     ? Colors.white
                     : _winningChoice!.color,
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
+                size: 32,
+                weight: FontWeight.bold,
               ),
             ),
             if (_lastChoice != null) ...[
@@ -505,14 +504,14 @@ class _GambleSimulatorState extends State<GambleSimulator>
             child: Center(
               child: Text(
                 choice.label,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: choice.color == Colors.black87
                       ? Colors.white
                       : choice.color,
-                  fontSize: widget.config.gameType == GambleGameType.cardSuit
+                  size: widget.config.gameType == GambleGameType.cardSuit
                       ? 24
                       : 14,
-                  fontWeight: FontWeight.bold,
+                  weight: FontWeight.bold,
                 ),
               ),
             ),
@@ -573,10 +572,10 @@ class _GambleSimulatorState extends State<GambleSimulator>
               const SizedBox(width: 4),
               Text(
                 label,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: color,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w500,
+                  size: 9,
+                  weight: FontWeight.w500,
                 ),
               ),
             ],
@@ -584,11 +583,10 @@ class _GambleSimulatorState extends State<GambleSimulator>
           const SizedBox(height: 2),
           Text(
             value,
-            style: const TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'monospace',
+              size: 12,
+              weight: FontWeight.bold,
             ),
           ),
         ],

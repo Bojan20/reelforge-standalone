@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 import '../../controllers/mixer/mixer_view_controller.dart';
 import '../../models/mixer_view_models.dart';
+import '../../theme/fluxforge_theme.dart';
 
 class MixerTopBar extends StatelessWidget {
   final MixerViewController controller;
@@ -127,10 +128,10 @@ class MixerTopBar extends StatelessWidget {
               const SizedBox(width: 3),
               Text(
                 'View',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: Colors.white.withValues(alpha: 0.6),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
+                  size: 10,
+                  weight: FontWeight.w500,
                 ),
               ),
             ],
@@ -167,9 +168,9 @@ class MixerTopBar extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 section.label,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: Colors.white.withValues(alpha: visible ? 0.9 : 0.5),
-                  fontSize: 11,
+                  size: 11,
                 ),
               ),
             ],
@@ -194,9 +195,9 @@ class MixerTopBar extends StatelessWidget {
           height: 28,
           child: Text(
             preset.name,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white.withValues(alpha: 0.7),
-              fontSize: 11,
+              size: 11,
             ),
           ),
         );
@@ -212,10 +213,10 @@ class MixerTopBar extends StatelessWidget {
           children: [
             Text(
               'Presets',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.white.withValues(alpha: 0.6),
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
+                size: 10,
+                weight: FontWeight.w500,
               ),
             ),
             const SizedBox(width: 2),
@@ -241,11 +242,11 @@ class MixerTopBar extends StatelessWidget {
           height: 32,
           child: Text(
             mode.label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: controller.meteringMode == mode
                   ? const Color(0xFF4A9EFF)
                   : Colors.white.withValues(alpha: 0.7),
-              fontSize: 11,
+              size: 11,
             ),
           ),
         );
@@ -261,10 +262,10 @@ class MixerTopBar extends StatelessWidget {
           children: [
             Text(
               controller.meteringMode.label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.white.withValues(alpha: 0.6),
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
+                size: 10,
+                weight: FontWeight.w500,
               ),
             ),
             const SizedBox(width: 2),
@@ -285,15 +286,15 @@ class MixerTopBar extends StatelessWidget {
       height: 24,
       child: TextField(
         onChanged: controller.setFilterQuery,
-        style: TextStyle(
+        style: FluxForgeTheme.dockSans(
           color: Colors.white.withValues(alpha: 0.8),
-          fontSize: 11,
+          size: 11,
         ),
         decoration: InputDecoration(
           hintText: 'Filter...',
-          hintStyle: TextStyle(
+          hintStyle: FluxForgeTheme.dockSans(
             color: Colors.white.withValues(alpha: 0.2),
-            fontSize: 11,
+            size: 11,
           ),
           prefixIcon: Padding(
             padding: const EdgeInsets.only(left: 6, right: 4),
@@ -377,12 +378,12 @@ class MixerTopBar extends StatelessWidget {
             color: const Color(0xFF4A9EFF).withValues(alpha: 0.3),
           ),
         ),
-        child: const Text(
+        child: Text(
           'Edit',
-          style: TextStyle(
-            color: Color(0xFF4A9EFF),
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
+          style: FluxForgeTheme.dockSans(
+            color: const Color(0xFF4A9EFF),
+            size: 11,
+            weight: FontWeight.w600,
           ),
         ),
       ),
@@ -406,12 +407,12 @@ class MixerTopBar extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: active
                 ? activeColor
                 : Colors.white.withValues(alpha: 0.4),
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
+            size: 10,
+            weight: FontWeight.w600,
           ),
         ),
       ),

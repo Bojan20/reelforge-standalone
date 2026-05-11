@@ -14,6 +14,7 @@ library;
 
 import 'package:flutter/material.dart';
 import '../../../../services/ucs_naming_service.dart';
+import '../../../../theme/fluxforge_theme.dart';
 import '../../../fabfilter/fabfilter_theme.dart';
 import '../../../fabfilter/fabfilter_widgets.dart';
 
@@ -195,10 +196,10 @@ class _UcsNamingPanelState extends State<UcsNamingPanel> {
                   onTap: () =>
                       setState(() => _showAllCategories = !_showAllCategories),
                   child: Text(_showAllCategories ? 'LESS' : 'ALL',
-                      style: TextStyle(
-                        fontSize: 7,
+                      style: FluxForgeTheme.dockSans(
+                        size: 7,
                         color: FabFilterColors.cyan,
-                        fontWeight: FontWeight.bold,
+                        weight: FontWeight.bold,
                       )),
                 ),
               ],
@@ -229,19 +230,18 @@ class _UcsNamingPanelState extends State<UcsNamingPanel> {
                         child: Row(
                           children: [
                             Text(cat.id,
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.bold,
+                                style: FluxForgeTheme.dockMono(
+                                  size: 9,
+                                  weight: FontWeight.bold,
                                   color: isSelected
                                       ? FabFilterColors.cyan
                                       : FabFilterColors.textSecondary,
-                                  fontFamily: 'monospace',
                                 )),
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(cat.name,
-                                  style: TextStyle(
-                                    fontSize: 8,
+                                  style: FluxForgeTheme.dockSans(
+                                    size: 8,
                                     color: isSelected
                                         ? FabFilterColors.textPrimary
                                         : FabFilterColors.textTertiary,
@@ -280,18 +280,17 @@ class _UcsNamingPanelState extends State<UcsNamingPanel> {
                             child: Row(
                               children: [
                                 Text(sub.id,
-                                    style: TextStyle(
-                                      fontSize: 8,
-                                      fontWeight: FontWeight.bold,
+                                    style: FluxForgeTheme.dockMono(
+                                      size: 8,
+                                      weight: FontWeight.bold,
                                       color: isSubSelected
                                           ? FabFilterColors.cyan
                                           : FabFilterColors.textTertiary,
-                                      fontFamily: 'monospace',
                                     )),
                                 const SizedBox(width: 4),
                                 Text(sub.name,
-                                    style: TextStyle(
-                                      fontSize: 8,
+                                    style: FluxForgeTheme.dockSans(
+                                      size: 8,
                                       color: isSubSelected
                                           ? FabFilterColors.textPrimary
                                           : FabFilterColors.textTertiary,
@@ -421,20 +420,18 @@ class _UcsNamingPanelState extends State<UcsNamingPanel> {
             controller: controller,
             focusNode: focusNode,
             keyboardType: keyboardType,
-            style: TextStyle(
-              fontSize: 10,
+            style: FluxForgeTheme.dockMono(
+              size: 10,
               color: FabFilterColors.textPrimary,
-              fontFamily: 'monospace',
             ),
             decoration: InputDecoration(
               border: InputBorder.none,
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(vertical: 6),
               hintText: hint,
-              hintStyle: TextStyle(
-                fontSize: 10,
+              hintStyle: FluxForgeTheme.dockMono(
+                size: 10,
                 color: FabFilterColors.textDisabled,
-                fontFamily: 'monospace',
               ),
             ),
             onChanged: onChanged,
@@ -471,18 +468,16 @@ class _UcsNamingPanelState extends State<UcsNamingPanel> {
               for (int i = 0; i < parts.length; i++) ...[
                 if (i > 0)
                   Text('_',
-                      style: TextStyle(
-                        fontSize: 12,
+                      style: FluxForgeTheme.dockMono(
+                        size: 12,
                         color: FabFilterColors.textTertiary,
-                        fontFamily: 'monospace',
-                        fontWeight: FontWeight.bold,
+                        weight: FontWeight.bold,
                       )),
                 Text(parts[i],
-                    style: TextStyle(
-                      fontSize: 12,
+                    style: FluxForgeTheme.dockMono(
+                      size: 12,
                       color: _partColor(i, parts.length),
-                      fontFamily: 'monospace',
-                      fontWeight: FontWeight.bold,
+                      weight: FontWeight.bold,
                     )),
               ],
             ],
@@ -491,10 +486,9 @@ class _UcsNamingPanelState extends State<UcsNamingPanel> {
           // Part labels
           Text(
             _partLabels(parts.length),
-            style: TextStyle(
-              fontSize: 7,
+            style: FluxForgeTheme.dockMono(
+              size: 7,
               color: FabFilterColors.textDisabled,
-              fontFamily: 'monospace',
             ),
           ),
         ],

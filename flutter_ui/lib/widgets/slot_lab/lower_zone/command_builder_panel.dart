@@ -161,19 +161,19 @@ class _CompactSlotMockup extends StatelessWidget {
                 const SizedBox(width: 6),
                 Text(
                   'DROP AUDIO ON SLOT ELEMENTS',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: FluxForgeTheme.accentOrange,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
+                    size: 10,
+                    weight: FontWeight.w600,
                     letterSpacing: 0.5,
                   ),
                 ),
                 const Spacer(),
                 Text(
                   'Drag from Browser →',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: FluxForgeTheme.textMuted,
-                    fontSize: 9,
+                    size: 9,
                   ),
                 ),
               ],
@@ -510,14 +510,13 @@ class _DropZoneBoxState extends State<_DropZoneBox> {
                     Text(
                       widget.label,
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: isActive || hasEvents
                             ? widget.color
                             : Colors.white.withValues(alpha: 0.5),
-                        fontSize: 8,
-                        fontWeight: FontWeight.w600,
-                        height: 1.1,
-                      ),
+                        size: 8,
+                        weight: FontWeight.w600,
+                      ).copyWith(height: 1.1),
                     ),
                   ],
                 ),
@@ -536,10 +535,10 @@ class _DropZoneBoxState extends State<_DropZoneBox> {
                     ),
                     child: Text(
                       '$_eventCount',
-                      style: const TextStyle(
+                      style: FluxForgeTheme.dockMono(
                         color: Colors.white,
-                        fontSize: 8,
-                        fontWeight: FontWeight.bold,
+                        size: 8,
+                        weight: FontWeight.bold,
                       ),
                     ),
                   ),
@@ -720,17 +719,17 @@ class _EventsList extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               'No events yet',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.textMuted,
-                fontSize: 12,
+                size: 12,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               'Drop audio on slot elements',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.textMuted.withValues(alpha: 0.6),
-                fontSize: 10,
+                size: 10,
               ),
             ),
           ],
@@ -760,10 +759,10 @@ class _EventsList extends StatelessWidget {
                 const SizedBox(width: 6),
                 Text(
                   'EVENTS (${events.length})',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: FluxForgeTheme.textSecondary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
+                    size: 10,
+                    weight: FontWeight.w600,
                     letterSpacing: 0.5,
                   ),
                 ),
@@ -814,10 +813,10 @@ class _EventsList extends StatelessWidget {
                             children: [
                               Text(
                                 event.name,
-                                style: TextStyle(
+                                style: FluxForgeTheme.dockSans(
                                   color: FluxForgeTheme.textPrimary,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
+                                  size: 11,
+                                  weight: FontWeight.w500,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -825,9 +824,9 @@ class _EventsList extends StatelessWidget {
                               if (event.triggerStages.isNotEmpty)
                                 Text(
                                   event.triggerStages.join(', '),
-                                  style: TextStyle(
+                                  style: FluxForgeTheme.dockMono(
                                     color: FluxForgeTheme.textMuted,
-                                    fontSize: 9,
+                                    size: 9,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -845,9 +844,9 @@ class _EventsList extends StatelessWidget {
                           ),
                           child: Text(
                             '${event.layers.length}',
-                            style: TextStyle(
+                            style: FluxForgeTheme.dockMono(
                               color: FluxForgeTheme.textMuted,
-                              fontSize: 9,
+                              size: 9,
                             ),
                           ),
                         ),

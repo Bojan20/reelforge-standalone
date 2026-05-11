@@ -18,6 +18,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/template_models.dart';
+import '../../theme/flux_forge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MARKETPLACE MODELS
@@ -605,7 +606,7 @@ class _TemplateMarketplacePanelState extends State<TemplateMarketplacePanel> {
               const SizedBox(height: 8),
               Text(
                 _getRatingText(selectedStars),
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+                style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.7)),
               ),
             ],
           ),
@@ -672,11 +673,11 @@ class _TemplateMarketplacePanelState extends State<TemplateMarketplacePanel> {
         children: [
           const Icon(Icons.storefront, color: Color(0xFF4a9eff)),
           const SizedBox(width: 12),
-          const Text(
+          Text(
             'Template Marketplace',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 18,
+              weight: FontWeight.bold,
               color: Colors.white,
             ),
           ),
@@ -689,9 +690,9 @@ class _TemplateMarketplacePanelState extends State<TemplateMarketplacePanel> {
             ),
             child: Text(
               '${_filteredTemplates.length} templates',
-              style: const TextStyle(
-                fontSize: 12,
-                color: Color(0xFF40ff90),
+              style: FluxForgeTheme.dockMono(
+                size: 12,
+                color: const Color(0xFF40ff90),
               ),
             ),
           ),
@@ -797,7 +798,7 @@ class _TemplateMarketplacePanelState extends State<TemplateMarketplacePanel> {
             const SizedBox(height: 16),
             Text(
               'No templates found',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+              style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.5)),
             ),
           ],
         ),
@@ -836,7 +837,7 @@ class _TemplateMarketplacePanelState extends State<TemplateMarketplacePanel> {
           const SizedBox(height: 16),
           Text(
             _service.error ?? 'Failed to load marketplace',
-            style: const TextStyle(color: Color(0xFFff4060)),
+            style: FluxForgeTheme.dockSans(color: const Color(0xFFff4060)),
           ),
           const SizedBox(height: 16),
           ElevatedButton.icon(
@@ -897,8 +898,8 @@ class _MarketplaceTemplateCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   template.template.description,
-                  style: TextStyle(
-                    fontSize: 12,
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
                     color: Colors.white.withValues(alpha: 0.7),
                   ),
                   maxLines: 3,
@@ -953,9 +954,9 @@ class _MarketplaceTemplateCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       template.template.name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                      style: FluxForgeTheme.dockSans(
+                        weight: FontWeight.bold,
+                        size: 14,
                         color: Colors.white,
                       ),
                       maxLines: 1,
@@ -976,8 +977,8 @@ class _MarketplaceTemplateCard extends StatelessWidget {
               ),
               Text(
                 template.authorName,
-                style: TextStyle(
-                  fontSize: 11,
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
                   color: Colors.white.withValues(alpha: 0.5),
                 ),
               ),
@@ -1001,8 +1002,8 @@ class _MarketplaceTemplateCard extends StatelessWidget {
           ),
           child: Text(
             tag,
-            style: TextStyle(
-              fontSize: 10,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: Colors.white.withValues(alpha: 0.6),
             ),
           ),
@@ -1132,9 +1133,9 @@ class _StatItem extends StatelessWidget {
         const SizedBox(width: 4),
         Text(
           value,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockMono(
+            size: 12,
+            weight: FontWeight.bold,
             color: Colors.white,
           ),
         ),

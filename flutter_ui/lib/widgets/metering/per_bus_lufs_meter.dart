@@ -256,12 +256,12 @@ class _PerBusLufsMeterState extends State<PerBusLufsMeter> {
       children: [
         const Icon(Icons.graphic_eq, size: 16, color: FluxForgeTheme.accentBlue),
         const SizedBox(width: 8),
-        const Text(
+        Text(
           'PER-BUS LUFS',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.accentBlue,
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
+            size: 10,
+            weight: FontWeight.bold,
             letterSpacing: 1,
           ),
         ),
@@ -294,9 +294,12 @@ class _PerBusLufsMeterState extends State<PerBusLufsMeter> {
       ),
       child: Row(
         children: [
-          const Text(
+          Text(
             'Target:',
-            style: TextStyle(color: Colors.white54, fontSize: 10),
+            style: FluxForgeTheme.dockSans(
+              color: Colors.white54,
+              size: 10,
+            ),
           ),
           const SizedBox(width: 8),
           ...LufsTargetPreset.values.map((preset) => Padding(
@@ -398,10 +401,10 @@ class _TargetChip extends StatelessWidget {
         ),
         child: Text(
           '${preset.targetLufs.toInt()} ${preset.label}',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: isSelected ? preset.color : Colors.white54,
-            fontSize: 9,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+            size: 9,
+            weight: isSelected ? FontWeight.w600 : FontWeight.normal,
           ),
         ),
       ),
@@ -445,10 +448,10 @@ class _BusMeterRow extends StatelessWidget {
                 const SizedBox(width: 4),
                 Text(
                   config.name,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: config.color,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
+                    size: 10,
+                    weight: FontWeight.w500,
                   ),
                 ),
               ],
@@ -650,19 +653,18 @@ class _LufsValueBox extends StatelessWidget {
         children: [
           Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: color.withValues(alpha: 0.7),
-              fontSize: 8,
-              fontWeight: FontWeight.w500,
+              size: 8,
+              weight: FontWeight.w500,
             ),
           ),
           Text(
             value > -70 ? value.toStringAsFixed(1) : '-',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: color,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              fontFamily: 'monospace',
+              size: 10,
+              weight: FontWeight.w600,
             ),
           ),
         ],
@@ -704,20 +706,19 @@ class _CompactLufsValue extends StatelessWidget {
         children: [
           Text(
             label,
-            style: TextStyle(color: color, fontSize: 8),
+            style: FluxForgeTheme.dockSans(color: color, size: 8),
           ),
           Text(
             value > -70 ? value.toStringAsFixed(1) : '-',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: color,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'monospace',
+              size: 14,
+              weight: FontWeight.bold,
             ),
           ),
-          const Text(
+          Text(
             'LUFS',
-            style: TextStyle(color: Colors.white38, fontSize: 7),
+            style: FluxForgeTheme.dockSans(color: Colors.white38, size: 7),
           ),
         ],
       ),
@@ -761,10 +762,10 @@ class _MiniMeter extends StatelessWidget {
             ),
             Text(
               busConfig.name[0],
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: busConfig.color,
-                fontSize: 7,
-                fontWeight: FontWeight.bold,
+                size: 7,
+                weight: FontWeight.bold,
               ),
             ),
           ],

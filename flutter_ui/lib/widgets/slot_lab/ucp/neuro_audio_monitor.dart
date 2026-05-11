@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../../../providers/slot_lab/neuro_audio_provider.dart';
+import '../../../theme/flux_forge_theme.dart';
 
 /// UCP-9: NeuroAudio™ Monitor — Player Behavioral Adaptation Dashboard
 ///
@@ -39,8 +40,8 @@ class _NeuroAudioMonitorState extends State<NeuroAudioMonitor> {
   Widget build(BuildContext context) {
     final p = _provider;
     if (p == null) {
-      return const Center(
-        child: Text('NeuroAudio not available', style: TextStyle(color: Colors.grey)),
+      return Center(
+        child: Text('NeuroAudio not available', style: FluxForgeTheme.dockSans(color: Colors.grey)),
       );
     }
 
@@ -53,12 +54,12 @@ class _NeuroAudioMonitorState extends State<NeuroAudioMonitor> {
           children: [
             Icon(Icons.psychology, color: Color(out.riskLevel.colorValue), size: 16),
             const SizedBox(width: 6),
-            const Text(
+            Text(
               'NeuroAudio',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+                size: 12,
+                weight: FontWeight.w600,
               ),
             ),
             const Spacer(),
@@ -109,10 +110,10 @@ class _NeuroAudioMonitorState extends State<NeuroAudioMonitor> {
 
   Widget _sectionLabel(String text) => Text(
         text,
-        style: const TextStyle(
+        style: FluxForgeTheme.dockSans(
           color: Colors.white54,
-          fontSize: 10,
-          fontWeight: FontWeight.w500,
+          size: 10,
+          weight: FontWeight.w500,
           letterSpacing: 0.5,
         ),
       );
@@ -126,7 +127,7 @@ class _NeuroAudioMonitorState extends State<NeuroAudioMonitor> {
             width: 80,
             child: Text(
               label,
-              style: const TextStyle(color: Colors.white70, fontSize: 10),
+              style: FluxForgeTheme.dockSans(color: Colors.white70, size: 10),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -148,7 +149,7 @@ class _NeuroAudioMonitorState extends State<NeuroAudioMonitor> {
             child: Text(
               (value * 100).toStringAsFixed(0),
               textAlign: TextAlign.right,
-              style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w500),
+              style: FluxForgeTheme.dockMono(color: color, size: 9, weight: FontWeight.w500),
             ),
           ),
         ],
@@ -167,7 +168,7 @@ class _NeuroAudioMonitorState extends State<NeuroAudioMonitor> {
             width: 80,
             child: Text(
               label,
-              style: const TextStyle(color: Colors.white70, fontSize: 10),
+              style: FluxForgeTheme.dockSans(color: Colors.white70, size: 10),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -188,7 +189,7 @@ class _NeuroAudioMonitorState extends State<NeuroAudioMonitor> {
             child: Text(
               '${value.toStringAsFixed(2)}x',
               textAlign: TextAlign.right,
-              style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w500),
+              style: FluxForgeTheme.dockMono(color: color, size: 9, weight: FontWeight.w500),
             ),
           ),
         ],
@@ -206,10 +207,10 @@ class _NeuroAudioMonitorState extends State<NeuroAudioMonitor> {
       ),
       child: Text(
         level.displayName,
-        style: TextStyle(
+        style: FluxForgeTheme.dockSans(
           color: Color(level.colorValue),
-          fontSize: 9,
-          fontWeight: FontWeight.w600,
+          size: 9,
+          weight: FontWeight.w600,
         ),
       ),
     );
@@ -230,8 +231,8 @@ class _NeuroAudioMonitorState extends State<NeuroAudioMonitor> {
     return Expanded(
       child: Column(
         children: [
-          Text(value, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500)),
-          Text(label, style: const TextStyle(color: Colors.white38, fontSize: 9)),
+          Text(value, style: FluxForgeTheme.dockMono(color: Colors.white, size: 11, weight: FontWeight.w500)),
+          Text(label, style: FluxForgeTheme.dockSans(color: Colors.white38, size: 9)),
         ],
       ),
     );
