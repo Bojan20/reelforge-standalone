@@ -342,10 +342,10 @@ class _ActionEditorWidgetState extends State<ActionEditorWidget>
       ),
       child: Text(
         priority.displayName,
-        style: TextStyle(
+        style: FluxForgeTheme.dockSans(
           color: color,
-          fontSize: 9,
-          fontWeight: FontWeight.w600,
+          size: 9,
+          weight: FontWeight.w600,
         ),
       ),
     );
@@ -421,10 +421,10 @@ class _ActionEditorWidgetState extends State<ActionEditorWidget>
           const SizedBox(width: 3),
           Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: color,
-              fontSize: 9,
-              fontWeight: FontWeight.w500,
+              size: 9,
+              weight: FontWeight.w500,
             ),
           ),
         ],
@@ -544,12 +544,12 @@ class _ActionEditorWidgetState extends State<ActionEditorWidget>
                       const SizedBox(width: 6),
                       Text(
                         tab.label,
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: isActive
                               ? FluxForgeTheme.accentBlue
                               : FluxForgeTheme.textSecondary,
-                          fontSize: 11,
-                          fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                          size: 11,
+                          weight: isActive ? FontWeight.w600 : FontWeight.normal,
                         ),
                       ),
                     ],
@@ -713,10 +713,10 @@ class _ActionEditorWidgetState extends State<ActionEditorWidget>
                       const SizedBox(width: 6),
                       Text(
                         type.displayName,
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: isSelected ? color : FluxForgeTheme.textSecondary,
-                          fontSize: 11,
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                          size: 11,
+                          weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                         ),
                       ),
                     ],
@@ -777,10 +777,10 @@ class _ActionEditorWidgetState extends State<ActionEditorWidget>
                 const SizedBox(width: 8),
                 Text(
                   bus,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: isSelected ? color : FluxForgeTheme.textPrimary,
-                    fontSize: 12,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    size: 12,
+                    weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                   ),
                 ),
               ],
@@ -935,11 +935,11 @@ class _ActionEditorWidgetState extends State<ActionEditorWidget>
                 ),
                 child: Text(
                   asset,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: isSelected
                         ? FluxForgeTheme.accentCyan
                         : FluxForgeTheme.textSecondary,
-                    fontSize: 10,
+                    size: 10,
                   ),
                 ),
               ),
@@ -1012,10 +1012,10 @@ class _ActionEditorWidgetState extends State<ActionEditorWidget>
             child: Center(
               child: Text(
                 label,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: isSelected ? Colors.orange : FluxForgeTheme.textSecondary,
-                  fontSize: 10,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  size: 10,
+                  weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),
             ),
@@ -1086,10 +1086,10 @@ class _ActionEditorWidgetState extends State<ActionEditorWidget>
             child: Center(
               child: Text(
                 label,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: isSelected ? Colors.cyan : FluxForgeTheme.textSecondary,
-                  fontSize: 10,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  size: 10,
+                  weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),
             ),
@@ -1243,11 +1243,11 @@ class _ActionEditorWidgetState extends State<ActionEditorWidget>
             child: Center(
               child: Text(
                 label,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: isSelected
                       ? FluxForgeTheme.accentBlue
                       : FluxForgeTheme.textSecondary,
-                  fontSize: 10,
+                  size: 10,
                 ),
               ),
             ),
@@ -1299,9 +1299,9 @@ class _ActionEditorWidgetState extends State<ActionEditorWidget>
                 ),
                 child: Text(
                   curve.displayName,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: isSelected ? Colors.purple : FluxForgeTheme.textSecondary,
-                    fontSize: 11,
+                    size: 11,
                   ),
                 ),
               ),
@@ -1348,9 +1348,9 @@ class _ActionEditorWidgetState extends State<ActionEditorWidget>
                     child: Center(
                       child: Text(
                         'Delay',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: Colors.blue,
-                          fontSize: 9,
+                          size: 9,
                         ),
                       ),
                     ),
@@ -1376,9 +1376,9 @@ class _ActionEditorWidgetState extends State<ActionEditorWidget>
                   child: Center(
                     child: Text(
                       'Fade',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: Colors.purple,
-                        fontSize: 9,
+                        size: 9,
                       ),
                     ),
                   ),
@@ -1475,9 +1475,9 @@ class _ActionEditorWidgetState extends State<ActionEditorWidget>
               ),
               child: Text(
                 'Not implemented',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textDisabled,
-                  fontSize: 10,
+                  size: 10,
                 ),
               ),
             ),
@@ -1595,18 +1595,18 @@ class _ActionEditorWidgetState extends State<ActionEditorWidget>
           children: [
             Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: color,
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
+                size: 10,
+                weight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               range,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: color.withValues(alpha: 0.7),
-                fontSize: 11,
+                size: 11,
               ),
             ),
           ],
@@ -1689,9 +1689,9 @@ class _ActionEditorWidgetState extends State<ActionEditorWidget>
                           ),
                           child: Text(
                             state,
-                            style: TextStyle(
+                            style: FluxForgeTheme.dockSans(
                               color: FluxForgeTheme.textTertiary,
-                              fontSize: 10,
+                              size: 10,
                             ),
                           ),
                         );
@@ -1830,9 +1830,9 @@ class _ActionEditorWidgetState extends State<ActionEditorWidget>
             const SizedBox(width: 4),
             Text(
               'Reset',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.textTertiary,
-                fontSize: 10,
+                size: 10,
               ),
             ),
           ],
@@ -1928,10 +1928,10 @@ class _ActionEditorWidgetState extends State<ActionEditorWidget>
             const SizedBox(width: 6),
             Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: isActive ? color : FluxForgeTheme.textSecondary,
-                fontSize: 12,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                size: 12,
+                weight: isActive ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
           ],

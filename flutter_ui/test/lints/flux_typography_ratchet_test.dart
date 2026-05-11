@@ -94,7 +94,12 @@ import 'package:flutter_test/flutter_test.dart';
 // slot_automation_panel.dart (-41), advanced_middleware_panel.dart (-40),
 // helix_event_nexus.dart (-47), gdd_preview_dialog.dart (-46),
 // music_system_panel.dart (-37). Plus 1 extra iz events_panel fontStyle fix.
-const int _kRawTextStyleBaseline = 7176;
+// Lowered 2026-05-11 (Sprint 15 B.2 batch 9) -294 za:
+// daw_lower_zone_widget.dart (-41), event_editor_panel.dart (-42),
+// container_preset_library_panel.dart (-42), fabfilter_eq_panel.dart (-34),
+// blend_container_panel.dart (-33), sequence_container_panel.dart (-35),
+// auto_bind_dialog_v2.dart (-33), action_editor_widget.dart (-17).
+const int _kRawTextStyleBaseline = 6882;
 
 /// Frozen baseline za `fontFamily:` referenca van theme/.
 /// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` `'monospace'`
@@ -127,7 +132,8 @@ const int _kRawTextStyleBaseline = 7176;
 // (sve dockMono/dockSans pozivi eliminišu fontFamily: literale).
 // Lowered 2026-05-11 (Sprint 15 B.2 batch 6+7) -43 za isti set fajlova.
 // Lowered 2026-05-11 (Sprint 15 B.2 batch 8) -24.
-const int _kRawFontFamilyBaseline = 757;
+// Lowered 2026-05-11 (Sprint 15 B.2 batch 9) -16.
+const int _kRawFontFamilyBaseline = 741;
 
 /// Frozen baseline za `fontSize:` referenca van theme/.
 /// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` 9px label
@@ -158,7 +164,8 @@ const int _kRawFontFamilyBaseline = 757;
 // (sve dockMono/dockSans pozivi koriste size: arg, ne fontSize:).
 // Lowered 2026-05-11 (Sprint 15 B.2 batch 6+7) -339 za isti set fajlova.
 // Lowered 2026-05-11 (Sprint 15 B.2 batch 8) -184.
-const int _kRawFontSizeBaseline = 6831;
+// Lowered 2026-05-11 (Sprint 15 B.2 batch 9) -256.
+const int _kRawFontSizeBaseline = 6575;
 
 const Set<String> _kExcludedPathPrefixes = <String>{
   'theme/',

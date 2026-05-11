@@ -461,10 +461,10 @@ class _EventEditorPanelState extends State<EventEditorPanel>
       ),
       child: Text(
         text,
-        style: TextStyle(
+        style: FluxForgeTheme.dockSans(
           color: color,
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
+          size: 10,
+          weight: FontWeight.w600,
         ),
       ),
     );
@@ -588,7 +588,7 @@ class _EventEditorPanelState extends State<EventEditorPanel>
               const SizedBox(width: 8),
               Text(
                 mode.label,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: _sortMode == mode
                       ? FluxForgeTheme.accentBlue
                       : FluxForgeTheme.textPrimary,
@@ -634,10 +634,10 @@ class _EventEditorPanelState extends State<EventEditorPanel>
             const SizedBox(width: 6),
             Text(
               label,
-              style: const TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+                size: 12,
+                weight: FontWeight.w600,
               ),
             ),
           ],
@@ -771,10 +771,10 @@ class _EventEditorPanelState extends State<EventEditorPanel>
                     ],
                     Text(
                       cat,
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: isSelected ? color : FluxForgeTheme.textSecondary,
-                        fontSize: 11,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                        size: 11,
+                        weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                       ),
                     ),
                   ],
@@ -870,10 +870,10 @@ class _EventEditorPanelState extends State<EventEditorPanel>
             const SizedBox(width: 8),
             Text(
               category,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
+                size: 11,
+                weight: FontWeight.w600,
                 letterSpacing: 0.5,
               ),
             ),
@@ -886,10 +886,10 @@ class _EventEditorPanelState extends State<EventEditorPanel>
               ),
               child: Text(
                 '$count',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: color,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
+                  size: 10,
+                  weight: FontWeight.w600,
                 ),
               ),
             ),
@@ -956,12 +956,12 @@ class _EventEditorPanelState extends State<EventEditorPanel>
                   children: [
                     Text(
                       event.name,
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: isSelected
                             ? FluxForgeTheme.textPrimary
                             : FluxForgeTheme.textSecondary,
-                        fontSize: 12,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                        size: 12,
+                        weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -976,9 +976,9 @@ class _EventEditorPanelState extends State<EventEditorPanel>
                         const SizedBox(width: 3),
                         Text(
                           '${event.actions.length} actions',
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
                             color: FluxForgeTheme.textTertiary,
-                            fontSize: 10,
+                            size: 10,
                           ),
                         ),
                         if (_hasDelayedActions(event)) ...[
@@ -1157,9 +1157,9 @@ class _EventEditorPanelState extends State<EventEditorPanel>
                           const SizedBox(width: 4),
                           Text(
                             cat,
-                            style: TextStyle(
+                            style: FluxForgeTheme.dockSans(
                               color: isSelected ? color : FluxForgeTheme.textSecondary,
-                              fontSize: 11,
+                              size: 11,
                             ),
                           ),
                         ],
@@ -1307,10 +1307,10 @@ class _EventEditorPanelState extends State<EventEditorPanel>
             const SizedBox(height: 8),
             Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: color,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
+                size: 11,
+                weight: FontWeight.w500,
               ),
             ),
           ],
@@ -1363,19 +1363,19 @@ class _EventEditorPanelState extends State<EventEditorPanel>
               const SizedBox(width: 6),
               Text(
                 'Co-timed Conflicts',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: Colors.orange.withValues(alpha: 0.9),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+                  size: 11,
+                  weight: FontWeight.w600,
                   letterSpacing: 0.5,
                 ),
               ),
               const Spacer(),
               Text(
                 '${conflictGroups.length} group${conflictGroups.length > 1 ? "s" : ""} — auto-resolved',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textTertiary,
-                  fontSize: 10,
+                  size: 10,
                 ),
               ),
             ],
@@ -1397,30 +1397,29 @@ class _EventEditorPanelState extends State<EventEditorPanel>
                     ),
                     child: Text(
                       '${delayMs}ms',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockMono(
                         color: Colors.orange.withValues(alpha: 0.8),
-                        fontSize: 9,
-                        fontFamily: 'monospace',
-                        fontWeight: FontWeight.w600,
+                        size: 9,
+                        weight: FontWeight.w600,
                       ),
                     ),
                   ),
                   const SizedBox(width: 6),
                   Text(
                     bus,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: FluxForgeTheme.textSecondary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
+                      size: 10,
+                      weight: FontWeight.w500,
                     ),
                   ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       '${group.value.length} actions: ${group.value.map((a) => a.type.displayName).join(", ")}',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: FluxForgeTheme.textTertiary,
-                        fontSize: 10,
+                        size: 10,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1466,19 +1465,19 @@ class _EventEditorPanelState extends State<EventEditorPanel>
               const SizedBox(width: 6),
               Text(
                 'Event Chain',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: Colors.cyan.withValues(alpha: 0.9),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+                  size: 11,
+                  weight: FontWeight.w600,
                   letterSpacing: 0.5,
                 ),
               ),
               const Spacer(),
               Text(
                 '${chainActions.length} link${chainActions.length > 1 ? "s" : ""}',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textTertiary,
-                  fontSize: 10,
+                  size: 10,
                 ),
               ),
             ],
@@ -1521,10 +1520,10 @@ class _EventEditorPanelState extends State<EventEditorPanel>
                       // Source event name
                       Text(
                         event.name,
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: FluxForgeTheme.textSecondary,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
+                          size: 11,
+                          weight: FontWeight.w500,
                         ),
                       ),
                       const SizedBox(width: 6),
@@ -1544,10 +1543,9 @@ class _EventEditorPanelState extends State<EventEditorPanel>
                           ),
                           child: Text(
                             '${delayMs}ms',
-                            style: TextStyle(
+                            style: FluxForgeTheme.dockMono(
                               color: FluxForgeTheme.textTertiary,
-                              fontSize: 9,
-                              fontFamily: 'monospace',
+                              size: 9,
                             ),
                           ),
                         ),
@@ -1565,12 +1563,11 @@ class _EventEditorPanelState extends State<EventEditorPanel>
                       Expanded(
                         child: Text(
                           exists ? targetEvent.name : '$targetId (not found)',
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
                             color: exists ? FluxForgeTheme.textPrimary : Colors.red,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            fontStyle: exists ? FontStyle.normal : FontStyle.italic,
-                          ),
+                            size: 11,
+                            weight: FontWeight.w500,
+                          ).copyWith(fontStyle: exists ? FontStyle.normal : FontStyle.italic),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -1583,10 +1580,10 @@ class _EventEditorPanelState extends State<EventEditorPanel>
                         ),
                         child: Text(
                           isPostEvent ? 'POST' : 'TRIGGER',
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
                             color: isPostEvent ? Colors.cyan : Colors.lime,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
+                            size: 9,
+                            weight: FontWeight.w700,
                             letterSpacing: 0.5,
                           ),
                         ),
@@ -1693,10 +1690,10 @@ class _EventEditorPanelState extends State<EventEditorPanel>
                       ),
                       child: Text(
                         event.category,
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: color,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
+                          size: 10,
+                          weight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -1989,10 +1986,10 @@ class _EventEditorPanelState extends State<EventEditorPanel>
             Expanded(
               child: Text(
                 action.type.displayName,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: color,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
+                  size: 10,
+                  weight: FontWeight.w500,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -2157,10 +2154,10 @@ class _EventEditorPanelState extends State<EventEditorPanel>
                         children: [
                           Text(
                             action.type.displayName,
-                            style: TextStyle(
+                            style: FluxForgeTheme.dockSans(
                               color: FluxForgeTheme.textPrimary,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
+                              size: 13,
+                              weight: FontWeight.w600,
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -2240,10 +2237,10 @@ class _EventEditorPanelState extends State<EventEditorPanel>
       ),
       child: Text(
         priority.displayName,
-        style: TextStyle(
+        style: FluxForgeTheme.dockSans(
           color: color,
-          fontSize: 9,
-          fontWeight: FontWeight.w600,
+          size: 9,
+          weight: FontWeight.w600,
         ),
       ),
     );
@@ -2597,10 +2594,10 @@ class _EventEditorPanelState extends State<EventEditorPanel>
                         const SizedBox(width: 8),
                         Text(
                           'Add Action',
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
                             color: Colors.amber,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
+                            size: 12,
+                            weight: FontWeight.w600,
                           ),
                         ),
                       ],
@@ -2690,10 +2687,10 @@ class _EventEditorPanelState extends State<EventEditorPanel>
                   const SizedBox(width: 4),
                   Text(
                     label,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: color,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
+                      size: 10,
+                      weight: FontWeight.w500,
                     ),
                   ),
                 ],
@@ -2788,11 +2785,10 @@ class _EventEditorPanelState extends State<EventEditorPanel>
                         const SizedBox(width: 6),
                         Text(
                           type.displayName,
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
                             color: isSelected ? color : FluxForgeTheme.textSecondary,
-                            fontSize: 11,
-                            fontWeight:
-                                isSelected ? FontWeight.w600 : FontWeight.normal,
+                            size: 11,
+                            weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                           ),
                         ),
                       ],
@@ -3575,10 +3571,10 @@ class _EventEditorPanelState extends State<EventEditorPanel>
         ),
         child: Text(
           '$label dB',
-          style: TextStyle(
-            fontSize: 9,
+          style: FluxForgeTheme.dockSans(
+            size: 9,
             color: isSelected ? color : FluxForgeTheme.textSecondary,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+            weight: isSelected ? FontWeight.w600 : FontWeight.normal,
           ),
         ),
       ),
@@ -3673,10 +3669,10 @@ class _EventEditorPanelState extends State<EventEditorPanel>
         ),
         child: Text(
           label,
-          style: TextStyle(
-            fontSize: 10,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
             color: isSelected ? Colors.cyan : FluxForgeTheme.textSecondary,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+            weight: isSelected ? FontWeight.w600 : FontWeight.normal,
           ),
         ),
       ),
@@ -3744,9 +3740,9 @@ class _EventEditorPanelState extends State<EventEditorPanel>
                 const SizedBox(width: 4),
                 Text(
                   type.displayName,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: isSelected ? color : FluxForgeTheme.textSecondary,
-                    fontSize: 10,
+                    size: 10,
                   ),
                 ),
               ],
@@ -4264,11 +4260,11 @@ class _EventEditorPanelState extends State<EventEditorPanel>
         backgroundColor: FluxForgeTheme.bgSurface,
         title: Text(
           'Delete Event',
-          style: TextStyle(color: FluxForgeTheme.textPrimary),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
         ),
         content: Text(
           'Are you sure you want to delete "${event.name}"?',
-          style: TextStyle(color: FluxForgeTheme.textSecondary),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
         ),
         actions: [
           TextButton(
@@ -4310,15 +4306,15 @@ class _EventEditorPanelState extends State<EventEditorPanel>
         backgroundColor: FluxForgeTheme.bgSurface,
         title: Text(
           'Rename Event',
-          style: TextStyle(color: FluxForgeTheme.textPrimary),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
         ),
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: TextStyle(color: FluxForgeTheme.textPrimary),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
           decoration: InputDecoration(
             labelText: 'Event Name',
-            labelStyle: TextStyle(color: FluxForgeTheme.textSecondary),
+            labelStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
             border: const OutlineInputBorder(),
           ),
           onSubmitted: (value) {
@@ -4978,11 +4974,11 @@ class _ImportEventsDialogState extends State<_ImportEventsDialog> {
                 children: [
                   const Icon(Icons.file_upload, color: FluxForgeTheme.accentBlue, size: 20),
                   const SizedBox(width: 12),
-                  const Text(
+                  Text(
                     'Import Events',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                    style: FluxForgeTheme.dockSans(
+                      size: 12,
+                      weight: FontWeight.w600,
                       color: FluxForgeTheme.textPrimary,
                     ),
                   ),
@@ -5003,10 +4999,10 @@ class _ImportEventsDialogState extends State<_ImportEventsDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Paste JSON data:',
-                      style: TextStyle(
-                        fontSize: 12,
+                      style: FluxForgeTheme.dockSans(
+                        size: 12,
                         color: FluxForgeTheme.textMuted,
                       ),
                     ),
@@ -5016,14 +5012,13 @@ class _ImportEventsDialogState extends State<_ImportEventsDialog> {
                         controller: _controller,
                         maxLines: null,
                         expands: true,
-                        style: const TextStyle(
-                          fontSize: 11,
+                        style: FluxForgeTheme.dockMono(
+                          size: 11,
                           color: FluxForgeTheme.textPrimary,
-                          fontFamily: 'monospace',
                         ),
                         decoration: InputDecoration(
                           hintText: '{"events": [...]}',
-                          hintStyle: const TextStyle(color: FluxForgeTheme.textMuted),
+                          hintStyle: FluxForgeTheme.dockMono(color: FluxForgeTheme.textMuted),
                           filled: true,
                           fillColor: FluxForgeTheme.bgVoid,
                           border: OutlineInputBorder(
@@ -5059,8 +5054,8 @@ class _ImportEventsDialogState extends State<_ImportEventsDialog> {
                             Expanded(
                               child: Text(
                                 _error!,
-                                style: const TextStyle(
-                                  fontSize: 11,
+                                style: FluxForgeTheme.dockSans(
+                                  size: 11,
                                   color: FluxForgeTheme.accentRed,
                                 ),
                               ),
@@ -5084,8 +5079,8 @@ class _ImportEventsDialogState extends State<_ImportEventsDialog> {
                             const SizedBox(width: 8),
                             Text(
                               'Found ${_parsedEvents!.length} valid events',
-                              style: const TextStyle(
-                                fontSize: 11,
+                              style: FluxForgeTheme.dockSans(
+                                size: 11,
                                 color: FluxForgeTheme.accentGreen,
                               ),
                             ),

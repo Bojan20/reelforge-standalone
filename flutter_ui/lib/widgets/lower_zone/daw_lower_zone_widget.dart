@@ -31,6 +31,7 @@ import '../../services/service_locator.dart';
 import '../../services/audio_asset_manager.dart';
 import '../../services/audio_playback_service.dart';
 import '../../utils/input_validator.dart'; // ✅ P0.3: Input validation
+import '../../theme/fluxforge_theme.dart';
 import '../../utils/path_validator.dart' as pv;
 import '../common/error_boundary.dart'; // ✅ P0.7: Error handling
 import '../meters/lufs_meter_widget.dart'; // ✅ P0.2: LUFS metering
@@ -451,9 +452,9 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
           const SizedBox(width: 5),
           Text(
             name,
-            style: TextStyle(
-              fontSize: LowerZoneTypography.sizeLabel,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: LowerZoneTypography.sizeLabel,
+              weight: FontWeight.w600,
               color: color,
             ),
           ),
@@ -751,8 +752,8 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
                   children: [
                     Icon(tab.icon, size: 14, color: tab == superTab ? LowerZoneColors.dawAccent : LowerZoneColors.textSecondary),
                     const SizedBox(width: 8),
-                    Text(tab.label, style: TextStyle(
-                      fontSize: 11,
+                    Text(tab.label, style: FluxForgeTheme.dockSans(
+                      size: 11,
                       color: tab == superTab ? LowerZoneColors.dawAccent : LowerZoneColors.textSecondary,
                     )),
                   ],
@@ -770,9 +771,9 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
                 children: [
                   Icon(superTab.icon, size: 12, color: LowerZoneColors.dawAccent),
                   const SizedBox(width: 4),
-                  Text(superTab.label, style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                  Text(superTab.label, style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: FontWeight.bold,
                     color: LowerZoneColors.dawAccent,
                   )),
                   const SizedBox(width: 2),
@@ -811,10 +812,10 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
                 ),
                 child: Text(
                   labels[index],
-                  style: TextStyle(
-                    fontSize: 10,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
                     color: isSelected ? LowerZoneColors.dawAccent : LowerZoneColors.textTertiary,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                   ),
                 ),
               ),
@@ -992,9 +993,9 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
         const SizedBox(width: 8),
         Text(
           title,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: 11,
+            weight: FontWeight.bold,
             color: LowerZoneColors.dawAccent,
             letterSpacing: 1.0,
           ),
@@ -1012,16 +1013,16 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: LowerZoneColors.border),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(Icons.search, size: 14, color: LowerZoneColors.textMuted),
-          SizedBox(width: 8),
+          const Icon(Icons.search, size: 14, color: LowerZoneColors.textMuted),
+          const SizedBox(width: 8),
           Expanded(
             child: TextField(
-              style: TextStyle(fontSize: 11, color: LowerZoneColors.textPrimary),
+              style: FluxForgeTheme.dockSans(size: 11, color: LowerZoneColors.textPrimary),
               decoration: InputDecoration(
                 hintText: 'Search...',
-                hintStyle: TextStyle(fontSize: 11, color: LowerZoneColors.textMuted),
+                hintStyle: FluxForgeTheme.dockSans(size: 11, color: LowerZoneColors.textMuted),
                 border: InputBorder.none,
                 isDense: true,
                 contentPadding: EdgeInsets.zero,
@@ -1068,7 +1069,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
           const SizedBox(width: 4),
           Text(
             name.trim(),
-            style: const TextStyle(fontSize: 10, color: LowerZoneColors.textPrimary),
+            style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textPrimary),
           ),
         ],
       ),
@@ -1110,12 +1111,12 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
           Expanded(
             child: Text(
               name,
-              style: const TextStyle(fontSize: 10, color: LowerZoneColors.textPrimary),
+              style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textPrimary),
             ),
           ),
           Text(
             size,
-            style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted),
+            style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textMuted),
           ),
         ],
       ),
@@ -1444,11 +1445,11 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
           ),
           child: Row(
             children: [
-              const Text(
+              Text(
                 'MASTER LOUDNESS',
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
+                  weight: FontWeight.bold,
                   color: LowerZoneColors.textMuted,
                   letterSpacing: 0.5,
                 ),
@@ -1681,9 +1682,9 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
           const SizedBox(height: 12),
           Text(
             processorName,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 14,
+              weight: FontWeight.w600,
               color: LowerZoneColors.textSecondary,
             ),
           ),
@@ -1702,8 +1703,8 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
                 const SizedBox(width: 8),
                 Text(
                   'Select a track to edit $processorName',
-                  style: TextStyle(
-                    fontSize: 11,
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
                     color: LowerZoneColors.warning,
                   ),
                 ),
@@ -1724,17 +1725,17 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
           const SizedBox(height: 12),
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 14,
+              weight: FontWeight.w600,
               color: LowerZoneColors.textSecondary,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             'Requires $providerName',
-            style: const TextStyle(
-              fontSize: 11,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
               color: LowerZoneColors.textMuted,
             ),
           ),
@@ -1915,14 +1916,14 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(label, style: const TextStyle(
+                Text(label, style: FluxForgeTheme.dockSans(
                   color: LowerZoneColors.textPrimary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                  size: 12,
+                  weight: FontWeight.w600,
                 )),
-                Text(description, style: TextStyle(
+                Text(description, style: FluxForgeTheme.dockSans(
                   color: Colors.white.withValues(alpha: 0.5),
-                  fontSize: 10,
+                  size: 10,
                 )),
               ],
             ),
@@ -2031,9 +2032,9 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
                 context: context,
                 builder: (ctx) => AlertDialog(
                   backgroundColor: LowerZoneColors.bgMid,
-                  title: const Text(
+                  title: Text(
                     'Import Files to DAW',
-                    style: TextStyle(color: LowerZoneColors.textPrimary, fontSize: 14),
+                    style: FluxForgeTheme.dockSans(color: LowerZoneColors.textPrimary, size: 14),
                   ),
                   content: SizedBox(
                     width: 360,
@@ -2043,7 +2044,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
                       children: [
                         Text(
                           'Import ${validPaths.length} file(s) to DAW audio pool?',
-                          style: const TextStyle(color: Colors.white70, fontSize: 12),
+                          style: FluxForgeTheme.dockSans(color: Colors.white70, size: 12),
                         ),
                         const SizedBox(height: 8),
                         Container(
@@ -2058,10 +2059,9 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
                             itemCount: fileNames.length,
                             itemBuilder: (_, i) => Text(
                               fileNames[i],
-                              style: const TextStyle(
+                              style: FluxForgeTheme.dockMono(
                                 color: Colors.white54,
-                                fontSize: 11,
-                                fontFamily: 'JetBrains Mono',
+                                size: 11,
                               ),
                             ),
                           ),
@@ -2072,14 +2072,14 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.of(ctx).pop(false),
-                      child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+                      child: Text('Cancel', style: FluxForgeTheme.dockSans(color: Colors.white54)),
                     ),
                     TextButton(
                       onPressed: () => Navigator.of(ctx).pop(true),
                       style: TextButton.styleFrom(
                         backgroundColor: const Color(0xFF4a9eff).withValues(alpha: 0.2),
                       ),
-                      child: const Text('Import', style: TextStyle(color: Color(0xFF4a9eff))),
+                      child: Text('Import', style: FluxForgeTheme.dockSans(color: Color(0xFF4a9eff))),
                     ),
                   ],
                 ),
@@ -2810,9 +2810,9 @@ class _EditableClipPanelState extends State<_EditableClipPanel> {
         const SizedBox(width: 6),
         Text(
           'CLIP PROPERTIES',
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: FontWeight.bold,
             color: LowerZoneColors.dawAccent,
             letterSpacing: 0.5,
           ),
@@ -2837,9 +2837,9 @@ class _EditableClipPanelState extends State<_EditableClipPanel> {
               borderRadius: BorderRadius.circular(3),
               border: Border.all(color: LowerZoneColors.border),
             ),
-            child: const Text(
+            child: Text(
               'RESET',
-              style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted),
+              style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted),
             ),
           ),
         ),
@@ -2863,13 +2863,13 @@ class _EditableClipPanelState extends State<_EditableClipPanel> {
             width: 60,
             child: Text(
               label,
-              style: const TextStyle(fontSize: 10, color: LowerZoneColors.textMuted),
+              style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textMuted),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(fontSize: 10, color: LowerZoneColors.textPrimary),
+              style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textPrimary),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -2894,9 +2894,9 @@ class _EditableClipPanelState extends State<_EditableClipPanel> {
             children: [
               Icon(Icons.volume_up, size: 12, color: LowerZoneColors.dawAccent),
               const SizedBox(width: 6),
-              const Text(
+              Text(
                 'Gain',
-                style: TextStyle(fontSize: 10, color: LowerZoneColors.textSecondary),
+                style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textSecondary),
               ),
               const Spacer(),
               // Value display
@@ -2908,9 +2908,9 @@ class _EditableClipPanelState extends State<_EditableClipPanel> {
                 ),
                 child: Text(
                   _gainToDb(_gain),
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: FontWeight.bold,
                     color: _gain > 1.0 ? Colors.orange : LowerZoneColors.dawAccent,
                   ),
                 ),
@@ -2941,10 +2941,10 @@ class _EditableClipPanelState extends State<_EditableClipPanel> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('-∞', style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
-              const Text('-12', style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
-              const Text('0', style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
-              const Text('+6', style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+              Text('-∞', style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
+              Text('-12', style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
+              Text('0', style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
+              Text('+6', style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
             ],
           ),
         ],
@@ -2978,7 +2978,7 @@ class _EditableClipPanelState extends State<_EditableClipPanel> {
               const SizedBox(width: 6),
               Text(
                 label,
-                style: const TextStyle(fontSize: 10, color: LowerZoneColors.textSecondary),
+                style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textSecondary),
               ),
               const Spacer(),
               Container(
@@ -2989,9 +2989,9 @@ class _EditableClipPanelState extends State<_EditableClipPanel> {
                 ),
                 child: Text(
                   _formatTime(value),
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: FontWeight.bold,
                     color: LowerZoneColors.dawAccent,
                   ),
                 ),
@@ -3123,11 +3123,11 @@ class _TrackPresetSaveDialogState extends State<_TrackPresetSaveDialog> {
         children: [
           Icon(Icons.save_outlined, size: 20, color: LowerZoneColors.dawAccent),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Save Track Preset',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 14,
+              weight: FontWeight.w600,
               color: LowerZoneColors.textPrimary,
             ),
           ),
@@ -3140,10 +3140,10 @@ class _TrackPresetSaveDialogState extends State<_TrackPresetSaveDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Name field
-            const Text(
+            Text(
               'Preset Name',
-              style: TextStyle(
-                fontSize: 11,
+              style: FluxForgeTheme.dockSans(
+                size: 11,
                 color: LowerZoneColors.textSecondary,
               ),
             ),
@@ -3151,13 +3151,13 @@ class _TrackPresetSaveDialogState extends State<_TrackPresetSaveDialog> {
             TextField(
               controller: _nameController,
               autofocus: true,
-              style: const TextStyle(
-                fontSize: 12,
+              style: FluxForgeTheme.dockSans(
+                size: 12,
                 color: LowerZoneColors.textPrimary,
               ),
               decoration: InputDecoration(
                 hintText: 'My Track Preset',
-                hintStyle: const TextStyle(color: LowerZoneColors.textTertiary),
+                hintStyle: FluxForgeTheme.dockSans(color: LowerZoneColors.textTertiary),
                 filled: true,
                 fillColor: LowerZoneColors.bgSurface,
                 border: OutlineInputBorder(
@@ -3177,10 +3177,10 @@ class _TrackPresetSaveDialogState extends State<_TrackPresetSaveDialog> {
             ),
             const SizedBox(height: 16),
             // Category selector
-            const Text(
+            Text(
               'Category',
-              style: TextStyle(
-                fontSize: 11,
+              style: FluxForgeTheme.dockSans(
+                size: 11,
                 color: LowerZoneColors.textSecondary,
               ),
             ),
@@ -3209,9 +3209,9 @@ class _TrackPresetSaveDialogState extends State<_TrackPresetSaveDialog> {
                     ),
                     child: Text(
                       category,
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                      style: FluxForgeTheme.dockSans(
+                        size: 10,
+                        weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                         color: isSelected ? LowerZoneColors.textPrimary : LowerZoneColors.textSecondary,
                       ),
                     ),
@@ -3225,9 +3225,9 @@ class _TrackPresetSaveDialogState extends State<_TrackPresetSaveDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text(
+          child: Text(
             'Cancel',
-            style: TextStyle(color: LowerZoneColors.textSecondary),
+            style: FluxForgeTheme.dockSans(color: LowerZoneColors.textSecondary),
           ),
         ),
         ElevatedButton(

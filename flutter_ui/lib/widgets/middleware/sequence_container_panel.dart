@@ -79,10 +79,10 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
         const SizedBox(width: 6),
         Text(
           'Sequence Containers',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textPrimary,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
+            size: 12,
+            weight: FontWeight.bold,
           ),
         ),
         const Spacer(),
@@ -109,10 +109,10 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
                     const SizedBox(width: 4),
                     Text(
                       'A/B',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: Colors.cyan,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
+                        size: 11,
+                        weight: FontWeight.bold,
                       ),
                     ),
                   ],
@@ -140,10 +140,10 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
                 const SizedBox(width: 4),
                 Text(
                   'Presets',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.amber,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
+                    size: 11,
+                    weight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -167,10 +167,10 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
                 const SizedBox(width: 4),
                 Text(
                   'New Sequence',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.teal,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
+                    size: 11,
+                    weight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -197,7 +197,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
             const SizedBox(height: 8),
             Text(
               'No sequences',
-              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12),
             ),
           ],
         ),
@@ -252,10 +252,10 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
                       Expanded(
                         child: Text(
                           container.name,
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
                             color: FluxForgeTheme.textPrimary,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                            size: 12,
+                            weight: FontWeight.bold,
                           ),
                         ),
                       ),
@@ -280,26 +280,26 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
                         ),
                         child: Text(
                           container.endBehavior.displayName,
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
                             color: _getEndBehaviorColor(container.endBehavior),
-                            fontSize: 9,
+                            size: 9,
                           ),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Text(
                         '${container.steps.length} steps',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: FluxForgeTheme.textSecondary,
-                          fontSize: 10,
+                          size: 10,
                         ),
                       ),
                       const Spacer(),
                       Text(
                         '${totalDuration.toStringAsFixed(0)}ms',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: FluxForgeTheme.textSecondary,
-                          fontSize: 10,
+                          size: 10,
                         ),
                       ),
                     ],
@@ -385,7 +385,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
               const SizedBox(height: 8),
               Text(
                 'Select a sequence to view timeline',
-                style: TextStyle(color: FluxForgeTheme.textSecondary),
+                style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
               ),
             ],
           ),
@@ -478,7 +478,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
           // End behavior selector
           Text(
             'End:',
-            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11),
           ),
           const SizedBox(width: 8),
           ...SequenceEndBehavior.values.map((behavior) {
@@ -506,11 +506,11 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
                   ),
                   child: Text(
                     behavior.displayName,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: isActive
                           ? _getEndBehaviorColor(behavior)
                           : FluxForgeTheme.textSecondary,
-                      fontSize: 10,
+                      size: 10,
                     ),
                   ),
                 ),
@@ -521,7 +521,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
           // Speed control
           Text(
             'Speed:',
-            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11),
           ),
           const SizedBox(width: 8),
           SizedBox(
@@ -548,10 +548,10 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
           ),
           Text(
             '${container.speed.toStringAsFixed(2)}x',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.teal,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
+              size: 11,
+              weight: FontWeight.bold,
             ),
           ),
           const SizedBox(width: 16),
@@ -572,7 +572,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
                   const SizedBox(width: 4),
                   Text(
                     'Add Step',
-                    style: TextStyle(color: Colors.green, fontSize: 10),
+                    style: FluxForgeTheme.dockSans(color: Colors.green, size: 10),
                   ),
                 ],
               ),
@@ -599,7 +599,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
               const SizedBox(height: 8),
               Text(
                 'No steps in sequence',
-                style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+                style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12),
               ),
               const SizedBox(height: 8),
               GestureDetector(
@@ -613,7 +613,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
                   ),
                   child: Text(
                     'Add First Step',
-                    style: TextStyle(color: Colors.green, fontSize: 11),
+                    style: FluxForgeTheme.dockSans(color: Colors.green, size: 11),
                   ),
                 ),
               ),
@@ -705,18 +705,18 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
                                 children: [
                                   Text(
                                     step.childName,
-                                    style: TextStyle(
+                                    style: FluxForgeTheme.dockSans(
                                       color: FluxForgeTheme.textPrimary,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
+                                      size: 10,
+                                      weight: FontWeight.bold,
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                   Text(
                                     '${step.durationMs.toStringAsFixed(0)}ms',
-                                    style: TextStyle(
+                                    style: FluxForgeTheme.dockSans(
                                       color: FluxForgeTheme.textSecondary,
-                                      fontSize: 9,
+                                      size: 9,
                                     ),
                                   ),
                                   if (step.loopCount > 1)
@@ -728,9 +728,9 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
                                       ),
                                       child: Text(
                                         'x${step.loopCount}',
-                                        style: TextStyle(
+                                        style: FluxForgeTheme.dockSans(
                                           color: Colors.orange,
-                                          fontSize: 8,
+                                          size: 8,
                                         ),
                                       ),
                                     ),
@@ -774,10 +774,10 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
               const SizedBox(width: 8),
               Text(
                 'Edit Step ${_selectedStepIndex! + 1}: ${step.childName}',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+                  size: 12,
+                  weight: FontWeight.bold,
                 ),
               ),
               const Spacer(),
@@ -871,7 +871,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
                 children: [
                   Text(
                     'Loop Count',
-                    style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 10),
+                    style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 10),
                   ),
                   const SizedBox(height: 4),
                   Container(
@@ -885,7 +885,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
                       value: step.loopCount,
                       underline: const SizedBox.shrink(),
                       dropdownColor: FluxForgeTheme.surfaceDark,
-                      style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
+                      style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary, size: 12),
                       items: List.generate(10, (i) => i + 1).map((count) {
                         return DropdownMenuItem(
                           value: count,
@@ -923,7 +923,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
           width: 100,
           child: Text(
             'Audio File',
-            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11),
           ),
         ),
         Expanded(
@@ -938,9 +938,9 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
             ),
             child: Text(
               fileName,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: hasAudio ? Colors.green : FluxForgeTheme.textSecondary,
-                fontSize: 10,
+                size: 10,
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -970,7 +970,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
                 const SizedBox(width: 4),
                 Text(
                   'Browse',
-                  style: TextStyle(color: Colors.teal, fontSize: 10),
+                  style: FluxForgeTheme.dockSans(color: Colors.teal, size: 10),
                 ),
               ],
             ),
@@ -1012,11 +1012,11 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
           children: [
             Text(
               label,
-              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 10),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 10),
             ),
             Text(
               '${value.toStringAsFixed(0)} $unit',
-              style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+              style: FluxForgeTheme.dockSans(color: color, size: 10, weight: FontWeight.bold),
             ),
           ],
         ),
@@ -1047,7 +1047,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
         backgroundColor: FluxForgeTheme.surfaceDark,
         title: Text(
           'Add Step',
-          style: TextStyle(color: FluxForgeTheme.textPrimary),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1056,7 +1056,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
               controller: controller,
               decoration: InputDecoration(
                 labelText: 'Sound Name',
-                labelStyle: TextStyle(color: FluxForgeTheme.textSecondary),
+                labelStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
                 enabledBorder: OutlineInputBorder(
                   borderSide: BorderSide(color: FluxForgeTheme.border),
                 ),
@@ -1064,7 +1064,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
                   borderSide: BorderSide(color: Colors.teal),
                 ),
               ),
-              style: TextStyle(color: FluxForgeTheme.textPrimary),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
               autofocus: true,
             ),
           ],
@@ -1072,7 +1072,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: TextStyle(color: FluxForgeTheme.textSecondary)),
+            child: Text('Cancel', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary)),
           ),
           TextButton(
             onPressed: () {
@@ -1087,7 +1087,7 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
                 Navigator.pop(context);
               }
             },
-            child: Text('Add', style: TextStyle(color: Colors.teal)),
+            child: Text('Add', style: FluxForgeTheme.dockSans(color: Colors.teal)),
           ),
         ],
       ),
@@ -1143,10 +1143,10 @@ class _AddSequenceContainerDialogState extends State<_AddSequenceContainerDialog
         children: [
           Text(
             'New Sequence Container',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
+              size: 14,
+              weight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 16),
@@ -1154,7 +1154,7 @@ class _AddSequenceContainerDialogState extends State<_AddSequenceContainerDialog
             controller: _nameController,
             decoration: InputDecoration(
               labelText: 'Sequence Name',
-              labelStyle: TextStyle(color: FluxForgeTheme.textSecondary),
+              labelStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
               enabledBorder: OutlineInputBorder(
                 borderSide: BorderSide(color: FluxForgeTheme.border),
               ),
@@ -1162,7 +1162,7 @@ class _AddSequenceContainerDialogState extends State<_AddSequenceContainerDialog
                 borderSide: BorderSide(color: Colors.teal),
               ),
             ),
-            style: TextStyle(color: FluxForgeTheme.textPrimary),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
             autofocus: true,
           ),
           const SizedBox(height: 16),
@@ -1180,7 +1180,7 @@ class _AddSequenceContainerDialogState extends State<_AddSequenceContainerDialog
                   ),
                   child: Text(
                     'Cancel',
-                    style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+                    style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12),
                   ),
                 ),
               ),
@@ -1199,10 +1199,10 @@ class _AddSequenceContainerDialogState extends State<_AddSequenceContainerDialog
                   ),
                   child: Text(
                     'Create',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                      size: 12,
+                      weight: FontWeight.bold,
                     ),
                   ),
                 ),
@@ -1246,7 +1246,7 @@ class _TimelineRulerPainter extends CustomPainter {
       final textPainter = TextPainter(
         text: TextSpan(
           text: '${time.toStringAsFixed(0)}',
-          style: TextStyle(color: color, fontSize: 9),
+          style: FluxForgeTheme.dockSans(color: color, size: 9),
         ),
         textDirection: TextDirection.ltr,
       );

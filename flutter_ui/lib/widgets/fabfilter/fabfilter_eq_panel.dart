@@ -25,6 +25,7 @@ import 'fabfilter_theme.dart';
 import 'fabfilter_panel_base.dart';
 import 'fabfilter_widgets.dart';
 import 'fabfilter_knob.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ENUMS
@@ -664,7 +665,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
           alignment: Alignment.center,
           child: Text(
             'Linear Phase — Latency: ${(8192 / (widget.sampleRate > 0 ? widget.sampleRate : 48000) * 1000).toStringAsFixed(1)} ms',
-            style: const TextStyle(color: Color(0xFFFF8C40), fontSize: 8, fontWeight: FontWeight.bold),
+            style: FluxForgeTheme.dockSans(color: Color(0xFFFF8C40), size: 8, weight: FontWeight.bold),
           ),
         ),
         Expanded(child: _buildDisplay()),
@@ -708,12 +709,11 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
                 Icon(p.icon, size: 10,
                   color: _globalPlacement == p ? p.color : FabFilterColors.textTertiary),
                 const SizedBox(width: 2),
-                Text(p.label, style: TextStyle(
+                Text(p.label, style: FluxForgeTheme.dockSans(
                   color: _globalPlacement == p ? p.color : FabFilterColors.textTertiary,
-                  fontSize: 9, fontWeight: FontWeight.bold,
+                  size: 9, weight: FontWeight.bold,
                   letterSpacing: 0.5,
-                  overflow: TextOverflow.ellipsis,
-                )),
+                ).copyWith(overflow: TextOverflow.ellipsis)),
               ]),
             ),
           ),
@@ -734,9 +734,9 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
             ),
             child: Text(
               const ['Digital', 'Pultec', 'API 550', 'Neve', 'Ultra'][_eqMode],
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: _eqMode != 0 ? FabFilterColors.orange : FabFilterColors.textTertiary,
-                fontSize: 8, fontWeight: FontWeight.bold,
+                size: 8, weight: FontWeight.bold,
               ),
             ),
           ),
@@ -867,9 +867,9 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text('OUT', style: TextStyle(
-                      color: FabFilterColors.textTertiary, fontSize: 7,
-                      fontWeight: FontWeight.bold, letterSpacing: 1,
+                    Text('OUT', style: FluxForgeTheme.dockSans(
+                      color: FabFilterColors.textTertiary, size: 7,
+                      weight: FontWeight.bold, letterSpacing: 1,
                     ), overflow: TextOverflow.ellipsis),
                     Text(
                       '${_outputGain >= 0 ? '+' : ''}${_outputGain.toStringAsFixed(1)} dB',
@@ -928,9 +928,9 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
                   border: Border.all(color: _bassMono ? FabFilterColors.green : FabFilterColors.border),
                 ),
                 child: Text(_bassMono ? 'BM:${_bassMonoFreq.round()}' : 'BM',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: _bassMono ? FabFilterColors.green : FabFilterColors.textTertiary,
-                    fontSize: 7, fontWeight: FontWeight.bold)),
+                    size: 7, weight: FontWeight.bold)),
               ),
             ),
             // E9.3: Room correction wizard
@@ -965,9 +965,9 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         // IN label + bars
         Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Text('IN', style: TextStyle(
-            color: FabFilterColors.textDisabled, fontSize: 6,
-            fontWeight: FontWeight.bold, letterSpacing: 0.5,
+          Text('IN', style: FluxForgeTheme.dockSans(
+            color: FabFilterColors.textDisabled, size: 6,
+            weight: FontWeight.bold, letterSpacing: 0.5,
           ), overflow: TextOverflow.ellipsis),
           const SizedBox(height: 1),
           Row(children: [
@@ -979,9 +979,9 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
         const SizedBox(width: 4),
         // OUT label + bars
         Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Text('OUT', style: TextStyle(
-            color: FabFilterColors.textDisabled, fontSize: 6,
-            fontWeight: FontWeight.bold, letterSpacing: 0.5,
+          Text('OUT', style: FluxForgeTheme.dockSans(
+            color: FabFilterColors.textDisabled, size: 6,
+            weight: FontWeight.bold, letterSpacing: 0.5,
           ), overflow: TextOverflow.ellipsis),
           const SizedBox(height: 1),
           Row(children: [
@@ -1219,9 +1219,9 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: FabFilterProcessorColors.eqAccent.withValues(alpha: 0.3)),
           ),
-          child: Text('${_bands.length}', style: TextStyle(
+          child: Text('${_bands.length}', style: FluxForgeTheme.dockSans(
             color: FabFilterProcessorColors.eqAccent,
-            fontSize: 9, fontWeight: FontWeight.bold,
+            size: 9, weight: FontWeight.bold,
           )),
         ),
         const SizedBox(width: 4),
@@ -1270,11 +1270,10 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
                     padding: const EdgeInsets.only(right: 2),
                     child: Icon(Icons.flash_on, size: 7, color: FabFilterColors.yellow),
                   ),
-                  Text(_fmtFreq(b.freq), style: TextStyle(
+                  Text(_fmtFreq(b.freq), style: FluxForgeTheme.dockSans(
                     color: sel ? FabFilterColors.textPrimary : (b.enabled ? c : FabFilterColors.textDisabled),
-                    fontSize: 9, fontWeight: FontWeight.bold,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  )),
+                    size: 9, weight: FontWeight.bold,
+                  ).copyWith(fontFeatures: const [FontFeature.tabularFigures()])),
                 ]),
               ),
             );
@@ -1347,8 +1346,8 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
                   child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                     Icon(s.icon, size: 9, color: act ? sc : FabFilterColors.textTertiary),
                     const SizedBox(width: 2),
-                    Text(s.label, style: TextStyle(
-                      fontSize: 7, fontWeight: FontWeight.bold,
+                    Text(s.label, style: FluxForgeTheme.dockSans(
+                      size: 7, weight: FontWeight.bold,
                       color: act ? sc : FabFilterColors.textTertiary,
                     )),
                   ]),
@@ -1422,8 +1421,8 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
                   child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                     Icon(b.placement.icon, size: 10, color: b.placement.color),
                     const SizedBox(width: 2),
-                    Text(b.placement.label, style: TextStyle(
-                      fontSize: 9, fontWeight: FontWeight.bold, color: b.placement.color,
+                    Text(b.placement.label, style: FluxForgeTheme.dockSans(
+                      size: 9, weight: FontWeight.bold, color: b.placement.color,
                     )),
                   ]),
                 ),
@@ -1630,8 +1629,8 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
             child: Row(children: [
               Icon(s.icon, size: 14, color: b.shape == s ? FabFilterColors.blue : null),
               const SizedBox(width: 6),
-              Text(s.label, style: TextStyle(
-                fontWeight: b.shape == s ? FontWeight.bold : FontWeight.normal,
+              Text(s.label, style: FluxForgeTheme.dockSans(
+                weight: b.shape == s ? FontWeight.bold : FontWeight.normal,
               )),
             ]),
           ),
@@ -2187,7 +2186,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
                 border: Border(bottom: BorderSide(color: Color(0xFF2A2A38))),
               ),
               child: Row(children: [
-                const Text('EQ Presets', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
+                Text('EQ Presets', style: FluxForgeTheme.dockSans(color: Colors.white70, size: 12, weight: FontWeight.bold)),
                 const Spacer(),
                 // Save current as preset
                 GestureDetector(
@@ -2195,7 +2194,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
                     Navigator.of(ctx).pop();
                     _savePresetDialog();
                   },
-                  child: const Text('Save Current', style: TextStyle(color: FabFilterColors.blue, fontSize: 10)),
+                  child: Text('Save Current', style: FluxForgeTheme.dockSans(color: FabFilterColors.blue, size: 10)),
                 ),
               ]),
             ),
@@ -2206,13 +2205,13 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
                 children: categories.expand((cat) => [
                   Padding(
                     padding: const EdgeInsets.fromLTRB(8, 8, 8, 2),
-                    child: Text(cat, style: const TextStyle(color: Colors.white38, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                    child: Text(cat, style: FluxForgeTheme.dockSans(color: Colors.white38, size: 9, weight: FontWeight.bold, letterSpacing: 1)),
                   ),
                   ..._factoryEqPresets.where((p) => p.category == cat).map((p) =>
                     ListTile(
                       dense: true,
                       visualDensity: VisualDensity.compact,
-                      title: Text(p.name, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                      title: Text(p.name, style: FluxForgeTheme.dockSans(color: Colors.white70, size: 11)),
                       onTap: () {
                         Navigator.of(ctx).pop();
                         _pushUndo();
@@ -2235,11 +2234,11 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A22),
-        title: const Text('Save EQ Preset', style: TextStyle(color: Colors.white70, fontSize: 14)),
+        title: Text('Save EQ Preset', style: FluxForgeTheme.dockSans(color: Colors.white70, size: 14)),
         content: TextField(
           controller: ctrl,
-          style: const TextStyle(color: Colors.white, fontSize: 12),
-          decoration: const InputDecoration(hintText: 'Preset name', hintStyle: TextStyle(color: Colors.white24)),
+          style: FluxForgeTheme.dockSans(color: Colors.white, size: 12),
+          decoration: InputDecoration(hintText: 'Preset name', hintStyle: FluxForgeTheme.dockSans(color: Colors.white24)),
           autofocus: true,
         ),
         actions: [
@@ -2346,7 +2345,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
           ),
         ),
         Text('${(_matchAmount * 100).toInt()}%',
-          style: const TextStyle(color: FabFilterColors.green, fontSize: 9, fontWeight: FontWeight.bold)),
+          style: FluxForgeTheme.dockSans(color: FabFilterColors.green, size: 9, weight: FontWeight.bold)),
         const SizedBox(width: 8),
         // E6.3: Apply match
         FabTinyButton(
@@ -2478,9 +2477,9 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
           Row(children: [
             const Icon(Icons.spatial_audio_off, size: 14, color: FabFilterColors.green),
             const SizedBox(width: 6),
-            Text('ROOM CORRECTION', style: TextStyle(
-              color: FabFilterColors.green, fontSize: 10,
-              fontWeight: FontWeight.bold, letterSpacing: 1)),
+            Text('ROOM CORRECTION', style: FluxForgeTheme.dockSans(
+              color: FabFilterColors.green, size: 10,
+              weight: FontWeight.bold, letterSpacing: 1)),
             const Spacer(),
             GestureDetector(
               onTap: () => setState(() => _roomCorrectionActive = false),
@@ -2491,7 +2490,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
           // Step 1: Capture
           if (_roomCorrectionStep == 0) ...[
             Text('Reproduce testni signal ili pink noise u prostoriji.',
-              style: TextStyle(color: FabFilterColors.textSecondary, fontSize: 9)),
+              style: FluxForgeTheme.dockSans(color: FabFilterColors.textSecondary, size: 9)),
             const SizedBox(height: 6),
             GestureDetector(
               onTap: _startRoomCapture,
@@ -2501,8 +2500,8 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
                   color: FabFilterColors.green.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(4),
                   border: Border.all(color: FabFilterColors.green)),
-                child: Text('▶ CAPTURE (5s)', style: TextStyle(
-                  color: FabFilterColors.green, fontSize: 9, fontWeight: FontWeight.bold)),
+                child: Text('▶ CAPTURE (5s)', style: FluxForgeTheme.dockSans(
+                  color: FabFilterColors.green, size: 9, weight: FontWeight.bold)),
               ),
             ),
           ],
@@ -2517,14 +2516,14 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
               )),
               const SizedBox(width: 8),
               Text('${(_roomCaptureProgress * 100).round()}%',
-                style: TextStyle(color: FabFilterColors.green, fontSize: 9)),
+                style: FluxForgeTheme.dockSans(color: FabFilterColors.green, size: 9)),
             ]),
           ],
 
           // Step 2: Analyzed — show room modes
           if (_roomCorrectionStep == 2) ...[
             Text('Detektovano ${_roomModes.length} sobnih modova:',
-              style: TextStyle(color: FabFilterColors.textSecondary, fontSize: 9)),
+              style: FluxForgeTheme.dockSans(color: FabFilterColors.textSecondary, size: 9)),
             const SizedBox(height: 4),
             if (_roomModes.isNotEmpty)
               SizedBox(
@@ -2543,14 +2542,14 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text('${m.freq.round()} Hz', style: TextStyle(
-                            color: FabFilterColors.green, fontSize: 9, fontWeight: FontWeight.bold)),
+                          Text('${m.freq.round()} Hz', style: FluxForgeTheme.dockSans(
+                            color: FabFilterColors.green, size: 9, weight: FontWeight.bold)),
                           Text('${m.mag > 0 ? '+' : ''}${m.mag.toStringAsFixed(1)} dB',
-                            style: TextStyle(
+                            style: FluxForgeTheme.dockSans(
                               color: m.mag > 0 ? FabFilterColors.orange : FabFilterColors.cyan,
-                              fontSize: 8)),
+                              size: 8)),
                           Text('Q:${m.q.toStringAsFixed(1)} ${modeTypeNames[m.type_.clamp(0, 2)]}',
-                            style: TextStyle(color: FabFilterColors.textTertiary, fontSize: 7)),
+                            style: FluxForgeTheme.dockSans(color: FabFilterColors.textTertiary, size: 7)),
                         ],
                       ),
                     );
@@ -2560,7 +2559,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
             const SizedBox(height: 6),
             // Target curve picker
             Row(children: [
-              Text('Target: ', style: TextStyle(color: FabFilterColors.textTertiary, fontSize: 8)),
+              Text('Target: ', style: FluxForgeTheme.dockSans(color: FabFilterColors.textTertiary, size: 8)),
               ...List.generate(5, (i) => Padding(
                 padding: const EdgeInsets.only(right: 3),
                 child: GestureDetector(
@@ -2573,9 +2572,9 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
                       borderRadius: BorderRadius.circular(3),
                       border: Border.all(color: _roomTargetCurve == i
                           ? FabFilterColors.green : FabFilterColors.border)),
-                    child: Text(targetNames[i], style: TextStyle(
+                    child: Text(targetNames[i], style: FluxForgeTheme.dockSans(
                       color: _roomTargetCurve == i ? FabFilterColors.green : FabFilterColors.textTertiary,
-                      fontSize: 7, fontWeight: FontWeight.bold)),
+                      size: 7, weight: FontWeight.bold)),
                   ),
                 ),
               )),
@@ -2589,8 +2588,8 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
                   color: FabFilterColors.green.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(4),
                   border: Border.all(color: FabFilterColors.green)),
-                child: Text('GENERATE CORRECTION', style: TextStyle(
-                  color: FabFilterColors.green, fontSize: 9, fontWeight: FontWeight.bold)),
+                child: Text('GENERATE CORRECTION', style: FluxForgeTheme.dockSans(
+                  color: FabFilterColors.green, size: 9, weight: FontWeight.bold)),
               ),
             ),
           ],
@@ -2598,7 +2597,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
           // Step 3: Correction generated — apply
           if (_roomCorrectionStep == 3) ...[
             Text('Generisano $_roomCorrectionBands korekcijskih bandova.',
-              style: TextStyle(color: FabFilterColors.green, fontSize: 9)),
+              style: FluxForgeTheme.dockSans(color: FabFilterColors.green, size: 9)),
             const SizedBox(height: 6),
             Row(children: [
               GestureDetector(
@@ -2609,8 +2608,8 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
                     color: FabFilterColors.green.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(color: FabFilterColors.green)),
-                  child: Text('APPLY TO EQ', style: TextStyle(
-                    color: FabFilterColors.green, fontSize: 9, fontWeight: FontWeight.bold)),
+                  child: Text('APPLY TO EQ', style: FluxForgeTheme.dockSans(
+                    color: FabFilterColors.green, size: 9, weight: FontWeight.bold)),
                 ),
               ),
               const SizedBox(width: 8),
@@ -2622,8 +2621,8 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
                     color: Colors.transparent,
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(color: FabFilterColors.border)),
-                  child: Text('RETRY', style: TextStyle(
-                    color: FabFilterColors.textTertiary, fontSize: 9, fontWeight: FontWeight.bold)),
+                  child: Text('RETRY', style: FluxForgeTheme.dockSans(
+                    color: FabFilterColors.textTertiary, size: 9, weight: FontWeight.bold)),
                 ),
               ),
             ]),

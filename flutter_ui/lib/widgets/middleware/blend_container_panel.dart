@@ -106,10 +106,10 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
         const SizedBox(width: 6),
         Text(
           'Blend Containers',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textPrimary,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
+            size: 12,
+            weight: FontWeight.bold,
           ),
         ),
         const Spacer(),
@@ -136,10 +136,10 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
                     const SizedBox(width: 4),
                     Text(
                       'Preview',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: Colors.green,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
+                        size: 11,
+                        weight: FontWeight.bold,
                       ),
                     ),
                   ],
@@ -170,10 +170,10 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
                     const SizedBox(width: 4),
                     Text(
                       'A/B',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: Colors.cyan,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
+                        size: 11,
+                        weight: FontWeight.bold,
                       ),
                     ),
                   ],
@@ -202,10 +202,10 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
                 const SizedBox(width: 4),
                 Text(
                   'Presets',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.amber,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
+                    size: 11,
+                    weight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -229,10 +229,10 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
                 const SizedBox(width: 4),
                 Text(
                   'New Container',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.purple,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
+                    size: 11,
+                    weight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -259,7 +259,7 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
             const SizedBox(height: 8),
             Text(
               'No blend containers',
-              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12),
             ),
           ],
         ),
@@ -313,10 +313,10 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
                       Expanded(
                         child: Text(
                           container.name,
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
                             color: FluxForgeTheme.textPrimary,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                            size: 12,
+                            weight: FontWeight.bold,
                           ),
                         ),
                       ),
@@ -370,18 +370,18 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
                         ),
                         child: Text(
                           'RTPC: ${container.rtpcId}',
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
                             color: FluxForgeTheme.accentBlue,
-                            fontSize: 9,
+                            size: 9,
                           ),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Text(
                         '${container.children.length} children',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: FluxForgeTheme.textSecondary,
-                          fontSize: 10,
+                          size: 10,
                         ),
                       ),
                     ],
@@ -406,7 +406,7 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
         child: Center(
           child: Text(
             'Select a blend container to visualize',
-            style: TextStyle(color: FluxForgeTheme.textSecondary),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
           ),
         ),
       );
@@ -426,7 +426,7 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
           children: [
             Text(
               'Crossfade Curve:',
-              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11),
             ),
             const SizedBox(width: 8),
             ...CrossfadeCurve.values.map((curve) {
@@ -452,9 +452,9 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
                     ),
                     child: Text(
                       curve.displayName,
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: isActive ? Colors.purple : FluxForgeTheme.textSecondary,
-                        fontSize: 10,
+                        size: 10,
                       ),
                     ),
                   ),
@@ -478,7 +478,7 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
                     const SizedBox(width: 4),
                     Text(
                       'Add Child',
-                      style: TextStyle(color: Colors.green, fontSize: 10),
+                      style: FluxForgeTheme.dockSans(color: Colors.green, size: 10),
                     ),
                   ],
                 ),
@@ -511,7 +511,7 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
                 backgroundColor: FluxForgeTheme.bgElevated,
                 content: Text(
                   'No child overlaps RTPC ${rtpc.toStringAsFixed(2)}',
-                  style: const TextStyle(color: FluxForgeTheme.accentOrange),
+                  style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentOrange),
                 ),
               ));
               return;
@@ -540,7 +540,7 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
                 played > 0
                     ? '🔊 Previewing $played child(ren) @ RTPC ${rtpc.toStringAsFixed(2)}'
                     : 'Active children have no audio assigned.',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: played > 0
                       ? FluxForgeTheme.accentGreen
                       : FluxForgeTheme.accentOrange,
@@ -591,11 +591,11 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
                           ),
                           child: Text(
                             child.name,
-                            style: TextStyle(
+                            style: FluxForgeTheme.dockSans(
                               color: _selectedChildId == child.id
                                   ? Colors.purple
                                   : FluxForgeTheme.textSecondary,
-                              fontSize: 9,
+                              size: 9,
                             ),
                           ),
                         ),
@@ -634,10 +634,10 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
             children: [
               Text(
                 'Edit: ${child.name}',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+                  size: 12,
+                  weight: FontWeight.bold,
                 ),
               ),
               const Spacer(),
@@ -665,7 +665,7 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
                 width: 100,
                 child: Text(
                   'RTPC Range',
-                  style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+                  style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11),
                 ),
               ),
               Expanded(
@@ -689,10 +689,10 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
                 child: Text(
                   '${child.rtpcStart.toStringAsFixed(2)} - ${child.rtpcEnd.toStringAsFixed(2)}',
                   textAlign: TextAlign.right,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.purple,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                    size: 10,
+                    weight: FontWeight.bold,
                   ),
                 ),
               ),
@@ -729,7 +729,7 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
           width: 100,
           child: Text(
             'Audio File',
-            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11),
           ),
         ),
         Expanded(
@@ -744,9 +744,9 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
             ),
             child: Text(
               fileName,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: hasAudio ? Colors.green : FluxForgeTheme.textSecondary,
-                fontSize: 10,
+                size: 10,
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -776,7 +776,7 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
                 const SizedBox(width: 4),
                 Text(
                   'Browse',
-                  style: TextStyle(color: Colors.purple, fontSize: 10),
+                  style: FluxForgeTheme.dockSans(color: Colors.purple, size: 10),
                 ),
               ],
             ),
@@ -815,7 +815,7 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
           width: 100,
           child: Text(
             label,
-            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11),
           ),
         ),
         Expanded(
@@ -838,10 +838,10 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
           child: Text(
             value,
             textAlign: TextAlign.right,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: color,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
+              size: 11,
+              weight: FontWeight.bold,
             ),
           ),
         ),
@@ -856,7 +856,7 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
         backgroundColor: FluxForgeTheme.surfaceDark,
         title: Text(
           'Add Blend Child',
-          style: TextStyle(color: FluxForgeTheme.textPrimary),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -864,7 +864,7 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
             TextField(
               decoration: InputDecoration(
                 labelText: 'Name',
-                labelStyle: TextStyle(color: FluxForgeTheme.textSecondary),
+                labelStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
                 enabledBorder: OutlineInputBorder(
                   borderSide: BorderSide(color: FluxForgeTheme.border),
                 ),
@@ -872,7 +872,7 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
                   borderSide: BorderSide(color: Colors.purple),
                 ),
               ),
-              style: TextStyle(color: FluxForgeTheme.textPrimary),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
               onSubmitted: (name) {
                 if (name.isNotEmpty) {
                   context.read<MiddlewareProvider>().addBlendChild(
@@ -890,7 +890,7 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: TextStyle(color: FluxForgeTheme.textSecondary)),
+            child: Text('Cancel', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary)),
           ),
         ],
       ),
@@ -927,10 +927,10 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
               const SizedBox(width: 6),
               Text(
                 'RTPC Smoothing:',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textSecondary,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
+                  size: 11,
+                  weight: FontWeight.bold,
                 ),
               ),
               const SizedBox(width: 8),
@@ -938,9 +938,9 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
                 container.smoothingMs == 0
                     ? 'Instant'
                     : '${container.smoothingMs.toStringAsFixed(0)}ms',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: container.smoothingMs > 0 ? Colors.orange : FluxForgeTheme.textSecondary,
-                  fontSize: 11,
+                  size: 11,
                 ),
               ),
               const Spacer(),
@@ -968,11 +968,11 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
                       ),
                       child: Text(
                         preset == 0 ? 'OFF' : '${preset.toInt()}',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: (container.smoothingMs - preset).abs() < 1
                               ? Colors.orange
                               : FluxForgeTheme.textSecondary,
-                          fontSize: 9,
+                          size: 9,
                         ),
                       ),
                     ),
@@ -1006,11 +1006,10 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
           // Description
           Text(
             'Smoothing prevents abrupt RTPC jumps. Uses critically damped spring (no overshoot).',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
-              fontSize: 9,
-              fontStyle: FontStyle.italic,
-            ),
+              size: 9,
+            ).copyWith(fontStyle: FontStyle.italic),
           ),
         ],
       ),
@@ -1057,10 +1056,10 @@ class _AddBlendContainerDialogState extends State<_AddBlendContainerDialog> {
         children: [
           Text(
             'New Blend Container',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
+              size: 14,
+              weight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 16),
@@ -1068,7 +1067,7 @@ class _AddBlendContainerDialogState extends State<_AddBlendContainerDialog> {
             controller: _nameController,
             decoration: InputDecoration(
               labelText: 'Container Name',
-              labelStyle: TextStyle(color: FluxForgeTheme.textSecondary),
+              labelStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
               enabledBorder: OutlineInputBorder(
                 borderSide: BorderSide(color: FluxForgeTheme.border),
               ),
@@ -1076,14 +1075,14 @@ class _AddBlendContainerDialogState extends State<_AddBlendContainerDialog> {
                 borderSide: BorderSide(color: Colors.purple),
               ),
             ),
-            style: TextStyle(color: FluxForgeTheme.textPrimary),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
           ),
           const SizedBox(height: 12),
           Row(
             children: [
               Text(
                 'RTPC ID:',
-                style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+                style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12),
               ),
               const SizedBox(width: 8),
               SizedBox(
@@ -1099,7 +1098,7 @@ class _AddBlendContainerDialogState extends State<_AddBlendContainerDialog> {
                       borderSide: BorderSide(color: Colors.purple),
                     ),
                   ),
-                  style: TextStyle(color: FluxForgeTheme.textPrimary),
+                  style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
                   onChanged: (v) => _rtpcId = int.tryParse(v) ?? 1,
                 ),
               ),
@@ -1120,7 +1119,7 @@ class _AddBlendContainerDialogState extends State<_AddBlendContainerDialog> {
                   ),
                   child: Text(
                     'Cancel',
-                    style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+                    style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12),
                   ),
                 ),
               ),
@@ -1139,10 +1138,10 @@ class _AddBlendContainerDialogState extends State<_AddBlendContainerDialog> {
                   ),
                   child: Text(
                     'Create',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                      size: 12,
+                      weight: FontWeight.bold,
                     ),
                   ),
                 ),
@@ -1288,9 +1287,9 @@ class _BlendCurvePainter extends CustomPainter {
     final textPainter = TextPainter(
       text: TextSpan(
         text: 'RTPC Value →',
-        style: TextStyle(
+        style: FluxForgeTheme.dockSans(
           color: FluxForgeTheme.textSecondary,
-          fontSize: 10,
+          size: 10,
         ),
       ),
       textDirection: TextDirection.ltr,

@@ -172,12 +172,12 @@ class _AutoBindDialogV2State extends State<AutoBindDialogV2>
               children: [
                 Text(
                   'Assign: ${file.fileName}',
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  style: FluxForgeTheme.dockSans(color: Colors.white70, size: 12),
                 ),
                 const SizedBox(height: 8),
                 // Levenshtein suggestions
                 if (file.suggestions.isNotEmpty) ...[
-                  const Text('Suggested:', style: TextStyle(color: FluxForgeTheme.accentCyan, fontSize: 10)),
+                  Text('Suggested:', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentCyan, size: 10)),
                   const SizedBox(height: 4),
                   Wrap(
                     spacing: 4, runSpacing: 4,
@@ -191,10 +191,10 @@ class _AutoBindDialogV2State extends State<AutoBindDialogV2>
                 TextField(
                   controller: searchCtl,
                   autofocus: true,
-                  style: const TextStyle(color: Colors.white70, fontSize: 11, fontFamily: 'monospace'),
-                  decoration: const InputDecoration(
+                  style: FluxForgeTheme.dockMono(color: Colors.white70, size: 11),
+                  decoration: InputDecoration(
                     hintText: 'Search stages...',
-                    hintStyle: TextStyle(color: Colors.white24),
+                    hintStyle: FluxForgeTheme.dockSans(color: Colors.white24),
                     isDense: true,
                     contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                     enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white12)),
@@ -214,7 +214,7 @@ class _AutoBindDialogV2State extends State<AutoBindDialogV2>
                     padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 4),
                     child: Text(
                       filtered[i],
-                      style: const TextStyle(color: Colors.white54, fontSize: 10, fontFamily: 'monospace'),
+                      style: FluxForgeTheme.dockMono(color: Colors.white54, size: 10),
                     ),
                   ),
                 ),
@@ -223,7 +223,7 @@ class _AutoBindDialogV2State extends State<AutoBindDialogV2>
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(null),
-                child: const Text('Cancel', style: TextStyle(color: Colors.white38)),
+                child: Text('Cancel', style: FluxForgeTheme.dockSans(color: Colors.white38)),
               ),
             ],
           );
@@ -369,9 +369,9 @@ class _AutoBindDialogV2State extends State<AutoBindDialogV2>
             children: [
               const Icon(Icons.auto_fix_high, color: FluxForgeTheme.accentGreen, size: 16),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'Auto-Bind',
-                style: TextStyle(color: FluxForgeTheme.accentGreen, fontSize: 14, fontWeight: FontWeight.bold),
+                style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentGreen, size: 14, weight: FontWeight.bold),
               ),
               const Spacer(),
               if (a != null) ...[
@@ -402,14 +402,14 @@ class _AutoBindDialogV2State extends State<AutoBindDialogV2>
               Expanded(
                 child: Text(
                   _folderPath ?? '',
-                  style: const TextStyle(color: Colors.white24, fontSize: 9, fontFamily: 'monospace'),
+                  style: FluxForgeTheme.dockMono(color: Colors.white24, size: 9),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               TextButton(
                 onPressed: _changeFolderPath,
                 style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 6), minimumSize: Size.zero),
-                child: const Text('Change', style: TextStyle(color: FluxForgeTheme.accentCyan, fontSize: 9)),
+                child: Text('Change', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentCyan, size: 9)),
               ),
             ],
           ),
@@ -437,7 +437,7 @@ class _AutoBindDialogV2State extends State<AutoBindDialogV2>
                 children: [
                   Text(
                     _busNames[i],
-                    style: TextStyle(color: _busColors[i].withValues(alpha: 0.6), fontSize: 8),
+                    style: FluxForgeTheme.dockSans(color: _busColors[i].withValues(alpha: 0.6), size: 8),
                   ),
                   SliderTheme(
                     data: SliderThemeData(
@@ -456,7 +456,7 @@ class _AutoBindDialogV2State extends State<AutoBindDialogV2>
                   ),
                   Text(
                     '${(vol * 100).round()}%',
-                    style: TextStyle(color: _busColors[i].withValues(alpha: 0.4), fontSize: 8, fontFamily: 'monospace'),
+                    style: FluxForgeTheme.dockMono(color: _busColors[i].withValues(alpha: 0.4), size: 8),
                   ),
                 ],
               ),
@@ -482,8 +482,8 @@ class _AutoBindDialogV2State extends State<AutoBindDialogV2>
               controller: _tabController,
               indicatorColor: FluxForgeTheme.accentGreen,
               indicatorWeight: 1,
-              labelStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
-              unselectedLabelStyle: const TextStyle(fontSize: 10),
+              labelStyle: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w600),
+              unselectedLabelStyle: FluxForgeTheme.dockSans(size: 10),
               tabs: [
                 Tab(text: a == null ? 'Matched' : 'Matched (${a.matchedCount})'),
                 Tab(text: a == null ? 'Unmatched' : 'Unmatched (${a.unmatchedCount})'),
@@ -498,10 +498,10 @@ class _AutoBindDialogV2State extends State<AutoBindDialogV2>
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: TextField(
                 controller: _searchController,
-                style: const TextStyle(color: Colors.white60, fontSize: 10, fontFamily: 'monospace'),
+                style: FluxForgeTheme.dockMono(color: Colors.white60, size: 10),
                 decoration: InputDecoration(
                   hintText: 'Filter...',
-                  hintStyle: const TextStyle(color: Colors.white24, fontSize: 10),
+                  hintStyle: FluxForgeTheme.dockSans(color: Colors.white24, size: 10),
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                   prefixIcon: const Icon(Icons.search, size: 12, color: Colors.white24),
@@ -548,7 +548,7 @@ class _AutoBindDialogV2State extends State<AutoBindDialogV2>
       ..sort((a, b) => a.key.compareTo(b.key));
 
     if (entries.isEmpty) {
-      return const Center(child: Text('No matched files', style: TextStyle(color: Colors.white24, fontSize: 12)));
+      return Center(child: Text('No matched files', style: FluxForgeTheme.dockSans(color: Colors.white24, size: 12)));
     }
 
     return ListView.builder(
@@ -577,13 +577,13 @@ class _AutoBindDialogV2State extends State<AutoBindDialogV2>
         .toList();
 
     if (unmatched.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.check_circle, color: FluxForgeTheme.accentGreen, size: 32),
-            SizedBox(height: 8),
-            Text('All files matched!', style: TextStyle(color: FluxForgeTheme.accentGreen, fontSize: 13)),
+            const Icon(Icons.check_circle, color: FluxForgeTheme.accentGreen, size: 32),
+            const SizedBox(height: 8),
+            Text('All files matched!', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentGreen, size: 13)),
           ],
         ),
       );
@@ -605,8 +605,8 @@ class _AutoBindDialogV2State extends State<AutoBindDialogV2>
   Widget _buildWarningsList() {
     final warnings = _analysis!.warnings;
     if (warnings.isEmpty) {
-      return const Center(
-        child: Text('No warnings', style: TextStyle(color: Colors.white24, fontSize: 12)),
+      return Center(
+        child: Text('No warnings', style: FluxForgeTheme.dockSans(color: Colors.white24, size: 12)),
       );
     }
     return ListView.builder(
@@ -630,7 +630,7 @@ class _AutoBindDialogV2State extends State<AutoBindDialogV2>
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(w.message, style: TextStyle(color: color, fontSize: 10)),
+                child: Text(w.message, style: FluxForgeTheme.dockSans(color: color, size: 10)),
               ),
             ],
           ),
@@ -640,13 +640,13 @@ class _AutoBindDialogV2State extends State<AutoBindDialogV2>
   }
 
   Widget _buildAnalyzing() {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: FluxForgeTheme.accentGreen)),
-          SizedBox(height: 12),
-          Text('Analyzing...', style: TextStyle(color: Colors.white38, fontSize: 11)),
+          const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: FluxForgeTheme.accentGreen)),
+          const SizedBox(height: 12),
+          Text('Analyzing...', style: FluxForgeTheme.dockSans(color: Colors.white38, size: 11)),
         ],
       ),
     );
@@ -663,7 +663,7 @@ class _AutoBindDialogV2State extends State<AutoBindDialogV2>
             children: [
               const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
               const SizedBox(width: 12),
-              Text(message, style: const TextStyle(color: Colors.white38, fontSize: 12)),
+              Text(message, style: FluxForgeTheme.dockSans(color: Colors.white38, size: 12)),
             ],
           ),
         ),
@@ -687,12 +687,12 @@ class _AutoBindDialogV2State extends State<AutoBindDialogV2>
           if (a != null)
             Text(
               '${a.uniqueStageCount} stages bound · ${a.totalFiles} total files',
-              style: const TextStyle(color: Colors.white24, fontSize: 9),
+              style: FluxForgeTheme.dockSans(color: Colors.white24, size: 9),
             ),
           const Spacer(),
           TextButton(
             onPressed: () => Navigator.of(context).pop(null),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white38, fontSize: 11)),
+            child: Text('Cancel', style: FluxForgeTheme.dockSans(color: Colors.white38, size: 11)),
           ),
           const SizedBox(width: 8),
           ElevatedButton.icon(
@@ -707,7 +707,7 @@ class _AutoBindDialogV2State extends State<AutoBindDialogV2>
                 : const Icon(Icons.auto_fix_high, size: 14, color: FluxForgeTheme.accentGreen),
             label: Text(
               _applying ? 'Applying...' : 'Auto-Bind & Apply',
-              style: const TextStyle(color: FluxForgeTheme.accentGreen, fontSize: 11),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentGreen, size: 11),
             ),
           ),
         ],
@@ -729,7 +729,7 @@ class _AutoBindDialogV2State extends State<AutoBindDialogV2>
             color: value ? FluxForgeTheme.accentGreen : Colors.white24,
           ),
           const SizedBox(width: 4),
-          Text(label, style: const TextStyle(color: Colors.white54, fontSize: 10)),
+          Text(label, style: FluxForgeTheme.dockSans(color: Colors.white54, size: 10)),
         ],
       ),
     );
@@ -754,7 +754,7 @@ class _StatChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
-      child: Text(label, style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w600)),
+      child: Text(label, style: FluxForgeTheme.dockSans(color: color, size: 9, weight: FontWeight.w600)),
     );
   }
 }
@@ -776,7 +776,7 @@ class _SuggestionChip extends StatelessWidget {
       ),
       child: Text(
         '${suggestion.stage} ($confidence%)',
-        style: TextStyle(color: color, fontSize: 9, fontFamily: 'monospace'),
+        style: FluxForgeTheme.dockMono(color: color, size: 9),
       ),
     );
   }
@@ -814,11 +814,10 @@ class _MatchedRow extends StatelessWidget {
             width: 168,
             child: Text(
               stage,
-              style: const TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: FluxForgeTheme.accentGreen,
-                fontSize: 9,
-                fontFamily: 'monospace',
-                fontWeight: FontWeight.w600,
+                size: 9,
+                weight: FontWeight.w600,
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -834,7 +833,7 @@ class _MatchedRow extends StatelessWidget {
             ),
             child: Text(
               primary.methodLabel,
-              style: TextStyle(color: methodColor, fontSize: 7, fontWeight: FontWeight.w700),
+              style: FluxForgeTheme.dockSans(color: methodColor, size: 7, weight: FontWeight.w700),
             ),
           ),
           // Confidence score
@@ -842,7 +841,7 @@ class _MatchedRow extends StatelessWidget {
             width: 28,
             child: Text(
               '${primary.score}',
-              style: TextStyle(color: confidenceColor, fontSize: 9, fontFamily: 'monospace'),
+              style: FluxForgeTheme.dockMono(color: confidenceColor, size: 9),
               textAlign: TextAlign.right,
             ),
           ),
@@ -851,18 +850,18 @@ class _MatchedRow extends StatelessWidget {
           Expanded(
             child: Text(
               primary.fileName,
-              style: const TextStyle(color: Colors.white38, fontSize: 9, fontFamily: 'monospace'),
+              style: FluxForgeTheme.dockMono(color: Colors.white38, size: 9),
               overflow: TextOverflow.ellipsis,
             ),
           ),
           // FFNC rename arrow
           if (doRename && primary.ffncName != null) ...[
-            const Text(' → ', style: TextStyle(color: Colors.white12, fontSize: 8)),
+            Text(' → ', style: FluxForgeTheme.dockSans(color: Colors.white12, size: 8)),
             SizedBox(
               width: 130,
               child: Text(
                 primary.ffncName!,
-                style: const TextStyle(color: FluxForgeTheme.accentCyan, fontSize: 8, fontFamily: 'monospace'),
+                style: FluxForgeTheme.dockMono(color: FluxForgeTheme.accentCyan, size: 8),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -878,7 +877,7 @@ class _MatchedRow extends StatelessWidget {
               ),
               child: Text(
                 '+$variantCount',
-                style: const TextStyle(color: Colors.white38, fontSize: 7),
+                style: FluxForgeTheme.dockSans(color: Colors.white38, size: 7),
               ),
             ),
           // Layer badge
@@ -893,7 +892,7 @@ class _MatchedRow extends StatelessWidget {
               ),
               child: Text(
                 'L${primary.layer}',
-                style: const TextStyle(color: Color(0xFF50D8FF), fontSize: 7),
+                style: FluxForgeTheme.dockSans(color: Color(0xFF50D8FF), size: 7),
               ),
             ),
         ],
@@ -920,7 +919,7 @@ class _UnmatchedRow extends StatelessWidget {
           Expanded(
             child: Text(
               file.fileName,
-              style: const TextStyle(color: Colors.white54, fontSize: 9, fontFamily: 'monospace'),
+              style: FluxForgeTheme.dockMono(color: Colors.white54, size: 9),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -929,7 +928,7 @@ class _UnmatchedRow extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               'Maybe: ${file.suggestions.first.stage}',
-              style: const TextStyle(color: Colors.white24, fontSize: 8, fontFamily: 'monospace'),
+              style: FluxForgeTheme.dockMono(color: Colors.white24, size: 8),
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(width: 4),
@@ -943,9 +942,9 @@ class _UnmatchedRow extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 backgroundColor: Colors.orange.withValues(alpha: 0.08),
               ),
-              child: const Text(
+              child: Text(
                 'Assign ▾',
-                style: TextStyle(color: Colors.orange, fontSize: 8),
+                style: FluxForgeTheme.dockSans(color: Colors.orange, size: 8),
               ),
             ),
           ),

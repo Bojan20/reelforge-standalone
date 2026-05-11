@@ -421,10 +421,10 @@ class _ContainerPresetLibraryPanelState extends State<ContainerPresetLibraryPane
         const SizedBox(width: 8),
         Text(
           'Container Preset Library',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textPrimary,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
+            size: 12,
+            weight: FontWeight.bold,
           ),
         ),
         const Spacer(),
@@ -443,7 +443,7 @@ class _ContainerPresetLibraryPanelState extends State<ContainerPresetLibraryPane
                 const SizedBox(width: 4),
                 Text(
                   'Target: ${widget.targetContainerType ?? 'Container'} #${widget.targetContainerId}',
-                  style: TextStyle(color: Colors.green, fontSize: 10),
+                  style: FluxForgeTheme.dockSans(color: Colors.green, size: 10),
                 ),
               ],
             ),
@@ -465,7 +465,7 @@ class _ContainerPresetLibraryPanelState extends State<ContainerPresetLibraryPane
                 const SizedBox(width: 4),
                 Text(
                   'Import',
-                  style: TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.bold),
+                  style: FluxForgeTheme.dockSans(color: Colors.blue, size: 11, weight: FontWeight.bold),
                 ),
               ],
             ),
@@ -504,10 +504,10 @@ class _ContainerPresetLibraryPanelState extends State<ContainerPresetLibraryPane
           Expanded(
             child: TextField(
               onChanged: (v) => setState(() => _searchQuery = v),
-              style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary, size: 12),
               decoration: InputDecoration(
                 hintText: 'Search presets...',
-                hintStyle: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+                hintStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12),
                 border: InputBorder.none,
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(vertical: 10),
@@ -569,10 +569,10 @@ class _ContainerPresetLibraryPanelState extends State<ContainerPresetLibraryPane
                     const SizedBox(width: 6),
                     Text(
                       cat.label,
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: isActive ? _getCategoryColor(cat) : FluxForgeTheme.textSecondary,
-                        fontSize: 11,
-                        fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                        size: 11,
+                        weight: isActive ? FontWeight.bold : FontWeight.normal,
                       ),
                     ),
                     const SizedBox(width: 6),
@@ -586,10 +586,10 @@ class _ContainerPresetLibraryPanelState extends State<ContainerPresetLibraryPane
                       ),
                       child: Text(
                         '$count',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: isActive ? _getCategoryColor(cat) : FluxForgeTheme.textSecondary,
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
+                          size: 9,
+                          weight: FontWeight.bold,
                         ),
                       ),
                     ),
@@ -639,7 +639,7 @@ class _ContainerPresetLibraryPanelState extends State<ContainerPresetLibraryPane
               const SizedBox(height: 8),
               Text(
                 'No presets found',
-                style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+                style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12),
               ),
             ],
           ),
@@ -699,10 +699,10 @@ class _ContainerPresetLibraryPanelState extends State<ContainerPresetLibraryPane
           const SizedBox(width: 8),
           Text(
             title,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: color,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
+              size: 11,
+              weight: FontWeight.bold,
             ),
           ),
         ],
@@ -741,10 +741,10 @@ class _ContainerPresetLibraryPanelState extends State<ContainerPresetLibraryPane
                 Expanded(
                   child: Text(
                     preset.name,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: FluxForgeTheme.textPrimary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
+                      size: 11,
+                      weight: FontWeight.bold,
                     ),
                   ),
                 ),
@@ -761,7 +761,7 @@ class _ContainerPresetLibraryPanelState extends State<ContainerPresetLibraryPane
                   ),
                   child: Text(
                     preset.type.toUpperCase(),
-                    style: TextStyle(color: typeColor, fontSize: 8, fontWeight: FontWeight.bold),
+                    style: FluxForgeTheme.dockSans(color: typeColor, size: 8, weight: FontWeight.bold),
                   ),
                 ),
                 const SizedBox(width: 6),
@@ -773,7 +773,7 @@ class _ContainerPresetLibraryPanelState extends State<ContainerPresetLibraryPane
                   ),
                   child: Text(
                     preset.category,
-                    style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 8),
+                    style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 8),
                   ),
                 ),
               ],
@@ -815,10 +815,10 @@ class _ContainerPresetLibraryPanelState extends State<ContainerPresetLibraryPane
                 Expanded(
                   child: Text(
                     preset.name,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: FluxForgeTheme.textPrimary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
+                      size: 11,
+                      weight: FontWeight.bold,
                     ),
                   ),
                 ),
@@ -839,13 +839,13 @@ class _ContainerPresetLibraryPanelState extends State<ContainerPresetLibraryPane
                   ),
                   child: Text(
                     preset.type.toUpperCase(),
-                    style: TextStyle(color: typeColor, fontSize: 8, fontWeight: FontWeight.bold),
+                    style: FluxForgeTheme.dockSans(color: typeColor, size: 8, weight: FontWeight.bold),
                   ),
                 ),
                 const SizedBox(width: 6),
                 Text(
                   _formatDate(preset.createdAt),
-                  style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 8),
+                  style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 8),
                 ),
               ],
             ),
@@ -907,12 +907,12 @@ class _ContainerPresetLibraryPanelState extends State<ContainerPresetLibraryPane
             const SizedBox(height: 12),
             Text(
               'Select a preset to preview',
-              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 13),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 13),
             ),
             const SizedBox(height: 4),
             Text(
               'Double-click to apply',
-              style: TextStyle(color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7), fontSize: 11),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7), size: 11),
             ),
           ],
         ),
@@ -949,16 +949,16 @@ class _ContainerPresetLibraryPanelState extends State<ContainerPresetLibraryPane
                     children: [
                       Text(
                         preset.name,
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: FluxForgeTheme.textPrimary,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
+                          size: 14,
+                          weight: FontWeight.bold,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         preset.description,
-                        style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+                        style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11),
                       ),
                     ],
                   ),
@@ -997,10 +997,10 @@ class _ContainerPresetLibraryPanelState extends State<ContainerPresetLibraryPane
                           const SizedBox(width: 8),
                           Text(
                             widget.targetContainerId != null ? 'Apply to Container' : 'Create New Container',
-                            style: const TextStyle(
+                            style: FluxForgeTheme.dockSans(
                               color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
+                              size: 12,
+                              weight: FontWeight.bold,
                             ),
                           ),
                         ],
@@ -1045,16 +1045,16 @@ class _ContainerPresetLibraryPanelState extends State<ContainerPresetLibraryPane
                     children: [
                       Text(
                         preset.name,
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: FluxForgeTheme.textPrimary,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
+                          size: 14,
+                          weight: FontWeight.bold,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         'Created: ${_formatDate(preset.createdAt)}',
-                        style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+                        style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11),
                       ),
                     ],
                   ),
@@ -1067,7 +1067,7 @@ class _ContainerPresetLibraryPanelState extends State<ContainerPresetLibraryPane
                   ),
                   child: Text(
                     preset.type.toUpperCase(),
-                    style: TextStyle(color: typeColor, fontSize: 10, fontWeight: FontWeight.bold),
+                    style: FluxForgeTheme.dockSans(color: typeColor, size: 10, weight: FontWeight.bold),
                   ),
                 ),
               ],
@@ -1104,10 +1104,10 @@ class _ContainerPresetLibraryPanelState extends State<ContainerPresetLibraryPane
                           const SizedBox(width: 8),
                           Text(
                             widget.targetContainerId != null ? 'Apply to Container' : 'Create New Container',
-                            style: const TextStyle(
+                            style: FluxForgeTheme.dockSans(
                               color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
+                              size: 12,
+                              weight: FontWeight.bold,
                             ),
                           ),
                         ],
@@ -1145,7 +1145,7 @@ class _ContainerPresetLibraryPanelState extends State<ContainerPresetLibraryPane
       case 'sequence':
         return _buildSequencePreview(data, color);
       default:
-        return Text('Unknown type', style: TextStyle(color: FluxForgeTheme.textSecondary));
+        return Text('Unknown type', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary));
     }
   }
 
@@ -1162,10 +1162,10 @@ class _ContainerPresetLibraryPanelState extends State<ContainerPresetLibraryPane
         const SizedBox(height: 12),
         Text(
           'Children (${children.length})',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textPrimary,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
+            size: 12,
+            weight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 8),
@@ -1184,12 +1184,12 @@ class _ContainerPresetLibraryPanelState extends State<ContainerPresetLibraryPane
                 Expanded(
                   child: Text(
                     child['name'] as String? ?? 'Child',
-                    style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 11),
+                    style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary, size: 11),
                   ),
                 ),
                 Text(
                   '${((child['rtpcStart'] as num?)?.toStringAsFixed(2) ?? '0')} - ${((child['rtpcEnd'] as num?)?.toStringAsFixed(2) ?? '1')}',
-                  style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+                  style: FluxForgeTheme.dockSans(color: color, size: 10, weight: FontWeight.bold),
                 ),
               ],
             ),
@@ -1219,10 +1219,10 @@ class _ContainerPresetLibraryPanelState extends State<ContainerPresetLibraryPane
         const SizedBox(height: 12),
         Text(
           'Children (${children.length})',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textPrimary,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
+            size: 12,
+            weight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 8),
@@ -1242,7 +1242,7 @@ class _ContainerPresetLibraryPanelState extends State<ContainerPresetLibraryPane
                 Expanded(
                   child: Text(
                     child['name'] as String? ?? 'Child',
-                    style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 11),
+                    style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary, size: 11),
                   ),
                 ),
                 Container(
@@ -1266,7 +1266,7 @@ class _ContainerPresetLibraryPanelState extends State<ContainerPresetLibraryPane
                 const SizedBox(width: 8),
                 Text(
                   '${weight.toStringAsFixed(1)}',
-                  style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+                  style: FluxForgeTheme.dockSans(color: color, size: 10, weight: FontWeight.bold),
                 ),
               ],
             ),
@@ -1289,10 +1289,10 @@ class _ContainerPresetLibraryPanelState extends State<ContainerPresetLibraryPane
         const SizedBox(height: 12),
         Text(
           'Steps (${steps.length})',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textPrimary,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
+            size: 12,
+            weight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 8),
@@ -1320,7 +1320,7 @@ class _ContainerPresetLibraryPanelState extends State<ContainerPresetLibraryPane
                   child: Center(
                     child: Text(
                       '${entry.key + 1}',
-                      style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.bold),
+                      style: FluxForgeTheme.dockSans(color: color, size: 9, weight: FontWeight.bold),
                     ),
                   ),
                 ),
@@ -1328,12 +1328,12 @@ class _ContainerPresetLibraryPanelState extends State<ContainerPresetLibraryPane
                 Expanded(
                   child: Text(
                     step['childName'] as String? ?? 'Step',
-                    style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 11),
+                    style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary, size: 11),
                   ),
                 ),
                 Text(
                   '@${delay}ms (${duration}ms)',
-                  style: TextStyle(color: color, fontSize: 9),
+                  style: FluxForgeTheme.dockSans(color: color, size: 9),
                 ),
               ],
             ),
@@ -1352,16 +1352,16 @@ class _ContainerPresetLibraryPanelState extends State<ContainerPresetLibraryPane
             width: 100,
             child: Text(
               label,
-              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.textPrimary,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
+                size: 11,
+                weight: FontWeight.bold,
               ),
             ),
           ),
@@ -1549,19 +1549,19 @@ class _ContainerPresetLibraryPanelState extends State<ContainerPresetLibraryPane
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: FluxForgeTheme.surfaceDark,
-        title: Text('Delete Preset', style: TextStyle(color: FluxForgeTheme.textPrimary)),
+        title: Text('Delete Preset', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary)),
         content: Text(
           'Are you sure you want to delete "${preset.name}"?',
-          style: TextStyle(color: FluxForgeTheme.textSecondary),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel', style: TextStyle(color: FluxForgeTheme.textSecondary)),
+            child: Text('Cancel', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('Delete', style: TextStyle(color: Colors.red)),
+            child: Text('Delete', style: FluxForgeTheme.dockSans(color: Colors.red)),
           ),
         ],
       ),
@@ -1703,10 +1703,10 @@ class ContainerPresetLibraryBadge extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               'Presets',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.amber,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
+                size: 11,
+                weight: FontWeight.bold,
               ),
             ),
           ],
