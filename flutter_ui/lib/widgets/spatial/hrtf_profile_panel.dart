@@ -68,11 +68,11 @@ class HrtfProfilePanel extends StatelessWidget {
           size: 18,
         ),
         const SizedBox(width: 8),
-        const Text(
+        Text(
           'PERSONALIZED HRTF',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
+          style: FluxForgeTheme.dockSans(
+            size: 12,
+            weight: FontWeight.w800,
             color: FluxForgeTheme.brandGoldBright,
             letterSpacing: 1.5,
           ),
@@ -83,10 +83,9 @@ class HrtfProfilePanel extends StatelessWidget {
             '${p.metadata!.measurementCount} dirs · '
             '${p.metadata!.filterLength} taps · '
             '${p.metadata!.sampleRate ~/ 1000}kHz',
-            style: const TextStyle(
-              fontSize: 10,
+            style: FluxForgeTheme.dockMono(
+              size: 10,
               color: FluxForgeTheme.textTertiary,
-              fontFamily: 'JetBrainsMono',
               letterSpacing: 0.5,
             ),
           ),
@@ -155,9 +154,9 @@ class HrtfProfilePanel extends StatelessWidget {
           ),
           child: Text(
             label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.w700,
               color: selected
                   ? FluxForgeTheme.brandGoldBright
                   : FluxForgeTheme.textSecondary,
@@ -197,9 +196,9 @@ class HrtfProfilePanel extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 label,
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  weight: FontWeight.w700,
                   color: FluxForgeTheme.accentCyan,
                   letterSpacing: 1.2,
                 ),
@@ -216,13 +215,13 @@ class HrtfProfilePanel extends StatelessWidget {
   Widget _buildBundledPresets(BuildContext context, HrtfProvider p) {
     return Row(
       children: [
-        const SizedBox(
+        SizedBox(
           width: 80,
           child: Text(
             'BUNDLED',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.w700,
               color: FluxForgeTheme.textTertiary,
               letterSpacing: 1.1,
             ),
@@ -270,9 +269,9 @@ class HrtfProfilePanel extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     p.hasDefaultPresets ? 'REBUILD' : 'INSTALL',
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
+                      weight: FontWeight.w700,
                       color: FluxForgeTheme.textSecondary,
                       letterSpacing: 0.8,
                     ),
@@ -309,9 +308,9 @@ class HrtfProfilePanel extends StatelessWidget {
         ),
         child: Text(
           name.toUpperCase(),
-          style: const TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: FontWeight.w700,
             color: FluxForgeTheme.accentGreen,
             letterSpacing: 1.0,
           ),
@@ -406,9 +405,9 @@ class HrtfProfilePanel extends StatelessWidget {
               width: 180,
               child: Text(
                 label,
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.w700,
                   color: FluxForgeTheme.textTertiary,
                   letterSpacing: 1.1,
                 ),
@@ -442,11 +441,10 @@ class HrtfProfilePanel extends StatelessWidget {
               child: Text(
                 '${value.toStringAsFixed(step >= 1 ? 0 : 1)} $unit',
                 textAlign: TextAlign.right,
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
+                style: FluxForgeTheme.dockMono(
+                  size: 11,
+                  weight: FontWeight.w700,
                   color: FluxForgeTheme.textPrimary,
-                  fontFamily: 'JetBrainsMono',
                   height: 1.0,
                 ),
               ),
@@ -463,13 +461,13 @@ class HrtfProfilePanel extends StatelessWidget {
     const rates = [44100, 48000, 88200, 96000];
     return Row(
       children: [
-        const SizedBox(
+        SizedBox(
           width: 180,
           child: Text(
             'SAMPLE RATE',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.w700,
               color: FluxForgeTheme.textTertiary,
               letterSpacing: 1.1,
             ),
@@ -495,13 +493,12 @@ class HrtfProfilePanel extends StatelessWidget {
               ),
               child: Text(
                 '${hz ~/ 1000}k',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
+                style: FluxForgeTheme.dockMono(
+                  size: 11,
+                  weight: FontWeight.w700,
                   color: p.sampleRate == hz
                       ? FluxForgeTheme.brandGoldBright
                       : FluxForgeTheme.textSecondary,
-                  fontFamily: 'JetBrainsMono',
                   letterSpacing: 0.5,
                 ),
               ),
@@ -593,9 +590,9 @@ class HrtfProfilePanel extends StatelessWidget {
                 const SizedBox(width: 6),
                 Text(
                   label,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
+                    weight: FontWeight.w800,
                     color: enabled ? color : FluxForgeTheme.textTertiary,
                     letterSpacing: 1.2,
                   ),
@@ -632,11 +629,11 @@ class HrtfProfilePanel extends StatelessWidget {
                 color: FluxForgeTheme.accentCyan,
               ),
               const SizedBox(width: 6),
-              const Text(
+              Text(
                 'LIVE AUDITION',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  weight: FontWeight.w800,
                   color: FluxForgeTheme.accentCyan,
                   letterSpacing: 1.3,
                 ),
@@ -645,10 +642,9 @@ class HrtfProfilePanel extends StatelessWidget {
               Text(
                 'AZ ${p.auditionAzimuthDeg.toStringAsFixed(0)}°  '
                 'EL ${p.auditionElevationDeg.toStringAsFixed(0)}°',
-                style: const TextStyle(
-                  fontSize: 10,
+                style: FluxForgeTheme.dockMono(
+                  size: 10,
                   color: FluxForgeTheme.textTertiary,
-                  fontFamily: 'JetBrainsMono',
                   letterSpacing: 0.5,
                 ),
               ),
@@ -696,9 +692,9 @@ class HrtfProfilePanel extends StatelessWidget {
                 ),
                 child: Text(
                   s.label,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: FontWeight.w700,
                     color: p.auditionSignal == s
                         ? FluxForgeTheme.accentCyan
                         : FluxForgeTheme.textSecondary,
@@ -763,9 +759,9 @@ class HrtfProfilePanel extends StatelessWidget {
                   const SizedBox(width: 6),
                   Text(
                     p.auditionPlaying ? 'PLAYING' : 'PLAY',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
+                    style: FluxForgeTheme.dockSans(
+                      size: 11,
+                      weight: FontWeight.w800,
                       color: p.hasGenerated
                           ? (p.auditionPlaying
                               ? FluxForgeTheme.accentGreen
@@ -815,11 +811,11 @@ class HrtfProfilePanel extends StatelessWidget {
           flex: 3,
           child: Row(
             children: [
-              const Text(
+              Text(
                 'DUR',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.w700,
                   color: FluxForgeTheme.textTertiary,
                   letterSpacing: 0.8,
                 ),
@@ -853,10 +849,9 @@ class HrtfProfilePanel extends StatelessWidget {
                 child: Text(
                   '${p.auditionDurationMs} ms',
                   textAlign: TextAlign.right,
-                  style: const TextStyle(
-                    fontSize: 10,
+                  style: FluxForgeTheme.dockMono(
+                    size: 10,
                     color: FluxForgeTheme.textPrimary,
-                    fontFamily: 'JetBrainsMono',
                   ),
                 ),
               ),
@@ -888,11 +883,11 @@ class HrtfProfilePanel extends StatelessWidget {
             color: FluxForgeTheme.accentPurple,
           ),
           const SizedBox(width: 6),
-          const Text(
+          Text(
             'AUTOSPATIAL',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.w800,
               color: FluxForgeTheme.accentPurple,
               letterSpacing: 1.2,
             ),
@@ -955,9 +950,9 @@ class HrtfProfilePanel extends StatelessWidget {
               const SizedBox(width: 5),
               Text(
                 label,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.w700,
                   color: value
                       ? FluxForgeTheme.accentPurple
                       : FluxForgeTheme.textSecondary,
@@ -1015,10 +1010,9 @@ class HrtfProfilePanel extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: TextStyle(
-                fontSize: 11,
+              style: FluxForgeTheme.dockMono(
+                size: 11,
                 color: color,
-                fontFamily: 'JetBrainsMono',
                 letterSpacing: 0.3,
               ),
               overflow: TextOverflow.ellipsis,
@@ -1040,8 +1034,8 @@ class HrtfProfilePanel extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: FluxForgeTheme.bgDeep,
-        title: const Text('Save HRTF bundle',
-            style: TextStyle(color: FluxForgeTheme.textPrimary)),
+        title: Text('Save HRTF bundle',
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1088,8 +1082,8 @@ class HrtfProfilePanel extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: FluxForgeTheme.bgDeep,
-        title: const Text('Load HRTF bundle',
-            style: TextStyle(color: FluxForgeTheme.textPrimary)),
+        title: Text('Load HRTF bundle',
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary)),
         content: TextField(
           controller: pathCtl,
           decoration: const InputDecoration(labelText: 'Directory path'),

@@ -165,19 +165,19 @@ class _BeatGridEditorState extends State<BeatGridEditor>
           const SizedBox(width: 8),
           Text(
             'Beat Grid',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 13,
+              weight: FontWeight.w600,
               color: FluxForgeTheme.textPrimary,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
             ),
           ),
           if (segment != null) ...[
             const SizedBox(width: 8),
             Text(
               segment.name,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 12,
                 color: FluxForgeTheme.textMuted,
-                fontSize: 12,
               ),
             ),
           ],
@@ -252,11 +252,10 @@ class _BeatGridEditorState extends State<BeatGridEditor>
           ),
           child: Text(
             _formatPosition(_playheadPosition),
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 11,
+              weight: FontWeight.w500,
               color: FluxForgeTheme.textPrimary,
-              fontSize: 11,
-              fontFamily: 'monospace',
-              fontWeight: FontWeight.w500,
             ),
           ),
         ),
@@ -283,10 +282,10 @@ class _BeatGridEditorState extends State<BeatGridEditor>
                 onTap: () => _editTempo(provider, segment),
                 child: Text(
                   '${segment.tempo.toStringAsFixed(1)} BPM',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
+                    size: 11,
+                    weight: FontWeight.w600,
                     color: Colors.pink,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -306,10 +305,10 @@ class _BeatGridEditorState extends State<BeatGridEditor>
             onTap: () => _editTimeSignature(provider, segment),
             child: Text(
               '${segment.beatsPerBar}/4',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 11,
+                weight: FontWeight.w600,
                 color: FluxForgeTheme.accent,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -324,9 +323,9 @@ class _BeatGridEditorState extends State<BeatGridEditor>
           ),
           child: Text(
             '${segment.durationBars} bars',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 11,
               color: FluxForgeTheme.textMuted,
-              fontSize: 11,
             ),
           ),
         ),
@@ -412,9 +411,9 @@ class _BeatGridEditorState extends State<BeatGridEditor>
               children: [
                 Text(
                   _snapMode.label,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
                     color: FluxForgeTheme.textMuted,
-                    fontSize: 11,
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -447,9 +446,9 @@ class _BeatGridEditorState extends State<BeatGridEditor>
           alignment: Alignment.center,
           child: Text(
             '${(_zoom * 100).round()}%',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 10,
               color: FluxForgeTheme.textMuted,
-              fontSize: 10,
             ),
           ),
         ),
@@ -736,10 +735,10 @@ class _BeatGridEditorState extends State<BeatGridEditor>
                 child: Center(
                   child: Text(
                     marker.name.isNotEmpty ? marker.name[0].toUpperCase() : 'M',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 8,
+                      weight: FontWeight.bold,
                       color: Colors.white,
-                      fontSize: 8,
-                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
@@ -820,17 +819,17 @@ class _BeatGridEditorState extends State<BeatGridEditor>
           const SizedBox(height: 16),
           Text(
             'No segment selected',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 14,
               color: FluxForgeTheme.textMuted,
-              fontSize: 14,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Select a music segment to edit its beat grid',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 12,
               color: FluxForgeTheme.textMuted.withValues(alpha: 0.7),
-              fontSize: 12,
             ),
           ),
         ],
@@ -949,13 +948,13 @@ class _BeatGridEditorState extends State<BeatGridEditor>
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: FluxForgeTheme.surface,
-          title: Text('Edit Marker', style: TextStyle(color: FluxForgeTheme.textPrimary)),
+          title: Text('Edit Marker', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: nameController,
-                style: TextStyle(color: FluxForgeTheme.textPrimary),
+                style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
                 decoration: const InputDecoration(labelText: 'Name'),
               ),
               const SizedBox(height: 16),
@@ -963,7 +962,7 @@ class _BeatGridEditorState extends State<BeatGridEditor>
                 value: selectedType,
                 decoration: const InputDecoration(labelText: 'Type'),
                 dropdownColor: FluxForgeTheme.surface,
-                style: TextStyle(color: FluxForgeTheme.textPrimary),
+                style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
                 items: MarkerType.values.map((type) {
                   return DropdownMenuItem(
                     value: type,
@@ -997,11 +996,11 @@ class _BeatGridEditorState extends State<BeatGridEditor>
                 _deleteMarker(provider, segment, index);
                 Navigator.pop(context);
               },
-              child: Text('Delete', style: TextStyle(color: FluxForgeTheme.errorRed)),
+              child: Text('Delete', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.errorRed)),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('Cancel', style: TextStyle(color: FluxForgeTheme.textMuted)),
+              child: Text('Cancel', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted)),
             ),
             ElevatedButton(
               onPressed: () {
@@ -1036,12 +1035,12 @@ class _BeatGridEditorState extends State<BeatGridEditor>
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: FluxForgeTheme.surface,
-        title: Text('Edit Tempo', style: TextStyle(color: FluxForgeTheme.textPrimary)),
+        title: Text('Edit Tempo', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary)),
         content: TextField(
           controller: controller,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))],
-          style: TextStyle(color: FluxForgeTheme.textPrimary),
+          style: FluxForgeTheme.dockMono(color: FluxForgeTheme.textPrimary),
           decoration: const InputDecoration(
             labelText: 'BPM',
             suffixText: 'BPM',
@@ -1050,7 +1049,7 @@ class _BeatGridEditorState extends State<BeatGridEditor>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: TextStyle(color: FluxForgeTheme.textMuted)),
+            child: Text('Cancel', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted)),
           ),
           ElevatedButton(
             onPressed: () {
@@ -1075,16 +1074,16 @@ class _BeatGridEditorState extends State<BeatGridEditor>
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: FluxForgeTheme.surface,
-          title: Text('Time Signature', style: TextStyle(color: FluxForgeTheme.textPrimary)),
+          title: Text('Time Signature', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 '$beatsPerBar / 4',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 32,
+                  weight: FontWeight.bold,
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 16),
@@ -1100,14 +1099,14 @@ class _BeatGridEditorState extends State<BeatGridEditor>
               ),
               Text(
                 'Beats per bar',
-                style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 12),
+                style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textMuted),
               ),
             ],
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('Cancel', style: TextStyle(color: FluxForgeTheme.textMuted)),
+              child: Text('Cancel', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted)),
             ),
             ElevatedButton(
               onPressed: () {

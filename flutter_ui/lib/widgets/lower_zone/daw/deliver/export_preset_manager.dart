@@ -386,9 +386,9 @@ class _ExportPresetManagerState extends State<ExportPresetManager> {
           const SizedBox(width: 6),
           Text(
             'EXPORT PRESETS',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.bold,
               color: FluxForgeTheme.textSecondary,
               letterSpacing: 0.5,
             ),
@@ -461,9 +461,9 @@ class _ExportPresetManagerState extends State<ExportPresetManager> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Text(
         label,
-        style: TextStyle(
-          fontSize: 9,
-          fontWeight: FontWeight.bold,
+        style: FluxForgeTheme.dockSans(
+          size: 9,
+          weight: FontWeight.bold,
           color: FluxForgeTheme.textSecondary.withAlpha(150),
           letterSpacing: 0.5,
         ),
@@ -509,8 +509,8 @@ class _ExportPresetManagerState extends State<ExportPresetManager> {
                 children: [
                   Text(
                     preset.name,
-                    style: TextStyle(
-                      fontSize: 11,
+                    style: FluxForgeTheme.dockSans(
+                      size: 11,
                       color: isSelected
                           ? FluxForgeTheme.textPrimary
                           : FluxForgeTheme.textSecondary,
@@ -519,8 +519,8 @@ class _ExportPresetManagerState extends State<ExportPresetManager> {
                   if (preset.description != null)
                     Text(
                       preset.description!,
-                      style: TextStyle(
-                        fontSize: 9,
+                      style: FluxForgeTheme.dockSans(
+                        size: 9,
                         color: FluxForgeTheme.textSecondary.withAlpha(150),
                       ),
                       maxLines: 1,
@@ -541,9 +541,9 @@ class _ExportPresetManagerState extends State<ExportPresetManager> {
               ),
               child: Text(
                 preset.format.extension.toUpperCase(),
-                style: TextStyle(
-                  fontSize: 8,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockMono(
+                  size: 8,
+                  weight: FontWeight.bold,
                   color: preset.format.isLossy
                       ? Colors.orange
                       : FluxForgeTheme.accentGreen,
@@ -563,8 +563,8 @@ class _ExportPresetManagerState extends State<ExportPresetManager> {
       return Center(
         child: Text(
           'Select a preset to view settings',
-          style: TextStyle(
-            fontSize: 11,
+          style: FluxForgeTheme.dockSans(
+            size: 11,
             color: FluxForgeTheme.textSecondary,
           ),
         ),
@@ -799,9 +799,9 @@ class _ExportPresetManagerState extends State<ExportPresetManager> {
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         title,
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
+        style: FluxForgeTheme.dockSans(
+          size: 10,
+          weight: FontWeight.bold,
           color: FluxForgeTheme.accentBlue,
           letterSpacing: 0.5,
         ),
@@ -818,8 +818,8 @@ class _ExportPresetManagerState extends State<ExportPresetManager> {
             width: 120,
             child: Text(
               label,
-              style: TextStyle(
-                fontSize: 11,
+              style: FluxForgeTheme.dockSans(
+                size: 11,
                 color: FluxForgeTheme.textSecondary,
               ),
             ),
@@ -827,8 +827,8 @@ class _ExportPresetManagerState extends State<ExportPresetManager> {
           Expanded(
             child: Text(
               value,
-              style: TextStyle(
-                fontSize: 11,
+              style: FluxForgeTheme.dockSans(
+                size: 11,
                 color: FluxForgeTheme.textPrimary,
               ),
             ),
@@ -849,8 +849,8 @@ class _ExportPresetManagerState extends State<ExportPresetManager> {
           width: 100,
           child: Text(
             label,
-            style: TextStyle(
-              fontSize: 11,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
               color: FluxForgeTheme.textSecondary,
             ),
           ),
@@ -860,14 +860,14 @@ class _ExportPresetManagerState extends State<ExportPresetManager> {
             height: 28,
             child: TextField(
               controller: controller,
-              style: TextStyle(
-                fontSize: 11,
+              style: FluxForgeTheme.dockSans(
+                size: 11,
                 color: FluxForgeTheme.textPrimary,
               ),
               decoration: InputDecoration(
                 hintText: hint,
-                hintStyle: TextStyle(
-                  fontSize: 11,
+                hintStyle: FluxForgeTheme.dockSans(
+                  size: 11,
                   color: FluxForgeTheme.textSecondary.withAlpha(100),
                 ),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -906,8 +906,8 @@ class _ExportPresetManagerState extends State<ExportPresetManager> {
           width: 100,
           child: Text(
             label,
-            style: TextStyle(
-              fontSize: 11,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
               color: FluxForgeTheme.textSecondary,
             ),
           ),
@@ -926,8 +926,8 @@ class _ExportPresetManagerState extends State<ExportPresetManager> {
                 value: value,
                 isExpanded: true,
                 dropdownColor: FluxForgeTheme.bgDeep,
-                style: TextStyle(
-                  fontSize: 11,
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
                   color: FluxForgeTheme.textPrimary,
                 ),
                 items: items.map((item) => DropdownMenuItem<T>(
@@ -959,8 +959,8 @@ class _ExportPresetManagerState extends State<ExportPresetManager> {
           width: 100,
           child: Text(
             label,
-            style: TextStyle(
-              fontSize: 11,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
               color: FluxForgeTheme.textSecondary,
             ),
           ),
@@ -987,9 +987,8 @@ class _ExportPresetManagerState extends State<ExportPresetManager> {
           width: 60,
           child: Text(
             '${value.toStringAsFixed(1)} $suffix',
-            style: TextStyle(
-              fontSize: 10,
-              fontFamily: 'monospace',
+            style: FluxForgeTheme.dockMono(
+              size: 10,
               color: FluxForgeTheme.textSecondary,
             ),
             textAlign: TextAlign.right,
@@ -1010,8 +1009,8 @@ class _ExportPresetManagerState extends State<ExportPresetManager> {
           width: 100,
           child: Text(
             label,
-            style: TextStyle(
-              fontSize: 11,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
               color: FluxForgeTheme.textSecondary,
             ),
           ),
@@ -1061,9 +1060,9 @@ class _ExportPresetManagerState extends State<ExportPresetManager> {
             const SizedBox(width: 4),
             Text(
               label,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: isPrimary ? FontWeight.bold : FontWeight.normal,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: isPrimary ? FontWeight.bold : FontWeight.normal,
                 color: color,
               ),
             ),
@@ -1162,16 +1161,16 @@ class _ExportPresetManagerState extends State<ExportPresetManager> {
         backgroundColor: FluxForgeTheme.bgDeep,
         title: Text(
           'Delete Preset',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 14,
             color: FluxForgeTheme.textPrimary,
-            fontSize: 14,
           ),
         ),
         content: Text(
           'Are you sure you want to delete "${preset.name}"?\nThis action cannot be undone.',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 12,
             color: FluxForgeTheme.textSecondary,
-            fontSize: 12,
           ),
         ),
         actions: [
@@ -1179,7 +1178,9 @@ class _ExportPresetManagerState extends State<ExportPresetManager> {
             onPressed: () => Navigator.of(context).pop(),
             child: Text(
               'Cancel',
-              style: TextStyle(color: FluxForgeTheme.textSecondary),
+              style: FluxForgeTheme.dockSans(
+                color: FluxForgeTheme.textSecondary,
+              ),
             ),
           ),
           TextButton(
@@ -1190,9 +1191,9 @@ class _ExportPresetManagerState extends State<ExportPresetManager> {
                 _editingPreset = null;
               });
             },
-            child: const Text(
+            child: Text(
               'Delete',
-              style: TextStyle(color: Colors.red),
+              style: FluxForgeTheme.dockSans(color: Colors.red),
             ),
           ),
         ],
@@ -1236,13 +1237,13 @@ class ExportPresetSelector extends StatelessWidget {
           dropdownColor: FluxForgeTheme.bgDeep,
           hint: Text(
             'Select preset...',
-            style: TextStyle(
-              fontSize: 11,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
               color: FluxForgeTheme.textSecondary,
             ),
           ),
-          style: TextStyle(
-            fontSize: 11,
+          style: FluxForgeTheme.dockSans(
+            size: 11,
             color: FluxForgeTheme.textPrimary,
           ),
           items: _allPresets.map((preset) => DropdownMenuItem<String>(
@@ -1267,9 +1268,9 @@ class ExportPresetSelector extends StatelessWidget {
                   ),
                   child: Text(
                     preset.format.extension.toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 8,
-                      fontWeight: FontWeight.bold,
+                    style: FluxForgeTheme.dockMono(
+                      size: 8,
+                      weight: FontWeight.bold,
                       color: preset.format.isLossy
                           ? Colors.orange
                           : FluxForgeTheme.accentGreen,

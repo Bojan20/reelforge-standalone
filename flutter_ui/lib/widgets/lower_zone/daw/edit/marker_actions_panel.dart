@@ -13,6 +13,7 @@ library;
 
 import 'package:flutter/material.dart';
 import '../../../../services/marker_action_service.dart';
+import '../../../../theme/fluxforge_theme.dart';
 import '../../../daw/marker_system.dart';
 import '../../../fabfilter/fabfilter_theme.dart';
 import '../../../fabfilter/fabfilter_widgets.dart';
@@ -104,7 +105,7 @@ class _MarkerActionsPanelState extends State<MarkerActionsPanel> {
                     'Example: !setMonitorMode\n'
                     'Example: !mix.toggle_mute',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: FabFilterColors.textTertiary, fontSize: 11),
+                    style: FluxForgeTheme.dockSans(size: 11, color: FabFilterColors.textTertiary),
                   ),
                 ))
               : ListView.builder(
@@ -125,7 +126,7 @@ class _MarkerActionsPanelState extends State<MarkerActionsPanel> {
               FabSectionLabel('ALL MARKERS'),
               const Spacer(),
               Text('${_markerService.markers.length}',
-                style: TextStyle(fontSize: 10, color: FabFilterColors.textTertiary)),
+                style: FluxForgeTheme.dockSans(size: 10, color: FabFilterColors.textTertiary)),
             ],
           ),
         ),
@@ -133,7 +134,7 @@ class _MarkerActionsPanelState extends State<MarkerActionsPanel> {
           height: 100,
           child: _markerService.markers.isEmpty
               ? Center(child: Text('No markers',
-                  style: TextStyle(color: FabFilterColors.textTertiary, fontSize: 10)))
+                  style: FluxForgeTheme.dockSans(size: 10, color: FabFilterColors.textTertiary)))
               : ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   itemCount: _markerService.sortedMarkers.length,
@@ -146,12 +147,12 @@ class _MarkerActionsPanelState extends State<MarkerActionsPanel> {
                         Icon(isAction ? Icons.bolt : Icons.flag, size: 12,
                           color: isAction ? FabFilterColors.orange : m.color),
                         const SizedBox(width: 4),
-                        Expanded(child: Text(m.name, style: TextStyle(
-                          fontSize: 10,
+                        Expanded(child: Text(m.name, style: FluxForgeTheme.dockSans(
+                          size: 10,
                           color: isAction ? FabFilterColors.orange : FabFilterColors.textTertiary,
                         ), overflow: TextOverflow.ellipsis)),
-                        Text(_formatTime(m.time), style: TextStyle(
-                          fontSize: 9, color: FabFilterColors.textTertiary)),
+                        Text(_formatTime(m.time), style: FluxForgeTheme.dockSans(
+                          size: 9, color: FabFilterColors.textTertiary)),
                       ]),
                     );
                   },
@@ -186,19 +187,19 @@ class _MarkerActionsPanelState extends State<MarkerActionsPanel> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(marker.name, style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                  Text(marker.name, style: FluxForgeTheme.dockSans(
+                    size: 11,
+                    weight: selected ? FontWeight.w600 : FontWeight.normal,
                     color: enabled ? FabFilterColors.textPrimary : FabFilterColors.textTertiary,
                   ), overflow: TextOverflow.ellipsis),
                   if (action != null)
-                    Text('→ ${action.actionId}', style: TextStyle(
-                      fontSize: 9, color: FabFilterColors.orange)),
+                    Text('→ ${action.actionId}', style: FluxForgeTheme.dockSans(
+                      size: 9, color: FabFilterColors.orange)),
                 ],
               ),
             ),
-            Text(_formatTime(marker.time), style: TextStyle(
-              fontSize: 10, color: FabFilterColors.textTertiary)),
+            Text(_formatTime(marker.time), style: FluxForgeTheme.dockSans(
+              size: 10, color: FabFilterColors.textTertiary)),
             const SizedBox(width: 4),
             // Enable/disable toggle
             GestureDetector(
@@ -242,7 +243,7 @@ class _MarkerActionsPanelState extends State<MarkerActionsPanel> {
     if (marker == null || action == null) {
       return Center(child: Text(
         'Select an action marker to view details',
-        style: TextStyle(color: FabFilterColors.textTertiary, fontSize: 12),
+        style: FluxForgeTheme.dockSans(size: 12, color: FabFilterColors.textTertiary),
       ));
     }
 
@@ -257,12 +258,12 @@ class _MarkerActionsPanelState extends State<MarkerActionsPanel> {
           Row(children: [
             Icon(Icons.bolt, size: 16, color: FabFilterColors.orange),
             const SizedBox(width: 6),
-            Text(marker.name, style: const TextStyle(
-              fontSize: 13, fontWeight: FontWeight.w600, color: FabFilterColors.textPrimary)),
+            Text(marker.name, style: FluxForgeTheme.dockSans(
+              size: 13, weight: FontWeight.w600, color: FabFilterColors.textPrimary)),
           ]),
           const SizedBox(height: 4),
           Text('Time: ${_formatTime(marker.time)}  |  Category: ${marker.category.label}',
-            style: TextStyle(fontSize: 10, color: FabFilterColors.textTertiary)),
+            style: FluxForgeTheme.dockSans(size: 10, color: FabFilterColors.textTertiary)),
           const SizedBox(height: 12),
 
           // Action configuration
@@ -270,21 +271,21 @@ class _MarkerActionsPanelState extends State<MarkerActionsPanel> {
           const SizedBox(height: 6),
           // Action ID
           Row(children: [
-            Text('Action ID: ', style: TextStyle(
-              fontSize: 11, color: FabFilterColors.textTertiary)),
-            Text(action.actionId, style: TextStyle(
-              fontSize: 11, fontWeight: FontWeight.w600, color: FabFilterColors.orange)),
+            Text('Action ID: ', style: FluxForgeTheme.dockSans(
+              size: 11, color: FabFilterColors.textTertiary)),
+            Text(action.actionId, style: FluxForgeTheme.dockSans(
+              size: 11, weight: FontWeight.w600, color: FabFilterColors.orange)),
           ]),
           const SizedBox(height: 4),
           // Params
           if (action.params != null && action.params!.isNotEmpty) ...[
-            Text('Params:', style: TextStyle(
-              fontSize: 10, color: FabFilterColors.textTertiary)),
+            Text('Params:', style: FluxForgeTheme.dockSans(
+              size: 10, color: FabFilterColors.textTertiary)),
             for (final entry in action.params!.entries)
               Padding(
                 padding: const EdgeInsets.only(left: 12),
-                child: Text('${entry.key} = ${entry.value}', style: TextStyle(
-                  fontSize: 10, color: FabFilterColors.textSecondary)),
+                child: Text('${entry.key} = ${entry.value}', style: FluxForgeTheme.dockSans(
+                  size: 10, color: FabFilterColors.textSecondary)),
               ),
             const SizedBox(height: 4),
           ],
@@ -302,8 +303,8 @@ class _MarkerActionsPanelState extends State<MarkerActionsPanel> {
 
           // Enabled state
           Row(children: [
-            Text('Enabled: ', style: TextStyle(
-              fontSize: 11, color: FabFilterColors.textTertiary)),
+            Text('Enabled: ', style: FluxForgeTheme.dockSans(
+              size: 11, color: FabFilterColors.textTertiary)),
             GestureDetector(
               onTap: () => _service.toggleEnabled(marker.id),
               child: Container(
@@ -316,8 +317,8 @@ class _MarkerActionsPanelState extends State<MarkerActionsPanel> {
                   border: Border.all(
                     color: action.enabled ? FabFilterColors.green : FabFilterColors.border),
                 ),
-                child: Text(action.enabled ? 'ON' : 'OFF', style: TextStyle(
-                  fontSize: 10, fontWeight: FontWeight.w600,
+                child: Text(action.enabled ? 'ON' : 'OFF', style: FluxForgeTheme.dockSans(
+                  size: 10, weight: FontWeight.w600,
                   color: action.enabled ? FabFilterColors.green : FabFilterColors.textTertiary,
                 )),
               ),
@@ -345,8 +346,8 @@ class _MarkerActionsPanelState extends State<MarkerActionsPanel> {
           borderRadius: BorderRadius.circular(3),
           border: Border.all(color: active ? FabFilterColors.orange : FabFilterColors.border),
         ),
-        child: Text(label, style: TextStyle(
-          fontSize: 10,
+        child: Text(label, style: FluxForgeTheme.dockSans(
+          size: 10,
           color: active ? FabFilterColors.orange : FabFilterColors.textTertiary,
         )),
       ),
@@ -366,16 +367,16 @@ class _MarkerActionsPanelState extends State<MarkerActionsPanel> {
           FabSectionLabel('STATUS'),
           const SizedBox(height: 8),
           Text('Action markers: ${_service.count}',
-            style: TextStyle(fontSize: 10, color: FabFilterColors.textTertiary)),
+            style: FluxForgeTheme.dockSans(size: 10, color: FabFilterColors.textTertiary)),
           Text('Enabled: ${_service.enabledCount}',
-            style: TextStyle(fontSize: 10, color: FabFilterColors.textTertiary)),
+            style: FluxForgeTheme.dockSans(size: 10, color: FabFilterColors.textTertiary)),
           Text('Total markers: ${_markerService.markers.length}',
-            style: TextStyle(fontSize: 10, color: FabFilterColors.textTertiary)),
+            style: FluxForgeTheme.dockSans(size: 10, color: FabFilterColors.textTertiary)),
           const SizedBox(height: 12),
           FabSectionLabel('TOLERANCE'),
           const SizedBox(height: 4),
           Text('${_service.triggerToleranceMs.toInt()} ms',
-            style: TextStyle(fontSize: 11, color: FabFilterColors.textSecondary)),
+            style: FluxForgeTheme.dockSans(size: 11, color: FabFilterColors.textSecondary)),
           const SizedBox(height: 12),
           FabSectionLabel('USAGE'),
           const SizedBox(height: 4),
@@ -387,7 +388,7 @@ class _MarkerActionsPanelState extends State<MarkerActionsPanel> {
             '!actionId\n'
             '!actionId key=val\n'
             '!cmd.id (command)\n',
-            style: TextStyle(fontSize: 10, color: FabFilterColors.textTertiary, height: 1.4),
+            style: FluxForgeTheme.dockSans(size: 10, color: FabFilterColors.textTertiary, height: 1.4),
           ),
         ],
       ),
@@ -438,7 +439,7 @@ class _MarkerActionsPanelState extends State<MarkerActionsPanel> {
               Icon(icon, size: 14,
                 color: enabled ? FabFilterColors.textSecondary : FabFilterColors.textDisabled),
               const SizedBox(width: 6),
-              Text(label, style: TextStyle(fontSize: 11,
+              Text(label, style: FluxForgeTheme.dockSans(size: 11,
                 color: enabled ? FabFilterColors.textSecondary : FabFilterColors.textDisabled)),
             ],
           ),

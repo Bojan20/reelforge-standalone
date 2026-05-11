@@ -192,12 +192,11 @@ class _Neve1073EqState extends State<Neve1073Eq> {
               color: _neveSilver,
               borderRadius: BorderRadius.circular(2),
             ),
-            child: const Text(
+            child: Text(
               'FF 1073',
-              style: TextStyle(
-                fontFamily: 'serif',
-                fontSize: 14,
-                fontWeight: FontWeight.w900,
+              style: FluxForgeTheme.dockSans(
+                size: 14,
+                weight: FontWeight.w900,
                 color: _neveBurgundy,
                 letterSpacing: 3,
               ),
@@ -206,21 +205,21 @@ class _Neve1073EqState extends State<Neve1073Eq> {
 
           const SizedBox(width: 12),
 
-          const Text(
+          Text(
             '1073',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 16,
+              weight: FontWeight.bold,
               color: _neveSilver,
             ),
           ),
 
           const Spacer(),
 
-          const Text(
+          Text(
             'MIC PREAMP / EQ',
-            style: TextStyle(
-              fontSize: 9,
+            style: FluxForgeTheme.dockSans(
+              size: 9,
               letterSpacing: 2,
               color: FluxForgeTheme.textSecondary,
             ),
@@ -241,10 +240,10 @@ class _Neve1073EqState extends State<Neve1073Eq> {
       ),
       child: Column(
         children: [
-          const Text(
+          Text(
             'INPUT',
-            style: TextStyle(
-              fontSize: 9,
+            style: FluxForgeTheme.dockSans(
+              size: 9,
               letterSpacing: 1,
               color: _neveSilver,
             ),
@@ -264,10 +263,10 @@ class _Neve1073EqState extends State<Neve1073Eq> {
           const SizedBox(height: 16),
 
           // HPF section
-          const Text(
+          Text(
             'HPF',
-            style: TextStyle(
-              fontSize: 8,
+            style: FluxForgeTheme.dockSans(
+              size: 8,
               color: FluxForgeTheme.textTertiary,
             ),
           ),
@@ -299,18 +298,18 @@ class _Neve1073EqState extends State<Neve1073Eq> {
               ),
               child: Text(
                 'ø',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 14,
+                  weight: FontWeight.bold,
                   color: _params.phaseInvert ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
                 ),
               ),
             ),
           ),
           const SizedBox(height: 2),
-          const Text(
+          Text(
             'PHASE',
-            style: TextStyle(fontSize: 7, color: FluxForgeTheme.textTertiary),
+            style: FluxForgeTheme.dockSans(size: 7, color: FluxForgeTheme.textTertiary),
           ),
         ],
       ),
@@ -339,21 +338,21 @@ class _Neve1073EqState extends State<Neve1073Eq> {
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(color: _neveSilver.withAlpha(128)),
                   ),
-                  child: const Text(
+                  child: Text(
                     'EQ',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
+                    style: FluxForgeTheme.dockSans(
+                      size: 11,
+                      weight: FontWeight.bold,
                       color: FluxForgeTheme.textPrimary,
                     ),
                   ),
                 ),
               ),
               const Spacer(),
-              const Text(
+              Text(
                 'EQUALISER',
-                style: TextStyle(
-                  fontSize: 10,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
                   letterSpacing: 2,
                   color: _neveSilver,
                 ),
@@ -396,11 +395,11 @@ class _Neve1073EqState extends State<Neve1073Eq> {
             color: _neveDarkBurgundy,
             borderRadius: BorderRadius.circular(2),
           ),
-          child: const Text(
+          child: Text(
             'HF',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.bold,
               color: _neveSilver,
             ),
           ),
@@ -409,10 +408,10 @@ class _Neve1073EqState extends State<Neve1073Eq> {
         const SizedBox(height: 8),
 
         // Fixed frequency indicator
-        const Text(
+        Text(
           '12kHz',
-          style: TextStyle(
-            fontSize: 9,
+          style: FluxForgeTheme.dockSans(
+            size: 9,
             color: FluxForgeTheme.textTertiary,
           ),
         ),
@@ -433,18 +432,17 @@ class _Neve1073EqState extends State<Neve1073Eq> {
 
         Text(
           '${_params.hfGain >= 0 ? '+' : ''}${_params.hfGain.toStringAsFixed(1)}',
-          style: const TextStyle(
-            fontSize: 9,
-            fontFamily: 'monospace',
+          style: FluxForgeTheme.dockMono(
+            size: 9,
             color: FluxForgeTheme.textSecondary,
           ),
         ),
 
         const SizedBox(height: 4),
 
-        const Text(
+        Text(
           'SHELF',
-          style: TextStyle(fontSize: 7, color: FluxForgeTheme.textTertiary),
+          style: FluxForgeTheme.dockSans(size: 7, color: FluxForgeTheme.textTertiary),
         ),
       ],
     );
@@ -459,11 +457,11 @@ class _Neve1073EqState extends State<Neve1073Eq> {
             color: _neveDarkBurgundy,
             borderRadius: BorderRadius.circular(2),
           ),
-          child: const Text(
+          child: Text(
             'MF',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.bold,
               color: _neveSilver,
             ),
           ),
@@ -495,18 +493,17 @@ class _Neve1073EqState extends State<Neve1073Eq> {
 
         Text(
           '${_params.mfGain >= 0 ? '+' : ''}${_params.mfGain.toStringAsFixed(1)}',
-          style: const TextStyle(
-            fontSize: 9,
-            fontFamily: 'monospace',
+          style: FluxForgeTheme.dockMono(
+            size: 9,
             color: FluxForgeTheme.textSecondary,
           ),
         ),
 
         const SizedBox(height: 4),
 
-        const Text(
+        Text(
           'PEAK',
-          style: TextStyle(fontSize: 7, color: FluxForgeTheme.textTertiary),
+          style: FluxForgeTheme.dockSans(size: 7, color: FluxForgeTheme.textTertiary),
         ),
       ],
     );
@@ -521,11 +518,11 @@ class _Neve1073EqState extends State<Neve1073Eq> {
             color: _neveDarkBurgundy,
             borderRadius: BorderRadius.circular(2),
           ),
-          child: const Text(
+          child: Text(
             'LF',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.bold,
               color: _neveSilver,
             ),
           ),
@@ -557,9 +554,8 @@ class _Neve1073EqState extends State<Neve1073Eq> {
 
         Text(
           '${_params.lfGain >= 0 ? '+' : ''}${_params.lfGain.toStringAsFixed(1)}',
-          style: const TextStyle(
-            fontSize: 9,
-            fontFamily: 'monospace',
+          style: FluxForgeTheme.dockMono(
+            size: 9,
             color: FluxForgeTheme.textSecondary,
           ),
         ),
@@ -578,9 +574,9 @@ class _Neve1073EqState extends State<Neve1073Eq> {
             ),
             child: Text(
               _params.lfShelf ? 'SHELF' : 'BELL',
-              style: const TextStyle(
-                fontSize: 8,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(
+                size: 8,
+                weight: FontWeight.bold,
                 color: FluxForgeTheme.textSecondary,
               ),
             ),
@@ -656,8 +652,8 @@ class _Neve1073EqState extends State<Neve1073Eq> {
           const SizedBox(height: 4),
           Text(
             label,
-            style: const TextStyle(
-              fontSize: 8,
+            style: FluxForgeTheme.dockSans(
+              size: 8,
               color: _neveSilver,
             ),
           ),
@@ -696,9 +692,9 @@ class _Neve1073EqState extends State<Neve1073Eq> {
             // Selected value
             Text(
               labels[selectedIndex],
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockMono(
+                size: 10,
+                weight: FontWeight.bold,
                 color: _neveSilver,
               ),
             ),
@@ -769,9 +765,9 @@ class _Neve1073EqState extends State<Neve1073Eq> {
           Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text(
+              Text(
                 'OUTPUT',
-                style: TextStyle(fontSize: 8, color: FluxForgeTheme.textSecondary, letterSpacing: 1),
+                style: FluxForgeTheme.dockSans(size: 8, color: FluxForgeTheme.textSecondary, letterSpacing: 1),
               ),
               const SizedBox(height: 1),
               SizedBox(
@@ -791,9 +787,8 @@ class _Neve1073EqState extends State<Neve1073Eq> {
             width: 50,
             child: Text(
               '${_params.outputLevel >= 0 ? '+' : ''}${_params.outputLevel.toStringAsFixed(1)} dB',
-              style: const TextStyle(
-                fontSize: 9,
-                fontFamily: 'monospace',
+              style: FluxForgeTheme.dockMono(
+                size: 9,
                 color: FluxForgeTheme.textSecondary,
               ),
             ),
@@ -823,7 +818,7 @@ class _Neve1073EqState extends State<Neve1073Eq> {
       children: [
         Text(
           label,
-          style: const TextStyle(fontSize: 7, color: FluxForgeTheme.textTertiary),
+          style: FluxForgeTheme.dockSans(size: 7, color: FluxForgeTheme.textTertiary),
         ),
         const SizedBox(height: 2),
         Container(

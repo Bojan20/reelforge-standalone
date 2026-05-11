@@ -1334,11 +1334,11 @@ class _ProjectDashboardDialogState extends State<ProjectDashboardDialog>
                 ),
                 child: Row(
                   children: [
-                    const SizedBox(width: 120, child: Text('Symbol', style: TextStyle(color: FluxForgeTheme.textSecondary, fontWeight: FontWeight.bold, fontSize: 12))),
-                    const SizedBox(width: 60, child: Text('×3', textAlign: TextAlign.center, style: TextStyle(color: FluxForgeTheme.textSecondary, fontWeight: FontWeight.bold, fontSize: 12))),
-                    const SizedBox(width: 60, child: Text('×4', textAlign: TextAlign.center, style: TextStyle(color: FluxForgeTheme.textSecondary, fontWeight: FontWeight.bold, fontSize: 12))),
-                    const SizedBox(width: 60, child: Text('×5', textAlign: TextAlign.center, style: TextStyle(color: FluxForgeTheme.textSecondary, fontWeight: FontWeight.bold, fontSize: 12))),
-                    const SizedBox(width: 80, child: Text('Type', textAlign: TextAlign.center, style: TextStyle(color: FluxForgeTheme.textSecondary, fontWeight: FontWeight.bold, fontSize: 12))),
+                    SizedBox(width: 120, child: Text('Symbol', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, weight: FontWeight.bold, size: 12))),
+                    SizedBox(width: 60, child: Text('×3', textAlign: TextAlign.center, style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, weight: FontWeight.bold, size: 12))),
+                    SizedBox(width: 60, child: Text('×4', textAlign: TextAlign.center, style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, weight: FontWeight.bold, size: 12))),
+                    SizedBox(width: 60, child: Text('×5', textAlign: TextAlign.center, style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, weight: FontWeight.bold, size: 12))),
+                    SizedBox(width: 80, child: Text('Type', textAlign: TextAlign.center, style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, weight: FontWeight.bold, size: 12))),
                   ],
                 ),
               ),
@@ -1348,10 +1348,10 @@ class _ProjectDashboardDialogState extends State<ProjectDashboardDialog>
               if (gddSymbols.isEmpty)
                 Container(
                   padding: const EdgeInsets.all(32),
-                  child: const Center(
+                  child: Center(
                     child: Text(
                       'No GDD imported. Import a Game Design Document to see paytable.',
-                      style: TextStyle(color: FluxForgeTheme.textMuted),
+                      style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted),
                     ),
                   ),
                 )
@@ -1366,9 +1366,9 @@ class _ProjectDashboardDialogState extends State<ProjectDashboardDialog>
               if (gddSymbols.isEmpty)
                 Container(
                   padding: const EdgeInsets.all(16),
-                  child: const Text(
+                  child: Text(
                     'Import GDD to see special symbols.',
-                    style: TextStyle(color: FluxForgeTheme.textMuted),
+                    style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted),
                   ),
                 )
               else
@@ -1398,22 +1398,22 @@ class _ProjectDashboardDialogState extends State<ProjectDashboardDialog>
             width: 120,
             child: Row(
               children: [
-                Text(_getSymbolEmoji(symbol), style: const TextStyle(fontSize: 16)),
+                Text(_getSymbolEmoji(symbol), style: FluxForgeTheme.dockSans(size: 16)),
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text(
                     symbol.name,
-                    style: TextStyle(color: color, fontWeight: isHighPay ? FontWeight.bold : FontWeight.normal, fontSize: 12),
+                    style: FluxForgeTheme.dockSans(color: color, weight: isHighPay ? FontWeight.bold : FontWeight.normal, size: 12),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
             ),
           ),
-          SizedBox(width: 60, child: Text('${(symbol.payouts[3] ?? 0).toStringAsFixed(0)}', textAlign: TextAlign.center, style: TextStyle(color: color, fontSize: 12))),
-          SizedBox(width: 60, child: Text('${(symbol.payouts[4] ?? 0).toStringAsFixed(0)}', textAlign: TextAlign.center, style: TextStyle(color: color, fontSize: 12))),
-          SizedBox(width: 60, child: Text('${(symbol.payouts[5] ?? 0).toStringAsFixed(0)}', textAlign: TextAlign.center, style: TextStyle(color: color, fontSize: 12))),
-          SizedBox(width: 80, child: Text(_tierLabel(symbol.tier), textAlign: TextAlign.center, style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11))),
+          SizedBox(width: 60, child: Text('${(symbol.payouts[3] ?? 0).toStringAsFixed(0)}', textAlign: TextAlign.center, style: FluxForgeTheme.dockMono(color: color, size: 12))),
+          SizedBox(width: 60, child: Text('${(symbol.payouts[4] ?? 0).toStringAsFixed(0)}', textAlign: TextAlign.center, style: FluxForgeTheme.dockMono(color: color, size: 12))),
+          SizedBox(width: 60, child: Text('${(symbol.payouts[5] ?? 0).toStringAsFixed(0)}', textAlign: TextAlign.center, style: FluxForgeTheme.dockMono(color: color, size: 12))),
+          SizedBox(width: 80, child: Text(_tierLabel(symbol.tier), textAlign: TextAlign.center, style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11))),
         ],
       ),
     );
@@ -1442,22 +1442,22 @@ class _ProjectDashboardDialogState extends State<ProjectDashboardDialog>
       ),
       child: Row(
         children: [
-          Text(_getSymbolEmoji(symbol), style: const TextStyle(fontSize: 24)),
+          Text(_getSymbolEmoji(symbol), style: FluxForgeTheme.dockSans(size: 24)),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(symbol.name, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14)),
+                Text(symbol.name, style: FluxForgeTheme.dockSans(color: color, weight: FontWeight.bold, size: 14)),
                 const SizedBox(height: 4),
-                Text(description, style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11)),
+                Text(description, style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11)),
               ],
             ),
           ),
           if (symbol.payouts.isNotEmpty && symbol.payouts.values.any((p) => p > 0))
             Text(
               '×5: ${(symbol.payouts[5] ?? 0).toStringAsFixed(0)}',
-              style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12),
+              style: FluxForgeTheme.dockMono(color: color, weight: FontWeight.bold, size: 12),
             ),
         ],
       ),
@@ -1508,10 +1508,10 @@ class _ProjectDashboardDialogState extends State<ProjectDashboardDialog>
         final gdd = projectProvider.importedGdd;
 
         if (gdd == null) {
-          return const Center(
+          return Center(
             child: Text(
               'No GDD imported. Import a Game Design Document to see game rules.',
-              style: TextStyle(color: FluxForgeTheme.textMuted),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted),
             ),
           );
         }
@@ -1542,8 +1542,8 @@ class _ProjectDashboardDialogState extends State<ProjectDashboardDialog>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(gdd.name, style: const TextStyle(color: FluxForgeTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 18)),
-                          Text('v${gdd.version}', style: const TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12)),
+                          Text(gdd.name, style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary, weight: FontWeight.bold, size: 18)),
+                          Text('v${gdd.version}', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12)),
                         ],
                       ),
                     ),
@@ -1588,10 +1588,10 @@ class _ProjectDashboardDialogState extends State<ProjectDashboardDialog>
         children: [
           SizedBox(
             width: 140,
-            child: Text(title, style: const TextStyle(color: FluxForgeTheme.textSecondary, fontWeight: FontWeight.bold, fontSize: 12)),
+            child: Text(title, style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, weight: FontWeight.bold, size: 12)),
           ),
           Expanded(
-            child: Text(value, style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12)),
+            child: Text(value, style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary, size: 12)),
           ),
         ],
       ),
@@ -1702,9 +1702,9 @@ class _ProjectDashboardDialogState extends State<ProjectDashboardDialog>
         children: [
           Icon(icon, color: color, size: 24),
           const SizedBox(height: 8),
-          Text(value, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 20)),
+          Text(value, style: FluxForgeTheme.dockMono(color: color, weight: FontWeight.bold, size: 20)),
           const SizedBox(height: 4),
-          Text(label, style: const TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12)),
+          Text(label, style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12)),
         ],
       ),
     );

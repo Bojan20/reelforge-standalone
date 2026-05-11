@@ -14,6 +14,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/stage_models.dart';
 import '../../providers/stage_provider.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Engine Connection Panel widget
 class EngineConnectionPanel extends StatelessWidget {
@@ -84,19 +85,19 @@ class _ConnectionHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Engine Connection',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                  style: FluxForgeTheme.dockSans(
+                    size: 16,
+                    weight: FontWeight.w600,
                     color: Colors.white,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   _getStatusText(),
-                  style: TextStyle(
-                    fontSize: 12,
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
                     color: _getStatusColor(),
                   ),
                 ),
@@ -290,9 +291,9 @@ class _ConnectionFormState extends State<_ConnectionForm> {
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
-      style: const TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w600,
+      style: FluxForgeTheme.dockSans(
+        size: 13,
+        weight: FontWeight.w600,
         color: Colors.white,
       ),
     );
@@ -364,12 +365,12 @@ class _ConnectionFormState extends State<_ConnectionForm> {
       onChanged: onChanged,
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
-      style: const TextStyle(fontSize: 14, color: Colors.white),
+      style: FluxForgeTheme.dockSans(size: 14, color: Colors.white),
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        labelStyle: const TextStyle(color: Color(0xFF808090)),
-        hintStyle: const TextStyle(color: Color(0xFF505060)),
+        labelStyle: FluxForgeTheme.dockSans(color: const Color(0xFF808090)),
+        hintStyle: FluxForgeTheme.dockSans(color: const Color(0xFF505060)),
         prefixIcon: prefixIcon != null
             ? Icon(prefixIcon, color: const Color(0xFF606070), size: 20)
             : null,
@@ -453,9 +454,9 @@ class _ProtocolSelector extends StatelessWidget {
                   const SizedBox(width: 8),
                   Text(
                     protocol.displayName,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                    style: FluxForgeTheme.dockSans(
+                      size: 13,
+                      weight: isSelected ? FontWeight.w600 : FontWeight.w400,
                       color: isSelected ? Colors.white : const Color(0xFF808090),
                     ),
                   ),
@@ -506,16 +507,16 @@ class _RecentConnectionTile extends StatelessWidget {
                 children: [
                   Text(
                     config.displayUrl,
-                    style: const TextStyle(
-                      fontSize: 13,
+                    style: FluxForgeTheme.dockSans(
+                      size: 13,
                       color: Colors.white,
                     ),
                   ),
                   Text(
                     'Adapter: ${config.adapterId}',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF606070),
+                    style: FluxForgeTheme.dockSans(
+                      size: 11,
+                      color: const Color(0xFF606070),
                     ),
                   ),
                 ],
@@ -624,11 +625,11 @@ class _EngineControls extends StatelessWidget {
           // Timing profile selector
           Row(
             children: [
-              const Text(
+              Text(
                 'Timing:',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF808090),
+                style: FluxForgeTheme.dockSans(
+                  size: 12,
+                  color: const Color(0xFF808090),
                 ),
               ),
               const SizedBox(width: 12),
@@ -711,9 +712,12 @@ class _RecordButton extends StatelessWidget {
           children: [
             const Icon(Icons.check_circle, color: Color(0xFF40ff90), size: 24),
             const SizedBox(width: 12),
-            const Text(
+            Text(
               'Recording Saved',
-              style: TextStyle(color: Colors.white, fontSize: 18),
+              style: FluxForgeTheme.dockSans(
+                size: 18,
+                color: Colors.white,
+              ),
             ),
           ],
         ),
@@ -723,7 +727,9 @@ class _RecordButton extends StatelessWidget {
           children: [
             Text(
               'Captured $eventCount stage events.',
-              style: const TextStyle(color: Color(0xFF808090)),
+              style: FluxForgeTheme.dockSans(
+                color: const Color(0xFF808090),
+              ),
             ),
             const SizedBox(height: 16),
             Container(
@@ -736,10 +742,13 @@ class _RecordButton extends StatelessWidget {
                 children: [
                   const Icon(Icons.info_outline, color: Color(0xFF4a9eff), size: 18),
                   const SizedBox(width: 8),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Export to use for offline preview or share with team.',
-                      style: TextStyle(color: Color(0xFF606070), fontSize: 12),
+                      style: FluxForgeTheme.dockSans(
+                        size: 12,
+                        color: const Color(0xFF606070),
+                      ),
                     ),
                   ),
                 ],
@@ -750,7 +759,7 @@ class _RecordButton extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Discard', style: TextStyle(color: Color(0xFF808090))),
+            child: Text('Discard', style: FluxForgeTheme.dockSans(color: const Color(0xFF808090))),
           ),
           ElevatedButton.icon(
             onPressed: () {
@@ -859,9 +868,9 @@ class _TimingChip extends StatelessWidget {
         ),
         child: Text(
           profile.displayName,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+          style: FluxForgeTheme.dockSans(
+            size: 11,
+            weight: isSelected ? FontWeight.w600 : FontWeight.w400,
             color: isSelected ? const Color(0xFF4a9eff) : const Color(0xFF808090),
           ),
         ),
@@ -897,9 +906,9 @@ class _EventStreamView extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 'Live Events (${events.length})',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockSans(
+                  size: 12,
+                  weight: FontWeight.w600,
                   color: Colors.white,
                 ),
               ),
@@ -927,29 +936,29 @@ class _EventStreamView extends StatelessWidget {
   }
 
   Widget _buildEmptyState() {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
+          const Icon(
             Icons.radio_button_unchecked,
             color: Color(0xFF606070),
             size: 48,
           ),
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
           Text(
             'Waiting for events...',
-            style: TextStyle(
-              fontSize: 14,
-              color: Color(0xFF606070),
+            style: FluxForgeTheme.dockSans(
+              size: 14,
+              color: const Color(0xFF606070),
             ),
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           Text(
             'Start a spin in the game engine',
-            style: TextStyle(
-              fontSize: 12,
-              color: Color(0xFF505060),
+            style: FluxForgeTheme.dockSans(
+              size: 12,
+              color: const Color(0xFF505060),
             ),
           ),
         ],
@@ -1010,10 +1019,9 @@ class _EventTile extends StatelessWidget {
             ),
             child: Text(
               '#$index',
-              style: const TextStyle(
-                fontSize: 10,
-                color: Color(0xFF606070),
-                fontFamily: 'monospace',
+              style: FluxForgeTheme.dockMono(
+                size: 10,
+                color: const Color(0xFF606070),
               ),
             ),
           ),
@@ -1039,9 +1047,9 @@ class _EventTile extends StatelessWidget {
                   children: [
                     Text(
                       event.stage.typeName,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                      style: FluxForgeTheme.dockSans(
+                        size: 13,
+                        weight: FontWeight.w600,
                         color: Colors.white,
                       ),
                     ),
@@ -1054,10 +1062,10 @@ class _EventTile extends StatelessWidget {
                       ),
                       child: Text(
                         event.stage.category.displayName,
-                        style: TextStyle(
-                          fontSize: 9,
+                        style: FluxForgeTheme.dockSans(
+                          size: 9,
+                          weight: FontWeight.w500,
                           color: categoryColor,
-                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),
@@ -1066,9 +1074,9 @@ class _EventTile extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   _getEventDescription(event),
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF808090),
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
+                    color: const Color(0xFF808090),
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -1080,10 +1088,9 @@ class _EventTile extends StatelessWidget {
           // Timestamp
           Text(
             '${event.timestampMs.toStringAsFixed(0)}ms',
-            style: const TextStyle(
-              fontSize: 10,
-              color: Color(0xFF606070),
-              fontFamily: 'monospace',
+            style: FluxForgeTheme.dockMono(
+              size: 10,
+              color: const Color(0xFF606070),
             ),
           ),
         ],
@@ -1180,11 +1187,11 @@ class _EngineConnectionPanelCollapsibleState
                       size: 20,
                     ),
                     const SizedBox(width: 12),
-                    const Text(
+                    Text(
                       'Engine Connection',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                      style: FluxForgeTheme.dockSans(
+                        size: 14,
+                        weight: FontWeight.w600,
                         color: Colors.white,
                       ),
                     ),

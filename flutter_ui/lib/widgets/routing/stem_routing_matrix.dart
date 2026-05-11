@@ -18,6 +18,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/stem_routing_provider.dart';
 import '../../providers/mixer_provider.dart';
+import '../../theme/fluxforge_theme.dart';
 import '../lower_zone/lower_zone_types.dart';
 
 // =============================================================================
@@ -155,12 +156,12 @@ class _StemRoutingMatrixState extends State<StemRoutingMatrix> {
         children: [
           Icon(Icons.view_module, color: widget.accentColor, size: 16),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'STEM ROUTING MATRIX',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.w600,
               color: LowerZoneColors.textPrimary,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
               letterSpacing: 1,
             ),
           ),
@@ -175,9 +176,9 @@ class _StemRoutingMatrixState extends State<StemRoutingMatrix> {
             ),
             child: Text(
               '${provider.trackCount} tracks · ${provider.connectionCount} routes',
-              style: const TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 10,
                 color: LowerZoneColors.textSecondary,
-                fontSize: 10,
               ),
             ),
           ),
@@ -230,10 +231,10 @@ class _StemRoutingMatrixState extends State<StemRoutingMatrix> {
             const SizedBox(width: 6),
             Text(
               'Auto-Detect',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.w600,
                 color: widget.accentColor,
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(width: 4),
@@ -294,9 +295,9 @@ class _StemRoutingMatrixState extends State<StemRoutingMatrix> {
           const SizedBox(width: 8),
           Text(
             label,
-            style: const TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 11,
               color: LowerZoneColors.textPrimary,
-              fontSize: 11,
             ),
           ),
         ],
@@ -323,10 +324,10 @@ class _StemRoutingMatrixState extends State<StemRoutingMatrix> {
             const SizedBox(width: 4),
             Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 9,
+                weight: FontWeight.w500,
                 color: color,
-                fontSize: 9,
-                fontWeight: FontWeight.w500,
               ),
             ),
           ],
@@ -392,13 +393,13 @@ class _StemRoutingMatrixState extends State<StemRoutingMatrix> {
             color: LowerZoneColors.bgMid,
             borderRadius: BorderRadius.circular(4),
           ),
-          child: const Center(
+          child: Center(
             child: Text(
               'TRACK → STEM',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 9,
+                weight: FontWeight.w600,
                 color: LowerZoneColors.textSecondary,
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
                 letterSpacing: 0.5,
               ),
             ),
@@ -448,10 +449,10 @@ class _StemRoutingMatrixState extends State<StemRoutingMatrix> {
               const SizedBox(height: 2),
               Text(
                 stem.code,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
+                  weight: FontWeight.w600,
                   color: isHovered || hasRouting ? stem.color : LowerZoneColors.textSecondary,
-                  fontSize: 8,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
               if (hasRouting)
@@ -464,10 +465,10 @@ class _StemRoutingMatrixState extends State<StemRoutingMatrix> {
                   ),
                   child: Text(
                     '$trackCount',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockMono(
+                      size: 7,
+                      weight: FontWeight.bold,
                       color: stem.color,
-                      fontSize: 7,
-                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
@@ -487,10 +488,10 @@ class _StemRoutingMatrixState extends State<StemRoutingMatrix> {
           const SizedBox(width: 6),
           Text(
             label,
-            style: const TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 9,
+              weight: FontWeight.w600,
               color: LowerZoneColors.textTertiary,
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
               letterSpacing: 1,
             ),
           ),
@@ -541,12 +542,12 @@ class _StemRoutingMatrixState extends State<StemRoutingMatrix> {
                 Expanded(
                   child: Text(
                     routing.trackName,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
+                      weight: FontWeight.w500,
                       color: isHovered
                           ? LowerZoneColors.textPrimary
                           : LowerZoneColors.textSecondary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -561,10 +562,10 @@ class _StemRoutingMatrixState extends State<StemRoutingMatrix> {
                     ),
                     child: Text(
                       '${routing.stems.length}',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockMono(
+                        size: 8,
+                        weight: FontWeight.bold,
                         color: widget.accentColor,
-                        fontSize: 8,
-                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
@@ -624,12 +625,12 @@ class _StemRoutingMatrixState extends State<StemRoutingMatrix> {
             Icon(Icons.warning_amber_rounded,
                 color: LowerZoneColors.warning, size: 20),
             const SizedBox(width: 8),
-            const Text(
+            Text(
               'Multiple Stem Outputs',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 14,
+                weight: FontWeight.w600,
                 color: LowerZoneColors.textPrimary,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -638,18 +639,20 @@ class _StemRoutingMatrixState extends State<StemRoutingMatrix> {
           '"${routing.trackName}" is already routed to: $existingNames.\n\n'
           'Do you want to replace that assignment with ${stem.label}, '
           'or add ${stem.label} as an additional output?',
-          style: const TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 12,
             color: LowerZoneColors.textSecondary,
-            fontSize: 12,
           ),
         ),
         actions: [
           TextButton(
             onPressed: () =>
                 Navigator.of(dialogContext).pop(_MultiOutputChoice.cancel),
-            child: const Text(
+            child: Text(
               'Cancel',
-              style: TextStyle(color: LowerZoneColors.textSecondary),
+              style: FluxForgeTheme.dockSans(
+                color: LowerZoneColors.textSecondary,
+              ),
             ),
           ),
           TextButton(
@@ -657,7 +660,9 @@ class _StemRoutingMatrixState extends State<StemRoutingMatrix> {
                 Navigator.of(dialogContext).pop(_MultiOutputChoice.add),
             child: Text(
               'Add',
-              style: TextStyle(color: stem.color),
+              style: FluxForgeTheme.dockSans(
+                color: stem.color,
+              ),
             ),
           ),
           ElevatedButton(
@@ -766,12 +771,12 @@ class _StemRoutingMatrixState extends State<StemRoutingMatrix> {
             color: LowerZoneColors.textMuted,
           ),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             'No tracks registered',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 14,
+              weight: FontWeight.w500,
               color: LowerZoneColors.textSecondary,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
             ),
           ),
           const SizedBox(height: 8),
@@ -791,10 +796,10 @@ class _StemRoutingMatrixState extends State<StemRoutingMatrix> {
                   const SizedBox(width: 6),
                   Text(
                     'Sync from Mixer',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 11,
+                      weight: FontWeight.w500,
                       color: widget.accentColor,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
@@ -821,10 +826,10 @@ class _StemRoutingMatrixState extends State<StemRoutingMatrix> {
             const SizedBox(width: 8),
             Text(
               stem.label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 14,
+                weight: FontWeight.w600,
                 color: stem.color,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -835,18 +840,18 @@ class _StemRoutingMatrixState extends State<StemRoutingMatrix> {
           children: [
             Text(
               stem.description,
-              style: const TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 11,
                 color: LowerZoneColors.textSecondary,
-                fontSize: 11,
               ),
             ),
             const SizedBox(height: 12),
             Text(
               '${provider.getTrackCountForStem(stem)} tracks assigned',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 11,
+                weight: FontWeight.w500,
                 color: stem.color,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
               ),
             ),
           ],
@@ -859,7 +864,9 @@ class _StemRoutingMatrixState extends State<StemRoutingMatrix> {
             },
             child: Text(
               'Clear All',
-              style: TextStyle(color: LowerZoneColors.error),
+              style: FluxForgeTheme.dockSans(
+                color: LowerZoneColors.error,
+              ),
             ),
           ),
           TextButton(
@@ -892,9 +899,9 @@ class _StemRoutingMatrixState extends State<StemRoutingMatrix> {
           const SizedBox(width: 8),
           Text(
             '+${_stems.length - 5} more',
-            style: const TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 9,
               color: LowerZoneColors.textTertiary,
-              fontSize: 9,
             ),
           ),
           const Spacer(),
@@ -920,17 +927,17 @@ class _StemRoutingMatrixState extends State<StemRoutingMatrix> {
                     ),
                   ],
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.upload, size: 14, color: Colors.black),
-                    SizedBox(width: 6),
+                    const Icon(Icons.upload, size: 14, color: Colors.black),
+                    const SizedBox(width: 6),
                     Text(
                       'EXPORT STEMS',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 10,
+                        weight: FontWeight.bold,
                         color: Colors.black,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
                         letterSpacing: 0.5,
                       ),
                     ),
@@ -960,9 +967,9 @@ class _StemRoutingMatrixState extends State<StemRoutingMatrix> {
           const SizedBox(width: 4),
           Text(
             stem.label,
-            style: const TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 9,
               color: LowerZoneColors.textSecondary,
-              fontSize: 9,
             ),
           ),
         ],
