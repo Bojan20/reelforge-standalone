@@ -36,6 +36,8 @@ import '../../providers/middleware_provider.dart';
 import '../../providers/slot_lab/slot_lab_coordinator.dart';
 import '../../src/rust/native_ffi.dart' show SlotLabStageEvent;
 import '../../theme/fluxforge_theme.dart';
+import '../lower_zone/lower_zone_types.dart';
+import '../lower_zone/slotlab_lower_zone_controller.dart';
 
 // ─────────────────────────────────────────────────────────────────────────
 // 3.6.D — Anticipation Density tracker (singleton per session)
@@ -346,6 +348,10 @@ class _TimelineIntelligenceBarState extends State<TimelineIntelligenceBar> {
               _ClashBadge(
                 clashes: clashes,
                 isEmpty: stages.isEmpty,
+                onTap: clashes.isNotEmpty
+                    ? () => SlotLabLowerZoneController.instance
+                        .setSuperTab(SlotLabSuperTab.mix)
+                    : null,
               ),
               const SizedBox(width: 8),
               _TimeBudgetBadge(
@@ -405,7 +411,14 @@ class _ClashBadge extends StatelessWidget {
   final List<_ClashIssue> clashes;
   final bool isEmpty;
 
-  const _ClashBadge({required this.clashes, required this.isEmpty});
+  /// When non-null, the pill becomes tappable — opens the MIX dock tab.
+  final VoidCallback? onTap;
+
+  const _ClashBadge({
+    required this.clashes,
+    required this.isEmpty,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -417,15 +430,20 @@ class _ClashBadge extends StatelessWidget {
                 ? FluxForgeTheme.accentYellow
                 : FluxForgeTheme.accentRed));
 
+    final clashList = clashes.isEmpty
+        ? ''
+        : '\n\n${clashes.take(8).map((c) => '  $c').join('\n')}'
+            '${clashes.length > 8 ? '\n  …' : ''}';
+
+    final tapHint = onTap != null ? '\n\n▶ Tap to open MIX dock' : '';
+
     final tooltip = isEmpty
         ? 'Audio Clash Detector — no spin cached.\n'
             'Pairwise (stage,layer) check on same busId.'
         : (clashes.isEmpty
             ? '⚔ No bus clashes — every layer plays cleanly.'
             : 'Audio Clashes (top ${clashes.take(8).length} of '
-                '${clashes.length}):\n\n'
-                '${clashes.take(8).map((c) => '  $c').join('\n')}'
-                '${clashes.length > 8 ? '\n  …' : ''}');
+                '${clashes.length}):$clashList$tapHint');
 
     return _Pill(
       icon: Icons.flash_on_rounded,
@@ -435,6 +453,7 @@ class _ClashBadge extends StatelessWidget {
           : (clashes.isEmpty ? '⚔ 0' : '⚔ ${clashes.length}'),
       labelColor: color,
       tooltip: tooltip,
+      onTap: onTap,
     );
   }
 }
@@ -548,12 +567,15 @@ class _AnticipationDensityBadge extends StatelessWidget {
   }
 }
 
-class _Pill extends StatelessWidget {
+class _Pill extends StatefulWidget {
   final IconData icon;
   final Color iconColor;
   final String label;
   final Color labelColor;
   final String tooltip;
+
+  /// When non-null, the pill is interactive: shows pointer cursor + hover glow.
+  final VoidCallback? onTap;
 
   const _Pill({
     required this.icon,
@@ -561,12 +583,83 @@ class _Pill extends StatelessWidget {
     required this.label,
     required this.labelColor,
     required this.tooltip,
+    this.onTap,
   });
 
   @override
+  State<_Pill> createState() => _PillState();
+}
+
+class _PillState extends State<_Pill> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
+    final isInteractive = widget.onTap != null;
+    final borderAlpha = isInteractive && _hovered ? 0.85 : 0.4;
+    final bgAlpha = isInteractive && _hovered ? 0.95 : 0.7;
+
+    Widget pill = Container(
+      height: 22,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0A0A12).withValues(alpha: bgAlpha),
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(
+          color: widget.labelColor.withValues(alpha: borderAlpha),
+          width: isInteractive && _hovered ? 1.2 : 0.8,
+        ),
+        boxShadow: isInteractive && _hovered
+            ? [
+                BoxShadow(
+                  color: widget.labelColor.withValues(alpha: 0.25),
+                  blurRadius: 6,
+                  spreadRadius: 0,
+                ),
+              ]
+            : null,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(widget.icon, size: 12, color: widget.iconColor),
+          const SizedBox(width: 4),
+          Text(
+            widget.label,
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: widget.labelColor,
+              letterSpacing: 0.3,
+            ),
+          ),
+          if (isInteractive) ...[
+            const SizedBox(width: 4),
+            Icon(
+              Icons.open_in_new_rounded,
+              size: 9,
+              color: widget.labelColor.withValues(alpha: _hovered ? 0.9 : 0.5),
+            ),
+          ],
+        ],
+      ),
+    );
+
+    if (isInteractive) {
+      pill = MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: pill,
+        ),
+      );
+    }
+
     return Tooltip(
-      message: tooltip,
+      message: widget.tooltip,
       waitDuration: const Duration(milliseconds: 400),
       textStyle: const TextStyle(
         fontFamily: 'monospace',
@@ -577,38 +670,10 @@ class _Pill extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF0A0A12),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: labelColor.withValues(alpha: 0.4)),
+        border: Border.all(color: widget.labelColor.withValues(alpha: 0.4)),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      child: Container(
-        height: 22,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: BoxDecoration(
-          color: const Color(0xFF0A0A12).withValues(alpha: 0.7),
-          borderRadius: BorderRadius.circular(11),
-          border: Border.all(
-            color: labelColor.withValues(alpha: 0.4),
-            width: 0.8,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 12, color: iconColor),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                color: labelColor,
-                letterSpacing: 0.3,
-              ),
-            ),
-          ],
-        ),
-      ),
+      child: pill,
     );
   }
 }

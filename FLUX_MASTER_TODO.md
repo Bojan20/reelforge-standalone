@@ -133,7 +133,7 @@
 | H.3 | **2.3.3 — premium_slot_preview.dart split** (7.7K LOC) — zahteva `AnimationController` graph extract. | `lib/widgets/slot_lab/premium_slot_preview.dart` | L (1 ned) | 🔴 BLOCKED on AnimationGraph |
 | H.4 | **2B.3.7 — Context menu "Explain this"** — zavisi od FAZA 4 (rf-copilot + lokalni LLM). | — | — | 🔴 BLOCKED on FAZA 4 |
 | H.5 | **3.5.3 — Personalized HRTF (HRTFformer / graph NN)** | `crates/rf-spatial/src/hrtf/personalized.rs` (novi) | XL (1 mes) | 🔴 OPEN |
-| H.6 | **MIX dock cross-link state** (3.6.B follow-up) — klik na clash ribbon → otvara MIX dock-tab sa offending layer-ima već selected. | `widgets/helix/timeline_intelligence.dart` + MIX panel | M (3 h) | 🔴 OPEN |
+| H.6 | **MIX dock cross-link state** (3.6.B follow-up) — klik na clash ribbon → otvara MIX dock-tab sa offending layer-ima već selected. | `widgets/helix/timeline_intelligence.dart` + MIX panel | M (3 h) | ✅ DONE — `_Pill` → `StatefulWidget` sa `onTap`/`MouseRegion`/hover glow/pointer cursor + `_ClashBadge.onTap` wired na `SlotLabLowerZoneController.instance.setSuperTab(SlotLabSuperTab.mix)`; tooltip shows "▶ Tap to open MIX dock" hint; `open_in_new_rounded` icon na tappable pill-u. flutter analyze 0 errors, 33/33 testovi zeleni. |
 
 ### I — TOOLTIP MIGRATION (SPEC-16 ratchet baseline=240)
 
