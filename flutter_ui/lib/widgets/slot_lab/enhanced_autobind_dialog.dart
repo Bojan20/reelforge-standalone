@@ -267,13 +267,13 @@ class _EnhancedAutoBindDialogState extends State<EnhancedAutoBindDialog> {
         backgroundColor: FluxForgeTheme.bgDeep,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 300, maxHeight: 100),
-          child: const Center(
+          child: Center(
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
-                SizedBox(width: 12),
-                Text('Select folder...', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                const SizedBox(width: 12),
+                Text('Select folder...', style: FluxForgeTheme.dockSans(size: 12, color: Colors.white54)),
               ],
             ),
           ),
@@ -305,7 +305,7 @@ class _EnhancedAutoBindDialogState extends State<EnhancedAutoBindDialog> {
                   const SizedBox(width: 8),
                   Text(
                     'Auto-Bind: $matchedCount/$totalCount files',
-                    style: const TextStyle(color: FluxForgeTheme.accentGreen, fontSize: 14, fontWeight: FontWeight.bold),
+                    style: FluxForgeTheme.dockSans(size: 14, weight: FontWeight.bold, color: FluxForgeTheme.accentGreen),
                   ),
                 ],
               ),
@@ -315,7 +315,7 @@ class _EnhancedAutoBindDialogState extends State<EnhancedAutoBindDialog> {
                   Expanded(
                     child: Text(
                       _folderPath ?? '',
-                      style: const TextStyle(color: Colors.white38, fontSize: 9, fontFamily: 'monospace'),
+                      style: FluxForgeTheme.dockMono(size: 9, color: Colors.white38),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -325,7 +325,7 @@ class _EnhancedAutoBindDialogState extends State<EnhancedAutoBindDialog> {
                     child: TextButton(
                       onPressed: _repickFolder,
                       style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8)),
-                      child: const Text('Change', style: TextStyle(color: FluxForgeTheme.accentCyan, fontSize: 9)),
+                      child: Text('Change', style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.accentCyan)),
                     ),
                   ),
                 ],
@@ -339,22 +339,22 @@ class _EnhancedAutoBindDialogState extends State<EnhancedAutoBindDialog> {
                   const Spacer(),
                   Text(
                     '${_bindings.length} stages bound',
-                    style: const TextStyle(color: Colors.white38, fontSize: 10),
+                    style: FluxForgeTheme.dockSans(size: 10, color: Colors.white38),
                   ),
                 ],
               ),
               if (_doRename)
-                const Padding(
-                  padding: EdgeInsets.only(left: 22, top: 2),
+                Padding(
+                  padding: const EdgeInsets.only(left: 22, top: 2),
                   child: Text(
                     'Files will be copied to a sibling folder with FFNC names',
-                    style: TextStyle(color: Colors.white24, fontSize: 9),
+                    style: FluxForgeTheme.dockSans(size: 9, color: Colors.white24),
                   ),
                 ),
               const SizedBox(height: 12),
 
               // Bus volumes
-              const Text('Bus Volumes:', style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.w600)),
+              Text('Bus Volumes:', style: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.w600, color: Colors.white54)),
               const SizedBox(height: 6),
               for (int i = 0; i < _busNames.length; i++)
                 _buildBusSlider(i),
@@ -375,13 +375,13 @@ class _EnhancedAutoBindDialogState extends State<EnhancedAutoBindDialog> {
                       padding: const EdgeInsets.only(right: 8),
                       child: Text(
                         '⚠ $unmatchedCount unmatched',
-                        style: const TextStyle(color: Colors.orange, fontSize: 10),
+                        style: FluxForgeTheme.dockSans(size: 10, color: Colors.orange),
                       ),
                     ),
                   const Spacer(),
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(null),
-                    child: const Text('Cancel', style: TextStyle(color: Colors.white38)),
+                    child: Text('Cancel', style: FluxForgeTheme.dockSans(color: Colors.white38)),
                   ),
                   const SizedBox(width: 8),
                   ElevatedButton(
@@ -391,7 +391,7 @@ class _EnhancedAutoBindDialogState extends State<EnhancedAutoBindDialog> {
                     ),
                     child: _applying
                         ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Text('Auto-Bind & Apply', style: TextStyle(color: FluxForgeTheme.accentGreen, fontSize: 12)),
+                        : Text('Auto-Bind & Apply', style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.accentGreen)),
                   ),
                 ],
               ),
@@ -411,7 +411,7 @@ class _EnhancedAutoBindDialogState extends State<EnhancedAutoBindDialog> {
           Icon(value ? Icons.check_box : Icons.check_box_outline_blank, size: 16,
               color: value ? FluxForgeTheme.accentGreen : Colors.white38),
           const SizedBox(width: 6),
-          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+          Text(label, style: FluxForgeTheme.dockSans(size: 11, color: Colors.white70)),
         ],
       ),
     );
@@ -427,7 +427,7 @@ class _EnhancedAutoBindDialogState extends State<EnhancedAutoBindDialog> {
             width: 60,
             child: Text(
               _busNames[busIndex],
-              style: TextStyle(color: _busColors[busIndex].withValues(alpha: 0.7), fontSize: 10),
+              style: FluxForgeTheme.dockSans(size: 10, color: _busColors[busIndex].withValues(alpha: 0.7)),
             ),
           ),
           SizedBox(
@@ -452,7 +452,7 @@ class _EnhancedAutoBindDialogState extends State<EnhancedAutoBindDialog> {
           const SizedBox(width: 4),
           Text(
             '${(vol * 100).round()}%',
-            style: TextStyle(color: _busColors[busIndex].withValues(alpha: 0.5), fontSize: 9, fontFamily: 'monospace'),
+            style: FluxForgeTheme.dockMono(size: 9, color: _busColors[busIndex].withValues(alpha: 0.5)),
           ),
         ],
       ),
@@ -519,9 +519,10 @@ class _EnhancedAutoBindDialogState extends State<EnhancedAutoBindDialog> {
                 child: effectiveStage != null
                     ? Text(
                         effectiveStage,
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockMono(
+                          size: 9,
+                          weight: FontWeight.w600,
                           color: manualStage != null ? FluxForgeTheme.accentCyan : FluxForgeTheme.accentGreen,
-                          fontSize: 9, fontFamily: 'monospace', fontWeight: FontWeight.w600,
                         ),
                         overflow: TextOverflow.ellipsis,
                       )
@@ -533,9 +534,9 @@ class _EnhancedAutoBindDialogState extends State<EnhancedAutoBindDialog> {
                             border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
                             borderRadius: BorderRadius.circular(3),
                           ),
-                          child: const Text(
+                          child: Text(
                             'click to assign ▾',
-                            style: TextStyle(color: Colors.orange, fontSize: 8),
+                            style: FluxForgeTheme.dockSans(size: 8, color: Colors.orange),
                           ),
                         ),
                       ),
@@ -544,20 +545,20 @@ class _EnhancedAutoBindDialogState extends State<EnhancedAutoBindDialog> {
               Expanded(
                 child: Text(
                   item.original,
-                  style: const TextStyle(color: Colors.white38, fontSize: 9, fontFamily: 'monospace'),
+                  style: FluxForgeTheme.dockMono(size: 9, color: Colors.white38),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               // FFNC rename preview
               if (_doRename && isResolved) ...[
-                const Text(' → ', style: TextStyle(color: Colors.white24, fontSize: 8)),
+                Text(' → ', style: FluxForgeTheme.dockSans(size: 8, color: Colors.white24)),
                 SizedBox(
                   width: 140,
                   child: Text(
                     manualStage != null
                         ? _renamer.generateFFNCName(manualStage, _renamer.categorizeStage(manualStage), p.extension(item.original))
                         : (item.ffncName ?? ''),
-                    style: const TextStyle(color: FluxForgeTheme.accentCyan, fontSize: 9, fontFamily: 'monospace'),
+                    style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.accentCyan),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -595,10 +596,10 @@ class _EnhancedAutoBindDialogState extends State<EnhancedAutoBindDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Assign: $originalName', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                Text('Assign: $originalName', style: FluxForgeTheme.dockSans(size: 12, color: Colors.white70)),
                 const SizedBox(height: 8),
                 if (suggestions.isNotEmpty) ...[
-                  const Text('Suggestions:', style: TextStyle(color: FluxForgeTheme.accentCyan, fontSize: 10)),
+                  Text('Suggestions:', style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.accentCyan)),
                   const SizedBox(height: 4),
                   Wrap(
                     spacing: 4,
@@ -614,7 +615,7 @@ class _EnhancedAutoBindDialogState extends State<EnhancedAutoBindDialog> {
                           borderRadius: BorderRadius.circular(4),
                           border: Border.all(color: FluxForgeTheme.accentCyan.withValues(alpha: 0.3)),
                         ),
-                        child: Text(s.stage, style: const TextStyle(color: FluxForgeTheme.accentCyan, fontSize: 9, fontFamily: 'monospace')),
+                        child: Text(s.stage, style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.accentCyan)),
                       ),
                     )).toList(),
                   ),
@@ -623,10 +624,10 @@ class _EnhancedAutoBindDialogState extends State<EnhancedAutoBindDialog> {
                 TextField(
                   controller: searchController,
                   autofocus: true,
-                  style: const TextStyle(color: Colors.white70, fontSize: 11, fontFamily: 'monospace'),
-                  decoration: const InputDecoration(
+                  style: FluxForgeTheme.dockMono(size: 11, color: Colors.white70),
+                  decoration: InputDecoration(
                     hintText: 'Search stages...',
-                    hintStyle: TextStyle(color: Colors.white24),
+                    hintStyle: FluxForgeTheme.dockSans(color: Colors.white24),
                     isDense: true,
                     contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                     enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white12)),
@@ -645,7 +646,7 @@ class _EnhancedAutoBindDialogState extends State<EnhancedAutoBindDialog> {
                   onTap: () => Navigator.of(ctx).pop(filtered[i]),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 4),
-                    child: Text(filtered[i], style: const TextStyle(color: Colors.white54, fontSize: 10, fontFamily: 'monospace')),
+                    child: Text(filtered[i], style: FluxForgeTheme.dockMono(size: 10, color: Colors.white54)),
                   ),
                 ),
               ),
@@ -653,7 +654,7 @@ class _EnhancedAutoBindDialogState extends State<EnhancedAutoBindDialog> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(null),
-                child: const Text('Cancel', style: TextStyle(color: Colors.white38)),
+                child: Text('Cancel', style: FluxForgeTheme.dockSans(color: Colors.white38)),
               ),
             ],
           );

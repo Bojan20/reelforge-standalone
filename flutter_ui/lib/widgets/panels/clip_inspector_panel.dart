@@ -90,19 +90,12 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
           const SizedBox(height: 12),
           Text(
             'No Clip Selected',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: FluxForgeTheme.textSecondary,
-            ),
+            style: FluxForgeTheme.dockSans(size: 14, weight: FontWeight.w500, color: FluxForgeTheme.textSecondary),
           ),
           const SizedBox(height: 4),
           Text(
             'Select a clip to inspect',
-            style: TextStyle(
-              fontSize: 12,
-              color: FluxForgeTheme.textTertiary,
-            ),
+            style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textTertiary),
           ),
         ],
       ),
@@ -207,11 +200,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
               onDoubleTap: () => _editClipName(clip),
               child: Text(
                 clip.name,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: FluxForgeTheme.textPrimary,
-                ),
+                style: FluxForgeTheme.dockSans(size: 14, weight: FontWeight.w600, color: FluxForgeTheme.textPrimary),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -266,11 +255,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
                   const SizedBox(width: 8),
                   Text(
                     title,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: FluxForgeTheme.textPrimary,
-                    ),
+                    style: FluxForgeTheme.dockSans(size: 12, weight: FontWeight.w600, color: FluxForgeTheme.textPrimary),
                   ),
                   if (badge != null) ...[
                     const SizedBox(width: 6),
@@ -282,11 +267,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
                       ),
                       child: Text(
                         badge,
-                        style: const TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
+                        style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.bold, color: Colors.white),
                       ),
                     ),
                   ],
@@ -386,10 +367,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
           const SizedBox(height: 8),
           Text(
             'No effects applied',
-            style: TextStyle(
-              fontSize: 11,
-              color: FluxForgeTheme.textTertiary,
-            ),
+            style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textTertiary),
           ),
           const SizedBox(height: 8),
           _buildAddFxButton(clip),
@@ -408,10 +386,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
             padding: const EdgeInsets.only(top: 4),
             child: Text(
               '+${chain.slots.length - 3} more...',
-              style: TextStyle(
-                fontSize: 10,
-                color: FluxForgeTheme.textTertiary,
-              ),
+              style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary),
             ),
           ),
 
@@ -425,7 +400,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
             Expanded(
               child: TextButton.icon(
                 icon: const Icon(Icons.open_in_new, size: 14),
-                label: const Text('Edit', style: TextStyle(fontSize: 11)),
+                label: Text('Edit', style: FluxForgeTheme.dockSans(size: 11)),
                 style: TextButton.styleFrom(
                   foregroundColor: FluxForgeTheme.textSecondary,
                   padding: const EdgeInsets.symmetric(vertical: 8),
@@ -462,11 +437,9 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
           Expanded(
             child: Text(
               slot.displayName,
-              style: TextStyle(
-                fontSize: 11,
-                color: slot.bypass
-                    ? FluxForgeTheme.textTertiary
-                    : FluxForgeTheme.textPrimary,
+              style: FluxForgeTheme.dockSans(
+                size: 11,
+                color: slot.bypass ? FluxForgeTheme.textTertiary : FluxForgeTheme.textPrimary,
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -490,12 +463,10 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
               ),
               child: Text(
                 slot.bypass ? 'OFF' : 'ON',
-                style: TextStyle(
-                  fontSize: 8,
-                  fontWeight: FontWeight.bold,
-                  color: slot.bypass
-                      ? FluxForgeTheme.accentOrange
-                      : FluxForgeTheme.accentGreen,
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
+                  weight: FontWeight.bold,
+                  color: slot.bypass ? FluxForgeTheme.accentOrange : FluxForgeTheme.accentGreen,
                 ),
               ),
             ),
@@ -527,7 +498,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
               children: [
                 Icon(clipFxTypeIcon(type), size: 16, color: clipFxTypeColor(type)),
                 const SizedBox(width: 8),
-                Text(clipFxTypeName(type), style: const TextStyle(fontSize: 12)),
+                Text(clipFxTypeName(type), style: FluxForgeTheme.dockSans(size: 12)),
               ],
             ),
           ),
@@ -539,18 +510,14 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
           borderRadius: BorderRadius.circular(4),
           border: Border.all(color: FluxForgeTheme.accentBlue.withValues(alpha: 0.3)),
         ),
-        child: const Row(
+        child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.add, size: 14, color: FluxForgeTheme.accentBlue),
-            SizedBox(width: 4),
+            const Icon(Icons.add, size: 14, color: FluxForgeTheme.accentBlue),
+            const SizedBox(width: 4),
             Text(
               'Add FX',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                color: FluxForgeTheme.accentBlue,
-              ),
+              style: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.w500, color: FluxForgeTheme.accentBlue),
             ),
           ],
         ),
@@ -650,10 +617,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
           children: [
             Text(
               'Preserve Pitch',
-              style: TextStyle(
-                fontSize: 11,
-                color: FluxForgeTheme.textTertiary,
-              ),
+              style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textTertiary),
             ),
             const Spacer(),
             SizedBox(
@@ -696,7 +660,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
         // Warp on/off toggle
         Row(
           children: [
-            Text('Warp', style: TextStyle(fontSize: 11, color: FluxForgeTheme.textTertiary)),
+            Text('Warp', style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textTertiary)),
             const Spacer(),
             SizedBox(
               height: 24,
@@ -739,7 +703,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
             icon: const Icon(Icons.graphic_eq, size: 14),
             label: Text(
               clip.warpTransients.isEmpty ? 'Detect Transients' : '${clip.warpTransients.length} transients',
-              style: const TextStyle(fontSize: 11),
+              style: FluxForgeTheme.dockSans(size: 11),
             ),
             style: TextButton.styleFrom(
               foregroundColor: FluxForgeTheme.accentCyan,
@@ -753,16 +717,12 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
           const SizedBox(height: 6),
           Row(
             children: [
-              Text('Q Strength', style: TextStyle(fontSize: 11, color: FluxForgeTheme.textTertiary)),
+              Text('Q Strength', style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textTertiary)),
               const Spacer(),
               Consumer<WarpStateProvider>(
                 builder: (ctx, warpProv, _) => Text(
                   warpProv.strengthLabel,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontFamily: 'JetBrains Mono',
-                    color: FluxForgeTheme.accentOrange,
-                  ),
+                  style: FluxForgeTheme.dockMono(size: 10, color: FluxForgeTheme.accentOrange),
                 ),
               ),
             ],
@@ -798,9 +758,9 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
                     ),
                     child: Text(
                       p.label,
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
+                      style: FluxForgeTheme.dockSans(
+                        size: 9,
+                        weight: FontWeight.bold,
                         color: active ? FluxForgeTheme.accentOrange : FluxForgeTheme.textTertiary,
                       ),
                     ),
@@ -824,7 +784,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
                     padding: const EdgeInsets.only(bottom: 2),
                     child: Row(
                       children: [
-                        Text('Source BPM', style: TextStyle(fontSize: 11, color: FluxForgeTheme.textTertiary)),
+                        Text('Source BPM', style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textTertiary)),
                         const Spacer(),
                         GestureDetector(
                           onTap: () {
@@ -850,9 +810,8 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
                             ),
                             child: Text(
                               '${detectedBpm.toStringAsFixed(1)} BPM',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontFamily: 'JetBrains Mono',
+                              style: FluxForgeTheme.dockMono(
+                                size: 10,
                                 color: warpProv.hasBpmOverride
                                     ? FluxForgeTheme.accentCyan
                                     : FluxForgeTheme.textSecondary,
@@ -891,7 +850,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
                 icon: const Icon(Icons.grid_on, size: 14),
                 label: Text(
                   'Quantize to Grid (${clip.warpMarkers.length} markers)',
-                  style: const TextStyle(fontSize: 11),
+                  style: FluxForgeTheme.dockSans(size: 11),
                 ),
                 style: TextButton.styleFrom(
                   foregroundColor: FluxForgeTheme.accentOrange,
@@ -926,19 +885,12 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
         children: [
           Text(
             label,
-            style: TextStyle(
-              fontSize: 11,
-              color: FluxForgeTheme.textTertiary,
-            ),
+            style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textTertiary),
           ),
           const Spacer(),
           Text(
             value,
-            style: const TextStyle(
-              fontSize: 11,
-              fontFamily: 'JetBrains Mono',
-              color: FluxForgeTheme.textSecondary,
-            ),
+            style: FluxForgeTheme.dockMono(size: 11, color: FluxForgeTheme.textSecondary),
           ),
         ],
       ),
@@ -962,21 +914,14 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
             children: [
               Text(
                 label,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: FluxForgeTheme.textTertiary,
-                ),
+                style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textTertiary),
               ),
               const Spacer(),
               GestureDetector(
                 onDoubleTap: onReset,
                 child: Text(
                   displayValue,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontFamily: 'JetBrains Mono',
-                    color: FluxForgeTheme.textSecondary,
-                  ),
+                  style: FluxForgeTheme.dockMono(size: 11, color: FluxForgeTheme.textSecondary),
                 ),
               ),
             ],

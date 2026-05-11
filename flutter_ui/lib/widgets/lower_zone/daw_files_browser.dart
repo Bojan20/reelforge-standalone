@@ -488,11 +488,11 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
         children: [
           const Icon(Icons.folder_open, size: 14, color: LowerZoneColors.dawAccent),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'FILES',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.bold,
               color: LowerZoneColors.dawAccent,
               letterSpacing: 1.0,
             ),
@@ -502,8 +502,8 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
           Expanded(
             child: Text(
               _currentPath,
-              style: const TextStyle(
-                fontSize: 9,
+              style: FluxForgeTheme.dockSans(
+                size: 9,
                 color: LowerZoneColors.textMuted,
               ),
               maxLines: 1,
@@ -549,9 +549,9 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
           ),
           const SizedBox(width: 12),
           // Format filter chips
-          const Text(
+          Text(
             'Format:',
-            style: TextStyle(fontSize: 9, color: LowerZoneColors.textMuted),
+            style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textMuted),
           ),
           const SizedBox(width: 6),
           ..._formatFilters.map((format) => _buildFormatChip(format)),
@@ -587,7 +587,7 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
                 const SizedBox(width: 12),
               const SizedBox(width: 4),
               Text(bus[0].toUpperCase() + bus.substring(1),
-                  style: const TextStyle(fontSize: 11)),
+                  style: FluxForgeTheme.dockSans(size: 11)),
             ],
           ),
         );
@@ -605,7 +605,7 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
             const Icon(Icons.headphones, size: 10, color: LowerZoneColors.textMuted),
             const SizedBox(width: 3),
             Text(_previewOutputBus.substring(0, 3).toUpperCase(),
-              style: const TextStyle(fontSize: 8, color: LowerZoneColors.textSecondary)),
+              style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textSecondary)),
           ],
         ),
       ),
@@ -641,12 +641,12 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
                       : LowerZoneColors.textMuted),
               const SizedBox(width: 3),
               Text('BPM',
-                style: TextStyle(
-                  fontSize: 8,
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
                   color: _tempoMatchOnImport
                       ? LowerZoneColors.dawAccent
                       : LowerZoneColors.textMuted,
-                  fontWeight: _tempoMatchOnImport ? FontWeight.bold : FontWeight.normal,
+                  weight: _tempoMatchOnImport ? FontWeight.bold : FontWeight.normal,
                 )),
             ],
           ),
@@ -663,11 +663,11 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
       enabled: _browseHistory.isNotEmpty,
       onSelected: _navigateToHistory,
       itemBuilder: (context) => [
-        const PopupMenuItem(
+        PopupMenuItem(
           enabled: false,
           height: 24,
-          child: Text('RECENT FOLDERS', style: TextStyle(
-            fontSize: 9, fontWeight: FontWeight.bold,
+          child: Text('RECENT FOLDERS', style: FluxForgeTheme.dockSans(
+            size: 9, weight: FontWeight.bold,
             color: LowerZoneColors.dawAccent)),
         ),
         ..._browseHistory.take(10).map((path) => PopupMenuItem(
@@ -679,7 +679,7 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
               const SizedBox(width: 6),
               Flexible(
                 child: Text(p.basename(path),
-                  style: const TextStyle(fontSize: 11),
+                  style: FluxForgeTheme.dockSans(size: 11),
                   overflow: TextOverflow.ellipsis),
               ),
             ],
@@ -689,11 +689,11 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
           PopupMenuItem(
             value: '__clear__',
             height: 28,
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.delete_sweep, size: 12, color: LowerZoneColors.textMuted),
-                SizedBox(width: 6),
-                Text('Clear History', style: TextStyle(fontSize: 11, color: LowerZoneColors.textMuted)),
+                const Icon(Icons.delete_sweep, size: 12, color: LowerZoneColors.textMuted),
+                const SizedBox(width: 6),
+                Text('Clear History', style: FluxForgeTheme.dockSans(size: 11, color: LowerZoneColors.textMuted)),
               ],
             ),
           ),
@@ -714,10 +714,11 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
                     : LowerZoneColors.textMuted),
             const SizedBox(width: 3),
             Text('${_browseHistory.length}',
-              style: TextStyle(fontSize: 8,
-                  color: _browseHistory.isNotEmpty
-                      ? LowerZoneColors.textSecondary
-                      : LowerZoneColors.textMuted)),
+              style: FluxForgeTheme.dockSans(
+                size: 8,
+                color: _browseHistory.isNotEmpty
+                    ? LowerZoneColors.textSecondary
+                    : LowerZoneColors.textMuted)),
           ],
         ),
       ),
@@ -747,12 +748,12 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
           ),
           child: Text(
             format,
-            style: TextStyle(
-              fontSize: 9,
+            style: FluxForgeTheme.dockSans(
+              size: 9,
               color: isSelected
                   ? LowerZoneColors.dawAccent
                   : LowerZoneColors.textMuted,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              weight: isSelected ? FontWeight.bold : FontWeight.normal,
             ),
           ),
         ),
@@ -790,11 +791,11 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
                     children: [
                       const Icon(Icons.computer, size: 12, color: LowerZoneColors.textMuted),
                       const SizedBox(width: 6),
-                      const Text(
+                      Text(
                         'FILE SYSTEM',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
+                        style: FluxForgeTheme.dockSans(
+                          size: 9,
+                          weight: FontWeight.bold,
                           color: LowerZoneColors.textMuted,
                           letterSpacing: 0.5,
                         ),
@@ -833,11 +834,11 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
               const SizedBox(width: 4),
               const Icon(Icons.folder_special, size: 14, color: LowerZoneColors.dawAccent),
               const SizedBox(width: 6),
-              const Text(
+              Text(
                 'PROJECT POOL',
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
+                  weight: FontWeight.bold,
                   color: LowerZoneColors.dawAccent,
                   letterSpacing: 0.5,
                 ),
@@ -851,9 +852,9 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
                 ),
                 child: Text(
                   '$totalAssets',
-                  style: const TextStyle(
-                    fontSize: 8,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    size: 8,
+                    weight: FontWeight.bold,
                     color: LowerZoneColors.dawAccent,
                   ),
                 ),
@@ -896,11 +897,11 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
               const SizedBox(width: 4),
               const Icon(Icons.star, size: 14, color: FluxForgeTheme.brandGold),
               const SizedBox(width: 6),
-              const Text(
+              Text(
                 'FAVORITES',
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
+                  weight: FontWeight.bold,
                   color: FluxForgeTheme.brandGold,
                   letterSpacing: 0.5,
                 ),
@@ -914,9 +915,9 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
                 ),
                 child: Text(
                   '${_favoritePaths.length}',
-                  style: const TextStyle(
-                    fontSize: 8,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    size: 8,
+                    weight: FontWeight.bold,
                     color: FluxForgeTheme.brandGold,
                   ),
                 ),
@@ -970,12 +971,12 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
             Expanded(
               child: Text(
                 name,
-                style: TextStyle(
-                  fontSize: 10,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
                   color: isSelected
                       ? LowerZoneColors.textPrimary
                       : LowerZoneColors.textSecondary,
-                  fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+                  weight: isSelected ? FontWeight.w500 : FontWeight.normal,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -1029,12 +1030,12 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
             Expanded(
               child: Text(
                 name,
-                style: TextStyle(
-                  fontSize: 10,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
                   color: isSelected
                       ? LowerZoneColors.textPrimary
                       : LowerZoneColors.textSecondary,
-                  fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+                  weight: isSelected ? FontWeight.w500 : FontWeight.normal,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -1043,8 +1044,8 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
             const SizedBox(width: 4),
             Text(
               '$count',
-              style: TextStyle(
-                fontSize: 9,
+              style: FluxForgeTheme.dockSans(
+                size: 9,
                 color: isSelected
                     ? LowerZoneColors.dawAccent
                     : LowerZoneColors.textMuted,
@@ -1101,12 +1102,12 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
             Expanded(
               child: Text(
                 node.name,
-                style: TextStyle(
-                  fontSize: 10,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
                   color: isSelected
                       ? LowerZoneColors.textPrimary
                       : LowerZoneColors.textSecondary,
-                  fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+                  weight: isSelected ? FontWeight.w500 : FontWeight.normal,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -1155,8 +1156,8 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
               _searchQuery.isNotEmpty
                   ? 'No files match your search'
                   : 'No audio files in this folder',
-              style: const TextStyle(
-                fontSize: 11,
+              style: FluxForgeTheme.dockSans(
+                size: 11,
                 color: LowerZoneColors.textMuted,
               ),
             ),
@@ -1164,8 +1165,8 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
               const SizedBox(height: 4),
               Text(
                 'Supported: WAV, FLAC, MP3, OGG, AIFF',
-                style: TextStyle(
-                  fontSize: 9,
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
                   color: LowerZoneColors.textMuted.withValues(alpha: 0.6),
                 ),
               ),
@@ -1220,8 +1221,8 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
         children: [
           Text(
             '${files.length} files',
-            style: const TextStyle(
-              fontSize: 9,
+            style: FluxForgeTheme.dockSans(
+              size: 9,
               color: LowerZoneColors.textMuted,
             ),
           ),
@@ -1235,8 +1236,8 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
               ),
               child: Text(
                 _selectedFormat,
-                style: const TextStyle(
-                  fontSize: 8,
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
                   color: LowerZoneColors.dawAccent,
                 ),
               ),
@@ -1253,10 +1254,10 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
               ),
             ),
             const SizedBox(width: 4),
-            const Text(
+            Text(
               'Playing',
-              style: TextStyle(
-                fontSize: 9,
+              style: FluxForgeTheme.dockSans(
+                size: 9,
                 color: LowerZoneColors.success,
               ),
             ),
@@ -1264,8 +1265,8 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
           if (_selectedFile != null && _playingFileId == null) ...[
             Text(
               _selectedFile!.name,
-              style: const TextStyle(
-                fontSize: 9,
+              style: FluxForgeTheme.dockSans(
+                size: 9,
                 color: LowerZoneColors.textSecondary,
               ),
             ),

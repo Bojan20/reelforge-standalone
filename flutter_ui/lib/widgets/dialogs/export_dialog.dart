@@ -11,6 +11,7 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../services/native_file_picker.dart';
+import '../../theme/fluxforge_theme.dart';
 import '../../src/rust/engine_api.dart' as api;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -291,11 +292,11 @@ class _ExportDialogState extends State<ExportDialog>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Export Audio',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
+                  style: FluxForgeTheme.dockSans(
+                    size: 22,
+                    weight: FontWeight.w700,
                     color: Colors.white,
                     letterSpacing: -0.5,
                   ),
@@ -303,8 +304,8 @@ class _ExportDialogState extends State<ExportDialog>
                 const SizedBox(height: 2),
                 Text(
                   _mode.description,
-                  style: TextStyle(
-                    fontSize: 12,
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
                     color: Colors.white.withValues(alpha: 0.5),
                   ),
                 ),
@@ -390,10 +391,9 @@ class _ExportDialogState extends State<ExportDialog>
           const SizedBox(width: 8),
           Text(
             '$mins:${secs.toString().padLeft(2, '0')}',
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              fontFamily: 'JetBrains Mono',
+            style: FluxForgeTheme.dockMono(
+              size: 13,
+              weight: FontWeight.w600,
               color: Colors.white,
             ),
           ),
@@ -455,9 +455,9 @@ class _ExportDialogState extends State<ExportDialog>
   Widget _buildSectionLabel(String text) {
     return Text(
       text,
-      style: TextStyle(
-        fontSize: 10,
-        fontWeight: FontWeight.w700,
+      style: FluxForgeTheme.dockSans(
+        size: 10,
+        weight: FontWeight.w700,
         color: const Color(0xFF40c8ff).withValues(alpha: 0.8),
         letterSpacing: 1.5,
       ),
@@ -500,9 +500,9 @@ class _ExportDialogState extends State<ExportDialog>
                 const SizedBox(width: 10),
                 Text(
                   mode.label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                  style: FluxForgeTheme.dockSans(
+                    size: 13,
+                    weight: isSelected ? FontWeight.w600 : FontWeight.w400,
                     color: isSelected
                         ? Colors.white
                         : Colors.white.withValues(alpha: 0.7),
@@ -555,9 +555,9 @@ class _ExportDialogState extends State<ExportDialog>
                 children: [
                   Text(
                     format.label,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
+                    style: FluxForgeTheme.dockSans(
+                      size: 13,
+                      weight: FontWeight.w700,
                       color: isSelected
                           ? (isLossless
                               ? const Color(0xFF40ff90)
@@ -568,8 +568,8 @@ class _ExportDialogState extends State<ExportDialog>
                   const SizedBox(height: 2),
                   Text(
                     format.description,
-                    style: TextStyle(
-                      fontSize: 9,
+                    style: FluxForgeTheme.dockSans(
+                      size: 9,
                       color: Colors.white.withValues(alpha: 0.4),
                     ),
                   ),
@@ -633,8 +633,8 @@ class _ExportDialogState extends State<ExportDialog>
       children: [
         Text(
           'Bit Depth',
-          style: TextStyle(
-            fontSize: 11,
+          style: FluxForgeTheme.dockSans(
+            size: 11,
             color: Colors.white.withValues(alpha: 0.5),
           ),
         ),
@@ -666,9 +666,9 @@ class _ExportDialogState extends State<ExportDialog>
                     child: Center(
                       child: Text(
                         '$depth-bit',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                        style: FluxForgeTheme.dockMono(
+                          size: 12,
+                          weight: isSelected ? FontWeight.w600 : FontWeight.w400,
                           color: isSelected
                               ? const Color(0xFF4a9eff)
                               : Colors.white.withValues(alpha: 0.6),
@@ -694,8 +694,8 @@ class _ExportDialogState extends State<ExportDialog>
       children: [
         Text(
           'Sample Rate',
-          style: TextStyle(
-            fontSize: 11,
+          style: FluxForgeTheme.dockSans(
+            size: 11,
             color: Colors.white.withValues(alpha: 0.5),
           ),
         ),
@@ -727,9 +727,9 @@ class _ExportDialogState extends State<ExportDialog>
                     child: Center(
                       child: Text(
                         labels[i],
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                        style: FluxForgeTheme.dockMono(
+                          size: 12,
+                          weight: isSelected ? FontWeight.w600 : FontWeight.w400,
                           color: isSelected
                               ? const Color(0xFF4a9eff)
                               : Colors.white.withValues(alpha: 0.6),
@@ -779,9 +779,9 @@ class _ExportDialogState extends State<ExportDialog>
               children: [
                 Text(
                   target.label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
+                    weight: isSelected ? FontWeight.w600 : FontWeight.w400,
                     color: isSelected
                         ? (isOff ? Colors.white : const Color(0xFF40c8ff))
                         : Colors.white.withValues(alpha: 0.6),
@@ -799,10 +799,9 @@ class _ExportDialogState extends State<ExportDialog>
                     ),
                     child: Text(
                       '${target.lufs!.toInt()}',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        fontFamily: 'JetBrains Mono',
+                      style: FluxForgeTheme.dockMono(
+                        size: 10,
+                        weight: FontWeight.w700,
                         color: isSelected
                             ? const Color(0xFF40c8ff)
                             : Colors.white.withValues(alpha: 0.5),
@@ -881,18 +880,18 @@ class _ExportDialogState extends State<ExportDialog>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'True Peak Limiter',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                      style: FluxForgeTheme.dockSans(
+                        size: 13,
+                        weight: FontWeight.w600,
                         color: Colors.white,
                       ),
                     ),
                     Text(
                       'Prevents inter-sample peaks',
-                      style: TextStyle(
-                        fontSize: 11,
+                      style: FluxForgeTheme.dockSans(
+                        size: 11,
                         color: Colors.white.withValues(alpha: 0.4),
                       ),
                     ),
@@ -908,11 +907,10 @@ class _ExportDialogState extends State<ExportDialog>
                   ),
                   child: Text(
                     '${_truePeakLimit.toStringAsFixed(1)} dBTP',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      fontFamily: 'JetBrains Mono',
-                      color: Color(0xFFff9040),
+                    style: FluxForgeTheme.dockMono(
+                      size: 12,
+                      weight: FontWeight.w700,
+                      color: const Color(0xFFff9040),
                     ),
                   ),
                 ),
@@ -968,9 +966,9 @@ class _ExportDialogState extends State<ExportDialog>
             ),
             child: Text(
               type.label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+              style: FluxForgeTheme.dockSans(
+                size: 12,
+                weight: isSelected ? FontWeight.w600 : FontWeight.w400,
                 color: isSelected
                     ? const Color(0xFFaa40ff)
                     : Colors.white.withValues(alpha: 0.6),
@@ -1029,9 +1027,9 @@ class _ExportDialogState extends State<ExportDialog>
                       _outputPath != null
                           ? _outputPath!.split('/').last
                           : 'Choose destination...',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
+                      style: FluxForgeTheme.dockMono(
+                        size: 13,
+                        weight: FontWeight.w500,
                         color: _outputPath != null
                             ? Colors.white
                             : Colors.white.withValues(alpha: 0.5),
@@ -1041,8 +1039,8 @@ class _ExportDialogState extends State<ExportDialog>
                     if (_outputPath != null)
                       Text(
                         _outputPath!.replaceAll('/${_outputPath!.split('/').last}', ''),
-                        style: TextStyle(
-                          fontSize: 11,
+                        style: FluxForgeTheme.dockMono(
+                          size: 11,
                           color: Colors.white.withValues(alpha: 0.3),
                         ),
                         overflow: TextOverflow.ellipsis,
@@ -1121,12 +1119,12 @@ class _ExportDialogState extends State<ExportDialog>
                 color: const Color(0xFF40c8ff),
               ),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'Dry Run',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF40c8ff),
+                style: FluxForgeTheme.dockSans(
+                  size: 13,
+                  weight: FontWeight.w500,
+                  color: const Color(0xFF40c8ff),
                 ),
               ),
             ],
@@ -1187,9 +1185,9 @@ class _ExportDialogState extends State<ExportDialog>
                     const SizedBox(width: 10),
                     Text(
                       'Export',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
+                      style: FluxForgeTheme.dockSans(
+                        size: 14,
+                        weight: FontWeight.w700,
                         color: canExport
                             ? Colors.black.withValues(alpha: 0.8)
                             : Colors.white.withValues(alpha: 0.3),
@@ -1270,10 +1268,9 @@ class _ExportDialogState extends State<ExportDialog>
                       children: [
                         Text(
                           '${percent.toInt()}%',
-                          style: const TextStyle(
-                            fontSize: 42,
-                            fontWeight: FontWeight.w800,
-                            fontFamily: 'JetBrains Mono',
+                          style: FluxForgeTheme.dockMono(
+                            size: 42,
+                            weight: FontWeight.w800,
                             color: Colors.white,
                           ),
                         ),
@@ -1288,11 +1285,11 @@ class _ExportDialogState extends State<ExportDialog>
                           ),
                           child: Text(
                             _isDryRun ? 'ANALYZING' : 'EXPORTING',
-                            style: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
+                            style: FluxForgeTheme.dockSans(
+                              size: 10,
+                              weight: FontWeight.w700,
                               letterSpacing: 1.5,
-                              color: Color(0xFF40ff90),
+                              color: const Color(0xFF40ff90),
                             ),
                           ),
                         ),
@@ -1327,11 +1324,10 @@ class _ExportDialogState extends State<ExportDialog>
                   const SizedBox(width: 8),
                   Text(
                     '${progress.speedFactor.toStringAsFixed(1)}x',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      fontFamily: 'JetBrains Mono',
-                      color: Color(0xFFff9040),
+                    style: FluxForgeTheme.dockMono(
+                      size: 14,
+                      weight: FontWeight.w700,
+                      color: const Color(0xFFff9040),
                     ),
                   ),
                   const SizedBox(width: 20),
@@ -1343,9 +1339,8 @@ class _ExportDialogState extends State<ExportDialog>
                   const SizedBox(width: 8),
                   Text(
                     _formatEta(progress.etaSecs),
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontFamily: 'JetBrains Mono',
+                    style: FluxForgeTheme.dockMono(
+                      size: 14,
                       color: Colors.white.withValues(alpha: 0.7),
                     ),
                   ),
@@ -1368,12 +1363,12 @@ class _ExportDialogState extends State<ExportDialog>
                   ),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Text(
+                child: Text(
                   'Cancel',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFFff4060),
+                  style: FluxForgeTheme.dockSans(
+                    size: 14,
+                    weight: FontWeight.w500,
+                    color: const Color(0xFFff4060),
                   ),
                 ),
               ),

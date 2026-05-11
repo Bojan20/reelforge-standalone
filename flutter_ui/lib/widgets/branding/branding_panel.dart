@@ -71,8 +71,8 @@ class BrandingPresetSelector extends StatelessWidget {
                     const SizedBox(width: 8),
                     Text(
                       'Active: ${activeConfig.name}',
-                      style: const TextStyle(
-                        fontSize: 11,
+                      style: FluxForgeTheme.dockSans(
+                        size: 11,
                         color: Colors.white54,
                       ),
                     ),
@@ -83,14 +83,14 @@ class BrandingPresetSelector extends StatelessWidget {
             }
 
             // Presets header
-            items.add(const PopupMenuItem<String>(
+            items.add(PopupMenuItem<String>(
               enabled: false,
               height: 24,
               child: Text(
                 'PRESETS',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.bold,
                   color: Colors.white38,
                   letterSpacing: 1.0,
                 ),
@@ -119,8 +119,8 @@ class BrandingPresetSelector extends StatelessWidget {
                     Expanded(
                       child: Text(
                         config.name,
-                        style: TextStyle(
-                          fontSize: 12,
+                        style: FluxForgeTheme.dockSans(
+                          size: 12,
                           color: isActive ? const Color(0xFF40FF90) : Colors.white,
                         ),
                       ),
@@ -136,25 +136,25 @@ class BrandingPresetSelector extends StatelessWidget {
             items.add(const PopupMenuDivider());
 
             if (activeConfig != null) {
-              items.add(const PopupMenuItem<String>(
+              items.add(PopupMenuItem<String>(
                 value: '_reset',
                 child: Row(
                   children: [
-                    Icon(Icons.restore, size: 16, color: Colors.white70),
-                    SizedBox(width: 8),
-                    Text('Reset to Default', style: TextStyle(fontSize: 12)),
+                    const Icon(Icons.restore, size: 16, color: Colors.white70),
+                    const SizedBox(width: 8),
+                    Text('Reset to Default', style: FluxForgeTheme.dockSans(size: 12)),
                   ],
                 ),
               ));
             }
 
-            items.add(const PopupMenuItem<String>(
+            items.add(PopupMenuItem<String>(
               value: '_open_panel',
               child: Row(
                 children: [
-                  Icon(Icons.edit, size: 16, color: Color(0xFF4A9EFF)),
-                  SizedBox(width: 8),
-                  Text('Customize...', style: TextStyle(fontSize: 12)),
+                  const Icon(Icons.edit, size: 16, color: Color(0xFF4A9EFF)),
+                  const SizedBox(width: 8),
+                  Text('Customize...', style: FluxForgeTheme.dockSans(size: 12)),
                 ],
               ),
             ));
@@ -265,10 +265,10 @@ class _BrandingPanelState extends State<BrandingPanel> with SingleTickerProvider
                           _buildAssetsTab(),
                         ],
                       )
-                    : const Center(
+                    : Center(
                         child: Text(
                           'Select a preset to customize',
-                          style: TextStyle(color: Colors.white38),
+                          style: FluxForgeTheme.dockSans(color: Colors.white38),
                         ),
                       ),
               ),
@@ -290,11 +290,11 @@ class _BrandingPanelState extends State<BrandingPanel> with SingleTickerProvider
         children: [
           const Icon(Icons.palette, size: 18, color: Color(0xFF4A9EFF)),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'BRANDING',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 12,
+              weight: FontWeight.bold,
               color: Colors.white70,
               letterSpacing: 1.2,
             ),
@@ -332,7 +332,7 @@ class _BrandingPanelState extends State<BrandingPanel> with SingleTickerProvider
                   isExpanded: true,
                   isDense: true,
                   dropdownColor: FluxForgeTheme.bgSurface,
-                  style: const TextStyle(fontSize: 12, color: Colors.white),
+                  style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
                   items: service.configs.map((config) {
                     return DropdownMenuItem<String>(
                       value: config.id,
@@ -407,7 +407,7 @@ class _BrandingPanelState extends State<BrandingPanel> with SingleTickerProvider
       labelColor: const Color(0xFF4A9EFF),
       unselectedLabelColor: Colors.white54,
       indicatorColor: const Color(0xFF4A9EFF),
-      labelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+      labelStyle: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.bold),
     );
   }
 
@@ -460,7 +460,7 @@ class _BrandingPanelState extends State<BrandingPanel> with SingleTickerProvider
             width: 100,
             child: Text(
               label,
-              style: const TextStyle(fontSize: 11, color: Colors.white70),
+              style: FluxForgeTheme.dockSans(size: 11, color: Colors.white70),
             ),
           ),
           GestureDetector(
@@ -478,7 +478,7 @@ class _BrandingPanelState extends State<BrandingPanel> with SingleTickerProvider
           const SizedBox(width: 8),
           Text(
             '#${color.value.toRadixString(16).substring(2).toUpperCase()}',
-            style: const TextStyle(fontSize: 10, color: Colors.white38, fontFamily: 'monospace'),
+            style: FluxForgeTheme.dockMono(size: 10, color: Colors.white38),
           ),
         ],
       ),
@@ -506,9 +506,9 @@ class _BrandingPanelState extends State<BrandingPanel> with SingleTickerProvider
             _updateText(_editingConfig!.text.copyWith(copyright: value));
           }),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             'BUTTON LABELS',
-            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white38),
+            style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.bold, color: Colors.white38),
           ),
           const SizedBox(height: 8),
           _buildTextField('Spin', _editingConfig!.text.spinButtonLabel, (value) {
@@ -544,13 +544,13 @@ class _BrandingPanelState extends State<BrandingPanel> with SingleTickerProvider
             width: 100,
             child: Text(
               label,
-              style: const TextStyle(fontSize: 11, color: Colors.white70),
+              style: FluxForgeTheme.dockSans(size: 11, color: Colors.white70),
             ),
           ),
           Expanded(
             child: TextFormField(
               controller: controller,
-              style: const TextStyle(fontSize: 11, color: Colors.white),
+              style: FluxForgeTheme.dockSans(size: 11, color: Colors.white),
               decoration: InputDecoration(
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -591,9 +591,9 @@ class _BrandingPanelState extends State<BrandingPanel> with SingleTickerProvider
             _updateFonts(_editingConfig!.fonts.copyWith(monoFont: value));
           }),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             'FONT SIZES',
-            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white38),
+            style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.bold, color: Colors.white38),
           ),
           const SizedBox(height: 8),
           _buildSizeSlider('Title Size', _editingConfig!.fonts.titleSize, 12, 48, (value) {
@@ -621,7 +621,7 @@ class _BrandingPanelState extends State<BrandingPanel> with SingleTickerProvider
             width: 100,
             child: Text(
               label,
-              style: const TextStyle(fontSize: 11, color: Colors.white70),
+              style: FluxForgeTheme.dockSans(size: 11, color: Colors.white70),
             ),
           ),
           Expanded(
@@ -638,7 +638,7 @@ class _BrandingPanelState extends State<BrandingPanel> with SingleTickerProvider
                   isExpanded: true,
                   isDense: true,
                   dropdownColor: FluxForgeTheme.bgSurface,
-                  style: const TextStyle(fontSize: 11, color: Colors.white),
+                  style: FluxForgeTheme.dockSans(size: 11, color: Colors.white),
                   items: fonts.map((font) => DropdownMenuItem(
                     value: font,
                     child: Text(font),
@@ -662,7 +662,7 @@ class _BrandingPanelState extends State<BrandingPanel> with SingleTickerProvider
             width: 100,
             child: Text(
               label,
-              style: const TextStyle(fontSize: 11, color: Colors.white70),
+              style: FluxForgeTheme.dockSans(size: 11, color: Colors.white70),
             ),
           ),
           Expanded(
@@ -678,7 +678,7 @@ class _BrandingPanelState extends State<BrandingPanel> with SingleTickerProvider
             width: 40,
             child: Text(
               '${value.toInt()}px',
-              style: const TextStyle(fontSize: 10, color: Colors.white38),
+              style: FluxForgeTheme.dockMono(size: 10, color: Colors.white38),
             ),
           ),
         ],
@@ -719,9 +719,9 @@ class _BrandingPanelState extends State<BrandingPanel> with SingleTickerProvider
                 },
                 activeColor: const Color(0xFF4A9EFF),
               ),
-              const Text(
+              Text(
                 'Show Watermark',
-                style: TextStyle(fontSize: 11, color: Colors.white70),
+                style: FluxForgeTheme.dockSans(size: 11, color: Colors.white70),
               ),
             ],
           ),
@@ -743,7 +743,7 @@ class _BrandingPanelState extends State<BrandingPanel> with SingleTickerProvider
             width: 100,
             child: Text(
               label,
-              style: const TextStyle(fontSize: 11, color: Colors.white70),
+              style: FluxForgeTheme.dockSans(size: 11, color: Colors.white70),
             ),
           ),
           Expanded(
@@ -756,8 +756,8 @@ class _BrandingPanelState extends State<BrandingPanel> with SingleTickerProvider
               ),
               child: Text(
                 path ?? 'No file selected',
-                style: TextStyle(
-                  fontSize: 10,
+                style: FluxForgeTheme.dockMono(
+                  size: 10,
                   color: path != null ? Colors.white : Colors.white38,
                 ),
                 overflow: TextOverflow.ellipsis,
@@ -796,7 +796,7 @@ class _BrandingPanelState extends State<BrandingPanel> with SingleTickerProvider
         children: [
           TextButton.icon(
             icon: const Icon(Icons.file_download, size: 16),
-            label: const Text('Export', style: TextStyle(fontSize: 11)),
+            label: Text('Export', style: FluxForgeTheme.dockSans(size: 11)),
             onPressed: _selectedConfigId != null
                 ? () {
                     final json = service.exportConfig(_selectedConfigId!);
@@ -808,7 +808,7 @@ class _BrandingPanelState extends State<BrandingPanel> with SingleTickerProvider
           ),
           TextButton.icon(
             icon: const Icon(Icons.file_upload, size: 16),
-            label: const Text('Import', style: TextStyle(fontSize: 11)),
+            label: Text('Import', style: FluxForgeTheme.dockSans(size: 11)),
             onPressed: () {
             },
           ),
@@ -824,7 +824,7 @@ class _BrandingPanelState extends State<BrandingPanel> with SingleTickerProvider
             ),
             child: Text(
               isActive ? 'Active' : 'Apply',
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+              style: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.bold),
             ),
           ),
         ],
@@ -842,7 +842,7 @@ class _BrandingPanelState extends State<BrandingPanel> with SingleTickerProvider
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: FluxForgeTheme.bgSurface,
-        title: const Text('Select Color', style: TextStyle(fontSize: 14)),
+        title: Text('Select Color', style: FluxForgeTheme.dockSans(size: 14)),
         content: SizedBox(
           width: 280,
           child: Wrap(

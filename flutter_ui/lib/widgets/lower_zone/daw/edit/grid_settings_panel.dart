@@ -14,6 +14,7 @@ library;
 
 import 'package:flutter/material.dart';
 import '../../../../models/timeline_models.dart' show NudgeConfig, NudgeUnit;
+import '../../../../theme/fluxforge_theme.dart';
 import '../../lower_zone_types.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -216,9 +217,9 @@ class _GridSettingsPanelState extends State<GridSettingsPanel>
         const SizedBox(width: 6),
         Text(
           title,
-          style: const TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: FontWeight.bold,
             color: LowerZoneColors.dawAccent,
             letterSpacing: 0.5,
           ),
@@ -230,9 +231,9 @@ class _GridSettingsPanelState extends State<GridSettingsPanel>
   Widget _buildSubSectionHeader(String label) {
     return Text(
       label,
-      style: const TextStyle(
-        fontSize: 9,
-        fontWeight: FontWeight.bold,
+      style: FluxForgeTheme.dockSans(
+        size: 9,
+        weight: FontWeight.bold,
         color: LowerZoneColors.textMuted,
         letterSpacing: 0.5,
       ),
@@ -264,19 +265,19 @@ class _GridSettingsPanelState extends State<GridSettingsPanel>
                       const SizedBox(width: 6),
                       Text(
                         '${widget.tempo.toStringAsFixed(1)} BPM',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                        style: FluxForgeTheme.dockSans(
+                          size: 16,
+                          weight: FontWeight.bold,
                           color: LowerZoneColors.textPrimary,
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 2),
-                  const Text(
+                  Text(
                     'Tap to edit',
-                    style: TextStyle(
-                      fontSize: 8,
+                    style: FluxForgeTheme.dockSans(
+                      size: 8,
                       color: LowerZoneColors.textMuted,
                     ),
                   ),
@@ -308,9 +309,9 @@ class _GridSettingsPanelState extends State<GridSettingsPanel>
                 ),
                 child: Text(
                   'TAP',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: FontWeight.bold,
                     color: _tapTimes.length >= 2
                         ? LowerZoneColors.dawAccent
                         : LowerZoneColors.textSecondary,
@@ -333,18 +334,18 @@ class _GridSettingsPanelState extends State<GridSettingsPanel>
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: LowerZoneColors.bgMid,
-        title: const Text(
+        title: Text(
           'Set Tempo',
-          style: TextStyle(color: LowerZoneColors.textPrimary, fontSize: 14),
+          style: FluxForgeTheme.dockSans(color: LowerZoneColors.textPrimary, size: 14),
         ),
         content: TextField(
           controller: controller,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           autofocus: true,
-          style: const TextStyle(color: LowerZoneColors.textPrimary),
-          decoration: const InputDecoration(
+          style: FluxForgeTheme.dockSans(color: LowerZoneColors.textPrimary),
+          decoration: InputDecoration(
             suffixText: 'BPM',
-            suffixStyle: TextStyle(color: LowerZoneColors.textMuted),
+            suffixStyle: FluxForgeTheme.dockSans(color: LowerZoneColors.textMuted),
           ),
           onSubmitted: (value) {
             final newTempo = double.tryParse(value);
@@ -394,13 +395,13 @@ class _GridSettingsPanelState extends State<GridSettingsPanel>
             items: const [2, 3, 4, 5, 6, 7, 8, 9, 12],
             onChanged: (v) => widget.onTimeSignatureChanged?.call(v, widget.timeSignatureDenominator),
           ),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Text(
               '/',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(
+                size: 16,
+                weight: FontWeight.bold,
                 color: LowerZoneColors.textPrimary,
               ),
             ),
@@ -440,14 +441,14 @@ class _GridSettingsPanelState extends State<GridSettingsPanel>
           value: i,
           child: Text(
             '$i',
-            style: const TextStyle(color: LowerZoneColors.textPrimary, fontSize: 14),
+            style: FluxForgeTheme.dockSans(color: LowerZoneColors.textPrimary, size: 14),
           ),
         )).toList(),
         onChanged: (v) => v != null ? onChanged(v) : null,
         dropdownColor: LowerZoneColors.bgMid,
         underline: const SizedBox(),
         isDense: true,
-        style: const TextStyle(color: LowerZoneColors.textPrimary, fontSize: 14),
+        style: FluxForgeTheme.dockSans(color: LowerZoneColors.textPrimary, size: 14),
       ),
     );
   }
@@ -469,9 +470,9 @@ class _GridSettingsPanelState extends State<GridSettingsPanel>
         ),
         child: Text(
           label,
-          style: TextStyle(
-            fontSize: 9,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: 9,
+            weight: FontWeight.bold,
             color: isActive ? LowerZoneColors.dawAccent : LowerZoneColors.textSecondary,
           ),
         ),
@@ -514,8 +515,8 @@ class _GridSettingsPanelState extends State<GridSettingsPanel>
             Expanded(
               child: Text(
                 label,
-                style: TextStyle(
-                  fontSize: 10,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
                   color: value ? LowerZoneColors.textPrimary : LowerZoneColors.textSecondary,
                 ),
               ),
@@ -572,16 +573,16 @@ class _GridSettingsPanelState extends State<GridSettingsPanel>
             children: [
               const Icon(Icons.straighten, size: 14, color: LowerZoneColors.dawAccent),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'Grid Resolution',
-                style: TextStyle(fontSize: 10, color: LowerZoneColors.textSecondary),
+                style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textSecondary),
               ),
               const Spacer(),
               Text(
                 _snapValueToLabel(widget.snapValue),
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.w600,
                   color: LowerZoneColors.dawAccent,
                 ),
               ),
@@ -608,9 +609,9 @@ class _GridSettingsPanelState extends State<GridSettingsPanel>
                   ),
                   child: Text(
                     label,
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    style: FluxForgeTheme.dockSans(
+                      size: 9,
+                      weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                       color: isSelected ? Colors.white : LowerZoneColors.textSecondary,
                     ),
                   ),
@@ -640,18 +641,18 @@ class _GridSettingsPanelState extends State<GridSettingsPanel>
             children: [
               const Icon(Icons.keyboard_tab, size: 12, color: LowerZoneColors.dawAccent),
               const SizedBox(width: 4),
-              const Text('Alt+Arrow', style: TextStyle(fontSize: 9,
-                  color: LowerZoneColors.textSecondary, fontWeight: FontWeight.bold)),
+              Text('Alt+Arrow', style: FluxForgeTheme.dockSans(size: 9,
+                  color: LowerZoneColors.textSecondary, weight: FontWeight.bold)),
               const Spacer(),
-              Text(config.displayAmount, style: const TextStyle(fontSize: 10,
-                  color: LowerZoneColors.textPrimary, fontWeight: FontWeight.bold)),
+              Text(config.displayAmount, style: FluxForgeTheme.dockSans(size: 10,
+                  color: LowerZoneColors.textPrimary, weight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 6),
           // Unit selector
           Row(
             children: [
-              const Text('Unit:', style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+              Text('Unit:', style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
               const SizedBox(width: 4),
               ...NudgeUnit.values.map((u) => _buildNudgeUnitChip(u, config.unit, false)),
             ],
@@ -667,17 +668,17 @@ class _GridSettingsPanelState extends State<GridSettingsPanel>
             children: [
               const Icon(Icons.keyboard_tab, size: 12, color: Color(0xFF40C8FF)),
               const SizedBox(width: 4),
-              const Text('Alt+Shift+Arrow', style: TextStyle(fontSize: 9,
-                  color: LowerZoneColors.textSecondary, fontWeight: FontWeight.bold)),
+              Text('Alt+Shift+Arrow', style: FluxForgeTheme.dockSans(size: 9,
+                  color: LowerZoneColors.textSecondary, weight: FontWeight.bold)),
               const Spacer(),
-              Text(config.displayFineAmount, style: const TextStyle(fontSize: 10,
-                  color: LowerZoneColors.textPrimary, fontWeight: FontWeight.bold)),
+              Text(config.displayFineAmount, style: FluxForgeTheme.dockSans(size: 10,
+                  color: LowerZoneColors.textPrimary, weight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 6),
           Row(
             children: [
-              const Text('Unit:', style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+              Text('Unit:', style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted)),
               const SizedBox(width: 4),
               ...NudgeUnit.values.map((u) => _buildNudgeUnitChip(u, config.fineUnit, true)),
             ],
@@ -713,9 +714,9 @@ class _GridSettingsPanelState extends State<GridSettingsPanel>
           ),
           child: Text(
             NudgeConfig.unitName(unit),
-            style: TextStyle(
-              fontSize: 7,
-              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+            style: FluxForgeTheme.dockSans(
+              size: 7,
+              weight: isActive ? FontWeight.bold : FontWeight.normal,
               color: isActive ? LowerZoneColors.dawAccent : LowerZoneColors.textMuted,
             ),
           ),
@@ -768,9 +769,9 @@ class _GridSettingsPanelState extends State<GridSettingsPanel>
             ),
             child: Text(
               labels[i],
-              style: TextStyle(
-                fontSize: 8,
-                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              style: FluxForgeTheme.dockSans(
+                size: 8,
+                weight: isActive ? FontWeight.bold : FontWeight.normal,
                 color: isActive ? LowerZoneColors.dawAccent : LowerZoneColors.textSecondary,
               ),
             ),
@@ -822,9 +823,9 @@ class _GridSettingsPanelState extends State<GridSettingsPanel>
               children: [
                 Text(
                   isActive ? 'Snap Active' : 'Snap Disabled',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: FontWeight.w600,
                     color: isActive ? LowerZoneColors.dawAccent : LowerZoneColors.textTertiary,
                   ),
                 ),
@@ -832,8 +833,8 @@ class _GridSettingsPanelState extends State<GridSettingsPanel>
                   isActive
                       ? 'Grid: $snapLabel${widget.tripletGrid ? ' (Triplet)' : ''}'
                       : 'Free positioning enabled',
-                  style: const TextStyle(
-                    fontSize: 9,
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
                     color: LowerZoneColors.textSecondary,
                   ),
                 ),

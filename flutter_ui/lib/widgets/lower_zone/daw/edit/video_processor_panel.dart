@@ -12,6 +12,7 @@ library;
 
 import 'package:flutter/material.dart';
 import '../../../../services/video_processor_service.dart';
+import '../../../../theme/fluxforge_theme.dart';
 import '../../../fabfilter/fabfilter_theme.dart';
 import '../../../fabfilter/fabfilter_widgets.dart';
 
@@ -104,7 +105,7 @@ class _VideoProcessorPanelState extends State<VideoProcessorPanel> {
               ? Center(child: Text(
                   'No effects.\n\nTap + to add a\nvideo effect.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 10, color: FabFilterColors.textTertiary),
+                  style: FluxForgeTheme.dockSans(size: 10, color: FabFilterColors.textTertiary),
                 ))
               : ReorderableListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -123,14 +124,14 @@ class _VideoProcessorPanelState extends State<VideoProcessorPanel> {
             border: Border(top: BorderSide(color: FabFilterColors.border)),
           ),
           child: Row(children: [
-            Text('Effects: ${_service.effectCount}', style: const TextStyle(
-              fontSize: 9, color: FabFilterColors.textTertiary)),
+            Text('Effects: ${_service.effectCount}', style: FluxForgeTheme.dockSans(
+              size: 9, color: FabFilterColors.textTertiary)),
             const Spacer(),
             Text(
               _service.active ? 'ACTIVE' : 'BYPASS',
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockSans(
+                size: 9,
+                weight: FontWeight.w600,
                 color: _service.active
                     ? FabFilterColors.green : FabFilterColors.textDisabled,
               ),
@@ -172,9 +173,9 @@ class _VideoProcessorPanelState extends State<VideoProcessorPanel> {
           Expanded(child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(effect.name, style: TextStyle(
-                fontSize: 11,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+              Text(effect.name, style: FluxForgeTheme.dockSans(
+                size: 11,
+                weight: selected ? FontWeight.w600 : FontWeight.normal,
                 color: effect.enabled ? FabFilterColors.textPrimary : FabFilterColors.textDisabled,
               ), overflow: TextOverflow.ellipsis),
               Text(switch (effect.type) {
@@ -183,7 +184,7 @@ class _VideoProcessorPanelState extends State<VideoProcessorPanel> {
                   VideoEffectType.fftSpectrum => 'FFT Spectrum',
                   VideoEffectType.colorCorrection => 'Color Correction',
                 },
-                style: const TextStyle(fontSize: 9, color: FabFilterColors.textTertiary)),
+                style: FluxForgeTheme.dockSans(size: 9, color: FabFilterColors.textTertiary)),
             ],
           )),
           // Enable toggle
@@ -235,7 +236,7 @@ class _VideoProcessorPanelState extends State<VideoProcessorPanel> {
           child: Row(children: [
             Icon(icon, size: 16, color: FabFilterColors.textSecondary),
             const SizedBox(width: 8),
-            Text(label, style: const TextStyle(fontSize: 12)),
+            Text(label, style: FluxForgeTheme.dockSans(size: 12)),
           ]),
         );
       }).toList(),
@@ -254,7 +255,7 @@ class _VideoProcessorPanelState extends State<VideoProcessorPanel> {
     if (effect == null) {
       return Center(child: Text(
         'Select or add an effect to edit parameters',
-        style: TextStyle(color: FabFilterColors.textTertiary, fontSize: 12),
+        style: FluxForgeTheme.dockSans(color: FabFilterColors.textTertiary, size: 12),
       ));
     }
 
@@ -269,8 +270,8 @@ class _VideoProcessorPanelState extends State<VideoProcessorPanel> {
             color: FabFilterColors.bgMid,
           ),
           child: Row(children: [
-            Text(effect.name, style: const TextStyle(
-              fontSize: 11, fontWeight: FontWeight.w600, color: FabFilterColors.textPrimary)),
+            Text(effect.name, style: FluxForgeTheme.dockSans(
+              size: 11, weight: FontWeight.w600, color: FabFilterColors.textPrimary)),
             const Spacer(),
             // Blend mode
             _dropdownSmall<VideoBlendMode>(
@@ -284,7 +285,7 @@ class _VideoProcessorPanelState extends State<VideoProcessorPanel> {
             SizedBox(
               width: 60,
               child: Row(children: [
-                const Text('Op:', style: TextStyle(fontSize: 9, color: FabFilterColors.textTertiary)),
+                Text('Op:', style: FluxForgeTheme.dockSans(size: 9, color: FabFilterColors.textTertiary)),
                 const SizedBox(width: 2),
                 Expanded(child: SliderTheme(
                   data: _sliderTheme(context),
@@ -333,13 +334,13 @@ class _VideoProcessorPanelState extends State<VideoProcessorPanel> {
         // Text input
         TextField(
           controller: _overlayTextCtrl,
-          style: const TextStyle(fontSize: 11, color: FabFilterColors.textPrimary),
-          decoration: const InputDecoration(
+          style: FluxForgeTheme.dockSans(size: 11, color: FabFilterColors.textPrimary),
+          decoration: InputDecoration(
             isDense: true,
-            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            border: OutlineInputBorder(),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            border: const OutlineInputBorder(),
             hintText: 'Enter text...',
-            hintStyle: TextStyle(color: FabFilterColors.textDisabled),
+            hintStyle: FluxForgeTheme.dockSans(color: FabFilterColors.textDisabled),
           ),
           onChanged: (text) => _service.setOverlayText(effect.id, text),
         ),
@@ -548,7 +549,7 @@ class _VideoProcessorPanelState extends State<VideoProcessorPanel> {
               padding: const EdgeInsets.all(8),
               child: Text(
                 'No presets.\n\nTap factory icon to load\nbuilt-in presets.',
-                style: const TextStyle(fontSize: 10, color: FabFilterColors.textTertiary),
+                style: FluxForgeTheme.dockSans(size: 10, color: FabFilterColors.textTertiary),
               ),
             )
           else
@@ -563,12 +564,12 @@ class _VideoProcessorPanelState extends State<VideoProcessorPanel> {
           FabSectionLabel('INFO'),
           const SizedBox(height: 4),
           Text('Total effects: ${_service.effectCount}',
-            style: const TextStyle(fontSize: 10, color: FabFilterColors.textTertiary)),
+            style: FluxForgeTheme.dockSans(size: 10, color: FabFilterColors.textTertiary)),
           Text('Enabled: ${_service.enabledCount}',
-            style: TextStyle(fontSize: 10,
+            style: FluxForgeTheme.dockSans(size: 10,
               color: _service.enabledCount > 0 ? FabFilterColors.green : FabFilterColors.textTertiary)),
           Text('Processor: ${_service.active ? "ON" : "OFF"}',
-            style: TextStyle(fontSize: 10,
+            style: FluxForgeTheme.dockSans(size: 10,
               color: _service.active ? FabFilterColors.green : FabFilterColors.textTertiary)),
           const SizedBox(height: 12),
           FabSectionLabel('EFFECT TYPES'),
@@ -578,7 +579,7 @@ class _VideoProcessorPanelState extends State<VideoProcessorPanel> {
             'Audio Reactive — bars, wave, particles\n'
             'FFT Spectrum — frequency display\n'
             'Color Correction — grade & look',
-            style: const TextStyle(fontSize: 9, color: FabFilterColors.textTertiary, height: 1.4),
+            style: FluxForgeTheme.dockSans(size: 9, color: FabFilterColors.textTertiary, height: 1.4),
           ),
         ],
       ),
@@ -597,11 +598,11 @@ class _VideoProcessorPanelState extends State<VideoProcessorPanel> {
             color: preset.isFactory ? FabFilterColors.orange : FabFilterColors.textTertiary,
           ),
           const SizedBox(width: 6),
-          Expanded(child: Text(preset.name, style: const TextStyle(
-            fontSize: 10, color: FabFilterColors.textPrimary),
+          Expanded(child: Text(preset.name, style: FluxForgeTheme.dockSans(
+            size: 10, color: FabFilterColors.textPrimary),
             overflow: TextOverflow.ellipsis)),
-          Text('${preset.effects.length} fx', style: const TextStyle(
-            fontSize: 9, color: FabFilterColors.textTertiary)),
+          Text('${preset.effects.length} fx', style: FluxForgeTheme.dockSans(
+            size: 9, color: FabFilterColors.textTertiary)),
           if (!preset.isFactory) ...[
             const SizedBox(width: 4),
             GestureDetector(
@@ -654,8 +655,8 @@ class _VideoProcessorPanelState extends State<VideoProcessorPanel> {
       child: Row(children: [
         SizedBox(
           width: 80,
-          child: Text(label, style: const TextStyle(
-            fontSize: 10, color: FabFilterColors.textSecondary),
+          child: Text(label, style: FluxForgeTheme.dockSans(
+            size: 10, color: FabFilterColors.textSecondary),
             overflow: TextOverflow.ellipsis),
         ),
         Expanded(child: SliderTheme(
@@ -671,7 +672,7 @@ class _VideoProcessorPanelState extends State<VideoProcessorPanel> {
           width: 40,
           child: Text(
             max > 10 ? value.toStringAsFixed(0) : value.toStringAsFixed(2),
-            style: const TextStyle(fontSize: 9, color: FabFilterColors.cyan),
+            style: FluxForgeTheme.dockSans(size: 9, color: FabFilterColors.cyan),
             textAlign: TextAlign.right,
           ),
         ),
@@ -690,9 +691,9 @@ class _VideoProcessorPanelState extends State<VideoProcessorPanel> {
           border: Border.all(
             color: active ? FabFilterColors.cyan : FabFilterColors.border),
         ),
-        child: Text(label, style: TextStyle(
-          fontSize: 9,
-          fontWeight: active ? FontWeight.w600 : FontWeight.normal,
+        child: Text(label, style: FluxForgeTheme.dockSans(
+          size: 9,
+          weight: active ? FontWeight.w600 : FontWeight.normal,
           color: active ? FabFilterColors.cyan : FabFilterColors.textSecondary,
         )),
       ),
@@ -725,8 +726,8 @@ class _VideoProcessorPanelState extends State<VideoProcessorPanel> {
           borderRadius: BorderRadius.circular(4),
           border: Border.all(color: FabFilterColors.border),
         ),
-        child: Text(label, style: const TextStyle(
-          fontSize: 10, color: FabFilterColors.textSecondary)),
+        child: Text(label, style: FluxForgeTheme.dockSans(
+          size: 10, color: FabFilterColors.textSecondary)),
       ),
     );
   }
@@ -748,7 +749,7 @@ class _VideoProcessorPanelState extends State<VideoProcessorPanel> {
         child: DropdownButton<T>(
           value: value,
           isDense: true,
-          style: const TextStyle(fontSize: 9, color: FabFilterColors.textSecondary),
+          style: FluxForgeTheme.dockSans(size: 9, color: FabFilterColors.textSecondary),
           dropdownColor: FabFilterColors.bgElevated,
           items: items.map((item) => DropdownMenuItem(
             value: item,

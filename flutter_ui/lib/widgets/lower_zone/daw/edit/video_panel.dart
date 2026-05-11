@@ -9,6 +9,7 @@ import 'package:get_it/get_it.dart';
 import 'package:provider/provider.dart';
 import '../../../../providers/video_provider.dart';
 import '../../../../services/video_export_service.dart';
+import '../../../../theme/fluxforge_theme.dart';
 
 class VideoLowerZonePanel extends StatefulWidget {
   const VideoLowerZonePanel({super.key});
@@ -49,12 +50,12 @@ class _VideoLowerZonePanelState extends State<VideoLowerZonePanel> {
         children: [
           const Icon(Icons.videocam, size: 14, color: Color(0xFF8B5CF6)),
           const SizedBox(width: 6),
-          const Text(
+          Text(
             'VIDEO',
-            style: TextStyle(
-              color: Color(0xFF8B5CF6),
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              color: const Color(0xFF8B5CF6),
+              size: 11,
+              weight: FontWeight.w600,
               letterSpacing: 1.2,
             ),
           ),
@@ -148,9 +149,9 @@ class _VideoLowerZonePanelState extends State<VideoLowerZonePanel> {
         children: [
           const Icon(Icons.videocam_off, size: 48, color: Color(0xFF555555)),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             'No video loaded',
-            style: TextStyle(color: Color(0xFF777777), fontSize: 13),
+            style: FluxForgeTheme.dockSans(color: const Color(0xFF777777), size: 13),
           ),
           const SizedBox(height: 8),
           TextButton.icon(
@@ -162,7 +163,7 @@ class _VideoLowerZonePanelState extends State<VideoLowerZonePanel> {
             label: const Text('Import Video'),
             style: TextButton.styleFrom(
               foregroundColor: const Color(0xFF8B5CF6),
-              textStyle: const TextStyle(fontSize: 12),
+              textStyle: FluxForgeTheme.dockSans(size: 12),
             ),
           ),
         ],
@@ -204,10 +205,10 @@ class _VideoLowerZonePanelState extends State<VideoLowerZonePanel> {
         children: [
           Text(
             clip.name,
-            style: const TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+              size: 12,
+              weight: FontWeight.w600,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -221,19 +222,19 @@ class _VideoLowerZonePanelState extends State<VideoLowerZonePanel> {
           // Sync offset
           Row(
             children: [
-              const Text(
+              Text(
                 'A/V Sync:',
-                style: TextStyle(color: Color(0xFF888888), fontSize: 10),
+                style: FluxForgeTheme.dockSans(color: const Color(0xFF888888), size: 10),
               ),
               const Spacer(),
               Text(
                 '${video.syncOffset >= 0 ? "+" : ""}${video.syncOffset.toStringAsFixed(1)}ms',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: video.syncOffset.abs() > 0.1
                       ? const Color(0xFFFF9800)
                       : const Color(0xFF4CAF50),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
+                  size: 10,
+                  weight: FontWeight.w500,
                 ),
               ),
             ],
@@ -242,19 +243,19 @@ class _VideoLowerZonePanelState extends State<VideoLowerZonePanel> {
           // Timecode format selector
           Row(
             children: [
-              const Text(
+              Text(
                 'TC Format:',
-                style: TextStyle(color: Color(0xFF888888), fontSize: 10),
+                style: FluxForgeTheme.dockSans(color: const Color(0xFF888888), size: 10),
               ),
               const Spacer(),
               GestureDetector(
                 onTap: () => video.cycleTimecodeFormat(),
                 child: Text(
                   video.timecodeFormat.name.replaceFirst('smpte', '').replaceFirst('df', ' DF'),
-                  style: const TextStyle(
-                    color: Color(0xFF8B5CF6),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
+                  style: FluxForgeTheme.dockSans(
+                    color: const Color(0xFF8B5CF6),
+                    size: 10,
+                    weight: FontWeight.w500,
                   ),
                 ),
               ),
@@ -272,12 +273,12 @@ class _VideoLowerZonePanelState extends State<VideoLowerZonePanel> {
         children: [
           Text(
             '$label:',
-            style: const TextStyle(color: Color(0xFF888888), fontSize: 10),
+            style: FluxForgeTheme.dockSans(color: const Color(0xFF888888), size: 10),
           ),
           const Spacer(),
           Text(
             value,
-            style: const TextStyle(color: Color(0xFFCCCCCC), fontSize: 10),
+            style: FluxForgeTheme.dockSans(color: const Color(0xFFCCCCCC), size: 10),
           ),
         ],
       ),
@@ -287,10 +288,10 @@ class _VideoLowerZonePanelState extends State<VideoLowerZonePanel> {
   Widget _buildPreviewArea(VideoProvider video) {
     final frame = video.currentFrame;
     if (frame == null) {
-      return const Center(
+      return Center(
         child: Text(
           'No preview available',
-          style: TextStyle(color: Color(0xFF555555), fontSize: 11),
+          style: FluxForgeTheme.dockSans(color: const Color(0xFF555555), size: 11),
         ),
       );
     }
@@ -311,18 +312,17 @@ class _VideoLowerZonePanelState extends State<VideoLowerZonePanel> {
         children: [
           Text(
             video.formatTimecode(video.currentTime),
-            style: const TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: Colors.white,
-              fontSize: 36,
-              fontWeight: FontWeight.w300,
-              fontFamily: 'monospace',
+              size: 36,
+              weight: FontWeight.w300,
               letterSpacing: 2,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Frame ${video.currentFrameNumber} / ${video.totalFrames}',
-            style: const TextStyle(color: Color(0xFF888888), fontSize: 11),
+            style: FluxForgeTheme.dockSans(color: const Color(0xFF888888), size: 11),
           ),
         ],
       ),
@@ -451,15 +451,15 @@ class _VideoFrameDisplay extends StatelessWidget {
         color: Colors.black,
         border: Border.all(color: const Color(0xFF333333)),
       ),
-      child: const Center(
+      child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.videocam, size: 32, color: Color(0xFF8B5CF6)),
-            SizedBox(height: 8),
+            const Icon(Icons.videocam, size: 32, color: Color(0xFF8B5CF6)),
+            const SizedBox(height: 8),
             Text(
               'Preview (FFmpeg decode active)',
-              style: TextStyle(color: Color(0xFF8B5CF6), fontSize: 11),
+              style: FluxForgeTheme.dockSans(color: const Color(0xFF8B5CF6), size: 11),
             ),
           ],
         ),
@@ -487,24 +487,24 @@ class _VideoImportDialogState extends State<_VideoImportDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: const Color(0xFF2A2A2A),
-      title: const Text('Import Video', style: TextStyle(color: Colors.white, fontSize: 16)),
+      title: Text('Import Video', style: FluxForgeTheme.dockSans(color: Colors.white, size: 16)),
       content: SizedBox(
         width: 400,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Supported: MP4, MOV, MKV, AVI, WebM, ProRes, H.264, H.265, VP9',
-              style: TextStyle(color: Color(0xFF888888), fontSize: 11),
+              style: FluxForgeTheme.dockSans(color: const Color(0xFF888888), size: 11),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _controller,
-              style: const TextStyle(color: Colors.white, fontSize: 13),
+              style: FluxForgeTheme.dockSans(color: Colors.white, size: 13),
               decoration: InputDecoration(
                 hintText: '/path/to/video.mp4',
-                hintStyle: const TextStyle(color: Color(0xFF555555)),
+                hintStyle: FluxForgeTheme.dockSans(color: const Color(0xFF555555)),
                 filled: true,
                 fillColor: const Color(0xFF1E1E1E),
                 border: OutlineInputBorder(
@@ -530,11 +530,11 @@ class _VideoImportDialogState extends State<_VideoImportDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel', style: TextStyle(color: Color(0xFF888888))),
+          child: Text('Cancel', style: FluxForgeTheme.dockSans(color: const Color(0xFF888888))),
         ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(_controller.text),
-          child: const Text('Import', style: TextStyle(color: Color(0xFF8B5CF6))),
+          child: Text('Import', style: FluxForgeTheme.dockSans(color: const Color(0xFF8B5CF6))),
         ),
       ],
     );
@@ -550,7 +550,7 @@ class _VideoSyncDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: const Color(0xFF2A2A2A),
-      title: const Text('A/V Sync', style: TextStyle(color: Colors.white, fontSize: 16)),
+      title: Text('A/V Sync', style: FluxForgeTheme.dockSans(color: Colors.white, size: 16)),
       content: SizedBox(
         width: 300,
         child: Column(
@@ -563,7 +563,7 @@ class _VideoSyncDialog extends StatelessWidget {
                   children: [
                     Text(
                       '${video.syncOffset >= 0 ? "+" : ""}${video.syncOffset.toStringAsFixed(1)} ms',
-                      style: const TextStyle(color: Colors.white, fontSize: 24, fontFamily: 'monospace'),
+                      style: FluxForgeTheme.dockMono(color: Colors.white, size: 24),
                     ),
                     const SizedBox(height: 16),
                     Slider(
@@ -580,15 +580,15 @@ class _VideoSyncDialog extends StatelessWidget {
                       children: [
                         TextButton(
                           onPressed: () => video.nudgeSyncOffset(-0.5),
-                          child: const Text('-0.5ms', style: TextStyle(color: Color(0xFF888888), fontSize: 11)),
+                          child: Text('-0.5ms', style: FluxForgeTheme.dockSans(color: const Color(0xFF888888), size: 11)),
                         ),
                         TextButton(
                           onPressed: () => video.resetSyncOffset(),
-                          child: const Text('Reset', style: TextStyle(color: Color(0xFF8B5CF6), fontSize: 11)),
+                          child: Text('Reset', style: FluxForgeTheme.dockSans(color: const Color(0xFF8B5CF6), size: 11)),
                         ),
                         TextButton(
                           onPressed: () => video.nudgeSyncOffset(0.5),
-                          child: const Text('+0.5ms', style: TextStyle(color: Color(0xFF888888), fontSize: 11)),
+                          child: Text('+0.5ms', style: FluxForgeTheme.dockSans(color: const Color(0xFF888888), size: 11)),
                         ),
                       ],
                     ),
@@ -602,7 +602,7 @@ class _VideoSyncDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Done', style: TextStyle(color: Color(0xFF8B5CF6))),
+          child: Text('Done', style: FluxForgeTheme.dockSans(color: const Color(0xFF8B5CF6))),
         ),
       ],
     );
