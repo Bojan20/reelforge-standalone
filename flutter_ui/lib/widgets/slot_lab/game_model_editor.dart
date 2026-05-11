@@ -271,10 +271,10 @@ class _GameModelEditorState extends State<GameModelEditor>
         children: [
           Icon(Icons.settings_applications, size: 18, color: FluxForgeTheme.accent),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Game Model Editor',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              weight: FontWeight.bold,
               color: Colors.white,
             ),
           ),
@@ -286,9 +286,9 @@ class _GameModelEditorState extends State<GameModelEditor>
                 color: Colors.orange.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: const Text(
+              child: Text(
                 'Modified',
-                style: TextStyle(color: Colors.orange, fontSize: 11),
+                style: FluxForgeTheme.dockSans(size: 11, color: Colors.orange),
               ),
             ),
           const SizedBox(width: 8),
@@ -320,7 +320,7 @@ class _GameModelEditorState extends State<GameModelEditor>
         unselectedLabelColor: FluxForgeTheme.textMuted,
         indicatorColor: FluxForgeTheme.accent,
         indicatorSize: TabBarIndicatorSize.label,
-        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+        labelStyle: FluxForgeTheme.dockSans(size: 12, weight: FontWeight.w500),
         tabs: const [
           Tab(text: 'INFO'),
           Tab(text: 'GRID'),
@@ -350,7 +350,7 @@ class _GameModelEditorState extends State<GameModelEditor>
             onPressed: _exportJson,
             style: TextButton.styleFrom(
               foregroundColor: FluxForgeTheme.textMuted,
-              textStyle: const TextStyle(fontSize: 12),
+              textStyle: FluxForgeTheme.dockSans(size: 12),
             ),
           ),
           // Import JSON button
@@ -360,7 +360,7 @@ class _GameModelEditorState extends State<GameModelEditor>
             onPressed: _importJson,
             style: TextButton.styleFrom(
               foregroundColor: FluxForgeTheme.textMuted,
-              textStyle: const TextStyle(fontSize: 12),
+              textStyle: FluxForgeTheme.dockSans(size: 12),
             ),
           ),
           const Spacer(),
@@ -498,7 +498,7 @@ class _GameModelEditorState extends State<GameModelEditor>
                 width: 80,
                 child: Text(
                   'Reels: $_reels',
-                  style: const TextStyle(color: Colors.white),
+                  style: FluxForgeTheme.dockSans(color: Colors.white),
                 ),
               ),
               Expanded(
@@ -523,7 +523,7 @@ class _GameModelEditorState extends State<GameModelEditor>
                 width: 80,
                 child: Text(
                   'Rows: $_rows',
-                  style: const TextStyle(color: Colors.white),
+                  style: FluxForgeTheme.dockSans(color: Colors.white),
                 ),
               ),
               Expanded(
@@ -567,7 +567,7 @@ class _GameModelEditorState extends State<GameModelEditor>
     return ActionChip(
       label: Text(label),
       backgroundColor: isSelected ? FluxForgeTheme.accent : FluxForgeTheme.surface,
-      labelStyle: TextStyle(
+      labelStyle: FluxForgeTheme.dockSans(
         color: isSelected ? Colors.white : FluxForgeTheme.textMuted,
       ),
       onPressed: () {
@@ -606,7 +606,7 @@ class _GameModelEditorState extends State<GameModelEditor>
               const Spacer(),
               Text(
                 '${_symbols.length} symbols',
-                style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 12),
+                style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textMuted),
               ),
             ],
           ),
@@ -659,13 +659,13 @@ class _GameModelEditorState extends State<GameModelEditor>
           alignment: Alignment.center,
           child: Text(
             '$id',
-            style: TextStyle(color: typeColor, fontWeight: FontWeight.bold),
+            style: FluxForgeTheme.dockSans(color: typeColor, weight: FontWeight.bold),
           ),
         ),
-        title: Text(name, style: const TextStyle(color: Colors.white)),
+        title: Text(name, style: FluxForgeTheme.dockSans(color: Colors.white)),
         subtitle: Text(
           '$type • Value: $value',
-          style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 11),
+          style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textMuted),
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
@@ -753,7 +753,7 @@ class _GameModelEditorState extends State<GameModelEditor>
               const Spacer(),
               Text(
                 '${_features.length} features',
-                style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 12),
+                style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textMuted),
               ),
             ],
           ),
@@ -769,12 +769,12 @@ class _GameModelEditorState extends State<GameModelEditor>
                       const SizedBox(height: 8),
                       Text(
                         'No features configured',
-                        style: TextStyle(color: FluxForgeTheme.textMuted),
+                        style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'Click + to add a feature',
-                        style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 12),
+                        style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textMuted),
                       ),
                     ],
                   ),
@@ -840,10 +840,10 @@ class _GameModelEditorState extends State<GameModelEditor>
           alignment: Alignment.center,
           child: Icon(icon, color: color, size: 20),
         ),
-        title: Text(name, style: const TextStyle(color: Colors.white)),
+        title: Text(name, style: FluxForgeTheme.dockSans(color: Colors.white)),
         subtitle: Text(
           id,
-          style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 11),
+          style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textMuted),
         ),
         trailing: IconButton(
           icon: const Icon(Icons.delete, size: 16),
@@ -909,7 +909,7 @@ class _GameModelEditorState extends State<GameModelEditor>
           _markDirty();
         }),
         SwitchListTile(
-          title: const Text('Retrigger Enabled', style: TextStyle(color: Colors.white, fontSize: 13)),
+          title: Text('Retrigger Enabled', style: FluxForgeTheme.dockSans(size: 13, color: Colors.white)),
           value: retriggerEnabled,
           activeColor: FluxForgeTheme.accent,
           contentPadding: EdgeInsets.zero,
@@ -941,7 +941,7 @@ class _GameModelEditorState extends State<GameModelEditor>
         const SizedBox(height: 8),
         Text(
           'Multiplier Progression: ${multiplierProgression.join(", ")}x',
-          style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 12),
+          style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textMuted),
         ),
       ],
     );
@@ -980,7 +980,7 @@ class _GameModelEditorState extends State<GameModelEditor>
       children: [
         Text(
           'Jackpot Tiers: ${tiers.join(", ")}',
-          style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 12),
+          style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textMuted),
         ),
         const SizedBox(height: 8),
         Wrap(
@@ -997,7 +997,7 @@ class _GameModelEditorState extends State<GameModelEditor>
             return Chip(
               label: Text(tier.toString().toUpperCase()),
               backgroundColor: color.withValues(alpha: 0.2),
-              labelStyle: TextStyle(color: color, fontSize: 11),
+              labelStyle: FluxForgeTheme.dockSans(size: 11, color: color),
             );
           }).toList(),
         ),
@@ -1008,7 +1008,7 @@ class _GameModelEditorState extends State<GameModelEditor>
   Widget _buildCustomFeatureConfig(Map<String, dynamic> feature, int index) {
     return Text(
       'Custom feature configuration',
-      style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 12),
+      style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textMuted),
     );
   }
 
@@ -1020,14 +1020,14 @@ class _GameModelEditorState extends State<GameModelEditor>
         children: [
           SizedBox(
             width: 150,
-            child: Text(label, style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 12)),
+            child: Text(label, style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textMuted)),
           ),
           SizedBox(
             width: 80,
             height: 28,
             child: TextFormField(
               controller: controller,
-              style: const TextStyle(color: Colors.white, fontSize: 12),
+              style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
               decoration: InputDecoration(
                 contentPadding: const EdgeInsets.symmetric(horizontal: 8),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
@@ -1124,7 +1124,7 @@ class _GameModelEditorState extends State<GameModelEditor>
           Text(
             'Define multiplier ranges for each win tier. '
             'Used for celebration intensity and audio selection.',
-            style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 12),
+            style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textMuted),
           ),
           const SizedBox(height: 16),
           ..._winTiers.asMap().entries.map((e) => _buildWinTierRow(e.value, e.key)),
@@ -1174,8 +1174,8 @@ class _GameModelEditorState extends State<GameModelEditor>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                Text(id, style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 11)),
+                Text(name, style: FluxForgeTheme.dockSans(color: Colors.white, weight: FontWeight.bold)),
+                Text(id, style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textMuted)),
               ],
             ),
           ),
@@ -1187,7 +1187,7 @@ class _GameModelEditorState extends State<GameModelEditor>
                   width: 60,
                   child: TextFormField(
                     controller: _getConfigRowController('winTier_${id}_min', minMult.toString()),
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                    style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
                     textAlign: TextAlign.center,
                     decoration: _compactInputDecoration('Min'),
                     onChanged: (v) {
@@ -1199,13 +1199,13 @@ class _GameModelEditorState extends State<GameModelEditor>
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Text('—', style: TextStyle(color: FluxForgeTheme.textMuted)),
+                  child: Text('—', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted)),
                 ),
                 SizedBox(
                   width: 60,
                   child: TextFormField(
                     controller: _getConfigRowController('winTier_${id}_max', maxMult?.toString() ?? '∞'),
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                    style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
                     textAlign: TextAlign.center,
                     decoration: _compactInputDecoration('Max'),
                     onChanged: (v) {
@@ -1216,7 +1216,7 @@ class _GameModelEditorState extends State<GameModelEditor>
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Text('x bet', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                Text('x bet', style: FluxForgeTheme.dockSans(size: 11, color: Colors.white70)),
               ],
             ),
           ),
@@ -1228,7 +1228,7 @@ class _GameModelEditorState extends State<GameModelEditor>
   InputDecoration _compactInputDecoration(String hint) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 10),
+      hintStyle: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textMuted),
       contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
       enabledBorder: OutlineInputBorder(
@@ -1258,7 +1258,7 @@ class _GameModelEditorState extends State<GameModelEditor>
           const SizedBox(height: 8),
           Text(
             'Timing values in milliseconds for spin phases.',
-            style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 12),
+            style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textMuted),
           ),
           const SizedBox(height: 16),
           _buildTimingSlider(
@@ -1326,9 +1326,9 @@ class _GameModelEditorState extends State<GameModelEditor>
         Row(
           children: [
             Expanded(
-              child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 13)),
+              child: Text(label, style: FluxForgeTheme.dockSans(size: 13, color: Colors.white)),
             ),
-            Text('${value}ms', style: TextStyle(color: FluxForgeTheme.accent, fontSize: 12)),
+            Text('${value}ms', style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.accent)),
           ],
         ),
         Slider(
@@ -1351,7 +1351,7 @@ class _GameModelEditorState extends State<GameModelEditor>
     return ActionChip(
       label: Text(label),
       backgroundColor: FluxForgeTheme.surface,
-      labelStyle: TextStyle(color: FluxForgeTheme.textMuted),
+      labelStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted),
       onPressed: () {
         setState(() {
           _model['timing'] = preset;
@@ -1368,10 +1368,10 @@ class _GameModelEditorState extends State<GameModelEditor>
   Widget _buildSectionHeader(String title) {
     return Text(
       title,
-      style: const TextStyle(
+      style: FluxForgeTheme.dockSans(
+        size: 14,
         color: Colors.white,
-        fontSize: 14,
-        fontWeight: FontWeight.bold,
+        weight: FontWeight.bold,
       ),
     );
   }
@@ -1388,16 +1388,16 @@ class _GameModelEditorState extends State<GameModelEditor>
       children: [
         Text(
           label,
-          style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 12),
+          style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textMuted),
         ),
         const SizedBox(height: 4),
         TextField(
           controller: controller,
-          style: const TextStyle(color: Colors.white),
+          style: FluxForgeTheme.dockSans(color: Colors.white),
           keyboardType: keyboardType,
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: TextStyle(color: FluxForgeTheme.textMuted),
+            hintStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted),
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
             enabledBorder: OutlineInputBorder(
@@ -1426,7 +1426,7 @@ class _GameModelEditorState extends State<GameModelEditor>
       children: [
         Text(
           label,
-          style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 12),
+          style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textMuted),
         ),
         const SizedBox(height: 4),
         Container(
@@ -1442,7 +1442,7 @@ class _GameModelEditorState extends State<GameModelEditor>
             isExpanded: true,
             underline: const SizedBox(),
             dropdownColor: FluxForgeTheme.surface,
-            style: const TextStyle(color: Colors.white),
+            style: FluxForgeTheme.dockSans(color: Colors.white),
           ),
         ),
       ],
@@ -1570,13 +1570,13 @@ class _SymbolEditDialogState extends State<_SymbolEditDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: FluxForgeTheme.bgDeep,
-      title: const Text('Edit Symbol', style: TextStyle(color: Colors.white)),
+      title: Text('Edit Symbol', style: FluxForgeTheme.dockSans(color: Colors.white)),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           TextField(
             controller: _nameController,
-            style: const TextStyle(color: Colors.white),
+            style: FluxForgeTheme.dockSans(color: Colors.white),
             decoration: const InputDecoration(labelText: 'Name'),
           ),
           const SizedBox(height: 12),
@@ -1584,7 +1584,7 @@ class _SymbolEditDialogState extends State<_SymbolEditDialog> {
             value: _type,
             isExpanded: true,
             dropdownColor: FluxForgeTheme.surface,
-            style: const TextStyle(color: Colors.white),
+            style: FluxForgeTheme.dockSans(color: Colors.white),
             items: const [
               DropdownMenuItem(value: 'wild', child: Text('Wild')),
               DropdownMenuItem(value: 'scatter', child: Text('Scatter')),
@@ -1597,7 +1597,7 @@ class _SymbolEditDialogState extends State<_SymbolEditDialog> {
           const SizedBox(height: 12),
           TextField(
             controller: _valueController,
-            style: const TextStyle(color: Colors.white),
+            style: FluxForgeTheme.dockSans(color: Colors.white),
             keyboardType: TextInputType.number,
             decoration: const InputDecoration(labelText: 'Value'),
           ),
@@ -1650,18 +1650,18 @@ class _ImportJsonDialogState extends State<_ImportJsonDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: FluxForgeTheme.bgDeep,
-      title: const Text('Import Model JSON', style: TextStyle(color: Colors.white)),
+      title: Text('Import Model JSON', style: FluxForgeTheme.dockSans(color: Colors.white)),
       content: SizedBox(
         width: 400,
         height: 300,
         child: TextField(
           controller: _controller,
-          style: const TextStyle(color: Colors.white, fontFamily: 'monospace', fontSize: 12),
+          style: FluxForgeTheme.dockMono(size: 12, color: Colors.white),
           maxLines: null,
           expands: true,
           decoration: InputDecoration(
             hintText: 'Paste JSON here...',
-            hintStyle: TextStyle(color: FluxForgeTheme.textMuted),
+            hintStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
           ),
         ),

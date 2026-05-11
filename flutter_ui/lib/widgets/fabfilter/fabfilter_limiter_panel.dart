@@ -19,6 +19,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../providers/dsp_chain_provider.dart';
+import '../../theme/fluxforge_theme.dart';
 import 'fabfilter_theme.dart';
 import 'fabfilter_knob.dart';
 import 'fabfilter_panel_base.dart';
@@ -872,9 +873,9 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
         children: [
           Icon(widget.icon, color: widget.accentColor, size: 14),
           const SizedBox(width: 6),
-          Text(widget.title, style: TextStyle(
-            color: FabFilterColors.textPrimary, fontSize: 10,
-            fontWeight: FontWeight.bold, letterSpacing: 0.8)),
+          Text(widget.title, style: FluxForgeTheme.dockSans(
+            color: FabFilterColors.textPrimary, size: 10,
+            weight: FontWeight.bold, letterSpacing: 0.8)),
           const SizedBox(width: 6),
           // Unity gain listen (L6.1)
           _headerToggle('UG', _unityGainListen, () =>
@@ -920,9 +921,9 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
           borderRadius: BorderRadius.circular(3),
           border: active ? Border.all(color: color, width: 0.5) : null,
         ),
-        child: Text(label, style: TextStyle(
+        child: Text(label, style: FluxForgeTheme.dockSans(
           color: active ? color : FabFilterColors.textDisabled,
-          fontSize: 8, fontWeight: FontWeight.bold)),
+          size: 8, weight: FontWeight.bold)),
       ),
     );
   }
@@ -950,11 +951,11 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
                 width: active ? 1.0 : 0.5,
               ),
             ),
-            child: Text(labels[i], style: TextStyle(
+            child: Text(labels[i], style: FluxForgeTheme.dockSans(
               color: active ? widget.accentColor
                   : hasData ? FabFilterColors.textSecondary
                   : FabFilterColors.textDisabled,
-              fontSize: 8, fontWeight: FontWeight.bold)),
+              size: 8, weight: FontWeight.bold)),
           ),
         ),
       );
@@ -972,8 +973,8 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
         color: _cpuLoad > 0.5 ? color.withValues(alpha: 0.1) : Colors.transparent,
         borderRadius: BorderRadius.circular(2),
       ),
-      child: Text('CPU $pct%', style: TextStyle(
-        color: color, fontSize: 7, fontWeight: FontWeight.bold,
+      child: Text('CPU $pct%', style: FluxForgeTheme.dockSans(
+        color: color, size: 7, weight: FontWeight.bold).copyWith(
         fontFeatures: const [FontFeature.tabularFigures()])),
     );
   }
@@ -1105,8 +1106,8 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
                     border: Border.all(color: FabFilterColors.blue.withValues(alpha: 0.3)),
                   ),
                   child: Text('${_waveformZoom.toStringAsFixed(1)}x',
-                    style: TextStyle(color: FabFilterColors.blue, fontSize: 7,
-                      fontWeight: FontWeight.bold)),
+                    style: FluxForgeTheme.dockSans(color: FabFilterColors.blue, size: 7,
+                      weight: FontWeight.bold)),
                 ),
               ),
             ),
@@ -1144,9 +1145,9 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
           borderRadius: BorderRadius.circular(2),
           border: active ? Border.all(color: FabFilterProcessorColors.limAccent.withValues(alpha: 0.4)) : null,
         ),
-        child: Text(label, style: TextStyle(
+        child: Text(label, style: FluxForgeTheme.dockSans(
           color: active ? FabFilterProcessorColors.limAccent : FabFilterColors.textTertiary,
-          fontSize: 7, fontWeight: active ? FontWeight.bold : FontWeight.normal)),
+          size: 7, weight: active ? FontWeight.bold : FontWeight.normal)),
       ),
     );
   }
@@ -1163,9 +1164,9 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
         ),
         child: Text(
           _style.label.toUpperCase(),
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FabFilterProcessorColors.limAccent.withValues(alpha: _showStyleInfo ? 0.8 : 0.5),
-            fontSize: 7, fontWeight: FontWeight.bold,
+            size: 7, weight: FontWeight.bold,
           ),
         ),
       ),
@@ -1192,11 +1193,11 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(info.$1, style: TextStyle(
+              Text(info.$1, style: FluxForgeTheme.dockSans(
                 color: FabFilterProcessorColors.limAccent.withValues(alpha: 0.7),
-                fontSize: 8, fontWeight: FontWeight.bold)),
-              Text(info.$2, style: TextStyle(
-                color: FabFilterColors.textTertiary, fontSize: 7)),
+                size: 8, weight: FontWeight.bold)),
+              Text(info.$2, style: FluxForgeTheme.dockSans(
+                color: FabFilterColors.textTertiary, size: 7)),
             ],
           )),
           // Sub-parameters display
@@ -1205,11 +1206,11 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(param.$1, style: TextStyle(
-                  color: FabFilterColors.textTertiary, fontSize: 7)),
-                Text(param.$2, style: TextStyle(
+                Text(param.$1, style: FluxForgeTheme.dockSans(
+                  color: FabFilterColors.textTertiary, size: 7)),
+                Text(param.$2, style: FluxForgeTheme.dockSans(
                   color: FabFilterProcessorColors.limAccent.withValues(alpha: 0.6),
-                  fontSize: 8, fontWeight: FontWeight.bold,
+                  size: 8, weight: FontWeight.bold).copyWith(
                   fontFeatures: const [FontFeature.tabularFigures()])),
               ],
             ),
@@ -1264,16 +1265,15 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: TextStyle(color: FabFilterColors.textTertiary, fontSize: 8, fontWeight: FontWeight.w600)),
+        Text(label, style: FluxForgeTheme.dockSans(color: FabFilterColors.textTertiary, size: 8, weight: FontWeight.w600)),
         const SizedBox(width: 4),
         Text(
           value > -100 ? value.toStringAsFixed(1) : '-∞',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: color,
-            fontSize: 9,
-            fontWeight: FontWeight.bold,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
+            size: 9,
+            weight: FontWeight.bold,
+          ).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
         ),
       ],
     );
@@ -1319,13 +1319,13 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
               const SizedBox(width: 3),
               Text(
                 'TP ${outTpMax > -100 ? outTpMax.toStringAsFixed(1) : '-∞'}',
-                style: TextStyle(color: tpColor, fontSize: 9, fontWeight: FontWeight.bold,
-                    fontFeatures: const [FontFeature.tabularFigures()]),
+                style: FluxForgeTheme.dockSans(color: tpColor, size: 9, weight: FontWeight.bold)
+                    .copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
               ),
               if (_clipCount > 0) ...[
                 const SizedBox(width: 4),
                 Text('\u00d7$_clipCount',
-                  style: TextStyle(color: FabFilterColors.red, fontSize: 8, fontWeight: FontWeight.bold)),
+                  style: FluxForgeTheme.dockSans(color: FabFilterColors.red, size: 8, weight: FontWeight.bold)),
               ],
             ],
           ),
@@ -1346,9 +1346,9 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
                 ),
                 const SizedBox(width: 2),
                 Text('ISP \u00d7$_ispEventCount',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: _ispActive ? FabFilterColors.red : FabFilterColors.orange,
-                    fontSize: 7, fontWeight: FontWeight.bold)),
+                    size: 7, weight: FontWeight.bold)),
               ],
             ),
         ],
@@ -1371,27 +1371,27 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
         children: [
           // GR + peak hold
           RichText(text: TextSpan(
-            style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold,
-              fontFeatures: [FontFeature.tabularFigures()]),
+            style: FluxForgeTheme.dockSans(size: 8, weight: FontWeight.bold)
+              .copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
             children: [
-              TextSpan(text: 'GR ', style: TextStyle(color: FabFilterColors.textTertiary)),
+              TextSpan(text: 'GR ', style: FluxForgeTheme.dockSans(color: FabFilterColors.textTertiary)),
               TextSpan(text: '-${grMax.toStringAsFixed(1)}',
-                style: TextStyle(color: FabFilterProcessorColors.limGainReduction)),
+                style: FluxForgeTheme.dockSans(color: FabFilterProcessorColors.limGainReduction)),
               TextSpan(text: '  pk -${_grMaxHold.toStringAsFixed(1)}',
-                style: TextStyle(color: FabFilterColors.textTertiary)),
+                style: FluxForgeTheme.dockSans(color: FabFilterColors.textTertiary)),
             ],
           )),
           // PLR + Crest factor
           RichText(text: TextSpan(
-            style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold,
-              fontFeatures: [FontFeature.tabularFigures()]),
+            style: FluxForgeTheme.dockSans(size: 8, weight: FontWeight.bold)
+              .copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
             children: [
-              TextSpan(text: 'PLR ', style: TextStyle(color: FabFilterColors.textTertiary)),
+              TextSpan(text: 'PLR ', style: FluxForgeTheme.dockSans(color: FabFilterColors.textTertiary)),
               TextSpan(text: _plr.toStringAsFixed(1),
-                style: TextStyle(color: FabFilterColors.cyan)),
-              TextSpan(text: '  CF ', style: TextStyle(color: FabFilterColors.textTertiary)),
+                style: FluxForgeTheme.dockSans(color: FabFilterColors.cyan)),
+              TextSpan(text: '  CF ', style: FluxForgeTheme.dockSans(color: FabFilterColors.textTertiary)),
               TextSpan(text: _crestFactor.toStringAsFixed(1),
-                style: TextStyle(color: FabFilterColors.orange)),
+                style: FluxForgeTheme.dockSans(color: FabFilterColors.orange)),
             ],
           )),
         ],
@@ -1418,7 +1418,7 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
         ),
         child: Text(
           '${_loudnessTarget.label} ${target?.toStringAsFixed(0) ?? ""} (${diff >= 0 ? '+' : ''}${diff.toStringAsFixed(1)})',
-          style: TextStyle(color: diffColor, fontSize: 7, fontWeight: FontWeight.bold),
+          style: FluxForgeTheme.dockSans(color: diffColor, size: 7, weight: FontWeight.bold),
         ),
       ),
     );
@@ -1451,9 +1451,9 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
               borderRadius: BorderRadius.circular(2),
               border: active ? Border.all(color: FabFilterProcessorColors.limAccent.withValues(alpha: 0.4)) : null,
             ),
-            child: Text(label, style: TextStyle(
+            child: Text(label, style: FluxForgeTheme.dockSans(
               color: active ? FabFilterProcessorColors.limAccent : FabFilterColors.textTertiary,
-              fontSize: 7, fontWeight: active ? FontWeight.bold : FontWeight.normal,
+              size: 7, weight: active ? FontWeight.bold : FontWeight.normal,
             )),
           ),
         );
@@ -1478,8 +1478,8 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
             decoration: BoxDecoration(shape: BoxShape.circle, color: corrColor)),
           const SizedBox(width: 2),
           Text('r ${_stereoCorrelation.toStringAsFixed(2)}',
-            style: TextStyle(color: corrColor, fontSize: 7, fontWeight: FontWeight.bold,
-              fontFeatures: const [FontFeature.tabularFigures()])),
+            style: FluxForgeTheme.dockSans(color: corrColor, size: 7, weight: FontWeight.bold)
+              .copyWith(fontFeatures: const [FontFeature.tabularFigures()])),
         ],
       ),
     );
@@ -1502,10 +1502,10 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
             ),
             child: Text(
               s.label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: isActive ? FabFilterColors.blue : FabFilterColors.textTertiary,
-                fontSize: 8,
-                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                size: 8,
+                weight: isActive ? FontWeight.bold : FontWeight.normal,
               ),
             ),
           ),
@@ -1554,9 +1554,9 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
                 Icon(s.icon, size: 12,
                   color: active ? FabFilterProcessorColors.limAccent : FabFilterColors.textTertiary),
                 const SizedBox(width: 3),
-                Text(s.label, style: TextStyle(
+                Text(s.label, style: FluxForgeTheme.dockSans(
                   color: active ? FabFilterProcessorColors.limAccent : FabFilterColors.textSecondary,
-                  fontSize: 9, fontWeight: active ? FontWeight.bold : FontWeight.w500,
+                  size: 9, weight: active ? FontWeight.bold : FontWeight.w500,
                 )),
               ],
             ),
@@ -1593,10 +1593,10 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
         ),
         child: Text(
           _oversamplingLabel(),
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: active ? FabFilterColors.green : FabFilterColors.textTertiary,
-            fontSize: 9,
-            fontWeight: FontWeight.bold,
+            size: 9,
+            weight: FontWeight.bold,
           ),
         ),
       ),
@@ -1652,8 +1652,8 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
     return Expanded(
       child: Column(
         children: [
-          Text(label, style: TextStyle(
-            color: FabFilterColors.textTertiary, fontSize: 7, fontWeight: FontWeight.w600)),
+          Text(label, style: FluxForgeTheme.dockSans(
+            color: FabFilterColors.textTertiary, size: 7, weight: FontWeight.w600)),
           const SizedBox(height: 2),
           Expanded(
             child: Row(
@@ -1683,8 +1683,8 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
           const SizedBox(height: 2),
           Text(
             maxDb > -100 ? maxDb.toStringAsFixed(0) : '-∞',
-            style: TextStyle(color: color, fontSize: 7, fontWeight: FontWeight.bold,
-                fontFeatures: const [FontFeature.tabularFigures()]),
+            style: FluxForgeTheme.dockSans(color: color, size: 7, weight: FontWeight.bold)
+                .copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
           ),
         ],
       ),
@@ -1698,8 +1698,8 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
     return Expanded(
       child: Column(
         children: [
-          Text('GR', style: TextStyle(
-            color: FabFilterColors.textTertiary, fontSize: 7, fontWeight: FontWeight.w600),
+          Text('GR', style: FluxForgeTheme.dockSans(
+            color: FabFilterColors.textTertiary, size: 7, weight: FontWeight.w600),
             overflow: TextOverflow.ellipsis),
           const SizedBox(height: 2),
           Expanded(
@@ -1720,9 +1720,9 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
           const SizedBox(height: 2),
           Text(
             '-${grMax.toStringAsFixed(0)}',
-            style: TextStyle(
-              color: FabFilterProcessorColors.limGainReduction, fontSize: 7,
-              fontWeight: FontWeight.bold, fontFeatures: const [FontFeature.tabularFigures()]),
+            style: FluxForgeTheme.dockSans(
+              color: FabFilterProcessorColors.limGainReduction, size: 7,
+              weight: FontWeight.bold).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
           ),
         ],
       ),
@@ -1944,9 +1944,9 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
           children: [
             Icon(icon, size: 9, color: enabled ? FabFilterColors.textTertiary : FabFilterColors.textDisabled),
             const SizedBox(width: 3),
-            Flexible(child: Text(label, style: TextStyle(
+            Flexible(child: Text(label, style: FluxForgeTheme.dockSans(
               color: enabled ? FabFilterColors.textTertiary : FabFilterColors.textDisabled,
-              fontSize: 8, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
+              size: 8, weight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
           ],
         ),
       ),
@@ -1969,11 +1969,11 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
             else
               const SizedBox(width: 12),
             const SizedBox(width: 4),
-            Text(t.label, style: const TextStyle(fontSize: 11)),
+            Text(t.label, style: FluxForgeTheme.dockSans(size: 11)),
             if (t.lufs != null) ...[
               const SizedBox(width: 4),
-              Text('${t.lufs!.toStringAsFixed(0)}', style: TextStyle(
-                fontSize: 10, color: FabFilterColors.textTertiary)),
+              Text('${t.lufs!.toStringAsFixed(0)}', style: FluxForgeTheme.dockSans(
+                size: 10, color: FabFilterColors.textTertiary)),
             ],
           ],
         ),
@@ -1999,11 +1999,11 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
             const SizedBox(width: 3),
             Text(
               _loudnessTarget != LimiterLoudnessTarget.off ? _loudnessTarget.label : 'TARGET',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: _loudnessTarget != LimiterLoudnessTarget.off
                     ? FabFilterProcessorColors.limLufs
                     : FabFilterColors.textTertiary,
-                fontSize: 8, fontWeight: FontWeight.bold,
+                size: 8, weight: FontWeight.bold,
               ),
             ),
           ],
@@ -2030,14 +2030,14 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
             enabled: false,
             height: 22,
             child: Text(entry.key.toUpperCase(),
-              style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.bold,
                 color: FabFilterProcessorColors.limAccent.withValues(alpha: 0.6))),
           ));
           for (final p in entry.value) {
             items.add(PopupMenuItem(
               value: p,
               height: 28,
-              child: Text(p.name, style: const TextStyle(fontSize: 11)),
+              child: Text(p.name, style: FluxForgeTheme.dockSans(size: 11)),
             ));
           }
         }
@@ -2055,8 +2055,8 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
           children: [
             Icon(Icons.library_music, size: 10, color: FabFilterColors.textTertiary),
             const SizedBox(width: 3),
-            Text('PRESET', style: TextStyle(
-              color: FabFilterColors.textTertiary, fontSize: 8, fontWeight: FontWeight.bold)),
+            Text('PRESET', style: FluxForgeTheme.dockSans(
+              color: FabFilterColors.textTertiary, size: 8, weight: FontWeight.bold)),
           ],
         ),
       ),

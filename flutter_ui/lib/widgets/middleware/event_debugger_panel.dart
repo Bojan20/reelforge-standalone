@@ -327,12 +327,12 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
         children: [
           const Icon(Icons.bug_report, size: 16, color: Colors.amber),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'EVENT DEBUGGER',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
               color: Colors.white70,
+              weight: FontWeight.bold,
               letterSpacing: 1,
             ),
           ),
@@ -400,12 +400,12 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
         children: [
           Text(
             label,
-            style: TextStyle(fontSize: 9, color: color.withValues(alpha: 0.7)),
+            style: FluxForgeTheme.dockSans(size: 9, color: color.withValues(alpha: 0.7)),
           ),
           const SizedBox(width: 4),
           Text(
             value.toString(),
-            style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold),
+            style: FluxForgeTheme.dockSans(size: 10, color: color, weight: FontWeight.bold),
           ),
         ],
       ),
@@ -422,7 +422,7 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
         unselectedLabelColor: Colors.white54,
         indicatorColor: FluxForgeTheme.accentBlue,
         indicatorSize: TabBarIndicatorSize.label,
-        labelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+        labelStyle: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.w600),
         tabs: const [
           Tab(text: 'TRACE'),
           Tab(text: 'MAPPINGS'),
@@ -448,12 +448,12 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
             const SizedBox(height: 12),
             Text(
               'No events traced yet',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+              style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.5)),
             ),
             const SizedBox(height: 4),
             Text(
               'Trigger a stage event to see the resolution trace',
-              style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.3)),
+              style: FluxForgeTheme.dockSans(size: 11, color: Colors.white.withValues(alpha: 0.3)),
             ),
           ],
         ),
@@ -501,19 +501,18 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
                 const SizedBox(width: 8),
                 Text(
                   trace.stageName,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
                     color: Colors.white,
+                    weight: FontWeight.bold,
                   ),
                 ),
                 const Spacer(),
                 Text(
                   _formatTime(trace.timestamp),
-                  style: TextStyle(
-                    fontSize: 10,
+                  style: FluxForgeTheme.dockMono(
+                    size: 10,
                     color: Colors.white.withValues(alpha: 0.5),
-                    fontFamily: 'monospace',
                   ),
                 ),
               ],
@@ -578,8 +577,8 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
                 children: [
                   Text(
                     step.label,
-                    style: TextStyle(
-                      fontSize: 10,
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
                       color: Colors.white.withValues(alpha: 0.6),
                     ),
                   ),
@@ -588,10 +587,10 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
                     Expanded(
                       child: Text(
                         step.value!,
-                        style: TextStyle(
-                          fontSize: 11,
+                        style: FluxForgeTheme.dockSans(
+                          size: 11,
                           color: statusColor,
-                          fontWeight: FontWeight.w500,
+                          weight: FontWeight.w500,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -609,10 +608,9 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
                     ),
                     child: Text(
                       step.detail!,
-                      style: TextStyle(
-                        fontSize: 9,
+                      style: FluxForgeTheme.dockMono(
+                        size: 9,
                         color: Colors.white.withValues(alpha: 0.6),
-                        fontFamily: 'monospace',
                       ),
                     ),
                   ),
@@ -649,12 +647,12 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
                 const SizedBox(height: 12),
                 Text(
                   'No event mappings',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+                  style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.5)),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   'Create composite events to map stages to audio',
-                  style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.3)),
+                  style: FluxForgeTheme.dockSans(size: 11, color: Colors.white.withValues(alpha: 0.3)),
                 ),
               ],
             ),
@@ -702,10 +700,10 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
                         const SizedBox(width: 8),
                         Text(
                           'Unmapped Events (${unmappedEvents.length})',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
+                          style: FluxForgeTheme.dockSans(
+                            size: 11,
                             color: Colors.orange,
+                            weight: FontWeight.bold,
                           ),
                         ),
                       ],
@@ -715,7 +713,7 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
                       spacing: 6,
                       runSpacing: 6,
                       children: unmappedEvents.map((e) => Chip(
-                        label: Text(e.name, style: const TextStyle(fontSize: 10)),
+                        label: Text(e.name, style: FluxForgeTheme.dockSans(size: 10)),
                         backgroundColor: Colors.orange.withValues(alpha: 0.2),
                         padding: EdgeInsets.zero,
                         visualDensity: VisualDensity.compact,
@@ -751,10 +749,10 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
             ),
             child: Text(
               stage,
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
                 color: FluxForgeTheme.accentBlue,
+                weight: FontWeight.bold,
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -788,13 +786,13 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
                     const SizedBox(width: 6),
                     Text(
                       e.name,
-                      style: const TextStyle(fontSize: 10, color: Colors.white),
+                      style: FluxForgeTheme.dockSans(size: 10, color: Colors.white),
                     ),
                     const SizedBox(width: 6),
                     Text(
                       '(${e.layers.length}L)',
-                      style: TextStyle(
-                        fontSize: 9,
+                      style: FluxForgeTheme.dockSans(
+                        size: 9,
                         color: Colors.white.withValues(alpha: 0.5),
                       ),
                     ),
@@ -838,7 +836,7 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
           // Success rate meter
           Text(
             'Success Rate',
-            style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.6)),
+            style: FluxForgeTheme.dockSans(size: 11, color: Colors.white.withValues(alpha: 0.6)),
           ),
           const SizedBox(height: 8),
           Row(
@@ -857,10 +855,10 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
               const SizedBox(width: 12),
               Text(
                 '$successRate%',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 14,
                   color: Colors.green,
+                  weight: FontWeight.bold,
                 ),
               ),
             ],
@@ -869,7 +867,7 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
           // Event registry info
           Text(
             'Event Registry',
-            style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.6)),
+            style: FluxForgeTheme.dockSans(size: 11, color: Colors.white.withValues(alpha: 0.6)),
           ),
           const SizedBox(height: 8),
           Container(
@@ -907,17 +905,17 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
           const SizedBox(height: 8),
           Text(
             value,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 14,
               color: color,
+              weight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             label,
-            style: TextStyle(
-              fontSize: 10,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: Colors.white.withValues(alpha: 0.5),
             ),
           ),
@@ -933,18 +931,18 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
         children: [
           Text(
             label,
-            style: TextStyle(
-              fontSize: 11,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
               color: Colors.white.withValues(alpha: 0.5),
             ),
           ),
           const Spacer(),
           Text(
             value,
-            style: const TextStyle(
-              fontSize: 11,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
               color: Colors.white,
-              fontWeight: FontWeight.w500,
+              weight: FontWeight.w500,
             ),
           ),
         ],
@@ -986,25 +984,23 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
                   const SizedBox(width: 6),
                   Text(
                     '${orphans.length} orphans / $registered registered',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 11,
                       color: orphans.isEmpty
                           ? const Color(0xFF40FF80)
                           : const Color(0xFFFF8060),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
+                      weight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(width: 8),
                   Text(
                     '(${pct.toStringAsFixed(1)}%)',
-                    style: const TextStyle(
-                        color: Colors.white38, fontSize: 10),
+                    style: FluxForgeTheme.dockSans(size: 10, color: Colors.white38),
                   ),
                   const Spacer(),
                   Text(
                     '$spins spins',
-                    style: const TextStyle(
-                        color: Colors.white38, fontSize: 10),
+                    style: FluxForgeTheme.dockSans(size: 10, color: Colors.white38),
                   ),
                   const SizedBox(width: 8),
                   GestureDetector(
@@ -1017,9 +1013,8 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
                             color: Colors.white24, width: 0.5),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: const Text('Reset',
-                          style: TextStyle(
-                              color: Colors.white54, fontSize: 10)),
+                      child: Text('Reset',
+                          style: FluxForgeTheme.dockSans(size: 10, color: Colors.white54)),
                     ),
                   ),
                   const SizedBox(width: 6),
@@ -1035,11 +1030,11 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
                             width: 0.5),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: const Text('Sweep',
-                          style: TextStyle(
+                      child: Text('Sweep',
+                          style: FluxForgeTheme.dockSans(
+                              size: 10,
                               color: FluxForgeTheme.accentBlue,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600)),
+                              weight: FontWeight.w600)),
                     ),
                   ),
                 ],
@@ -1048,23 +1043,23 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
             // ── List ────────────────────────────────────────────────────────
             Expanded(
               child: orphans.isEmpty
-                  ? const Center(
+                  ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.check_circle_outline,
+                          const Icon(Icons.check_circle_outline,
                               color: Color(0xFF40FF80), size: 32),
-                          SizedBox(height: 8),
+                          const SizedBox(height: 8),
                           Text(
                             'No orphans — all events fired',
-                            style: TextStyle(
-                                color: Color(0xFF40FF80), fontSize: 13),
+                            style: FluxForgeTheme.dockSans(
+                                size: 13, color: const Color(0xFF40FF80)),
                           ),
-                          SizedBox(height: 4),
+                          const SizedBox(height: 4),
                           Text(
                             'Run more spins to improve coverage',
-                            style: TextStyle(
-                                color: Colors.white38, fontSize: 11),
+                            style: FluxForgeTheme.dockSans(
+                                size: 11, color: Colors.white38),
                           ),
                         ],
                       ),
@@ -1097,19 +1092,18 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
                               Expanded(
                                 child: Text(
                                   o.stage,
-                                  style: const TextStyle(
-                                    color: Color(0xFFFFB090),
-                                    fontSize: 11,
-                                    fontFamily: 'monospace',
-                                    fontWeight: FontWeight.w500,
+                                  style: FluxForgeTheme.dockMono(
+                                    size: 11,
+                                    color: const Color(0xFFFFB090),
+                                    weight: FontWeight.w500,
                                   ),
                                 ),
                               ),
                               const SizedBox(width: 8),
                               Text(
                                 o.eventId,
-                                style: const TextStyle(
-                                    color: Colors.white30, fontSize: 10),
+                                style: FluxForgeTheme.dockSans(
+                                    size: 10, color: Colors.white30),
                               ),
                               const SizedBox(width: 8),
                               GestureDetector(
@@ -1197,12 +1191,12 @@ class _AuditTabContentState extends State<_AuditTabContent> {
       builder: (context, _) {
         final report = EventAuditService.instance.lastReport;
         if (report == null) {
-          return const Center(
+          return Center(
             child: Padding(
-              padding: EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
               child: Text(
                 'Generating audit…',
-                style: TextStyle(color: Colors.white54, fontSize: 12),
+                style: FluxForgeTheme.dockSans(size: 12, color: Colors.white54),
               ),
             ),
           );
@@ -1234,11 +1228,11 @@ class _AuditTabContentState extends State<_AuditTabContent> {
             const Divider(height: 1, color: Colors.white12),
             Expanded(
               child: entries.isEmpty
-                  ? const Center(
+                  ? Center(
                       child: Text(
                         'No entries match filter.',
-                        style: TextStyle(
-                            color: Colors.white38, fontSize: 11),
+                        style: FluxForgeTheme.dockSans(
+                            size: 11, color: Colors.white38),
                       ),
                     )
                   : ListView.builder(
@@ -1255,10 +1249,9 @@ class _AuditTabContentState extends State<_AuditTabContent> {
                 color: FluxForgeTheme.brandGold.withValues(alpha: 0.10),
                 child: Text(
                   _exportNotice!,
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockMono(
+                    size: 10,
                     color: FluxForgeTheme.brandGold,
-                    fontSize: 10,
-                    fontFamily: 'monospace',
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1290,10 +1283,10 @@ class _AuditTabContentState extends State<_AuditTabContent> {
             alignment: Alignment.center,
             child: Text(
               '$score%',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 11,
                 color: scoreColor,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
+                weight: FontWeight.bold,
               ),
             ),
           ),
@@ -1302,12 +1295,12 @@ class _AuditTabContentState extends State<_AuditTabContent> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'EVENT AUDIT',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
                     color: FluxForgeTheme.brandGold,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
+                    weight: FontWeight.bold,
                     letterSpacing: 1.2,
                   ),
                 ),
@@ -1318,8 +1311,8 @@ class _AuditTabContentState extends State<_AuditTabContent> {
                   '${report.dormantCount} dormant · '
                   '${report.silentCount} silent · '
                   '${report.absentCount} absent',
-                  style: const TextStyle(
-                      color: Colors.white60, fontSize: 10),
+                  style: FluxForgeTheme.dockSans(
+                      size: 10, color: Colors.white60),
                 ),
               ],
             ),
@@ -1364,10 +1357,10 @@ class _AuditTabContentState extends State<_AuditTabContent> {
             ),
             child: Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 9,
                 color: isActive ? color : color.withValues(alpha: 0.7),
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
+                weight: FontWeight.w600,
                 letterSpacing: 0.5,
               ),
             ),
@@ -1439,23 +1432,24 @@ class _AuditTabContentState extends State<_AuditTabContent> {
                     const SizedBox(width: 6),
                     Text(
                       s.category.label.toUpperCase(),
-                      style: TextStyle(
-                          color: cColor,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.5),
+                      style: FluxForgeTheme.dockSans(
+                        size: 10,
+                        color: cColor,
+                        weight: FontWeight.w600,
+                        letterSpacing: 0.5,
+                      ),
                     ),
                     const SizedBox(width: 6),
                     Text(
                       '$pct%',
-                      style: const TextStyle(
-                          color: Colors.white60, fontSize: 10),
+                      style: FluxForgeTheme.dockSans(
+                          size: 10, color: Colors.white60),
                     ),
                     const SizedBox(width: 4),
                     Text(
                       '(${s.active}/${s.total})',
-                      style: const TextStyle(
-                          color: Colors.white38, fontSize: 9),
+                      style: FluxForgeTheme.dockSans(
+                          size: 9, color: Colors.white38),
                     ),
                   ],
                 ),
@@ -1500,11 +1494,12 @@ class _AuditTabContentState extends State<_AuditTabContent> {
             child: Text(
               e.category.label.toUpperCase(),
               textAlign: TextAlign.center,
-              style: TextStyle(
-                  color: catColor,
-                  fontSize: 8,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.4),
+              style: FluxForgeTheme.dockSans(
+                size: 8,
+                color: catColor,
+                weight: FontWeight.w700,
+                letterSpacing: 0.4,
+              ),
             ),
           ),
           const SizedBox(width: 8),
@@ -1514,21 +1509,20 @@ class _AuditTabContentState extends State<_AuditTabContent> {
               children: [
                 Text(
                   e.stage,
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockMono(
+                    size: 11,
                     color: Colors.white,
-                    fontSize: 11,
-                    fontFamily: 'monospace',
-                    fontWeight: FontWeight.w500,
+                    weight: FontWeight.w500,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
                 if (e.audioPath != null)
                   Text(
                     e.audioPath!.split('/').last,
-                    style: const TextStyle(
-                        color: Colors.white38,
-                        fontSize: 9,
-                        fontFamily: 'monospace'),
+                    style: FluxForgeTheme.dockMono(
+                      size: 9,
+                      color: Colors.white38,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
               ],
@@ -1543,11 +1537,12 @@ class _AuditTabContentState extends State<_AuditTabContent> {
             ),
             child: Text(
               e.status.label,
-              style: TextStyle(
-                  color: statusColor,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.5),
+              style: FluxForgeTheme.dockSans(
+                size: 9,
+                color: statusColor,
+                weight: FontWeight.w700,
+                letterSpacing: 0.5,
+              ),
             ),
           ),
           const SizedBox(width: 8),
@@ -1557,12 +1552,12 @@ class _AuditTabContentState extends State<_AuditTabContent> {
             child: Text(
               e.triggerCount > 0 ? '${e.triggerCount}×' : '—',
               textAlign: TextAlign.right,
-              style: TextStyle(
-                  color: e.triggerCount > 0
-                      ? Colors.white60
-                      : Colors.white24,
-                  fontSize: 10,
-                  fontFamily: 'monospace'),
+              style: FluxForgeTheme.dockMono(
+                size: 10,
+                color: e.triggerCount > 0
+                    ? Colors.white60
+                    : Colors.white24,
+              ),
             ),
           ),
           const SizedBox(width: 4),

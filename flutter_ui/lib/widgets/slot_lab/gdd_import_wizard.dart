@@ -21,6 +21,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/native_file_picker.dart';
+import '../../theme/fluxforge_theme.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 import '../../services/gdd_import_service.dart';
 import '../../services/stage_configuration_service.dart';
@@ -108,15 +109,15 @@ class _GddImportWizardState extends State<GddImportWizard>
               // Content area
               Expanded(
                 child: _isLoading
-                    ? const Center(
+                    ? Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            CircularProgressIndicator(color: Color(0xFF4A9EFF)),
-                            SizedBox(height: 16),
+                            const CircularProgressIndicator(color: Color(0xFF4A9EFF)),
+                            const SizedBox(height: 16),
                             Text(
                               'Processing...',
-                              style: TextStyle(color: Colors.white54),
+                              style: FluxForgeTheme.dockSans(color: Colors.white54),
                             ),
                           ],
                         ),
@@ -173,7 +174,7 @@ class _GddImportWizardState extends State<GddImportWizard>
                 const SizedBox(height: 4),
                 Text(
                   _steps[_currentStep].subtitle,
-                  style: const TextStyle(color: Colors.white54, fontSize: 13),
+                  style: FluxForgeTheme.dockSans(color: Colors.white54, size: 13),
                 ),
               ],
             ),
@@ -222,17 +223,17 @@ class _GddImportWizardState extends State<GddImportWizard>
         children: [
           Text(
             value,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: color,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+              size: 16,
+              weight: FontWeight.bold,
             ),
           ),
           Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: color.withValues(alpha: 0.7),
-              fontSize: 10,
+              size: 10,
             ),
           ),
         ],
@@ -330,10 +331,10 @@ class _GddImportWizardState extends State<GddImportWizard>
         const SizedBox(height: 8),
         Text(
           step.name,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: isActive ? Colors.white : Colors.white54,
-            fontSize: 12,
-            fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+            size: 12,
+            weight: isActive ? FontWeight.w600 : FontWeight.normal,
           ),
         ),
       ],
@@ -385,21 +386,21 @@ class _GddImportWizardState extends State<GddImportWizard>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Import your Game Design Document',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
+                          weight: FontWeight.w600,
+                          size: 14,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'Paste JSON directly, load from a .json file, or extract from a PDF document. '
                         'The wizard will auto-detect symbols, features, and generate audio stages.',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: Colors.white.withValues(alpha: 0.7),
-                          fontSize: 12,
+                          size: 12,
                         ),
                       ),
                     ],
@@ -484,19 +485,19 @@ class _GddImportWizardState extends State<GddImportWizard>
                         const SizedBox(width: 8),
                         Text(
                           _isPdfImport ? 'Extracted PDF Text' : 'JSON Input',
-                          style: const TextStyle(
+                          style: FluxForgeTheme.dockSans(
                             color: Colors.white54,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
+                            size: 12,
+                            weight: FontWeight.w500,
                           ),
                         ),
                         const Spacer(),
                         if (_jsonController.text.isNotEmpty)
                           Text(
                             '${_jsonController.text.length} chars',
-                            style: const TextStyle(
+                            style: FluxForgeTheme.dockSans(
                               color: Colors.white38,
-                              fontSize: 11,
+                              size: 11,
                             ),
                           ),
                       ],
@@ -508,9 +509,8 @@ class _GddImportWizardState extends State<GddImportWizard>
                       controller: _jsonController,
                       maxLines: null,
                       expands: true,
-                      style: const TextStyle(
-                        fontFamily: 'JetBrains Mono',
-                        fontSize: 13,
+                      style: FluxForgeTheme.dockMono(
+                        size: 13,
                         color: Colors.white,
                         height: 1.5,
                       ),
@@ -527,9 +527,8 @@ class _GddImportWizardState extends State<GddImportWizard>
   "features": [...],
   "math": {...}
 }''',
-                        hintStyle: TextStyle(
+                        hintStyle: FluxForgeTheme.dockMono(
                           color: Colors.white.withValues(alpha: 0.2),
-                          fontFamily: 'JetBrains Mono',
                         ),
                         border: InputBorder.none,
                         contentPadding: const EdgeInsets.all(16),
@@ -558,7 +557,7 @@ class _GddImportWizardState extends State<GddImportWizard>
                   Expanded(
                     child: Text(
                       _error!,
-                      style: const TextStyle(color: Colors.red, fontSize: 13),
+                      style: FluxForgeTheme.dockSans(color: Colors.red, size: 13),
                     ),
                   ),
                   IconButton(
@@ -606,17 +605,17 @@ class _GddImportWizardState extends State<GddImportWizard>
                 children: [
                   Text(
                     label,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: color,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
+                      weight: FontWeight.w600,
+                      size: 14,
                     ),
                   ),
                   Text(
                     subtitle,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: color.withValues(alpha: 0.7),
-                      fontSize: 11,
+                      size: 11,
                     ),
                   ),
                 ],
@@ -715,13 +714,13 @@ class _GddImportWizardState extends State<GddImportWizard>
   Widget _buildPreviewStep() {
     final gdd = _importResult?.gdd;
     if (gdd == null) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.warning_amber, size: 48, color: Colors.orange),
-            SizedBox(height: 16),
-            Text('No GDD loaded', style: TextStyle(color: Colors.white54, fontSize: 16)),
+            const Icon(Icons.warning_amber, size: 48, color: Colors.orange),
+            const SizedBox(height: 16),
+            Text('No GDD loaded', style: FluxForgeTheme.dockSans(color: Colors.white54, size: 16)),
           ],
         ),
       );
@@ -775,15 +774,15 @@ class _GddImportWizardState extends State<GddImportWizard>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.warning_amber, color: Colors.orange, size: 20),
-                    SizedBox(width: 8),
+                    const Icon(Icons.warning_amber, color: Colors.orange, size: 20),
+                    const SizedBox(width: 8),
                     Text(
                       'Warnings',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: Colors.orange,
-                        fontWeight: FontWeight.w600,
+                        weight: FontWeight.w600,
                       ),
                     ),
                   ],
@@ -793,7 +792,7 @@ class _GddImportWizardState extends State<GddImportWizard>
                       padding: const EdgeInsets.only(top: 4),
                       child: Text(
                         '• $w',
-                        style: const TextStyle(color: Colors.orange, fontSize: 12),
+                        style: FluxForgeTheme.dockSans(color: Colors.orange, size: 12),
                       ),
                     ))),
               ],
@@ -888,10 +887,10 @@ class _GddImportWizardState extends State<GddImportWizard>
               const SizedBox(width: 8),
               Text(
                 title,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: color,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
+                  weight: FontWeight.w600,
+                  size: 14,
                 ),
               ),
             ],
@@ -912,13 +911,13 @@ class _GddImportWizardState extends State<GddImportWizard>
             width: 100,
             child: Text(
               label,
-              style: const TextStyle(color: Colors.white54, fontSize: 13),
+              style: FluxForgeTheme.dockSans(color: Colors.white54, size: 13),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(color: Colors.white, fontSize: 13),
+              style: FluxForgeTheme.dockSans(color: Colors.white, size: 13),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -947,10 +946,10 @@ class _GddImportWizardState extends State<GddImportWizard>
               const SizedBox(width: 8),
               Text(
                 'Grid: $cols x $rows (${gdd.grid.mechanic})',
-                style: const TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: Color(0xFF9370DB),
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
+                  weight: FontWeight.w600,
+                  size: 14,
                 ),
               ),
             ],
@@ -984,7 +983,7 @@ class _GddImportWizardState extends State<GddImportWizard>
                       child: Center(
                         child: Text(
                           _getPreviewEmoji(gdd, row, col),
-                          style: const TextStyle(fontSize: 16),
+                          style: FluxForgeTheme.dockSans(size: 16),
                         ),
                       ),
                     ),
@@ -997,14 +996,14 @@ class _GddImportWizardState extends State<GddImportWizard>
             const SizedBox(height: 12),
             Text(
               '${gdd.grid.paylines} Paylines',
-              style: const TextStyle(color: Colors.white54, fontSize: 12),
+              style: FluxForgeTheme.dockSans(color: Colors.white54, size: 12),
             ),
           ],
           if (gdd.grid.ways != null) ...[
             const SizedBox(height: 12),
             Text(
               '${gdd.grid.ways} Ways',
-              style: const TextStyle(color: Colors.white54, fontSize: 12),
+              style: FluxForgeTheme.dockSans(color: Colors.white54, size: 12),
             ),
           ],
         ],
@@ -1054,19 +1053,19 @@ class _GddImportWizardState extends State<GddImportWizard>
               child: Center(
                 child: Text(
                   '${symbols.length}',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: tierColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
+                    weight: FontWeight.bold,
+                    size: 14,
                   ),
                 ),
               ),
             ),
             title: Text(
               tier.label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: tierColor,
-                fontWeight: FontWeight.w600,
+                weight: FontWeight.w600,
               ),
             ),
             iconColor: tierColor,
@@ -1108,7 +1107,7 @@ class _GddImportWizardState extends State<GddImportWizard>
               borderRadius: BorderRadius.circular(8),
             ),
             child: Center(
-              child: Text(emoji, style: const TextStyle(fontSize: 22)),
+              child: Text(emoji, style: FluxForgeTheme.dockSans(size: 22)),
             ),
           ),
           const SizedBox(width: 12),
@@ -1119,17 +1118,16 @@ class _GddImportWizardState extends State<GddImportWizard>
               children: [
                 Text(
                   symbol.name,
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.white,
-                    fontWeight: FontWeight.w500,
+                    weight: FontWeight.w500,
                   ),
                 ),
                 Text(
                   symbol.id,
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockMono(
                     color: Colors.white38,
-                    fontSize: 11,
-                    fontFamily: 'monospace',
+                    size: 11,
                   ),
                 ),
               ],
@@ -1153,10 +1151,9 @@ class _GddImportWizardState extends State<GddImportWizard>
               ),
               child: Text(
                 '${symbol.payouts.entries.first.key}x → ${symbol.payouts.entries.first.value}',
-                style: const TextStyle(
+                style: FluxForgeTheme.dockMono(
                   color: Colors.white54,
-                  fontSize: 11,
-                  fontFamily: 'monospace',
+                  size: 11,
                 ),
               ),
             ),
@@ -1176,10 +1173,10 @@ class _GddImportWizardState extends State<GddImportWizard>
       ),
       child: Text(
         label,
-        style: TextStyle(
+        style: FluxForgeTheme.dockSans(
           color: color,
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
+          size: 10,
+          weight: FontWeight.w600,
         ),
       ),
     );
@@ -1187,13 +1184,13 @@ class _GddImportWizardState extends State<GddImportWizard>
 
   Widget _buildFeaturesTab(GameDesignDocument gdd) {
     if (gdd.features.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.extension_off, size: 48, color: Colors.white24),
-            SizedBox(height: 16),
-            Text('No features defined', style: TextStyle(color: Colors.white54)),
+            const Icon(Icons.extension_off, size: 48, color: Colors.white24),
+            const SizedBox(height: 16),
+            Text('No features defined', style: FluxForgeTheme.dockSans(color: Colors.white54)),
           ],
         ),
       );
@@ -1240,18 +1237,18 @@ class _GddImportWizardState extends State<GddImportWizard>
                       children: [
                         Text(
                           feature.name,
-                          style: const TextStyle(
+                          style: FluxForgeTheme.dockSans(
                             color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
+                            weight: FontWeight.w600,
+                            size: 14,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
                         Text(
                           feature.type.label,
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
                             color: color,
-                            fontSize: 11,
+                            size: 11,
                           ),
                         ),
                       ],
@@ -1263,9 +1260,9 @@ class _GddImportWizardState extends State<GddImportWizard>
                 const SizedBox(height: 12),
                 Text(
                   'Trigger: ${feature.triggerCondition}',
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.white54,
-                    fontSize: 12,
+                    size: 12,
                   ),
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
@@ -1351,16 +1348,16 @@ class _GddImportWizardState extends State<GddImportWizard>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.leaderboard, size: 18, color: Color(0xFFFFD700)),
-                    SizedBox(width: 8),
+                    const Icon(Icons.leaderboard, size: 18, color: Color(0xFFFFD700)),
+                    const SizedBox(width: 8),
                     Text(
                       'Win Tiers',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: Color(0xFFFFD700),
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
+                        weight: FontWeight.w600,
+                        size: 14,
                       ),
                     ),
                   ],
@@ -1389,18 +1386,18 @@ class _GddImportWizardState extends State<GddImportWizard>
           const SizedBox(height: 12),
           Text(
             value,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: color,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
+              size: 20,
+              weight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             label,
-            style: const TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white54,
-              fontSize: 12,
+              size: 12,
             ),
           ),
         ],
@@ -1432,18 +1429,17 @@ class _GddImportWizardState extends State<GddImportWizard>
           Expanded(
             child: Text(
               tier.name,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: color,
-                fontWeight: FontWeight.w600,
+                weight: FontWeight.w600,
               ),
             ),
           ),
           Text(
             '${tier.minMultiplier.toStringAsFixed(1)}x - ${tier.maxMultiplier.toStringAsFixed(1)}x',
-            style: const TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: Colors.white70,
-              fontSize: 13,
-              fontFamily: 'monospace',
+              size: 13,
             ),
           ),
         ],
@@ -1458,13 +1454,13 @@ class _GddImportWizardState extends State<GddImportWizard>
   Widget _buildStagesStep() {
     final stages = _importResult?.generatedStages ?? [];
     if (stages.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.layers, size: 48, color: Colors.white24),
-            SizedBox(height: 16),
-            Text('No stages generated', style: TextStyle(color: Colors.white54)),
+            const Icon(Icons.layers, size: 48, color: Colors.white24),
+            const SizedBox(height: 16),
+            Text('No stages generated', style: FluxForgeTheme.dockSans(color: Colors.white54)),
           ],
         ),
       );
@@ -1489,10 +1485,10 @@ class _GddImportWizardState extends State<GddImportWizard>
               const SizedBox(width: 12),
               Text(
                 '${stages.length} stages in ${groupedStages.length} categories',
-                style: const TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: Color(0xFF40FF90),
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
+                  weight: FontWeight.w600,
+                  size: 14,
                 ),
               ),
               const Spacer(),
@@ -1555,20 +1551,20 @@ class _GddImportWizardState extends State<GddImportWizard>
                     child: Center(
                       child: Text(
                         '${categoryStages.length}',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: color,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
+                          weight: FontWeight.bold,
+                          size: 14,
                         ),
                       ),
                     ),
                   ),
                   title: Text(
                     category,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: color,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
+                      weight: FontWeight.w600,
+                      size: 14,
                     ),
                   ),
                   iconColor: color,
@@ -1593,10 +1589,9 @@ class _GddImportWizardState extends State<GddImportWizard>
                             ),
                             child: Text(
                               stage,
-                              style: const TextStyle(
-                                fontFamily: 'JetBrains Mono',
+                              style: FluxForgeTheme.dockMono(
                                 color: Colors.white,
-                                fontSize: 11,
+                                size: 11,
                               ),
                             ),
                           );
@@ -1649,9 +1644,9 @@ class _GddImportWizardState extends State<GddImportWizard>
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Review the summary below and click Import to apply',
-            style: TextStyle(color: Colors.white54, fontSize: 14),
+            style: FluxForgeTheme.dockSans(color: Colors.white54, size: 14),
           ),
           const SizedBox(height: 32),
 
@@ -1709,12 +1704,12 @@ class _GddImportWizardState extends State<GddImportWizard>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'What will happen:',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: Color(0xFF4A9EFF),
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
+                          weight: FontWeight.w600,
+                          size: 14,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -1755,10 +1750,10 @@ class _GddImportWizardState extends State<GddImportWizard>
               const SizedBox(width: 10),
               Text(
                 title,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: color,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 15,
+                  weight: FontWeight.w600,
+                  size: 15,
                 ),
               ),
             ],
@@ -1780,15 +1775,15 @@ class _GddImportWizardState extends State<GddImportWizard>
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(color: Colors.white54, fontSize: 13),
+              style: FluxForgeTheme.dockSans(color: Colors.white54, size: 13),
             ),
           ),
           Text(
             value,
-            style: const TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
+              size: 13,
+              weight: FontWeight.w500,
             ),
           ),
         ],
@@ -1802,12 +1797,12 @@ class _GddImportWizardState extends State<GddImportWizard>
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('•', style: TextStyle(color: Color(0xFF4A9EFF))),
+          Text('•', style: FluxForgeTheme.dockSans(color: Color(0xFF4A9EFF))),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(color: Colors.white70, fontSize: 13),
+              style: FluxForgeTheme.dockSans(color: Colors.white70, size: 13),
             ),
           ),
         ],
@@ -1978,9 +1973,9 @@ class _GddImportWizardState extends State<GddImportWizard>
       ),
       child: Text(
         '$key: $value',
-        style: const TextStyle(
+        style: FluxForgeTheme.dockSans(
           color: Colors.white54,
-          fontSize: 10,
+          size: 10,
         ),
       ),
     );

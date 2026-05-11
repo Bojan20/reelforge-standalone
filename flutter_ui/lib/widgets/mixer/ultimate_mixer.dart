@@ -705,9 +705,9 @@ class _UltimateMixerState extends State<UltimateMixer> {
               const SizedBox(width: 8),
               Text(
                 section.label,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 11,
                 ),
               ),
             ],
@@ -760,7 +760,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
                 children: [
                   Icon(Icons.bookmark_outline, size: 14, color: FluxForgeTheme.textSecondary),
                   const SizedBox(width: 4),
-                  Text('Presets', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary)),
+                  Text('Presets', style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textSecondary)),
                 ],
               ),
             ),
@@ -768,7 +768,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
             itemBuilder: (_) => MixerViewPreset.builtIn.map((p) =>
               PopupMenuItem<MixerViewPreset>(
                 value: p,
-                child: Text(p.name, style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 11)),
+                child: Text(p.name, style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary, size: 11)),
               ),
             ).toList(),
           ),
@@ -786,7 +786,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
               ),
               child: Text(
                 widget.meteringMode.label,
-                style: TextStyle(fontSize: 10, color: FluxForgeTheme.accentBlue),
+                style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.accentBlue),
               ),
             ),
             onSelected: widget.onMeteringModeChange,
@@ -800,7 +800,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
                     else
                       const SizedBox(width: 14),
                     const SizedBox(width: 6),
-                    Text(m.label, style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 11)),
+                    Text(m.label, style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary, size: 11)),
                   ],
                 ),
               ),
@@ -1082,9 +1082,9 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
                 child: Center(
                   child: Text(
                     'Ø',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
+                    style: FluxForgeTheme.dockSans(
+                      size: 14,
+                      weight: FontWeight.bold,
                       color: input.phaseInvert
                           ? Colors.white
                           : FluxForgeTheme.textTertiary,
@@ -1100,17 +1100,16 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
             children: [
               Text(
                 'GAIN',
-                style: TextStyle(
-                  fontSize: 7,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockSans(
+                  size: 7,
+                  weight: FontWeight.w600,
                   color: FluxForgeTheme.textTertiary,
                 ),
               ),
               Text(
                 '${input.gain >= 0 ? '+' : ''}${input.gain.toStringAsFixed(1)}',
-                style: TextStyle(
-                  fontSize: 9,
-                  fontFamily: 'monospace',
+                style: FluxForgeTheme.dockMono(
+                  size: 9,
                   color: input.gain.abs() > 0.1
                       ? FluxForgeTheme.accentCyan
                       : FluxForgeTheme.textSecondary,
@@ -1140,10 +1139,9 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
         ),
         child: Text(
           '#${num.toString().padLeft(2, '0')}',
-          style: TextStyle(
-            fontSize: 8,
-            fontWeight: FontWeight.w600,
-            fontFamily: 'monospace',
+          style: FluxForgeTheme.dockMono(
+            size: 8,
+            weight: FontWeight.w600,
             color: FluxForgeTheme.textTertiary,
           ),
         ),
@@ -1254,9 +1252,9 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
             height: 28,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Text('No VCA',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: currentVcaId == null ? const Color(0xFF4A9EFF) : const Color(0xFFCCCCDD),
-                fontSize: 11, fontWeight: currentVcaId == null ? FontWeight.w600 : FontWeight.w400,
+                size: 11, weight: currentVcaId == null ? FontWeight.w600 : FontWeight.w400,
               ),
             ),
           ),
@@ -1272,10 +1270,10 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
                 )),
                 const SizedBox(width: 6),
                 Text(vca.name,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: currentVcaId == vca.id ? const Color(0xFF4A9EFF) : const Color(0xFFCCCCDD),
-                    fontSize: 11,
-                    fontWeight: currentVcaId == vca.id ? FontWeight.w600 : FontWeight.w400,
+                    size: 11,
+                    weight: currentVcaId == vca.id ? FontWeight.w600 : FontWeight.w400,
                   ),
                 ),
               ],
@@ -1291,9 +1289,9 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
           ),
           child: Row(
             children: [
-              Text('VCA', style: TextStyle(
-                color: accent.withValues(alpha: 0.6), fontSize: 8,
-                fontWeight: FontWeight.w600, letterSpacing: 0.5,
+              Text('VCA', style: FluxForgeTheme.dockSans(
+                color: accent.withValues(alpha: 0.6), size: 8,
+                weight: FontWeight.w600, letterSpacing: 0.5,
               )),
               const SizedBox(width: 2),
               if (currentVca != null)
@@ -1301,7 +1299,7 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
                   decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(1))),
               Expanded(child: Text(
                 widget.compact ? _abbreviateVca(displayName) : displayName,
-                style: const TextStyle(color: Color(0xFFCCCCDD), fontSize: 9, fontWeight: FontWeight.w500),
+                style: FluxForgeTheme.dockSans(color: const Color(0xFFCCCCDD), size: 9, weight: FontWeight.w500),
                 overflow: TextOverflow.ellipsis, maxLines: 1,
               )),
               const Icon(Icons.arrow_drop_down, size: 10, color: Color(0xFF666680)),
@@ -1437,18 +1435,16 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
         children: [
           Text(
             'dly: ${ch.delaySamples} smp',
-            style: TextStyle(
-              fontSize: 8,
+            style: FluxForgeTheme.dockMono(
+              size: 8,
               color: ch.delayCompColor,
-              fontFamily: 'monospace',
             ),
           ),
           Text(
             'cmp: ${ch.compensationSamples} smp',
-            style: TextStyle(
-              fontSize: 8,
+            style: FluxForgeTheme.dockMono(
+              size: 8,
               color: ch.delayCompColor,
-              fontFamily: 'monospace',
             ),
           ),
         ],
@@ -1475,8 +1471,8 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
         alignment: Alignment.centerLeft,
         child: Text(
           comments.isEmpty ? '—' : comments,
-          style: TextStyle(
-            fontSize: 8,
+          style: FluxForgeTheme.dockSans(
+            size: 8,
             color: comments.isEmpty
                 ? FluxForgeTheme.textSecondary.withValues(alpha: 0.3)
                 : FluxForgeTheme.textSecondary,
@@ -1496,16 +1492,16 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
         backgroundColor: FluxForgeTheme.bgDeep,
         title: Text(
           'Comments — ${widget.channel.name}',
-          style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 14),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary, size: 14),
         ),
         content: TextField(
           controller: controller,
           autofocus: true,
           maxLines: 3,
-          style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary, size: 12),
           decoration: InputDecoration(
             hintText: 'Enter track notes...',
-            hintStyle: TextStyle(color: FluxForgeTheme.textSecondary.withValues(alpha: 0.4)),
+            hintStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary.withValues(alpha: 0.4)),
             border: const OutlineInputBorder(),
           ),
         ),
@@ -1539,9 +1535,9 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
       ),
       child: Text(
         fmt,
-        style: TextStyle(
-          fontSize: 7,
-          fontWeight: FontWeight.w500,
+        style: FluxForgeTheme.dockSans(
+          size: 7,
+          weight: FontWeight.w500,
           color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6),
           letterSpacing: 0.5,
         ),
@@ -1625,9 +1621,9 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
             // Mini label
             Text(
               'W',
-              style: TextStyle(
-                fontSize: 7,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockSans(
+                size: 7,
+                weight: FontWeight.w600,
                 color: knobColor.withValues(alpha: 0.7),
                 letterSpacing: 0.5,
               ),
@@ -1706,9 +1702,9 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
             // Value label
             Text(
               label,
-              style: TextStyle(
-                fontSize: 7,
-                fontWeight: FontWeight.w500,
+              style: FluxForgeTheme.dockSans(
+                size: 7,
+                weight: FontWeight.w500,
                 color: knobColor.withValues(alpha: 0.8),
               ),
             ),
@@ -1753,19 +1749,17 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
           children: [
             Text(
               hasMeasurement ? 'S ${lufsS.toStringAsFixed(1)}' : 'S  -∞',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: _lufsColor(lufsS),
-                fontSize: 7,
-                fontWeight: FontWeight.w600,
-                fontFamily: 'monospace',
+                size: 7,
+                weight: FontWeight.w600,
               ),
             ),
             Text(
               hasMeasurement ? 'I ${lufsI.toStringAsFixed(1)}' : 'I  -∞',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: _lufsColor(lufsI).withValues(alpha: 0.7),
-                fontSize: 7,
-                fontFamily: 'monospace',
+                size: 7,
               ),
             ),
           ],
@@ -1786,20 +1780,18 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
         children: [
           Text(
             hasMeasurement ? 'S:${lufsS.toStringAsFixed(1)}' : 'S: -∞',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: _lufsColor(lufsS),
-              fontSize: 8,
-              fontWeight: FontWeight.w600,
-              fontFamily: 'monospace',
+              size: 8,
+              weight: FontWeight.w600,
             ),
           ),
           const SizedBox(width: 4),
           Text(
             hasMeasurement ? 'I:${lufsI.toStringAsFixed(1)}' : 'I: -∞',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: _lufsColor(lufsI).withValues(alpha: 0.7),
-              fontSize: 7,
-              fontFamily: 'monospace',
+              size: 7,
             ),
           ),
         ],
@@ -1895,8 +1887,8 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
                     const SizedBox(width: 2),
                     Text(
                       '${ch.folderChildCount}',
-                      style: TextStyle(
-                        fontSize: 7,
+                      style: FluxForgeTheme.dockSans(
+                        size: 7,
                         color: FluxForgeTheme.textTertiary,
                       ),
                     ),
@@ -1916,12 +1908,12 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
                 Expanded(
                   child: Text(
                     ch.name,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: ch.selected
                           ? FluxForgeTheme.textPrimary
                           : FluxForgeTheme.textSecondary,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w500,
+                      size: 9,
+                      weight: FontWeight.w500,
                     ),
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
@@ -2203,10 +2195,10 @@ class _FaderWithMeterState extends State<_FaderWithMeter> {
                                 controller: _dbEditController,
                                 focusNode: _dbEditFocus,
                                 textAlign: TextAlign.center,
-                                style: const TextStyle(
+                                style: FluxForgeTheme.dockSans(
                                   color: FluxForgeTheme.accentBlue,
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.w500,
+                                  size: 8,
+                                  weight: FontWeight.w500,
                                 ),
                                 decoration: const InputDecoration(
                                   isDense: true,
@@ -2220,12 +2212,12 @@ class _FaderWithMeterState extends State<_FaderWithMeter> {
                           : Text(
                               _volumeToDb(widget.volume),
                               textAlign: TextAlign.center,
-                              style: TextStyle(
+                              style: FluxForgeTheme.dockSans(
                                 color: _isDragging
                                     ? FluxForgeTheme.accentBlue
                                     : FluxForgeTheme.textSecondary,
-                                fontSize: 8,
-                                fontWeight: FontWeight.w500,
+                                size: 8,
+                                weight: FontWeight.w500,
                               ),
                             ),
                     ),
@@ -2411,10 +2403,10 @@ class _PanKnobPainter extends CustomPainter {
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
     textPainter.text = TextSpan(
       text: value < -0.01 ? 'L' : value > 0.01 ? 'R' : 'C',
-      style: const TextStyle(
+      style: FluxForgeTheme.dockSans(
         color: FluxForgeTheme.textTertiary,
-        fontSize: 8,
-        fontWeight: FontWeight.w500,
+        size: 8,
+        weight: FontWeight.w500,
       ),
     );
     textPainter.layout();
@@ -2497,9 +2489,9 @@ class _StereoPanKnobState extends State<_StereoPanKnob> {
         // Label - Pro DAW standard: 10px for readability
         Text(
           widget.label,
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: FontWeight.w600,
             color: FluxForgeTheme.accentCyan,
           ),
         ),
@@ -2566,9 +2558,8 @@ class _StereoPanKnobState extends State<_StereoPanKnob> {
         // Value - Pro DAW standard: 9px for pan values
         Text(
           _formatPan(_displayValue),
-          style: TextStyle(
-            fontSize: 9,
-            fontFamily: 'JetBrains Mono',
+          style: FluxForgeTheme.dockMono(
+            size: 9,
             color: FluxForgeTheme.textSecondary,
           ),
         ),
@@ -2747,11 +2738,11 @@ class _InsertSlot extends StatelessWidget {
         child: Center(
           child: Text(
             insert.pluginName ?? '—',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: insert.isEmpty
                   ? FluxForgeTheme.textTertiary
                   : FluxForgeTheme.textPrimary,
-              fontSize: 7,
+              size: 7,
             ),
             overflow: TextOverflow.ellipsis,
           ),
@@ -2797,10 +2788,10 @@ class _StripButton extends StatelessWidget {
         child: Center(
           child: Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: active ? FluxForgeTheme.bgVoid : FluxForgeTheme.textTertiary,
-              fontSize: 8,
-              fontWeight: FontWeight.w600,
+              size: 8,
+              weight: FontWeight.w600,
             ),
           ),
         ),
@@ -2912,10 +2903,10 @@ class _VcaStrip extends StatelessWidget {
               child: Center(
                 child: Text(
                   channel.name,
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: FluxForgeTheme.textSecondary,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w500,
+                    size: 9,
+                    weight: FontWeight.w500,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -3092,9 +3083,9 @@ class _MasterStripState extends State<_MasterStrip> {
                       Container(
                         height: 12,
                         alignment: Alignment.center,
-                        child: const Text('PRE', style: TextStyle(
-                          color: FluxForgeTheme.textTertiary, fontSize: 7,
-                          fontWeight: FontWeight.w600, letterSpacing: 1)),
+                        child: Text('PRE', style: FluxForgeTheme.dockSans(
+                          color: FluxForgeTheme.textTertiary, size: 7,
+                          weight: FontWeight.w600, letterSpacing: 1)),
                       ),
                       // 8 pre-fader insert slots (0-7)
                       ...List.generate(8, (i) {
@@ -3116,9 +3107,9 @@ class _MasterStripState extends State<_MasterStrip> {
                       Container(
                         height: 12,
                         alignment: Alignment.center,
-                        child: const Text('POST', style: TextStyle(
-                          color: FluxForgeTheme.textTertiary, fontSize: 7,
-                          fontWeight: FontWeight.w600, letterSpacing: 1)),
+                        child: Text('POST', style: FluxForgeTheme.dockSans(
+                          color: FluxForgeTheme.textTertiary, size: 7,
+                          weight: FontWeight.w600, letterSpacing: 1)),
                       ),
                       // 4 post-fader insert slots (8-11)
                       ...List.generate(4, (i) {
@@ -3170,10 +3161,10 @@ class _MasterStripState extends State<_MasterStrip> {
                   // Short-term LUFS (main reading)
                   Text(
                     _formatMasterLufs(widget.lufsShortTerm),
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: _lufsColor(widget.lufsShortTerm),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
+                      size: 10,
+                      weight: FontWeight.w700,
                       letterSpacing: 0.5,
                     ),
                   ),
@@ -3182,10 +3173,10 @@ class _MasterStripState extends State<_MasterStrip> {
                     widget.lufsIntegrated <= -70.0
                         ? 'I: -∞'
                         : 'I: ${widget.lufsIntegrated.toStringAsFixed(1)}',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: _lufsColor(widget.lufsIntegrated).withValues(alpha: 0.7),
-                      fontSize: 7,
-                      fontWeight: FontWeight.w500,
+                      size: 7,
+                      weight: FontWeight.w500,
                     ),
                   ),
                 ],
@@ -3201,12 +3192,12 @@ class _MasterStripState extends State<_MasterStrip> {
               child: Center(
                 child: Text(
                   _currentWidth <= 0.01 ? 'MONO OUT' : 'STEREO OUT',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: _currentWidth <= 0.01
                         ? FluxForgeTheme.accentOrange
                         : FluxForgeTheme.warningOrange,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
+                    size: 9,
+                    weight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -3239,9 +3230,9 @@ class _MasterStripState extends State<_MasterStrip> {
         child: Center(
           child: Text(
             isMono ? 'MONO' : 'MONO',
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
+            style: FluxForgeTheme.dockSans(
+              size: 9,
+              weight: FontWeight.w700,
               letterSpacing: 1.2,
               color: isMono
                   ? FluxForgeTheme.accentOrange
@@ -3284,12 +3275,12 @@ class _MasterStripState extends State<_MasterStrip> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('WIDTH', style: TextStyle(
-                color: FluxForgeTheme.textTertiary, fontSize: 7,
-                fontWeight: FontWeight.w600, letterSpacing: 1.2)),
-              Text(label, style: TextStyle(
-                fontSize: 8, fontFamily: 'JetBrains Mono',
-                color: color, fontWeight: FontWeight.w700)),
+              Text('WIDTH', style: FluxForgeTheme.dockSans(
+                color: FluxForgeTheme.textTertiary, size: 7,
+                weight: FontWeight.w600, letterSpacing: 1.2)),
+              Text(label, style: FluxForgeTheme.dockMono(
+                size: 8,
+                color: color, weight: FontWeight.w700)),
             ],
           ),
           const SizedBox(height: 2),
@@ -3409,10 +3400,10 @@ class _SectionHeader extends StatelessWidget {
             child: Center(
               child: Text(
                 label,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: color,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
+                  size: 9,
+                  weight: FontWeight.w600,
                   letterSpacing: 1.5,
                 ),
               ),
@@ -3458,10 +3449,10 @@ class _CollapsedSectionIndicator extends StatelessWidget {
             child: Center(
               child: Text(
                 '$label ($count)',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: color.withValues(alpha: 0.6),
-                  fontSize: 8,
-                  fontWeight: FontWeight.w600,
+                  size: 8,
+                  weight: FontWeight.w600,
                   letterSpacing: 1.0,
                 ),
               ),
@@ -3519,10 +3510,10 @@ class _ToolbarToggle extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: active ? FluxForgeTheme.accentBlue : FluxForgeTheme.textTertiary,
-            fontSize: 10,
-            fontWeight: FontWeight.w500,
+            size: 10,
+            weight: FontWeight.w500,
           ),
         ),
       ),
@@ -3560,7 +3551,7 @@ class _ToolbarButton extends StatelessWidget {
               Icon(icon, size: 14, color: FluxForgeTheme.textSecondary),
               const SizedBox(width: 4),
             ],
-            Text(label, style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary)),
+            Text(label, style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textSecondary)),
           ],
         ),
       ),

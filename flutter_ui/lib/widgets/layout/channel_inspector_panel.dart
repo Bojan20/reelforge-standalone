@@ -229,17 +229,17 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
             const SizedBox(height: 16),
             Text(
               'Select a track',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
+              style: FluxForgeTheme.dockSans(
+                size: 13,
+                weight: FontWeight.w500,
                 color: FluxForgeTheme.textSecondary,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               'or clip to inspect',
-              style: TextStyle(
-                fontSize: 11,
+              style: FluxForgeTheme.dockSans(
+                size: 11,
                 color: FluxForgeTheme.textTertiary,
               ),
             ),
@@ -277,18 +277,18 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
                     children: [
                       Text(
                         ch.name,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                        style: FluxForgeTheme.dockSans(
+                          size: 14,
+                          weight: FontWeight.w600,
                           color: FluxForgeTheme.textPrimary,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
                         ch.type.toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w500,
+                        style: FluxForgeTheme.dockSans(
+                          size: 9,
+                          weight: FontWeight.w500,
                           letterSpacing: 0.5,
                           color: ch.color.withValues(alpha: 0.8),
                         ),
@@ -436,7 +436,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
                     width: 48,
                     child: Text(
                       'Pan L/R',
-                      style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary),
+                      style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textSecondary),
                     ),
                   ),
                 ),
@@ -460,9 +460,8 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
                             const SizedBox(height: 2),
                             Text(
                               _formatPan(ch.pan * 100),
-                              style: TextStyle(
-                                fontSize: 8,
-                                fontFamily: 'JetBrains Mono',
+                              style: FluxForgeTheme.dockMono(
+                                size: 8,
                                 color: FluxForgeTheme.textTertiary,
                               ),
                             ),
@@ -485,9 +484,8 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
                             const SizedBox(height: 2),
                             Text(
                               _formatPan(ch.panRight * 100),
-                              style: TextStyle(
-                                fontSize: 8,
-                                fontFamily: 'JetBrains Mono',
+                              style: FluxForgeTheme.dockMono(
+                                size: 8,
                                 color: FluxForgeTheme.textTertiary,
                               ),
                             ),
@@ -507,7 +505,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
                   width: 48,
                   child: Text(
                     'Pan',
-                    style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary),
+                    style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textSecondary),
                   ),
                 ),
                 Expanded(
@@ -524,9 +522,8 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
                   width: 44,
                   child: Text(
                     _formatPan(ch.pan * 100),
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontFamily: 'JetBrains Mono',
+                    style: FluxForgeTheme.dockMono(
+                      size: 10,
                       color: FluxForgeTheme.textSecondary,
                     ),
                     textAlign: TextAlign.right,
@@ -728,15 +725,14 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
                 const SizedBox(width: 6),
                 Text(
                   'True Peak',
-                  style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary),
+                  style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textSecondary),
                 ),
                 const Spacer(),
                 Text(
                   fmtTp(lufs.truePeak),
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontFamily: 'JetBrains Mono',
-                    fontWeight: FontWeight.w600,
+                  style: FluxForgeTheme.dockMono(
+                    size: 11,
+                    weight: FontWeight.w600,
                     color: tpColor(lufs.truePeak),
                   ),
                 ),
@@ -752,13 +748,12 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
               children: [
                 Text(
                   'Targets:',
-                  style: TextStyle(fontSize: 8, color: FluxForgeTheme.textTertiary),
+                  style: FluxForgeTheme.dockSans(size: 8, color: FluxForgeTheme.textTertiary),
                 ),
                 Text(
                   '-14 LUFS / -1 dBTP (streaming)',
-                  style: TextStyle(
-                    fontSize: 8,
-                    fontFamily: 'JetBrains Mono',
+                  style: FluxForgeTheme.dockMono(
+                    size: 8,
                     color: FluxForgeTheme.textTertiary,
                   ),
                 ),
@@ -1049,7 +1044,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
           // Loop enable toggle
           Row(
             children: [
-              const Text('Enabled', style: TextStyle(fontSize: 11, color: FluxForgeTheme.textSecondary)),
+              Text('Enabled', style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textSecondary)),
               const Spacer(),
               Switch(
                 value: clip.loopEnabled,
@@ -1068,7 +1063,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
             // Loop count
             Row(
               children: [
-                const Text('Count', style: TextStyle(fontSize: 11, color: FluxForgeTheme.textSecondary)),
+                Text('Count', style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textSecondary)),
                 const Spacer(),
                 SizedBox(
                   width: 60,
@@ -1091,7 +1086,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
             // Crossfade
             Row(
               children: [
-                const Text('Crossfade', style: TextStyle(fontSize: 11, color: FluxForgeTheme.textSecondary)),
+                Text('Crossfade', style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textSecondary)),
                 const Spacer(),
                 SizedBox(
                   width: 80,
@@ -1120,7 +1115,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
                   width: 36,
                   child: Text(
                     '${(clip.loopCrossfade * 1000).round()}ms',
-                    style: const TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary),
+                    style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textSecondary),
                     textAlign: TextAlign.right,
                   ),
                 ),
@@ -1168,7 +1163,7 @@ class _CompactSpinner extends StatelessWidget {
             child: Text(
               label,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 11, color: FluxForgeTheme.textPrimary, fontWeight: FontWeight.w600),
+              style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textPrimary, weight: FontWeight.w600),
             ),
           ),
           _spinButton(Icons.add, value < max ? () => onChanged(value + 1) : null),
@@ -1389,8 +1384,8 @@ class _TimeStretchControlsState extends State<_TimeStretchControls> {
                   borderRadius: BorderRadius.circular(4),
                   border: Border.all(color: FluxForgeTheme.borderSubtle),
                 ),
-                child: Text('RST', style: TextStyle(
-                  fontSize: 8, fontWeight: FontWeight.bold, color: FluxForgeTheme.textTertiary,
+                child: Text('RST', style: FluxForgeTheme.dockSans(
+                  size: 8, weight: FontWeight.bold, color: FluxForgeTheme.textTertiary,
                 )),
               ),
             ),
@@ -1405,7 +1400,7 @@ class _TimeStretchControlsState extends State<_TimeStretchControls> {
       children: [
         SizedBox(
           width: 42,
-          child: Text('Mode', style: TextStyle(fontSize: 9, color: FluxForgeTheme.textSecondary)),
+          child: Text('Mode', style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textSecondary)),
         ),
         Expanded(
           child: Row(
@@ -1429,9 +1424,9 @@ class _TimeStretchControlsState extends State<_TimeStretchControls> {
                     child: Text(
                       _modeNames[i],
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 7,
-                        fontWeight: FontWeight.bold,
+                      style: FluxForgeTheme.dockSans(
+                        size: 7,
+                        weight: FontWeight.bold,
                         color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.textTertiary,
                       ),
                     ),
@@ -1458,9 +1453,9 @@ class _TimeStretchControlsState extends State<_TimeStretchControls> {
         child: Text(
           label,
           textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 8,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: 8,
+            weight: FontWeight.bold,
             color: active ? activeColor : FluxForgeTheme.textTertiary,
           ),
         ),
@@ -1508,9 +1503,9 @@ class _PresetButton extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: TextStyle(
-            fontSize: 9,
-            fontWeight: FontWeight.w600,
+          style: FluxForgeTheme.dockSans(
+            size: 9,
+            weight: FontWeight.w600,
             color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
           ),
         ),
@@ -1565,9 +1560,9 @@ class _Section extends StatelessWidget {
                       children: [
                         Text(
                           title,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
+                          style: FluxForgeTheme.dockSans(
+                            size: 11,
+                            weight: FontWeight.w600,
                             color: FluxForgeTheme.textPrimary,
                           ),
                         ),
@@ -1581,9 +1576,8 @@ class _Section extends StatelessWidget {
                             ),
                             child: Text(
                               subtitle!,
-                              style: TextStyle(
-                                fontSize: 9,
-                                fontFamily: 'JetBrains Mono',
+                              style: FluxForgeTheme.dockMono(
+                                size: 9,
                                 color: FluxForgeTheme.textTertiary,
                               ),
                             ),
@@ -1770,7 +1764,7 @@ class _FaderRowState extends State<_FaderRow> {
           width: 48,
           child: Text(
             widget.label,
-            style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary),
+            style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textSecondary),
           ),
         ),
         Expanded(
@@ -1846,9 +1840,8 @@ class _FaderRowState extends State<_FaderRow> {
                       controller: _editController,
                       focusNode: _editFocus,
                       textAlign: TextAlign.right,
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontFamily: 'JetBrains Mono',
+                      style: FluxForgeTheme.dockMono(
+                        size: 10,
                         color: FluxForgeTheme.accentBlue,
                       ),
                       decoration: const InputDecoration(
@@ -1865,9 +1858,8 @@ class _FaderRowState extends State<_FaderRow> {
                   )
                 : Text(
                     widget.formatValue(widget.value),
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontFamily: 'JetBrains Mono',
+                    style: FluxForgeTheme.dockMono(
+                      size: 10,
                       color: FluxForgeTheme.textSecondary,
                     ),
                     textAlign: TextAlign.right,
@@ -1926,9 +1918,9 @@ class _StateButtonState extends State<_StateButton> {
         child: Center(
           child: Text(
             widget.label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.w700,
               color: showActive ? widget.activeColor : FluxForgeTheme.textSecondary,
             ),
           ),
@@ -2003,9 +1995,9 @@ class _EqQuickButton extends StatelessWidget {
                       const SizedBox(width: 4),
                       Text(
                         'EQ',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
+                        style: FluxForgeTheme.dockSans(
+                          size: 10,
+                          weight: FontWeight.w600,
                           color: active
                               ? FluxForgeTheme.accentBlue
                               : (bypassed ? FluxForgeTheme.accentOrange.withValues(alpha: 0.5) : FluxForgeTheme.textSecondary),
@@ -2104,9 +2096,9 @@ class _QuickButton extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               label,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.w600,
                 color: active ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
               ),
             ),
@@ -2161,9 +2153,9 @@ class _InsertGroupLabel extends StatelessWidget {
         children: [
           Text(
             label,
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w500,
+            style: FluxForgeTheme.dockSans(
+              size: 9,
+              weight: FontWeight.w500,
               color: FluxForgeTheme.textTertiary,
               letterSpacing: 0.3,
             ),
@@ -2326,9 +2318,9 @@ class _InsertSlotRowState extends State<_InsertSlotRow> {
                       behavior: HitTestBehavior.opaque,
                       child: Text(
                         hasPlugin ? widget.insert.name : '+ Insert ${widget.index + 1}',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: hasPlugin ? FontWeight.w500 : FontWeight.w400,
+                        style: FluxForgeTheme.dockSans(
+                          size: 10,
+                          weight: hasPlugin ? FontWeight.w500 : FontWeight.w400,
                           color: hasPlugin
                               ? (widget.insert.bypassed ? FluxForgeTheme.textTertiary : FluxForgeTheme.textPrimary)
                               : FluxForgeTheme.textTertiary,
@@ -2341,9 +2333,9 @@ class _InsertSlotRowState extends State<_InsertSlotRow> {
                   if (hasPlugin && widget.insert.wetDry < 0.99) ...[
                     Text(
                       '${widget.insert.wetDryPercent}%',
-                      style: TextStyle(
-                        fontSize: 8,
-                        fontWeight: FontWeight.w600,
+                      style: FluxForgeTheme.dockSans(
+                        size: 8,
+                        weight: FontWeight.w600,
                         color: FluxForgeTheme.accentCyan.withValues(alpha: 0.8),
                       ),
                     ),
@@ -2419,9 +2411,9 @@ class _InsertSlotRowState extends State<_InsertSlotRow> {
                     children: [
                       Text(
                         'D',
-                        style: TextStyle(
-                          fontSize: 8,
-                          fontWeight: FontWeight.w600,
+                        style: FluxForgeTheme.dockSans(
+                          size: 8,
+                          weight: FontWeight.w600,
                           color: FluxForgeTheme.textTertiary,
                         ),
                       ),
@@ -2469,9 +2461,9 @@ class _InsertSlotRowState extends State<_InsertSlotRow> {
                       const SizedBox(width: 4),
                       Text(
                         'W',
-                        style: TextStyle(
-                          fontSize: 8,
-                          fontWeight: FontWeight.w600,
+                        style: FluxForgeTheme.dockSans(
+                          size: 8,
+                          weight: FontWeight.w600,
                           color: FluxForgeTheme.accentCyan,
                         ),
                       ),
@@ -2596,9 +2588,9 @@ class _SendSlotRowState extends State<_SendSlotRow> {
               width: 14,
               child: Text(
                 '${widget.index + 1}',
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
+                  weight: FontWeight.w600,
                   color: FluxForgeTheme.textTertiary,
                 ),
               ),
@@ -2618,9 +2610,9 @@ class _SendSlotRowState extends State<_SendSlotRow> {
                   child: Center(
                     child: Text(
                       'M',
-                      style: TextStyle(
-                        fontSize: 7,
-                        fontWeight: FontWeight.w700,
+                      style: FluxForgeTheme.dockSans(
+                        size: 7,
+                        weight: FontWeight.w700,
                         color: isMuted ? Colors.white : const Color(0xFF777788),
                       ),
                     ),
@@ -2632,8 +2624,8 @@ class _SendSlotRowState extends State<_SendSlotRow> {
             Expanded(
               child: Text(
                 hasDestination ? widget.send!.destination! : 'No Send',
-                style: TextStyle(
-                  fontSize: 10,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
                   color: isMuted
                       ? FluxForgeTheme.textTertiary
                       : hasDestination
@@ -2712,14 +2704,14 @@ class _RoutingRow extends StatelessWidget {
           children: [
             Text(
               label,
-              style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary),
+              style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary),
             ),
             const Spacer(),
             Text(
               value,
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.w500,
                 color: FluxForgeTheme.textPrimary,
               ),
             ),
@@ -2748,15 +2740,14 @@ class _InfoRow extends StatelessWidget {
             width: 56,
             child: Text(
               label,
-              style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary),
+              style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: TextStyle(
-                fontSize: 10,
-                fontFamily: 'JetBrains Mono',
+              style: FluxForgeTheme.dockMono(
+                size: 10,
                 color: FluxForgeTheme.textSecondary,
               ),
               textAlign: TextAlign.right,
@@ -2828,9 +2819,9 @@ class _ProToolsPanKnobState extends State<_ProToolsPanKnob> {
         if (widget.label != null)
           Text(
             widget.label!,
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 9,
+              weight: FontWeight.w600,
               color: FluxForgeTheme.accentCyan,
             ),
           ),
@@ -3133,7 +3124,7 @@ class _WidthSliderState extends State<_WidthSlider> {
           width: 48,
           child: Text(
             'Width',
-            style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary),
+            style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textSecondary),
           ),
         ),
         Expanded(
@@ -3210,9 +3201,8 @@ class _WidthSliderState extends State<_WidthSlider> {
             width: 36,
             child: Text(
               label,
-              style: TextStyle(
-                fontSize: 10,
-                fontFamily: 'JetBrains Mono',
+              style: FluxForgeTheme.dockMono(
+                size: 10,
                 color: color,
               ),
               textAlign: TextAlign.right,
@@ -3249,7 +3239,7 @@ class _LufsMeterRow extends StatelessWidget {
           width: 64,
           child: Text(
             label,
-            style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary),
+            style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textSecondary),
           ),
         ),
         Expanded(
@@ -3276,10 +3266,9 @@ class _LufsMeterRow extends StatelessWidget {
           width: 80,
           child: Text(
             value,
-            style: TextStyle(
-              fontSize: 10,
-              fontFamily: 'JetBrains Mono',
-              fontWeight: FontWeight.w500,
+            style: FluxForgeTheme.dockMono(
+              size: 10,
+              weight: FontWeight.w500,
               color: color,
             ),
             textAlign: TextAlign.right,

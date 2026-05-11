@@ -327,10 +327,10 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
               context: context,
               builder: (_) => AlertDialog(
                 backgroundColor: const Color(0xFF1A1A22),
-                title: const Text('Delete Event', style: TextStyle(color: Colors.white)),
+                title: Text('Delete Event', style: FluxForgeTheme.dockSans(color: Colors.white)),
                 content: Text(
                   'Delete "${event.name}"?',
-                  style: const TextStyle(color: Colors.white70),
+                  style: FluxForgeTheme.dockSans(color: Colors.white70),
                 ),
                 actions: [
                   TextButton(
@@ -338,7 +338,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                     onPressed: () => Navigator.pop(context, false),
                   ),
                   TextButton(
-                    child: Text('Delete', style: TextStyle(color: FluxForgeTheme.accentRed)),
+                    child: Text('Delete', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentRed)),
                     onPressed: () => Navigator.pop(context, true),
                   ),
                 ],
@@ -583,13 +583,9 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
         children: [
           const Icon(Icons.folder_special, size: 14, color: Colors.white54),
           const SizedBox(width: 6),
-          const Text(
+          Text(
             'Events & Assets',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: Colors.white70,
-            ),
+            style: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.w600, color: Colors.white70),
           ),
           const Spacer(),
           // Inspector context — shows selected node
@@ -622,10 +618,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                         const SizedBox(width: 3),
                         Text(
                           inspector.selectedNodeId?.substring(0, (inspector.selectedNodeId!.length).clamp(0, 8)) ?? '',
-                          style: TextStyle(
-                            fontSize: 9,
-                            color: inspector.pinned ? const Color(0xFFFFAA00) : const Color(0xFF40C8FF),
-                          ),
+                          style: FluxForgeTheme.dockSans(size: 9, color: inspector.pinned ? const Color(0xFFFFAA00) : const Color(0xFF40C8FF)),
                         ),
                       ],
                     ),
@@ -723,17 +716,12 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                               const SizedBox(height: 4),
                               Text(
                                 isDragHovering ? 'Drop to create event' : 'No events',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: isDragHovering
-                                      ? FluxForgeTheme.accentBlue
-                                      : Colors.white38,
-                                ),
+                                style: FluxForgeTheme.dockSans(size: 11, color: isDragHovering ? FluxForgeTheme.accentBlue : Colors.white38),
                               ),
                               if (!isDragHovering)
-                                const Text(
+                                Text(
                                   'Click + or drag audio here',
-                                  style: TextStyle(fontSize: 9, color: Colors.white24),
+                                  style: FluxForgeTheme.dockSans(size: 9, color: Colors.white24),
                                 ),
                             ],
                           ),
@@ -808,12 +796,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
             flex: 3,
             child: Text(
               'NAME',
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
-                color: Colors.white38,
-                letterSpacing: 0.5,
-              ),
+              style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.w600, color: Colors.white38, letterSpacing: 0.5),
             ),
           ),
           // COL 2: Stage
@@ -821,12 +804,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
             flex: 2,
             child: Text(
               'STAGE',
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
-                color: Colors.white38,
-                letterSpacing: 0.5,
-              ),
+              style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.w600, color: Colors.white38, letterSpacing: 0.5),
               textAlign: TextAlign.center,
             ),
           ),
@@ -835,12 +813,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
             width: 50,
             child: Text(
               'LAYERS',
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
-                color: Colors.white38,
-                letterSpacing: 0.5,
-              ),
+              style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.w600, color: Colors.white38, letterSpacing: 0.5),
               textAlign: TextAlign.right,
             ),
           ),
@@ -893,19 +866,12 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
             const SizedBox(width: 4),
             Text(
               displayName,
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                color: Colors.white70,
-              ),
+              style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w600, color: Colors.white70),
             ),
             const SizedBox(width: 4),
             Text(
               '($count)',
-              style: const TextStyle(
-                fontSize: 9,
-                color: Colors.white38,
-              ),
+              style: FluxForgeTheme.dockSans(size: 9, color: Colors.white38),
             ),
           ],
         ),
@@ -1012,11 +978,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                         ? TextField(
                             controller: _editController,
                             focusNode: _editFocusNode,
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.white,
-                            ),
+                            style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.w500, color: Colors.white),
                             decoration: const InputDecoration(
                               isDense: true,
                               contentPadding: EdgeInsets.symmetric(vertical: 2),
@@ -1027,11 +989,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                           )
                         : Text(
                             event.name,
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
-                              color: isSelected ? Colors.white : Colors.white70,
-                            ),
+                            style: FluxForgeTheme.dockSans(size: 10, weight: isSelected ? FontWeight.w500 : FontWeight.normal, color: isSelected ? Colors.white : Colors.white70),
                             overflow: TextOverflow.ellipsis,
                           ),
                   ),
@@ -1098,11 +1056,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                       ),
                       child: Text(
                         formatStage(primaryStage),
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontFamily: 'monospace',
-                          color: FluxForgeTheme.accentGreen.withValues(alpha: 0.9),
-                        ),
+                        style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.accentGreen.withValues(alpha: 0.9)),
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,
                       ),
@@ -1161,19 +1115,13 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                       padding: const EdgeInsets.only(left: 2),
                       child: Text(
                         '+${event.layers.length - 4}',
-                        style: TextStyle(
-                          fontSize: 8,
-                          color: Colors.white54,
-                        ),
+                        style: FluxForgeTheme.dockSans(size: 8, color: Colors.white54),
                       ),
                     ),
                   if (event.layers.isEmpty)
                     Text(
                       '—',
-                      style: TextStyle(
-                        fontSize: 9,
-                        color: Colors.white38,
-                      ),
+                      style: FluxForgeTheme.dockSans(size: 9, color: Colors.white38),
                     ),
                 ],
               ),
@@ -1206,11 +1154,11 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                     backgroundColor: const Color(0xFF1A1A22),
                     title: Text(
                       'Delete Event',
-                      style: TextStyle(color: Colors.white),
+                      style: FluxForgeTheme.dockSans(color: Colors.white),
                     ),
                     content: Text(
                       'Delete "${event.name}"?\n\nThis will remove the event and all its layers.',
-                      style: TextStyle(color: Colors.white70),
+                      style: FluxForgeTheme.dockSans(color: Colors.white70),
                     ),
                     actions: [
                       TextButton(
@@ -1218,7 +1166,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                         onPressed: () => Navigator.pop(context, false),
                       ),
                       TextButton(
-                        child: Text('Delete', style: TextStyle(color: FluxForgeTheme.accentRed)),
+                        child: Text('Delete', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentRed)),
                         onPressed: () => Navigator.pop(context, true),
                       ),
                     ],
@@ -1387,7 +1335,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
               padding: const EdgeInsets.all(8),
               child: TextFormField(
                 controller: _eventNameController,
-                style: const TextStyle(fontSize: 12, color: Colors.white),
+                style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
                 decoration: InputDecoration(
                   isDense: true,
                   filled: true,
@@ -1398,7 +1346,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                   ),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                   hintText: 'Event name',
-                  hintStyle: const TextStyle(color: Colors.white24),
+                  hintStyle: FluxForgeTheme.dockSans(color: Colors.white24),
                 ),
                 onFieldSubmitted: (value) {
                   middleware.updateCompositeEvent(
@@ -1436,7 +1384,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                   }
                 },
                 icon: const Icon(Icons.add, size: 14),
-                label: const Text('Add Layer', style: TextStyle(fontSize: 11)),
+                label: Text('Add Layer', style: FluxForgeTheme.dockSans(size: 11)),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: FluxForgeTheme.accentBlue,
                   side: BorderSide(color: FluxForgeTheme.accentBlue.withValues(alpha: 0.3)),
@@ -1498,7 +1446,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                   children: [
                     Icon(Icons.speaker, size: 10, color: Colors.white38),
                     const SizedBox(width: 3),
-                    Text(busName, style: const TextStyle(fontSize: 9, color: Colors.white54)),
+                    Text(busName, style: FluxForgeTheme.dockSans(size: 9, color: Colors.white54)),
                   ],
                 ),
               ),
@@ -1532,7 +1480,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                   borderRadius: BorderRadius.circular(3),
                   border: Border.all(color: event.color.withValues(alpha: 0.3), width: 0.5),
                 ),
-                child: Text(s, style: TextStyle(fontSize: 8, color: event.color.withValues(alpha: 0.8))),
+                child: Text(s, style: FluxForgeTheme.dockSans(size: 8, color: event.color.withValues(alpha: 0.8))),
               )).toList(),
             ),
           ],
@@ -1565,7 +1513,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
           children: [
             Icon(icon, size: 10, color: active ? activeColor : Colors.white24),
             const SizedBox(width: 3),
-            Text(label, style: TextStyle(fontSize: 9, color: active ? activeColor : Colors.white38)),
+            Text(label, style: FluxForgeTheme.dockSans(size: 9, color: active ? activeColor : Colors.white38)),
           ],
         ),
       ),
@@ -1651,13 +1599,14 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                           children: [
                             Text(
                               layer.name,
-                              style: const TextStyle(fontSize: 10, color: Colors.white70),
+                              style: FluxForgeTheme.dockSans(size: 10, color: Colors.white70),
                             ),
                             Text(
                               fileName,
-                              style: TextStyle(
-                                fontSize: 9,
+                              style: FluxForgeTheme.dockSans(
+                                size: 9,
                                 color: hasAudio ? Colors.white38 : Colors.white24,
+                              ).copyWith(
                                 fontStyle: hasAudio ? FontStyle.normal : FontStyle.italic,
                               ),
                               overflow: TextOverflow.ellipsis,
@@ -1947,7 +1896,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                           children: [
                             SizedBox(
                               width: 50,
-                              child: Text('Target', style: const TextStyle(fontSize: 9, color: Colors.white54)),
+                              child: Text('Target', style: FluxForgeTheme.dockSans(size: 9, color: Colors.white54)),
                             ),
                             Expanded(
                               child: Container(
@@ -1959,10 +1908,10 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                                 ),
                                 child: TextFormField(
                                   controller: _getLayerTargetController(layer),
-                                  style: const TextStyle(fontSize: 9, color: Colors.white70),
-                                  decoration: const InputDecoration(
+                                  style: FluxForgeTheme.dockSans(size: 9, color: Colors.white70),
+                                  decoration: InputDecoration(
                                     hintText: 'Event name to target...',
-                                    hintStyle: TextStyle(fontSize: 9, color: Colors.white24),
+                                    hintStyle: FluxForgeTheme.dockSans(size: 9, color: Colors.white24),
                                     border: InputBorder.none,
                                     isDense: true,
                                     contentPadding: EdgeInsets.symmetric(vertical: 4),
@@ -1983,7 +1932,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
 
                       // Variant / Game Rules section
                       const SizedBox(height: 10),
-                      Text('GAME RULES', style: TextStyle(fontSize: 8, color: Colors.white24, letterSpacing: 1.2)),
+                      Text('GAME RULES', style: FluxForgeTheme.dockSans(size: 8, color: Colors.white24, letterSpacing: 1.2)),
                       const SizedBox(height: 6),
 
                       // Variant group
@@ -2051,7 +2000,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                           height: 28,
                           child: OutlinedButton.icon(
                             icon: Icon(Icons.play_arrow, size: 14),
-                            label: const Text('Preview', style: TextStyle(fontSize: 10)),
+                            label: Text('Preview', style: FluxForgeTheme.dockSans(size: 10)),
                             onPressed: () {
                               AudioPlaybackService.instance.stopSource(PlaybackSource.browser);
                               AudioPlaybackService.instance.previewFile(
@@ -2094,7 +2043,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
           width: 50,
           child: Text(
             label,
-            style: const TextStyle(fontSize: 9, color: Colors.white54),
+            style: FluxForgeTheme.dockSans(size: 9, color: Colors.white54),
           ),
         ),
         Expanded(
@@ -2120,11 +2069,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
           width: 50,
           child: Text(
             valueDisplay,
-            style: const TextStyle(
-              fontSize: 9,
-              color: Colors.white70,
-              fontFamily: 'monospace',
-            ),
+            style: FluxForgeTheme.dockMono(size: 9, color: Colors.white70),
             textAlign: TextAlign.right,
           ),
         ),
@@ -2144,7 +2089,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
       children: [
         SizedBox(
           width: 50,
-          child: Text(label, style: const TextStyle(fontSize: 9, color: Colors.white54)),
+          child: Text(label, style: FluxForgeTheme.dockSans(size: 9, color: Colors.white54)),
         ),
         Expanded(
           child: Container(
@@ -2160,11 +2105,11 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                 isExpanded: true,
                 isDense: true,
                 dropdownColor: const Color(0xFF1A1A24),
-                style: const TextStyle(fontSize: 9, color: Colors.white70),
+                style: FluxForgeTheme.dockSans(size: 9, color: Colors.white70),
                 icon: const Icon(Icons.arrow_drop_down, size: 14, color: Colors.white38),
                 items: items.map((item) => DropdownMenuItem<T>(
                   value: item,
-                  child: Text(displayName(item), style: const TextStyle(fontSize: 9)),
+                  child: Text(displayName(item), style: FluxForgeTheme.dockSans(size: 9)),
                 )).toList(),
                 onChanged: (v) {
                   if (v != null) onChanged(v);
@@ -2205,8 +2150,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
           children: [
             Icon(icon, size: 10, color: active ? FluxForgeTheme.accentBlue : Colors.white24),
             const SizedBox(width: 3),
-            Text(label, style: TextStyle(fontSize: 9,
-              color: active ? FluxForgeTheme.accentBlue : Colors.white38)),
+            Text(label, style: FluxForgeTheme.dockSans(size: 9, color: active ? FluxForgeTheme.accentBlue : Colors.white38)),
           ],
         ),
       ),
@@ -2224,14 +2168,9 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
           color: const Color(0xFF16161C),
           child: Row(
             children: [
-              const Text(
+              Text(
                 'AUDIO BROWSER',
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white38,
-                  letterSpacing: 1.2,
-                ),
+                style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.w700, color: Colors.white38, letterSpacing: 1.2),
               ),
               const Spacer(),
               // Import file button
@@ -2290,7 +2229,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                 Expanded(
                   child: Text(
                     _currentDirectory.split('/').last,
-                    style: const TextStyle(fontSize: 10, color: Colors.white54),
+                    style: FluxForgeTheme.dockSans(size: 10, color: Colors.white54),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -2389,10 +2328,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                   const SizedBox(width: 4),
                   Text(
                     'Pool',
-                    style: TextStyle(
-                      fontSize: 9,
-                      color: _isPoolMode ? FluxForgeTheme.accentBlue : Colors.white38,
-                    ),
+                    style: FluxForgeTheme.dockSans(size: 9, color: _isPoolMode ? FluxForgeTheme.accentBlue : Colors.white38),
                   ),
                 ],
               ),
@@ -2419,10 +2355,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                   const SizedBox(width: 4),
                   Text(
                     'Files',
-                    style: TextStyle(
-                      fontSize: 9,
-                      color: !_isPoolMode ? FluxForgeTheme.accentBlue : Colors.white38,
-                    ),
+                    style: FluxForgeTheme.dockSans(size: 9, color: !_isPoolMode ? FluxForgeTheme.accentBlue : Colors.white38),
                   ),
                 ],
               ),
@@ -2472,12 +2405,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                 const SizedBox(width: 4),
                 Text(
                   'FAVORITES (${favoriteItems.length})',
-                  style: const TextStyle(
-                    fontSize: 8,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.amber,
-                    letterSpacing: 1.0,
-                  ),
+                  style: FluxForgeTheme.dockSans(size: 8, weight: FontWeight.w700, color: Colors.amber, letterSpacing: 1.0),
                 ),
               ],
             ),
@@ -2657,7 +2585,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
             Expanded(
               child: Text(
                 name,
-                style: const TextStyle(fontSize: 11, color: Colors.white70),
+                style: FluxForgeTheme.dockSans(size: 11, color: Colors.white70),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -2685,23 +2613,14 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
       color: const Color(0xFF16161C),
       child: Row(
         children: [
-          const Text(
+          Text(
             'EVENTS',
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
-              color: Colors.white38,
-              letterSpacing: 1.2,
-            ),
+            style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.w700, color: Colors.white38, letterSpacing: 1.2),
           ),
           const SizedBox(width: 6),
           Text(
             '($eventCount)',
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w500,
-              color: Colors.white.withValues(alpha: 0.2),
-            ),
+            style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.w500, color: Colors.white.withValues(alpha: 0.2)),
           ),
           const Spacer(),
           // Expand/collapse toggle — hides audio browser, events take full height
@@ -2758,12 +2677,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
         children: [
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
-              color: Colors.white38,
-              letterSpacing: 1.2,
-            ),
+            style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.w700, color: Colors.white38, letterSpacing: 1.2),
           ),
           const Spacer(),
           if (onAdd != null)
@@ -2783,12 +2697,12 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
         children: [
           Text(
             title,
-            style: const TextStyle(fontSize: 12, color: Colors.white38),
+            style: FluxForgeTheme.dockSans(size: 12, color: Colors.white38),
           ),
           const SizedBox(height: 4),
           Text(
             subtitle,
-            style: const TextStyle(fontSize: 10, color: Colors.white24),
+            style: FluxForgeTheme.dockSans(size: 10, color: Colors.white24),
           ),
         ],
       ),
@@ -2849,11 +2763,7 @@ class _AudioBrowserItemWrapperState extends State<_AudioBrowserItemWrapper> {
               Expanded(
                 child: Text(
                   widget.audioInfo.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: FluxForgeTheme.dockSans(color: Colors.white, size: 12, weight: FontWeight.w500),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -2945,16 +2855,13 @@ class _HoverPreviewItem extends StatelessWidget {
                   children: [
                     Text(
                       audioInfo.name,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: isPlaying ? Colors.white : Colors.white70,
-                      ),
+                      style: FluxForgeTheme.dockSans(size: 11, color: isPlaying ? Colors.white : Colors.white70),
                       overflow: TextOverflow.ellipsis,
                       maxLines: 1,
                     ),
                     Text(
                       audioInfo.format,
-                      style: const TextStyle(fontSize: 8, color: Colors.white38),
+                      style: FluxForgeTheme.dockSans(size: 8, color: Colors.white38),
                     ),
                   ],
                 ),
@@ -2970,7 +2877,7 @@ class _HoverPreviewItem extends StatelessWidget {
                   ),
                   child: Text(
                     audioInfo.durationFormatted,
-                    style: const TextStyle(fontSize: 8, color: Colors.white38, fontFamily: 'monospace'),
+                    style: FluxForgeTheme.dockMono(size: 8, color: Colors.white38),
                   ),
                 ),
               // Play/Stop button

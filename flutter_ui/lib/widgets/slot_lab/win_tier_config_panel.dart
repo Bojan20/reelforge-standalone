@@ -107,7 +107,7 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
                         children: [
                           Text(
                             '${_regular.tiers.length} tiers',
-                            style: const TextStyle(color: Color(0xFF606068), fontSize: 9),
+                            style: FluxForgeTheme.dockSans(size: 9, color: Color(0xFF606068)),
                           ),
                           const SizedBox(width: 6),
                           if (_showRegular.value) _addTierButton(),
@@ -138,7 +138,7 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
                         children: [
                           Text(
                             '${_bigWin.tiers.length} tiers',
-                            style: const TextStyle(color: Color(0xFF606068), fontSize: 9),
+                            style: FluxForgeTheme.dockSans(size: 9, color: Color(0xFF606068)),
                           ),
                           const SizedBox(width: 4),
                           Icon(
@@ -189,12 +189,12 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
         children: [
           const Icon(Icons.tune, size: 12, color: Color(0xFFFFAA00)),
           const SizedBox(width: 4),
-          const Text(
+          Text(
             'WIN TIERS',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: Color(0xFFD0D0D8),
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
+              weight: FontWeight.w700,
               letterSpacing: 0.5,
             ),
           ),
@@ -262,7 +262,7 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
             const SizedBox(width: 2),
             Text(
               label,
-              style: TextStyle(color: c, fontSize: 7, fontWeight: FontWeight.w600),
+              style: FluxForgeTheme.dockSans(size: 7, color: c, weight: FontWeight.w600),
             ),
           ],
         ),
@@ -285,10 +285,10 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
         const SizedBox(width: 4),
         Text(
           title,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 9,
             color: color,
-            fontSize: 9,
-            fontWeight: FontWeight.w700,
+            weight: FontWeight.w700,
             letterSpacing: 0.5,
           ),
         ),
@@ -320,12 +320,12 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'APPLY PRESET',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 8,
               color: Color(0xFF808088),
-              fontSize: 8,
-              fontWeight: FontWeight.w600,
+              weight: FontWeight.w600,
               letterSpacing: 0.5,
             ),
           ),
@@ -357,12 +357,10 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
                   ),
                   child: Text(
                     e.key,
-                    style: TextStyle(
-                      color: isActive
-                          ? FluxForgeTheme.accentCyan
-                          : const Color(0xFF808088),
-                      fontSize: 9,
-                      fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                    style: FluxForgeTheme.dockSans(
+                      size: 9,
+                      color: isActive ? FluxForgeTheme.accentCyan : const Color(0xFF808088),
+                      weight: isActive ? FontWeight.w700 : FontWeight.w500,
                     ),
                   ),
                 ),
@@ -388,13 +386,13 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
           borderRadius: BorderRadius.circular(3),
           border: Border.all(color: const Color(0xFF66BB6A).withValues(alpha: 0.3)),
         ),
-        child: const Row(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.add, size: 10, color: Color(0xFF66BB6A)),
-            SizedBox(width: 2),
-            Text('ADD', style: TextStyle(
-              color: Color(0xFF66BB6A), fontSize: 7, fontWeight: FontWeight.w600,
+            const Icon(Icons.add, size: 10, color: Color(0xFF66BB6A)),
+            const SizedBox(width: 2),
+            Text('ADD', style: FluxForgeTheme.dockSans(
+              size: 7, color: Color(0xFF66BB6A), weight: FontWeight.w600,
             )),
           ],
         ),
@@ -513,7 +511,7 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
               Container(width: 6, height: 6, decoration: BoxDecoration(
                 color: hasError ? const Color(0xFFFF4040) : color, shape: BoxShape.circle)),
               const SizedBox(width: 4),
-              Text(tierName, style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w700)),
+              Text(tierName, style: FluxForgeTheme.dockSans(size: 9, color: color, weight: FontWeight.w700)),
               if (hasError) ...[
                 const SizedBox(width: 4),
                 Tooltip(
@@ -545,7 +543,7 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
                 width: 50,
               ),
               const SizedBox(width: 4),
-              const Text('→', style: TextStyle(color: Color(0xFF404048), fontSize: 10)),
+              Text('→', style: FluxForgeTheme.dockSans(size: 10, color: Color(0xFF404048))),
               const SizedBox(width: 4),
               _inlineNumericField(
                 fieldId: 'regular_${tier.tierId}_to',
@@ -633,12 +631,12 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
         children: [
           const Icon(Icons.bolt, size: 12, color: Color(0xFFFFAA00)),
           const SizedBox(width: 4),
-          const Text(
+          Text(
             'BIG WIN THRESHOLD',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 9,
               color: Color(0xFFFFAA00),
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
+              weight: FontWeight.w700,
               letterSpacing: 0.5,
             ),
           ),
@@ -749,7 +747,7 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
               const SizedBox(width: 4),
               Text(
                 'TIER ${tier.tierId}',
-                style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w700),
+                style: FluxForgeTheme.dockSans(size: 9, color: color, weight: FontWeight.w700),
               ),
               if (hasError) ...[
                 const SizedBox(width: 4),
@@ -782,7 +780,7 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
                 width: 50,
               ),
               const SizedBox(width: 4),
-              const Text('→', style: TextStyle(color: Color(0xFF404048), fontSize: 10)),
+              Text('→', style: FluxForgeTheme.dockSans(size: 10, color: Color(0xFF404048))),
               const SizedBox(width: 4),
               _inlineNumericField(
                 fieldId: 'big_${tier.tierId}_to',
@@ -892,17 +890,17 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
           const SizedBox(width: 4),
           Text(
             'T${tier.tierId}',
-            style: TextStyle(color: color, fontSize: 8, fontWeight: FontWeight.w700),
+            style: FluxForgeTheme.dockSans(size: 8, color: color, weight: FontWeight.w700),
           ),
           const SizedBox(width: 6),
           Text(
             '${tier.fromMultiplier.toStringAsFixed(0)}x → $toStr',
-            style: const TextStyle(color: Color(0xFF808088), fontSize: 8),
+            style: FluxForgeTheme.dockSans(size: 8, color: Color(0xFF808088)),
           ),
           const Spacer(),
           Text(
             tier.displayLabel,
-            style: const TextStyle(color: Color(0xFF606068), fontSize: 8),
+            style: FluxForgeTheme.dockSans(size: 8, color: Color(0xFF606068)),
             overflow: TextOverflow.ellipsis,
           ),
         ],
@@ -943,16 +941,16 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.science, color: Color(0xFF4A9EFF), size: 11),
-              SizedBox(width: 4),
+              const Icon(Icons.science, color: Color(0xFF4A9EFF), size: 11),
+              const SizedBox(width: 4),
               Text(
                 'WIN TIER SIMULATOR',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
                   color: Color(0xFF4A9EFF),
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
+                  weight: FontWeight.w700,
                   letterSpacing: 0.5,
                 ),
               ),
@@ -977,10 +975,10 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
                 ),
                 child: Text(
                   '${multiplier.toStringAsFixed(1)}x',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
                     color: isBigWin ? const Color(0xFFFFAA00) : const Color(0xFF4A9EFF),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
+                    weight: FontWeight.w800,
                   ),
                 ),
               ),
@@ -1011,25 +1009,25 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
                       const SizedBox(width: 4),
                       Text(
                         regularMatch.stageName,
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 10,
                           color: _tierColor(regularMatch.tierId),
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
+                          weight: FontWeight.w700,
                         ),
                       ),
                       if (regularMatch.displayLabel.isNotEmpty) ...[
                         const SizedBox(width: 4),
                         Text(
                           regularMatch.displayLabel,
-                          style: const TextStyle(color: Color(0xFF808088), fontSize: 9),
+                          style: FluxForgeTheme.dockSans(size: 9, color: Color(0xFF808088)),
                         ),
                       ],
                     ],
                   ),
                 ] else
-                  const Text(
+                  Text(
                     'No regular tier match',
-                    style: TextStyle(color: Color(0xFF606068), fontSize: 9),
+                    style: FluxForgeTheme.dockSans(size: 9, color: Color(0xFF606068)),
                   ),
                 if (isBigWin && bigWinMatch != null) ...[
                   const SizedBox(height: 2),
@@ -1045,17 +1043,17 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
                       const SizedBox(width: 4),
                       Text(
                         'BIG WIN TIER ${bigWinMatch.tierId}',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 10,
                           color: _bigWinTierColor(bigWinMatch.tierId),
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
+                          weight: FontWeight.w700,
                         ),
                       ),
                       if (bigWinMatch.displayLabel.isNotEmpty) ...[
                         const SizedBox(width: 4),
                         Text(
                           bigWinMatch.displayLabel,
-                          style: const TextStyle(color: Color(0xFF808088), fontSize: 9),
+                          style: FluxForgeTheme.dockSans(size: 9, color: Color(0xFF808088)),
                         ),
                       ],
                     ],
@@ -1075,10 +1073,10 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
         children: [
           Text(
             label,
-            style: const TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 8,
               color: Color(0xFF606068),
-              fontSize: 8,
-              fontWeight: FontWeight.w700,
+              weight: FontWeight.w700,
             ),
           ),
           const SizedBox(width: 4),
@@ -1093,7 +1091,7 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
               ),
               child: TextFormField(
                 initialValue: value.toStringAsFixed(2),
-                style: const TextStyle(color: Color(0xFFD0D0D8), fontSize: 10),
+                style: FluxForgeTheme.dockSans(size: 10, color: Color(0xFFD0D0D8)),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(
                   border: InputBorder.none,
@@ -1128,13 +1126,13 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
           borderRadius: BorderRadius.circular(4),
           border: Border.all(color: const Color(0xFF66BB6A).withValues(alpha: 0.3)),
         ),
-        child: const Row(
+        child: Row(
           children: [
-            Icon(Icons.check_circle, size: 12, color: Color(0xFF66BB6A)),
-            SizedBox(width: 4),
+            const Icon(Icons.check_circle, size: 12, color: Color(0xFF66BB6A)),
+            const SizedBox(width: 4),
             Text(
               'Configuration valid',
-              style: TextStyle(color: Color(0xFF66BB6A), fontSize: 9),
+              style: FluxForgeTheme.dockSans(size: 9, color: Color(0xFF66BB6A)),
             ),
           ],
         ),
@@ -1156,16 +1154,16 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.warning_amber, size: 12, color: Color(0xFFFF6060)),
-              SizedBox(width: 4),
+              const Icon(Icons.warning_amber, size: 12, color: Color(0xFFFF6060)),
+              const SizedBox(width: 4),
               Text(
                 'VALIDATION ERRORS',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
                   color: Color(0xFFFF6060),
-                  fontSize: 8,
-                  fontWeight: FontWeight.w700,
+                  weight: FontWeight.w700,
                 ),
               ),
             ],
@@ -1175,7 +1173,7 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
                 padding: const EdgeInsets.only(bottom: 2),
                 child: Text(
                   '• $e',
-                  style: const TextStyle(color: Color(0xFFFF8080), fontSize: 8),
+                  style: FluxForgeTheme.dockSans(size: 8, color: Color(0xFFFF8080)),
                 ),
               )),
         ],
@@ -1203,11 +1201,7 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
         child: TextField(
           controller: _inlineController,
           focusNode: _inlineFocus,
-          style: const TextStyle(
-            color: Color(0xFFD0D0D8),
-            fontSize: 9,
-            fontFamily: 'monospace',
-          ),
+          style: FluxForgeTheme.dockMono(size: 9, color: Color(0xFFD0D0D8)),
           decoration: const InputDecoration(
             isDense: true,
             contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
@@ -1240,11 +1234,10 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
         ),
         child: Text(
           value,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 9,
             color: dim ? const Color(0xFF404048) : const Color(0xFF808088),
-            fontSize: 9,
-            fontStyle: dim ? FontStyle.italic : FontStyle.normal,
-          ),
+          ).copyWith(fontStyle: dim ? FontStyle.italic : FontStyle.normal),
           overflow: TextOverflow.ellipsis,
         ),
       ),
@@ -1276,8 +1269,8 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (label.isNotEmpty)
-              Text(label, style: const TextStyle(
-                color: Color(0xFF404048), fontSize: 7, fontWeight: FontWeight.w600,
+              Text(label, style: FluxForgeTheme.dockSans(
+                size: 7, color: Color(0xFF404048), weight: FontWeight.w600,
               )),
             SizedBox(
               height: 18,
@@ -1286,11 +1279,10 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
                 focusNode: _inlineFocus,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.\-]'))],
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 10,
                   color: accentColor,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  fontFamily: 'monospace',
+                  weight: FontWeight.w600,
                 ),
                 decoration: InputDecoration(
                   isDense: true,
@@ -1305,9 +1297,9 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
                     borderSide: BorderSide(color: Color(0xFF4488FF), width: 1.5),
                   ),
                   suffixText: suffix,
-                  suffixStyle: TextStyle(
+                  suffixStyle: FluxForgeTheme.dockSans(
+                    size: 7,
                     color: accentColor.withValues(alpha: 0.5),
-                    fontSize: 7,
                   ),
                 ),
                 onSubmitted: (val) {
@@ -1333,10 +1325,10 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
             if (label.isNotEmpty)
               Text(
                 label,
-                style: const TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 7,
                   color: Color(0xFF404048),
-                  fontSize: 7,
-                  fontWeight: FontWeight.w600,
+                  weight: FontWeight.w600,
                 ),
               ),
             Container(
@@ -1350,19 +1342,18 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
                 children: [
                   Text(
                     displayValue,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockMono(
+                      size: 10,
                       color: accentColor,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      fontFamily: 'monospace',
+                      weight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(width: 1),
                   Text(
                     suffix,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 7,
                       color: accentColor.withValues(alpha: 0.5),
-                      fontSize: 7,
                     ),
                   ),
                 ],
@@ -1415,19 +1406,18 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
             children: [
               Text(
                 label,
-                style: const TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 7,
                   color: Color(0xFF404048),
-                  fontSize: 7,
-                  fontWeight: FontWeight.w600,
+                  weight: FontWeight.w600,
                 ),
               ),
               const Spacer(),
               Text(
                 isInt ? value.toInt().toString() : value.toStringAsFixed(1),
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 8,
                   color: color.withValues(alpha: 0.7),
-                  fontSize: 8,
-                  fontFamily: 'monospace',
                 ),
               ),
             ],
@@ -1638,9 +1628,9 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A24),
-        title: const Text(
+        title: Text(
           'Import Win Tier Config',
-          style: TextStyle(color: Color(0xFFD0D0D8), fontSize: 13),
+          style: FluxForgeTheme.dockSans(size: 13, color: Color(0xFFD0D0D8)),
         ),
         content: SizedBox(
           width: 400,
@@ -1649,15 +1639,11 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
             controller: controller,
             maxLines: null,
             expands: true,
-            style: const TextStyle(
-              color: Color(0xFFD0D0D8),
-              fontSize: 10,
-              fontFamily: 'monospace',
-            ),
-            decoration: const InputDecoration(
+            style: FluxForgeTheme.dockMono(size: 10, color: Color(0xFFD0D0D8)),
+            decoration: InputDecoration(
               hintText: 'Paste JSON config here...',
-              hintStyle: TextStyle(color: Color(0xFF404048)),
-              border: OutlineInputBorder(
+              hintStyle: FluxForgeTheme.dockSans(color: Color(0xFF404048)),
+              border: const OutlineInputBorder(
                 borderSide: BorderSide(color: Color(0xFF2A2A32)),
               ),
             ),
@@ -1666,7 +1652,7 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF808088))),
+            child: Text('Cancel', style: FluxForgeTheme.dockSans(color: Color(0xFF808088))),
           ),
           TextButton(
             onPressed: () {
@@ -1690,7 +1676,7 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
                 );
               }
             },
-            child: Text('IMPORT', style: TextStyle(color: FluxForgeTheme.accentCyan)),
+            child: Text('IMPORT', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentCyan)),
           ),
         ],
       ),
@@ -1702,18 +1688,18 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A24),
-        title: const Text(
+        title: Text(
           'Reset Win Tier Config?',
-          style: TextStyle(color: Color(0xFFD0D0D8), fontSize: 13),
+          style: FluxForgeTheme.dockSans(size: 13, color: Color(0xFFD0D0D8)),
         ),
-        content: const Text(
+        content: Text(
           'This will reset all win tier settings to factory defaults.',
-          style: TextStyle(color: Color(0xFF808088), fontSize: 11),
+          style: FluxForgeTheme.dockSans(size: 11, color: Color(0xFF808088)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF808088))),
+            child: Text('Cancel', style: FluxForgeTheme.dockSans(color: Color(0xFF808088))),
           ),
           TextButton(
             onPressed: () {
@@ -1723,7 +1709,7 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
               _bumpRevision();
               Navigator.of(ctx).pop();
             },
-            child: const Text('RESET', style: TextStyle(color: Color(0xFFFF6060))),
+            child: Text('RESET', style: FluxForgeTheme.dockSans(color: Color(0xFFFF6060))),
           ),
         ],
       ),

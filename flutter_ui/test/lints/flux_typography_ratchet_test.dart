@@ -85,7 +85,12 @@ import 'package:flutter_test/flutter_test.dart';
 // soundbank_panel.dart (-52), room_wizard.dart (-35),
 // sfx_pipeline_wizard.dart (-45), engine_layout_widgets.dart (-110),
 // slot_voice_mixer.dart (-54), problems_inbox_panel.dart (-1 Curves fix).
-const int _kRawTextStyleBaseline = 7791;
+// Lowered 2026-05-11 (Sprint 15 B.2 batch 6+7) -390 za:
+// events_panel_widget.dart (-49), gdd_import_wizard.dart (-35),
+// game_model_editor.dart (-40), event_debugger_panel.dart (-35),
+// ultimate_mixer.dart (-48), channel_inspector_panel.dart (-40),
+// win_tier_config_panel.dart (-39), fabfilter_limiter_panel.dart (-42).
+const int _kRawTextStyleBaseline = 7401;
 
 /// Frozen baseline za `fontFamily:` referenca van theme/.
 /// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` `'monospace'`
@@ -116,7 +121,8 @@ const int _kRawTextStyleBaseline = 7791;
 // Lowered 2026-05-11 (Sprint 15 Faza 4.B.2 batch 5) -104 za spine_game_config.dart — agent migration.
 // Lowered 2026-05-11 (Sprint 15 B.2 mega-wave) -73 za istu batch migraciju
 // (sve dockMono/dockSans pozivi eliminišu fontFamily: literale).
-const int _kRawFontFamilyBaseline = 824;
+// Lowered 2026-05-11 (Sprint 15 B.2 batch 6+7) -43 za isti set fajlova.
+const int _kRawFontFamilyBaseline = 781;
 
 /// Frozen baseline za `fontSize:` referenca van theme/.
 /// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` 9px label
@@ -145,7 +151,8 @@ const int _kRawFontFamilyBaseline = 824;
 // Lowered 2026-05-11 (Sprint 15 Faza 4.B.2 batch 5) -110 za spine_game_config.dart — agent migration.
 // Lowered 2026-05-11 (Sprint 15 B.2 mega-wave) -1095 za istu batch migraciju
 // (sve dockMono/dockSans pozivi koriste size: arg, ne fontSize:).
-const int _kRawFontSizeBaseline = 7354;
+// Lowered 2026-05-11 (Sprint 15 B.2 batch 6+7) -339 za isti set fajlova.
+const int _kRawFontSizeBaseline = 7015;
 
 const Set<String> _kExcludedPathPrefixes = <String>{
   'theme/',
