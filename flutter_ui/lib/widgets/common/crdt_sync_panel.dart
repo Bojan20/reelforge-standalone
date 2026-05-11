@@ -6,6 +6,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../services/crdt_sync_service.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Status badge for CRDT sync
 class CrdtSyncStatusBadge extends StatelessWidget {
@@ -82,10 +83,10 @@ class CrdtSyncStatusBadge extends StatelessWidget {
                     ),
                     child: Text(
                       conflicts > 0 ? '$conflicts' : '$pending',
-                      style: const TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 9,
                         color: Colors.white,
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
+                        weight: FontWeight.bold,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -213,16 +214,16 @@ class _CrdtSyncPanelState extends State<CrdtSyncPanel>
               children: [
                 Text(
                   doc?.name ?? 'No Document',
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.white,
-                    fontWeight: FontWeight.bold,
+                    weight: FontWeight.bold,
                   ),
                 ),
                 Text(
                   'Node: ${service.nodeId.substring(0, 8)}...',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
                     color: Colors.white.withValues(alpha: 0.6),
-                    fontSize: 11,
                   ),
                 ),
               ],
@@ -318,10 +319,10 @@ class _CrdtSyncPanelState extends State<CrdtSyncPanel>
         children: [
           Text(
             title,
-            style: const TextStyle(
-              color: Color(0xFF4A9EFF),
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
+            style: FluxForgeTheme.dockSans(
+              size: 12,
+              color: const Color(0xFF4A9EFF),
+              weight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 8),
@@ -339,14 +340,14 @@ class _CrdtSyncPanelState extends State<CrdtSyncPanel>
         children: [
           Text(
             label,
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12),
+            style: FluxForgeTheme.dockSans(size: 12, color: Colors.white.withValues(alpha: 0.7)),
           ),
           Text(
             value,
-            style: const TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 12,
               color: Colors.white,
-              fontWeight: FontWeight.w500,
-              fontSize: 12,
+              weight: FontWeight.w500,
             ),
           ),
         ],
@@ -359,10 +360,10 @@ class _CrdtSyncPanelState extends State<CrdtSyncPanel>
     final operations = doc?.operationLog ?? [];
 
     if (operations.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           'No operations yet',
-          style: TextStyle(color: Colors.white60),
+          style: FluxForgeTheme.dockSans(color: Colors.white60),
         ),
       );
     }
@@ -387,9 +388,9 @@ class _CrdtSyncPanelState extends State<CrdtSyncPanel>
           children: [
             Icon(Icons.check_circle, color: Colors.green[400], size: 48),
             const SizedBox(height: 12),
-            const Text(
+            Text(
               'No conflicts',
-              style: TextStyle(color: Colors.white60),
+              style: FluxForgeTheme.dockSans(color: Colors.white60),
             ),
           ],
         ),
@@ -414,10 +415,10 @@ class _CrdtSyncPanelState extends State<CrdtSyncPanel>
     final peers = CrdtSyncService.instance.peerLastSeen;
 
     if (peers.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           'No peers connected',
-          style: TextStyle(color: Colors.white60),
+          style: FluxForgeTheme.dockSans(color: Colors.white60),
         ),
       );
     }
@@ -439,8 +440,8 @@ class _CrdtSyncPanelState extends State<CrdtSyncPanel>
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1E1E2E),
-        title: const Text('New Collaborative Document',
-            style: TextStyle(color: Colors.white)),
+        title: Text('New Collaborative Document',
+            style: FluxForgeTheme.dockSans(color: Colors.white)),
         content: TextField(
           controller: nameController,
           decoration: const InputDecoration(
@@ -473,23 +474,23 @@ class _CrdtSyncPanelState extends State<CrdtSyncPanel>
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1E1E2E),
-        title: const Text('Resolve Conflict', style: TextStyle(color: Colors.white)),
+        title: Text('Resolve Conflict', style: FluxForgeTheme.dockSans(color: Colors.white)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               conflict.description,
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.8)),
+              style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.8)),
             ),
             const SizedBox(height: 16),
-            const Text('Choose resolution:', style: TextStyle(color: Colors.white70)),
+            Text('Choose resolution:', style: FluxForgeTheme.dockSans(color: Colors.white70)),
             const SizedBox(height: 8),
             ListTile(
-              title: const Text('Keep Local', style: TextStyle(color: Colors.white)),
+              title: Text('Keep Local', style: FluxForgeTheme.dockSans(color: Colors.white)),
               subtitle: Text(
                 'Keep your changes (${conflict.localOp.type.name})',
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
+                style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.6)),
               ),
               leading: Radio<bool>(
                 value: true,
@@ -503,10 +504,10 @@ class _CrdtSyncPanelState extends State<CrdtSyncPanel>
               },
             ),
             ListTile(
-              title: const Text('Keep Remote', style: TextStyle(color: Colors.white)),
+              title: Text('Keep Remote', style: FluxForgeTheme.dockSans(color: Colors.white)),
               subtitle: Text(
                 'Accept remote changes (${conflict.remoteOp.type.name})',
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
+                style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.6)),
               ),
               leading: Radio<bool>(
                 value: false,
@@ -610,11 +611,11 @@ class OperationTile extends StatelessWidget {
       ),
       title: Text(
         '${operation.type.name.toUpperCase()} ${operation.dataType.name}',
-        style: const TextStyle(color: Colors.white, fontSize: 13),
+        style: FluxForgeTheme.dockSans(size: 13, color: Colors.white),
       ),
       subtitle: Text(
         'Target: ${operation.targetId.substring(0, 8)}...',
-        style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 11),
+        style: FluxForgeTheme.dockSans(size: 11, color: Colors.white.withValues(alpha: 0.6)),
       ),
       trailing: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -622,11 +623,11 @@ class OperationTile extends StatelessWidget {
         children: [
           Text(
             _formatTime(operation.createdAt),
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 10),
+            style: FluxForgeTheme.dockMono(size: 10, color: Colors.white.withValues(alpha: 0.5)),
           ),
           Text(
             operation.authorId.substring(0, 6),
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 9),
+            style: FluxForgeTheme.dockMono(size: 9, color: Colors.white.withValues(alpha: 0.4)),
           ),
         ],
       ),
@@ -664,11 +665,11 @@ class ConflictTile extends StatelessWidget {
       ),
       title: Text(
         conflict.description,
-        style: const TextStyle(color: Colors.white, fontSize: 13),
+        style: FluxForgeTheme.dockSans(size: 13, color: Colors.white),
       ),
       subtitle: Text(
         'Local: ${conflict.localOp.type.name} vs Remote: ${conflict.remoteOp.type.name}',
-        style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 11),
+        style: FluxForgeTheme.dockSans(size: 11, color: Colors.white.withValues(alpha: 0.6)),
       ),
       trailing: conflict.isResolved
           ? const Icon(Icons.check_circle, color: Colors.green, size: 20)
@@ -698,7 +699,7 @@ class PeerTile extends StatelessWidget {
             backgroundColor: Colors.white.withValues(alpha: 0.1),
             child: Text(
               peerId.substring(0, 2).toUpperCase(),
-              style: const TextStyle(color: Colors.white),
+              style: FluxForgeTheme.dockSans(color: Colors.white),
             ),
           ),
           Positioned(
@@ -718,15 +719,11 @@ class PeerTile extends StatelessWidget {
       ),
       title: Text(
         peerId.substring(0, 12),
-        style: const TextStyle(
-          color: Colors.white,
-          fontFamily: 'monospace',
-          fontSize: 13,
-        ),
+        style: FluxForgeTheme.dockMono(size: 13, color: Colors.white),
       ),
       subtitle: Text(
         isOnline ? 'Online' : 'Last seen: ${_formatLastSeen(lastSeen)}',
-        style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 11),
+        style: FluxForgeTheme.dockSans(size: 11, color: Colors.white.withValues(alpha: 0.6)),
       ),
       trailing: isOnline
           ? Container(
@@ -735,12 +732,12 @@ class PeerTile extends StatelessWidget {
                 color: Colors.green.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Text(
+              child: Text(
                 'ONLINE',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
                   color: Colors.green,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+                  weight: FontWeight.bold,
                 ),
               ),
             )

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../../../providers/slot_lab/ai_copilot_provider.dart';
+import '../../../theme/fluxforge_theme.dart';
 
 /// UCP-16: AI Co-Pilot Panel — Slot Audio AI Assistant
 ///
@@ -41,9 +42,9 @@ class _AiCopilotPanelState extends State<AiCopilotPanel> {
   Widget build(BuildContext context) {
     final p = _provider;
     if (p == null) {
-      return const Center(
+      return Center(
         child: Text('AI Co-Pilot not available',
-            style: TextStyle(color: Colors.grey)),
+            style: FluxForgeTheme.dockSans(size: 12, color: Colors.grey)),
       );
     }
 
@@ -85,11 +86,11 @@ class _AiCopilotPanelState extends State<AiCopilotPanel> {
           children: [
             const Icon(Icons.psychology, color: Color(0xFFCC44CC), size: 14),
             const SizedBox(width: 6),
-            const Text('AI Co-Pilot',
-                style: TextStyle(
-                    color: Color(0xFFCCCCCC),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600)),
+            Text('AI Co-Pilot',
+                style: FluxForgeTheme.dockSans(
+                    size: 11,
+                    weight: FontWeight.w600,
+                    color: const Color(0xFFCCCCCC))),
             const Spacer(),
             GestureDetector(
               onTap: p.isAnalyzing ? null : () => p.analyzeProject(),
@@ -104,8 +105,8 @@ class _AiCopilotPanelState extends State<AiCopilotPanel> {
                 ),
                 child: Text(
                   p.isAnalyzing ? 'Analyzing...' : 'Analyze',
-                  style: const TextStyle(
-                      color: Color(0xFFCC44CC), fontSize: 9),
+                  style: FluxForgeTheme.dockSans(
+                      size: 9, color: const Color(0xFFCC44CC)),
                 ),
               ),
             ),
@@ -129,15 +130,14 @@ class _AiCopilotPanelState extends State<AiCopilotPanel> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(score.grade,
-                      style: TextStyle(
-                          color: _scoreColor(score.overall),
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800)),
+                      style: FluxForgeTheme.dockSans(
+                          size: 18,
+                          weight: FontWeight.w800,
+                          color: _scoreColor(score.overall))),
                   Text('${score.overall.toStringAsFixed(0)}',
-                      style: TextStyle(
-                          color: _scoreColor(score.overall),
-                          fontSize: 9,
-                          fontFamily: 'monospace')),
+                      style: FluxForgeTheme.dockMono(
+                          size: 9,
+                          color: _scoreColor(score.overall))),
                 ],
               ),
             ),
@@ -165,19 +165,20 @@ class _AiCopilotPanelState extends State<AiCopilotPanel> {
             ],
           ),
         ] else
-          const Center(
+          Center(
             child: Text('Click Analyze to scan project',
-                style: TextStyle(color: Color(0xFF555577), fontSize: 9)),
+                style: FluxForgeTheme.dockSans(
+                    size: 9, color: const Color(0xFF555577))),
           ),
 
         const SizedBox(height: 8),
 
         // Style selector
-        const Text('Target Style',
-            style: TextStyle(
-                color: Color(0xFF888888),
-                fontSize: 9,
-                fontWeight: FontWeight.w600)),
+        Text('Target Style',
+            style: FluxForgeTheme.dockSans(
+                size: 9,
+                weight: FontWeight.w600,
+                color: const Color(0xFF888888))),
         const SizedBox(height: 2),
         Expanded(
           child: SingleChildScrollView(
@@ -201,7 +202,8 @@ class _AiCopilotPanelState extends State<AiCopilotPanel> {
           SizedBox(
             width: 70,
             child: Text(label,
-                style: const TextStyle(color: Color(0xFF888888), fontSize: 9)),
+                style: FluxForgeTheme.dockSans(
+                    size: 9, color: const Color(0xFF888888))),
           ),
           Expanded(
             child: Container(
@@ -227,10 +229,8 @@ class _AiCopilotPanelState extends State<AiCopilotPanel> {
             width: 22,
             child: Text('${score.toStringAsFixed(0)}',
                 textAlign: TextAlign.right,
-                style: TextStyle(
-                    color: _scoreColor(score),
-                    fontSize: 8,
-                    fontFamily: 'monospace')),
+                style: FluxForgeTheme.dockMono(
+                    size: 8, color: _scoreColor(score))),
           ),
         ],
       ),
@@ -241,12 +241,13 @@ class _AiCopilotPanelState extends State<AiCopilotPanel> {
     return Column(
       children: [
         Text(count,
-            style: TextStyle(
-                color: color,
-                fontSize: 14,
-                fontWeight: FontWeight.w700)),
+            style: FluxForgeTheme.dockMono(
+                size: 14,
+                weight: FontWeight.w700,
+                color: color)),
         Text(label,
-            style: const TextStyle(color: Color(0xFF888888), fontSize: 7)),
+            style: FluxForgeTheme.dockSans(
+                size: 7, color: const Color(0xFF888888))),
       ],
     );
   }
@@ -280,11 +281,11 @@ class _AiCopilotPanelState extends State<AiCopilotPanel> {
             ),
             const SizedBox(width: 4),
             Text(s.displayName,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                    size: 9,
                     color: active
                         ? const Color(0xFFCCCCCC)
-                        : const Color(0xFF888888),
-                    fontSize: 9)),
+                        : const Color(0xFF888888))),
           ],
         ),
       ),
@@ -307,16 +308,17 @@ class _AiCopilotPanelState extends State<AiCopilotPanel> {
                 color: Color(0xFF888888), size: 14),
             const SizedBox(width: 6),
             Text('Suggestions (${active.length})',
-                style: const TextStyle(
-                    color: Color(0xFFCCCCCC),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600)),
+                style: FluxForgeTheme.dockSans(
+                    size: 11,
+                    weight: FontWeight.w600,
+                    color: const Color(0xFFCCCCCC))),
             const Spacer(),
             if (p.suggestions.any((s) => s.dismissed))
               GestureDetector(
                 onTap: () => p.clearDismissed(),
-                child: const Text('Clear dismissed',
-                    style: TextStyle(color: Color(0xFF555577), fontSize: 8)),
+                child: Text('Clear dismissed',
+                    style: FluxForgeTheme.dockSans(
+                        size: 8, color: const Color(0xFF555577))),
               ),
           ],
         ),
@@ -328,8 +330,8 @@ class _AiCopilotPanelState extends State<AiCopilotPanel> {
                     p.qualityScore != null
                         ? 'All suggestions resolved!'
                         : 'Run analysis to get suggestions',
-                    style: const TextStyle(
-                        color: Color(0xFF555577), fontSize: 10),
+                    style: FluxForgeTheme.dockSans(
+                        size: 10, color: const Color(0xFF555577)),
                   ),
                 )
               : ListView.builder(
@@ -373,10 +375,10 @@ class _AiCopilotPanelState extends State<AiCopilotPanel> {
                   borderRadius: BorderRadius.circular(2),
                 ),
                 child: Text(s.severity.displayName,
-                    style: TextStyle(
-                        color: severityColor,
-                        fontSize: 7,
-                        fontWeight: FontWeight.w700)),
+                    style: FluxForgeTheme.dockSans(
+                        size: 7,
+                        weight: FontWeight.w700,
+                        color: severityColor)),
               ),
               const SizedBox(width: 4),
               Container(
@@ -386,15 +388,14 @@ class _AiCopilotPanelState extends State<AiCopilotPanel> {
                   borderRadius: BorderRadius.circular(2),
                 ),
                 child: Text(s.category.displayName,
-                    style: TextStyle(color: catColor, fontSize: 7)),
+                    style: FluxForgeTheme.dockSans(
+                        size: 7, color: catColor)),
               ),
               if (s.affectedStage != null) ...[
                 const SizedBox(width: 4),
                 Text(s.affectedStage!,
-                    style: const TextStyle(
-                        color: Color(0xFF555577),
-                        fontSize: 7,
-                        fontFamily: 'monospace')),
+                    style: FluxForgeTheme.dockMono(
+                        size: 7, color: const Color(0xFF555577))),
               ],
               const Spacer(),
               GestureDetector(
@@ -405,9 +406,9 @@ class _AiCopilotPanelState extends State<AiCopilotPanel> {
                     color: const Color(0xFF44CC44).withAlpha(20),
                     borderRadius: BorderRadius.circular(2),
                   ),
-                  child: const Text('Apply',
-                      style: TextStyle(
-                          color: Color(0xFF44CC44), fontSize: 7)),
+                  child: Text('Apply',
+                      style: FluxForgeTheme.dockSans(
+                          size: 7, color: const Color(0xFF44CC44))),
                 ),
               ),
               const SizedBox(width: 4),
@@ -422,16 +423,17 @@ class _AiCopilotPanelState extends State<AiCopilotPanel> {
 
           // Title
           Text(s.title,
-              style: const TextStyle(
-                  color: Color(0xFFCCCCCC),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600)),
+              style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.w600,
+                  color: const Color(0xFFCCCCCC))),
           const SizedBox(height: 2),
 
           // Description
           Text(s.description,
-              style: const TextStyle(
-                  color: Color(0xFF999999), fontSize: 9, height: 1.3)),
+              style: FluxForgeTheme.dockSans(
+                  size: 9,
+                  color: const Color(0xFF999999)).copyWith(height: 1.3)),
         ],
       ),
     );
@@ -450,11 +452,11 @@ class _AiCopilotPanelState extends State<AiCopilotPanel> {
             const Icon(Icons.chat_bubble_outline,
                 color: Color(0xFF888888), size: 14),
             const SizedBox(width: 6),
-            const Text('Ask Co-Pilot',
-                style: TextStyle(
-                    color: Color(0xFFCCCCCC),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600)),
+            Text('Ask Co-Pilot',
+                style: FluxForgeTheme.dockSans(
+                    size: 11,
+                    weight: FontWeight.w600,
+                    color: const Color(0xFFCCCCCC))),
             const Spacer(),
             if (p.chatHistory.isNotEmpty)
               GestureDetector(
@@ -478,13 +480,13 @@ class _AiCopilotPanelState extends State<AiCopilotPanel> {
                   color: const Color(0xFF2A2A4C), width: 0.5),
             ),
             child: p.chatHistory.isEmpty
-                ? const Center(
+                ? Center(
                     child: Text(
                       'Ask about:\n• Win sound design\n• Near-miss compliance\n'
                       '• Export formats\n• Loop/ambient creation',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                          color: Color(0xFF555577), fontSize: 9),
+                      style: FluxForgeTheme.dockSans(
+                          size: 9, color: const Color(0xFF555577)),
                     ),
                   )
                 : ListView.builder(
@@ -496,13 +498,12 @@ class _AiCopilotPanelState extends State<AiCopilotPanel> {
                         padding: const EdgeInsets.only(bottom: 4),
                         child: Text(
                           msg,
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
+                            size: 9,
                             color: isUser
                                 ? const Color(0xFF44AACC)
                                 : const Color(0xFFCC44CC),
-                            fontSize: 9,
-                            height: 1.3,
-                          ),
+                          ).copyWith(height: 1.3),
                         ),
                       );
                     },
@@ -519,12 +520,12 @@ class _AiCopilotPanelState extends State<AiCopilotPanel> {
                 height: 24,
                 child: TextField(
                   controller: _chatController,
-                  style: const TextStyle(
-                      color: Color(0xFFCCCCCC), fontSize: 10),
+                  style: FluxForgeTheme.dockSans(
+                      size: 10, color: const Color(0xFFCCCCCC)),
                   decoration: InputDecoration(
                     hintText: 'Ask a question...',
-                    hintStyle: const TextStyle(
-                        color: Color(0xFF555577), fontSize: 10),
+                    hintStyle: FluxForgeTheme.dockSans(
+                        size: 10, color: const Color(0xFF555577)),
                     contentPadding: const EdgeInsets.symmetric(
                         horizontal: 8, vertical: 4),
                     filled: true,

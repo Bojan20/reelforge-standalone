@@ -88,21 +88,20 @@ class _RoutingPanelState extends State<RoutingPanel> {
           ),
           child: Row(
             children: [
-              const Text(
+              Text(
                 'ROUTING CHANNELS',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  weight: FontWeight.w600,
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.2,
-                ),
+                ).copyWith(letterSpacing: 1.2),
               ),
               const Spacer(),
               Text(
                 '${routing.channelCount} channels',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
                   color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
-                  fontSize: 10,
                 ),
               ),
               const SizedBox(width: 8),
@@ -157,18 +156,18 @@ class _RoutingPanelState extends State<RoutingPanel> {
                       const SizedBox(height: 16),
                       Text(
                         'No Routing Channels',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 14,
+                          weight: FontWeight.w500,
                           color: FluxForgeTheme.textSecondary.withValues(alpha: 0.6),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
                         ),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         'Click + to create a channel',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 12,
                           color: FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
-                          fontSize: 12,
                         ),
                       ),
                     ],
@@ -201,18 +200,18 @@ class _RoutingPanelState extends State<RoutingPanel> {
                   children: [
                     Text(
                       channel.name,
-                      style: const TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 18,
+                        weight: FontWeight.w600,
                         color: FluxForgeTheme.textPrimary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Channel ${channel.id} · ${_getChannelTypeName(channel.kind)}',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 12,
                         color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
-                        fontSize: 12,
                       ),
                     ),
                   ],
@@ -255,12 +254,11 @@ class _RoutingPanelState extends State<RoutingPanel> {
       children: [
         Text(
           title,
-          style: const TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 11,
+            weight: FontWeight.w600,
             color: FluxForgeTheme.textPrimary,
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 1.2,
-          ),
+          ).copyWith(letterSpacing: 1.2),
         ),
         const SizedBox(height: 12),
         Container(
@@ -335,9 +333,9 @@ class _RoutingPanelState extends State<RoutingPanel> {
         const SizedBox(height: 12),
         Text(
           'No sends configured',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 12,
             color: FluxForgeTheme.textSecondary.withValues(alpha: 0.6),
-            fontSize: 12,
           ),
         ),
       ],
@@ -393,18 +391,18 @@ class _RoutingPanelState extends State<RoutingPanel> {
           const SizedBox(height: 16),
           Text(
             'No Channel Selected',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 14,
+              weight: FontWeight.w500,
               color: FluxForgeTheme.textSecondary.withValues(alpha: 0.6),
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Select a channel from the list',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 12,
               color: FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
-              fontSize: 12,
             ),
           ),
         ],
@@ -502,17 +500,17 @@ class _ChannelListItem extends StatelessWidget {
         leading: _getChannelIcon(channel.kind),
         title: Text(
           channel.name,
-          style: const TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 13,
+            weight: FontWeight.w500,
             color: FluxForgeTheme.textPrimary,
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
           ),
         ),
         subtitle: Text(
           'ID: ${channel.id}',
-          style: TextStyle(
+          style: FluxForgeTheme.dockMono(
+            size: 11,
             color: FluxForgeTheme.textSecondary.withValues(alpha: 0.6),
-            fontSize: 11,
           ),
         ),
         trailing: channel.kind != ChannelKind.master
@@ -564,20 +562,27 @@ class _CreateChannelDialogState extends State<_CreateChannelDialog> {
 
     return AlertDialog(
       backgroundColor: FluxForgeTheme.bgMid,
-      title: const Text('Create Channel', style: TextStyle(color: FluxForgeTheme.textPrimary)),
+      title: Text('Create Channel',
+          style: FluxForgeTheme.dockSans(
+              size: 16,
+              weight: FontWeight.w600,
+              color: FluxForgeTheme.textPrimary)),
       content: SizedBox(
         width: 300,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Channel Type:', style: TextStyle(color: FluxForgeTheme.textSecondary)),
+            Text('Channel Type:',
+                style: FluxForgeTheme.dockSans(
+                    size: 13, color: FluxForgeTheme.textSecondary)),
             const SizedBox(height: 8),
             DropdownButton<ChannelKind>(
               value: _selectedKind,
               isExpanded: true,
               dropdownColor: FluxForgeTheme.bgDeep,
-              style: const TextStyle(color: FluxForgeTheme.textPrimary),
+              style: FluxForgeTheme.dockSans(
+                  size: 13, color: FluxForgeTheme.textPrimary),
               items: [
                 ChannelKind.audio,
                 ChannelKind.bus,
@@ -596,11 +601,14 @@ class _CreateChannelDialogState extends State<_CreateChannelDialog> {
               },
             ),
             const SizedBox(height: 16),
-            const Text('Channel Name:', style: TextStyle(color: FluxForgeTheme.textSecondary)),
+            Text('Channel Name:',
+                style: FluxForgeTheme.dockSans(
+                    size: 13, color: FluxForgeTheme.textSecondary)),
             const SizedBox(height: 8),
             TextField(
               controller: _nameController,
-              style: const TextStyle(color: FluxForgeTheme.textPrimary),
+              style: FluxForgeTheme.dockSans(
+                  size: 13, color: FluxForgeTheme.textPrimary),
               decoration: InputDecoration(
                 filled: true,
                 fillColor: FluxForgeTheme.bgDeep,
@@ -665,7 +673,11 @@ class _ChannelOutputDialog extends StatelessWidget {
 
     return AlertDialog(
       backgroundColor: FluxForgeTheme.bgMid,
-      title: const Text('Route to Channel', style: TextStyle(color: FluxForgeTheme.textPrimary)),
+      title: Text('Route to Channel',
+          style: FluxForgeTheme.dockSans(
+              size: 16,
+              weight: FontWeight.w600,
+              color: FluxForgeTheme.textPrimary)),
       content: SizedBox(
         width: 300,
         height: 400,
@@ -676,11 +688,14 @@ class _ChannelOutputDialog extends StatelessWidget {
             return ListTile(
               title: Text(
                 channel.name,
-                style: const TextStyle(color: FluxForgeTheme.textPrimary),
+                style: FluxForgeTheme.dockSans(
+                    size: 13, color: FluxForgeTheme.textPrimary),
               ),
               subtitle: Text(
                 'ID: ${channel.id}',
-                style: TextStyle(color: FluxForgeTheme.textSecondary.withValues(alpha: 0.6)),
+                style: FluxForgeTheme.dockMono(
+                    size: 11,
+                    color: FluxForgeTheme.textSecondary.withValues(alpha: 0.6)),
               ),
               onTap: () async {
                 await routing.setOutputToChannel(sourceChannelId, channel.id);
@@ -726,19 +741,27 @@ class _AddSendDialogState extends State<_AddSendDialog> {
 
     return AlertDialog(
       backgroundColor: FluxForgeTheme.bgMid,
-      title: const Text('Add Send', style: TextStyle(color: FluxForgeTheme.textPrimary)),
+      title: Text('Add Send',
+          style: FluxForgeTheme.dockSans(
+              size: 16,
+              weight: FontWeight.w600,
+              color: FluxForgeTheme.textPrimary)),
       content: SizedBox(
         width: 300,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             CheckboxListTile(
-              title: const Text('Pre-Fader', style: TextStyle(color: FluxForgeTheme.textPrimary)),
+              title: Text('Pre-Fader',
+                  style: FluxForgeTheme.dockSans(
+                      size: 13, color: FluxForgeTheme.textPrimary)),
               subtitle: Text(
                 _preFader
                     ? 'Send before fader (independent)'
                     : 'Send after fader (follows volume)',
-                style: TextStyle(color: FluxForgeTheme.textSecondary.withValues(alpha: 0.6)),
+                style: FluxForgeTheme.dockSans(
+                    size: 11,
+                    color: FluxForgeTheme.textSecondary.withValues(alpha: 0.6)),
               ),
               value: _preFader,
               onChanged: (value) {
@@ -746,9 +769,10 @@ class _AddSendDialogState extends State<_AddSendDialog> {
               },
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Send to:',
-              style: TextStyle(color: FluxForgeTheme.textSecondary),
+              style: FluxForgeTheme.dockSans(
+                  size: 13, color: FluxForgeTheme.textSecondary),
             ),
             const SizedBox(height: 8),
             SizedBox(
@@ -760,11 +784,15 @@ class _AddSendDialogState extends State<_AddSendDialog> {
                   return ListTile(
                     title: Text(
                       channel.name,
-                      style: const TextStyle(color: FluxForgeTheme.textPrimary),
+                      style: FluxForgeTheme.dockSans(
+                          size: 13, color: FluxForgeTheme.textPrimary),
                     ),
                     subtitle: Text(
                       'ID: ${channel.id}',
-                      style: TextStyle(color: FluxForgeTheme.textSecondary.withValues(alpha: 0.6)),
+                      style: FluxForgeTheme.dockMono(
+                          size: 11,
+                          color: FluxForgeTheme.textSecondary
+                              .withValues(alpha: 0.6)),
                     ),
                     onTap: () async {
                       await widget.routing.addSend(

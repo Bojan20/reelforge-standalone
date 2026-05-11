@@ -214,13 +214,13 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
           // Title
           const Icon(Icons.tune, size: 14, color: FluxForgeTheme.accentOrange),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'RTPC LIVE DEBUGGER',
-            style: TextStyle(
-              color: FluxForgeTheme.textPrimary,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.w600,
               letterSpacing: 1,
+              color: FluxForgeTheme.textPrimary,
             ),
           ),
 
@@ -242,15 +242,15 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
                   const SizedBox(width: 4),
                   Expanded(
                     child: TextField(
-                      style: const TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 10,
                         color: FluxForgeTheme.textPrimary,
-                        fontSize: 10,
                       ),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         hintText: 'Search parameters...',
-                        hintStyle: TextStyle(
+                        hintStyle: FluxForgeTheme.dockSans(
+                          size: 10,
                           color: FluxForgeTheme.textSecondary,
-                          fontSize: 10,
                         ),
                         border: InputBorder.none,
                         isDense: true,
@@ -294,12 +294,12 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
                   const SizedBox(width: 4),
                   Text(
                     _isRecording ? 'LIVE' : 'PAUSED',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 9,
+                      weight: FontWeight.w600,
                       color: _isRecording
                           ? FluxForgeTheme.accentRed
                           : FluxForgeTheme.textSecondary,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
@@ -337,12 +337,12 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
                   const SizedBox(width: 4),
                   Text(
                     'BINDINGS',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 9,
+                      weight: FontWeight.w600,
                       color: _showBindings
                           ? FluxForgeTheme.accentBlue
                           : FluxForgeTheme.textSecondary,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
@@ -362,16 +362,16 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(color: FluxForgeTheme.borderSubtle),
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.restart_alt, size: 10, color: FluxForgeTheme.textSecondary),
-                  SizedBox(width: 4),
+                  const Icon(Icons.restart_alt, size: 10, color: FluxForgeTheme.textSecondary),
+                  const SizedBox(width: 4),
                   Text(
                     'RESET ALL',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 9,
+                      weight: FontWeight.w600,
                       color: FluxForgeTheme.textSecondary,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
@@ -396,33 +396,33 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
           ),
           child: Row(
             children: [
-              const Text(
+              Text(
                 'PARAMETER',
-                style: TextStyle(
-                  color: FluxForgeTheme.textSecondary,
-                  fontSize: 8,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
+                  weight: FontWeight.w600,
                   letterSpacing: 1,
+                  color: FluxForgeTheme.textSecondary,
                 ),
               ),
               const Spacer(),
-              const Text(
+              Text(
                 'VALUE',
-                style: TextStyle(
-                  color: FluxForgeTheme.textSecondary,
-                  fontSize: 8,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
+                  weight: FontWeight.w600,
                   letterSpacing: 1,
+                  color: FluxForgeTheme.textSecondary,
                 ),
               ),
               const SizedBox(width: 60),
-              const Text(
+              Text(
                 'HISTORY',
-                style: TextStyle(
-                  color: FluxForgeTheme.textSecondary,
-                  fontSize: 8,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
+                  weight: FontWeight.w600,
                   letterSpacing: 1,
+                  color: FluxForgeTheme.textSecondary,
                 ),
               ),
             ],
@@ -479,12 +479,12 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
                     children: [
                       Text(
                         rtpc.name,
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 10,
+                          weight: FontWeight.w600,
                           color: isSelected
                               ? FluxForgeTheme.accentOrange
                               : FluxForgeTheme.textPrimary,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
                         ),
                       ),
                       if (_showBindings && bindings.isNotEmpty) ...[
@@ -497,10 +497,10 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
                           ),
                           child: Text(
                             '${bindings.length}',
-                            style: const TextStyle(
+                            style: FluxForgeTheme.dockMono(
+                              size: 8,
+                              weight: FontWeight.w700,
                               color: FluxForgeTheme.accentBlue,
-                              fontSize: 8,
-                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ),
@@ -539,11 +539,10 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
               width: 60,
               child: Text(
                 _formatValue(value, rtpc),
-                style: const TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 10,
+                  weight: FontWeight.w600,
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  fontFamily: 'monospace',
                 ),
                 textAlign: TextAlign.right,
               ),
@@ -587,17 +586,17 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
   }
 
   Widget _buildEmptyState() {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.tune, size: 22, color: FluxForgeTheme.textSecondary),
-          SizedBox(height: 8),
+          const Icon(Icons.tune, size: 22, color: FluxForgeTheme.textSecondary),
+          const SizedBox(height: 8),
           Text(
             'Select a parameter to view details',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 11,
               color: FluxForgeTheme.textSecondary,
-              fontSize: 11,
             ),
           ),
         ],
@@ -637,18 +636,18 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
                 children: [
                   Text(
                     rtpc.name,
-                    style: const TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 14,
+                      weight: FontWeight.w600,
                       color: FluxForgeTheme.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   // Description would go here if RtpcDefinition had a description field
                   Text(
                     'Range: ${rtpc.min.toStringAsFixed(1)} – ${rtpc.max.toStringAsFixed(1)}',
-                    style: const TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
                       color: FluxForgeTheme.textSecondary,
-                      fontSize: 10,
                     ),
                   ),
                 ],
@@ -663,12 +662,12 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(color: FluxForgeTheme.borderSubtle),
                   ),
-                  child: const Text(
+                  child: Text(
                     'RESET',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 9,
+                      weight: FontWeight.w600,
                       color: FluxForgeTheme.textSecondary,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -692,11 +691,10 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
                   ),
                   child: Text(
                     _formatValue(value, rtpc),
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockMono(
+                      size: 12,
+                      weight: FontWeight.w700,
                       color: _getValueColor(normalized),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      fontFamily: 'monospace',
                     ),
                   ),
                 ),
@@ -707,23 +705,23 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
                   children: [
                     Text(
                       'Min: ${rtpc.min}',
-                      style: const TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 9,
                         color: FluxForgeTheme.textSecondary,
-                        fontSize: 9,
                       ),
                     ),
                     Text(
                       'Max: ${rtpc.max}',
-                      style: const TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 9,
                         color: FluxForgeTheme.textSecondary,
-                        fontSize: 9,
                       ),
                     ),
                     Text(
                       'Default: ${rtpc.defaultValue}',
-                      style: const TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 9,
                         color: FluxForgeTheme.textSecondary,
-                        fontSize: 9,
                       ),
                     ),
                   ],
@@ -753,16 +751,16 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
               children: [
                 Text(
                   rtpc.min.toString(),
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
                     color: FluxForgeTheme.textSecondary,
-                    fontSize: 9,
                   ),
                 ),
                 Text(
                   rtpc.max.toString(),
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
                     color: FluxForgeTheme.textSecondary,
-                    fontSize: 9,
                   ),
                 ),
               ],
@@ -793,13 +791,12 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
           if (_showBindings)
             _buildSection('PARAMETER BINDINGS (${bindings.length})', [
               if (bindings.isEmpty)
-                const Text(
+                Text(
                   'No bindings configured',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
                     color: FluxForgeTheme.textSecondary,
-                    fontSize: 10,
-                    fontStyle: FontStyle.italic,
-                  ),
+                  ).copyWith(fontStyle: FontStyle.italic),
                 )
               else
                 ...bindings.map((b) => _buildBindingRow(b, rtpc)),
@@ -815,11 +812,11 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
       children: [
         Text(
           title,
-          style: const TextStyle(
-            color: FluxForgeTheme.textSecondary,
-            fontSize: 9,
-            fontWeight: FontWeight.w600,
+          style: FluxForgeTheme.dockSans(
+            size: 9,
+            weight: FontWeight.w600,
             letterSpacing: 1,
+            color: FluxForgeTheme.textSecondary,
           ),
         ),
         const SizedBox(height: 8),
@@ -883,18 +880,18 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
               children: [
                 Text(
                   binding.target.displayName,
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: FontWeight.w600,
                     color: FluxForgeTheme.textPrimary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 if (binding.targetBusId != null)
                   Text(
                     'Bus: ${binding.targetBusId}',
-                    style: const TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 8,
                       color: FluxForgeTheme.textSecondary,
-                      fontSize: 8,
                     ),
                   ),
               ],
@@ -918,11 +915,10 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
               children: [
                 Text(
                   outputValue.toStringAsFixed(2),
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockMono(
+                    size: 11,
+                    weight: FontWeight.w600,
                     color: FluxForgeTheme.accentCyan,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    fontFamily: 'monospace',
                   ),
                 ),
                 const SizedBox(height: 2),

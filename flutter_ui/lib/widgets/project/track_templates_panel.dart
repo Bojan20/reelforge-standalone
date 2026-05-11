@@ -257,10 +257,10 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: FluxForgeTheme.bgMid,
-        title: const Text('Delete Template?', style: TextStyle(color: Colors.white)),
+        title: Text('Delete Template?', style: FluxForgeTheme.dockSans(color: Colors.white)),
         content: Text(
           'Are you sure you want to delete "${template.templateName}"?',
-          style: const TextStyle(color: Colors.white70),
+          style: FluxForgeTheme.dockSans(color: Colors.white70),
         ),
         actions: [
           TextButton(
@@ -321,19 +321,18 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
         children: [
           const Icon(Icons.dashboard_customize, color: FluxForgeTheme.accentBlue, size: 18),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'TRACK TEMPLATES',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 12,
+              weight: FontWeight.bold,
               letterSpacing: 1.2,
             ),
           ),
           const Spacer(),
           Text(
             '${_filteredTemplates.length} of ${_templates.length}',
-            style: const TextStyle(color: Colors.white54, fontSize: 11),
+            style: FluxForgeTheme.dockSans(size: 11, color: Colors.white54),
           ),
           const SizedBox(width: 12),
           IconButton(
@@ -392,10 +391,10 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
                       const SizedBox(width: 6),
                       Text(
                         cat,
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: isSelected ? catDef.color : Colors.white70,
-                          fontSize: 11,
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                          size: 11,
+                          weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                         ),
                       ),
                       const SizedBox(width: 4),
@@ -407,10 +406,10 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
                         ),
                         child: Text(
                           '$count',
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
                             color: isSelected ? catDef.color : Colors.white54,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
+                            size: 9,
+                            weight: FontWeight.bold,
                           ),
                         ),
                       ),
@@ -443,10 +442,10 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
                 border: Border.all(color: FluxForgeTheme.borderSubtle),
               ),
               child: TextField(
-                style: const TextStyle(color: Colors.white, fontSize: 11),
-                decoration: const InputDecoration(
+                style: FluxForgeTheme.dockSans(size: 11, color: Colors.white),
+                decoration: InputDecoration(
                   hintText: 'Search templates...',
-                  hintStyle: TextStyle(color: Colors.white38, fontSize: 11),
+                  hintStyle: FluxForgeTheme.dockSans(size: 11, color: Colors.white38),
                   border: InputBorder.none,
                   isDense: true,
                   contentPadding: EdgeInsets.symmetric(vertical: 6),
@@ -493,9 +492,9 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
         children: [
           Icon(icon, size: 16, color: _sortMode == mode ? FluxForgeTheme.accentBlue : Colors.white54),
           const SizedBox(width: 8),
-          Text(label, style: TextStyle(
+          Text(label, style: FluxForgeTheme.dockSans(
             color: _sortMode == mode ? FluxForgeTheme.accentBlue : Colors.white,
-            fontSize: 12,
+            size: 12,
           )),
           if (_sortMode == mode) ...[
             const Spacer(),
@@ -524,14 +523,14 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
               _selectedCategory == 'Favorites'
                   ? 'No favorites yet'
                   : 'No templates found',
-              style: const TextStyle(color: Colors.white38),
+              style: FluxForgeTheme.dockSans(color: Colors.white38),
             ),
             if (_selectedCategory == 'Favorites')
-              const Padding(
-                padding: EdgeInsets.only(top: 4),
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
                 child: Text(
                   'Star templates to add them here',
-                  style: TextStyle(color: Colors.white24, fontSize: 11),
+                  style: FluxForgeTheme.dockSans(size: 11, color: Colors.white24),
                 ),
               ),
           ],
@@ -578,7 +577,7 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
               Expanded(
                 child: Text(
                   template.templateName,
-                  style: const TextStyle(color: Colors.white, fontSize: 11),
+                  style: FluxForgeTheme.dockSans(size: 11, color: Colors.white),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -625,10 +624,9 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
                           Expanded(
                             child: Text(
                               template.templateName,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
+                              style: FluxForgeTheme.dockSans(
+                                size: 12,
+                                weight: FontWeight.w600,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -650,7 +648,7 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
                         children: [
                           Text(
                             template.category,
-                            style: TextStyle(color: color.withValues(alpha: 0.8), fontSize: 9),
+                            style: FluxForgeTheme.dockSans(color: color.withValues(alpha: 0.8), size: 9),
                           ),
                           if (template.isDefault) ...[
                             const SizedBox(width: 6),
@@ -660,9 +658,13 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
                                 color: FluxForgeTheme.accentBlue.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(3),
                               ),
-                              child: const Text(
+                              child: Text(
                                 'DEFAULT',
-                                style: TextStyle(color: FluxForgeTheme.accentBlue, fontSize: 7, fontWeight: FontWeight.bold),
+                                style: FluxForgeTheme.dockSans(
+                                  size: 7,
+                                  weight: FontWeight.bold,
+                                  color: FluxForgeTheme.accentBlue,
+                                ),
                               ),
                             ),
                           ],
@@ -688,7 +690,7 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
                                     const SizedBox(width: 2),
                                     Text(
                                       '${template.insertPlugins.length}',
-                                      style: const TextStyle(color: FluxForgeTheme.accentOrange, fontSize: 8),
+                                      style: FluxForgeTheme.dockMono(size: 8, color: FluxForgeTheme.accentOrange),
                                     ),
                                   ],
                                 ),
@@ -698,7 +700,7 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
                           if (template.useCount > 0)
                             Text(
                               'Used ${template.useCount}x',
-                              style: const TextStyle(color: Colors.white24, fontSize: 8),
+                              style: FluxForgeTheme.dockMono(size: 8, color: Colors.white24),
                             ),
                         ],
                       ),
@@ -748,13 +750,13 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
                     children: [
                       Text(
                         template.templateName,
-                        style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                        style: FluxForgeTheme.dockSans(size: 13, weight: FontWeight.w600),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
                         template.category,
-                        style: TextStyle(color: color, fontSize: 10),
+                        style: FluxForgeTheme.dockSans(color: color, size: 10),
                       ),
                     ],
                   ),
@@ -772,7 +774,7 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
                   if (template.description.isNotEmpty) ...[
                     Text(
                       template.description,
-                      style: const TextStyle(color: Colors.white70, fontSize: 11),
+                      style: FluxForgeTheme.dockSans(size: 11, color: Colors.white70),
                     ),
                     const SizedBox(height: 12),
                   ],
@@ -782,7 +784,7 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
                   _buildPreviewRow('Height', '${template.height.round()}px'),
                   if (template.insertPlugins.isNotEmpty) ...[
                     const SizedBox(height: 12),
-                    const Text('Plugins', style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold)),
+                    Text('Plugins', style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.bold, color: Colors.white54)),
                     const SizedBox(height: 4),
                     ...template.insertPlugins.map((p) => Padding(
                       padding: const EdgeInsets.only(bottom: 3),
@@ -791,7 +793,7 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
                           const Icon(Icons.extension, size: 10, color: FluxForgeTheme.accentOrange),
                           const SizedBox(width: 6),
                           Expanded(
-                            child: Text(p, style: const TextStyle(color: Colors.white70, fontSize: 10)),
+                            child: Text(p, style: FluxForgeTheme.dockSans(size: 10, color: Colors.white70)),
                           ),
                         ],
                       ),
@@ -799,7 +801,7 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
                   ],
                   if (template.tags.isNotEmpty) ...[
                     const SizedBox(height: 12),
-                    const Text('Tags', style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold)),
+                    Text('Tags', style: FluxForgeTheme.dockSans(size: 10, weight: FontWeight.bold, color: Colors.white54)),
                     const SizedBox(height: 4),
                     Wrap(
                       spacing: 4,
@@ -810,7 +812,7 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
                           color: Colors.white.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(3),
                         ),
-                        child: Text(tag, style: const TextStyle(color: Colors.white54, fontSize: 9)),
+                        child: Text(tag, style: FluxForgeTheme.dockSans(size: 9, color: Colors.white54)),
                       )).toList(),
                     ),
                   ],
@@ -848,9 +850,9 @@ class _TrackTemplatesPanelState extends State<TrackTemplatesPanel> {
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(
         children: [
-          Text(label, style: const TextStyle(color: Colors.white54, fontSize: 10)),
+          Text(label, style: FluxForgeTheme.dockSans(size: 10, color: Colors.white54)),
           const Spacer(),
-          Text(value, style: const TextStyle(color: Colors.white, fontSize: 10, fontFamily: 'JetBrains Mono')),
+          Text(value, style: FluxForgeTheme.dockMono(size: 10)),
         ],
       ),
     );

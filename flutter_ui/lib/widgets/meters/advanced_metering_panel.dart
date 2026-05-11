@@ -48,22 +48,22 @@ class TruePeak8xMeter extends StatelessWidget {
                 color: FluxForgeTheme.accentOrange,
                 borderRadius: BorderRadius.circular(3),
               ),
-              child: const Text(
+              child: Text(
                 '8x',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
+                  weight: FontWeight.bold,
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 8,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),
             const SizedBox(width: 4),
             Text(
               'TRUE PEAK',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.bold,
                 color: FluxForgeTheme.textTertiary,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
               ),
             ),
           ],
@@ -92,18 +92,18 @@ class TruePeak8xMeter extends StatelessWidget {
         // Current value
         Text(
           '${data.peakDbtp.toStringAsFixed(1)} dBTP',
-          style: TextStyle(
+          style: FluxForgeTheme.dockMono(
+            size: 12,
+            weight: FontWeight.bold,
             color: data.isClipping ? FluxForgeTheme.accentRed : FluxForgeTheme.textPrimary,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
           ),
         ),
         // Max value
         Text(
           'Max: ${data.maxDbtp.toStringAsFixed(1)}',
-          style: TextStyle(
+          style: FluxForgeTheme.dockMono(
+            size: 9,
             color: FluxForgeTheme.textTertiary,
-            fontSize: 9,
           ),
         ),
       ],
@@ -275,22 +275,22 @@ class PsrMeterWidget extends StatelessWidget {
                   borderRadius: BorderRadius.circular(3),
                   border: Border.all(color: color),
                 ),
-                child: const Text(
+                child: Text(
                   'PSR',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
+                    weight: FontWeight.bold,
                     color: FluxForgeTheme.textPrimary,
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
               const Spacer(),
               Text(
                 '${psr.toStringAsFixed(1)} dB',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 16,
+                  weight: FontWeight.bold,
                   color: color,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
@@ -334,10 +334,10 @@ class PsrMeterWidget extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             data.assessment,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 9,
+              weight: FontWeight.w500,
               color: color,
-              fontSize: 9,
-              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -389,19 +389,19 @@ class CrestFactorMeterWidget extends StatelessWidget {
             children: [
               Text(
                 'CREST',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
+                  weight: FontWeight.bold,
                   color: FluxForgeTheme.textTertiary,
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
               const Spacer(),
               Text(
                 '${crest.toStringAsFixed(1)} dB',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 14,
+                  weight: FontWeight.bold,
                   color: color,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
@@ -420,9 +420,9 @@ class CrestFactorMeterWidget extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             data.assessment,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 9,
               color: color,
-              fontSize: 9,
             ),
           ),
         ],
@@ -433,8 +433,8 @@ class CrestFactorMeterWidget extends StatelessWidget {
   Widget _buildRef(String label, String value) {
     return Column(
       children: [
-        Text(label, style: TextStyle(color: FluxForgeTheme.textDisabled, fontSize: 7)),
-        Text(value, style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 8)),
+        Text(label, style: FluxForgeTheme.dockSans(size: 7, color: FluxForgeTheme.textDisabled)),
+        Text(value, style: FluxForgeTheme.dockMono(size: 8, color: FluxForgeTheme.textTertiary)),
       ],
     );
   }
@@ -481,22 +481,22 @@ class PsychoacousticMeterWidget extends StatelessWidget {
                   ),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: const Text(
+                child: Text(
                   'PSYCHOACOUSTIC',
-                  style: TextStyle(
-                    color: FluxForgeTheme.textPrimary,
-                    fontSize: 8,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    size: 8,
+                    weight: FontWeight.bold,
                     letterSpacing: 1,
+                    color: FluxForgeTheme.textPrimary,
                   ),
                 ),
               ),
               const Spacer(),
               Text(
                 'ISO 532-1',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
                   color: FluxForgeTheme.textDisabled,
-                  fontSize: 8,
                 ),
               ),
             ],
@@ -511,17 +511,17 @@ class PsychoacousticMeterWidget extends StatelessWidget {
                 children: [
                   Text(
                     'LOUDNESS',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 9,
                       color: FluxForgeTheme.textTertiary,
-                      fontSize: 9,
                     ),
                   ),
                   Text(
                     '${data.loudnessSones.toStringAsFixed(1)} sone',
-                    style: const TextStyle(
+                    style: FluxForgeTheme.dockMono(
+                      size: 20,
+                      weight: FontWeight.bold,
                       color: FluxForgeTheme.textPrimary,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ],
@@ -529,9 +529,9 @@ class PsychoacousticMeterWidget extends StatelessWidget {
               const SizedBox(width: 12),
               Text(
                 '${data.loudnessPhons.toStringAsFixed(0)} phon',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 14,
                   color: FluxForgeTheme.textSecondary,
-                  fontSize: 14,
                 ),
               ),
             ],
@@ -550,10 +550,10 @@ class PsychoacousticMeterWidget extends StatelessWidget {
           // Specific loudness spectrum (24 critical bands)
           Text(
             'SPECIFIC LOUDNESS (Bark)',
-            style: TextStyle(
-              color: FluxForgeTheme.textTertiary,
-              fontSize: 8,
+            style: FluxForgeTheme.dockSans(
+              size: 8,
               letterSpacing: 0.5,
+              color: FluxForgeTheme.textTertiary,
             ),
           ),
           const SizedBox(height: 4),
@@ -576,24 +576,24 @@ class PsychoacousticMeterWidget extends StatelessWidget {
       children: [
         Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 8,
             color: FluxForgeTheme.textTertiary,
-            fontSize: 8,
           ),
         ),
         Text(
           value.toStringAsFixed(2),
-          style: TextStyle(
+          style: FluxForgeTheme.dockMono(
+            size: 14,
+            weight: FontWeight.bold,
             color: color,
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
           ),
         ),
         Text(
           unit,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 7,
             color: FluxForgeTheme.textDisabled,
-            fontSize: 7,
           ),
         ),
       ],
@@ -745,13 +745,13 @@ class _AdvancedMeteringPanelState extends State<AdvancedMeteringPanel> {
               children: [
                 const Icon(Icons.insights, color: FluxForgeTheme.accentCyan, size: 20),
                 const SizedBox(width: 8),
-                const Text(
+                Text(
                   'ADVANCED METERING',
-                  style: TextStyle(
-                    color: FluxForgeTheme.textPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    size: 14,
+                    weight: FontWeight.bold,
                     letterSpacing: 1.2,
+                    color: FluxForgeTheme.textPrimary,
                   ),
                 ),
                 const Spacer(),
@@ -762,12 +762,12 @@ class _AdvancedMeteringPanelState extends State<AdvancedMeteringPanel> {
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(color: FluxForgeTheme.accentGreen),
                   ),
-                  child: const Text(
+                  child: Text(
                     'EXCLUSIVE',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 8,
+                      weight: FontWeight.bold,
                       color: FluxForgeTheme.accentGreen,
-                      fontSize: 8,
-                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
@@ -821,11 +821,11 @@ class _AdvancedMeteringPanelState extends State<AdvancedMeteringPanel> {
                 children: [
                   Text(
                     'WHAT MAKES THIS SPECIAL',
-                    style: TextStyle(
-                      color: FluxForgeTheme.textSecondary,
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
+                    style: FluxForgeTheme.dockSans(
+                      size: 9,
+                      weight: FontWeight.bold,
                       letterSpacing: 1,
+                      color: FluxForgeTheme.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -852,16 +852,19 @@ class _AdvancedMeteringPanelState extends State<AdvancedMeteringPanel> {
           const SizedBox(width: 8),
           Text(
             '$title: ',
-            style: const TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.bold,
               color: FluxForgeTheme.textPrimary,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
             ),
           ),
           Expanded(
             child: Text(
               desc,
-              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 10),
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                color: FluxForgeTheme.textSecondary,
+              ),
             ),
           ),
         ],

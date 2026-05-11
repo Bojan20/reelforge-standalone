@@ -13,6 +13,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../services/stage_configuration_service.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PRIORITY TIER PRESET PANEL
@@ -121,12 +122,11 @@ class _PriorityTierPresetPanelState extends State<PriorityTierPresetPanel>
         children: [
           const Icon(Icons.tune, color: Color(0xFF4A9EFF), size: 20),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Priority Presets',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 14,
+              weight: FontWeight.bold,
             ),
           ),
           const SizedBox(width: 16),
@@ -149,10 +149,10 @@ class _PriorityTierPresetPanelState extends State<PriorityTierPresetPanel>
                   const SizedBox(width: 4),
                   Text(
                     active.name,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: Color(active.style.color),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                      size: 12,
+                      weight: FontWeight.w500,
                     ),
                   ),
                 ],
@@ -165,9 +165,9 @@ class _PriorityTierPresetPanelState extends State<PriorityTierPresetPanel>
                 color: Colors.grey.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: const Text(
+              child: Text(
                 'Default',
-                style: TextStyle(color: Colors.grey, fontSize: 12),
+                style: FluxForgeTheme.dockSans(color: Colors.grey, size: 12),
               ),
             ),
           ],
@@ -227,11 +227,11 @@ class _PriorityTierPresetPanelState extends State<PriorityTierPresetPanel>
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: const Color(0xFF2a2a30)),
             ),
-            child: const Center(
+            child: Center(
               child: Text(
                 'No custom presets yet.\nClick + to create one.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey, fontSize: 12),
+                style: FluxForgeTheme.dockSans(color: Colors.grey, size: 12),
               ),
             ),
           )
@@ -291,10 +291,9 @@ class _PriorityTierPresetPanelState extends State<PriorityTierPresetPanel>
                       children: [
                         Text(
                           preset.name,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
+                          style: FluxForgeTheme.dockSans(
+                            size: 14,
+                            weight: FontWeight.w600,
                           ),
                         ),
                         if (preset.isBuiltIn) ...[
@@ -305,9 +304,9 @@ class _PriorityTierPresetPanelState extends State<PriorityTierPresetPanel>
                               color: Colors.grey.withValues(alpha: 0.3),
                               borderRadius: BorderRadius.circular(4),
                             ),
-                            child: const Text(
+                            child: Text(
                               'Built-in',
-                              style: TextStyle(color: Colors.grey, fontSize: 10),
+                              style: FluxForgeTheme.dockSans(color: Colors.grey, size: 10),
                             ),
                           ),
                         ],
@@ -316,7 +315,7 @@ class _PriorityTierPresetPanelState extends State<PriorityTierPresetPanel>
                     const SizedBox(height: 4),
                     Text(
                       preset.description,
-                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                      style: FluxForgeTheme.dockSans(color: Colors.grey, size: 12),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -377,10 +376,9 @@ class _PriorityTierPresetPanelState extends State<PriorityTierPresetPanel>
         children: [
           Text(
             _editingPresetId == null ? 'Create New Preset' : 'Edit Preset',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 14,
+              weight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 16),
@@ -392,7 +390,7 @@ class _PriorityTierPresetPanelState extends State<PriorityTierPresetPanel>
               border: OutlineInputBorder(),
               contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             ),
-            style: const TextStyle(color: Colors.white),
+            style: FluxForgeTheme.dockSans(color: Colors.white),
             onChanged: (v) => setState(() => _editPresetName = v),
             controller: _editNameController,
           ),
@@ -405,7 +403,7 @@ class _PriorityTierPresetPanelState extends State<PriorityTierPresetPanel>
               border: OutlineInputBorder(),
               contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             ),
-            style: const TextStyle(color: Colors.white),
+            style: FluxForgeTheme.dockSans(color: Colors.white),
             maxLines: 2,
             onChanged: (v) => setState(() => _editPresetDescription = v),
             controller: _editDescController,
@@ -428,7 +426,7 @@ class _PriorityTierPresetPanelState extends State<PriorityTierPresetPanel>
                   children: [
                     Icon(_getStyleIcon(s), color: Color(s.color), size: 16),
                     const SizedBox(width: 8),
-                    Text(s.label, style: const TextStyle(color: Colors.white)),
+                    Text(s.label, style: FluxForgeTheme.dockSans(color: Colors.white)),
                   ],
                 ),
               );
@@ -538,7 +536,7 @@ class _PriorityTierPresetPanelState extends State<PriorityTierPresetPanel>
             width: 100,
             child: Text(
               category.label,
-              style: const TextStyle(color: Colors.white, fontSize: 13),
+              style: FluxForgeTheme.dockSans(size: 13),
             ),
           ),
 
@@ -579,10 +577,10 @@ class _PriorityTierPresetPanelState extends State<PriorityTierPresetPanel>
             child: Text(
               '$priority',
               textAlign: TextAlign.right,
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: _getPriorityColor(priority),
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
+                size: 13,
+                weight: FontWeight.w600,
               ),
             ),
           ),
@@ -613,11 +611,11 @@ class _PriorityTierPresetPanelState extends State<PriorityTierPresetPanel>
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: const Color(0xFF2a2a30)),
             ),
-            child: const Center(
+            child: Center(
               child: Text(
                 'No stage overrides defined.\nOverrides allow fine-tuning priority for specific stages.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey, fontSize: 12),
+                style: FluxForgeTheme.dockSans(color: Colors.grey, size: 12),
               ),
             ),
           )
@@ -676,18 +674,16 @@ class _PriorityTierPresetPanelState extends State<PriorityTierPresetPanel>
               children: [
                 Text(
                   stageName,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontFamily: 'monospace',
+                  style: FluxForgeTheme.dockMono(
+                    size: 13,
                   ),
                 ),
                 if (stage != null)
                   Text(
                     stage.category.label,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: Color(stage.category.color),
-                      fontSize: 11,
+                      size: 11,
                     ),
                   ),
               ],
@@ -703,10 +699,10 @@ class _PriorityTierPresetPanelState extends State<PriorityTierPresetPanel>
             ),
             child: Text(
               '$priority',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: _getPriorityColor(priority),
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
+                size: 14,
+                weight: FontWeight.bold,
               ),
             ),
           ),
@@ -746,10 +742,10 @@ class _PriorityTierPresetPanelState extends State<PriorityTierPresetPanel>
         const SizedBox(width: 8),
         Text(
           title,
-          style: const TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: Colors.grey,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
+            size: 12,
+            weight: FontWeight.w600,
             letterSpacing: 1,
           ),
         ),
@@ -875,10 +871,10 @@ class _PriorityTierPresetPanelState extends State<PriorityTierPresetPanel>
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1a1a20),
-        title: const Text('Delete Preset', style: TextStyle(color: Colors.white)),
+        title: Text('Delete Preset', style: FluxForgeTheme.dockSans(color: Colors.white)),
         content: Text(
           'Delete "${preset.name}"? This cannot be undone.',
-          style: const TextStyle(color: Colors.grey),
+          style: FluxForgeTheme.dockSans(color: Colors.grey),
         ),
         actions: [
           TextButton(
@@ -935,20 +931,20 @@ class _PriorityLevelRow extends StatelessWidget {
             width: 70,
             child: Text(
               label,
-              style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600),
+              style: FluxForgeTheme.dockSans(color: color, size: 12, weight: FontWeight.w600),
             ),
           ),
           SizedBox(
             width: 50,
             child: Text(
               range,
-              style: const TextStyle(color: Colors.grey, fontSize: 11, fontFamily: 'monospace'),
+              style: FluxForgeTheme.dockMono(color: Colors.grey, size: 11),
             ),
           ),
           Expanded(
             child: Text(
               desc,
-              style: const TextStyle(color: Colors.grey, fontSize: 11),
+              style: FluxForgeTheme.dockSans(color: Colors.grey, size: 11),
             ),
           ),
         ],

@@ -6,6 +6,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../services/asset_cloud_service.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ============================================================================
 // ASSET CLOUD STATUS BADGE
@@ -62,9 +63,9 @@ class AssetCloudStatusBadge extends StatelessWidget {
                       ),
                       child: Text(
                         '$transfers',
-                        style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
+                        style: FluxForgeTheme.dockSans(
+                          size: 10,
+                          weight: FontWeight.bold,
                           color: Colors.white,
                         ),
                       ),
@@ -198,15 +199,15 @@ class _AssetCloudPanelState extends State<AssetCloudPanel>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Cloud Asset Library',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  style: FluxForgeTheme.dockSans(weight: FontWeight.bold, size: 14),
                 ),
                 Text(
                   service.isAuthenticated
                       ? service.provider.displayName
                       : 'Not connected',
-                  style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+                  style: FluxForgeTheme.dockSans(size: 11, color: Colors.grey[400]!),
                 ),
               ],
             ),
@@ -244,17 +245,17 @@ class _AssetCloudPanelState extends State<AssetCloudPanel>
             const SizedBox(height: 16),
             Text(
               'Connect to Cloud',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[300],
+              style: FluxForgeTheme.dockSans(
+                size: 16,
+                weight: FontWeight.bold,
+                color: Colors.grey[300]!,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               'Access thousands of professional audio assets',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+              style: FluxForgeTheme.dockSans(size: 12, color: Colors.grey[500]!),
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
@@ -292,7 +293,7 @@ class _AssetCloudPanelState extends State<AssetCloudPanel>
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  style: const TextStyle(fontSize: 13),
+                  style: FluxForgeTheme.dockSans(size: 13),
                   onChanged: _search,
                 ),
               ),
@@ -341,7 +342,7 @@ class _AssetCloudPanelState extends State<AssetCloudPanel>
             Tab(text: 'Favorites'),
             Tab(text: 'Transfers'),
           ],
-          labelStyle: const TextStyle(fontSize: 12),
+          labelStyle: FluxForgeTheme.dockSans(size: 12),
           indicatorSize: TabBarIndicatorSize.tab,
         ),
 
@@ -376,7 +377,7 @@ class _AssetCloudPanelState extends State<AssetCloudPanel>
           _searchController.text.isNotEmpty
               ? 'No results found'
               : 'No featured assets',
-          style: TextStyle(color: Colors.grey[500]),
+          style: FluxForgeTheme.dockSans(color: Colors.grey[500]!),
         ),
       );
     }
@@ -422,7 +423,7 @@ class _AssetCloudPanelState extends State<AssetCloudPanel>
                 const SizedBox(height: 16),
                 Text(
                   'No Collections',
-                  style: TextStyle(color: Colors.grey[400]),
+                  style: FluxForgeTheme.dockSans(color: Colors.grey[400]!),
                 ),
                 const SizedBox(height: 8),
                 ElevatedButton.icon(
@@ -464,12 +465,12 @@ class _AssetCloudPanelState extends State<AssetCloudPanel>
             const SizedBox(height: 16),
             Text(
               'No Favorites',
-              style: TextStyle(color: Colors.grey[400]),
+              style: FluxForgeTheme.dockSans(color: Colors.grey[400]!),
             ),
             const SizedBox(height: 4),
             Text(
               'Heart assets to save them here',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              style: FluxForgeTheme.dockSans(size: 12, color: Colors.grey[600]!),
             ),
           ],
         ),
@@ -506,7 +507,7 @@ class _AssetCloudPanelState extends State<AssetCloudPanel>
             const SizedBox(height: 16),
             Text(
               'No Active Transfers',
-              style: TextStyle(color: Colors.grey[400]),
+              style: FluxForgeTheme.dockSans(color: Colors.grey[400]!),
             ),
           ],
         ),
@@ -615,7 +616,7 @@ class CloudAssetCard extends StatelessWidget {
                         ),
                         child: Text(
                           asset.category.emoji,
-                          style: const TextStyle(fontSize: 12),
+                          style: FluxForgeTheme.dockSans(size: 12),
                         ),
                       ),
                     ),
@@ -634,7 +635,7 @@ class CloudAssetCard extends StatelessWidget {
                         ),
                         child: Text(
                           asset.formattedDuration,
-                          style: const TextStyle(fontSize: 10),
+                          style: FluxForgeTheme.dockMono(size: 10),
                         ),
                       ),
                     ),
@@ -653,9 +654,9 @@ class CloudAssetCard extends StatelessWidget {
                     asset.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                    style: FluxForgeTheme.dockSans(
+                      size: 12,
+                      weight: FontWeight.w500,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -663,7 +664,7 @@ class CloudAssetCard extends StatelessWidget {
                     children: [
                       Text(
                         asset.formattedSize,
-                        style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                        style: FluxForgeTheme.dockSans(size: 10, color: Colors.grey[500]!),
                       ),
                       const Spacer(),
                       if (asset.rating > 0) ...[
@@ -671,7 +672,7 @@ class CloudAssetCard extends StatelessWidget {
                         const SizedBox(width: 2),
                         Text(
                           asset.rating.toStringAsFixed(1),
-                          style: const TextStyle(fontSize: 10),
+                          style: FluxForgeTheme.dockMono(size: 10),
                         ),
                       ],
                     ],
@@ -752,7 +753,7 @@ class CloudAssetListTile extends StatelessWidget {
           child: Center(
             child: Text(
               asset.category.emoji,
-              style: const TextStyle(fontSize: 18),
+              style: FluxForgeTheme.dockSans(size: 18),
             ),
           ),
         ),
@@ -760,11 +761,11 @@ class CloudAssetListTile extends StatelessWidget {
           asset.name,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 13),
+          style: FluxForgeTheme.dockSans(size: 13),
         ),
         subtitle: Text(
           '${asset.formattedDuration} • ${asset.formattedSize} • ${asset.format.toUpperCase()}',
-          style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+          style: FluxForgeTheme.dockSans(size: 11, color: Colors.grey[500]!),
         ),
         trailing: trailing ??
             IconButton(
@@ -814,7 +815,7 @@ class CollectionTile extends StatelessWidget {
                 collection.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w500),
+                style: FluxForgeTheme.dockSans(weight: FontWeight.w500),
               ),
             ),
             if (collection.isPublic)
@@ -823,7 +824,7 @@ class CollectionTile extends StatelessWidget {
         ),
         subtitle: Text(
           '${collection.assetCount} assets',
-          style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+          style: FluxForgeTheme.dockSans(size: 12, color: Colors.grey[500]!),
         ),
         trailing: const Icon(Icons.chevron_right),
       ),
@@ -872,7 +873,7 @@ class TransferTile extends StatelessWidget {
                     transfer.fileName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w500),
+                    style: FluxForgeTheme.dockSans(weight: FontWeight.w500),
                   ),
                 ),
                 if (isActive)
@@ -897,7 +898,7 @@ class TransferTile extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text(
                   '${(transfer.progress * 100).toInt()}%',
-                  style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+                  style: FluxForgeTheme.dockMono(size: 11, color: Colors.grey[400]!),
                 ),
               ],
             ),
@@ -905,7 +906,7 @@ class TransferTile extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 transfer.errorMessage!,
-                style: const TextStyle(fontSize: 11, color: Colors.red),
+                style: FluxForgeTheme.dockSans(size: 11, color: Colors.red),
               ),
             ],
           ],
@@ -1070,7 +1071,7 @@ class _AssetUploadDialogState extends State<AssetUploadDialog> {
                     child: _selectedFilePath != null
                         ? Text(
                             _selectedFilePath!.split('/').last,
-                            style: const TextStyle(fontSize: 13),
+                            style: FluxForgeTheme.dockSans(size: 13),
                           )
                         : Column(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -1078,9 +1079,9 @@ class _AssetUploadDialogState extends State<AssetUploadDialog> {
                               const Icon(Icons.upload_file, size: 32),
                               Text(
                                 'Click to select file',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[500],
+                                style: FluxForgeTheme.dockSans(
+                                  size: 12,
+                                  color: Colors.grey[500]!,
                                 ),
                               ),
                             ],
