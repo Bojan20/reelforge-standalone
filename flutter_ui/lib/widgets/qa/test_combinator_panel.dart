@@ -1,7 +1,11 @@
 // test_combinator_panel.dart
 // UI for multi-condition test case generation
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../../services/native_file_picker.dart';
 import '../../services/test_combinator_service.dart';
 import '../../theme/fluxforge_theme.dart';
 
@@ -84,22 +88,44 @@ class _TestCombinatorPanelState extends State<TestCombinatorPanel> {
     });
   }
 
-  void _exportSuite() {
+  Future<void> _exportSuite() async {
     if (_currentSuite == null) return;
 
     final json = _service.exportSuiteToJson(_currentSuite!);
-    // TODO: Show save dialog or copy to clipboard
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Suite exported (${_currentSuite!.totalCases} cases)'),
-        action: SnackBarAction(
-          label: 'Copy',
-          onPressed: () {
-            // Copy to clipboard
-          },
-        ),
-      ),
+    final suiteName = _currentSuite!.name.replaceAll(RegExp(r'[^\w\-]'), '_');
+    final savePath = await NativeFilePicker.saveFile(
+      suggestedName: 'test_suite_$suiteName.json',
+      fileType: 'json',
     );
+    if (savePath != null) {
+      await File(savePath).writeAsString(json);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Suite saved: ${savePath.split('/').last} (${_currentSuite!.totalCases} cases)',
+              style: FluxForgeTheme.dockMono(size: 11),
+            ),
+            backgroundColor: FluxForgeTheme.bgSurface,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } else {
+      // Cancelled — fallback to clipboard
+      await Clipboard.setData(ClipboardData(text: json));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Suite copied to clipboard (${_currentSuite!.totalCases} cases)',
+              style: FluxForgeTheme.dockMono(size: 11),
+            ),
+            backgroundColor: FluxForgeTheme.bgSurface,
+          ),
+        );
+      }
+    }
   }
 
   @override

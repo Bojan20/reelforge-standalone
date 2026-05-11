@@ -1,8 +1,12 @@
 // timing_validation_panel.dart
 // UI for event timing validation
 
-import 'package:flutter/material.dart';
 import 'dart:async';
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../../services/native_file_picker.dart';
 import '../../services/timing_validator.dart';
 import '../../theme/fluxforge_theme.dart';
 
@@ -57,16 +61,44 @@ class _TimingValidationPanelState extends State<TimingValidationPanel> {
     });
   }
 
-  void _exportReport() {
+  Future<void> _exportReport() async {
     if (_currentReport == null) return;
 
     final json = _validator.exportReportJson(_currentReport!);
-    // TODO: Show save dialog or copy to clipboard
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Report exported to clipboard'),
-      ),
+    final ts = DateTime.now().toIso8601String().substring(0, 19).replaceAll(':', '-');
+    final savePath = await NativeFilePicker.saveFile(
+      suggestedName: 'timing_report_$ts.json',
+      fileType: 'json',
     );
+    if (savePath != null) {
+      await File(savePath).writeAsString(json);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Report saved: ${savePath.split('/').last}',
+              style: FluxForgeTheme.dockMono(size: 11),
+            ),
+            backgroundColor: FluxForgeTheme.bgSurface,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } else {
+      // Cancelled — fallback to clipboard
+      await Clipboard.setData(ClipboardData(text: json));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Report copied to clipboard',
+              style: FluxForgeTheme.dockMono(size: 11),
+            ),
+            backgroundColor: FluxForgeTheme.bgSurface,
+          ),
+        );
+      }
+    }
   }
 
   @override
