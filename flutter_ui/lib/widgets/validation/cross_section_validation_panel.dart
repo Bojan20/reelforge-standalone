@@ -69,8 +69,8 @@ class _CrossSectionValidationPanelState extends State<CrossSectionValidationPane
             if (_result != null)
               Text(
                 _result!.summary,
-                style: TextStyle(
-                  fontSize: 12,
+                style: FluxForgeTheme.dockSans(
+                  size: 12,
                   color: _result!.hasErrors
                     ? FluxForgeTheme.accentRed
                     : FluxForgeTheme.textSecondary,
@@ -151,16 +151,16 @@ class _CrossSectionValidationPanelState extends State<CrossSectionValidationPane
           const SizedBox(height: 16),
           Text(
             'No Validation Results',
-            style: TextStyle(
-              fontSize: 16,
+            style: FluxForgeTheme.dockSans(
+              size: 16,
               color: FluxForgeTheme.textSecondary,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Click "Run Validation" to check for issues',
-            style: TextStyle(
-              fontSize: 12,
+            style: FluxForgeTheme.dockSans(
+              size: 12,
               color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
             ),
           ),
@@ -195,10 +195,10 @@ class _CrossSectionValidationPanelState extends State<CrossSectionValidationPane
             const SizedBox(height: 16),
             Text(
               _result!.isClean ? 'All checks passed!' : 'No issues match filters',
-              style: TextStyle(
-                fontSize: 16,
+              style: FluxForgeTheme.dockSans(
+                size: 16,
                 color: FluxForgeTheme.accentGreen,
-                fontWeight: FontWeight.bold,
+                weight: FontWeight.bold,
               ),
             ),
           ],
@@ -254,9 +254,9 @@ class _CrossSectionValidationPanelState extends State<CrossSectionValidationPane
               const SizedBox(width: 8),
               Text(
                 issue.severity.name.toUpperCase(),
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  weight: FontWeight.bold,
                   color: severityColor,
                 ),
               ),
@@ -270,9 +270,9 @@ class _CrossSectionValidationPanelState extends State<CrossSectionValidationPane
                 ),
                 child: Text(
                   issue.section,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: FontWeight.bold,
                     color: FluxForgeTheme.accentBlue,
                   ),
                 ),
@@ -286,8 +286,8 @@ class _CrossSectionValidationPanelState extends State<CrossSectionValidationPane
                 ),
                 child: Text(
                   issue.category,
-                  style: const TextStyle(
-                    fontSize: 10,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
                     color: FluxForgeTheme.accentCyan,
                   ),
                 ),
@@ -298,8 +298,8 @@ class _CrossSectionValidationPanelState extends State<CrossSectionValidationPane
           // Message
           Text(
             issue.message,
-            style: TextStyle(
-              fontSize: 13,
+            style: FluxForgeTheme.dockSans(
+              size: 13,
               color: FluxForgeTheme.textPrimary,
             ),
           ),
@@ -307,11 +307,10 @@ class _CrossSectionValidationPanelState extends State<CrossSectionValidationPane
             const SizedBox(height: 4),
             Text(
               'Event ID: ${issue.eventId}',
-              style: TextStyle(
-                fontSize: 11,
+              style: FluxForgeTheme.dockMono(
+                size: 11,
                 color: FluxForgeTheme.textSecondary,
-                fontStyle: FontStyle.italic,
-              ),
+              ).copyWith(fontStyle: FontStyle.italic),
             ),
           ],
           if (issue.suggestedFix != null) ...[
@@ -335,8 +334,8 @@ class _CrossSectionValidationPanelState extends State<CrossSectionValidationPane
                   Expanded(
                     child: Text(
                       issue.suggestedFix!,
-                      style: TextStyle(
-                        fontSize: 12,
+                      style: FluxForgeTheme.dockSans(
+                        size: 12,
                         color: FluxForgeTheme.accentGreen,
                       ),
                     ),

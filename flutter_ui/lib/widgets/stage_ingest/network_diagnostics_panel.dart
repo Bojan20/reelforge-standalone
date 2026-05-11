@@ -9,6 +9,7 @@ import 'dart:async';
 import 'dart:collection';
 import 'package:flutter/material.dart';
 import '../../providers/stage_ingest_provider.dart';
+import '../../theme/fluxforge_theme.dart';
 import 'latency_histogram_panel.dart';
 
 /// Network statistics sample
@@ -357,10 +358,10 @@ class _NetworkDiagnosticsPanelState extends State<NetworkDiagnosticsPanel> {
           const SizedBox(width: 8),
           Text(
             'Network Diagnostics',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 13,
+              weight: FontWeight.w500,
               color: Colors.white.withValues(alpha: 0.9),
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
             ),
           ),
           const Spacer(),
@@ -423,10 +424,10 @@ class _NetworkDiagnosticsPanelState extends State<NetworkDiagnosticsPanel> {
           const SizedBox(width: 4),
           Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.w500,
               color: color,
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -470,7 +471,7 @@ class _NetworkDiagnosticsPanelState extends State<NetworkDiagnosticsPanel> {
         child: Center(
           child: Text(
             'No data',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 11),
+            style: FluxForgeTheme.dockSans(size: 11, color: Colors.white.withValues(alpha: 0.3)),
           ),
         ),
       );
@@ -618,7 +619,7 @@ class _NetworkDiagnosticsPanelState extends State<NetworkDiagnosticsPanel> {
                   padding: const EdgeInsets.all(16),
                   child: Text(
                     'No connection history',
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 11),
+                    style: FluxForgeTheme.dockSans(size: 11, color: Colors.white.withValues(alpha: 0.3)),
                   ),
                 ),
               )
@@ -651,19 +652,18 @@ class _NetworkDiagnosticsPanelState extends State<NetworkDiagnosticsPanel> {
           const SizedBox(width: 8),
           Text(
             _formatTime(entry.timestamp),
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 10,
               color: Colors.white.withValues(alpha: 0.5),
-              fontSize: 10,
-              fontFamily: 'monospace',
             ),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               entry.message,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 11,
                 color: Colors.white.withValues(alpha: 0.7),
-                fontSize: 11,
               ),
             ),
           ),
@@ -686,10 +686,10 @@ class _NetworkDiagnosticsPanelState extends State<NetworkDiagnosticsPanel> {
             const SizedBox(width: 6),
             Text(
               title,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 12,
+                weight: FontWeight.w500,
                 color: Colors.white.withValues(alpha: 0.7),
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
               ),
             ),
           ],
@@ -713,19 +713,18 @@ class _NetworkDiagnosticsPanelState extends State<NetworkDiagnosticsPanel> {
         children: [
           Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: Colors.white.withValues(alpha: 0.5),
-              fontSize: 10,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             value,
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 14,
+              weight: FontWeight.w600,
               color: color,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              fontFamily: 'monospace',
             ),
           ),
         ],
@@ -919,11 +918,10 @@ class NetworkStatusBadge extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 10,
+              weight: FontWeight.w500,
               color: color,
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-              fontFamily: 'monospace',
             ),
           ),
         ],

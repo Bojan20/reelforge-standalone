@@ -553,24 +553,24 @@ class _LauncherScreenState extends State<LauncherScreen>
             ],
             stops: [0.0, 0.4, 0.75, 1.0],
           ).createShader(bounds),
-          child: const Text(
+          child: Text(
             'FluxForge Studio',
-            style: TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.w300,
+            style: FluxForgeTheme.dockSans(
+              size: 26,
+              weight: FontWeight.w300,
               letterSpacing: 5,
               color: Colors.white,
             ),
           ),
         ),
         const SizedBox(height: 4),
-        const Text(
+        Text(
           'SELECT YOUR WORKSPACE',
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w500,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: FontWeight.w500,
             letterSpacing: 4,
-            color: Color(0xFF666666),
+            color: const Color(0xFF666666),
           ),
         ),
       ],
@@ -709,9 +709,9 @@ class _LauncherScreenState extends State<LauncherScreen>
                   // Title
                   Text(
                     title,
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w600,
+                    style: FluxForgeTheme.dockSans(
+                      size: 28,
+                      weight: FontWeight.w600,
                       letterSpacing: 8,
                       color: Color.lerp(Colors.white, accentColor, isSelected ? 1.0 : hoverIntensity),
                     ),
@@ -722,9 +722,9 @@ class _LauncherScreenState extends State<LauncherScreen>
                   // Subtitle
                   Text(
                     subtitle,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                    style: FluxForgeTheme.dockSans(
+                      size: 12,
+                      weight: FontWeight.w500,
                       letterSpacing: 3,
                       color: Color.lerp(
                         const Color(0xFF888888),
@@ -740,11 +740,10 @@ class _LauncherScreenState extends State<LauncherScreen>
                   Text(
                     description,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      height: 1.4,
-                      color: Color(0xFF999999),
-                    ),
+                    style: FluxForgeTheme.dockSans(
+                      size: 13,
+                      color: const Color(0xFF999999),
+                    ).copyWith(height: 1.4),
                   ),
 
                   const SizedBox(height: 18),
@@ -767,8 +766,8 @@ class _LauncherScreenState extends State<LauncherScreen>
                         const SizedBox(width: 8),
                         Text(
                           feature,
-                          style: TextStyle(
-                            fontSize: 11,
+                          style: FluxForgeTheme.dockSans(
+                            size: 11,
                             color: Color.lerp(
                               const Color(0xFF777777),
                               Colors.white.withValues(alpha: 0.9),
@@ -809,9 +808,9 @@ class _LauncherScreenState extends State<LauncherScreen>
                       children: [
                         Text(
                           'ENTER ${mode == AppMode.daw ? 'DAW' : 'SLOTLAB'}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
+                          style: FluxForgeTheme.dockSans(
+                            size: 12,
+                            weight: FontWeight.w600,
                             letterSpacing: 2,
                             color: Color.lerp(
                               const Color(0xFF888888),
@@ -939,9 +938,9 @@ class _LauncherScreenState extends State<LauncherScreen>
           if (widget.errorMessage != null) ...[
             Text(
               widget.errorMessage!,
-              style: const TextStyle(
-                fontSize: 11,
-                color: Color(0xFFFF4060),
+              style: FluxForgeTheme.dockSans(
+                size: 11,
+                color: const Color(0xFFFF4060),
               ),
             ),
             const SizedBox(height: 8),
@@ -954,9 +953,12 @@ class _LauncherScreenState extends State<LauncherScreen>
                     border: Border.all(color: const Color(0xFFFF4060).withValues(alpha: 0.5)),
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: const Text(
+                  child: Text(
                     'Retry',
-                    style: TextStyle(fontSize: 11, color: Color(0xFFFF4060)),
+                    style: FluxForgeTheme.dockSans(
+                      size: 11,
+                      color: const Color(0xFFFF4060),
+                    ),
                   ),
                 ),
               ),
@@ -977,17 +979,16 @@ class _LauncherScreenState extends State<LauncherScreen>
           ],
           Text(
             'v0.1.0',
-            style: TextStyle(
-              fontSize: 10,
+            style: FluxForgeTheme.dockMono(
+              size: 10,
               color: Colors.white.withValues(alpha: 0.3),
-              letterSpacing: 2,
-            ),
+            ).copyWith(letterSpacing: 2),
           ),
           const SizedBox(height: 4),
           Text(
             '© 2025 VanVinkl Studio',
-            style: TextStyle(
-              fontSize: 9,
+            style: FluxForgeTheme.dockSans(
+              size: 9,
               color: Colors.white.withValues(alpha: 0.2),
               letterSpacing: 1,
             ),

@@ -728,7 +728,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Cancel', style: TextStyle(color: FluxForgeTheme.textTertiary)),
+              child: Text('Cancel', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary)),
             ),
             TextButton(
               onPressed: () {
@@ -738,8 +738,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               style: TextButton.styleFrom(
                 backgroundColor: FluxForgeTheme.accentRed.withValues(alpha: 0.2),
               ),
-              child: const Text('RESET', style: TextStyle(
-                color: FluxForgeTheme.accentRed, fontWeight: FontWeight.w700,
+              child: Text('RESET', style: FluxForgeTheme.dockSans(
+                color: FluxForgeTheme.accentRed, weight: FontWeight.w700,
               )),
             ),
           ],
@@ -1071,9 +1071,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                         const SizedBox(width: 4),
                         Expanded(
                           flex: 2,
-                          child: Text(m.stageId, style: const TextStyle(
-                            fontSize: 9, color: FluxForgeTheme.textSecondary,
-                            fontFamily: 'JetBrainsMono',
+                          child: Text(m.stageId, style: FluxForgeTheme.dockMono(
+                            size: 9, color: FluxForgeTheme.textSecondary,
                           )),
                         ),
                         const Icon(Icons.arrow_right, size: 10, color: FluxForgeTheme.textDisabled),
@@ -1087,9 +1086,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                         ),
                         Text(
                           '${(m.confidence * 100).toStringAsFixed(0)}%',
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontFamily: 'JetBrainsMono',
+                          style: FluxForgeTheme.dockMono(
+                            size: 9,
                             color: m.confidence >= 0.7
                                 ? FluxForgeTheme.accentGreen
                                 : FluxForgeTheme.accentOrange,
@@ -1233,7 +1231,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               const SizedBox(height: 8),
               TextField(
                 controller: controller,
-                style: const TextStyle(fontSize: 11, color: Colors.white70, fontFamily: 'JetBrainsMono'),
+                style: FluxForgeTheme.dockMono(size: 11, color: Colors.white70),
                 decoration: InputDecoration(
                   isDense: true, filled: true,
                   fillColor: const Color(0xFF0D0D10),
@@ -1316,9 +1314,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                   child: SingleChildScrollView(
                     child: SelectableText(
                       csv,
-                      style: const TextStyle(
-                        fontSize: 9, color: Colors.white54,
-                        fontFamily: 'JetBrainsMono',
+                      style: FluxForgeTheme.dockMono(
+                        size: 9, color: Colors.white54,
                       ),
                     ),
                   ),
@@ -3591,11 +3588,11 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
             controller: controller,
             autofocus: true,
             style: FluxForgeTheme.dockSans(size: 12, color: Colors.white70),
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               hintText: 'Preset name',
-              hintStyle: TextStyle(color: Colors.white24),
-              enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
-              focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: FluxForgeTheme.accentCyan)),
+              hintStyle: FluxForgeTheme.dockSans(color: Colors.white24),
+              enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+              focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: FluxForgeTheme.accentCyan)),
             ),
             onSubmitted: (name) {
               if (name.trim().isEmpty) return;
@@ -3617,7 +3614,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white38)),
+            child: Text('Cancel', style: FluxForgeTheme.dockSans(color: Colors.white38)),
           ),
           TextButton(
             onPressed: () {
@@ -3636,7 +3633,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               ));
               Navigator.of(ctx).pop();
             },
-            child: const Text('Save', style: TextStyle(color: FluxForgeTheme.accentGreen)),
+            child: Text('Save', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentGreen)),
           ),
         ],
       ),
@@ -3945,7 +3942,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('OK', style: TextStyle(color: FluxForgeTheme.textSecondary)),
+            child: Text('OK', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary)),
           ),
         ],
       ),

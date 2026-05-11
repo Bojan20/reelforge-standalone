@@ -212,7 +212,7 @@ class _MidiSettingsScreenState extends State<MidiSettingsScreen> {
               padding: const EdgeInsets.all(16),
               child: Text(
                 'No MIDI input devices found',
-                style: TextStyle(color: FluxForgeTheme.textSecondary),
+                style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
               ),
             )
           else
@@ -240,7 +240,7 @@ class _MidiSettingsScreenState extends State<MidiSettingsScreen> {
               padding: const EdgeInsets.all(16),
               child: Text(
                 'No MIDI output devices found',
-                style: TextStyle(color: FluxForgeTheme.textSecondary),
+                style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
               ),
             )
           else
@@ -281,15 +281,15 @@ class _MidiSettingsScreenState extends State<MidiSettingsScreen> {
         ),
         title: Text(
           device.name,
-          style: TextStyle(color: FluxForgeTheme.textPrimary),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
         ),
         subtitle: Text(
           device.isEnabled ? 'Active' : 'Inactive',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: device.isEnabled
                 ? FluxForgeTheme.accentGreen
                 : FluxForgeTheme.textTertiary,
-            fontSize: 12,
+            size: 12,
           ),
         ),
         trailing: Switch(
@@ -319,9 +319,9 @@ class _MidiSettingsScreenState extends State<MidiSettingsScreen> {
               children: [
                 Text(
                   'Receive Sync From',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: FluxForgeTheme.textSecondary,
-                    fontSize: 12,
+                    size: 12,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -335,7 +335,7 @@ class _MidiSettingsScreenState extends State<MidiSettingsScreen> {
                       onSelected: (_) => setState(() => _syncMode = mode),
                       backgroundColor: FluxForgeTheme.bgMid,
                       selectedColor: FluxForgeTheme.accentBlue,
-                      labelStyle: TextStyle(
+                      labelStyle: FluxForgeTheme.dockSans(
                         color:
                             isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textPrimary,
                       ),
@@ -373,13 +373,13 @@ class _MidiSettingsScreenState extends State<MidiSettingsScreen> {
                 children: [
                   Text(
                     'Clock PPQ',
-                    style: TextStyle(color: FluxForgeTheme.textPrimary),
+                    style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
                   ),
                   const Spacer(),
                   DropdownButton<int>(
                     value: _midiClockPpq,
                     dropdownColor: FluxForgeTheme.bgMid,
-                    style: TextStyle(color: FluxForgeTheme.textPrimary),
+                    style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
                     items: [24, 48, 96, 192, 384].map((ppq) {
                       return DropdownMenuItem(
                         value: ppq,
@@ -429,13 +429,13 @@ class _MidiSettingsScreenState extends State<MidiSettingsScreen> {
       child: SwitchListTile(
         title: Text(
           title,
-          style: TextStyle(color: FluxForgeTheme.textPrimary),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
         ),
         subtitle: Text(
           subtitle,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textSecondary,
-            fontSize: 12,
+            size: 12,
           ),
         ),
         value: value,
@@ -470,10 +470,10 @@ class _MidiSettingsScreenState extends State<MidiSettingsScreen> {
             const SizedBox(width: 8),
             Text(
               title,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.textPrimary,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+                size: 16,
+                weight: FontWeight.bold,
               ),
             ),
           ],

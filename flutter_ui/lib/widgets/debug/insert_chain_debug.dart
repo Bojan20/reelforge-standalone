@@ -10,6 +10,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../providers/dsp_chain_provider.dart';
 import '../../src/rust/native_ffi.dart';
+import '../../theme/fluxforge_theme.dart';
 
 class InsertChainDebug extends StatefulWidget {
   final int trackId;
@@ -65,10 +66,10 @@ class _InsertChainDebugState extends State<InsertChainDebug> {
               const SizedBox(width: 8),
               Text(
                 'Insert Chain Debug (Track ${widget.trackId}${widget.trackId == 0 ? " = MASTER" : ""})',
-                style: const TextStyle(
-                  color: Color(0xFF40C8FF),
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  color: const Color(0xFF40C8FF),
+                  size: 12,
+                  weight: FontWeight.bold,
                 ),
               ),
             ],
@@ -82,9 +83,12 @@ class _InsertChainDebugState extends State<InsertChainDebug> {
 
           // Each processor
           if (chain.nodes.isEmpty)
-            const Text(
+            Text(
               'No processors loaded',
-              style: TextStyle(color: Color(0xFFFF8040), fontSize: 11),
+              style: FluxForgeTheme.dockSans(
+                color: const Color(0xFFFF8040),
+                size: 11,
+              ),
             )
           else
             ...chain.nodes.asMap().entries.map((entry) {
@@ -96,12 +100,12 @@ class _InsertChainDebugState extends State<InsertChainDebug> {
           const SizedBox(height: 8),
 
           // Engine-side verification
-          const Text(
+          Text(
             'Engine Verification (FFI)',
-            style: TextStyle(
-              color: Color(0xFF40FF90),
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              color: const Color(0xFF40FF90),
+              size: 11,
+              weight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 4),
@@ -126,12 +130,18 @@ class _InsertChainDebugState extends State<InsertChainDebug> {
             width: 100,
             child: Text(
               label,
-              style: const TextStyle(color: Color(0xFF808090), fontSize: 10),
+              style: FluxForgeTheme.dockSans(
+                color: const Color(0xFF808090),
+                size: 10,
+              ),
             ),
           ),
           Text(
             value,
-            style: const TextStyle(color: Color(0xFFE0E0F0), fontSize: 10, fontFamily: 'monospace'),
+            style: FluxForgeTheme.dockMono(
+              color: const Color(0xFFE0E0F0),
+              size: 10,
+            ),
           ),
         ],
       ),
@@ -162,20 +172,20 @@ class _InsertChainDebugState extends State<InsertChainDebug> {
                 ),
                 child: Text(
                   'Slot $slotIndex',
-                  style: const TextStyle(
-                    color: Color(0xFF4A9EFF),
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    color: const Color(0xFF4A9EFF),
+                    size: 10,
+                    weight: FontWeight.bold,
                   ),
                 ),
               ),
               const SizedBox(width: 8),
               Text(
                 node.type.fullName,
-                style: const TextStyle(
-                  color: Color(0xFFE0E0F0),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
+                style: FluxForgeTheme.dockSans(
+                  color: const Color(0xFFE0E0F0),
+                  size: 11,
+                  weight: FontWeight.w500,
                 ),
               ),
               if (node.bypass) ...[
@@ -186,9 +196,12 @@ class _InsertChainDebugState extends State<InsertChainDebug> {
                     color: const Color(0xFFFF8040).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(2),
                   ),
-                  child: const Text(
+                  child: Text(
                     'BYPASSED',
-                    style: TextStyle(color: Color(0xFFFF8040), fontSize: 8),
+                    style: FluxForgeTheme.dockSans(
+                      color: const Color(0xFFFF8040),
+                      size: 8,
+                    ),
                   ),
                 ),
               ],
@@ -202,9 +215,12 @@ class _InsertChainDebugState extends State<InsertChainDebug> {
           // Show relevant params for each type
           if (node.params.isNotEmpty) ...[
             const SizedBox(height: 4),
-            const Text(
+            Text(
               'Params (Dart State):',
-              style: TextStyle(color: Color(0xFF808090), fontSize: 9),
+              style: FluxForgeTheme.dockSans(
+                color: const Color(0xFF808090),
+                size: 9,
+              ),
             ),
             ...node.params.entries.take(5).map((p) => _buildRow(
               '  ${p.key}',
@@ -237,16 +253,18 @@ class _InsertChainDebugState extends State<InsertChainDebug> {
         children: [
           Text(
             'Slot $slotIndex (${type.shortName}) - Engine Values:',
-            style: const TextStyle(color: Color(0xFF40FF90), fontSize: 9),
+            style: FluxForgeTheme.dockSans(
+              color: const Color(0xFF40FF90),
+              size: 9,
+            ),
           ),
           Wrap(
             spacing: 12,
             children: values.entries.map((e) => Text(
               '${e.key}: ${e.value.toStringAsFixed(2)}',
-              style: const TextStyle(
-                color: Color(0xFFE0E0F0),
-                fontSize: 9,
-                fontFamily: 'monospace',
+              style: FluxForgeTheme.dockMono(
+                color: const Color(0xFFE0E0F0),
+                size: 9,
               ),
             )).toList(),
           ),

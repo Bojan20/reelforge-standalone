@@ -54,8 +54,8 @@ class _TlTrackInteractiveState extends State<_TlTrackInteractive> {
           child: Row(children: [
             const Icon(Icons.delete_outline_rounded, size: 12, color: FluxForgeTheme.accentRed),
             const SizedBox(width: 6),
-            const Text('Delete', style: TextStyle(fontFamily: 'monospace', fontSize: 10,
-              color: FluxForgeTheme.accentRed)),
+            Text('Delete', style: FluxForgeTheme.dockMono(
+              size: 10, color: FluxForgeTheme.accentRed)),
           ]),
         ),
         // Duplicate
@@ -64,8 +64,8 @@ class _TlTrackInteractiveState extends State<_TlTrackInteractive> {
           child: Row(children: [
             const Icon(Icons.copy_outlined, size: 12, color: FluxForgeTheme.textSecondary),
             const SizedBox(width: 6),
-            const Text('Duplicate', style: TextStyle(fontFamily: 'monospace', fontSize: 10,
-              color: FluxForgeTheme.textSecondary)),
+            Text('Duplicate', style: FluxForgeTheme.dockMono(
+              size: 10, color: FluxForgeTheme.textSecondary)),
           ]),
         ),
         // Rename
@@ -74,15 +74,15 @@ class _TlTrackInteractiveState extends State<_TlTrackInteractive> {
           child: Row(children: [
             const Icon(Icons.edit_outlined, size: 12, color: FluxForgeTheme.textSecondary),
             const SizedBox(width: 6),
-            const Text('Rename', style: TextStyle(fontFamily: 'monospace', fontSize: 10,
-              color: FluxForgeTheme.textSecondary)),
+            Text('Rename', style: FluxForgeTheme.dockMono(
+              size: 10, color: FluxForgeTheme.textSecondary)),
           ]),
         ),
         // F6: Move to track sub-items (0-4)
         ...List.generate(5, (i) => PopupMenuItem<String>(
           value: 'track_$i',
-          child: Text('Move to Track $i', style: const TextStyle(
-            fontFamily: 'monospace', fontSize: 10, color: FluxForgeTheme.textSecondary)),
+          child: Text('Move to Track $i', style: FluxForgeTheme.dockMono(
+            size: 10, color: FluxForgeTheme.textSecondary)),
         )),
       ],
     ).then((value) {
@@ -119,16 +119,15 @@ class _TlTrackInteractiveState extends State<_TlTrackInteractive> {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: FluxForgeTheme.bgSurface,
-        title: const Text('Rename Event', style: TextStyle(
-          fontFamily: 'monospace', fontSize: 13, color: FluxForgeTheme.textPrimary)),
+        title: Text('Rename Event', style: FluxForgeTheme.dockMono(
+          size: 13, color: FluxForgeTheme.textPrimary)),
         content: TextField(
           controller: ctrl,
           autofocus: true,
-          style: const TextStyle(fontFamily: 'monospace', fontSize: 11,
-            color: FluxForgeTheme.textPrimary),
+          style: FluxForgeTheme.dockMono(size: 11, color: FluxForgeTheme.textPrimary),
           decoration: InputDecoration(
             hintText: 'Event name',
-            hintStyle: const TextStyle(color: FluxForgeTheme.textTertiary),
+            hintStyle: FluxForgeTheme.dockMono(color: FluxForgeTheme.textTertiary),
             filled: true, fillColor: FluxForgeTheme.bgElevated,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(6),
@@ -138,7 +137,7 @@ class _TlTrackInteractiveState extends State<_TlTrackInteractive> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel', style: TextStyle(color: FluxForgeTheme.textTertiary))),
+            child: Text('Cancel', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary))),
           TextButton(
             onPressed: () {
               final name = ctrl.text.trim();
@@ -149,7 +148,7 @@ class _TlTrackInteractiveState extends State<_TlTrackInteractive> {
               }
               Navigator.of(context).pop();
             },
-            child: const Text('OK', style: TextStyle(color: FluxForgeTheme.accentCyan))),
+            child: Text('OK', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentCyan))),
         ],
       ),
     ).then((_) => ctrl.dispose());
@@ -160,9 +159,8 @@ class _TlTrackInteractiveState extends State<_TlTrackInteractive> {
     padding: const EdgeInsets.only(bottom: 4),
     child: Row(
       children: [
-        SizedBox(width: 80, child: Text(widget.name, style: const TextStyle(
-          fontFamily: 'monospace', fontSize: 9,
-          color: FluxForgeTheme.textTertiary))),
+        SizedBox(width: 80, child: Text(widget.name, style: FluxForgeTheme.dockMono(
+          size: 9, color: FluxForgeTheme.textTertiary))),
         Expanded(
           child: LayoutBuilder(
             builder: (_, c) => Stack(
@@ -250,8 +248,8 @@ class _TlTrackInteractiveState extends State<_TlTrackInteractive> {
                                   borderRadius: BorderRadius.circular(2)),
                                 child: Center(child: Text(
                                   e.name.length > 6 ? e.name.substring(0, 6) : e.name,
-                                  style: TextStyle(fontFamily: 'monospace', fontSize: 9,
-                                    color: widget.color.withValues(alpha: 0.8)),
+                                  style: FluxForgeTheme.dockMono(
+                                    size: 9, color: widget.color.withValues(alpha: 0.8)),
                                   overflow: TextOverflow.clip)),
                               ),
                               // T2: resize handle indicator (right edge)

@@ -421,11 +421,10 @@ class _TimeStretchEditorState extends State<TimeStretchEditor>
               const SizedBox(width: 4),
               Text(
                 text,
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
                   color: color,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'JetBrains Mono',
+                  size: 10,
+                  weight: FontWeight.bold,
                 ),
               ),
             ],
@@ -771,11 +770,10 @@ class _TimeStretchEditorState extends State<TimeStretchEditor>
             const SizedBox(width: 4),
             Text(
               '${bpm.toStringAsFixed(1)} BPM',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: color,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'JetBrains Mono',
+                size: 10,
+                weight: FontWeight.bold,
               ),
             ),
           ],
@@ -810,11 +808,10 @@ class _TimeStretchEditorState extends State<TimeStretchEditor>
           ),
           child: Text(
             text,
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: Colors.white,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'JetBrains Mono',
+              size: 11,
+              weight: FontWeight.bold,
             ),
           ),
         ),
@@ -998,10 +995,10 @@ class _WarpMarkerWidget extends StatelessWidget {
                   ),
                   child: Text(
                     '${marker.pitchSemitones > 0 ? "+" : ""}${marker.pitchSemitones.toStringAsFixed(0)}',
-                    style: const TextStyle(
+                    style: FluxForgeTheme.dockMono(
                       color: Colors.white,
-                      fontSize: 7,
-                      fontWeight: FontWeight.bold,
+                      size: 7,
+                      weight: FontWeight.bold,
                     ),
                   ),
                 ),
@@ -1041,7 +1038,7 @@ class _WarpMarkerWidget extends StatelessWidget {
           enabled: false,
           height: 24,
           child: Text('Segment Pitch',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.bold,
                   color: const Color(0xFF845EF7))),
         ),
         for (final st in [-12, -7, -5, -2, -1, 0, 1, 2, 5, 7, 12])
@@ -1059,9 +1056,9 @@ class _WarpMarkerWidget extends StatelessWidget {
                 const SizedBox(width: 4),
                 Text(
                   st == 0 ? '0 (original)' : '${st > 0 ? "+" : ""}$st st',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: marker.pitchSemitones.round() == st
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
+                    weight: marker.pitchSemitones.round() == st
                         ? FontWeight.bold : FontWeight.normal,
                   ),
                 ),
@@ -1075,7 +1072,7 @@ class _WarpMarkerWidget extends StatelessWidget {
             children: [
               Icon(Icons.delete, size: 16, color: FluxForgeTheme.accentRed),
               const SizedBox(width: 8),
-              Text('Delete', style: TextStyle(color: FluxForgeTheme.accentRed)),
+              Text('Delete', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentRed)),
             ],
           ),
         ),
