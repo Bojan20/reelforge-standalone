@@ -13,6 +13,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../providers/razor_edit_provider.dart';
+import '../../../../theme/fluxforge_theme.dart';
 import '../../../fabfilter/fabfilter_theme.dart';
 import '../../../fabfilter/fabfilter_widgets.dart';
 
@@ -103,8 +104,8 @@ class _RazorEditPanelState extends State<RazorEditPanel> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(stateLabel, style: TextStyle(
-                  fontSize: 11, fontWeight: FontWeight.w600, color: stateColor,
+                Text(stateLabel, style: FluxForgeTheme.dockSans(
+                  size: 11, weight: FontWeight.w600, color: stateColor,
                 )),
               ],
             ),
@@ -128,9 +129,9 @@ class _RazorEditPanelState extends State<RazorEditPanel> {
               provider.enabled
                   ? 'Alt+Drag on timeline\nto create selection'
                   : 'Enable razor mode\nto start editing',
-              style: TextStyle(
-                color: FabFilterColors.textTertiary, fontSize: 11, height: 1.4,
-              ),
+              style: FluxForgeTheme.dockSans(
+                color: FabFilterColors.textTertiary, size: 11,
+              ).copyWith(height: 1.4),
             ),
           ],
 
@@ -226,7 +227,7 @@ class _RazorEditPanelState extends State<RazorEditPanel> {
             Icon(icon, size: 14, color: color),
             const SizedBox(width: 4),
             Expanded(
-              child: Text(label, style: TextStyle(fontSize: 10, color: color),
+              child: Text(label, style: FluxForgeTheme.dockSans(size: 10, color: color),
                   overflow: TextOverflow.ellipsis),
             ),
           ],
@@ -271,8 +272,8 @@ class _RazorEditPanelState extends State<RazorEditPanel> {
           const Divider(color: FabFilterColors.border, height: 16),
           Text(
             provider.enabled ? 'Razor mode active' : 'Razor mode off',
-            style: TextStyle(
-              fontSize: 10,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: provider.enabled ? FabFilterColors.orange : FabFilterColors.textTertiary,
             ),
           ),
@@ -303,8 +304,8 @@ class _RazorEditPanelState extends State<RazorEditPanel> {
             Icon(icon, size: 14, color: active ? color : FabFilterColors.textTertiary),
             const SizedBox(width: 6),
             Expanded(
-              child: Text(label, style: TextStyle(
-                fontSize: 11,
+              child: Text(label, style: FluxForgeTheme.dockSans(
+                size: 11,
                 color: active ? color : FabFilterColors.textSecondary,
               )),
             ),
@@ -343,14 +344,14 @@ class _RazorEditPanelState extends State<RazorEditPanel> {
         children: [
           SizedBox(
             width: 60,
-            child: Text(label, style: const TextStyle(
-              fontSize: 10, color: FabFilterColors.textTertiary,
+            child: Text(label, style: FluxForgeTheme.dockSans(
+              size: 10, color: FabFilterColors.textTertiary,
             )),
           ),
           Expanded(
-            child: Text(value, style: const TextStyle(
-              fontSize: 10, color: FabFilterColors.textPrimary,
-              fontWeight: FontWeight.w500,
+            child: Text(value, style: FluxForgeTheme.dockMono(
+              size: 10, color: FabFilterColors.textPrimary,
+              weight: FontWeight.w500,
             )),
           ),
         ],
@@ -366,8 +367,8 @@ class _RazorEditPanelState extends State<RazorEditPanel> {
         borderRadius: BorderRadius.circular(3),
         border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
-      child: Text(label, style: TextStyle(
-        fontSize: 9, fontWeight: FontWeight.w600, color: color,
+      child: Text(label, style: FluxForgeTheme.dockSans(
+        size: 9, weight: FontWeight.w600, color: color,
       )),
     );
   }
@@ -392,7 +393,7 @@ class _RazorEditPanelState extends State<RazorEditPanel> {
             children: [
               Icon(icon, size: 14, color: color),
               const SizedBox(width: 6),
-              Text(label, style: TextStyle(fontSize: 11, color: color)),
+              Text(label, style: FluxForgeTheme.dockSans(size: 11, color: color)),
             ],
           ),
         ),
@@ -412,15 +413,14 @@ class _RazorEditPanelState extends State<RazorEditPanel> {
               borderRadius: BorderRadius.circular(3),
               border: Border.all(color: FabFilterColors.border),
             ),
-            child: Text(shortcut, style: const TextStyle(
-              fontSize: 9, color: FabFilterColors.textSecondary,
-              fontFamily: 'monospace',
+            child: Text(shortcut, style: FluxForgeTheme.dockMono(
+              size: 9, color: FabFilterColors.textSecondary,
             )),
           ),
           const SizedBox(width: 6),
           Expanded(
-            child: Text(description, style: const TextStyle(
-              fontSize: 9, color: FabFilterColors.textTertiary,
+            child: Text(description, style: FluxForgeTheme.dockSans(
+              size: 9, color: FabFilterColors.textTertiary,
             )),
           ),
         ],

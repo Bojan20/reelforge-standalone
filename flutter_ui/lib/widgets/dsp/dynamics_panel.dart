@@ -221,10 +221,10 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
         const SizedBox(width: 8),
         Text(
           'Dynamics',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textPrimary,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
+            size: 16,
+            weight: FontWeight.bold,
           ),
         ),
         const Spacer(),
@@ -244,10 +244,10 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
             ),
             child: Text(
               'BYPASS',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: _bypassed ? Colors.orange : FluxForgeTheme.textSecondary,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+                size: 10,
+                weight: FontWeight.bold,
               ),
             ),
           ),
@@ -264,9 +264,9 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
           ),
           child: Text(
             _initialized ? 'Ready' : 'Init...',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: _initialized ? Colors.green : Colors.red,
-              fontSize: 10,
+              size: 10,
             ),
           ),
         ),
@@ -315,10 +315,10 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
               Text(
                 label,
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
-                  fontSize: 10,
-                  fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                  size: 10,
+                  weight: isActive ? FontWeight.bold : FontWeight.normal,
                 ),
               ),
             ],
@@ -343,18 +343,18 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
             children: [
               Text(
                 'GR',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textSecondary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+                  size: 10,
+                  weight: FontWeight.bold,
                 ),
               ),
               Text(
                 '${_gainReduction.toStringAsFixed(1)} dB',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
                   color: _gainReduction < -1 ? Colors.orange : FluxForgeTheme.textSecondary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+                  size: 10,
+                  weight: FontWeight.bold,
                 ),
               ),
             ],
@@ -508,7 +508,7 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
       children: [
         Text(
           'Type',
-          style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12),
         ),
         const SizedBox(width: 16),
         Expanded(
@@ -550,10 +550,10 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
           child: Text(
             label,
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
-              fontSize: 11,
-              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              size: 11,
+              weight: isActive ? FontWeight.bold : FontWeight.normal,
             ),
           ),
         ),
@@ -580,7 +580,7 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
               Expanded(
                 child: Text(
                   'True Peak Limiter with ITU-R BS.1770-4 compliant oversampling',
-                  style: TextStyle(color: Colors.blue, fontSize: 10),
+                  style: FluxForgeTheme.dockSans(color: Colors.blue, size: 10),
                 ),
               ),
             ],
@@ -833,7 +833,7 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
           width: 70,
           child: Text(
             label,
-            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12),
           ),
         ),
         Expanded(child: child),
@@ -841,10 +841,10 @@ class _DynamicsPanelState extends State<DynamicsPanel> {
           width: 70,
           child: Text(
             value,
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: FluxForgeTheme.accentBlue,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
+              size: 12,
+              weight: FontWeight.bold,
             ),
             textAlign: TextAlign.right,
           ),

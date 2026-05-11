@@ -152,9 +152,9 @@ class _RightZoneState extends State<RightZone> {
         children: [
           Text(
             'Inspector',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 12,
+              weight: FontWeight.w600,
               color: FluxForgeTheme.textPrimary,
             ),
           ),
@@ -194,15 +194,15 @@ class _RightZoneState extends State<RightZone> {
               children: [
                 Text(
                   _typeIcons[widget.objectType] ?? '',
-                  style: const TextStyle(fontSize: 18),
+                  style: FluxForgeTheme.dockSans(size: 18),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     widget.objectName!,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                    style: FluxForgeTheme.dockSans(
+                      size: 13,
+                      weight: FontWeight.w600,
                       color: FluxForgeTheme.textPrimary,
                     ),
                   ),
@@ -271,9 +271,9 @@ class _InspectorSectionWidget extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text(
                   title,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
+                    weight: FontWeight.w600,
                     color: FluxForgeTheme.textSecondary,
                   ),
                 ),
@@ -355,8 +355,8 @@ class _InspectorTextFieldState extends State<InspectorTextField> {
         children: [
           Text(
             widget.label,
-            style: TextStyle(
-              fontSize: 10,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: FluxForgeTheme.textSecondary,
             ),
           ),
@@ -372,13 +372,13 @@ class _InspectorTextFieldState extends State<InspectorTextField> {
               controller: _controller,
               onChanged: widget.onChange,
               enabled: !widget.disabled,
-              style: const TextStyle(
-                fontSize: 12,
+              style: FluxForgeTheme.dockSans(
+                size: 12,
                 color: FluxForgeTheme.textPrimary,
               ),
               decoration: InputDecoration(
                 hintText: widget.placeholder,
-                hintStyle: TextStyle(color: FluxForgeTheme.textSecondary),
+                hintStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 8),
               ),
@@ -416,8 +416,8 @@ class InspectorSelectField extends StatelessWidget {
         children: [
           Text(
             label,
-            style: TextStyle(
-              fontSize: 10,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: FluxForgeTheme.textSecondary,
             ),
           ),
@@ -436,8 +436,8 @@ class InspectorSelectField extends StatelessWidget {
               underline: const SizedBox(),
               dropdownColor: FluxForgeTheme.bgElevated,
               padding: const EdgeInsets.symmetric(horizontal: 8),
-              style: const TextStyle(
-                fontSize: 12,
+              style: FluxForgeTheme.dockSans(
+                size: 12,
                 color: FluxForgeTheme.textPrimary,
               ),
               items: options
@@ -495,8 +495,8 @@ class InspectorSliderField extends StatelessWidget {
         children: [
           Text(
             label,
-            style: TextStyle(
-              fontSize: 10,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: FluxForgeTheme.textSecondary,
             ),
           ),
@@ -613,8 +613,8 @@ class InspectorCheckboxField extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               label,
-              style: TextStyle(
-                fontSize: 11,
+              style: FluxForgeTheme.dockSans(
+                size: 11,
                 color: disabled
                     ? FluxForgeTheme.textSecondary
                     : FluxForgeTheme.textPrimary,

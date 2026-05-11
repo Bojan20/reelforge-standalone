@@ -127,9 +127,9 @@ class _ContextualInspectorState extends State<ContextualInspector> {
           const SizedBox(width: 8),
           Text(
             label.toUpperCase(),
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.w800,
               color: color,
               letterSpacing: 1.4,
             ),
@@ -138,10 +138,9 @@ class _ContextualInspectorState extends State<ContextualInspector> {
           if (sel.hasSelection)
             Text(
               _idLabel(sel),
-              style: const TextStyle(
-                fontSize: 10,
+              style: FluxForgeTheme.dockMono(
+                size: 10,
                 color: Color(0xFF707080),
-                fontFamily: 'JetBrainsMono, monospace',
               ),
             ),
         ],
@@ -457,7 +456,7 @@ class PluginQuickInspector extends StatelessWidget {
             backgroundColor: FluxForgeTheme.accentPurple.withAlpha(48),
             foregroundColor: FluxForgeTheme.accentPurple,
             padding: const EdgeInsets.symmetric(vertical: 10),
-            textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            textStyle: FluxForgeTheme.dockSans(size: 12, weight: FontWeight.w600),
           ),
           onPressed: () => onAction?.call('plugin.open_editor'),
         ),
@@ -492,7 +491,7 @@ class _MiniKnob extends StatelessWidget {
         const SizedBox(height: 2),
         Text(
           label,
-          style: const TextStyle(fontSize: 9, color: Color(0xFFB5B6BC)),
+          style: FluxForgeTheme.dockSans(size: 9, color: Color(0xFFB5B6BC)),
         ),
       ],
     );
@@ -612,13 +611,12 @@ class ProjectOverviewInspector extends StatelessWidget {
             borderRadius: BorderRadius.circular(4),
             border: Border.all(color: const Color(0xFF8B8C92).withAlpha(48)),
           ),
-          child: const Text(
+          child: Text(
             'Select a track, clip, marker, plugin or slot stage to see contextual properties here.',
-            style: TextStyle(
-              fontSize: 11,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
               color: Color(0xFFB5B6BC),
-              height: 1.4,
-            ),
+            ).copyWith(height: 1.4),
           ),
         ),
       ],
@@ -643,16 +641,15 @@ class _OverviewMetric extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             label,
-            style: const TextStyle(fontSize: 11, color: Color(0xFFB5B6BC)),
+            style: FluxForgeTheme.dockSans(size: 11, color: Color(0xFFB5B6BC)),
           ),
           const Spacer(),
           Text(
             value,
-            style: const TextStyle(
-              fontSize: 11,
+            style: FluxForgeTheme.dockMono(
+              size: 11,
               color: Color(0xFFE8E8EA),
-              fontFamily: 'JetBrainsMono, monospace',
-              fontWeight: FontWeight.w600,
+              weight: FontWeight.w600,
             ),
           ),
         ],
@@ -682,7 +679,7 @@ class _InspectorField extends StatelessWidget {
       child: TextFormField(
         initialValue: initial,
         readOnly: readOnly,
-        style: const TextStyle(fontSize: 12, color: Color(0xFFE8E8EA)),
+        style: FluxForgeTheme.dockSans(size: 12, color: Color(0xFFE8E8EA)),
         decoration: _decoration(),
         onChanged: onChanged,
       ),
@@ -700,7 +697,7 @@ class _InspectorField extends StatelessWidget {
       child: DropdownButtonFormField<String>(
         initialValue: initial,
         isDense: true,
-        style: const TextStyle(fontSize: 12, color: Color(0xFFE8E8EA)),
+        style: FluxForgeTheme.dockSans(size: 12, color: Color(0xFFE8E8EA)),
         dropdownColor: FluxForgeTheme.bgVoid,
         decoration: _decoration(),
         items: [
@@ -773,10 +770,10 @@ class _InspectorField extends StatelessWidget {
             width: 76,
             child: Text(
               label,
-              style: const TextStyle(
-                fontSize: 11,
+              style: FluxForgeTheme.dockSans(
+                size: 11,
                 color: Color(0xFF8B8C92),
-                fontWeight: FontWeight.w500,
+                weight: FontWeight.w500,
               ),
             ),
           ),
@@ -849,10 +846,9 @@ class _SliderFieldState extends State<_SliderField> {
             child: Text(
               '${_value.toStringAsFixed(_value.abs() >= 100 ? 0 : 1)} ${widget.unit}',
               textAlign: TextAlign.right,
-              style: const TextStyle(
-                fontSize: 10,
+              style: FluxForgeTheme.dockMono(
+                size: 10,
                 color: Color(0xFFE8E8EA),
-                fontFamily: 'JetBrainsMono, monospace',
               ),
             ),
           ),

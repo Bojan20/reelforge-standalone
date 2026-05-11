@@ -95,12 +95,12 @@ class PluginDelayReportPanel extends StatelessWidget {
           color: FluxForgeTheme.accentOrange,
         ),
         const SizedBox(width: 8),
-        const Text(
+        Text(
           'PLUGIN DELAY COMPENSATION',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textSecondary,
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
+            size: 11,
+            weight: FontWeight.w600,
             letterSpacing: 0.5,
           ),
         ),
@@ -126,30 +126,30 @@ class PluginDelayReportPanel extends StatelessWidget {
   }
 
   Widget _buildEmptyState() {
-    return const Expanded(
+    return Expanded(
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
+            const Icon(
               Icons.check_circle_outline,
               size: 32,
               color: FluxForgeTheme.accentGreen,
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
               'No plugin delay detected',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 12,
+                size: 12,
               ),
             ),
-            SizedBox(height: 4),
+            const SizedBox(height: 4),
             Text(
               'All plugins have zero latency',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.textTertiary,
-                fontSize: 10,
+                size: 10,
               ),
             ),
           ],
@@ -202,10 +202,10 @@ class PluginDelayReportPanel extends StatelessWidget {
             alignment: Alignment.center,
             child: Text(
               '${index + 1}',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: severityColor,
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
+                size: 10,
+                weight: FontWeight.w600,
               ),
             ),
           ),
@@ -218,19 +218,19 @@ class PluginDelayReportPanel extends StatelessWidget {
               children: [
                 Text(
                   entry.pluginName,
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: FluxForgeTheme.textPrimary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
+                    size: 11,
+                    weight: FontWeight.w500,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
                   '${entry.trackName} • Slot ${entry.slotIndex + 1}',
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: FluxForgeTheme.textTertiary,
-                    fontSize: 9,
+                    size: 9,
                   ),
                 ),
               ],
@@ -243,19 +243,17 @@ class PluginDelayReportPanel extends StatelessWidget {
             children: [
               Text(
                 '${entry.pdcSamples} smp',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
                   color: severityColor,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  fontFamily: 'monospace',
+                  size: 11,
+                  weight: FontWeight.w600,
                 ),
               ),
               Text(
                 '${entry.pdcMs.toStringAsFixed(2)} ms',
-                style: const TextStyle(
+                style: FluxForgeTheme.dockMono(
                   color: FluxForgeTheme.textTertiary,
-                  fontSize: 9,
-                  fontFamily: 'monospace',
+                  size: 9,
                 ),
               ),
             ],
@@ -274,32 +272,30 @@ class PluginDelayReportPanel extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Text(
+          Text(
             'TOTAL ACCUMULATED PDC',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textSecondary,
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
+              size: 9,
+              weight: FontWeight.w600,
               letterSpacing: 0.5,
             ),
           ),
           const Spacer(),
           Text(
             '$totalPdc samples',
-            style: const TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: FluxForgeTheme.accentOrange,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              fontFamily: 'monospace',
+              size: 11,
+              weight: FontWeight.w600,
             ),
           ),
           const SizedBox(width: 8),
           Text(
             '(${totalMs.toStringAsFixed(2)} ms)',
-            style: const TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: FluxForgeTheme.textTertiary,
-              fontSize: 10,
-              fontFamily: 'monospace',
+              size: 10,
             ),
           ),
         ],

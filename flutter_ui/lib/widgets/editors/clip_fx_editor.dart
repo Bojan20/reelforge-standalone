@@ -76,9 +76,9 @@ class _ClipFxEditorState extends State<ClipFxEditor> {
           Expanded(
             child: Text(
               'Clip FX: ${widget.clip.name}',
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockSans(
+                size: 13,
+                weight: FontWeight.w600,
                 color: FluxForgeTheme.textPrimary,
               ),
               overflow: TextOverflow.ellipsis,
@@ -168,16 +168,16 @@ class _ClipFxEditorState extends State<ClipFxEditor> {
           const SizedBox(height: 12),
           Text(
             'No FX in chain',
-            style: TextStyle(
-              fontSize: 13,
+            style: FluxForgeTheme.dockSans(
+              size: 13,
               color: FluxForgeTheme.textMuted.withValues(alpha: 0.7),
             ),
           ),
           const SizedBox(height: 4),
           Text(
             'Click + to add effects',
-            style: TextStyle(
-              fontSize: 11,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
               color: FluxForgeTheme.textMuted.withValues(alpha: 0.5),
             ),
           ),
@@ -256,16 +256,16 @@ class _ClipFxEditorState extends State<ClipFxEditor> {
             borderRadius: BorderRadius.circular(6),
             border: Border.all(color: FluxForgeTheme.accent.withValues(alpha: 0.3)),
           ),
-          child: const Row(
+          child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.add, size: 18, color: FluxForgeTheme.accent),
-              SizedBox(width: 6),
+              const Icon(Icons.add, size: 18, color: FluxForgeTheme.accent),
+              const SizedBox(width: 6),
               Text(
                 'Add FX',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+                style: FluxForgeTheme.dockSans(
+                  size: 12,
+                  weight: FontWeight.w500,
                   color: FluxForgeTheme.accent,
                 ),
               ),
@@ -323,9 +323,9 @@ class _FxSlotCard extends StatelessWidget {
         ),
         title: Text(
           slot.displayName,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
+          style: FluxForgeTheme.dockSans(
+            size: 13,
+            weight: FontWeight.w500,
             color: slot.bypass
                 ? FluxForgeTheme.textMuted
                 : FluxForgeTheme.textPrimary,
@@ -731,9 +731,9 @@ class _BypassButton extends StatelessWidget {
         ),
         child: Text(
           bypassed ? 'OFF' : 'ON',
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: FontWeight.bold,
             color: bypassed ? FluxForgeTheme.warning : FluxForgeTheme.success,
           ),
         ),
@@ -760,8 +760,8 @@ class _GainControl extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 11,
+          style: FluxForgeTheme.dockSans(
+            size: 11,
             color: FluxForgeTheme.textMuted,
           ),
         ),
@@ -786,8 +786,8 @@ class _GainControl extends StatelessWidget {
           width: 45,
           child: Text(
             '${value.toStringAsFixed(1)} dB',
-            style: const TextStyle(
-              fontSize: 10,
+            style: FluxForgeTheme.dockMono(
+              size: 10,
               color: FluxForgeTheme.textSecondary,
             ),
           ),
@@ -825,8 +825,8 @@ class _ParamSlider extends StatelessWidget {
             width: 70,
             child: Text(
               label,
-              style: const TextStyle(
-                fontSize: 11,
+              style: FluxForgeTheme.dockSans(
+                size: 11,
                 color: FluxForgeTheme.textMuted,
               ),
             ),
@@ -851,8 +851,8 @@ class _ParamSlider extends StatelessWidget {
             width: 55,
             child: Text(
               '${value.toStringAsFixed(1)}${suffix != null ? ' $suffix' : ''}',
-              style: const TextStyle(
-                fontSize: 10,
+              style: FluxForgeTheme.dockMono(
+                size: 10,
                 color: FluxForgeTheme.textSecondary,
               ),
             ),
@@ -903,9 +903,9 @@ class ClipFxBadge extends StatelessWidget {
             const SizedBox(width: 2),
             Text(
               hasActive ? '$activeCount' : '$totalCount',
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockMono(
+                size: 9,
+                weight: FontWeight.bold,
                 color: Colors.white.withValues(alpha: 0.9),
               ),
             ),

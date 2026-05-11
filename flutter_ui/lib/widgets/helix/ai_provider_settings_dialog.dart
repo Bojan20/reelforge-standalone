@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/ai_composer.dart';
 import '../../services/ai_composer_service.dart';
+import '../../theme/fluxforge_theme.dart';
 
 class AiProviderSettingsDialog extends StatefulWidget {
   const AiProviderSettingsDialog({super.key, required this.service});
@@ -130,16 +131,16 @@ class _AiProviderSettingsDialogState extends State<AiProviderSettingsDialog> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('AI Provider · Multi-provider Composer',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.6)),
+            Text('AI Provider · Multi-provider Composer',
+                style: FluxForgeTheme.dockSans(
+                    size: 16,
+                    weight: FontWeight.w600,
+                    letterSpacing: 0.6,
+                    color: Colors.white)),
             const SizedBox(height: 4),
-            const Text(
+            Text(
               'Choose which AI backend FluxForge uses to compose audio designs.',
-              style: TextStyle(color: Colors.white60, fontSize: 11),
+              style: FluxForgeTheme.dockSans(color: Colors.white60, size: 11),
             ),
             const SizedBox(height: 16),
             _buildProviderSelector(),
@@ -162,10 +163,10 @@ class _AiProviderSettingsDialogState extends State<AiProviderSettingsDialog> {
         final selected = _draft.provider == id;
         return ChoiceChip(
           label: Text(id.displayLabel,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: selected ? Colors.black : Colors.white70,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
+                size: 11,
+                weight: FontWeight.w600,
               )),
           selected: selected,
           onSelected: (_) => setState(() {
@@ -278,15 +279,15 @@ class _AiProviderSettingsDialogState extends State<AiProviderSettingsDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label,
-            style: const TextStyle(
-                color: Colors.white60, fontSize: 11, letterSpacing: 0.4)),
+            style: FluxForgeTheme.dockSans(
+                color: Colors.white60, size: 11, letterSpacing: 0.4)),
         const SizedBox(height: 4),
         TextField(
           controller: ctrl,
-          style: const TextStyle(color: Colors.white, fontSize: 12),
+          style: FluxForgeTheme.dockMono(color: Colors.white, size: 12),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: const TextStyle(color: Colors.white38, fontSize: 11),
+            hintStyle: FluxForgeTheme.dockSans(color: Colors.white38, size: 11),
             isDense: true,
             border: const OutlineInputBorder(),
             contentPadding:
@@ -309,8 +310,8 @@ class _AiProviderSettingsDialogState extends State<AiProviderSettingsDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label,
-            style: const TextStyle(
-                color: Colors.white60, fontSize: 11, letterSpacing: 0.4)),
+            style: FluxForgeTheme.dockSans(
+                color: Colors.white60, size: 11, letterSpacing: 0.4)),
         const SizedBox(height: 4),
         Row(
           children: [
@@ -318,11 +319,11 @@ class _AiProviderSettingsDialogState extends State<AiProviderSettingsDialog> {
               child: TextField(
                 controller: controller,
                 obscureText: obscure,
-                style: const TextStyle(color: Colors.white, fontSize: 12),
+                style: FluxForgeTheme.dockMono(color: Colors.white, size: 12),
                 decoration: InputDecoration(
                   hintText: hint,
                   hintStyle:
-                      const TextStyle(color: Colors.white38, fontSize: 11),
+                      FluxForgeTheme.dockSans(color: Colors.white38, size: 11),
                   isDense: true,
                   border: const OutlineInputBorder(),
                   contentPadding:
@@ -366,8 +367,8 @@ class _AiProviderSettingsDialogState extends State<AiProviderSettingsDialog> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(text,
-                style: const TextStyle(
-                    color: Colors.white70, fontSize: 11, height: 1.4)),
+                style: FluxForgeTheme.dockSans(
+                    color: Colors.white70, size: 11).copyWith(height: 1.4)),
           ),
         ],
       ),
@@ -380,7 +381,7 @@ class _AiProviderSettingsDialogState extends State<AiProviderSettingsDialog> {
         if (_statusMsg != null)
           Expanded(
             child: Text(_statusMsg!,
-                style: TextStyle(color: _statusColor, fontSize: 11)),
+                style: FluxForgeTheme.dockSans(color: _statusColor, size: 11)),
           )
         else
           const Spacer(),

@@ -125,10 +125,10 @@ class _SpinCountStepper extends StatelessWidget {
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           const Icon(Icons.repeat_rounded, size: 12, color: FluxForgeTheme.accentCyan),
           const SizedBox(width: 4),
-          Text('$value spins', style: const TextStyle(
-            fontFamily: 'monospace', fontSize: 10,
-            fontWeight: FontWeight.w700,
-            color: FluxForgeTheme.accentCyan, letterSpacing: 0.3)),
+          Text('$value spins', style: FluxForgeTheme.dockMono(
+            size: 10,
+            weight: FontWeight.w700,
+            color: FluxForgeTheme.accentCyan)),
         ]),
       ),
     );
@@ -158,10 +158,10 @@ class _RecordButton extends StatelessWidget {
           const Icon(Icons.fiber_manual_record_rounded, size: 12,
               color: FluxForgeTheme.accentRed),
           const SizedBox(width: 4),
-          const Text('REC', style: TextStyle(
-            fontFamily: 'monospace', fontSize: 10,
-            fontWeight: FontWeight.w800,
-            color: FluxForgeTheme.accentRed, letterSpacing: 0.4)),
+          Text('REC', style: FluxForgeTheme.dockMono(
+            size: 10,
+            weight: FontWeight.w800,
+            color: FluxForgeTheme.accentRed)),
         ]),
       ),
     );
@@ -199,10 +199,10 @@ class _ProgressView extends StatelessWidget {
           const Icon(Icons.fiber_manual_record_rounded,
               size: 11, color: FluxForgeTheme.accentRed),
           const SizedBox(width: 4),
-          Text('REC $current/$total', style: const TextStyle(
-            fontFamily: 'monospace', fontSize: 9,
-            fontWeight: FontWeight.w700,
-            color: FluxForgeTheme.accentRed, letterSpacing: 0.3)),
+          Text('REC $current/$total', style: FluxForgeTheme.dockMono(
+            size: 9,
+            weight: FontWeight.w700,
+            color: FluxForgeTheme.accentRed)),
           const SizedBox(width: 6),
           SizedBox(
             width: 60,
@@ -232,10 +232,10 @@ class _ProgressView extends StatelessWidget {
               width: 0.8,
             ),
           ),
-          child: const Text('CANCEL', style: TextStyle(
-            fontFamily: 'monospace', fontSize: 9,
-            fontWeight: FontWeight.w700,
-            color: FluxForgeTheme.textSecondary, letterSpacing: 0.4)),
+          child: Text('CANCEL', style: FluxForgeTheme.dockMono(
+            size: 9,
+            weight: FontWeight.w700,
+            color: FluxForgeTheme.textSecondary)),
         ),
       ),
     ]);
@@ -252,8 +252,8 @@ class _LatestSessionRow extends StatelessWidget {
     if (session == null) {
       return Text(
         'No session recorded — REC button kicks off ${50}-spin batch.',
-        style: TextStyle(
-          fontFamily: 'monospace', fontSize: 9,
+        style: FluxForgeTheme.dockMono(
+          size: 9,
           color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6),
         ),
       );
@@ -284,9 +284,10 @@ class _LatestSessionRow extends StatelessWidget {
               '(×${best.result.winRatio.toStringAsFixed(1)})\n\n'
               'Tap to replay through TIMELINE.',
           waitDuration: const Duration(milliseconds: 350),
-          textStyle: const TextStyle(
-            fontFamily: 'monospace', fontSize: 10,
-            color: Colors.white, height: 1.4),
+          textStyle: FluxForgeTheme.dockMono(
+            size: 10,
+            color: Colors.white,
+          ).copyWith(height: 1.4),
           decoration: BoxDecoration(
             color: const Color(0xFF0A0A12),
             borderRadius: BorderRadius.circular(6),
@@ -311,10 +312,10 @@ class _LatestSessionRow extends StatelessWidget {
                 const Icon(Icons.emoji_events_rounded, size: 12,
                     color: FluxForgeTheme.accentYellow),
                 const SizedBox(width: 4),
-                Text(best.result.winTierName, style: const TextStyle(
-                  fontFamily: 'monospace', fontSize: 9,
-                  fontWeight: FontWeight.w800,
-                  color: FluxForgeTheme.accentYellow, letterSpacing: 0.3)),
+                Text(best.result.winTierName, style: FluxForgeTheme.dockMono(
+                  size: 9,
+                  weight: FontWeight.w800,
+                  color: FluxForgeTheme.accentYellow)),
                 const SizedBox(width: 4),
                 const Icon(Icons.replay_rounded, size: 11,
                     color: FluxForgeTheme.accentYellow),
@@ -374,7 +375,7 @@ class _ExportClipButtonState extends State<_ExportClipButton> {
           backgroundColor: FluxForgeTheme.bgElevated,
           content: Text(
             '📦 Clip exported → ${result.clip!.folderPath}',
-            style: const TextStyle(color: FluxForgeTheme.brandGold),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.brandGold),
           ),
         ),
       );
@@ -429,12 +430,10 @@ class _ExportClipButtonState extends State<_ExportClipButton> {
             const SizedBox(width: 4),
             Text(
               _exporting ? 'EXPORTING' : 'CLIP',
-              style: TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 9,
-                fontWeight: FontWeight.w800,
+              style: FluxForgeTheme.dockMono(
+                size: 9,
+                weight: FontWeight.w800,
                 color: color,
-                letterSpacing: 0.3,
               ),
             ),
           ]),
@@ -457,13 +456,12 @@ class _SessionStat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return RichText(text: TextSpan(children: [
-      TextSpan(text: '$label ', style: TextStyle(
-        fontFamily: 'monospace', fontSize: 8,
-        color: color.withValues(alpha: 0.5),
-        letterSpacing: 0.4)),
-      TextSpan(text: value, style: TextStyle(
-        fontFamily: 'monospace', fontSize: 10,
-        fontWeight: FontWeight.w800,
+      TextSpan(text: '$label ', style: FluxForgeTheme.dockMono(
+        size: 8,
+        color: color.withValues(alpha: 0.5))),
+      TextSpan(text: value, style: FluxForgeTheme.dockMono(
+        size: 10,
+        weight: FontWeight.w800,
         color: color)),
     ]));
   }
