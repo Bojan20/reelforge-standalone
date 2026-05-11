@@ -7,6 +7,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/ale_provider.dart';
+import '../../theme/flux_forge_theme.dart';
 
 /// Signal history for graphing
 class SignalHistory {
@@ -126,12 +127,12 @@ class _SignalMonitorState extends State<SignalMonitor> {
         children: [
           const Icon(Icons.monitor_heart, color: Color(0xFF4a9eff), size: 18),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Signal Monitor',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white,
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
+              weight: FontWeight.w600,
+              size: 13,
             ),
           ),
           const Spacer(),
@@ -190,20 +191,19 @@ class _SignalMonitorState extends State<SignalMonitor> {
             children: [
               Text(
                 signalId,
-                style: const TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
+                  weight: FontWeight.w600,
+                  size: 14,
                 ),
               ),
               const Spacer(),
               Text(
                 history.current.toStringAsFixed(3),
-                style: const TextStyle(
-                  color: Color(0xFF4a9eff),
-                  fontWeight: FontWeight.w600,
-                  fontSize: 16,
-                  fontFamily: 'monospace',
+                style: FluxForgeTheme.dockMono(
+                  color: const Color(0xFF4a9eff),
+                  weight: FontWeight.w600,
+                  size: 16,
                 ),
               ),
             ],
@@ -224,16 +224,16 @@ class _SignalMonitorState extends State<SignalMonitor> {
             children: [
               Text(
                 'Min: ${history.min.toStringAsFixed(3)}',
-                style: const TextStyle(
-                  color: Color(0xFF888888),
-                  fontSize: 11,
+                style: FluxForgeTheme.dockMono(
+                  color: const Color(0xFF888888),
+                  size: 11,
                 ),
               ),
               Text(
                 'Max: ${history.max.toStringAsFixed(3)}',
-                style: const TextStyle(
-                  color: Color(0xFF888888),
-                  fontSize: 11,
+                style: FluxForgeTheme.dockMono(
+                  color: const Color(0xFF888888),
+                  size: 11,
                 ),
               ),
             ],
@@ -299,9 +299,9 @@ class _SignalRow extends StatelessWidget {
               flex: 3,
               child: Text(
                 signalId,
-                style: const TextStyle(
-                  color: Color(0xFFcccccc),
-                  fontSize: 12,
+                style: FluxForgeTheme.dockSans(
+                  color: const Color(0xFFcccccc),
+                  size: 12,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -355,11 +355,10 @@ class _SignalRow extends StatelessWidget {
               width: 50,
               child: Text(
                 value.toStringAsFixed(2),
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
                   color: color,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  fontFamily: 'monospace',
+                  size: 12,
+                  weight: FontWeight.w600,
                 ),
                 textAlign: TextAlign.right,
               ),

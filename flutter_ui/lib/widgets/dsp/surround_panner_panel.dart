@@ -105,10 +105,10 @@ class _SurroundPannerPanelState extends State<SurroundPannerPanel> {
           const SizedBox(width: 8),
           Text(
             'SURROUND PANNER',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 14,
+              weight: FontWeight.bold,
               color: FluxForgeTheme.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
             ),
           ),
@@ -116,7 +116,7 @@ class _SurroundPannerPanelState extends State<SurroundPannerPanel> {
           if (!_initialized)
             Text(
               'Initializing...',
-              style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
+              style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textTertiary),
             ),
         ],
       ),
@@ -161,10 +161,10 @@ class _SurroundPannerPanelState extends State<SurroundPannerPanel> {
         ),
         child: Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockMono(
+            size: 11,
+            weight: FontWeight.bold,
             color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
           ),
         ),
       ),
@@ -240,19 +240,19 @@ class _SurroundPannerPanelState extends State<SurroundPannerPanel> {
             children: [
               Text(
                 'HEIGHT',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.bold,
                   color: FluxForgeTheme.textTertiary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
                   letterSpacing: 1.0,
                 ),
               ),
               Text(
                 _z >= 0 ? '+${(_z * 100).toInt()}%' : '${(_z * 100).toInt()}%',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 12,
+                  weight: FontWeight.bold,
                   color: FluxForgeTheme.accentCyan,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
@@ -317,20 +317,20 @@ class _SurroundPannerPanelState extends State<SurroundPannerPanel> {
       children: [
         Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 9,
+            weight: FontWeight.bold,
             color: FluxForgeTheme.textTertiary,
-            fontSize: 9,
-            fontWeight: FontWeight.bold,
             letterSpacing: 1.0,
           ),
         ),
         const SizedBox(height: 4),
         Text(
           value,
-          style: TextStyle(
+          style: FluxForgeTheme.dockMono(
+            size: 12,
+            weight: FontWeight.bold,
             color: FluxForgeTheme.accentCyan,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 4),

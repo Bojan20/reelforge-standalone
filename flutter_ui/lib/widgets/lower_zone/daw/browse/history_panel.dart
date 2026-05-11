@@ -13,6 +13,7 @@ library;
 import 'package:flutter/material.dart';
 import '../../lower_zone_types.dart';
 import '../../../../providers/undo_manager.dart';
+import '../../../../theme/flux_forge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // HISTORY PANEL
@@ -42,7 +43,7 @@ class HistoryPanel extends StatelessWidget {
                   const SizedBox(width: 8),
                   Text(
                     '${undoManager.undoStackSize} actions',
-                    style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted),
+                    style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textMuted),
                   ),
                   const Spacer(),
                   // Undo button
@@ -73,10 +74,7 @@ class HistoryPanel extends StatelessWidget {
                       ),
                       child: Text(
                         'Clear',
-                        style: TextStyle(
-                          fontSize: 9,
-                          color: history.isNotEmpty ? Colors.red : LowerZoneColors.textMuted,
-                        ),
+                        style: FluxForgeTheme.dockSans(size: 9, color: history.isNotEmpty ? Colors.red : LowerZoneColors.textMuted),
                       ),
                     ),
                   ),
@@ -91,10 +89,10 @@ class HistoryPanel extends StatelessWidget {
                     border: Border.all(color: LowerZoneColors.border),
                   ),
                   child: history.isEmpty
-                      ? const Center(
+                      ? Center(
                           child: Text(
                             'No undo history',
-                            style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted),
+                            style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textMuted),
                           ),
                         )
                       : ListView.builder(
@@ -131,9 +129,9 @@ class HistoryPanel extends StatelessWidget {
         const SizedBox(width: 6),
         Text(
           title,
-          style: const TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: FontWeight.bold,
             color: LowerZoneColors.dawAccent,
             letterSpacing: 0.5,
           ),
@@ -165,10 +163,7 @@ class HistoryPanel extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             label,
-            style: TextStyle(
-              fontSize: 9,
-              color: isEnabled ? LowerZoneColors.dawAccent : LowerZoneColors.textMuted,
-            ),
+            style: FluxForgeTheme.dockSans(size: 9, color: isEnabled ? LowerZoneColors.dawAccent : LowerZoneColors.textMuted),
           ),
         ],
       ),
@@ -198,9 +193,9 @@ class HistoryPanel extends StatelessWidget {
           Expanded(
             child: Text(
               action,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: isCurrent ? FontWeight.bold : FontWeight.normal,
                 color: isCurrent ? LowerZoneColors.dawAccent : LowerZoneColors.textPrimary,
               ),
             ),
@@ -214,7 +209,7 @@ class HistoryPanel extends StatelessWidget {
             ),
             child: Text(
               '#${index + 1}',
-              style: const TextStyle(fontSize: 8, color: LowerZoneColors.textMuted),
+              style: FluxForgeTheme.dockMono(size: 8, color: LowerZoneColors.textMuted),
             ),
           ),
         ],

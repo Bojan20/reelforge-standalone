@@ -6,6 +6,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/ale_provider.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Visual representation of audio layers
 class LayerVisualizer extends StatelessWidget {
@@ -75,15 +76,18 @@ class LayerVisualizer extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: const Color(0xFF2a2a35)),
       ),
-      child: const Center(
+      child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.layers_clear, color: Color(0xFF666666), size: 32),
-            SizedBox(height: 8),
+            const Icon(Icons.layers_clear, color: Color(0xFF666666), size: 32),
+            const SizedBox(height: 8),
             Text(
               'No active context',
-              style: TextStyle(color: Color(0xFF666666), fontSize: 12),
+              style: FluxForgeTheme.dockSans(
+                size: 12,
+                color: const Color(0xFF666666),
+              ),
             ),
           ],
         ),
@@ -105,10 +109,10 @@ class LayerVisualizer extends StatelessWidget {
           Expanded(
             child: Text(
               contextName,
-              style: const TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 13,
+                weight: FontWeight.w600,
                 color: Colors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -121,10 +125,10 @@ class LayerVisualizer extends StatelessWidget {
             ),
             child: Text(
               'L${level + 1}/$layerCount',
-              style: const TextStyle(
-                color: Color(0xFF4a9eff),
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockMono(
+                size: 11,
+                weight: FontWeight.w600,
+                color: const Color(0xFF4a9eff),
               ),
             ),
           ),
@@ -312,10 +316,10 @@ class _LayerBar extends StatelessWidget {
           if (showLabel)
             Text(
               '${(volume * 100).toInt()}%',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 10,
+                weight: FontWeight.w600,
                 color: isActive ? color : const Color(0xFF666666),
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
               ),
             ),
 
@@ -396,10 +400,10 @@ class _LayerBar extends StatelessWidget {
               ),
               child: Text(
                 'L${index + 1}',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 10,
+                  weight: isCurrent ? FontWeight.w700 : FontWeight.w500,
                   color: isActive ? color : const Color(0xFF666666),
-                  fontSize: 10,
-                  fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
                 ),
               ),
             ),
@@ -470,10 +474,10 @@ class _LayerRow extends StatelessWidget {
                 width: 30,
                 child: Text(
                   'L${index + 1}',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
+                    size: 11,
+                    weight: isCurrent ? FontWeight.w700 : FontWeight.w500,
                     color: isActive ? color : const Color(0xFF666666),
-                    fontSize: 11,
-                    fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
                   ),
                 ),
               ),
@@ -511,10 +515,10 @@ class _LayerRow extends StatelessWidget {
                 width: 40,
                 child: Text(
                   '${(volume * 100).toInt()}%',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
+                    size: 10,
+                    weight: FontWeight.w600,
                     color: isActive ? color : const Color(0xFF666666),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
                   ),
                   textAlign: TextAlign.right,
                 ),

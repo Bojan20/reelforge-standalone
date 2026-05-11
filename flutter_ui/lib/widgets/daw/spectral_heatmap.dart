@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../../providers/spectral_allocation_provider.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Spectral Heatmap — 10-band density visualization for SAMCL.
 /// Shows density bars for each spectral role with SCI indicator.
@@ -69,10 +70,10 @@ class _SpectralHeatmapState extends State<SpectralHeatmap> {
               const SizedBox(width: 4),
               Text(
                 'Spectral Map',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  weight: FontWeight.w600,
                   color: Colors.white.withValues(alpha: 0.9),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
               const Spacer(),
@@ -104,25 +105,25 @@ class _SpectralHeatmapState extends State<SpectralHeatmap> {
             children: [
               Text(
                 'Collisions: $collisions',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 10,
                   color: Colors.white.withValues(alpha: 0.7),
-                  fontSize: 10,
                 ),
               ),
               const Spacer(),
               Text(
                 'Shifts: ${_provider.slotShifts}',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 10,
                   color: Colors.white.withValues(alpha: 0.7),
-                  fontSize: 10,
                 ),
               ),
               const SizedBox(width: 8),
               Text(
                 'Voices: ${_provider.voiceCount}',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 10,
                   color: Colors.white.withValues(alpha: 0.7),
-                  fontSize: 10,
                 ),
               ),
             ],
@@ -144,9 +145,9 @@ class _SpectralHeatmapState extends State<SpectralHeatmap> {
             width: 56,
             child: Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 9,
                 color: Colors.white.withValues(alpha: 0.6),
-                fontSize: 9,
               ),
             ),
           ),
@@ -174,9 +175,9 @@ class _SpectralHeatmapState extends State<SpectralHeatmap> {
             child: Text(
               '$density',
               textAlign: TextAlign.right,
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 9,
                 color: Colors.white.withValues(alpha: 0.5),
-                fontSize: 9,
               ),
             ),
           ),
@@ -195,7 +196,7 @@ class _SpectralHeatmapState extends State<SpectralHeatmap> {
       ),
       child: Text(
         text,
-        style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w500),
+        style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.w500, color: color),
       ),
     );
   }

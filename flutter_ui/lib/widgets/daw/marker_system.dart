@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/timeline_models.dart';
+import '../../theme/flux_forge_theme.dart';
 import '../lower_zone/lower_zone_types.dart';
 
 /// Marker category with color and icon
@@ -299,9 +300,9 @@ class _MarkerPanelState extends State<MarkerPanel> {
                 children: [
                   const Icon(Icons.flag, size: 16, color: LowerZoneColors.dawAccent),
                   const SizedBox(width: 8),
-                  const Text('MARKERS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: LowerZoneColors.textSecondary)),
+                  Text('MARKERS', style: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.bold, color: LowerZoneColors.textSecondary)),
                   const Spacer(),
-                  Text('${_service.markers.length}', style: const TextStyle(fontSize: 11, color: LowerZoneColors.textMuted)),
+                  Text('${_service.markers.length}', style: FluxForgeTheme.dockMono(size: 11, color: LowerZoneColors.textMuted)),
                 ],
               ),
               const SizedBox(height: 12),
@@ -312,10 +313,10 @@ class _MarkerPanelState extends State<MarkerPanel> {
                   Expanded(
                     child: TextField(
                       controller: _nameController,
-                      style: const TextStyle(fontSize: 12, color: LowerZoneColors.textPrimary),
+                      style: FluxForgeTheme.dockSans(size: 12, color: LowerZoneColors.textPrimary),
                       decoration: InputDecoration(
                         hintText: _editingMarker != null ? 'Edit name...' : 'Marker name...',
-                        hintStyle: const TextStyle(color: LowerZoneColors.textMuted),
+                        hintStyle: FluxForgeTheme.dockSans(color: LowerZoneColors.textMuted),
                         isDense: true,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
@@ -388,8 +389,8 @@ class _MarkerPanelState extends State<MarkerPanel> {
               // Marker list
               Expanded(
                 child: _service.markers.isEmpty
-                    ? const Center(
-                        child: Text('No markers', style: TextStyle(color: LowerZoneColors.textMuted, fontSize: 12)),
+                    ? Center(
+                        child: Text('No markers', style: FluxForgeTheme.dockSans(color: LowerZoneColors.textMuted, size: 12)),
                       )
                     : ListView.builder(
                         itemCount: _service.sortedMarkers.length,
@@ -463,12 +464,12 @@ class _MarkerListItem extends StatelessWidget {
                 children: [
                   Text(
                     marker.name,
-                    style: const TextStyle(fontSize: 12, color: LowerZoneColors.textPrimary),
+                    style: FluxForgeTheme.dockSans(size: 12, color: LowerZoneColors.textPrimary),
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
                     _formatTime(marker.time),
-                    style: const TextStyle(fontSize: 10, color: LowerZoneColors.textMuted, fontFamily: 'monospace'),
+                    style: FluxForgeTheme.dockMono(size: 10, color: LowerZoneColors.textMuted),
                   ),
                 ],
               ),

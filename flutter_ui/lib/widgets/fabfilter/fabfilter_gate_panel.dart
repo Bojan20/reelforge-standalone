@@ -20,6 +20,7 @@ import 'fabfilter_theme.dart';
 import 'fabfilter_knob.dart';
 import 'fabfilter_panel_base.dart';
 import 'fabfilter_widgets.dart';
+import '../../theme/flux_forge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ENUMS & DATA CLASSES
@@ -507,12 +508,11 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
             ),
             child: Text(
               '${(_gateOpen * 100).toStringAsFixed(0)}%',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 9,
+                weight: FontWeight.bold,
                 color: _gateOpen > 0.5 ? FabFilterColors.green : FabFilterColors.red,
-                fontSize: 9,
-                fontWeight: FontWeight.bold,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
+              ).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
             ),
           ),
           const SizedBox(width: 8),
@@ -547,10 +547,10 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
         ),
         child: Text(
           mode.label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 9,
+            weight: FontWeight.bold,
             color: isSelected ? widget.accentColor : FabFilterColors.textTertiary,
-            fontSize: 9,
-            fontWeight: FontWeight.bold,
           ),
         ),
       ),
@@ -607,7 +607,7 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
                 ),
               ),
               const SizedBox(width: 4),
-              Text(stateLabel, style: TextStyle(color: stateColor, fontSize: 8, fontWeight: FontWeight.bold)),
+              Text(stateLabel, style: FluxForgeTheme.dockSans(size: 8, weight: FontWeight.bold, color: stateColor)),
             ],
           ),
         );
@@ -622,7 +622,7 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: TextStyle(color: FabFilterColors.textTertiary, fontSize: 7, fontWeight: FontWeight.bold)),
+        Text(label, style: FluxForgeTheme.dockSans(size: 7, weight: FontWeight.bold, color: FabFilterColors.textTertiary)),
         const SizedBox(height: 2),
         Container(
           height: 10,

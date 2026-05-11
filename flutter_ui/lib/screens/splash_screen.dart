@@ -249,11 +249,11 @@ class _SplashScreenState extends State<SplashScreen>
                           ],
                           stops: [0.0, 0.4, 0.75, 1.0],
                         ).createShader(bounds),
-                        child: const Text(
+                        child: Text(
                           'FluxForge Studio',
-                          style: TextStyle(
-                            fontSize: 48,
-                            fontWeight: FontWeight.w300,
+                          style: FluxForgeTheme.dockSans(
+                            size: 48,
+                            weight: FontWeight.w300,
                             letterSpacing: 8,
                             color: FluxForgeTheme.textPrimary,
                           ),
@@ -262,9 +262,9 @@ class _SplashScreenState extends State<SplashScreen>
                       const SizedBox(height: 8),
                       Text(
                         'AUTHORING TOOL & DAW',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
+                        style: FluxForgeTheme.dockSans(
+                          size: 12,
+                          weight: FontWeight.w500,
                           letterSpacing: 6,
                           color: FluxForgeTheme.textSecondary,
                         ),
@@ -308,17 +308,16 @@ class _SplashScreenState extends State<SplashScreen>
                 children: [
                   Text(
                     'v0.1.0',
-                    style: TextStyle(
-                      fontSize: 11,
+                    style: FluxForgeTheme.dockMono(
+                      size: 11,
                       color: FluxForgeTheme.textTertiary,
-                      letterSpacing: 2,
-                    ),
+                    ).copyWith(letterSpacing: 2),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     '© 2025 VanVinkl Studio',
-                    style: TextStyle(
-                      fontSize: 10,
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
                       color: FluxForgeTheme.textDisabled,
                       letterSpacing: 1,
                     ),
@@ -379,8 +378,8 @@ class _SplashScreenState extends State<SplashScreen>
           // Loading message
           Text(
             widget.loadingMessage ?? 'Initializing...',
-            style: TextStyle(
-              fontSize: 12,
+            style: FluxForgeTheme.dockSans(
+              size: 12,
               color: FluxForgeTheme.textSecondary,
               letterSpacing: 1,
             ),
@@ -401,9 +400,9 @@ class _SplashScreenState extends State<SplashScreen>
         const SizedBox(height: 12),
         Text(
           'Initialization Failed',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
+          style: FluxForgeTheme.dockSans(
+            size: 14,
+            weight: FontWeight.w500,
             color: FluxForgeTheme.errorRed,
           ),
         ),
@@ -414,8 +413,8 @@ class _SplashScreenState extends State<SplashScreen>
             child: Text(
               widget.errorMessage!,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 11,
+              style: FluxForgeTheme.dockSans(
+                size: 11,
                 color: FluxForgeTheme.textSecondary,
               ),
             ),
