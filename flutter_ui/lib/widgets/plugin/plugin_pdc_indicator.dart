@@ -112,9 +112,9 @@ class PluginPDCIndicator extends StatelessWidget {
           ),
           child: Text(
             '$totalLatencySamples smp',
-            style: const TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockMono(
+              size: 10,
+              weight: FontWeight.bold,
               color: FluxForgeTheme.accentCyan,
             ),
           ),
@@ -152,9 +152,9 @@ class PluginPDCIndicator extends StatelessWidget {
       children: [
         Text(
           'Plugin Latencies',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: 11,
+            weight: FontWeight.bold,
             color: FluxForgeTheme.textSecondary,
           ),
         ),
@@ -178,8 +178,8 @@ class PluginPDCIndicator extends StatelessWidget {
           Expanded(
             child: Text(
               plugin.pluginName,
-              style: TextStyle(
-                fontSize: 11,
+              style: FluxForgeTheme.dockSans(
+                size: 11,
                 color: FluxForgeTheme.textPrimary,
               ),
               overflow: TextOverflow.ellipsis,
@@ -188,9 +188,9 @@ class PluginPDCIndicator extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             '${plugin.latencyMs.toStringAsFixed(1)} ms',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockMono(
+              size: 11,
+              weight: FontWeight.bold,
               color: FluxForgeTheme.textSecondary,
             ),
           ),
@@ -390,9 +390,9 @@ class PluginPDCBadge extends StatelessWidget {
             const SizedBox(width: 3),
             Text(
               '${totalLatencyMs.toStringAsFixed(0)}ms',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockMono(
+                size: 10,
+                weight: FontWeight.bold,
                 color: hasWarning ? FluxForgeTheme.accentRed : FluxForgeTheme.accentCyan,
               ),
             ),

@@ -182,10 +182,10 @@ class _ColorPickerContentState extends State<_ColorPickerContent> {
             children: [
               Text(
                 'Track Color',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  weight: FontWeight.w500,
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
                 ),
               ),
               const Spacer(),
@@ -224,9 +224,9 @@ class _ColorPickerContentState extends State<_ColorPickerContent> {
                   ),
                   child: Text(
                     _showCustomPicker ? 'Presets' : 'Custom',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 9,
                       color: FluxForgeTheme.textSecondary,
-                      fontSize: 9,
                     ),
                   ),
                 ),
@@ -357,9 +357,9 @@ class _ColorPickerContentState extends State<_ColorPickerContent> {
           width: 16,
           child: Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 9,
               color: FluxForgeTheme.textSecondary,
-              fontSize: 9,
             ),
           ),
         ),
@@ -385,10 +385,9 @@ class _ColorPickerContentState extends State<_ColorPickerContent> {
           width: 28,
           child: Text(
             value.toInt().toString(),
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 9,
               color: FluxForgeTheme.textSecondary,
-              fontSize: 9,
-              fontFamily: 'monospace',
             ),
             textAlign: TextAlign.right,
           ),
@@ -433,9 +432,9 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
       backgroundColor: FluxForgeTheme.bgDeep,
       title: Text(
         widget.title,
-        style: TextStyle(
+        style: FluxForgeTheme.dockSans(
+          size: 14,
           color: FluxForgeTheme.textPrimary,
-          fontSize: 14,
         ),
       ),
       contentPadding: const EdgeInsets.all(16),
@@ -450,14 +449,14 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: Text(
             'Cancel',
-            style: TextStyle(color: FluxForgeTheme.textSecondary),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
           ),
         ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(_selectedColor),
           child: Text(
             'Apply',
-            style: TextStyle(color: FluxForgeTheme.accentBlue),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentBlue),
           ),
         ),
       ],

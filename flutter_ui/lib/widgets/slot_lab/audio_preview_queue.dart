@@ -11,6 +11,7 @@ library;
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // =============================================================================
 // QUEUE ITEM MODEL
@@ -293,14 +294,14 @@ class AudioPreviewQueueState extends State<AudioPreviewQueue> {
         children: [
           const Icon(Icons.queue_music, size: 18, color: Color(0xFF4A9EFF)),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Preview Queue',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+            style: FluxForgeTheme.dockSans(size: 13, weight: FontWeight.bold),
           ),
           const Spacer(),
           Text(
             '${_queue.length} items',
-            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+            style: FluxForgeTheme.dockMono(size: 11, color: Colors.grey[500]!),
           ),
           const SizedBox(width: 8),
           if (_queue.isNotEmpty)
@@ -326,12 +327,12 @@ class AudioPreviewQueueState extends State<AudioPreviewQueue> {
             const SizedBox(height: 8),
             Text(
               'Queue is empty',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              style: FluxForgeTheme.dockSans(size: 12, color: Colors.grey[600]!),
             ),
             const SizedBox(height: 4),
             Text(
               'Add audio files to preview',
-              style: TextStyle(fontSize: 10, color: Colors.grey[700]),
+              style: FluxForgeTheme.dockSans(size: 10, color: Colors.grey[700]!),
             ),
           ],
         ),
@@ -376,26 +377,25 @@ class AudioPreviewQueueState extends State<AudioPreviewQueue> {
                 ? const Icon(Icons.play_arrow, size: 14, color: Colors.white)
                 : Text(
                     '${index + 1}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: isCurrent ? Colors.white : Colors.grey[500],
+                    style: FluxForgeTheme.dockMono(
+                      size: 11,
+                      weight: FontWeight.bold,
+                      color: isCurrent ? Colors.white : Colors.grey[500]!,
                     ),
                   ),
           ),
         ),
         title: Text(
           item.displayName,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: isCurrent ? FontWeight.w600 : FontWeight.normal,
-          ),
-          overflow: TextOverflow.ellipsis,
+          style: FluxForgeTheme.dockMono(
+            size: 12,
+            weight: isCurrent ? FontWeight.w600 : FontWeight.normal,
+          ).copyWith(overflow: TextOverflow.ellipsis),
         ),
         subtitle: item.duration != null
             ? Text(
                 _formatDuration(item.duration!),
-                style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                style: FluxForgeTheme.dockMono(size: 10, color: Colors.grey[600]!),
               )
             : null,
         trailing: Row(

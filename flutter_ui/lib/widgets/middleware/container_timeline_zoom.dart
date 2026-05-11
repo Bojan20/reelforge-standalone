@@ -188,10 +188,10 @@ class _ContainerTimelineZoomState extends State<ContainerTimelineZoom> {
             ),
             child: Text(
               '${(_controller.zoom * 100).toInt()}%',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 11,
+                weight: FontWeight.bold,
                 color: FluxForgeTheme.textPrimary,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
               ),
             ),
           ),
@@ -201,7 +201,7 @@ class _ContainerTimelineZoomState extends State<ContainerTimelineZoom> {
           _buildToolbarButton(Icons.fit_screen, () => _controller.resetZoom()),
           const Spacer(),
           // Snap grid
-          Text('Snap:', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 10)),
+          Text('Snap:', style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textSecondary)),
           const SizedBox(width: 6),
           _buildSnapDropdown(),
           const SizedBox(width: 8),
@@ -215,10 +215,10 @@ class _ContainerTimelineZoomState extends State<ContainerTimelineZoom> {
             ),
             child: Text(
               '${_totalDurationMs.toStringAsFixed(0)}ms',
-              style: const TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 10,
+                weight: FontWeight.bold,
                 color: Colors.teal,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
               ),
             ),
           ),
@@ -255,7 +255,7 @@ class _ContainerTimelineZoomState extends State<ContainerTimelineZoom> {
           value: _controller.snapGridMs,
           isDense: true,
           dropdownColor: FluxForgeTheme.surfaceDark,
-          style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 10),
+          style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textPrimary),
           icon: Icon(Icons.arrow_drop_down,
               size: 14, color: FluxForgeTheme.textSecondary),
           items: const [

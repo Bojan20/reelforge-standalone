@@ -89,7 +89,7 @@ class _MixerUndoToolbarState extends State<MixerUndoToolbar> {
             Expanded(
               child: Text(
                 message,
-                style: const TextStyle(fontSize: 12),
+                style: FluxForgeTheme.dockSans(size: 12),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -232,12 +232,12 @@ class _UndoButton extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     label!,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 11,
+                      weight: FontWeight.w500,
                       color: enabled
                           ? FluxForgeTheme.textPrimary
                           : FluxForgeTheme.textMuted.withValues(alpha: 0.4),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
@@ -312,13 +312,13 @@ class _HistoryDropdown extends StatelessWidget {
       itemBuilder: (context) {
         if (history.isEmpty) {
           return [
-            const PopupMenuItem<int>(
+            PopupMenuItem<int>(
               enabled: false,
               child: Text(
                 'No history',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 12,
                   color: FluxForgeTheme.textMuted,
-                  fontSize: 12,
                 ),
               ),
             ),
@@ -332,10 +332,10 @@ class _HistoryDropdown extends StatelessWidget {
             height: 28,
             child: Text(
               'UNDO HISTORY (${history.length})',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.w600,
                 color: FluxForgeTheme.textMuted,
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
                 letterSpacing: 0.5,
               ),
             ),
@@ -355,10 +355,9 @@ class _HistoryDropdown extends StatelessWidget {
                     alignment: Alignment.centerRight,
                     child: Text(
                       '#${index + 1}',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockMono(
+                        size: 10,
                         color: FluxForgeTheme.textMuted,
-                        fontSize: 10,
-                        fontFamily: 'monospace',
                       ),
                     ),
                   ),
@@ -372,8 +371,8 @@ class _HistoryDropdown extends StatelessWidget {
                   Expanded(
                     child: Text(
                       action.description,
-                      style: const TextStyle(
-                        fontSize: 11,
+                      style: FluxForgeTheme.dockSans(
+                        size: 11,
                         color: FluxForgeTheme.textPrimary,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -506,10 +505,9 @@ class MixerUndoStatus extends StatelessWidget {
               const SizedBox(width: 4),
               Text(
                 'U:$undoCount R:$redoCount',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 10,
                   color: FluxForgeTheme.textMuted,
-                  fontSize: 10,
-                  fontFamily: 'monospace',
                 ),
               ),
             ],

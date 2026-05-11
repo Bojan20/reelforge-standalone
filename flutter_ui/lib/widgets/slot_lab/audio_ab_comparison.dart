@@ -69,7 +69,7 @@ class _AudioABComparisonState extends State<AudioABComparison> {
         children: [
           Icon(Icons.compare, color: FluxForgeTheme.accentBlue),
           const SizedBox(width: 8),
-          const Text('A/B Comparison', style: TextStyle(color: Colors.white)),
+          Text('A/B Comparison', style: FluxForgeTheme.dockSans(color: Colors.white)),
           const Spacer(),
           Switch(
             value: _syncPlayback,
@@ -77,7 +77,7 @@ class _AudioABComparisonState extends State<AudioABComparison> {
             activeColor: FluxForgeTheme.accentGreen,
           ),
           const SizedBox(width: 6),
-          const Text('Sync', style: TextStyle(fontSize: 11, color: Colors.white54)),
+          Text('Sync', style: FluxForgeTheme.dockSans(size: 11, color: Colors.white54)),
         ],
       ),
       content: SizedBox(
@@ -205,9 +205,9 @@ class _AudioABComparisonState extends State<AudioABComparison> {
                   alignment: Alignment.center,
                   child: Text(
                     label,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                    style: FluxForgeTheme.dockSans(
+                      size: 18,
+                      weight: FontWeight.bold,
                       color: color,
                     ),
                   ),
@@ -219,18 +219,15 @@ class _AudioABComparisonState extends State<AudioABComparison> {
                     children: [
                       Text(
                         displayName,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                        style: FluxForgeTheme.dockSans(
+                          size: 12,
+                          weight: FontWeight.w600,
                           color: Colors.white,
                         ),
                       ),
                       Text(
                         fileName,
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: Colors.white38,
-                        ),
+                        style: FluxForgeTheme.dockMono(size: 10, color: Colors.white38),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
@@ -251,7 +248,7 @@ class _AudioABComparisonState extends State<AudioABComparison> {
               child: Center(
                 child: Text(
                   'Waveform: $fileName',
-                  style: const TextStyle(fontSize: 10, color: Colors.white24),
+                  style: FluxForgeTheme.dockMono(size: 10, color: Colors.white24),
                 ),
               ),
             ),
@@ -278,11 +275,7 @@ class _AudioABComparisonState extends State<AudioABComparison> {
                   width: 50,
                   child: Text(
                     '${(volume * 100).toInt()}%',
-                    style: const TextStyle(
-                      fontSize: 10,
-                      color: Colors.white54,
-                      fontFamily: 'monospace',
-                    ),
+                    style: FluxForgeTheme.dockMono(size: 10, color: Colors.white54),
                     textAlign: TextAlign.right,
                   ),
                 ),

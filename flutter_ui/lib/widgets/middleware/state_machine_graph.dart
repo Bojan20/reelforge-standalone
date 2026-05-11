@@ -133,9 +133,9 @@ class _StateMachineGraphState extends State<StateMachineGraph>
             const SizedBox(height: 12),
             Text(
               'Select a State Group',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 14,
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 14,
               ),
             ),
           ],
@@ -163,9 +163,9 @@ class _StateMachineGraphState extends State<StateMachineGraph>
           const SizedBox(width: 8),
           Text(
             group.name,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textPrimary,
-              fontWeight: FontWeight.w500,
+              weight: FontWeight.w500,
             ),
           ),
           const Spacer(),
@@ -177,9 +177,9 @@ class _StateMachineGraphState extends State<StateMachineGraph>
             ),
             child: Text(
               'Current: ${group.currentStateName}',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 12,
                 color: FluxForgeTheme.accentGreen,
-                fontSize: 12,
               ),
             ),
           ),
@@ -194,9 +194,9 @@ class _StateMachineGraphState extends State<StateMachineGraph>
           ),
           Text(
             '${(_scale * 100).round()}%',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 10,
               color: FluxForgeTheme.textSecondary,
-              fontSize: 10,
             ),
           ),
           IconButton(
@@ -308,12 +308,12 @@ class _StateMachineGraphState extends State<StateMachineGraph>
                 ),
               Text(
                 state.name,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 11 * _scale,
                   color: isCurrent
                       ? FluxForgeTheme.textPrimary
                       : FluxForgeTheme.textSecondary,
-                  fontSize: 11 * _scale,
-                  fontWeight: isCurrent ? FontWeight.w500 : FontWeight.normal,
+                  weight: isCurrent ? FontWeight.w500 : FontWeight.normal,
                 ),
                 textAlign: TextAlign.center,
                 maxLines: 2,
@@ -348,9 +348,9 @@ class _StateMachineGraphState extends State<StateMachineGraph>
           const SizedBox(width: 4),
           Text(
             'Default',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: FluxForgeTheme.textSecondary,
-              fontSize: 10,
             ),
           ),
         ],
@@ -373,9 +373,9 @@ class _StateMachineGraphState extends State<StateMachineGraph>
         const SizedBox(width: 4),
         Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 10,
             color: FluxForgeTheme.textSecondary,
-            fontSize: 10,
           ),
         ),
       ],

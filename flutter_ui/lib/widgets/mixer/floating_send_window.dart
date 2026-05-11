@@ -7,6 +7,7 @@
 import 'dart:math' as math;
 import 'dart:ui' show FontFeature;
 import 'package:flutter/material.dart';
+import '../../theme/fluxforge_theme.dart';
 import 'ultimate_mixer.dart' show SendData, SendTapPoint;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -207,10 +208,10 @@ class _FloatingSendWindowWidgetState extends State<_FloatingSendWindowWidget> {
                     children: [
                       Text(
                         'Send ${String.fromCharCode(65 + widget.sendIndex)} — ${widget.channelName}',
-                        style: const TextStyle(
-                          color: Color(0xFFCCCCDD),
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
+                        style: FluxForgeTheme.dockSans(
+                          size: 10,
+                          color: const Color(0xFFCCCCDD),
+                          weight: FontWeight.w600,
                         ),
                       ),
                       const Spacer(),
@@ -246,9 +247,9 @@ class _FloatingSendWindowWidgetState extends State<_FloatingSendWindowWidget> {
                                   value: d,
                                   height: 24,
                                   child: Text(d,
-                                      style: const TextStyle(
-                                          fontSize: 10,
-                                          color: Color(0xFFCCCCDD))),
+                                      style: FluxForgeTheme.dockSans(
+                                          size: 10,
+                                          color: const Color(0xFFCCCCDD))),
                                 ))
                             .toList(),
                         child: Container(
@@ -267,9 +268,9 @@ class _FloatingSendWindowWidgetState extends State<_FloatingSendWindowWidget> {
                               Expanded(
                                 child: Text(
                                   widget.send.destination ?? '—',
-                                  style: const TextStyle(
-                                    color: Color(0xFFCCCCDD),
-                                    fontSize: 10,
+                                  style: FluxForgeTheme.dockSans(
+                                    size: 10,
+                                    color: const Color(0xFFCCCCDD),
                                   ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -319,16 +320,15 @@ class _FloatingSendWindowWidgetState extends State<_FloatingSendWindowWidget> {
                               width: 34,
                               child: Text(
                                 '$levelText dB',
-                                style: TextStyle(
+                                style: FluxForgeTheme.dockMono(
+                                  size: 8,
                                   color: _level > 1.0
                                       ? const Color(0xFFFF9040)
                                       : const Color(0xFF9999AA),
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.w600,
-                                  fontFeatures: const [
-                                    FontFeature.tabularFigures()
-                                  ],
-                                ),
+                                  weight: FontWeight.w600,
+                                ).copyWith(fontFeatures: const [
+                                  FontFeature.tabularFigures()
+                                ]),
                               ),
                             ),
                           ],
@@ -362,12 +362,12 @@ class _FloatingSendWindowWidgetState extends State<_FloatingSendWindowWidget> {
                             child: Center(
                               child: Text(
                                 isPreFader ? 'PRE' : 'POST',
-                                style: TextStyle(
+                                style: FluxForgeTheme.dockSans(
+                                  size: 9,
                                   color: isPreFader
                                       ? const Color(0xFF40FF90)
                                       : const Color(0xFF888899),
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w600,
+                                  weight: FontWeight.w600,
                                 ),
                               ),
                             ),
@@ -400,12 +400,12 @@ class _FloatingSendWindowWidgetState extends State<_FloatingSendWindowWidget> {
                             child: Center(
                               child: Text(
                                 'MUTE',
-                                style: TextStyle(
+                                style: FluxForgeTheme.dockSans(
+                                  size: 9,
                                   color: _muted
                                       ? const Color(0xFFFF4060)
                                       : const Color(0xFF888899),
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w600,
+                                  weight: FontWeight.w600,
                                 ),
                               ),
                             ),
@@ -430,10 +430,10 @@ class _FloatingSendWindowWidgetState extends State<_FloatingSendWindowWidget> {
           width: 32,
           child: Text(
             label,
-            style: const TextStyle(
-              color: Color(0xFF777788),
-              fontSize: 9,
-              fontWeight: FontWeight.w500,
+            style: FluxForgeTheme.dockSans(
+              size: 9,
+              color: const Color(0xFF777788),
+              weight: FontWeight.w500,
             ),
           ),
         ),
