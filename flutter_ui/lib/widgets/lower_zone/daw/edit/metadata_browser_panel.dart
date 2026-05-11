@@ -17,6 +17,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../src/rust/native_ffi.dart';
+import '../../../../theme/fluxforge_theme.dart';
 import '../../../fabfilter/fabfilter_theme.dart';
 import '../../../fabfilter/fabfilter_widgets.dart';
 
@@ -545,8 +546,8 @@ class _MetadataBrowserPanelState extends State<MetadataBrowserPanel> {
               child: TextField(
                 controller: _pathCtrl,
                 focusNode: _pathFocus,
-                style: const TextStyle(
-                    fontSize: 11, color: FabFilterColors.textPrimary),
+                style: FluxForgeTheme.dockSans(
+                    size: 11, color: FabFilterColors.textPrimary),
                 decoration: _inputDeco('File path (e.g. /path/to/audio.wav)...'),
                 onSubmitted: (path) {
                   if (path.trim().isNotEmpty) {
@@ -580,8 +581,8 @@ class _MetadataBrowserPanelState extends State<MetadataBrowserPanel> {
             child: TextField(
               controller: _searchCtrl,
               focusNode: _searchFocus,
-              style: const TextStyle(
-                  fontSize: 11, color: FabFilterColors.textPrimary),
+              style: FluxForgeTheme.dockSans(
+                  size: 11, color: FabFilterColors.textPrimary),
               decoration: _inputDeco('Search (AND / | OR / -NOT)...').copyWith(
                 prefixIcon: Padding(
                   padding: const EdgeInsets.only(left: 6, right: 2),
@@ -660,8 +661,8 @@ class _MetadataBrowserPanelState extends State<MetadataBrowserPanel> {
                       Expanded(
                         child: Text(
                           _standardLabel(std),
-                          style: TextStyle(
-                            fontSize: 10,
+                          style: FluxForgeTheme.dockSans(
+                            size: 10,
                             color: available
                                 ? (active
                                     ? _standardColor(std)
@@ -672,8 +673,8 @@ class _MetadataBrowserPanelState extends State<MetadataBrowserPanel> {
                       ),
                       Text(
                         '$count',
-                        style: TextStyle(
-                          fontSize: 9,
+                        style: FluxForgeTheme.dockSans(
+                          size: 9,
                           color: available
                               ? FabFilterColors.textTertiary
                               : FabFilterColors.textDisabled,
@@ -690,21 +691,22 @@ class _MetadataBrowserPanelState extends State<MetadataBrowserPanel> {
             GestureDetector(
               onTap: () => setState(() => _activeFilters.clear()),
               child: Text('Clear filters',
-                  style: TextStyle(
-                      fontSize: 9, color: FabFilterColors.cyan,
-                      decoration: TextDecoration.underline,
-                      decorationColor: FabFilterColors.cyan)),
+                  style: FluxForgeTheme.dockSans(
+                      size: 9, color: FabFilterColors.cyan).copyWith(
+                    decoration: TextDecoration.underline,
+                    decorationColor: FabFilterColors.cyan,
+                  )),
             ),
           const Spacer(),
           const Divider(color: FabFilterColors.border, height: 16),
           Text(
             '${_filteredEntries.length} / ${_service.entries.length} entries',
-            style: TextStyle(fontSize: 10, color: FabFilterColors.textTertiary),
+            style: FluxForgeTheme.dockSans(size: 10, color: FabFilterColors.textTertiary),
           ),
           if (_service.error != null)
             Text(
               _service.error!,
-              style: TextStyle(fontSize: 9, color: FabFilterColors.orange),
+              style: FluxForgeTheme.dockSans(size: 9, color: FabFilterColors.orange),
             ),
         ],
       ),
@@ -727,14 +729,14 @@ class _MetadataBrowserPanelState extends State<MetadataBrowserPanel> {
             Text(
               'Enter a file path or click Browse\nto view audio metadata',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                  color: FabFilterColors.textTertiary, fontSize: 12),
+              style: FluxForgeTheme.dockSans(
+                  color: FabFilterColors.textTertiary, size: 12),
             ),
             const SizedBox(height: 4),
             Text(
               'Supported: WAV, BWF, AIF, MP3, OGG, FLAC',
-              style: TextStyle(
-                  color: FabFilterColors.textDisabled, fontSize: 10),
+              style: FluxForgeTheme.dockSans(
+                  color: FabFilterColors.textDisabled, size: 10),
             ),
           ],
         ),
@@ -764,8 +766,8 @@ class _MetadataBrowserPanelState extends State<MetadataBrowserPanel> {
           child: entries.isEmpty
               ? Center(
                   child: Text('No matches for "$_searchQuery"',
-                      style: TextStyle(
-                          color: FabFilterColors.textTertiary, fontSize: 11)),
+                      style: FluxForgeTheme.dockSans(
+                          color: FabFilterColors.textTertiary, size: 11)),
                 )
               : ListView.builder(
                   itemCount: entries.length,
@@ -800,9 +802,9 @@ class _MetadataBrowserPanelState extends State<MetadataBrowserPanel> {
               ),
               child: Text(
                 entry.standardLabel,
-                style: TextStyle(
-                  fontSize: 8,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
+                  weight: FontWeight.w600,
                   color: entry.standardColor,
                 ),
                 textAlign: TextAlign.center,
@@ -814,10 +816,9 @@ class _MetadataBrowserPanelState extends State<MetadataBrowserPanel> {
             width: 140,
             child: Text(
               entry.key,
-              style: const TextStyle(
-                fontSize: 10,
+              style: FluxForgeTheme.dockMono(
+                size: 10,
                 color: FabFilterColors.textSecondary,
-                fontFamily: 'monospace',
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -826,8 +827,8 @@ class _MetadataBrowserPanelState extends State<MetadataBrowserPanel> {
           Expanded(
             child: Text(
               entry.value,
-              style: const TextStyle(
-                fontSize: 10,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
                 color: FabFilterColors.textPrimary,
               ),
               overflow: TextOverflow.ellipsis,
@@ -859,9 +860,9 @@ class _MetadataBrowserPanelState extends State<MetadataBrowserPanel> {
   // HELPERS
   // ═════════════════════════════════════════════════════════════════════════
 
-  TextStyle get _headerStyle => const TextStyle(
-        fontSize: 8,
-        fontWeight: FontWeight.w600,
+  TextStyle get _headerStyle => FluxForgeTheme.dockSans(
+        size: 8,
+        weight: FontWeight.w600,
         color: FabFilterColors.textTertiary,
         letterSpacing: 0.5,
       );
@@ -901,7 +902,7 @@ class _MetadataBrowserPanelState extends State<MetadataBrowserPanel> {
   InputDecoration _inputDeco(String hint) => InputDecoration(
         hintText: hint,
         hintStyle:
-            TextStyle(color: FabFilterColors.textTertiary, fontSize: 11),
+            FluxForgeTheme.dockSans(color: FabFilterColors.textTertiary, size: 11),
         isDense: true,
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 8, vertical: 6),

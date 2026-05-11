@@ -214,7 +214,7 @@ class _ContainerCrossfadePreviewPanelState extends State<ContainerCrossfadePrevi
             return Center(
               child: Text(
                 'Container not found',
-                style: TextStyle(color: FluxForgeTheme.textSecondary),
+                style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
               ),
             );
           }
@@ -255,10 +255,10 @@ class _ContainerCrossfadePreviewPanelState extends State<ContainerCrossfadePrevi
         const SizedBox(width: 8),
         Text(
           'Crossfade Preview',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textPrimary,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
+            size: 12,
+            weight: FontWeight.bold,
           ),
         ),
         const SizedBox(width: 12),
@@ -270,10 +270,10 @@ class _ContainerCrossfadePreviewPanelState extends State<ContainerCrossfadePrevi
           ),
           child: Text(
             container.name,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.purple,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
+              size: 11,
+              weight: FontWeight.bold,
             ),
           ),
         ),
@@ -301,7 +301,7 @@ class _ContainerCrossfadePreviewPanelState extends State<ContainerCrossfadePrevi
                 const SizedBox(width: 6),
                 Text(
                   'Recording (${_recordedKeyframes.length})',
-                  style: TextStyle(color: Colors.red, fontSize: 10),
+                  style: FluxForgeTheme.dockSans(color: Colors.red, size: 10),
                 ),
               ],
             ),
@@ -357,9 +357,9 @@ class _ContainerCrossfadePreviewPanelState extends State<ContainerCrossfadePrevi
             children: [
               Text(
                 'RTPC Value',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textSecondary,
-                  fontSize: 11,
+                  size: 11,
                 ),
               ),
               const Spacer(),
@@ -371,11 +371,10 @@ class _ContainerCrossfadePreviewPanelState extends State<ContainerCrossfadePrevi
                 ),
                 child: Text(
                   _rtpcValue.toStringAsFixed(3),
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
                     color: Colors.purple,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'monospace',
+                    size: 14,
+                    weight: FontWeight.bold,
                   ),
                 ),
               ),
@@ -405,10 +404,10 @@ class _ContainerCrossfadePreviewPanelState extends State<ContainerCrossfadePrevi
               final isActive = _rtpcValue >= value - 0.05 && _rtpcValue <= value + 0.05;
               return Text(
                 '${(value * 100).toInt()}%',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
                   color: isActive ? Colors.purple : FluxForgeTheme.textSecondary,
-                  fontSize: 8,
-                  fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                  size: 8,
+                  weight: isActive ? FontWeight.bold : FontWeight.normal,
                 ),
               );
             }),
@@ -423,7 +422,7 @@ class _ContainerCrossfadePreviewPanelState extends State<ContainerCrossfadePrevi
       return Center(
         child: Text(
           'No children in container',
-          style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12),
         ),
       );
     }
@@ -491,19 +490,19 @@ class _ContainerCrossfadePreviewPanelState extends State<ContainerCrossfadePrevi
                   // Volume label
                   Text(
                     '${(volume * 100).toInt()}%',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockMono(
                       color: color,
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
+                      size: 9,
+                      weight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 2),
                   // Name
                   Text(
                     child.name,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: FluxForgeTheme.textPrimary,
-                      fontSize: 9,
+                      size: 9,
                     ),
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
@@ -558,12 +557,12 @@ class _ContainerCrossfadePreviewPanelState extends State<ContainerCrossfadePrevi
                 const SizedBox(width: 6),
                 Text(
                   _isPlaying ? 'Stop' : 'Play',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: hasAudio
                         ? (_isPlaying ? Colors.red : Colors.green)
                         : FluxForgeTheme.textSecondary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+                    size: 12,
+                    weight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -638,9 +637,9 @@ class _ContainerCrossfadePreviewPanelState extends State<ContainerCrossfadePrevi
                 const SizedBox(width: 4),
                 Text(
                   'Reset',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: FluxForgeTheme.textSecondary,
-                    fontSize: 11,
+                    size: 11,
                   ),
                 ),
               ],
@@ -662,9 +661,9 @@ class _ContainerCrossfadePreviewPanelState extends State<ContainerCrossfadePrevi
               const SizedBox(width: 6),
               Text(
                 container.crossfadeCurve.displayName,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 11,
+                  size: 11,
                 ),
               ),
             ],

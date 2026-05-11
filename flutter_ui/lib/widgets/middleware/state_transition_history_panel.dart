@@ -267,10 +267,10 @@ class _StateTransitionHistoryPanelState
           const SizedBox(width: 8),
           Text(
             'STATE TRANSITIONS',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.accentCyan,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
+              size: 10,
+              weight: FontWeight.bold,
               letterSpacing: 1,
             ),
           ),
@@ -323,10 +323,10 @@ class _StateTransitionHistoryPanelState
             child: SizedBox(
               height: 24,
               child: TextField(
-                style: const TextStyle(color: Colors.white70, fontSize: 11),
+                style: FluxForgeTheme.dockSans(color: Colors.white70, size: 11),
                 decoration: InputDecoration(
                   hintText: 'Filter...',
-                  hintStyle: const TextStyle(color: Colors.white24, fontSize: 11),
+                  hintStyle: FluxForgeTheme.dockSans(color: Colors.white24, size: 11),
                   prefixIcon: const Icon(Icons.search, size: 14, color: Colors.white24),
                   filled: true,
                   fillColor: FluxForgeTheme.bgDeep,
@@ -374,10 +374,10 @@ class _StateTransitionHistoryPanelState
         ),
         child: Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: isSelected ? color : Colors.white38,
-            fontSize: 9,
-            fontWeight: FontWeight.bold,
+            size: 9,
+            weight: FontWeight.bold,
           ),
         ),
       ),
@@ -397,19 +397,13 @@ class _StateTransitionHistoryPanelState
           const SizedBox(height: 8),
           Text(
             _isPaused ? 'Paused' : 'Waiting for state changes...',
-            style: TextStyle(
-              color: Colors.white24,
-              fontSize: 11,
-            ),
+            style: FluxForgeTheme.dockSans(color: Colors.white24, size: 11),
           ),
           if (_filterText.isNotEmpty || _typeFilter != null) ...[
             const SizedBox(height: 4),
             Text(
               '(filtered)',
-              style: TextStyle(
-                color: Colors.white12,
-                fontSize: 9,
-              ),
+              style: FluxForgeTheme.dockSans(color: Colors.white12, size: 9),
             ),
           ],
         ],
@@ -432,11 +426,7 @@ class _StateTransitionHistoryPanelState
             width: 85,
             child: Text(
               event.formattedTime,
-              style: TextStyle(
-                color: Colors.white38,
-                fontSize: 9,
-                fontFamily: 'monospace',
-              ),
+              style: FluxForgeTheme.dockMono(color: Colors.white38, size: 9),
             ),
           ),
           // Type badge
@@ -450,10 +440,10 @@ class _StateTransitionHistoryPanelState
             child: Text(
               event.typeLabel,
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: event.typeColor,
-                fontSize: 8,
-                fontWeight: FontWeight.bold,
+                size: 8,
+                weight: FontWeight.bold,
               ),
             ),
           ),
@@ -463,10 +453,7 @@ class _StateTransitionHistoryPanelState
             flex: 2,
             child: Text(
               event.groupName,
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 10,
-              ),
+              style: FluxForgeTheme.dockSans(color: Colors.white70, size: 10),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -474,10 +461,7 @@ class _StateTransitionHistoryPanelState
           const SizedBox(width: 4),
           Text(
             event.fromState,
-            style: TextStyle(
-              color: Colors.white38,
-              fontSize: 10,
-            ),
+            style: FluxForgeTheme.dockSans(color: Colors.white38, size: 10),
           ),
           const SizedBox(width: 4),
           Icon(Icons.arrow_forward, size: 10, color: FluxForgeTheme.accentGreen),
@@ -486,10 +470,10 @@ class _StateTransitionHistoryPanelState
             flex: 1,
             child: Text(
               event.toState,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.accentGreen,
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
+                size: 10,
+                weight: FontWeight.w500,
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -499,10 +483,7 @@ class _StateTransitionHistoryPanelState
             const SizedBox(width: 4),
             Text(
               '${(event.transitionDuration! * 1000).toStringAsFixed(0)}ms',
-              style: TextStyle(
-                color: Colors.white24,
-                fontSize: 9,
-              ),
+              style: FluxForgeTheme.dockMono(color: Colors.white24, size: 9),
             ),
           ],
         ],
@@ -523,18 +504,12 @@ class _StateTransitionHistoryPanelState
         children: [
           Text(
             '$filteredCount events',
-            style: TextStyle(
-              color: Colors.white38,
-              fontSize: 9,
-            ),
+            style: FluxForgeTheme.dockSans(color: Colors.white38, size: 9),
           ),
           if (_filterText.isNotEmpty || _typeFilter != null) ...[
             Text(
               ' (${_events.length} total)',
-              style: TextStyle(
-                color: Colors.white24,
-                fontSize: 9,
-              ),
+              style: FluxForgeTheme.dockSans(color: Colors.white24, size: 9),
             ),
           ],
           const Spacer(),
@@ -547,10 +522,10 @@ class _StateTransitionHistoryPanelState
               ),
               child: Text(
                 'PAUSED',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.accentOrange,
-                  fontSize: 8,
-                  fontWeight: FontWeight.bold,
+                  size: 8,
+                  weight: FontWeight.bold,
                 ),
               ),
             ),

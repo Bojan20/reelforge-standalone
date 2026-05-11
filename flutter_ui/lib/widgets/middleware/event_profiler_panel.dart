@@ -193,12 +193,12 @@ class _EventProfilerPanelState extends State<EventProfilerPanel> {
             size: 16,
           ),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'EVENT PROFILER',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textPrimary,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+              size: 11,
+              weight: FontWeight.w600,
               letterSpacing: 1,
             ),
           ),
@@ -227,12 +227,12 @@ class _EventProfilerPanelState extends State<EventProfilerPanel> {
                 const SizedBox(width: 4),
                 Text(
                   _isRecording ? 'REC' : 'PAUSED',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: _isRecording
                         ? FluxForgeTheme.accentRed
                         : FluxForgeTheme.textSecondary,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
+                    size: 9,
+                    weight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -242,9 +242,9 @@ class _EventProfilerPanelState extends State<EventProfilerPanel> {
           // Events per second
           Text(
             '${stats.eventsPerSecond} evt/s',
-            style: const TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: FluxForgeTheme.textSecondary,
-              fontSize: 10,
+              size: 10,
             ),
           ),
         ],
@@ -331,20 +331,20 @@ class _EventProfilerPanelState extends State<EventProfilerPanel> {
           children: [
             Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: color.withValues(alpha: 0.7),
-                fontSize: 8,
-                fontWeight: FontWeight.w600,
+                size: 8,
+                weight: FontWeight.w600,
                 letterSpacing: 0.5,
               ),
             ),
             const SizedBox(height: 2),
             Text(
               value,
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: color,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
+                size: 12,
+                weight: FontWeight.w700,
               ),
             ),
           ],
@@ -410,18 +410,18 @@ class _EventProfilerPanelState extends State<EventProfilerPanel> {
             children: [
               Text(
                 label,
-                style: const TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textSecondary,
-                  fontSize: 8,
-                  fontWeight: FontWeight.w600,
+                  size: 8,
+                  weight: FontWeight.w600,
                 ),
               ),
               Text(
                 text,
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
                   color: color,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
+                  size: 9,
+                  weight: FontWeight.w600,
                 ),
               ),
             ],
@@ -484,9 +484,9 @@ class _EventProfilerPanelState extends State<EventProfilerPanel> {
                 ? Center(
                     child: Text(
                       'No events recorded',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: FluxForgeTheme.textSecondary,
-                        fontSize: 11,
+                        size: 11,
                       ),
                     ),
                   )
@@ -524,12 +524,12 @@ class _EventProfilerPanelState extends State<EventProfilerPanel> {
         ),
         child: Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: isSelected
                 ? FluxForgeTheme.accentBlue
                 : FluxForgeTheme.textSecondary,
-            fontSize: 9,
-            fontWeight: FontWeight.w600,
+            size: 9,
+            weight: FontWeight.w600,
           ),
         ),
       ),
@@ -559,10 +559,9 @@ class _EventProfilerPanelState extends State<EventProfilerPanel> {
             width: 70,
             child: Text(
               time,
-              style: const TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 9,
-                fontFamily: 'monospace',
+                size: 9,
               ),
             ),
           ),
@@ -582,9 +581,9 @@ class _EventProfilerPanelState extends State<EventProfilerPanel> {
           Expanded(
             child: Text(
               event.description,
-              style: const TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.textPrimary,
-                fontSize: 10,
+                size: 10,
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -604,14 +603,14 @@ class _EventProfilerPanelState extends State<EventProfilerPanel> {
               ),
               child: Text(
                 '${(event.latencyUs / 1000).toStringAsFixed(2)}ms',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
                   color: event.latencyUs < 1000
                       ? FluxForgeTheme.accentGreen
                       : event.latencyUs < 5000
                           ? FluxForgeTheme.accentOrange
                           : FluxForgeTheme.accentRed,
-                  fontSize: 8,
-                  fontWeight: FontWeight.w600,
+                  size: 8,
+                  weight: FontWeight.w600,
                 ),
               ),
             ),
@@ -686,9 +685,9 @@ class _EventProfilerPanelState extends State<EventProfilerPanel> {
           // Simulate events (for testing)
           Text(
             'TEST:',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textSecondary,
-              fontSize: 9,
+              size: 9,
             ),
           ),
           const SizedBox(width: 4),
@@ -729,10 +728,10 @@ class _EventProfilerPanelState extends State<EventProfilerPanel> {
             const SizedBox(width: 4),
             Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: color ?? FluxForgeTheme.textSecondary,
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
+                size: 9,
+                weight: FontWeight.w600,
               ),
             ),
           ],
@@ -754,10 +753,10 @@ class _EventProfilerPanelState extends State<EventProfilerPanel> {
         ),
         child: Text(
           label,
-          style: const TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textSecondary,
-            fontSize: 8,
-            fontWeight: FontWeight.w500,
+            size: 8,
+            weight: FontWeight.w500,
           ),
         ),
       ),

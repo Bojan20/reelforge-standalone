@@ -14,6 +14,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../providers/dsp_chain_provider.dart';
+import '../../theme/fluxforge_theme.dart';
 import 'fabfilter_theme.dart';
 import 'fabfilter_knob.dart';
 import 'fabfilter_panel_base.dart';
@@ -744,9 +745,9 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
                         children: [
                           Padding(
                             padding: const EdgeInsets.only(top: 6, bottom: 2, left: 4),
-                            child: Text(cat.toUpperCase(), style: TextStyle(
-                              color: FabFilterColors.textTertiary, fontSize: 8,
-                              fontWeight: FontWeight.bold, letterSpacing: 1.2,
+                            child: Text(cat.toUpperCase(), style: FluxForgeTheme.dockSans(
+                              color: FabFilterColors.textTertiary, size: 8,
+                              weight: FontWeight.bold, letterSpacing: 1.2,
                             )),
                           ),
                           ...presets.map((p) => InkWell(
@@ -756,8 +757,8 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
                             },
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                              child: Text(p.name, style: const TextStyle(
-                                color: FabFilterColors.textPrimary, fontSize: 11,
+                              child: Text(p.name, style: FluxForgeTheme.dockSans(
+                                color: FabFilterColors.textPrimary, size: 11,
                               )),
                             ),
                           )),
@@ -1474,10 +1475,10 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
                       _freeze && _infiniteFB ? 'FROZEN + INFINITE'
                           : _freeze ? 'BUFFER FROZEN'
                           : 'INFINITE FEEDBACK',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: FabFilterColors.red.withValues(alpha: 0.9),
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
+                        size: 9,
+                        weight: FontWeight.bold,
                         letterSpacing: 1.2,
                       ),
                     ),
@@ -1534,7 +1535,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('MIDI', style: TextStyle(fontSize: 7, color: Colors.white38)),
+        Text('MIDI', style: FluxForgeTheme.dockSans(size: 7, color: Colors.white38)),
         const SizedBox(height: 2),
         Row(
           children: List.generate(4, (i) => Expanded(
@@ -1555,9 +1556,9 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
                 child: Text(
                   _midiTriggerNames[i],
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 7,
-                    fontWeight: i == _midiTriggerMode ? FontWeight.bold : FontWeight.normal,
+                  style: FluxForgeTheme.dockSans(
+                    size: 7,
+                    weight: i == _midiTriggerMode ? FontWeight.bold : FontWeight.normal,
                     color: i == _midiTriggerMode ? Colors.white : Colors.white38,
                   ),
                 ),
@@ -1600,9 +1601,9 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
             child: Text(
               _stereoRoutingNames[i],
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 7,
-                fontWeight: i == _stereoRouting ? FontWeight.bold : FontWeight.normal,
+              style: FluxForgeTheme.dockSans(
+                size: 7,
+                weight: i == _stereoRouting ? FontWeight.bold : FontWeight.normal,
                 color: i == _stereoRouting ? Colors.white : Colors.white54,
               ),
             ),
@@ -1654,9 +1655,9 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
                 child: Text(
                   _lfoShapeNames[i],
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 7,
-                    fontWeight: i == shape ? FontWeight.bold : FontWeight.normal,
+                  style: FluxForgeTheme.dockSans(
+                    size: 7,
+                    weight: i == shape ? FontWeight.bold : FontWeight.normal,
                     color: i == shape ? Colors.white : Colors.white54,
                   ),
                 ),
@@ -1698,9 +1699,9 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
                       color: sync ? FabFilterColors.green.withValues(alpha: 0.7) : Colors.white.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(3),
                     ),
-                    child: Text('SYNC', style: TextStyle(
-                      fontSize: 8,
-                      fontWeight: sync ? FontWeight.bold : FontWeight.normal,
+                    child: Text('SYNC', style: FluxForgeTheme.dockSans(
+                      size: 8,
+                      weight: sync ? FontWeight.bold : FontWeight.normal,
                       color: sync ? Colors.white : Colors.white54,
                     )),
                   ),
@@ -1715,9 +1716,9 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
                         color: retrigger ? FabFilterColors.red.withValues(alpha: 0.7) : Colors.white.withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(3),
                       ),
-                      child: Text('RETRIG', style: TextStyle(
-                        fontSize: 7,
-                        fontWeight: retrigger ? FontWeight.bold : FontWeight.normal,
+                      child: Text('RETRIG', style: FluxForgeTheme.dockSans(
+                        size: 7,
+                        weight: retrigger ? FontWeight.bold : FontWeight.normal,
                         color: retrigger ? Colors.white : Colors.white54,
                       )),
                     ),
@@ -1748,9 +1749,9 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
                   ),
                   child: Text(
                     _syncDivNames[i],
-                    style: TextStyle(
-                      fontSize: 8,
-                      fontWeight: i == syncDiv ? FontWeight.bold : FontWeight.normal,
+                    style: FluxForgeTheme.dockSans(
+                      size: 8,
+                      weight: i == syncDiv ? FontWeight.bold : FontWeight.normal,
                       color: i == syncDiv ? Colors.white : Colors.white54,
                     ),
                   ),
@@ -1793,9 +1794,9 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
               ),
               child: Text(
                 _routingNames[i],
-                style: TextStyle(
-                  fontSize: 7,
-                  fontWeight: i == _modRouting ? FontWeight.bold : FontWeight.normal,
+                style: FluxForgeTheme.dockSans(
+                  size: 7,
+                  weight: i == _modRouting ? FontWeight.bold : FontWeight.normal,
                   color: i == _modRouting ? Colors.white : Colors.white54,
                 ),
               ),
@@ -1837,9 +1838,9 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
                     width: 0.5,
                   ),
                 ),
-                child: Text(modes[i], style: TextStyle(
-                  fontSize: 7,
-                  fontWeight: FontWeight.w600,
+                child: Text(modes[i], style: FluxForgeTheme.dockSans(
+                  size: 7,
+                  weight: FontWeight.w600,
                   color: _driveMode == i ? colors[i] : FabFilterColors.textTertiary,
                 )),
               ),
@@ -1885,9 +1886,9 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
                 ),
                 child: Text(
                   _noteValueNames[i],
-                  style: TextStyle(
-                    fontSize: 8,
-                    fontWeight: i == selected ? FontWeight.bold : FontWeight.normal,
+                  style: FluxForgeTheme.dockSans(
+                    size: 8,
+                    weight: i == selected ? FontWeight.bold : FontWeight.normal,
                     color: i == selected ? Colors.white : Colors.white54,
                   ),
                 ),
@@ -1937,9 +1938,9 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
               ),
               child: Text(
                 _vintageModeNames[i],
-                style: TextStyle(
-                  fontSize: 7,
-                  fontWeight: i == _vintageMode ? FontWeight.bold : FontWeight.normal,
+                style: FluxForgeTheme.dockSans(
+                  size: 7,
+                  weight: i == _vintageMode ? FontWeight.bold : FontWeight.normal,
                   color: i == _vintageMode ? _vintageModeColors[i] : Colors.white54,
                 ),
               ),

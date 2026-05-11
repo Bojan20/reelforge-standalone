@@ -115,16 +115,16 @@ class _ContainerMetricsPanelState extends State<ContainerMetricsPanel> {
             children: [
               Text(
                 label,
-                style: TextStyle(
-                  fontSize: 10,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
                   color: FluxForgeTheme.textSecondary,
                 ),
               ),
               Text(
                 value,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockMono(
+                  size: 12,
+                  weight: FontWeight.bold,
                   color: FluxForgeTheme.textPrimary,
                 ),
               ),
@@ -187,16 +187,16 @@ class _ContainerMetricsPanelState extends State<ContainerMetricsPanel> {
           const SizedBox(height: 10),
           Text(
             'No Container Metrics',
-            style: TextStyle(
-              fontSize: 12,
+            style: FluxForgeTheme.dockSans(
+              size: 12,
               color: FluxForgeTheme.textSecondary,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             'Trigger container evaluations to see metrics',
-            style: TextStyle(
-              fontSize: 10,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
             ),
           ),
@@ -263,8 +263,8 @@ class _ContainerMetricsPanelState extends State<ContainerMetricsPanel> {
               const Spacer(),
               Text(
                 '${stats.evaluationCount} evals',
-                style: TextStyle(
-                  fontSize: 12,
+                style: FluxForgeTheme.dockMono(
+                  size: 12,
                   color: FluxForgeTheme.textSecondary,
                 ),
               ),
@@ -342,9 +342,9 @@ class _ContainerMetricsPanelState extends State<ContainerMetricsPanel> {
       ),
       child: Text(
         label,
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
+        style: FluxForgeTheme.dockSans(
+          size: 10,
+          weight: FontWeight.bold,
           color: color,
         ),
       ),
@@ -374,16 +374,16 @@ class _ContainerMetricsPanelState extends State<ContainerMetricsPanel> {
         children: [
           Text(
             label,
-            style: TextStyle(
-              fontSize: 10,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: FluxForgeTheme.textSecondary,
             ),
           ),
           Text(
             value,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockMono(
+              size: 11,
+              weight: FontWeight.bold,
               color: FluxForgeTheme.textPrimary,
             ),
           ),
@@ -429,17 +429,17 @@ class _ContainerMetricsPanelState extends State<ContainerMetricsPanel> {
       children: [
         Text(
           'Blend Metrics',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: 12,
+            weight: FontWeight.bold,
             color: FluxForgeTheme.textSecondary,
           ),
         ),
         const SizedBox(height: 4),
         Text(
           'Avg Active Children: ${avgActive.toStringAsFixed(1)}',
-          style: TextStyle(
-            fontSize: 11,
+          style: FluxForgeTheme.dockSans(
+            size: 11,
             color: FluxForgeTheme.textPrimary,
           ),
         ),
@@ -456,9 +456,9 @@ class _ContainerMetricsPanelState extends State<ContainerMetricsPanel> {
       children: [
         Text(
           'Selection Distribution',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: 12,
+            weight: FontWeight.bold,
             color: FluxForgeTheme.textSecondary,
           ),
         ),
@@ -470,11 +470,11 @@ class _ContainerMetricsPanelState extends State<ContainerMetricsPanel> {
               children: [
                 Text(
                   'Child ${e.key}: ',
-                  style: TextStyle(fontSize: 11, color: FluxForgeTheme.textSecondary),
+                  style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textSecondary),
                 ),
                 Text(
                   '${e.value} times',
-                  style: TextStyle(fontSize: 11, color: FluxForgeTheme.textPrimary),
+                  style: FluxForgeTheme.dockMono(size: 11, color: FluxForgeTheme.textPrimary),
                 ),
               ],
             ),
@@ -493,17 +493,17 @@ class _ContainerMetricsPanelState extends State<ContainerMetricsPanel> {
       children: [
         Text(
           'Sequence Metrics',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: 12,
+            weight: FontWeight.bold,
             color: FluxForgeTheme.textSecondary,
           ),
         ),
         const SizedBox(height: 4),
         Text(
           'Loop Completions: $loopCount',
-          style: TextStyle(
-            fontSize: 11,
+          style: FluxForgeTheme.dockSans(
+            size: 11,
             color: FluxForgeTheme.textPrimary,
           ),
         ),

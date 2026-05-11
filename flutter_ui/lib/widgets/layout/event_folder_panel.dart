@@ -75,20 +75,20 @@ class EventFolderPanel extends StatelessWidget {
               color: Color(0xFFFF9850),
             ),
             const SizedBox(width: 4),
-            const Text(
+            Text(
               'EVENT FOLDERS',
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFFFF9850),
+              style: FluxForgeTheme.dockSans(
+                size: 9,
+                weight: FontWeight.bold,
+                color: const Color(0xFFFF9850),
                 letterSpacing: 0.5,
               ),
             ),
             const Spacer(),
             Text(
               '${folders.length} events / $layerCount layers',
-              style: const TextStyle(
-                fontSize: 8,
+              style: FluxForgeTheme.dockSans(
+                size: 8,
                 color: FluxForgeTheme.textTertiary,
               ),
             ),
@@ -106,7 +106,7 @@ class EventFolderPanel extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Text(
           'No events yet. Assign audio in SlotLab.',
-          style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 10),
         ),
       );
     }
@@ -165,17 +165,17 @@ class _EventFolderItem extends StatelessWidget {
               const SizedBox(width: 5),
               Text(
                 folder.name,
-                style: TextStyle(
-                  fontSize: 11,
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
                   color: folder.color,
-                  fontWeight: FontWeight.w600,
+                  weight: FontWeight.w600,
                 ),
               ),
               const SizedBox(width: 6),
               Text(
                 '${folder.layers.length} layers',
-                style: TextStyle(
-                  fontSize: 9,
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
                   color: folder.color.withValues(alpha: 0.7),
                 ),
               ),
@@ -231,9 +231,9 @@ class _EventFolderItem extends StatelessWidget {
                     ),
                     child: Text(
                       folder.category.toUpperCase(),
-                      style: TextStyle(
-                        fontSize: 7,
-                        fontWeight: FontWeight.bold,
+                      style: FluxForgeTheme.dockSans(
+                        size: 7,
+                        weight: FontWeight.bold,
                         color: folder.color,
                         letterSpacing: 0.3,
                       ),
@@ -243,10 +243,10 @@ class _EventFolderItem extends StatelessWidget {
                   Expanded(
                     child: Text(
                       folder.name,
-                      style: const TextStyle(
-                        fontSize: 11,
+                      style: FluxForgeTheme.dockSans(
+                        size: 11,
                         color: FluxForgeTheme.textPrimary,
-                        fontWeight: FontWeight.w500,
+                        weight: FontWeight.w500,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -262,10 +262,10 @@ class _EventFolderItem extends StatelessWidget {
                       ),
                       child: Text(
                         '${folder.variantGroups.length}V',
-                        style: const TextStyle(
-                          fontSize: 7,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFFCE93D8),
+                        style: FluxForgeTheme.dockSans(
+                          size: 7,
+                          weight: FontWeight.bold,
+                          color: const Color(0xFFCE93D8),
                           letterSpacing: 0.2,
                         ),
                       ),
@@ -293,8 +293,8 @@ class _EventFolderItem extends StatelessWidget {
                   // Layer count
                   Text(
                     '${folder.layers.length}',
-                    style: const TextStyle(
-                      fontSize: 9,
+                    style: FluxForgeTheme.dockSans(
+                      size: 9,
                       color: FluxForgeTheme.textTertiary,
                     ),
                   ),
@@ -360,10 +360,10 @@ class _LayerItem extends StatelessWidget {
               const SizedBox(width: 4),
               Text(
                 layer.name,
-                style: TextStyle(
-                  fontSize: 10,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
                   color: folderColor,
-                  fontWeight: FontWeight.w500,
+                  weight: FontWeight.w500,
                 ),
               ),
             ],
@@ -394,8 +394,8 @@ class _LayerItem extends StatelessWidget {
               Expanded(
                 child: Text(
                   layer.name,
-                  style: TextStyle(
-                    fontSize: 10,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
                     color: isInTimeline
                         ? FluxForgeTheme.textPrimary
                         : FluxForgeTheme.textSecondary,
@@ -417,10 +417,10 @@ class _LayerItem extends StatelessWidget {
                   ),
                   child: Text(
                     '\u00d7${layer.sharedCount}',
-                    style: const TextStyle(
-                      fontSize: 7,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF64B5F6),
+                    style: FluxForgeTheme.dockSans(
+                      size: 7,
+                      weight: FontWeight.bold,
+                      color: const Color(0xFF64B5F6),
                     ),
                   ),
                 ),
@@ -435,10 +435,10 @@ class _LayerItem extends StatelessWidget {
                   ),
                   child: Text(
                     layer.variantGroup!,
-                    style: const TextStyle(
-                      fontSize: 7,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFFCE93D8),
+                    style: FluxForgeTheme.dockSans(
+                      size: 7,
+                      weight: FontWeight.bold,
+                      color: const Color(0xFFCE93D8),
                     ),
                   ),
                 ),
@@ -454,27 +454,27 @@ class _LayerItem extends StatelessWidget {
                 ),
               // Mute indicator
               if (layer.muted)
-                const Padding(
-                  padding: EdgeInsets.only(left: 3),
+                Padding(
+                  padding: const EdgeInsets.only(left: 3),
                   child: Text(
                     'M',
-                    style: TextStyle(
-                      fontSize: 7,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFFFF9040),
+                    style: FluxForgeTheme.dockSans(
+                      size: 7,
+                      weight: FontWeight.bold,
+                      color: const Color(0xFFFF9040),
                     ),
                   ),
                 ),
               // Solo indicator
               if (layer.solo)
-                const Padding(
-                  padding: EdgeInsets.only(left: 3),
+                Padding(
+                  padding: const EdgeInsets.only(left: 3),
                   child: Text(
                     'S',
-                    style: TextStyle(
-                      fontSize: 7,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFFFFD700),
+                    style: FluxForgeTheme.dockSans(
+                      size: 7,
+                      weight: FontWeight.bold,
+                      color: const Color(0xFFFFD700),
                     ),
                   ),
                 ),

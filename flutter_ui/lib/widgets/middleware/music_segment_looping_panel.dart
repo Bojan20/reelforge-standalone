@@ -125,10 +125,10 @@ class _MusicSegmentLoopingPanelState extends State<MusicSegmentLoopingPanel>
           const SizedBox(width: 8),
           Text(
             'Segment Looping',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textPrimary,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+              size: 13,
+              weight: FontWeight.w600,
             ),
           ),
           if (segment != null) ...[
@@ -141,7 +141,7 @@ class _MusicSegmentLoopingPanelState extends State<MusicSegmentLoopingPanel>
               ),
               child: Text(
                 segment.name,
-                style: TextStyle(color: Colors.green, fontSize: 11),
+                style: FluxForgeTheme.dockSans(color: Colors.green, size: 11),
               ),
             ),
           ],
@@ -216,9 +216,9 @@ class _MusicSegmentLoopingPanelState extends State<MusicSegmentLoopingPanel>
             hasLoop
                 ? 'Loop ${_currentLoopCount + 1}${_targetLoopCount > 0 ? "/$_targetLoopCount" : "/∞"}'
                 : 'No Loop',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: hasLoop ? Colors.green : FluxForgeTheme.textMuted,
-              fontSize: 10,
+              size: 10,
             ),
           ),
         ],
@@ -303,10 +303,9 @@ class _MusicSegmentLoopingPanelState extends State<MusicSegmentLoopingPanel>
           ),
           child: Text(
             'Pos: ${_formatBars(_playheadPosition, segment.beatsPerBar)}',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: FluxForgeTheme.textPrimary,
-              fontSize: 11,
-              fontFamily: 'monospace',
+              size: 11,
             ),
           ),
         ),
@@ -321,7 +320,7 @@ class _MusicSegmentLoopingPanelState extends State<MusicSegmentLoopingPanel>
             ),
             child: Text(
               'Loop: ${_formatBars(segment.loopStartBars, segment.beatsPerBar)} → ${_formatBars(segment.loopEndBars, segment.beatsPerBar)}',
-              style: TextStyle(color: Colors.green, fontSize: 11, fontFamily: 'monospace'),
+              style: FluxForgeTheme.dockMono(color: Colors.green, size: 11),
             ),
           ),
         // Duration
@@ -333,9 +332,9 @@ class _MusicSegmentLoopingPanelState extends State<MusicSegmentLoopingPanel>
           ),
           child: Text(
             'Duration: ${segment.durationBars} bars',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textMuted,
-              fontSize: 11,
+              size: 11,
             ),
           ),
         ),
@@ -495,7 +494,7 @@ class _MusicSegmentLoopingPanelState extends State<MusicSegmentLoopingPanel>
             foregroundColor: Colors.green,
             side: BorderSide(color: Colors.green.withValues(alpha: 0.5)),
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            textStyle: const TextStyle(fontSize: 11),
+            textStyle: FluxForgeTheme.dockSans(size: 11),
           ),
         ),
         const SizedBox(width: 8),
@@ -508,7 +507,7 @@ class _MusicSegmentLoopingPanelState extends State<MusicSegmentLoopingPanel>
             foregroundColor: FluxForgeTheme.textMuted,
             side: BorderSide(color: FluxForgeTheme.borderSubtle),
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            textStyle: const TextStyle(fontSize: 11),
+            textStyle: FluxForgeTheme.dockSans(size: 11),
           ),
         ),
         const Spacer(),
@@ -561,7 +560,7 @@ class _MusicSegmentLoopingPanelState extends State<MusicSegmentLoopingPanel>
                           ),
                           child: Text(
                             '∞ Infinite',
-                            style: TextStyle(color: Colors.green, fontSize: 12),
+                            style: FluxForgeTheme.dockSans(color: Colors.green, size: 12),
                             textAlign: TextAlign.center,
                           ),
                         )
@@ -584,10 +583,10 @@ class _MusicSegmentLoopingPanelState extends State<MusicSegmentLoopingPanel>
                               ),
                               Text(
                                 '$_targetLoopCount',
-                                style: TextStyle(
+                                style: FluxForgeTheme.dockMono(
                                   color: FluxForgeTheme.textPrimary,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
+                                  size: 12,
+                                  weight: FontWeight.bold,
                                 ),
                               ),
                               IconButton(
@@ -646,7 +645,7 @@ class _MusicSegmentLoopingPanelState extends State<MusicSegmentLoopingPanel>
                   width: 50,
                   child: Text(
                     '${_crossfadeMs.round()}ms',
-                    style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 11),
+                    style: FluxForgeTheme.dockMono(color: FluxForgeTheme.textMuted, size: 11),
                   ),
                 ),
               ],
@@ -682,10 +681,10 @@ class _MusicSegmentLoopingPanelState extends State<MusicSegmentLoopingPanel>
   Widget _buildSettingLabel(String label) {
     return Text(
       label,
-      style: TextStyle(
+      style: FluxForgeTheme.dockSans(
         color: FluxForgeTheme.textMuted,
-        fontSize: 10,
-        fontWeight: FontWeight.w600,
+        size: 10,
+        weight: FontWeight.w600,
       ),
     );
   }
@@ -749,7 +748,7 @@ class _MusicSegmentLoopingPanelState extends State<MusicSegmentLoopingPanel>
           const SizedBox(height: 16),
           Text(
             'No segment selected',
-            style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 14),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted, size: 14),
           ),
         ],
       ),
