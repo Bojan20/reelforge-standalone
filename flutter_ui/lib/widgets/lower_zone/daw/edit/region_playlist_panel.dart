@@ -12,6 +12,7 @@ library;
 
 import 'package:flutter/material.dart';
 import '../../../../services/region_playlist_service.dart';
+import '../../../../theme/fluxforge_theme.dart';
 import '../../../fabfilter/fabfilter_theme.dart';
 import '../../../fabfilter/fabfilter_widgets.dart';
 
@@ -122,7 +123,7 @@ class _RegionPlaylistPanelState extends State<RegionPlaylistPanel> {
           child: lists.isEmpty
               ? Center(child: Text('No playlists.\nClick + to create.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: FabFilterColors.textTertiary, fontSize: 11)))
+                  style: FluxForgeTheme.dockSans(size: 11, color: FabFilterColors.textTertiary)))
               : ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   itemCount: lists.length,
@@ -141,7 +142,7 @@ class _RegionPlaylistPanelState extends State<RegionPlaylistPanel> {
           Expanded(child: SizedBox(height: 26, child: TextField(
             controller: _playlistNameCtrl,
             focusNode: _playlistNameFocus,
-            style: const TextStyle(fontSize: 11, color: FabFilterColors.textPrimary),
+            style: FluxForgeTheme.dockSans(size: 11, color: FabFilterColors.textPrimary),
             decoration: _inputDeco('Playlist name...'),
             onSubmitted: (_) => _createPlaylist(),
           ))),
@@ -192,20 +193,20 @@ class _RegionPlaylistPanelState extends State<RegionPlaylistPanel> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(pl.name, style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                  Text(pl.name, style: FluxForgeTheme.dockSans(
+                    size: 11,
+                    weight: selected ? FontWeight.w600 : FontWeight.normal,
                     color: selected ? FabFilterColors.textPrimary : FabFilterColors.textSecondary,
                   ), overflow: TextOverflow.ellipsis),
                   if (pl.description != null)
-                    Text(pl.description!, style: TextStyle(
-                      fontSize: 9, color: FabFilterColors.textTertiary,
+                    Text(pl.description!, style: FluxForgeTheme.dockSans(
+                      size: 9, color: FabFilterColors.textTertiary,
                     ), overflow: TextOverflow.ellipsis),
                 ],
               ),
             ),
-            Text('${pl.entryCount}', style: TextStyle(
-              fontSize: 10, color: FabFilterColors.textTertiary)),
+            Text('${pl.entryCount}', style: FluxForgeTheme.dockMono(
+              size: 10, color: FabFilterColors.textTertiary)),
           ],
         ),
       ),
@@ -220,7 +221,7 @@ class _RegionPlaylistPanelState extends State<RegionPlaylistPanel> {
     final pl = _selectedPlaylist;
     if (pl == null) {
       return Center(child: Text('Select a playlist to view entries',
-        style: TextStyle(color: FabFilterColors.textTertiary, fontSize: 12)));
+        style: FluxForgeTheme.dockSans(size: 12, color: FabFilterColors.textTertiary)));
     }
 
     return Column(
@@ -232,10 +233,10 @@ class _RegionPlaylistPanelState extends State<RegionPlaylistPanel> {
             children: [
               FabSectionLabel('ENTRIES'),
               const SizedBox(width: 8),
-              Text(pl.name, style: const TextStyle(fontSize: 11, color: FabFilterColors.cyan)),
+              Text(pl.name, style: FluxForgeTheme.dockSans(size: 11, color: FabFilterColors.cyan)),
               const Spacer(),
-              Text(_formatTime(pl.totalDuration), style: TextStyle(
-                fontSize: 10, color: FabFilterColors.textTertiary)),
+              Text(_formatTime(pl.totalDuration), style: FluxForgeTheme.dockMono(
+                size: 10, color: FabFilterColors.textTertiary)),
               const SizedBox(width: 8),
               _iconBtn(Icons.add, 'Add Entry',
                 () => setState(() => _showAddEntry = !_showAddEntry)),
@@ -246,7 +247,7 @@ class _RegionPlaylistPanelState extends State<RegionPlaylistPanel> {
         Expanded(
           child: pl.entries.isEmpty
               ? Center(child: Text('No entries. Click + to add region entries.',
-                  style: TextStyle(color: FabFilterColors.textTertiary, fontSize: 11)))
+                  style: FluxForgeTheme.dockSans(size: 11, color: FabFilterColors.textTertiary)))
               : ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   itemCount: pl.entries.length,
@@ -266,7 +267,7 @@ class _RegionPlaylistPanelState extends State<RegionPlaylistPanel> {
           SizedBox(height: 26, child: TextField(
             controller: _entryLabelCtrl,
             focusNode: _entryLabelFocus,
-            style: const TextStyle(fontSize: 11, color: FabFilterColors.textPrimary),
+            style: FluxForgeTheme.dockSans(size: 11, color: FabFilterColors.textPrimary),
             decoration: _inputDeco('Region label...'),
           )),
           const SizedBox(height: 4),
@@ -274,7 +275,7 @@ class _RegionPlaylistPanelState extends State<RegionPlaylistPanel> {
             Expanded(child: SizedBox(height: 26, child: TextField(
               controller: _entryStartCtrl,
               focusNode: _entryStartFocus,
-              style: const TextStyle(fontSize: 11, color: FabFilterColors.textPrimary),
+              style: FluxForgeTheme.dockSans(size: 11, color: FabFilterColors.textPrimary),
               decoration: _inputDeco('Start (s)'),
               keyboardType: TextInputType.number,
             ))),
@@ -282,7 +283,7 @@ class _RegionPlaylistPanelState extends State<RegionPlaylistPanel> {
             Expanded(child: SizedBox(height: 26, child: TextField(
               controller: _entryEndCtrl,
               focusNode: _entryEndFocus,
-              style: const TextStyle(fontSize: 11, color: FabFilterColors.textPrimary),
+              style: FluxForgeTheme.dockSans(size: 11, color: FabFilterColors.textPrimary),
               decoration: _inputDeco('End (s)'),
               keyboardType: TextInputType.number,
             ))),
@@ -290,7 +291,7 @@ class _RegionPlaylistPanelState extends State<RegionPlaylistPanel> {
             SizedBox(width: 60, height: 26, child: TextField(
               controller: _entryLoopCtrl,
               focusNode: _entryLoopFocus,
-              style: const TextStyle(fontSize: 11, color: FabFilterColors.textPrimary),
+              style: FluxForgeTheme.dockSans(size: 11, color: FabFilterColors.textPrimary),
               decoration: _inputDeco('Loops'),
               keyboardType: TextInputType.number,
             )),
@@ -350,8 +351,9 @@ class _RegionPlaylistPanelState extends State<RegionPlaylistPanel> {
         children: [
           // Position number
           SizedBox(width: 20, child: Text('${index + 1}', textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 10,
-              fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+            style: FluxForgeTheme.dockMono(
+              size: 10,
+              weight: isCurrent ? FontWeight.bold : FontWeight.normal,
               color: isCurrent ? FabFilterColors.green : FabFilterColors.textTertiary))),
           const SizedBox(width: 6),
           // Play indicator / skip-to button
@@ -373,24 +375,25 @@ class _RegionPlaylistPanelState extends State<RegionPlaylistPanel> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(entry.label, style: TextStyle(fontSize: 11,
+                Text(entry.label, style: FluxForgeTheme.dockSans(
+                  size: 11,
                   color: isCurrent ? FabFilterColors.textPrimary : FabFilterColors.textSecondary),
                   overflow: TextOverflow.ellipsis),
                 Row(children: [
                   Text('${_formatTime(entry.startTime)} → ${_formatTime(entry.endTime)}',
-                    style: TextStyle(fontSize: 9, color: FabFilterColors.textTertiary)),
+                    style: FluxForgeTheme.dockMono(size: 9, color: FabFilterColors.textTertiary)),
                   if (entry.loopCount != 0) ...[
                     const SizedBox(width: 6),
                     Text(entry.loopCount < 0 ? '∞' : '×${entry.loopCount + 1}',
-                      style: TextStyle(fontSize: 9, color: FabFilterColors.orange)),
+                      style: FluxForgeTheme.dockMono(size: 9, color: FabFilterColors.orange)),
                   ],
                 ]),
               ],
             ),
           ),
           // Duration
-          Text(_formatTime(entry.duration), style: TextStyle(
-            fontSize: 10, color: FabFilterColors.textTertiary)),
+          Text(_formatTime(entry.duration), style: FluxForgeTheme.dockMono(
+            size: 10, color: FabFilterColors.textTertiary)),
           const SizedBox(width: 4),
           // Reorder
           _iconBtn(Icons.arrow_upward, 'Move Up',
@@ -467,12 +470,12 @@ class _RegionPlaylistPanelState extends State<RegionPlaylistPanel> {
           if (pl != null) ...[
             const Divider(color: FabFilterColors.border, height: 16),
             Text('Entries: ${pl.entryCount}',
-              style: TextStyle(fontSize: 10, color: FabFilterColors.textTertiary)),
+              style: FluxForgeTheme.dockMono(size: 10, color: FabFilterColors.textTertiary)),
             Text('Total: ${_formatTime(pl.totalDuration)}',
-              style: TextStyle(fontSize: 10, color: FabFilterColors.textTertiary)),
+              style: FluxForgeTheme.dockMono(size: 10, color: FabFilterColors.textTertiary)),
             if (isActive && pl.currentEntry != null)
               Text('Now: ${pl.currentEntry!.label}',
-                style: TextStyle(fontSize: 10, color: FabFilterColors.green)),
+                style: FluxForgeTheme.dockSans(size: 10, color: FabFilterColors.green)),
           ],
         ],
       ),
@@ -523,7 +526,7 @@ class _RegionPlaylistPanelState extends State<RegionPlaylistPanel> {
               Icon(icon, size: 14,
                 color: enabled ? FabFilterColors.textSecondary : FabFilterColors.textDisabled),
               const SizedBox(width: 6),
-              Text(label, style: TextStyle(fontSize: 11,
+              Text(label, style: FluxForgeTheme.dockSans(size: 11,
                 color: enabled ? FabFilterColors.textSecondary : FabFilterColors.textDisabled)),
             ],
           ),
@@ -534,7 +537,7 @@ class _RegionPlaylistPanelState extends State<RegionPlaylistPanel> {
 
   InputDecoration _inputDeco(String hint) => InputDecoration(
     hintText: hint,
-    hintStyle: TextStyle(color: FabFilterColors.textTertiary, fontSize: 11),
+    hintStyle: FluxForgeTheme.dockSans(size: 11, color: FabFilterColors.textTertiary),
     isDense: true,
     contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
     border: OutlineInputBorder(

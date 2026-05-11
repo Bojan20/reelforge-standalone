@@ -13,6 +13,7 @@ import 'package:provider/provider.dart';
 
 import '../../providers/auto_spatial_provider.dart';
 import '../../spatial/auto_spatial.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Anchor Monitor widget
 class AnchorMonitor extends StatefulWidget {
@@ -90,12 +91,12 @@ class _AnchorMonitorState extends State<AnchorMonitor> {
             children: [
               const Icon(Icons.anchor, color: Colors.white54, size: 14),
               const SizedBox(width: 6),
-              const Text(
+              Text(
                 'Registered Anchors',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: Colors.white70,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+                  size: 11,
+                  weight: FontWeight.w600,
                 ),
               ),
               const Spacer(),
@@ -107,10 +108,10 @@ class _AnchorMonitorState extends State<AnchorMonitor> {
                 ),
                 child: Text(
                   '${anchorIds.length}',
-                  style: const TextStyle(
-                    color: Color(0xFF4a9eff),
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    color: const Color(0xFF4a9eff),
+                    size: 10,
+                    weight: FontWeight.bold,
                   ),
                 ),
               ),
@@ -123,10 +124,10 @@ class _AnchorMonitorState extends State<AnchorMonitor> {
         // Anchor list
         Expanded(
           child: anchorIds.isEmpty
-              ? const Center(
+              ? Center(
                   child: Text(
                     'No anchors registered',
-                    style: TextStyle(color: Colors.white38, fontSize: 11),
+                    style: FluxForgeTheme.dockSans(color: Colors.white38, size: 11),
                   ),
                 )
               : ListView.builder(
@@ -180,9 +181,9 @@ class _AnchorMonitorState extends State<AnchorMonitor> {
                 top: 8,
                 child: Text(
                   'Screen Space',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.white24,
-                    fontSize: 10,
+                    size: 10,
                   ),
                 ),
               ),
@@ -200,9 +201,9 @@ class _AnchorMonitorState extends State<AnchorMonitor> {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    const Text(
+                    Text(
                       'Visible',
-                      style: TextStyle(color: Colors.white38, fontSize: 9),
+                      style: FluxForgeTheme.dockSans(color: Colors.white38, size: 9),
                     ),
                     const SizedBox(width: 12),
                     Container(
@@ -214,9 +215,9 @@ class _AnchorMonitorState extends State<AnchorMonitor> {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    const Text(
+                    Text(
                       'Hidden',
-                      style: TextStyle(color: Colors.white38, fontSize: 9),
+                      style: FluxForgeTheme.dockSans(color: Colors.white38, size: 9),
                     ),
                   ],
                 ),
@@ -297,10 +298,10 @@ class _AnchorMonitorState extends State<AnchorMonitor> {
                 top: 2,
                 child: Text(
                   id.length > 12 ? '${id.substring(0, 10)}...' : id,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: color,
-                    fontSize: 8,
-                    fontWeight: FontWeight.bold,
+                    size: 8,
+                    weight: FontWeight.bold,
                   ),
                 ),
               ),
@@ -329,12 +330,12 @@ class _AnchorMonitorState extends State<AnchorMonitor> {
               Expanded(
                 child: Text(
                   anchorId,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
                   overflow: TextOverflow.ellipsis,
+                  style: FluxForgeTheme.dockSans(
+                    color: Colors.white,
+                    size: 12,
+                    weight: FontWeight.w600,
+                  ),
                 ),
               ),
               IconButton(
@@ -367,12 +368,12 @@ class _AnchorMonitorState extends State<AnchorMonitor> {
           const SizedBox(height: 12),
 
           // Screen Position
-          const Text(
+          Text(
             'Screen Position',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white54,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
+              size: 10,
+              weight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 4),
@@ -383,12 +384,12 @@ class _AnchorMonitorState extends State<AnchorMonitor> {
           const SizedBox(height: 12),
 
           // Spatial Position
-          const Text(
+          Text(
             'Spatial Position',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white54,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
+              size: 10,
+              weight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 4),
@@ -404,12 +405,12 @@ class _AnchorMonitorState extends State<AnchorMonitor> {
           const SizedBox(height: 12),
 
           // Velocity
-          const Text(
+          Text(
             'Velocity',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white54,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
+              size: 10,
+              weight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 4),
@@ -429,7 +430,7 @@ class _AnchorMonitorState extends State<AnchorMonitor> {
               Expanded(
                 child: OutlinedButton.icon(
                   icon: const Icon(Icons.delete_outline, size: 14),
-                  label: const Text('Unregister', style: TextStyle(fontSize: 10)),
+                  label: Text('Unregister', style: FluxForgeTheme.dockSans(size: 10)),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.red,
                     side: const BorderSide(color: Colors.red),
@@ -454,18 +455,18 @@ class _AnchorMonitorState extends State<AnchorMonitor> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Test Anchors',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+              size: 12,
+              weight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Create test anchors to visualize spatial positioning.',
-            style: TextStyle(color: Colors.white38, fontSize: 11),
+            style: FluxForgeTheme.dockSans(color: Colors.white38, size: 11),
           ),
           const SizedBox(height: 16),
 
@@ -503,12 +504,12 @@ class _AnchorMonitorState extends State<AnchorMonitor> {
           const SizedBox(height: 16),
 
           // Reel anchors
-          const Text(
+          Text(
             'Reel Anchors',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white54,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
+              size: 10,
+              weight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 8),
@@ -533,7 +534,7 @@ class _AnchorMonitorState extends State<AnchorMonitor> {
             width: double.infinity,
             child: OutlinedButton.icon(
               icon: const Icon(Icons.clear_all, size: 14),
-              label: const Text('Clear All Test Anchors', style: TextStyle(fontSize: 10)),
+              label: Text('Clear All Test Anchors', style: FluxForgeTheme.dockSans(size: 10)),
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.white54,
                 side: const BorderSide(color: Colors.white24),
@@ -594,10 +595,10 @@ class _AnchorListTile extends StatelessWidget {
               Expanded(
                 child: Text(
                   id,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: isSelected ? Colors.white : Colors.white70,
-                    fontSize: 10,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    size: 10,
+                    weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -605,9 +606,9 @@ class _AnchorListTile extends StatelessWidget {
               if (frame != null) ...[
                 Text(
                   '${(frame!.confidence * 100).round()}%',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: color.withValues(alpha: 0.7),
-                    fontSize: 9,
+                    size: 9,
                   ),
                 ),
               ],
@@ -639,15 +640,14 @@ class _DetailRow extends StatelessWidget {
         children: [
           Text(
             label,
-            style: const TextStyle(color: Colors.white38, fontSize: 10),
+            style: FluxForgeTheme.dockSans(color: Colors.white38, size: 10),
           ),
           const Spacer(),
           Text(
             value,
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: valueColor ?? Colors.white70,
-              fontSize: 10,
-              fontFamily: 'monospace',
+              size: 10,
             ),
           ),
         ],
@@ -703,7 +703,7 @@ class _TestAnchorButton extends StatelessWidget {
           },
           child: Text(
             exists ? '$label (active)' : label,
-            style: const TextStyle(fontSize: 10),
+            style: FluxForgeTheme.dockSans(size: 10),
           ),
         ),
       ),
@@ -755,7 +755,7 @@ class _TestAnchorChip extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: TextStyle(color: color, fontSize: 9),
+          style: FluxForgeTheme.dockSans(color: color, size: 9),
         ),
       ),
     );

@@ -190,13 +190,13 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
             children: [
               const Icon(Icons.tune, size: 14, color: FluxForgeTheme.accentOrange),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'RTPC PARAMETERS',
-                style: TextStyle(
-                  color: FluxForgeTheme.accentOrange,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.bold,
                   letterSpacing: 1,
+                  color: FluxForgeTheme.accentOrange,
                 ),
               ),
               const Spacer(),
@@ -218,10 +218,10 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
                   ),
                   child: Text(
                     'BINDINGS',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 9,
+                      weight: FontWeight.w600,
                       color: _showBindings ? FluxForgeTheme.accentBlue : Colors.white54,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -296,10 +296,10 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
                 ),
                 Text(
                   rtpc.name.replaceAll('_', ' '),
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
+                    weight: FontWeight.w600,
                     color: isSelected ? Colors.white : Colors.white70,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const Spacer(),
@@ -316,11 +316,10 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
                   ),
                   child: Text(
                     value.toStringAsFixed(2),
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockMono(
+                      size: 10,
+                      weight: FontWeight.bold,
                       color: _getValueColor(normalizedValue),
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'monospace',
                     ),
                   ),
                 ),
@@ -394,11 +393,11 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
                 children: [
                   Text(
                     rtpc.min.toStringAsFixed(rtpc.min == rtpc.min.roundToDouble() ? 0 : 1),
-                    style: const TextStyle(color: Colors.white38, fontSize: 8),
+                    style: FluxForgeTheme.dockMono(size: 8, color: Colors.white38),
                   ),
                   Text(
                     rtpc.max.toStringAsFixed(rtpc.max == rtpc.max.roundToDouble() ? 0 : 1),
-                    style: const TextStyle(color: Colors.white38, fontSize: 8),
+                    style: FluxForgeTheme.dockMono(size: 8, color: Colors.white38),
                   ),
                 ],
               ),
@@ -444,9 +443,9 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
           children: [
             Icon(Icons.show_chart, size: 40, color: Colors.white.withValues(alpha: 0.2)),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Select an RTPC to edit curve',
-              style: TextStyle(color: Colors.white38, fontSize: 12),
+              style: FluxForgeTheme.dockSans(size: 12, color: Colors.white38),
             ),
           ],
         ),
@@ -475,11 +474,11 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
               const SizedBox(width: 8),
               Text(
                 'CURVE: ${selectedRtpc.name.replaceAll('_', ' ')}',
-                style: const TextStyle(
-                  color: FluxForgeTheme.accentCyan,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.bold,
                   letterSpacing: 1,
+                  color: FluxForgeTheme.accentCyan,
                 ),
               ),
               const Spacer(),
@@ -500,7 +499,7 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
           color: FluxForgeTheme.bgDeep,
           child: Row(
             children: [
-              Text('Input: ', style: TextStyle(color: Colors.white54, fontSize: 10)),
+              Text('Input: ', style: FluxForgeTheme.dockSans(size: 10, color: Colors.white54)),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
@@ -509,13 +508,13 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
                 ),
                 child: Text(
                   normalizedValue.toStringAsFixed(2),
-                  style: const TextStyle(color: FluxForgeTheme.accentOrange, fontSize: 10, fontFamily: 'monospace'),
+                  style: FluxForgeTheme.dockMono(size: 10, color: FluxForgeTheme.accentOrange),
                 ),
               ),
               const SizedBox(width: 16),
               const Icon(Icons.arrow_forward, size: 12, color: Colors.white38),
               const SizedBox(width: 16),
-              Text('Output: ', style: TextStyle(color: Colors.white54, fontSize: 10)),
+              Text('Output: ', style: FluxForgeTheme.dockSans(size: 10, color: Colors.white54)),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
@@ -524,13 +523,13 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
                 ),
                 child: Text(
                   outputValue.toStringAsFixed(2),
-                  style: const TextStyle(color: FluxForgeTheme.accentGreen, fontSize: 10, fontFamily: 'monospace'),
+                  style: FluxForgeTheme.dockMono(size: 10, color: FluxForgeTheme.accentGreen),
                 ),
               ),
               const Spacer(),
               Text(
                 'Target: ${_selectedTarget.name.toUpperCase()}',
-                style: const TextStyle(color: Colors.white38, fontSize: 9),
+                style: FluxForgeTheme.dockSans(size: 9, color: Colors.white38),
               ),
             ],
           ),
@@ -569,9 +568,9 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
           color: FluxForgeTheme.bgMid.withValues(alpha: 0.5),
           child: Row(
             children: [
-              const Text(
+              Text(
                 'Target:',
-                style: TextStyle(color: Colors.white54, fontSize: 10),
+                style: FluxForgeTheme.dockSans(size: 10, color: Colors.white54),
               ),
               const SizedBox(width: 8),
               _buildTargetChip('Volume', RtpcTargetParameter.volume),
@@ -694,7 +693,7 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
           children: [
             Icon(icon, size: 10, color: Colors.white54),
             const SizedBox(width: 4),
-            Text(label, style: const TextStyle(color: Colors.white54, fontSize: 9)),
+            Text(label, style: FluxForgeTheme.dockSans(size: 9, color: Colors.white54)),
           ],
         ),
       ),
@@ -718,10 +717,10 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
         ),
         child: Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: isSelected ? FontWeight.w600 : FontWeight.normal,
             color: isSelected ? FluxForgeTheme.accentCyan : Colors.white54,
-            fontSize: 10,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
           ),
         ),
       ),
@@ -750,13 +749,13 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
             children: [
               const Icon(Icons.link, size: 14, color: FluxForgeTheme.accentGreen),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'RTPC BINDINGS',
-                style: TextStyle(
-                  color: FluxForgeTheme.accentGreen,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.bold,
                   letterSpacing: 1,
+                  color: FluxForgeTheme.accentGreen,
                 ),
               ),
               const Spacer(),
@@ -769,17 +768,17 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
                     color: FluxForgeTheme.accentGreen.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.add, size: 12, color: FluxForgeTheme.accentGreen),
-                      SizedBox(width: 4),
+                      const Icon(Icons.add, size: 12, color: FluxForgeTheme.accentGreen),
+                      const SizedBox(width: 4),
                       Text(
                         'ADD',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 9,
+                          weight: FontWeight.bold,
                           color: FluxForgeTheme.accentGreen,
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ],
@@ -837,16 +836,16 @@ class _RtpcEditorPanelState extends State<RtpcEditorPanel> with TickerProviderSt
               children: [
                 Text(
                   name,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
+                    weight: FontWeight.w600,
                     color: isActive ? Colors.white : Colors.white70,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   description,
-                  style: const TextStyle(color: Colors.white38, fontSize: 9),
+                  style: FluxForgeTheme.dockSans(size: 9, color: Colors.white38),
                 ),
               ],
             ),

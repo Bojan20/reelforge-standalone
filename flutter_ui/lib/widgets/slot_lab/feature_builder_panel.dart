@@ -215,24 +215,21 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
           const SizedBox(width: 12),
 
           // Title
-          const Column(
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'FEATURE BUILDER',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 16,
+                  weight: FontWeight.bold,
                   letterSpacing: 1,
+                  color: Colors.white,
                 ),
               ),
               Text(
                 'Configure slot features and audio stages',
-                style: TextStyle(
-                  color: Colors.white54,
-                  fontSize: 12,
-                ),
+                style: FluxForgeTheme.dockSans(size: 12, color: Colors.white54),
               ),
             ],
           ),
@@ -269,12 +266,12 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
                   validationResult.isValid
                       ? 'Valid'
                       : '${validationResult.errors.length} issues',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
+                    weight: FontWeight.bold,
                     color: validationResult.isValid
                         ? const Color(0xFF40FF90)
                         : const Color(0xFFFF4040),
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -297,10 +294,10 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
                 const SizedBox(width: 6),
                 Text(
                   '${provider.totalStageCount} stages',
-                  style: const TextStyle(
-                    color: Color(0xFFFFD700),
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
+                    weight: FontWeight.bold,
+                    color: const Color(0xFFFFD700),
                   ),
                 ),
               ],
@@ -327,21 +324,21 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
                       width: 1,
                     ),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.account_tree,
                         color: Color(0xFF9370DB),
                         size: 16,
                       ),
-                      SizedBox(width: 6),
+                      const SizedBox(width: 6),
                       Text(
                         'Dependencies',
-                        style: TextStyle(
-                          color: Color(0xFF9370DB),
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
+                        style: FluxForgeTheme.dockSans(
+                          size: 11,
+                          weight: FontWeight.bold,
+                          color: const Color(0xFF9370DB),
                         ),
                       ),
                     ],
@@ -436,7 +433,7 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
             const SizedBox(height: 16),
             Text(
               'No ${category.displayName.toLowerCase()} blocks available',
-              style: const TextStyle(color: Colors.white38),
+              style: FluxForgeTheme.dockSans(color: Colors.white38),
             ),
           ],
         ),
@@ -525,17 +522,17 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
                       children: [
                         Text(
                           block.name,
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
+                            size: 14,
+                            weight: FontWeight.bold,
                             color: block.isEnabled ? Colors.white : Colors.white54,
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
                           ),
                         ),
                         Text(
                           block.description,
-                          style: const TextStyle(
+                          style: FluxForgeTheme.dockSans(
+                            size: 11,
                             color: Colors.white38,
-                            fontSize: 11,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -557,10 +554,10 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
                       ),
                       child: Text(
                         '${block.generateStages().length} stages',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 10,
+                          weight: FontWeight.bold,
                           color: categoryColor,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
@@ -619,11 +616,11 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
                   padding: const EdgeInsets.only(bottom: 8, top: 8),
                   child: Text(
                     entry.key.toUpperCase(),
-                    style: const TextStyle(
-                      color: Colors.white38,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
+                      weight: FontWeight.bold,
                       letterSpacing: 1,
+                      color: Colors.white38,
                     ),
                   ),
                 ),
@@ -655,18 +652,12 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
               children: [
                 Text(
                   option.name,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                  ),
+                  style: FluxForgeTheme.dockSans(size: 12, color: Colors.white70),
                 ),
                 if (option.description != null)
                   Text(
                     option.description!,
-                    style: const TextStyle(
-                      color: Colors.white30,
-                      fontSize: 10,
-                    ),
+                    style: FluxForgeTheme.dockSans(size: 10, color: Colors.white30),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -712,7 +703,7 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
           value: option.value,
           isExpanded: true,
           dropdownColor: const Color(0xFF242430),
-          style: const TextStyle(color: Colors.white, fontSize: 12),
+          style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
           underline: Container(height: 1, color: Colors.white24),
           onChanged: block.isEnabled
               ? (value) {
@@ -768,7 +759,7 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
                 option.type == BlockOptionType.percentage
                     ? '${value.toInt()}%'
                     : value.toStringAsFixed(option.step != null && option.step! < 1 ? 1 : 0),
-                style: const TextStyle(color: Colors.white70, fontSize: 12),
+                style: FluxForgeTheme.dockMono(size: 12, color: Colors.white70),
                 textAlign: TextAlign.right,
               ),
             ),
@@ -799,10 +790,10 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
               ),
               child: Text(
                 value.toString(),
-                style: const TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 14,
+                  weight: FontWeight.bold,
                   color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),
@@ -822,7 +813,7 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
       case BlockOptionType.text:
         return TextFormField(
           controller: _getBlockOptionController(option.id, option.value as String? ?? ''),
-          style: const TextStyle(color: Colors.white, fontSize: 12),
+          style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
           decoration: InputDecoration(
             isDense: true,
             contentPadding: const EdgeInsets.symmetric(
@@ -862,9 +853,9 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
               selected: isSelected,
               selectedColor: Color(block.category.colorValue).withValues(alpha: 0.3),
               checkmarkColor: Color(block.category.colorValue),
-              labelStyle: TextStyle(
+              labelStyle: FluxForgeTheme.dockSans(
+                size: 11,
                 color: isSelected ? Colors.white : Colors.white54,
-                fontSize: 11,
               ),
               onSelected: block.isEnabled
                   ? (selected) {
@@ -909,7 +900,7 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
                 Expanded(
                   child: Text(
                     '#${colorValue.value.toRadixString(16).toUpperCase().substring(2)}',
-                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                    style: FluxForgeTheme.dockMono(size: 12, color: Colors.white70),
                   ),
                 ),
                 const Icon(Icons.palette, size: 16, color: Colors.white38),
@@ -936,7 +927,7 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
               // Hue slider
               Row(
                 children: [
-                  const Text('Hue', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                  Text('Hue', style: FluxForgeTheme.dockSans(size: 12, color: Colors.white70)),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Slider(
@@ -955,7 +946,7 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
               // Saturation slider
               Row(
                 children: [
-                  const Text('Sat', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                  Text('Sat', style: FluxForgeTheme.dockSans(size: 12, color: Colors.white70)),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Slider(
@@ -974,7 +965,7 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
               // Value slider
               Row(
                 children: [
-                  const Text('Val', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                  Text('Val', style: FluxForgeTheme.dockSans(size: 12, color: Colors.white70)),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Slider(
@@ -1035,7 +1026,7 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
           // Enabled blocks summary
           Text(
             '${provider.enabledBlockCount} of ${provider.allBlocks.length} blocks enabled',
-            style: const TextStyle(color: Colors.white54, fontSize: 12),
+            style: FluxForgeTheme.dockSans(size: 12, color: Colors.white54),
           ),
 
           const Spacer(),

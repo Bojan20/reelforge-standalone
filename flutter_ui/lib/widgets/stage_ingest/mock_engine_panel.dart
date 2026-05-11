@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/mock_engine_service.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Panel for controlling the mock engine in staging mode.
 /// Allows testing audio events without connecting to a real game engine.
@@ -133,8 +134,8 @@ class _MockEnginePanelState extends State<MockEnginePanel> {
           // Title
           Text(
             'Mock Engine',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              weight: FontWeight.bold,
               color: isRunning ? Colors.green : Colors.grey,
             ),
           ),
@@ -157,8 +158,8 @@ class _MockEnginePanelState extends State<MockEnginePanel> {
           // Spin count
           Text(
             'Spins: $spinCount',
-            style: const TextStyle(
-              fontSize: 12,
+            style: FluxForgeTheme.dockMono(
+              size: 12,
               color: Colors.grey,
             ),
           ),
@@ -170,18 +171,18 @@ class _MockEnginePanelState extends State<MockEnginePanel> {
             value: _service.config,
             isDense: true,
             underline: const SizedBox(),
-            items: const [
+            items: [
               DropdownMenuItem(
                 value: MockEngineConfig.studio,
-                child: Text('Studio', style: TextStyle(fontSize: 12)),
+                child: Text('Studio', style: FluxForgeTheme.dockSans(size: 12)),
               ),
               DropdownMenuItem(
                 value: MockEngineConfig.turbo,
-                child: Text('Turbo', style: TextStyle(fontSize: 12)),
+                child: Text('Turbo', style: FluxForgeTheme.dockSans(size: 12)),
               ),
               DropdownMenuItem(
                 value: MockEngineConfig.demo,
-                child: Text('Demo', style: TextStyle(fontSize: 12)),
+                child: Text('Demo', style: FluxForgeTheme.dockSans(size: 12)),
               ),
             ],
             onChanged: (config) {
@@ -207,9 +208,9 @@ class _MockEnginePanelState extends State<MockEnginePanel> {
       ),
       child: Text(
         text,
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
+        style: FluxForgeTheme.dockSans(
+          size: 10,
+          weight: FontWeight.bold,
           color: color,
         ),
       ),
@@ -274,21 +275,21 @@ class _MockEnginePanelState extends State<MockEnginePanel> {
 
           // Mode selector
           SegmentedButton<MockEngineMode>(
-            segments: const [
+            segments: [
               ButtonSegment(
                 value: MockEngineMode.manual,
-                label: Text('Manual', style: TextStyle(fontSize: 11)),
-                icon: Icon(Icons.touch_app, size: 16),
+                label: Text('Manual', style: FluxForgeTheme.dockSans(size: 11)),
+                icon: const Icon(Icons.touch_app, size: 16),
               ),
               ButtonSegment(
                 value: MockEngineMode.autoSpin,
-                label: Text('Auto', style: TextStyle(fontSize: 11)),
-                icon: Icon(Icons.autorenew, size: 16),
+                label: Text('Auto', style: FluxForgeTheme.dockSans(size: 11)),
+                icon: const Icon(Icons.autorenew, size: 16),
               ),
               ButtonSegment(
                 value: MockEngineMode.sequence,
-                label: Text('Sequence', style: TextStyle(fontSize: 11)),
-                icon: Icon(Icons.playlist_play, size: 16),
+                label: Text('Sequence', style: FluxForgeTheme.dockSans(size: 11)),
+                icon: const Icon(Icons.playlist_play, size: 16),
               ),
             ],
             selected: {mode == MockEngineMode.idle ? MockEngineMode.manual : mode},
@@ -301,7 +302,7 @@ class _MockEnginePanelState extends State<MockEnginePanel> {
           const Spacer(),
 
           // Context selector
-          const Text('Context: ', style: TextStyle(fontSize: 12)),
+          Text('Context: ', style: FluxForgeTheme.dockSans(size: 12)),
           DropdownButton<MockGameContext>(
             value: _service.currentContext,
             isDense: true,
@@ -309,7 +310,7 @@ class _MockEnginePanelState extends State<MockEnginePanel> {
             items: MockGameContext.values.map((ctx) {
               return DropdownMenuItem(
                 value: ctx,
-                child: Text(ctx.name, style: const TextStyle(fontSize: 12)),
+                child: Text(ctx.name, style: FluxForgeTheme.dockSans(size: 12)),
               );
             }).toList(),
             onChanged: (ctx) {
@@ -335,9 +336,9 @@ class _MockEnginePanelState extends State<MockEnginePanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Quick Spin (with outcome)',
-            style: TextStyle(fontSize: 11, color: Colors.grey),
+            style: FluxForgeTheme.dockSans(size: 11, color: Colors.grey),
           ),
           const SizedBox(height: 4),
           Wrap(
@@ -374,7 +375,7 @@ class _MockEnginePanelState extends State<MockEnginePanel> {
           backgroundColor: color.withValues(alpha: 0.8),
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 8),
-          textStyle: const TextStyle(fontSize: 10),
+          textStyle: FluxForgeTheme.dockSans(size: 10),
         ),
         child: Text(label),
       ),
@@ -391,9 +392,9 @@ class _MockEnginePanelState extends State<MockEnginePanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Predefined Sequences',
-            style: TextStyle(fontSize: 11, color: Colors.grey),
+            style: FluxForgeTheme.dockSans(size: 11, color: Colors.grey),
           ),
           const SizedBox(height: 4),
           Wrap(
@@ -463,7 +464,7 @@ class _MockEnginePanelState extends State<MockEnginePanel> {
           backgroundColor: color.withValues(alpha: 0.8),
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 8),
-          textStyle: const TextStyle(fontSize: 11),
+          textStyle: FluxForgeTheme.dockSans(size: 11),
         ),
       ),
     );
@@ -482,14 +483,14 @@ class _MockEnginePanelState extends State<MockEnginePanel> {
               const SizedBox(width: 4),
               Text(
                 'Event Log (${_eventLog.length})',
-                style: const TextStyle(fontSize: 11, color: Colors.grey),
+                style: FluxForgeTheme.dockSans(size: 11, color: Colors.grey),
               ),
               const Spacer(),
               // Auto-scroll toggle
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('Auto-scroll', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                  Text('Auto-scroll', style: FluxForgeTheme.dockSans(size: 10, color: Colors.grey)),
                   SizedBox(
                     height: 20,
                     child: Switch(
@@ -516,11 +517,11 @@ class _MockEnginePanelState extends State<MockEnginePanel> {
         // Log list
         Expanded(
           child: _eventLog.isEmpty
-              ? const Center(
+              ? Center(
                   child: Text(
                     'No events yet.\nStart the mock engine and trigger a spin.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey),
+                    style: FluxForgeTheme.dockSans(color: Colors.grey),
                   ),
                 )
               : ListView.builder(
@@ -556,9 +557,8 @@ class _MockEnginePanelState extends State<MockEnginePanel> {
             width: 70,
             child: Text(
               timeStr,
-              style: TextStyle(
-                fontSize: 10,
-                fontFamily: 'monospace',
+              style: FluxForgeTheme.dockMono(
+                size: 10,
                 color: Colors.grey.shade600,
               ),
             ),
@@ -582,17 +582,17 @@ class _MockEnginePanelState extends State<MockEnginePanel> {
               children: [
                 Text(
                   event.stage,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
+                    weight: FontWeight.w500,
                     color: color,
                   ),
                 ),
                 if (event.data.isNotEmpty)
                   Text(
                     _formatData(event.data),
-                    style: TextStyle(
-                      fontSize: 10,
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
                       color: Colors.grey.shade500,
                     ),
                   ),
@@ -689,9 +689,9 @@ class MockEngineBadge extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               isActive ? 'MOCK' : 'MOCK OFF',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.bold,
                 color: isActive ? Colors.green : Colors.grey,
               ),
             ),

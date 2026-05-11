@@ -238,13 +238,13 @@ class _ResourceDashboardPanelState extends State<ResourceDashboardPanel> {
         children: [
           const Icon(Icons.dashboard, size: 14, color: FluxForgeTheme.accentGreen),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'RESOURCE DASHBOARD',
-            style: TextStyle(
-              color: FluxForgeTheme.textPrimary,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.w600,
               letterSpacing: 1,
+              color: FluxForgeTheme.textPrimary,
             ),
           ),
           const Spacer(),
@@ -296,10 +296,10 @@ class _ResourceDashboardPanelState extends State<ResourceDashboardPanel> {
           const SizedBox(width: 4),
           Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 9,
+              weight: FontWeight.w600,
               color: color,
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -340,11 +340,11 @@ class _ResourceDashboardPanelState extends State<ResourceDashboardPanel> {
         const SizedBox(width: 6),
         Text(
           title,
-          style: const TextStyle(
-            color: FluxForgeTheme.textSecondary,
-            fontSize: 9,
-            fontWeight: FontWeight.w600,
+          style: FluxForgeTheme.dockSans(
+            size: 9,
+            weight: FontWeight.w600,
             letterSpacing: 1,
+            color: FluxForgeTheme.textSecondary,
           ),
         ),
       ],
@@ -366,17 +366,17 @@ class _ResourceDashboardPanelState extends State<ResourceDashboardPanel> {
             children: [
               Text(
                 '${stats.activeVoices}',
-                style: const TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 12,
+                  weight: FontWeight.w700,
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
                 ),
               ),
               Text(
                 '/ ${stats.maxVoices}',
-                style: const TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 14,
                   color: FluxForgeTheme.textSecondary,
-                  fontSize: 14,
                 ),
               ),
             ],
@@ -439,18 +439,18 @@ class _ResourceDashboardPanelState extends State<ResourceDashboardPanel> {
             children: [
               Text(
                 '${stats.utilizationPercent.toStringAsFixed(0)}% used',
-                style: const TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 9,
                   color: FluxForgeTheme.textSecondary,
-                  fontSize: 9,
                 ),
               ),
               Text(
                 '${stats.stealCount} steals',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 9,
                   color: stats.stealCount > 0
                       ? FluxForgeTheme.accentOrange
                       : FluxForgeTheme.textSecondary,
-                  fontSize: 9,
                 ),
               ),
             ],
@@ -506,10 +506,10 @@ class _ResourceDashboardPanelState extends State<ResourceDashboardPanel> {
           width: 30,
           child: Text(
             label,
-            style: const TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 9,
+              weight: FontWeight.w600,
               color: FluxForgeTheme.textSecondary,
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
             ),
           ),
         ),
@@ -537,10 +537,10 @@ class _ResourceDashboardPanelState extends State<ResourceDashboardPanel> {
           width: 40,
           child: Text(
             '${percent.toStringAsFixed(0)}%',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 10,
+              weight: FontWeight.w600,
               color: color,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
             ),
             textAlign: TextAlign.right,
           ),
@@ -614,10 +614,10 @@ class _ResourceDashboardPanelState extends State<ResourceDashboardPanel> {
               child: Center(
                 child: Text(
                   '${percent.toStringAsFixed(0)}%',
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockMono(
+                    size: 12,
+                    weight: FontWeight.w700,
                     color: FluxForgeTheme.textPrimary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -648,17 +648,17 @@ class _ResourceDashboardPanelState extends State<ResourceDashboardPanel> {
         children: [
           Text(
             label,
-            style: const TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 9,
               color: FluxForgeTheme.textSecondary,
-              fontSize: 9,
             ),
           ),
           Text(
             value,
-            style: const TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 10,
+              weight: FontWeight.w600,
               color: FluxForgeTheme.textPrimary,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -696,17 +696,17 @@ class _ResourceDashboardPanelState extends State<ResourceDashboardPanel> {
                 bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
               ),
             ),
-            child: const Row(
+            child: Row(
               children: [
                 Expanded(
                   flex: 3,
                   child: Text(
                     'SOUNDBANK',
-                    style: TextStyle(
-                      color: FluxForgeTheme.textSecondary,
-                      fontSize: 8,
-                      fontWeight: FontWeight.w600,
+                    style: FluxForgeTheme.dockSans(
+                      size: 8,
+                      weight: FontWeight.w600,
                       letterSpacing: 0.5,
+                      color: FluxForgeTheme.textSecondary,
                     ),
                   ),
                 ),
@@ -714,25 +714,25 @@ class _ResourceDashboardPanelState extends State<ResourceDashboardPanel> {
                   flex: 1,
                   child: Text(
                     'SIZE',
-                    style: TextStyle(
-                      color: FluxForgeTheme.textSecondary,
-                      fontSize: 8,
-                      fontWeight: FontWeight.w600,
+                    style: FluxForgeTheme.dockSans(
+                      size: 8,
+                      weight: FontWeight.w600,
                       letterSpacing: 0.5,
+                      color: FluxForgeTheme.textSecondary,
                     ),
                     textAlign: TextAlign.right,
                   ),
                 ),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 SizedBox(
                   width: 50,
                   child: Text(
                     'STATUS',
-                    style: TextStyle(
-                      color: FluxForgeTheme.textSecondary,
-                      fontSize: 8,
-                      fontWeight: FontWeight.w600,
+                    style: FluxForgeTheme.dockSans(
+                      size: 8,
+                      weight: FontWeight.w600,
                       letterSpacing: 0.5,
+                      color: FluxForgeTheme.textSecondary,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -786,12 +786,12 @@ class _ResourceDashboardPanelState extends State<ResourceDashboardPanel> {
               flex: 3,
               child: Text(
                 bank.name,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.w500,
                   color: isLoaded
                       ? FluxForgeTheme.textPrimary
                       : FluxForgeTheme.textSecondary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),
@@ -800,9 +800,9 @@ class _ResourceDashboardPanelState extends State<ResourceDashboardPanel> {
               flex: 1,
               child: Text(
                 _formatBytes(bank.estimatedSizeBytes),
-                style: const TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 9,
                   color: FluxForgeTheme.textSecondary,
-                  fontSize: 9,
                 ),
                 textAlign: TextAlign.right,
               ),
@@ -821,12 +821,12 @@ class _ResourceDashboardPanelState extends State<ResourceDashboardPanel> {
                 ),
                 child: Text(
                   isLoaded ? 'LOADED' : 'UNLOAD',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 7,
+                    weight: FontWeight.w600,
                     color: isLoaded
                         ? FluxForgeTheme.accentGreen
                         : FluxForgeTheme.textSecondary,
-                    fontSize: 7,
-                    fontWeight: FontWeight.w600,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -904,19 +904,19 @@ class _ResourceDashboardPanelState extends State<ResourceDashboardPanel> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Active Streams',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
                   color: FluxForgeTheme.textSecondary,
-                  fontSize: 10,
                 ),
               ),
               Text(
                 '$_activeStreams / $_maxStreams',
-                style: const TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 11,
+                  weight: FontWeight.w600,
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -961,14 +961,13 @@ class _ResourceDashboardPanelState extends State<ResourceDashboardPanel> {
           borderRadius: BorderRadius.circular(6),
           border: Border.all(color: FluxForgeTheme.borderSubtle),
         ),
-        child: const Center(
+        child: Center(
           child: Text(
             'No alerts',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: FluxForgeTheme.textSecondary,
-              fontSize: 10,
-              fontStyle: FontStyle.italic,
-            ),
+            ).copyWith(fontStyle: FontStyle.italic),
           ),
         ),
       );
@@ -1016,17 +1015,17 @@ class _ResourceDashboardPanelState extends State<ResourceDashboardPanel> {
               children: [
                 Text(
                   alert.message,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
+                    weight: FontWeight.w600,
                     color: color,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 Text(
                   _formatTime(alert.time),
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockMono(
+                    size: 8,
                     color: FluxForgeTheme.textSecondary,
-                    fontSize: 8,
                   ),
                 ),
               ],

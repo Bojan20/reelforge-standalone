@@ -10,6 +10,7 @@
 import 'dart:math' as math;
 import '../services/native_file_picker.dart';
 import 'package:flutter/material.dart';
+import '../theme/fluxforge_theme.dart';
 
 class MiddlewareHubScreen extends StatefulWidget {
   final void Function(String name) onNewProject;
@@ -395,20 +396,20 @@ class _MiddlewareHubScreenState extends State<MiddlewareHubScreen>
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'FluxForge Studio',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
+              style: FluxForgeTheme.dockSans(
+                size: 16,
+                weight: FontWeight.w500,
                 color: Colors.white,
                 letterSpacing: 1,
               ),
             ),
             Text(
               'MIDDLEWARE MODE',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.w600,
                 color: const Color(0xFFFF9040),
                 letterSpacing: 2,
               ),
@@ -467,8 +468,8 @@ class _MiddlewareHubScreenState extends State<MiddlewareHubScreen>
               const SizedBox(width: 8),
               Text(
                 label,
-                style: TextStyle(
-                  fontSize: 12,
+                style: FluxForgeTheme.dockSans(
+                  size: 12,
                   color: Colors.white.withValues(alpha: 0.7),
                 ),
               ),
@@ -486,13 +487,13 @@ class _MiddlewareHubScreenState extends State<MiddlewareHubScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Section title
-          const Text(
+          Text(
             'CREATE NEW PROJECT',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.w600,
               letterSpacing: 3,
-              color: Color(0xFF666666),
+              color: const Color(0xFF666666),
             ),
           ),
 
@@ -504,13 +505,13 @@ class _MiddlewareHubScreenState extends State<MiddlewareHubScreen>
           const SizedBox(height: 32),
 
           // Workflow templates
-          const Text(
+          Text(
             'WORKFLOW TEMPLATES',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.w600,
               letterSpacing: 2,
-              color: Color(0xFF555555),
+              color: const Color(0xFF555555),
             ),
           ),
 
@@ -552,14 +553,14 @@ class _MiddlewareHubScreenState extends State<MiddlewareHubScreen>
         controller: _nameController,
         focusNode: _nameFocusNode,
         onChanged: (value) => setState(() => _projectName = value),
-        style: const TextStyle(
-          fontSize: 16,
+        style: FluxForgeTheme.dockSans(
+          size: 16,
           color: Colors.white,
           letterSpacing: 0.5,
         ),
         decoration: InputDecoration(
           hintText: 'Project Name',
-          hintStyle: TextStyle(
+          hintStyle: FluxForgeTheme.dockSans(
             color: Colors.white.withValues(alpha: 0.3),
           ),
           prefixIcon: Icon(
@@ -649,17 +650,17 @@ class _MiddlewareHubScreenState extends State<MiddlewareHubScreen>
                 const Spacer(),
                 Text(
                   workflow.name,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                  style: FluxForgeTheme.dockSans(
+                    size: 14,
+                    weight: FontWeight.w600,
                     color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.8),
                   ),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   workflow.description,
-                  style: TextStyle(
-                    fontSize: 10,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
                     height: 1.4,
                     color: Colors.white.withValues(alpha: 0.4),
                   ),
@@ -699,9 +700,9 @@ class _MiddlewareHubScreenState extends State<MiddlewareHubScreen>
               const SizedBox(width: 12),
               Text(
                 'INCLUDES',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.w600,
                   letterSpacing: 2,
                   color: workflow.color.withValues(alpha: 0.8),
                 ),
@@ -724,8 +725,8 @@ class _MiddlewareHubScreenState extends State<MiddlewareHubScreen>
                 ),
                 child: Text(
                   feature,
-                  style: TextStyle(
-                    fontSize: 11,
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
                     color: Colors.white.withValues(alpha: 0.8),
                   ),
                 ),
@@ -770,9 +771,9 @@ class _MiddlewareHubScreenState extends State<MiddlewareHubScreen>
               const SizedBox(width: 10),
               Text(
                 'Create ${workflow.name} Project',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockSans(
+                  size: 14,
+                  weight: FontWeight.w600,
                   color: Colors.white,
                   letterSpacing: 0.5,
                 ),
@@ -796,13 +797,13 @@ class _MiddlewareHubScreenState extends State<MiddlewareHubScreen>
           const SizedBox(height: 32),
 
           // Recent Projects
-          const Text(
+          Text(
             'RECENT PROJECTS',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.w600,
               letterSpacing: 3,
-              color: Color(0xFF666666),
+              color: const Color(0xFF666666),
             ),
           ),
 
@@ -821,13 +822,13 @@ class _MiddlewareHubScreenState extends State<MiddlewareHubScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'QUICK START',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
+          style: FluxForgeTheme.dockSans(
+            size: 11,
+            weight: FontWeight.w600,
             letterSpacing: 3,
-            color: Color(0xFF666666),
+            color: const Color(0xFF666666),
           ),
         ),
         const SizedBox(height: 16),
@@ -871,19 +872,19 @@ class _MiddlewareHubScreenState extends State<MiddlewareHubScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Slot Lab Sandbox',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
+                          style: FluxForgeTheme.dockSans(
+                            size: 15,
+                            weight: FontWeight.w600,
                             color: Colors.white,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           'Jump directly into the audio authoring environment',
-                          style: TextStyle(
-                            fontSize: 11,
+                          style: FluxForgeTheme.dockSans(
+                            size: 11,
                             color: Colors.white.withValues(alpha: 0.5),
                           ),
                         ),
@@ -930,8 +931,8 @@ class _MiddlewareHubScreenState extends State<MiddlewareHubScreen>
           const SizedBox(height: 16),
           Text(
             'No recent projects',
-            style: TextStyle(
-              fontSize: 14,
+            style: FluxForgeTheme.dockSans(
+              size: 14,
               color: Colors.white.withValues(alpha: 0.4),
             ),
           ),
@@ -989,9 +990,9 @@ class _MiddlewareHubScreenState extends State<MiddlewareHubScreen>
                     children: [
                       Text(
                         project.name,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
+                        style: FluxForgeTheme.dockSans(
+                          size: 14,
+                          weight: FontWeight.w500,
                           color: Colors.white,
                         ),
                         maxLines: 1,
@@ -1020,8 +1021,8 @@ class _MiddlewareHubScreenState extends State<MiddlewareHubScreen>
                   children: [
                     Text(
                       _formatDate(project.lastOpened),
-                      style: TextStyle(
-                        fontSize: 10,
+                      style: FluxForgeTheme.dockSans(
+                        size: 10,
                         color: Colors.white.withValues(alpha: 0.35),
                       ),
                     ),
@@ -1051,9 +1052,9 @@ class _MiddlewareHubScreenState extends State<MiddlewareHubScreen>
       ),
       child: Text(
         text,
-        style: TextStyle(
-          fontSize: 9,
-          fontWeight: FontWeight.w500,
+        style: FluxForgeTheme.dockSans(
+          size: 9,
+          weight: FontWeight.w500,
           color: color.withValues(alpha: 0.8),
         ),
       ),
@@ -1092,8 +1093,8 @@ class _MiddlewareHubScreenState extends State<MiddlewareHubScreen>
           // Version
           Text(
             'v0.1.0',
-            style: TextStyle(
-              fontSize: 10,
+            style: FluxForgeTheme.dockMono(
+              size: 10,
               color: Colors.white.withValues(alpha: 0.2),
               letterSpacing: 1,
             ),
@@ -1114,9 +1115,9 @@ class _MiddlewareHubScreenState extends State<MiddlewareHubScreen>
           ),
           child: Text(
             shortcut,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
+            style: FluxForgeTheme.dockMono(
+              size: 10,
+              weight: FontWeight.w500,
               color: Colors.white.withValues(alpha: 0.4),
             ),
           ),
@@ -1124,8 +1125,8 @@ class _MiddlewareHubScreenState extends State<MiddlewareHubScreen>
         const SizedBox(width: 6),
         Text(
           action,
-          style: TextStyle(
-            fontSize: 10,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
             color: Colors.white.withValues(alpha: 0.3),
           ),
         ),

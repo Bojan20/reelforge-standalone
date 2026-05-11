@@ -183,11 +183,11 @@ class _TestAutomationPanelState extends State<TestAutomationPanel>
         children: [
           const Icon(Icons.science, size: 16, color: Color(0xFF9370DB)),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'TEST AUTOMATION',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 12,
+              weight: FontWeight.bold,
               color: Colors.white70,
               letterSpacing: 1.2,
             ),
@@ -205,7 +205,7 @@ class _TestAutomationPanelState extends State<TestAutomationPanel>
             const SizedBox(width: 8),
             Text(
               'Running: ${_runner.currentStep?.name ?? ""}',
-              style: const TextStyle(fontSize: 11, color: Color(0xFF40FF90)),
+              style: FluxForgeTheme.dockSans(size: 11, color: const Color(0xFF40FF90)),
             ),
             const SizedBox(width: 8),
             IconButton(
@@ -306,7 +306,7 @@ class _TestAutomationPanelState extends State<TestAutomationPanel>
     return ListTile(
       dense: true,
       leading: Icon(icon, size: 16),
-      title: Text(label, style: const TextStyle(fontSize: 12)),
+      title: Text(label, style: FluxForgeTheme.dockSans(size: 12)),
       contentPadding: const EdgeInsets.symmetric(horizontal: 8),
       visualDensity: VisualDensity.compact,
     );
@@ -360,9 +360,9 @@ class _TestAutomationPanelState extends State<TestAutomationPanel>
           children: [
             const Icon(Icons.science, size: 48, color: Colors.white24),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'No test running',
-              style: TextStyle(color: Colors.white54),
+              style: FluxForgeTheme.dockSans(color: Colors.white54),
             ),
             const SizedBox(height: 8),
             OutlinedButton(
@@ -388,12 +388,12 @@ class _TestAutomationPanelState extends State<TestAutomationPanel>
             children: [
               Text(
                 scenario?.name ?? 'Test',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+                style: FluxForgeTheme.dockSans(weight: FontWeight.bold),
               ),
               const Spacer(),
               Text(
                 '${results.length}/${steps.length} steps',
-                style: const TextStyle(color: Colors.white54),
+                style: FluxForgeTheme.dockMono(color: Colors.white54),
               ),
               const SizedBox(width: 16),
               if (_lastResult != null)
@@ -436,13 +436,13 @@ class _TestAutomationPanelState extends State<TestAutomationPanel>
 
   Widget _buildResultsTab() {
     if (_recentResults.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.history, size: 48, color: Colors.white24),
-            SizedBox(height: 16),
-            Text('No test results yet', style: TextStyle(color: Colors.white54)),
+            const Icon(Icons.history, size: 48, color: Colors.white24),
+            const SizedBox(height: 16),
+            Text('No test results yet', style: FluxForgeTheme.dockSans(color: Colors.white54)),
           ],
         ),
       );
@@ -468,7 +468,7 @@ class _TestAutomationPanelState extends State<TestAutomationPanel>
           padding: const EdgeInsets.all(8),
           child: Row(
             children: [
-              const Text('Test Log', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text('Test Log', style: FluxForgeTheme.dockSans(weight: FontWeight.bold)),
               const Spacer(),
               IconButton(
                 icon: const Icon(Icons.copy, size: 16),
@@ -494,9 +494,8 @@ class _TestAutomationPanelState extends State<TestAutomationPanel>
                 final message = _logMessages[_logMessages.length - 1 - index];
                 return Text(
                   message,
-                  style: TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 11,
+                  style: FluxForgeTheme.dockMono(
+                    size: 11,
                     color: message.contains('PASS')
                         ? const Color(0xFF40FF90)
                         : message.contains('FAIL')
@@ -616,7 +615,7 @@ class _ScenarioCard extends StatelessWidget {
                       children: [
                         Text(
                           scenario.name,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          style: FluxForgeTheme.dockSans(weight: FontWeight.bold),
                         ),
                         const SizedBox(width: 8),
                         _CategoryBadge(category: scenario.category),
@@ -625,7 +624,7 @@ class _ScenarioCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       '${scenario.stepCount} steps, ${scenario.assertionCount} assertions',
-                      style: const TextStyle(fontSize: 11, color: Colors.white54),
+                      style: FluxForgeTheme.dockMono(size: 11, color: Colors.white54),
                     ),
                   ],
                 ),
@@ -668,7 +667,7 @@ class _ScenarioDetails extends StatelessWidget {
         children: [
           Text(
             scenario.name,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            style: FluxForgeTheme.dockSans(size: 14, weight: FontWeight.bold),
           ),
           const SizedBox(height: 4),
           _CategoryBadge(category: scenario.category),
@@ -676,7 +675,7 @@ class _ScenarioDetails extends StatelessWidget {
           if (scenario.description != null) ...[
             Text(
               scenario.description!,
-              style: const TextStyle(fontSize: 12, color: Colors.white70),
+              style: FluxForgeTheme.dockSans(size: 12, color: Colors.white70),
             ),
             const SizedBox(height: 12),
           ],
@@ -715,8 +714,8 @@ class _ScenarioDetails extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
-          Text('$label: ', style: const TextStyle(fontSize: 11, color: Colors.white54)),
-          Text(value, style: const TextStyle(fontSize: 11)),
+          Text('$label: ', style: FluxForgeTheme.dockSans(size: 11, color: Colors.white54)),
+          Text(value, style: FluxForgeTheme.dockSans(size: 11)),
         ],
       ),
     );
@@ -760,15 +759,15 @@ class _StepItem extends StatelessWidget {
               children: [
                 Text(
                   '${index + 1}. ${step.name}',
-                  style: TextStyle(
-                    fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                  style: FluxForgeTheme.dockSans(
+                    weight: isCurrent ? FontWeight.bold : FontWeight.normal,
                   ),
                 ),
                 if (result != null) ...[
                   const SizedBox(height: 2),
                   Text(
                     '${result!.passedAssertions}/${result!.assertionResults.length} assertions passed • ${result!.duration.inMilliseconds}ms',
-                    style: const TextStyle(fontSize: 10, color: Colors.white54),
+                    style: FluxForgeTheme.dockMono(size: 10, color: Colors.white54),
                   ),
                 ],
               ],
@@ -805,7 +804,7 @@ class _ResultCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     result.scenario.name,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    style: FluxForgeTheme.dockSans(weight: FontWeight.bold),
                   ),
                 ),
                 IconButton(
@@ -828,7 +827,7 @@ class _ResultCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               result.startedAt.toString().split('.').first,
-              style: const TextStyle(fontSize: 10, color: Colors.white38),
+              style: FluxForgeTheme.dockMono(size: 10, color: Colors.white38),
             ),
           ],
         ),
@@ -839,7 +838,7 @@ class _ResultCard extends StatelessWidget {
   Widget _buildStat(String label, String value) {
     return Text(
       '$label: $value',
-      style: const TextStyle(fontSize: 11, color: Colors.white70),
+      style: FluxForgeTheme.dockSans(size: 11, color: Colors.white70),
     );
   }
 }
@@ -869,7 +868,7 @@ class _StatusBadge extends StatelessWidget {
       ),
       child: Text(
         status.label,
-        style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold),
+        style: FluxForgeTheme.dockSans(size: 10, color: color, weight: FontWeight.bold),
       ),
     );
   }
@@ -923,7 +922,7 @@ class _CategoryBadge extends StatelessWidget {
       ),
       child: Text(
         category.label,
-        style: TextStyle(fontSize: 9, color: color),
+        style: FluxForgeTheme.dockSans(size: 9, color: color),
       ),
     );
   }
