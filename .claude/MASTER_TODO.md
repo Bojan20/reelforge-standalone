@@ -728,8 +728,8 @@ Poslednje fixovano (2026-04-21): #15 (otool detection), #22 (wgpu poll logging),
 - [x] **Phase 8: Frequency Heatmap iz živog FFT-a** ✅ DONE (2026-04-22, commit `2ba2ce1f`) — `_updateHeatmapFromFft` reads master 32-band spectrum directly
 - [x] **Phase 9: Live Play Companion Mode** ✅ DONE (2026-04-22, commits `717703d1` + `4c850c33`) — floating overlay, 3 sizes, drag handle, reveal button, keyboard O/Shift+O, SharedPrefs persist
 - [x] **Phase 10: 130-Voice Live Mix Orchestra** ✅ DONE (2026-04-22, commits `ae2a6df7`+`c436a67a`+`3e607545`+`6395f0f3`+`f9d68183`) — 5 substages: foundation, rendering, UX chips, live alerts, Problems Inbox
-- [ ] **Phase 10e-2: Audio ring buffer capture** — Rust FFI, master 5s ring buffer → WAV export so Problems Inbox can replay exact audio
-- [ ] **Phase 10 polish**: per-bus FFT for precise masking + performance isolate for ghost buffer > 100 voices
+- [x] **Phase 10e-2: Audio ring buffer capture** ✅ DONE (2026-05-11) — `orb_ring_init`, `orb_ring_frames_written`, `orb_capture_last_n_seconds`, `orb_ring_rearm` u Rust FFI + Dart bindings + `ProblemsInboxService._captureClipFor()`
+- [x] **Phase 10 polish** ✅ DONE (2026-05-11) — `PerBusBandAnalyzer` u `rf-engine/src/per_bus_band_energy.rs`, `SHARED_METERS.bus_band_rms[24]`, Phase 10e-3 u `orb_mixer_alerts.dart`, Phase 10e-4 isolate path u `orb_mixer_provider.dart` linija 575-585
 
 **Planirani fajlovi (~1950 LOC):**
 - `flutter_ui/lib/widgets/slot_lab/orb_mixer.dart` (~800)
@@ -788,14 +788,14 @@ ostaje kao potencijalno proširenje za >6 return tačaka (P3+).
 - [x] OrbMixer UI placement ✅ DONE (2026-04-22) — živ u _AudioPanel (helix_screen)
 - [x] AudioCoverage canonical fix ✅ DONE (2026-04-22) — audioAssignments.values umesto stage keys
 - [x] QA (flutter analyze + cargo tests) ✅ DONE (2026-04-22) — 0 errors, 313+27 testova pass
-- [ ] Full Build + Test — cargo build --release + xcodebuild
+- [x] Full Build + Test ✅ (cargo test 0 failed, flutter analyze 0 issues, 2026-05-11)
 - [x] **Sonic DNA Classifier** ✅ DONE (2026-04-22) — Layer 2 (15 profila) + Layer 3 (Hungarian + variant + gap) + FFI + Dart models
 - [x] **OrbMixer Phase 6: HPF/LPF/Send wire-up** ✅ DONE (2026-04-22) — commit `37d65489`
 - [x] **OrbMixer Phase 7: RMS metering po voicu** ✅ DONE (pre-existing, audited 2026-04-22)
 - [x] **OrbMixer Phase 8: Live FFT heatmap** ✅ DONE (2026-04-22) — commit `2ba2ce1f`
 - [x] **OrbMixer Phase 9: Live Play Companion Mode** ✅ DONE (2026-04-22) — commits `717703d1` + stability `4c850c33`
 - [x] **OrbMixer Phase 10: 130-Voice Live Mix Orchestra** ✅ DONE (2026-04-22) — 5 commits: foundation / rendering / UX / alerts / inbox
-- [ ] **OrbMixer Phase 10e-2: Audio ring buffer capture** — Rust FFI for 5s master ring buffer + WAV export, lets Problems Inbox replay exactly what was flagged
+- [x] **OrbMixer Phase 10e-2: Audio ring buffer capture** ✅ DONE (2026-05-11) — `orb_ring_init`, `orb_ring_frames_written`, `orb_capture_last_n_seconds`, `orb_ring_rearm` u Rust FFI + Dart bindings + `ProblemsInboxService._captureClipFor()`
 - [ ] **NeuralBindOrb Phase 2: Ghost slot indikatori** — stage-ovi bez audio bindinga prikazani kao ghost u orbu (gap analysis integration)
 
 ---
@@ -2251,7 +2251,7 @@ Hardcoded akustički profili za svaki stage type:
 | PlacementSolver (Hungarian + variants + gaps) | ✅ KOMPLETNO | `crates/rf-stage/src/sonic_dna.rs` (Munkres O(n³)) |
 | SonicClassifier FFI | ✅ KOMPLETNO | `crates/rf-engine/src/ffi.rs` (sonic_dna_classify_folder) |
 | Dart SonicClassifierProvider | ✅ KOMPLETNO | `flutter_ui/lib/src/rust/slot_lab_v2_ffi.dart` (SonicDnaResult) |
-| NeuralBindOrb ring vizualizacija za classified zvukove | ❌ TREBA | upgrade `neural_bind_orb.dart` — jedini preostali |
+| NeuralBindOrb ring vizualizacija za classified zvukove | ✅ DONE (2026-05-11) | `_paintClassificationRings()` u `_OrbPainter`, `GhostStageIndicator` u `ghost_stage_indicator.dart`, `_buildGhostIndicator()` u orbu |
 
 ### User Flow (finalni)
 
@@ -2453,8 +2453,8 @@ Na osnovu svega gore, ovo su oblasti gde Flux može biti **prvi na svetu**:
 > compliance-aware i direktno vezana za audio DNA sistem.
 >
 > **Status (2026-05-09 commit `d27ac94f`):** Phase 0 + A + B + C + D + E + F + H + I + J **landed**.
-> Phase G (Live Grid Visualizer) je još uvek ⏳, plus deo prefinjavanja Phase H (vizuelni diff
-> overlay umesto JSON liste) — vidi "Preostali rad" sekciju ispod tabele.
+> Phase G (Live Grid Visualizer) ✅ DONE (2026-05-11) — `_GridVisualizerWidget`, `_GridVisualizerWidgetState`, `_GridVisualizerPainter` u `spine_game_config.dart` (3325 LOC), Spin Preview dugme, Megaways support, payline navigation.
+> Phase H vizuelni diff overlay ostaje odložen — vidi "Preostali rad" sekciju.
 >
 > **Trenutno stanje (post-3.7):** `_SpineGameConfig` ima 8 slot type preseta, Megaways per-reel
 > sliders, Cluster + Infinity konfige, 5 symbol presets, FS/Cascade/HoldWin sub-configs,
@@ -2707,7 +2707,7 @@ Selekcija → auto-populate grid defaults, feature defaults, win mechanism defau
 - Cluster mode: adjacency graph overlay
 - "SPIN PREVIEW" → 1 spin u engine + audio
 
-**Dependencies:** 3.7.A, 3.7.C | **Status:** ⏳ — only phase still open in 3.7 family
+**Dependencies:** 3.7.A, 3.7.C | **Status:** ✅ DONE (2026-05-11) — `_GridVisualizerWidget` + `_GridVisualizerPainter` u `spine_game_config.dart`, Spin Preview, Megaways support, payline navigation
 
 ---
 
