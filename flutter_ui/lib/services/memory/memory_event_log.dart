@@ -80,6 +80,9 @@ class MemoryEventLog {
   final List<MemoryEvent> _ring = <MemoryEvent>[];
 
   Directory? _memoryDir;
+  // Set to true ONLY by setMemoryDirForTest(null) — prevents fallthrough
+  // to the real production `~/Library/.../memory` directory in unit tests.
+  bool _suppressDiskForTest = false;
   int _monotonic = 0;
 
   // Auto-hook subscriptions.
@@ -272,6 +275,8 @@ class MemoryEventLog {
   // ── Internal helpers ──────────────────────────────────────────────────
 
   Future<Directory?> _resolveMemoryDir() async {
+    // Test-mode guard: setMemoryDirForTest(null) explicitly disables disk access.
+    if (_suppressDiskForTest) return null;
     if (_memoryDir != null && _memoryDir!.existsSync()) return _memoryDir;
     try {
       final home = Platform.environment['HOME'];
@@ -298,6 +303,9 @@ class MemoryEventLog {
   }
 
   /// Test helper — clear ring + cancel subs. NE briše disk fajlove.
+  ///
+  /// Also resets `_suppressDiskForTest` so tests that call this without
+  /// `setMemoryDirForTest` start with default (production) behavior.
   @visibleForTesting
   void clearForTest() {
     _ring.clear();
@@ -306,11 +314,17 @@ class MemoryEventLog {
     _feedbackSub = null;
     _warningsSub = null;
     _monotonic = 0;
+    _memoryDir = null;
+    _suppressDiskForTest = false;
   }
 
   /// Test helper — inject custom dir za hermetičke disk testove.
+  ///
+  /// Passing `null` explicitly suppresses all disk access so tests do not
+  /// accidentally read from `~/Library/Application Support/FluxForge Studio/memory/`.
   @visibleForTesting
   void setMemoryDirForTest(Directory? dir) {
     _memoryDir = dir;
+    _suppressDiskForTest = (dir == null);
   }
 }
