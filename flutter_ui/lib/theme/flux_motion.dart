@@ -48,6 +48,10 @@ class FluxMotion {
   /// Use ONLY za emocionalno značajne moment-e; preterana upotreba čini UI sporim.
   static const Duration cinematic = Duration(milliseconds: 800);
 
+  // ── Tier 5: UI FEEDBACK — non-animation durations ────────────────────────
+  /// 3000ms — standard SnackBar toast visibility (save/export confirmations).
+  static const Duration toastDuration = Duration(seconds: 3);
+
   // ════════════════════════════════════════════════════════════════════════
   // SPRING FAMILIES — per-purpose curves
   //

@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/native_file_picker.dart';
 import '../../services/timing_validator.dart';
+import '../../theme/flux_motion.dart';
 import '../../theme/fluxforge_theme.dart';
 
 class TimingValidationPanel extends StatefulWidget {
@@ -80,7 +81,7 @@ class _TimingValidationPanelState extends State<TimingValidationPanel> {
               style: FluxForgeTheme.dockMono(size: 11),
             ),
             backgroundColor: FluxForgeTheme.bgSurface,
-            duration: const Duration(seconds: 3),
+            duration: FluxMotion.toastDuration,
           ),
         );
       }
