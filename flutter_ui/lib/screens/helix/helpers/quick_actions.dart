@@ -72,11 +72,10 @@ class _QuickActionPillState extends State<_QuickActionPill> {
               ),
               const SizedBox(width: 4),
               Text(widget.action.label,
-                style: TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 9,
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
                   letterSpacing: 0.5,
-                  fontWeight: FontWeight.w600,
+                  weight: FontWeight.w600,
                   color: _hovered
                       ? widget.action.color
                       : widget.action.color.withValues(alpha: 0.65),
@@ -123,9 +122,9 @@ class _KeysGroup extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(
-            fontFamily: 'monospace', fontSize: 10,
-            fontWeight: FontWeight.w800, letterSpacing: 1.4,
+          Text(title, style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: FontWeight.w800, letterSpacing: 1.4,
             color: FluxForgeTheme.brandGold)),
           const SizedBox(height: 6),
           Container(
@@ -152,15 +151,15 @@ class _KeysGroup extends StatelessWidget {
                           border: Border.all(
                             color: FluxForgeTheme.borderSubtle, width: 0.5),
                         ),
-                        child: Text(rows[i].$1, style: const TextStyle(
-                          fontFamily: 'monospace', fontSize: 10,
-                          fontWeight: FontWeight.w700,
+                        child: Text(rows[i].$1, style: FluxForgeTheme.dockMono(
+                          size: 10,
+                          weight: FontWeight.w700,
                           color: FluxForgeTheme.accentCyan)),
                       ),
                     ),
                     const SizedBox(width: 12),
-                    Expanded(child: Text(rows[i].$2, style: const TextStyle(
-                      fontFamily: 'monospace', fontSize: 10,
+                    Expanded(child: Text(rows[i].$2, style: FluxForgeTheme.dockSans(
+                      size: 10,
                       color: FluxForgeTheme.textSecondary))),
                   ]),
                 ),
@@ -223,9 +222,9 @@ class _ModeIndicator extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 6),
-            Text(label, style: TextStyle(
-              fontFamily: 'monospace', fontSize: 9,
-              fontWeight: FontWeight.w800, letterSpacing: 1.0,
+            Text(label, style: FluxForgeTheme.dockSans(
+              size: 9,
+              weight: FontWeight.w800, letterSpacing: 1.0,
               color: color)),
           ],
         ),
@@ -266,15 +265,15 @@ class _DiffStatChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label, style: TextStyle(
-            fontFamily: 'monospace', fontSize: 7,
+          Text(label, style: FluxForgeTheme.dockMono(
+            size: 7,
             color: isZero ? color.withValues(alpha: 0.4) : color,
-            fontWeight: FontWeight.w800)),
+            weight: FontWeight.w800)),
           const SizedBox(width: 3),
-          Text('$count', style: TextStyle(
-            fontFamily: 'monospace', fontSize: 7,
+          Text('$count', style: FluxForgeTheme.dockMono(
+            size: 7,
             color: isZero ? color.withValues(alpha: 0.4) : color,
-            fontWeight: FontWeight.w600)),
+            weight: FontWeight.w600)),
         ],
       ),
     );

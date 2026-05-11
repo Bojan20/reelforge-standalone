@@ -301,12 +301,10 @@ class _TimeRulerState extends State<TimeRuler> {
                 child: TextField(
                   controller: _editController,
                   focusNode: _editFocusNode,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
+                    size: _isEditingTempo ? 11 : 10,
                     color: FluxForgeTheme.textPrimary,
-                    fontSize: _isEditingTempo ? 11 : 10,
-                    fontFamily: 'JetBrains Mono',
-                    height: 1.0,
-                  ),
+                  ).copyWith(height: 1.0),
                   textAlign: TextAlign.center,
                   textAlignVertical: TextAlignVertical.center,
                   decoration: InputDecoration(
@@ -314,10 +312,9 @@ class _TimeRulerState extends State<TimeRuler> {
                     contentPadding: const EdgeInsets.symmetric(horizontal: 2, vertical: 0),
                     isDense: true,
                     hintText: hint,
-                    hintStyle: TextStyle(
+                    hintStyle: FluxForgeTheme.dockMono(
+                      size: _isEditingTempo ? 11 : 10,
                       color: FluxForgeTheme.textTertiary,
-                      fontSize: _isEditingTempo ? 11 : 10,
-                      fontFamily: 'JetBrains Mono',
                     ),
                   ),
                   keyboardType: _isEditingTempo

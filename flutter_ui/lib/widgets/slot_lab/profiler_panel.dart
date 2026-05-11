@@ -163,16 +163,16 @@ class _ProfilerPanelState extends State<ProfilerPanel> with SingleTickerProvider
           height: 32,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           color: FluxForgeTheme.bgMid,
-          child: const Row(
+          child: Row(
             children: [
-              Icon(Icons.analytics, size: 14, color: FluxForgeTheme.accentOrange),
-              SizedBox(width: 8),
+              const Icon(Icons.analytics, size: 14, color: FluxForgeTheme.accentOrange),
+              const SizedBox(width: 8),
               Text(
                 'AUDIO STATS',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.bold,
                   color: FluxForgeTheme.accentOrange,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
                   letterSpacing: 1,
                 ),
               ),
@@ -244,22 +244,21 @@ class _ProfilerPanelState extends State<ProfilerPanel> with SingleTickerProvider
               const SizedBox(width: 6),
               Text(
                 label,
-                style: const TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
+                  weight: FontWeight.bold,
                   color: Colors.white54,
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
                   letterSpacing: 1,
                 ),
               ),
               const Spacer(),
               Text(
                 value,
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 11,
+                  weight: FontWeight.bold,
                   color: color,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'monospace',
-                ),
+                ).copyWith(fontFamily: 'monospace'),
               ),
             ],
           ),
@@ -299,12 +298,12 @@ class _ProfilerPanelState extends State<ProfilerPanel> with SingleTickerProvider
             children: [
               const Icon(Icons.show_chart, size: 14, color: FluxForgeTheme.accentCyan),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'PERFORMANCE GRAPHS',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.bold,
                   color: FluxForgeTheme.accentCyan,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
                   letterSpacing: 1,
                 ),
               ),
@@ -321,7 +320,7 @@ class _ProfilerPanelState extends State<ProfilerPanel> with SingleTickerProvider
                     value: _bufferSize,
                     dropdownColor: FluxForgeTheme.bgMid,
                     isDense: true,
-                    style: const TextStyle(color: Colors.white70, fontSize: 10),
+                    style: FluxForgeTheme.dockMono(size: 10, color: Colors.white70),
                     items: const [
                       DropdownMenuItem(value: 128, child: Text('128')),
                       DropdownMenuItem(value: 256, child: Text('256')),
@@ -391,10 +390,10 @@ class _ProfilerPanelState extends State<ProfilerPanel> with SingleTickerProvider
             padding: const EdgeInsets.all(6),
             child: Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 9,
+                weight: FontWeight.bold,
                 color: color,
-                fontSize: 9,
-                fontWeight: FontWeight.bold,
               ),
             ),
           ),

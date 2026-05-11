@@ -14,6 +14,7 @@ library;
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../src/rust/native_ffi.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // LUFS DATA MODEL
@@ -130,9 +131,9 @@ class _LufsMeterWidgetState extends State<LufsMeterWidget> {
           if (widget.showLabels) ...[
             Text(
               'LOUDNESS (LUFS)',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.bold,
                 color: widget.accentColor,
                 letterSpacing: 0.5,
               ),
@@ -162,10 +163,10 @@ class _LufsMeterWidgetState extends State<LufsMeterWidget> {
           width: 12,
           child: Text(
             label,
-            style: const TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF909090),
+            style: FluxForgeTheme.dockSans(
+              size: 9,
+              weight: FontWeight.bold,
+              color: const Color(0xFF909090),
             ),
           ),
         ),
@@ -178,11 +179,10 @@ class _LufsMeterWidgetState extends State<LufsMeterWidget> {
           width: 42,
           child: Text(
             _formatLufs(value),
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockMono(
+              size: 10,
+              weight: FontWeight.bold,
               color: color,
-              fontFamily: 'monospace',
             ),
             textAlign: TextAlign.right,
           ),
@@ -199,14 +199,14 @@ class _LufsMeterWidgetState extends State<LufsMeterWidget> {
 
     return Row(
       children: [
-        const SizedBox(
+        SizedBox(
           width: 12,
           child: Text(
             'TP',
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF909090),
+            style: FluxForgeTheme.dockSans(
+              size: 9,
+              weight: FontWeight.bold,
+              color: const Color(0xFF909090),
             ),
           ),
         ),
@@ -219,11 +219,10 @@ class _LufsMeterWidgetState extends State<LufsMeterWidget> {
           width: 42,
           child: Text(
             _formatDb(maxPeak),
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockMono(
+              size: 10,
+              weight: FontWeight.bold,
               color: color,
-              fontFamily: 'monospace',
             ),
             textAlign: TextAlign.right,
           ),
@@ -341,11 +340,10 @@ class _LufsBadgeState extends State<LufsBadge> {
         ],
         Text(
           text,
-          style: TextStyle(
-            fontSize: widget.fontSize,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockMono(
+            size: widget.fontSize,
+            weight: FontWeight.bold,
             color: color,
-            fontFamily: 'monospace',
           ),
         ),
       ],

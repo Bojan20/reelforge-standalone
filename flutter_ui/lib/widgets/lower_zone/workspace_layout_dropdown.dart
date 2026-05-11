@@ -6,6 +6,7 @@ import 'lower_zone_types.dart';
 import 'daw_lower_zone_controller.dart';
 import '../../services/workspace_layout_service.dart';
 import '../../models/workspace_layout_preset.dart';
+import '../../theme/fluxforge_theme.dart';
 
 class WorkspaceLayoutDropdown extends StatelessWidget {
   final DawLowerZoneController controller;
@@ -30,13 +31,13 @@ class WorkspaceLayoutDropdown extends StatelessWidget {
           ),
           onSelected: (preset) => service.applyPreset(preset, controller),
           itemBuilder: (context) => [
-            const PopupMenuItem(
+            PopupMenuItem(
               enabled: false,
               child: Text(
                 'BUILT-IN PRESETS',
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
+                  weight: FontWeight.bold,
                   color: LowerZoneColors.textMuted,
                 ),
               ),
@@ -53,13 +54,13 @@ class WorkspaceLayoutDropdown extends StatelessWidget {
             )),
             if (service.customPresets.isNotEmpty) ...[
               const PopupMenuDivider(),
-              const PopupMenuItem(
+              PopupMenuItem(
                 enabled: false,
                 child: Text(
                   'CUSTOM PRESETS',
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
+                    weight: FontWeight.bold,
                     color: LowerZoneColors.textMuted,
                   ),
                 ),
@@ -94,14 +95,14 @@ class WorkspaceLayoutDropdown extends StatelessWidget {
               borderRadius: BorderRadius.circular(4),
               border: Border.all(color: LowerZoneColors.border),
             ),
-            child: const Row(
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.dashboard_customize, size: 12, color: LowerZoneColors.textSecondary),
-                SizedBox(width: 4),
-                Text('Layout', style: TextStyle(fontSize: 10, color: LowerZoneColors.textSecondary)),
-                SizedBox(width: 2),
-                Icon(Icons.arrow_drop_down, size: 14, color: LowerZoneColors.textMuted),
+                const Icon(Icons.dashboard_customize, size: 12, color: LowerZoneColors.textSecondary),
+                const SizedBox(width: 4),
+                Text('Layout', style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textSecondary)),
+                const SizedBox(width: 2),
+                const Icon(Icons.arrow_drop_down, size: 14, color: LowerZoneColors.textMuted),
               ],
             ),
           ),
@@ -127,14 +128,14 @@ class WorkspaceLayoutDropdown extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: LowerZoneColors.bgDeep,
-        title: const Text('Save Workspace Preset', style: TextStyle(color: LowerZoneColors.textPrimary)),
+        title: Text('Save Workspace Preset', style: FluxForgeTheme.dockSans(color: LowerZoneColors.textPrimary)),
         content: TextField(
           controller: nameController,
           autofocus: true,
-          style: const TextStyle(color: LowerZoneColors.textPrimary),
-          decoration: const InputDecoration(
+          style: FluxForgeTheme.dockSans(color: LowerZoneColors.textPrimary),
+          decoration: InputDecoration(
             labelText: 'Preset Name',
-            labelStyle: TextStyle(color: LowerZoneColors.textMuted),
+            labelStyle: FluxForgeTheme.dockSans(color: LowerZoneColors.textMuted),
           ),
         ),
         actions: [

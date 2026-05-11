@@ -315,10 +315,10 @@ class _TutorialCard extends StatelessWidget {
                           ),
                           child: Text(
                             'STEP $stepNumber/$totalSteps',
-                            style: const TextStyle(
+                            style: FluxForgeTheme.dockMono(
                               color: FluxForgeTheme.accentBlue,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
+                              size: 10,
+                              weight: FontWeight.w700,
                               letterSpacing: 0.5,
                             ),
                           ),
@@ -371,10 +371,10 @@ class _TutorialCard extends StatelessWidget {
                   // Title
                   Text(
                     step.title,
-                    style: const TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: FluxForgeTheme.textPrimary,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
+                      size: 18,
+                      weight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -382,9 +382,9 @@ class _TutorialCard extends StatelessWidget {
                   // Description
                   Text(
                     step.description,
-                    style: const TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: FluxForgeTheme.textMuted,
-                      fontSize: 14,
+                      size: 14,
                       height: 1.5,
                     ),
                   ),
@@ -415,10 +415,10 @@ class _TutorialCard extends StatelessWidget {
                               const SizedBox(width: 6),
                               Text(
                                 'HOW TO:',
-                                style: TextStyle(
+                                style: FluxForgeTheme.dockSans(
                                   color: step.iconColor,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
+                                  size: 11,
+                                  weight: FontWeight.w700,
                                   letterSpacing: 0.5,
                                 ),
                               ),
@@ -443,9 +443,9 @@ class _TutorialCard extends StatelessWidget {
                                     Expanded(
                                       child: Text(
                                         instruction,
-                                        style: const TextStyle(
+                                        style: FluxForgeTheme.dockSans(
                                           color: FluxForgeTheme.textSecondary,
-                                          fontSize: 13,
+                                          size: 13,
                                           height: 1.4,
                                         ),
                                       ),
@@ -475,11 +475,10 @@ class _TutorialCard extends StatelessWidget {
                               Expanded(
                                 child: Text(
                                   tip,
-                                  style: const TextStyle(
+                                  style: FluxForgeTheme.dockSans(
                                     color: FluxForgeTheme.textSecondary,
-                                    fontSize: 12,
-                                    fontStyle: FontStyle.italic,
-                                  ),
+                                    size: 12,
+                                  ).copyWith(fontStyle: FontStyle.italic),
                                 ),
                               ),
                             ],

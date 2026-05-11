@@ -1654,21 +1654,21 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
       items: [
         PopupMenuItem(
           onTap: () => _showMarkerRenameDialog(ctx, marker),
-          child: const Row(
+          child: Row(
             children: [
-              Icon(Icons.edit, size: 14),
-              SizedBox(width: 8),
-              Text('Rename', style: TextStyle(fontSize: 12)),
+              const Icon(Icons.edit, size: 14),
+              const SizedBox(width: 8),
+              Text('Rename', style: FluxForgeTheme.dockSans(size: 12)),
             ],
           ),
         ),
         PopupMenuItem(
           onTap: () => widget.onMarkerDelete?.call(marker.id),
-          child: const Row(
+          child: Row(
             children: [
-              Icon(Icons.delete_outline, size: 14, color: Colors.redAccent),
-              SizedBox(width: 8),
-              Text('Delete', style: TextStyle(fontSize: 12, color: Colors.redAccent)),
+              const Icon(Icons.delete_outline, size: 14, color: Colors.redAccent),
+              const SizedBox(width: 8),
+              Text('Delete', style: FluxForgeTheme.dockSans(size: 12, color: Colors.redAccent)),
             ],
           ),
         ),
@@ -1681,7 +1681,7 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
     showDialog(
       context: ctx,
       builder: (context) => AlertDialog(
-        title: const Text('Rename Marker', style: TextStyle(fontSize: 14)),
+        title: Text('Rename Marker', style: FluxForgeTheme.dockSans(size: 14)),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -3019,8 +3019,8 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                                       ),
                                       child: Text(
                                         marker.name,
-                                        style: TextStyle(
-                                          fontSize: 9,
+                                        style: FluxForgeTheme.dockSans(
+                                          size: 9,
                                           color: FluxForgeTheme.textPrimary,
                                         ),
                                       ),
@@ -3191,11 +3191,10 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                                       ),
                                       child: Text(
                                         _formatSnapTime(_snapPreviewTime!),
-                                        style: const TextStyle(
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w600,
+                                        style: FluxForgeTheme.dockMono(
+                                          size: 9,
+                                          weight: FontWeight.w600,
                                           color: Colors.white,
-                                          fontFamily: 'monospace',
                                         ),
                                       ),
                                     ),
@@ -3415,11 +3414,10 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                                     ),
                                     child: Text(
                                       _formatDropTime(_dropPosition!.dx),
-                                      style: const TextStyle(
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.w600,
+                                      style: FluxForgeTheme.dockMono(
+                                        size: 9,
+                                        weight: FontWeight.w600,
                                         color: Colors.white,
-                                        fontFamily: 'monospace',
                                       ),
                                     ),
                                   ),

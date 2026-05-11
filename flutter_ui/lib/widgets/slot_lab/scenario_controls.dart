@@ -61,12 +61,12 @@ class _ScenarioControlsState extends State<ScenarioControls> {
             children: [
               const Icon(Icons.science, size: 14, color: FluxForgeTheme.accentOrange),
               const SizedBox(width: 6),
-              const Text(
+              Text(
                 'SCENARIO CONTROLS',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
+                  weight: FontWeight.bold,
                   color: FluxForgeTheme.accentOrange,
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
                   letterSpacing: 1,
                 ),
               ),
@@ -80,9 +80,9 @@ class _ScenarioControlsState extends State<ScenarioControls> {
                     color: Colors.white.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(3),
                   ),
-                  child: const Text(
+                  child: Text(
                     'RESET',
-                    style: TextStyle(color: Colors.white54, fontSize: 8),
+                    style: FluxForgeTheme.dockSans(size: 8, color: Colors.white54),
                   ),
                 ),
               ),
@@ -234,10 +234,10 @@ class _ScenarioControlsState extends State<ScenarioControls> {
                 const SizedBox(width: 6),
                 Text(
                   title,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: FontWeight.w600,
                     color: color,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const Spacer(),
@@ -276,9 +276,9 @@ class _ScenarioControlsState extends State<ScenarioControls> {
         ),
         child: Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 10,
             color: widget.isSpinning ? Colors.white24 : Colors.white70,
-            fontSize: 10,
           ),
         ),
       ),
@@ -320,10 +320,10 @@ class _ScenarioControlsState extends State<ScenarioControls> {
             Flexible(
               child: Text(
                 label,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
+                  weight: FontWeight.w600,
                   color: isEnabled ? color : Colors.white24,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -380,10 +380,10 @@ class ScenarioTriggerButton extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: isActive ? FontWeight.bold : FontWeight.normal,
                 color: isActive ? color : Colors.white54,
-                fontSize: 10,
-                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
               ),
             ),
           ],
