@@ -16,6 +16,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../services/neuro_audio_service.dart';
+import '../../../theme/flux_forge_theme.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTS
@@ -143,12 +144,12 @@ class _NeuroAuthoringPanelState extends State<NeuroAuthoringPanel>
         children: [
           const Icon(Icons.psychology, color: _kAccent, size: 18),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'NEUROAUDIO™ AUTHORING',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 12,
               color: _kAccent,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
+              weight: FontWeight.w700,
               letterSpacing: 1.5,
             ),
           ),
@@ -193,10 +194,10 @@ class _NeuroAuthoringPanelState extends State<NeuroAuthoringPanel>
         ),
         child: Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 10,
             color: active ? _kAccent : _kTextDim,
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
+            weight: FontWeight.w600,
             letterSpacing: 0.8,
           ),
         ),
@@ -239,7 +240,7 @@ class _NeuroAuthoringPanelState extends State<NeuroAuthoringPanel>
             const SizedBox(height: 8),
             Text(
               _archetypeDescription(_selectedArchetypeA!),
-              style: const TextStyle(color: _kTextDim, fontSize: 11),
+              style: FluxForgeTheme.dockSans(size: 11, color: _kTextDim),
             ),
           ],
         ],
@@ -257,7 +258,7 @@ class _NeuroAuthoringPanelState extends State<NeuroAuthoringPanel>
       child: Row(
         children: [
           if (label != null) ...[
-            Text(label, style: const TextStyle(color: _kTextDim, fontSize: 11)),
+            Text(label, style: FluxForgeTheme.dockSans(size: 11, color: _kTextDim)),
             const SizedBox(width: 6),
           ],
           Expanded(
@@ -272,13 +273,13 @@ class _NeuroAuthoringPanelState extends State<NeuroAuthoringPanel>
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
                   value: value,
-                  hint: const Text(
+                  hint: Text(
                     'Select archetype…',
-                    style: TextStyle(color: _kTextDim, fontSize: 11),
+                    style: FluxForgeTheme.dockSans(size: 11, color: _kTextDim),
                   ),
                   dropdownColor: _kSurface,
                   isExpanded: true,
-                  style: const TextStyle(color: _kText, fontSize: 11),
+                  style: FluxForgeTheme.dockSans(size: 11, color: _kText),
                   items: archetypes.map((a) => DropdownMenuItem(
                     value: a.key,
                     child: Text(a.displayName),
@@ -361,8 +362,10 @@ class _NeuroAuthoringPanelState extends State<NeuroAuthoringPanel>
       children: [
         Text(
           label.toUpperCase(),
-          style: TextStyle(
-            color: accentColor, fontSize: 10, fontWeight: FontWeight.w700,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            color: accentColor,
+            weight: FontWeight.w700,
             letterSpacing: 1.2,
           ),
         ),
@@ -426,7 +429,7 @@ class _NeuroAuthoringPanelState extends State<NeuroAuthoringPanel>
             width: 76,
             child: Text(
               name,
-              style: const TextStyle(color: _kTextDim, fontSize: 10),
+              style: FluxForgeTheme.dockSans(size: 10, color: _kTextDim),
             ),
           ),
           Expanded(
@@ -472,9 +475,9 @@ class _NeuroAuthoringPanelState extends State<NeuroAuthoringPanel>
             width: 28,
             child: Text(
               '$displayValue%',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 10,
                 color: isChurn && value > 0.7 ? _churnColor(value) : _kTextDim,
-                fontSize: 10,
               ),
               textAlign: TextAlign.right,
             ),
@@ -511,20 +514,20 @@ class _NeuroAuthoringPanelState extends State<NeuroAuthoringPanel>
               const SizedBox(width: 6),
               Text(
                 isHigh ? '⚠ HIGH RISK — RG INTERVENTION ACTIVE' : '⚠ ELEVATED RISK — Subtle RG mode',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 9.5,
                   color: isHigh ? Colors.red : Colors.orange,
-                  fontSize: 9.5,
-                  fontWeight: FontWeight.w600,
+                  weight: FontWeight.w600,
                   letterSpacing: 0.5,
                 ),
               ),
               const Spacer(),
               Text(
                 '${(state.rgRiskScore * 100).round()}%',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 10,
                   color: isHigh ? Colors.red : Colors.orange,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
+                  weight: FontWeight.w700,
                 ),
               ),
             ],
@@ -588,7 +591,7 @@ class _NeuroAuthoringPanelState extends State<NeuroAuthoringPanel>
         children: [
           SizedBox(
             width: 88,
-            child: Text(label, style: const TextStyle(color: _kTextDim, fontSize: 10)),
+            child: Text(label, style: FluxForgeTheme.dockSans(size: 10, color: _kTextDim)),
           ),
           Expanded(
             child: Container(
@@ -615,7 +618,11 @@ class _NeuroAuthoringPanelState extends State<NeuroAuthoringPanel>
             width: 40,
             child: Text(
               value,
-              style: TextStyle(color: accent, fontSize: 10, fontWeight: FontWeight.w600),
+              style: FluxForgeTheme.dockMono(
+                size: 10,
+                color: accent,
+                weight: FontWeight.w600,
+              ),
               textAlign: TextAlign.right,
             ),
           ),
@@ -643,18 +650,18 @@ class _NeuroAuthoringPanelState extends State<NeuroAuthoringPanel>
           const SizedBox(width: 5),
           Text(
             isActive ? 'RG ACTIVE — all stimulation reduced' : 'RG SUBTLE — mild modulation',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 9.5,
               color: isActive ? Colors.red : Colors.orange,
-              fontSize: 9.5,
             ),
           ),
           const Spacer(),
           Text(
             '${(rg.rgScore * 100).round()}%',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 10,
               color: isActive ? Colors.red : Colors.orange,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
+              weight: FontWeight.w700,
             ),
           ),
         ],
@@ -697,13 +704,13 @@ class _NeuroAuthoringPanelState extends State<NeuroAuthoringPanel>
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('$label ', style: const TextStyle(color: _kTextDim, fontSize: 10)),
+          Text('$label ', style: FluxForgeTheme.dockSans(size: 10, color: _kTextDim)),
           Text(
             delta,
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 10,
               color: isPositive ? const Color(0xFF44CC88) : const Color(0xFFCC4444),
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
+              weight: FontWeight.w600,
             ),
           ),
         ],
@@ -722,7 +729,7 @@ class _NeuroAuthoringPanelState extends State<NeuroAuthoringPanel>
         children: [
           Row(
             children: [
-              const Text('Spins:', style: TextStyle(color: _kTextDim, fontSize: 11)),
+              Text('Spins:', style: FluxForgeTheme.dockSans(size: 11, color: _kTextDim)),
               const SizedBox(width: 8),
               Expanded(
                 child: SliderTheme(
@@ -745,7 +752,7 @@ class _NeuroAuthoringPanelState extends State<NeuroAuthoringPanel>
                 width: 36,
                 child: Text(
                   '$_spinCount',
-                  style: const TextStyle(color: _kText, fontSize: 11),
+                  style: FluxForgeTheme.dockMono(size: 11, color: _kText),
                   textAlign: TextAlign.right,
                 ),
               ),
@@ -827,10 +834,10 @@ class _NeuroAuthoringPanelState extends State<NeuroAuthoringPanel>
               )
             : Text(
                 label,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
                   color: onPressed == null ? _kTextDim : (secondary ? _kTextDim : _kAccent),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
+                  weight: FontWeight.w600,
                 ),
               ),
       ),
@@ -843,9 +850,9 @@ class _NeuroAuthoringPanelState extends State<NeuroAuthoringPanel>
       children: [
         Text(
           '[$tag] ${result.spinCount} spins  •  Peak Churn: ${(result.peakChurn * 100).round()}%  •  RG active: ${(rg * 100).round()}% of session',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 10,
             color: result.peakChurn > 0.7 ? Colors.orange : _kTextDim,
-            fontSize: 10,
           ),
         ),
         if (result.peakChurn > 0.7) ...[
@@ -911,7 +918,7 @@ class _NeuroAuthoringPanelState extends State<NeuroAuthoringPanel>
                 width: 56,
                 child: Text(
                   '${_timelineIndex + 1}/$totalFrames',
-                  style: const TextStyle(color: _kTextDim, fontSize: 10),
+                  style: FluxForgeTheme.dockMono(size: 10, color: _kTextDim),
                   textAlign: TextAlign.right,
                 ),
               ),
@@ -949,10 +956,10 @@ class _NeuroAuthoringPanelState extends State<NeuroAuthoringPanel>
             ),
             child: Text(
               title,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 9.5,
                 color: accent.withAlpha(180),
-                fontSize: 9.5,
-                fontWeight: FontWeight.w700,
+                weight: FontWeight.w700,
                 letterSpacing: 1.2,
               ),
             ),

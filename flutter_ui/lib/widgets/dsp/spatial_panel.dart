@@ -149,10 +149,10 @@ class _SpatialPanelState extends State<SpatialPanel> {
         const SizedBox(width: 8),
         Text(
           'Spatial',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 16,
+            weight: FontWeight.bold,
             color: FluxForgeTheme.textPrimary,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
           ),
         ),
         const Spacer(),
@@ -171,10 +171,10 @@ class _SpatialPanelState extends State<SpatialPanel> {
             ),
             child: Text(
               'BYPASS',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 10,
+                weight: FontWeight.bold,
                 color: _bypassed ? Colors.orange : FluxForgeTheme.textSecondary,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
               ),
             ),
           ),
@@ -190,9 +190,9 @@ class _SpatialPanelState extends State<SpatialPanel> {
           ),
           child: Text(
             _initialized ? 'Ready' : 'Init...',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: _initialized ? Colors.green : Colors.red,
-              fontSize: 10,
             ),
           ),
         ),
@@ -241,10 +241,10 @@ class _SpatialPanelState extends State<SpatialPanel> {
               Text(
                 label,
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: isActive ? FontWeight.bold : FontWeight.normal,
                   color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
-                  fontSize: 10,
-                  fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
                 ),
               ),
             ],
@@ -269,18 +269,18 @@ class _SpatialPanelState extends State<SpatialPanel> {
             children: [
               Text(
                 'Correlation',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.bold,
                   color: FluxForgeTheme.textSecondary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
               Text(
                 _correlation.toStringAsFixed(2),
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 10,
+                  weight: FontWeight.bold,
                   color: _correlation < 0 ? Colors.orange : Colors.green,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
@@ -291,9 +291,9 @@ class _SpatialPanelState extends State<SpatialPanel> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('-1', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 8)),
-              Text('0', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 8)),
-              Text('+1', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 8)),
+              Text('-1', style: FluxForgeTheme.dockMono(size: 8, color: FluxForgeTheme.textSecondary)),
+              Text('0', style: FluxForgeTheme.dockMono(size: 8, color: FluxForgeTheme.textSecondary)),
+              Text('+1', style: FluxForgeTheme.dockMono(size: 8, color: FluxForgeTheme.textSecondary)),
             ],
           ),
         ],
@@ -404,10 +404,10 @@ class _SpatialPanelState extends State<SpatialPanel> {
         ),
         child: Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 11,
+            weight: isActive ? FontWeight.bold : FontWeight.normal,
             color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
-            fontSize: 11,
-            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
           ),
         ),
       ),
@@ -496,7 +496,7 @@ class _SpatialPanelState extends State<SpatialPanel> {
       children: [
         Text(
           'Pan Law',
-          style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+          style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textSecondary),
         ),
         const SizedBox(width: 16),
         Expanded(
@@ -512,7 +512,7 @@ class _SpatialPanelState extends State<SpatialPanel> {
               isExpanded: true,
               dropdownColor: FluxForgeTheme.surfaceDark,
               underline: const SizedBox(),
-              style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
+              style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textPrimary),
               items: const [
                 DropdownMenuItem(value: PanLaw.linear, child: Text('Linear (-6dB)')),
                 DropdownMenuItem(value: PanLaw.constantPower, child: Text('Constant Power (-3dB)')),
@@ -563,7 +563,7 @@ class _SpatialPanelState extends State<SpatialPanel> {
               Expanded(
                 child: Text(
                   'Mid = Center, Side = Stereo difference',
-                  style: TextStyle(color: Colors.blue, fontSize: 10),
+                  style: FluxForgeTheme.dockSans(size: 10, color: Colors.blue),
                 ),
               ),
             ],
@@ -635,10 +635,7 @@ class _SpatialPanelState extends State<SpatialPanel> {
         ),
         child: Text(
           label,
-          style: TextStyle(
-            color: FluxForgeTheme.textSecondary,
-            fontSize: 11,
-          ),
+          style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textSecondary),
         ),
       ),
     );
@@ -724,10 +721,10 @@ class _SpatialPanelState extends State<SpatialPanel> {
         ),
         child: Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockMono(
+            size: 10,
+            weight: isActive ? FontWeight.bold : FontWeight.normal,
             color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
-            fontSize: 10,
-            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
           ),
         ),
       ),
@@ -743,7 +740,7 @@ class _SpatialPanelState extends State<SpatialPanel> {
       children: [
         Text(
           label,
-          style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+          style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textSecondary),
         ),
         const Spacer(),
         GestureDetector(
@@ -788,7 +785,7 @@ class _SpatialPanelState extends State<SpatialPanel> {
           width: 70,
           child: Text(
             label,
-            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+            style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textSecondary),
           ),
         ),
         Expanded(child: child),
@@ -796,10 +793,10 @@ class _SpatialPanelState extends State<SpatialPanel> {
           width: 60,
           child: Text(
             value,
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 12,
+              weight: FontWeight.bold,
               color: FluxForgeTheme.accentBlue,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
             ),
             textAlign: TextAlign.right,
           ),

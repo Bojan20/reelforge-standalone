@@ -16,6 +16,7 @@ import 'package:get_it/get_it.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/game_flow_models.dart';
+import '../../theme/flux_forge_theme.dart';
 import '../../providers/slot_lab/config_undo_manager.dart';
 import '../../providers/slot_lab/game_flow_provider.dart';
 import '../../services/event_registry.dart';
@@ -205,12 +206,12 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
         children: [
           const Icon(Icons.animation, color: Color(0xFF66BB6A), size: 14),
           const SizedBox(width: 6),
-          const Text(
+          Text(
             'SCENE TRANSITIONS',
-            style: TextStyle(
-              color: Color(0xFF66BB6A),
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              color: const Color(0xFF66BB6A),
+              weight: FontWeight.w700,
               letterSpacing: 1.2,
             ),
           ),
@@ -238,12 +239,12 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
               ),
               child: Text(
                 flow.transitionsEnabled ? 'ON' : 'OFF',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
                   color: flow.transitionsEnabled
                       ? const Color(0xFF66BB6A)
                       : Colors.white38,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
+                  weight: FontWeight.w700,
                 ),
               ),
             ),
@@ -277,19 +278,22 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
                   size: 14,
                 ),
                 const SizedBox(width: 4),
-                const Text(
+                Text(
                   'DEFAULTS',
-                  style: TextStyle(
-                    color: Color(0xFF808090),
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
+                    color: const Color(0xFF808090),
+                    weight: FontWeight.w700,
                     letterSpacing: 1,
                   ),
                 ),
                 const Spacer(),
                 Text(
                   '${(config.durationMs / 1000).toStringAsFixed(1)}s / ${config.dismissMode.label}',
-                  style: const TextStyle(color: Color(0xFF505060), fontSize: 9),
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
+                    color: const Color(0xFF505060),
+                  ),
                 ),
               ],
             ),
@@ -341,10 +345,10 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
               const SizedBox(width: 4),
               Text(
                 pair.shortLabel,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
                   color: pair.color,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
+                  weight: FontWeight.w700,
                   letterSpacing: 0.5,
                 ),
               ),
@@ -368,10 +372,10 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
                   ),
                   child: Text(
                     'TEST',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 8,
                       color: pair.color,
-                      fontSize: 8,
-                      fontWeight: FontWeight.w700,
+                      weight: FontWeight.w700,
                     ),
                   ),
                 ),
@@ -392,9 +396,12 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
                       color: Colors.white.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(2),
                     ),
-                    child: const Text(
+                    child: Text(
                       'RESET',
-                      style: TextStyle(color: Color(0xFF606068), fontSize: 8),
+                      style: FluxForgeTheme.dockSans(
+                        size: 8,
+                        color: const Color(0xFF606068),
+                      ),
                     ),
                   ),
                 ),
@@ -512,9 +519,13 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
             const Spacer(),
             // Burst ray count
             if (config.showBurst) ...[
-              const Text(
+              Text(
                 'RAYS',
-                style: TextStyle(color: Color(0xFF505060), fontSize: 7, fontWeight: FontWeight.w600),
+                style: FluxForgeTheme.dockSans(
+                  size: 7,
+                  color: const Color(0xFF505060),
+                  weight: FontWeight.w600,
+                ),
               ),
               const SizedBox(width: 3),
               SizedBox(
@@ -624,7 +635,11 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
           children: [
             Text(
               label,
-              style: TextStyle(color: color.withValues(alpha: 0.5), fontSize: 7, fontWeight: FontWeight.w700),
+              style: FluxForgeTheme.dockSans(
+                size: 7,
+                color: color.withValues(alpha: 0.5),
+                weight: FontWeight.w700,
+              ),
             ),
             const SizedBox(width: 2),
             Expanded(
@@ -673,7 +688,10 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
         ),
         child: Text(
           '$value',
-          style: TextStyle(color: color.withValues(alpha: 0.7), fontSize: 8),
+          style: FluxForgeTheme.dockMono(
+            size: 8,
+            color: color.withValues(alpha: 0.7),
+          ),
         ),
       ),
     );
@@ -710,10 +728,10 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
             child: Text(
               '${value.toStringAsFixed(1)}s',
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 10,
                 color: color,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
+                weight: FontWeight.w700,
               ),
             ),
           ),
@@ -749,12 +767,12 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
         isDense: true,
         underline: const SizedBox.shrink(),
         dropdownColor: const Color(0xFF1E1E2E),
-        style: TextStyle(color: color, fontSize: 9),
+        style: FluxForgeTheme.dockSans(size: 9, color: color),
         icon: Icon(Icons.arrow_drop_down, color: color.withValues(alpha: 0.5), size: 14),
         items: TransitionDismissMode.values.map((m) {
           return DropdownMenuItem(
             value: m,
-            child: Text(m.label, style: TextStyle(color: color, fontSize: 9)),
+            child: Text(m.label, style: FluxForgeTheme.dockSans(size: 9, color: color)),
           );
         }).toList(),
         onChanged: (v) {
@@ -782,12 +800,12 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
         isDense: true,
         underline: const SizedBox.shrink(),
         dropdownColor: const Color(0xFF1E1E2E),
-        style: TextStyle(color: color, fontSize: 9),
+        style: FluxForgeTheme.dockSans(size: 9, color: color),
         icon: Icon(Icons.arrow_drop_down, color: color.withValues(alpha: 0.5), size: 14),
         items: TransitionStyle.values.map((s) {
           return DropdownMenuItem(
             value: s,
-            child: Text(s.label, style: TextStyle(color: color, fontSize: 9)),
+            child: Text(s.label, style: FluxForgeTheme.dockSans(size: 9, color: color)),
           );
         }).toList(),
         onChanged: (v) {
@@ -816,10 +834,10 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
         ),
         child: Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 8,
             color: value ? color : Colors.white24,
-            fontSize: 8,
-            fontWeight: FontWeight.w700,
+            weight: FontWeight.w700,
           ),
         ),
       ),
@@ -841,10 +859,10 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
         const SizedBox(width: 4),
         Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 8,
             color: color.withValues(alpha: 0.5),
-            fontSize: 8,
-            fontWeight: FontWeight.w700,
+            weight: FontWeight.w700,
           ),
         ),
         const SizedBox(width: 4),
@@ -862,13 +880,13 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
             child: stages.isEmpty
                 ? TextFormField(
                     initialValue: value ?? '',
-                    style: TextStyle(color: color, fontSize: 9),
+                    style: FluxForgeTheme.dockSans(size: 9, color: color),
                     decoration: InputDecoration(
                       border: InputBorder.none,
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(vertical: 4),
                       hintText: 'stage name...',
-                      hintStyle: TextStyle(color: color.withValues(alpha: 0.2), fontSize: 9),
+                      hintStyle: FluxForgeTheme.dockSans(size: 9, color: color.withValues(alpha: 0.2)),
                     ),
                     onFieldSubmitted: (val) {
                       final stage = val.trim().toUpperCase();
@@ -879,22 +897,22 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
                     value: hasValue && stages.contains(value) ? value : null,
                     hint: Text(
                       hasValue ? value : 'select stage...',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 9,
                         color: hasValue ? color : color.withValues(alpha: 0.2),
-                        fontSize: 9,
                       ),
                     ),
                     isExpanded: true,
                     isDense: true,
                     underline: const SizedBox.shrink(),
                     dropdownColor: const Color(0xFF1E1E2E),
-                    style: TextStyle(color: color, fontSize: 9),
+                    style: FluxForgeTheme.dockSans(size: 9, color: color),
                     icon: Icon(Icons.arrow_drop_down, color: color.withValues(alpha: 0.5), size: 14),
                     menuMaxHeight: 300,
                     items: stages.map((s) {
                       return DropdownMenuItem(
                         value: s,
-                        child: Text(s, style: TextStyle(color: color, fontSize: 9)),
+                        child: Text(s, style: FluxForgeTheme.dockSans(size: 9, color: color)),
                       );
                     }).toList(),
                     onChanged: (v) {
@@ -921,10 +939,10 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
         const SizedBox(width: 4),
         Text(
           label,
-          style: const TextStyle(
-            color: Color(0xFF606068),
-            fontSize: 9,
-            fontWeight: FontWeight.w700,
+          style: FluxForgeTheme.dockSans(
+            size: 9,
+            color: const Color(0xFF606068),
+            weight: FontWeight.w700,
             letterSpacing: 1,
           ),
         ),

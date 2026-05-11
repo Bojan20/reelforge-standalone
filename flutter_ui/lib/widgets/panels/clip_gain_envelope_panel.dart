@@ -65,11 +65,11 @@ class ClipGainEnvelopePanel extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             'CLIP GAIN ENVELOPE',
-            style: TextStyle(
-              color: provider.enabled ? _accentColor : FluxForgeTheme.textSecondary,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 12,
+              weight: FontWeight.bold,
               letterSpacing: 1.2,
+              color: provider.enabled ? _accentColor : FluxForgeTheme.textSecondary,
             ),
           ),
           const Spacer(),
@@ -100,9 +100,9 @@ class ClipGainEnvelopePanel extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     'Show',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
                       color: provider.showEnvelopes ? _accentColor : FluxForgeTheme.textSecondary,
-                      fontSize: 10,
                     ),
                   ),
                 ],
@@ -120,10 +120,10 @@ class ClipGainEnvelopePanel extends StatelessWidget {
               ),
               child: Text(
                 'Editing',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.bold,
                   color: FluxForgeTheme.accentGreen,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),
@@ -205,21 +205,20 @@ class ClipGainEnvelopePanel extends StatelessWidget {
                             children: [
                               Text(
                                 clip.name,
-                                style: TextStyle(
+                                style: FluxForgeTheme.dockSans(
+                                  size: 11,
+                                  weight: isEditing ? FontWeight.bold : FontWeight.normal,
                                   color: isEditing
                                       ? _accentColor
                                       : FluxForgeTheme.textPrimary,
-                                  fontSize: 11,
-                                  fontWeight: isEditing ? FontWeight.bold : FontWeight.normal,
-                                ),
-                                overflow: TextOverflow.ellipsis,
+                                ).copyWith(overflow: TextOverflow.ellipsis),
                               ),
                               if (hasEnvelope)
                                 Text(
                                   '${provider.getEnvelope(clip.id)?.pointCount ?? 0} points',
-                                  style: TextStyle(
+                                  style: FluxForgeTheme.dockMono(
+                                    size: 9,
                                     color: FluxForgeTheme.textSecondary,
-                                    fontSize: 9,
                                   ),
                                 ),
                             ],
@@ -259,17 +258,17 @@ class ClipGainEnvelopePanel extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               'Select a Clip',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 14,
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 14,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               'Click on a clip to edit its gain envelope',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 12,
                 color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
-                fontSize: 12,
               ),
             ),
           ],
@@ -325,9 +324,9 @@ class ClipGainEnvelopePanel extends StatelessWidget {
                 // Curve type
                 Text(
                   'Curve:',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
                     color: FluxForgeTheme.textSecondary,
-                    fontSize: 10,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -387,12 +386,12 @@ class ClipGainEnvelopePanel extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('+12 dB', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 9)),
-                Text('+6 dB', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 9)),
-                Text('0 dB', style: TextStyle(color: _accentColor, fontSize: 9, fontWeight: FontWeight.bold)),
-                Text('-6 dB', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 9)),
-                Text('-12 dB', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 9)),
-                Text('-∞', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 9)),
+                Text('+12 dB', style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textSecondary)),
+                Text('+6 dB', style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textSecondary)),
+                Text('0 dB', style: FluxForgeTheme.dockMono(size: 9, weight: FontWeight.bold, color: _accentColor)),
+                Text('-6 dB', style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textSecondary)),
+                Text('-12 dB', style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textSecondary)),
+                Text('-∞', style: FluxForgeTheme.dockMono(size: 9, color: FluxForgeTheme.textSecondary)),
               ],
             ),
           ),
@@ -513,9 +512,9 @@ class ClipGainEnvelopePanel extends StatelessWidget {
               child: Center(
                 child: Text(
                   'No points selected',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
                     color: FluxForgeTheme.textSecondary,
-                    fontSize: 11,
                   ),
                 ),
               ),
@@ -528,10 +527,10 @@ class ClipGainEnvelopePanel extends StatelessWidget {
                   // Point count
                   Text(
                     '${selectedPoints.length} point${selectedPoints.length > 1 ? 's' : ''} selected',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 11,
+                      weight: FontWeight.bold,
                       color: _accentColor,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -586,11 +585,11 @@ class ClipGainEnvelopePanel extends StatelessWidget {
               children: [
                 Text(
                   'PRESETS',
-                  style: TextStyle(
-                    color: FluxForgeTheme.textSecondary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: FontWeight.bold,
                     letterSpacing: 1.0,
+                    color: FluxForgeTheme.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -639,17 +638,17 @@ class ClipGainEnvelopePanel extends StatelessWidget {
       children: [
         Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 11,
             color: FluxForgeTheme.textSecondary,
-            fontSize: 11,
           ),
         ),
         Text(
           value,
-          style: TextStyle(
+          style: FluxForgeTheme.dockMono(
+            size: 11,
+            weight: FontWeight.w500,
             color: FluxForgeTheme.textPrimary,
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
           ),
         ),
       ],
@@ -674,9 +673,9 @@ class ClipGainEnvelopePanel extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 11,
                 color: buttonColor,
-                fontSize: 11,
               ),
             ),
           ],
@@ -699,9 +698,9 @@ class ClipGainEnvelopePanel extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 10,
             color: FluxForgeTheme.textSecondary,
-            fontSize: 10,
           ),
         ),
       ),
@@ -784,10 +783,10 @@ class ClipGainEnvelopePanel extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 11,
+                weight: FontWeight.w500,
                 color: buttonColor,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
               ),
             ),
           ],
@@ -803,11 +802,11 @@ class ClipGainEnvelopePanel extends StatelessWidget {
       color: FluxForgeTheme.backgroundMid,
       child: Text(
         title,
-        style: TextStyle(
-          color: FluxForgeTheme.textSecondary,
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
+        style: FluxForgeTheme.dockSans(
+          size: 10,
+          weight: FontWeight.bold,
           letterSpacing: 1.0,
+          color: FluxForgeTheme.textSecondary,
         ),
       ),
     );

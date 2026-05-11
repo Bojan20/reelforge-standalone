@@ -134,28 +134,28 @@ class _WaveletPanelState extends State<WaveletPanel> {
         children: [
           const Icon(Icons.waves, color: Color(0xFF845EF7), size: 20),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'WAVELET',
-            style: TextStyle(
-              color: FluxForgeTheme.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockMono(
+              size: 14,
+              weight: FontWeight.bold,
               letterSpacing: 1.2,
+              color: FluxForgeTheme.textPrimary,
             ),
           ),
           const Spacer(),
           if (!_initialized)
-            const Text(
+            Text(
               'Initializing...',
-              style: TextStyle(color: Color(0xFF808090), fontSize: 11),
+              style: FluxForgeTheme.dockSans(size: 11, color: Color(0xFF808090)),
             )
           else
             Text(
               _waveletType.name.toUpperCase(),
-              style: const TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 12,
+                weight: FontWeight.w600,
                 color: Color(0xFF845EF7),
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
               ),
             ),
           const SizedBox(width: 16),
@@ -184,10 +184,10 @@ class _WaveletPanelState extends State<WaveletPanel> {
         ),
         child: Text(
           _bypassed ? 'BYPASS' : 'ACTIVE',
-          style: TextStyle(
+          style: FluxForgeTheme.dockMono(
+            size: 10,
+            weight: FontWeight.bold,
             color: _bypassed ? FluxForgeTheme.accentRed : FluxForgeTheme.accentGreen,
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
           ),
         ),
       ),
@@ -218,10 +218,10 @@ class _WaveletPanelState extends State<WaveletPanel> {
                 ),
                 child: Text(
                   type.name,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
+                    size: 11,
+                    weight: FontWeight.bold,
                     color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
@@ -231,10 +231,7 @@ class _WaveletPanelState extends State<WaveletPanel> {
         const SizedBox(height: 4),
         Text(
           _getWaveletDescription(_waveletType),
-          style: const TextStyle(
-            color: Color(0xFF606070),
-            fontSize: 10,
-          ),
+          style: FluxForgeTheme.dockSans(size: 10, color: Color(0xFF606070)),
         ),
       ],
     );
@@ -271,10 +268,10 @@ class _WaveletPanelState extends State<WaveletPanel> {
             _buildSectionHeader('DECOMPOSITION LEVELS'),
             Text(
               '$_decompositionLevels',
-              style: const TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 14,
+                weight: FontWeight.bold,
                 color: Color(0xFF845EF7),
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
               ),
             ),
           ],
@@ -302,10 +299,10 @@ class _WaveletPanelState extends State<WaveletPanel> {
                   child: Center(
                     child: Text(
                       '$level',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockMono(
+                        size: 10,
+                        weight: FontWeight.bold,
                         color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
@@ -315,12 +312,9 @@ class _WaveletPanelState extends State<WaveletPanel> {
           }),
         ),
         const SizedBox(height: 4),
-        const Text(
+        Text(
           'More levels = finer frequency resolution, higher latency',
-          style: TextStyle(
-            color: Color(0xFF606070),
-            fontSize: 10,
-          ),
+          style: FluxForgeTheme.dockSans(size: 10, color: Color(0xFF606070)),
         ),
       ],
     );
@@ -343,16 +337,16 @@ class _WaveletPanelState extends State<WaveletPanel> {
           ),
         ),
         const SizedBox(height: 4),
-        const Row(
+        Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
               'Low',
-              style: TextStyle(color: Color(0xFF606070), fontSize: 9),
+              style: FluxForgeTheme.dockSans(size: 9, color: Color(0xFF606070)),
             ),
             Text(
               'High',
-              style: TextStyle(color: Color(0xFF606070), fontSize: 9),
+              style: FluxForgeTheme.dockSans(size: 9, color: Color(0xFF606070)),
             ),
           ],
         ),
@@ -412,10 +406,7 @@ class _WaveletPanelState extends State<WaveletPanel> {
           const SizedBox(height: 4),
           Text(
             gainDb.toStringAsFixed(0),
-            style: const TextStyle(
-              color: Color(0xFF808090),
-              fontSize: 8,
-            ),
+            style: FluxForgeTheme.dockMono(size: 8, color: Color(0xFF808090)),
           ),
         ],
       ),
@@ -453,20 +444,20 @@ class _WaveletPanelState extends State<WaveletPanel> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               'NOISE FLOOR',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.bold,
                 color: Color(0xFF808090),
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
               ),
             ),
             Text(
               '${_noiseFloor.toStringAsFixed(0)} dB',
-              style: const TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 11,
+                weight: FontWeight.bold,
                 color: Color(0xFF845EF7),
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
               ),
             ),
           ],
@@ -490,10 +481,10 @@ class _WaveletPanelState extends State<WaveletPanel> {
           width: 60,
           child: Text(
             label,
-            style: const TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.bold,
               color: Color(0xFF808090),
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
             ),
           ),
         ),
@@ -518,10 +509,10 @@ class _WaveletPanelState extends State<WaveletPanel> {
           child: Text(
             '${(value * 100).round()}%',
             textAlign: TextAlign.right,
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 11,
+              weight: FontWeight.bold,
               color: color,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
             ),
           ),
         ),
@@ -559,19 +550,19 @@ class _WaveletPanelState extends State<WaveletPanel> {
                       children: [
                         Text(
                           mode.label,
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
+                            size: 11,
+                            weight: FontWeight.bold,
                             color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
                           ),
                         ),
                         Text(
                           mode.description,
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
+                            size: 9,
                             color: isSelected
                                 ? FluxForgeTheme.textPrimary.withValues(alpha: 0.7)
                                 : FluxForgeTheme.textTertiary,
-                            fontSize: 9,
                           ),
                         ),
                       ],
@@ -586,20 +577,20 @@ class _WaveletPanelState extends State<WaveletPanel> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               'THRESHOLD LEVEL',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.bold,
                 color: Color(0xFF808090),
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
               ),
             ),
             Text(
               '${(_threshold * 100).round()}%',
-              style: const TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 11,
+                weight: FontWeight.bold,
                 color: Color(0xFF845EF7),
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
               ),
             ),
           ],
@@ -623,10 +614,10 @@ class _WaveletPanelState extends State<WaveletPanel> {
             _buildSectionHeader('MIX'),
             Text(
               '${(_mix * 100).round()}%',
-              style: const TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 12,
+                weight: FontWeight.bold,
                 color: Color(0xFF845EF7),
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
               ),
             ),
           ],
@@ -634,12 +625,12 @@ class _WaveletPanelState extends State<WaveletPanel> {
         const SizedBox(height: 8),
         Row(
           children: [
-            const Text(
+            Text(
               'DRY',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.bold,
                 color: Color(0xFF808090),
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(width: 8),
@@ -648,12 +639,12 @@ class _WaveletPanelState extends State<WaveletPanel> {
               widget.onSettingsChanged?.call();
             })),
             const SizedBox(width: 8),
-            const Text(
+            Text(
               'WET',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.bold,
                 color: Color(0xFF808090),
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
               ),
             ),
           ],
@@ -665,11 +656,11 @@ class _WaveletPanelState extends State<WaveletPanel> {
   Widget _buildSectionHeader(String title) {
     return Text(
       title,
-      style: const TextStyle(
-        color: Color(0xFF808090),
-        fontSize: 11,
-        fontWeight: FontWeight.bold,
+      style: FluxForgeTheme.dockSans(
+        size: 11,
+        weight: FontWeight.bold,
         letterSpacing: 1.0,
+        color: Color(0xFF808090),
       ),
     );
   }

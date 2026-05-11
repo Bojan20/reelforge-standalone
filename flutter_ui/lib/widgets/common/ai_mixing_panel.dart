@@ -12,6 +12,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../../services/ai_mixing_service.dart';
+import '../../theme/flux_forge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // AI MIXING STATUS BADGE
@@ -64,18 +65,18 @@ class AiMixingStatusBadge extends StatelessWidget {
                   if (analysis != null)
                     Text(
                       analysis.scoreGrade,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
+                      style: FluxForgeTheme.dockMono(
+                        size: 11,
+                        weight: FontWeight.bold,
                         color: _getColor(service, analysis),
                       ),
                     )
                   else
                     Text(
                       'AI',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
+                      style: FluxForgeTheme.dockSans(
+                        size: 11,
+                        weight: FontWeight.w500,
                         color: _getColor(service, analysis),
                       ),
                     ),
@@ -182,13 +183,13 @@ class _AiMixingPanelState extends State<AiMixingPanel> {
             size: 20,
           ),
           const SizedBox(width: 8),
-          const Expanded(
+          Expanded(
             child: Text(
               'AI Mixing Assistant',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
+                size: 14,
+                weight: FontWeight.bold,
               ),
             ),
           ),
@@ -206,9 +207,9 @@ class _AiMixingPanelState extends State<AiMixingPanel> {
                 children: [
                   Text(
                     service.selectedGenre.displayName,
-                    style: const TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: Colors.white70,
-                      fontSize: 11,
+                      size: 11,
                     ),
                   ),
                   const Icon(Icons.arrow_drop_down, color: Colors.white54, size: 16),
@@ -259,26 +260,26 @@ class _AiMixingPanelState extends State<AiMixingPanel> {
               children: [
                 Text(
                   'Overall Mix Score',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.white.withValues(alpha: 0.7),
-                    fontSize: 11,
+                    size: 11,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   '${analysis.suggestions.length} suggestions',
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.white,
-                    fontSize: 13,
+                    size: 13,
                   ),
                 ),
                 if (analysis.criticalCount > 0)
                   Text(
                     '${analysis.criticalCount} critical',
-                    style: const TextStyle(
-                      color: Color(0xFFFF4060),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
+                    style: FluxForgeTheme.dockSans(
+                      color: const Color(0xFFFF4060),
+                      size: 11,
+                      weight: FontWeight.w500,
                     ),
                   ),
               ],
@@ -318,19 +319,19 @@ class _AiMixingPanelState extends State<AiMixingPanel> {
         children: [
           Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: color.withValues(alpha: 0.8),
-              fontSize: 9,
-              fontWeight: FontWeight.w500,
+              size: 9,
+              weight: FontWeight.w500,
             ),
           ),
           const SizedBox(width: 4),
           Text(
             value,
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: color,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
+              size: 11,
+              weight: FontWeight.bold,
             ),
           ),
         ],
@@ -350,18 +351,18 @@ class _AiMixingPanelState extends State<AiMixingPanel> {
               color: const Color(0xFF40FF90).withValues(alpha: 0.5),
             ),
             const SizedBox(height: 12),
-            const Text(
+            Text(
               'No issues found!',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.white70,
-                fontSize: 14,
+                size: 14,
               ),
             ),
             Text(
               'Your mix is looking great',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.white.withValues(alpha: 0.5),
-                fontSize: 12,
+                size: 12,
               ),
             ),
           ],
@@ -398,18 +399,18 @@ class _AiMixingPanelState extends State<AiMixingPanel> {
             const SizedBox(height: 16),
             Text(
               service.isAnalyzing ? 'Analyzing your mix...' : 'Ready to analyze',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.white.withValues(alpha: 0.7),
-                fontSize: 14,
+                size: 14,
               ),
             ),
             const SizedBox(height: 8),
             if (!service.isAnalyzing)
               Text(
                 'Click Analyze to get AI mixing suggestions',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: Colors.white.withValues(alpha: 0.5),
-                  fontSize: 12,
+                  size: 12,
                 ),
               ),
             if (service.isAnalyzing)
@@ -539,7 +540,7 @@ class SuggestionCard extends StatelessWidget {
                   child: Center(
                     child: Text(
                       suggestion.type.icon,
-                      style: const TextStyle(fontSize: 14),
+                      style: FluxForgeTheme.dockSans(size: 14),
                     ),
                   ),
                 ),
@@ -550,18 +551,18 @@ class SuggestionCard extends StatelessWidget {
                     children: [
                       Text(
                         suggestion.title,
-                        style: const TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
+                          size: 13,
+                          weight: FontWeight.w500,
                         ),
                       ),
                       if (suggestion.trackName != null)
                         Text(
                           suggestion.trackName!,
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
                             color: Colors.white.withValues(alpha: 0.5),
-                            fontSize: 10,
+                            size: 10,
                           ),
                         ),
                     ],
@@ -576,10 +577,10 @@ class SuggestionCard extends StatelessWidget {
                   ),
                   child: Text(
                     suggestion.priority.displayName,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: _getPriorityColor(),
-                      fontSize: 9,
-                      fontWeight: FontWeight.w500,
+                      size: 9,
+                      weight: FontWeight.w500,
                     ),
                   ),
                 ),
@@ -589,9 +590,9 @@ class SuggestionCard extends StatelessWidget {
             // Description
             Text(
               suggestion.description,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.white.withValues(alpha: 0.7),
-                fontSize: 12,
+                size: 12,
               ),
             ),
             // Parameters
@@ -609,10 +610,9 @@ class SuggestionCard extends StatelessWidget {
                     ),
                     child: Text(
                       '${e.key}: ${e.value.toStringAsFixed(1)}',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockMono(
                         color: Colors.white.withValues(alpha: 0.6),
-                        fontSize: 10,
-                        fontFamily: 'monospace',
+                        size: 10,
                       ),
                     ),
                   );
@@ -627,17 +627,17 @@ class SuggestionCard extends StatelessWidget {
                 // Confidence
                 Text(
                   '${(suggestion.confidence * 100).toInt()}% confidence',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.white.withValues(alpha: 0.4),
-                    fontSize: 10,
+                    size: 10,
                   ),
                 ),
                 const Spacer(),
                 TextButton(
                   onPressed: onDismiss,
-                  child: const Text(
+                  child: Text(
                     'Dismiss',
-                    style: TextStyle(fontSize: 12),
+                    style: FluxForgeTheme.dockSans(size: 12),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -650,7 +650,7 @@ class SuggestionCard extends StatelessWidget {
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
-                  child: const Text('Apply', style: TextStyle(fontSize: 12)),
+                  child: Text('Apply', style: FluxForgeTheme.dockSans(size: 12)),
                 ),
               ],
             ),
@@ -724,17 +724,17 @@ class MixScoreIndicator extends StatelessWidget {
               children: [
                 Text(
                   grade,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
                     color: color,
-                    fontSize: size * 0.35,
-                    fontWeight: FontWeight.bold,
+                    size: size * 0.35,
+                    weight: FontWeight.bold,
                   ),
                 ),
                 Text(
                   '${score.toInt()}%',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.white.withValues(alpha: 0.7),
-                    fontSize: size * 0.15,
+                    size: size * 0.15,
                   ),
                 ),
               ],

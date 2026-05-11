@@ -106,10 +106,10 @@ class _RtpcMacroEditorPanelState extends State<RtpcMacroEditorPanel>
           const SizedBox(width: 8),
           Text(
             'RTPC Macros',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 13,
+              weight: FontWeight.w600,
               color: FluxForgeTheme.textPrimary,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(width: 8),
@@ -121,10 +121,10 @@ class _RtpcMacroEditorPanelState extends State<RtpcMacroEditorPanel>
             ),
             child: Text(
               '$count',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 11,
+                weight: FontWeight.w600,
                 color: FluxForgeTheme.accent,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -166,13 +166,13 @@ class _RtpcMacroEditorPanelState extends State<RtpcMacroEditorPanel>
               const SizedBox(height: 12),
               Text(
                 'No Macros',
-                style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 14),
+                style: FluxForgeTheme.dockSans(size: 14, color: FluxForgeTheme.textMuted),
               ),
               const SizedBox(height: 8),
               Text(
                 'Create a macro to control\nmultiple parameters at once',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: FluxForgeTheme.textMuted.withValues(alpha: 0.7), fontSize: 11),
+                style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textMuted.withValues(alpha: 0.7)),
               ),
             ],
           ),
@@ -251,10 +251,10 @@ class _RtpcMacroEditorPanelState extends State<RtpcMacroEditorPanel>
             onTap: () => _editMacroName(provider, macro),
             child: Text(
               macro.name,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 12,
+                weight: FontWeight.w600,
                 color: FluxForgeTheme.textPrimary,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -316,19 +316,18 @@ class _RtpcMacroEditorPanelState extends State<RtpcMacroEditorPanel>
         // Value display
         Text(
           macro.currentValue.toStringAsFixed(2),
-          style: TextStyle(
+          style: FluxForgeTheme.dockMono(
+            size: 14,
+            weight: FontWeight.w600,
             color: macro.enabled ? FluxForgeTheme.textPrimary : FluxForgeTheme.textMuted,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            fontFamily: 'monospace',
           ),
         ),
         // Range
         Text(
           '${macro.min.toStringAsFixed(1)} - ${macro.max.toStringAsFixed(1)}',
-          style: TextStyle(
+          style: FluxForgeTheme.dockMono(
+            size: 10,
             color: FluxForgeTheme.textMuted,
-            fontSize: 10,
           ),
         ),
       ],
@@ -344,10 +343,10 @@ class _RtpcMacroEditorPanelState extends State<RtpcMacroEditorPanel>
           children: [
             Text(
               'Bindings',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 13,
+                weight: FontWeight.w600,
                 color: FluxForgeTheme.textPrimary,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(width: 8),
@@ -359,9 +358,9 @@ class _RtpcMacroEditorPanelState extends State<RtpcMacroEditorPanel>
               ),
               child: Text(
                 '${macro.bindings.length}',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 11,
                   color: FluxForgeTheme.textMuted,
-                  fontSize: 11,
                 ),
               ),
             ),
@@ -384,11 +383,10 @@ class _RtpcMacroEditorPanelState extends State<RtpcMacroEditorPanel>
             padding: const EdgeInsets.symmetric(vertical: 16),
             child: Text(
               'No bindings. Add parameters to control.',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 12,
                 color: FluxForgeTheme.textMuted,
-                fontSize: 12,
-                fontStyle: FontStyle.italic,
-              ),
+              ).copyWith(fontStyle: FontStyle.italic),
             ),
           )
         else
@@ -431,10 +429,10 @@ class _RtpcMacroEditorPanelState extends State<RtpcMacroEditorPanel>
         children: [
           Text(
             'Add Binding',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 12,
+              weight: FontWeight.w600,
               color: FluxForgeTheme.textPrimary,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 8),
@@ -446,12 +444,12 @@ class _RtpcMacroEditorPanelState extends State<RtpcMacroEditorPanel>
                   value: _newBindingTarget,
                   decoration: InputDecoration(
                     labelText: 'Target',
-                    labelStyle: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 12),
+                    labelStyle: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textMuted),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                   ),
                   dropdownColor: FluxForgeTheme.surface,
-                  style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
+                  style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textPrimary),
                   items: RtpcTargetParameter.values.map((param) {
                     return DropdownMenuItem(
                       value: param,
@@ -480,7 +478,7 @@ class _RtpcMacroEditorPanelState extends State<RtpcMacroEditorPanel>
               // Cancel
               TextButton(
                 onPressed: () => setState(() => _isAddingBinding = false),
-                child: Text('Cancel', style: TextStyle(color: FluxForgeTheme.textMuted)),
+                child: Text('Cancel', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted)),
               ),
             ],
           ),
@@ -498,7 +496,7 @@ class _RtpcMacroEditorPanelState extends State<RtpcMacroEditorPanel>
           const SizedBox(height: 12),
           Text(
             'Select a macro to edit',
-            style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 14),
+            style: FluxForgeTheme.dockSans(size: 14, color: FluxForgeTheme.textMuted),
           ),
         ],
       ),
@@ -553,17 +551,17 @@ class _RtpcMacroEditorPanelState extends State<RtpcMacroEditorPanel>
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: FluxForgeTheme.surface,
-        title: Text('Rename Macro', style: TextStyle(color: FluxForgeTheme.textPrimary)),
+        title: Text('Rename Macro', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary)),
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: TextStyle(color: FluxForgeTheme.textPrimary),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
           decoration: const InputDecoration(labelText: 'Name'),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: TextStyle(color: FluxForgeTheme.textMuted)),
+            child: Text('Cancel', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted)),
           ),
           ElevatedButton(
             onPressed: () {
@@ -593,7 +591,7 @@ class _RtpcMacroEditorPanelState extends State<RtpcMacroEditorPanel>
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: FluxForgeTheme.surface,
-        title: Text('Macro Color', style: TextStyle(color: FluxForgeTheme.textPrimary)),
+        title: Text('Macro Color', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary)),
         content: Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -818,18 +816,17 @@ class _MacroListTile extends StatelessWidget {
                 children: [
                   Text(
                     macro.name,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 12,
+                      weight: FontWeight.w500,
                       color: macro.enabled ? FluxForgeTheme.textPrimary : FluxForgeTheme.textMuted,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+                    ).copyWith(overflow: TextOverflow.ellipsis),
                   ),
                   Text(
                     '${macro.bindings.length} binding${macro.bindings.length != 1 ? "s" : ""}',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockMono(
+                      size: 10,
                       color: FluxForgeTheme.textMuted,
-                      fontSize: 10,
                     ),
                   ),
                 ],
@@ -905,20 +902,19 @@ class _BindingTile extends StatelessWidget {
               children: [
                 Text(
                   binding.target.displayName,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
+                    weight: FontWeight.w500,
                     color: binding.enabled ? FluxForgeTheme.textPrimary : FluxForgeTheme.textMuted,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 const SizedBox(height: 2),
                 // Output value
                 Text(
                   'Output: ${outputValue.toStringAsFixed(2)}',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
+                    size: 10,
                     color: FluxForgeTheme.textMuted,
-                    fontSize: 10,
-                    fontFamily: 'monospace',
                   ),
                 ),
               ],

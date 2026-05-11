@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../../../providers/slot_lab/math_audio_bridge_provider.dart';
+import '../../../theme/flux_forge_theme.dart';
 
 /// UCP-10: MathAudio Bridge™ Panel — Math Model → Audio Map Dashboard
 ///
@@ -40,8 +41,8 @@ class _MathAudioBridgePanelState extends State<MathAudioBridgePanel> {
   Widget build(BuildContext context) {
     final p = _provider;
     if (p == null) {
-      return const Center(
-        child: Text('MathAudio Bridge not available', style: TextStyle(color: Colors.grey)),
+      return Center(
+        child: Text('MathAudio Bridge not available', style: FluxForgeTheme.dockSans(color: Colors.grey)),
       );
     }
 
@@ -66,7 +67,7 @@ class _MathAudioBridgePanelState extends State<MathAudioBridgePanel> {
       children: [
         const Icon(Icons.analytics, color: Colors.blue, size: 24),
         const SizedBox(height: 8),
-        const Text('Generating Audio Map...', style: TextStyle(color: Colors.white70, fontSize: 12)),
+        Text('Generating Audio Map...', style: FluxForgeTheme.dockSans(color: Colors.white70, size: 12)),
         const SizedBox(height: 8),
         SizedBox(
           width: 200,
@@ -79,7 +80,7 @@ class _MathAudioBridgePanelState extends State<MathAudioBridgePanel> {
         const SizedBox(height: 4),
         Text(
           '${(p.progress * 100).toStringAsFixed(0)}%',
-          style: const TextStyle(color: Colors.white54, fontSize: 10),
+          style: FluxForgeTheme.dockMono(color: Colors.white54, size: 10),
         ),
       ],
     );
@@ -91,11 +92,11 @@ class _MathAudioBridgePanelState extends State<MathAudioBridgePanel> {
       children: [
         const Icon(Icons.error_outline, color: Colors.red, size: 24),
         const SizedBox(height: 8),
-        Text(p.error!, style: const TextStyle(color: Colors.red, fontSize: 11)),
+        Text(p.error!, style: FluxForgeTheme.dockSans(color: Colors.red, size: 11)),
         const SizedBox(height: 8),
         TextButton(
           onPressed: p.reset,
-          child: const Text('Reset', style: TextStyle(fontSize: 11)),
+          child: Text('Reset', style: FluxForgeTheme.dockSans(size: 11)),
         ),
       ],
     );
@@ -107,15 +108,15 @@ class _MathAudioBridgePanelState extends State<MathAudioBridgePanel> {
       children: [
         const Icon(Icons.upload_file, color: Colors.white38, size: 32),
         const SizedBox(height: 8),
-        const Text(
+        Text(
           'Import PAR / CSV / GDD',
-          style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.w500),
+          style: FluxForgeTheme.dockSans(color: Colors.white54, size: 12, weight: FontWeight.w500),
         ),
         const SizedBox(height: 4),
         Text(
           'Drop a math model file to auto-generate\na complete audio event map',
           textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 10),
+          style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.3), size: 10),
         ),
       ],
     );
@@ -138,7 +139,7 @@ class _MathAudioBridgePanelState extends State<MathAudioBridgePanel> {
               Expanded(
                 child: Text(
                   map.gameName,
-                  style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                  style: FluxForgeTheme.dockSans(color: Colors.white, size: 12, weight: FontWeight.w600),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -178,17 +179,17 @@ class _MathAudioBridgePanelState extends State<MathAudioBridgePanel> {
                     SizedBox(
                       width: 60,
                       child: Text(t.displayLabel,
-                          style: const TextStyle(color: Colors.white70, fontSize: 10)),
+                          style: FluxForgeTheme.dockSans(color: Colors.white70, size: 10)),
                     ),
                     Expanded(
                       child: Text(
                         '${t.fromMultiplier.toStringAsFixed(1)}x – ${t.toMultiplier.toStringAsFixed(1)}x',
-                        style: const TextStyle(color: Colors.white54, fontSize: 10),
+                        style: FluxForgeTheme.dockSans(color: Colors.white54, size: 10),
                       ),
                     ),
                     Text(
                       '${t.rollupDurationMs}ms',
-                      style: const TextStyle(color: Colors.white38, fontSize: 9),
+                      style: FluxForgeTheme.dockMono(color: Colors.white38, size: 9),
                     ),
                   ],
                 ),
@@ -215,7 +216,7 @@ class _MathAudioBridgePanelState extends State<MathAudioBridgePanel> {
                   const SizedBox(width: 4),
                   Text(
                     'Voice budget exceeded ${sim.voiceBudgetExceeded}x',
-                    style: const TextStyle(color: Colors.orange, fontSize: 10),
+                    style: FluxForgeTheme.dockSans(color: Colors.orange, size: 10),
                   ),
                 ],
               ),
@@ -224,13 +225,13 @@ class _MathAudioBridgePanelState extends State<MathAudioBridgePanel> {
               const SizedBox(height: 4),
               Text(
                 'Longest dry spell: ${sim.drySpells.map((d) => d.durationSpins).reduce(math.max)} spins',
-                style: const TextStyle(color: Colors.white38, fontSize: 10),
+                style: FluxForgeTheme.dockMono(color: Colors.white38, size: 10),
               ),
             ],
             const SizedBox(height: 2),
             Text(
               'Computed in ${sim.simulationDuration.inMilliseconds}ms',
-              style: const TextStyle(color: Colors.white24, fontSize: 9),
+              style: FluxForgeTheme.dockMono(color: Colors.white24, size: 9),
             ),
           ],
 
@@ -250,10 +251,10 @@ class _MathAudioBridgePanelState extends State<MathAudioBridgePanel> {
 
   Widget _sectionLabel(String text) => Text(
         text,
-        style: const TextStyle(
+        style: FluxForgeTheme.dockSans(
           color: Colors.white54,
-          fontSize: 10,
-          fontWeight: FontWeight.w500,
+          size: 10,
+          weight: FontWeight.w500,
           letterSpacing: 0.5,
         ),
       );
@@ -261,8 +262,8 @@ class _MathAudioBridgePanelState extends State<MathAudioBridgePanel> {
   Widget _stat(String label, String value) => Expanded(
         child: Column(
           children: [
-            Text(value, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500)),
-            Text(label, style: const TextStyle(color: Colors.white38, fontSize: 9)),
+            Text(value, style: FluxForgeTheme.dockMono(color: Colors.white, size: 11, weight: FontWeight.w500)),
+            Text(label, style: FluxForgeTheme.dockSans(color: Colors.white38, size: 9)),
           ],
         ),
       );
@@ -273,7 +274,7 @@ class _MathAudioBridgePanelState extends State<MathAudioBridgePanel> {
           color: Colors.white10,
           borderRadius: BorderRadius.circular(4),
         ),
-        child: Text(text, style: const TextStyle(color: Colors.white54, fontSize: 9)),
+        child: Text(text, style: FluxForgeTheme.dockSans(color: Colors.white54, size: 9)),
       );
 
   Widget _tierRow(AudioTier tier, int count, int total) {
@@ -294,7 +295,7 @@ class _MathAudioBridgePanelState extends State<MathAudioBridgePanel> {
           SizedBox(
             width: 60,
             child: Text(tier.displayName,
-                style: const TextStyle(color: Colors.white70, fontSize: 10)),
+                style: FluxForgeTheme.dockSans(color: Colors.white70, size: 10)),
           ),
           Expanded(
             child: SizedBox(
@@ -314,7 +315,7 @@ class _MathAudioBridgePanelState extends State<MathAudioBridgePanel> {
             child: Text(
               '$count',
               textAlign: TextAlign.right,
-              style: TextStyle(color: Color(tier.colorValue), fontSize: 9),
+              style: FluxForgeTheme.dockMono(color: Color(tier.colorValue), size: 9),
             ),
           ),
         ],
@@ -339,7 +340,7 @@ class _MathAudioBridgePanelState extends State<MathAudioBridgePanel> {
           Expanded(
             child: Text(
               event.displayName,
-              style: const TextStyle(color: Colors.white70, fontSize: 10),
+              style: FluxForgeTheme.dockSans(color: Colors.white70, size: 10),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -347,7 +348,7 @@ class _MathAudioBridgePanelState extends State<MathAudioBridgePanel> {
             width: 40,
             child: Text(
               event.suggestedStage,
-              style: const TextStyle(color: Colors.white38, fontSize: 9),
+              style: FluxForgeTheme.dockSans(color: Colors.white38, size: 9),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -356,7 +357,7 @@ class _MathAudioBridgePanelState extends State<MathAudioBridgePanel> {
             child: Text(
               '${event.frequency.toStringAsFixed(0)}/k',
               textAlign: TextAlign.right,
-              style: const TextStyle(color: Colors.white54, fontSize: 9),
+              style: FluxForgeTheme.dockMono(color: Colors.white54, size: 9),
             ),
           ),
         ],
