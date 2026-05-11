@@ -49,6 +49,7 @@ rf-video = { path = "../rf-video" }
 rf-script = { path = "../rf-script" }
 rf-pitch = { path = "../rf-pitch" }
 rf-ml = { path = "../rf-ml" }
+rf-generative = { path = "../rf-generative" }
 
 # Time stretching
 signalsmith-stretch = "0.1"

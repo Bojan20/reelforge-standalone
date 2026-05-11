@@ -95,6 +95,7 @@ pub mod samcl_ffi;
 // match the Dart Uint64 FFI contract.
 pub mod slot_lab_ffi;
 pub mod slot_builder_ffi; // 3.7.K RTP Solver FFI
+pub mod generative_ffi; // 5.1.3 — rf-generative on-device synthesis FFI
 pub mod sss_ffi;
 pub mod stage_ffi;
 pub mod tempo_state_ffi; // Wwise-style tempo state transitions for SlotLab

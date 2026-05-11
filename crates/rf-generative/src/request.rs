@@ -18,14 +18,17 @@ pub struct GenerationRequest {
 
     /// Output sample rate. `0` = "backend native" (recommended; engine
     /// resamples to 48 kHz after the fact).
+    #[serde(default)]
     pub sample_rate_hz: u32,
 
     /// `Some(seed)` → deterministic generation (see `GenerativeBackend`
     /// contract). `None` → backend may roll its own random seed.
+    #[serde(default)]
     pub seed: Option<u64>,
 
     /// Structured style hints. Optional but recommended — emotional arc and
     /// stage hint dramatically improve slot-appropriate output.
+    #[serde(default)]
     pub style: GenerationStyle,
 }
 
@@ -79,13 +82,16 @@ impl GenerationRequest {
 pub struct GenerationStyle {
     /// Coarse slot stage the generated clip is targeting. Drives backend
     /// presets (e.g. `SlotStageHint::BigWin` → trumpet+choir profile).
+    #[serde(default)]
     pub stage_hint: Option<SlotStageHint>,
 
     /// Time-varying emotional intensity. Empty = flat / no shaping.
+    #[serde(default)]
     pub emotional_arc: Option<EmotionalArc>,
 
     /// Free-text style tags. Caller decides taxonomy; backend MAY use them
     /// as additional prompt context.
+    #[serde(default)]
     pub tags: Vec<String>,
 }
 
