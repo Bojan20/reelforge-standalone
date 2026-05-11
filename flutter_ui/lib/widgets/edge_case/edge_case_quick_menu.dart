@@ -147,7 +147,7 @@ class _EdgeCaseQuickMenuState extends State<EdgeCaseQuickMenu> {
                   preset.name,
                   style: FluxForgeTheme.dockSans(
                     weight: isActive ? FontWeight.bold : FontWeight.normal,
-                    color: isActive ? const Color(0xFF40FF90) : null,
+                    color: isActive ? const Color(0xFF40FF90) : FluxForgeTheme.textSecondary,
                   ),
                 ),
                 if (showCategory)
@@ -482,7 +482,7 @@ class _EdgeCasePresetsPanelState extends State<EdgeCasePresetsPanel> {
               preset.name,
               style: FluxForgeTheme.dockSans(
                 weight: isActive ? FontWeight.bold : FontWeight.normal,
-                color: isActive ? const Color(0xFF40FF90) : null,
+                color: isActive ? const Color(0xFF40FF90) : FluxForgeTheme.textSecondary,
               ),
             ),
             subtitle: Text(

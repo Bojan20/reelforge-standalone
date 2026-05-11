@@ -193,18 +193,18 @@ class _MlProcessingDialogState extends State<MlProcessingDialog> {
             children: [
               Text(
                 title,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 18,
+                  weight: FontWeight.w600,
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 _getFileName(widget.inputPath),
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 12,
                   color: FluxForgeTheme.textSecondary,
-                  fontSize: 12,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -232,9 +232,9 @@ class _MlProcessingDialogState extends State<MlProcessingDialog> {
               const SizedBox(width: 6),
               Text(
                 'Model: $model',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 11,
                   color: FluxForgeTheme.textSecondary,
-                  fontSize: 11,
                 ),
               ),
             ],
@@ -267,11 +267,11 @@ class _MlProcessingDialogState extends State<MlProcessingDialog> {
                 provider.hasError
                     ? (provider.errorMessage ?? 'Processing failed')
                     : (_completed ? 'Complete!' : phase),
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 12,
                   color: provider.hasError
                       ? FluxForgeTheme.accentRed
                       : (_completed ? FluxForgeTheme.accentGreen : FluxForgeTheme.textPrimary),
-                  fontSize: 12,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -279,10 +279,10 @@ class _MlProcessingDialogState extends State<MlProcessingDialog> {
             ),
             Text(
               '${(progress * 100).toInt()}%',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 12,
+                weight: FontWeight.w600,
                 color: FluxForgeTheme.accentCyan,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -316,10 +316,10 @@ class _MlProcessingDialogState extends State<MlProcessingDialog> {
               const SizedBox(width: 6),
               Text(
                 'Output Stems',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  weight: FontWeight.w600,
                   color: FluxForgeTheme.accentGreen,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -346,9 +346,9 @@ class _MlProcessingDialogState extends State<MlProcessingDialog> {
                     const SizedBox(width: 4),
                     Text(
                       stem,
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 10,
                         color: FluxForgeTheme.textPrimary,
-                        fontSize: 10,
                       ),
                     ),
                   ],
@@ -400,7 +400,7 @@ class _MlProcessingDialogState extends State<MlProcessingDialog> {
             onPressed: _cancel,
             child: Text(
               'Cancel',
-              style: TextStyle(color: FluxForgeTheme.textSecondary),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
             ),
           ),
         if (_completed) ...[
@@ -409,7 +409,7 @@ class _MlProcessingDialogState extends State<MlProcessingDialog> {
               onPressed: () => Navigator.of(context).pop(false),
               child: Text(
                 'Close',
-                style: TextStyle(color: FluxForgeTheme.textSecondary),
+                style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
               ),
             )
           else

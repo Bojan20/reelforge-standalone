@@ -10,6 +10,7 @@ library;
 
 import 'package:flutter/material.dart';
 import '../../lower_zone_types.dart';
+import '../../../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // LIGHTWEIGHT DATA MODELS (avoid importing heavy timeline_models.dart)
@@ -117,11 +118,11 @@ class TimelineOverviewPanel extends StatelessWidget {
       children: [
         const Icon(Icons.view_timeline, size: 14, color: LowerZoneColors.dawAccent),
         const SizedBox(width: 6),
-        const Text(
+        Text(
           'TIMELINE OVERVIEW',
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: FontWeight.bold,
             color: LowerZoneColors.dawAccent,
             letterSpacing: 0.5,
           ),
@@ -130,7 +131,7 @@ class TimelineOverviewPanel extends StatelessWidget {
         // Stats
         Text(
           '${tracks.length} tracks • ${clips.length} clips',
-          style: const TextStyle(fontSize: 9, color: LowerZoneColors.textMuted),
+          style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textMuted),
         ),
         if (selectedCount > 0) ...[
           const SizedBox(width: 8),
@@ -142,7 +143,7 @@ class TimelineOverviewPanel extends StatelessWidget {
             ),
             child: Text(
               '$selectedCount sel',
-              style: const TextStyle(fontSize: 8, color: LowerZoneColors.dawAccent),
+              style: FluxForgeTheme.dockMono(size: 8, color: LowerZoneColors.dawAccent),
             ),
           ),
         ],
@@ -159,20 +160,20 @@ class TimelineOverviewPanel extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: LowerZoneColors.border),
       ),
-      child: const Center(
+      child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.view_timeline, size: 32, color: LowerZoneColors.textMuted),
-            SizedBox(height: 8),
+            const Icon(Icons.view_timeline, size: 32, color: LowerZoneColors.textMuted),
+            const SizedBox(height: 8),
             Text(
               'No tracks in timeline',
-              style: TextStyle(fontSize: 12, color: LowerZoneColors.textMuted),
+              style: FluxForgeTheme.dockSans(size: 12, color: LowerZoneColors.textMuted),
             ),
-            SizedBox(height: 4),
+            const SizedBox(height: 4),
             Text(
               'Add tracks to see the overview',
-              style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted),
+              style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textMuted),
             ),
           ],
         ),
@@ -233,8 +234,8 @@ class TimelineOverviewPanel extends StatelessWidget {
           Expanded(
             child: Text(
               track.name,
-              style: TextStyle(
-                fontSize: 9,
+              style: FluxForgeTheme.dockSans(
+                size: 9,
                 color: track.muted
                     ? LowerZoneColors.textMuted
                     : LowerZoneColors.textPrimary,
@@ -249,14 +250,14 @@ class TimelineOverviewPanel extends StatelessWidget {
               child: Icon(Icons.fiber_manual_record, size: 8, color: Color(0xFFFF4040)),
             ),
           if (track.muted)
-            const Padding(
-              padding: EdgeInsets.only(left: 2),
-              child: Text('M', style: TextStyle(fontSize: 7, fontWeight: FontWeight.bold, color: Color(0xFFFF9040))),
+            Padding(
+              padding: const EdgeInsets.only(left: 2),
+              child: Text('M', style: FluxForgeTheme.dockMono(size: 7, weight: FontWeight.bold, color: const Color(0xFFFF9040))),
             ),
           if (track.soloed)
-            const Padding(
-              padding: EdgeInsets.only(left: 2),
-              child: Text('S', style: TextStyle(fontSize: 7, fontWeight: FontWeight.bold, color: Color(0xFFFFD700))),
+            Padding(
+              padding: const EdgeInsets.only(left: 2),
+              child: Text('S', style: FluxForgeTheme.dockMono(size: 7, weight: FontWeight.bold, color: const Color(0xFFFFD700))),
             ),
         ],
       ),

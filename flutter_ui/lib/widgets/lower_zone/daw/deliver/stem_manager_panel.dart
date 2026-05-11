@@ -18,6 +18,7 @@ import '../../../../services/stem_manager_service.dart';
 import '../../../../services/export_service.dart';
 import '../../../fabfilter/fabfilter_theme.dart';
 import '../../../fabfilter/fabfilter_widgets.dart';
+import '../../../../theme/fluxforge_theme.dart';
 
 class StemManagerPanel extends StatefulWidget {
   final void Function(String action, Map<String, dynamic>? params)? onAction;
@@ -223,8 +224,8 @@ class _StemManagerPanelState extends State<StemManagerPanel> {
                       child: Text(
                         'No stem configs.\nSet solo/mute on tracks,\nthen press + to save.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 9,
+                        style: FluxForgeTheme.dockSans(
+                          size: 9,
                           color: FabFilterColors.textDisabled,
                         ),
                       ),
@@ -258,9 +259,9 @@ class _StemManagerPanelState extends State<StemManagerPanel> {
                                       MainAxisAlignment.center,
                                   children: [
                                     Text(config.name,
-                                        style: TextStyle(
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.bold,
+                                        style: FluxForgeTheme.dockSans(
+                                          size: 9,
+                                          weight: FontWeight.bold,
                                           color: isSelected
                                               ? FabFilterColors.cyan
                                               : FabFilterColors
@@ -268,8 +269,8 @@ class _StemManagerPanelState extends State<StemManagerPanel> {
                                         ),
                                         overflow: TextOverflow.ellipsis),
                                     Text(config.summary,
-                                        style: TextStyle(
-                                          fontSize: 7,
+                                        style: FluxForgeTheme.dockSans(
+                                          size: 7,
                                           color: FabFilterColors
                                               .textTertiary,
                                         )),
@@ -321,8 +322,8 @@ class _StemManagerPanelState extends State<StemManagerPanel> {
         child: Center(
           child: Text(
             'Select a configuration to view track states',
-            style: TextStyle(
-              fontSize: 9,
+            style: FluxForgeTheme.dockSans(
+              size: 9,
               color: FabFilterColors.textDisabled,
             ),
           ),
@@ -405,9 +406,9 @@ class _StemManagerPanelState extends State<StemManagerPanel> {
                         ),
                         child: Center(
                           child: Text('S',
-                              style: TextStyle(
-                                fontSize: 7,
-                                fontWeight: FontWeight.bold,
+                              style: FluxForgeTheme.dockSans(
+                                size: 7,
+                                weight: FontWeight.bold,
                                 color: state.soloed
                                     ? FabFilterColors.bgDeep
                                     : FabFilterColors.textTertiary,
@@ -432,9 +433,9 @@ class _StemManagerPanelState extends State<StemManagerPanel> {
                         ),
                         child: Center(
                           child: Text('M',
-                              style: TextStyle(
-                                fontSize: 7,
-                                fontWeight: FontWeight.bold,
+                              style: FluxForgeTheme.dockSans(
+                                size: 7,
+                                weight: FontWeight.bold,
                                 color: state.muted
                                     ? FabFilterColors.bgDeep
                                     : FabFilterColors.textTertiary,
@@ -445,8 +446,8 @@ class _StemManagerPanelState extends State<StemManagerPanel> {
                       // Track name
                       Expanded(
                         child: Text(state.trackName,
-                            style: TextStyle(
-                              fontSize: 9,
+                            style: FluxForgeTheme.dockSans(
+                              size: 9,
                               color: state.muted
                                   ? FabFilterColors.textDisabled
                                   : FabFilterColors.textPrimary,
@@ -590,14 +591,14 @@ class _StemManagerPanelState extends State<StemManagerPanel> {
           // Job name
           Expanded(
             child: Text(job.displayName,
-                style: TextStyle(fontSize: 8, color: statusColor),
+                style: FluxForgeTheme.dockMono(size: 8, color: statusColor),
                 overflow: TextOverflow.ellipsis),
           ),
           // Progress/status
           Text(job.statusLabel,
-              style: TextStyle(
-                fontSize: 7,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockMono(
+                size: 7,
+                weight: FontWeight.bold,
                 color: statusColor,
               )),
         ],

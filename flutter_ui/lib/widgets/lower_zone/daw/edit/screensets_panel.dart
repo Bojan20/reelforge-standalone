@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import '../../../fabfilter/fabfilter_theme.dart';
 import '../../../fabfilter/fabfilter_widgets.dart';
 import '../../../../src/rust/native_ffi.dart';
+import '../../../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MODEL
@@ -323,10 +324,9 @@ class _ScreensetsPanelState extends State<ScreensetsPanel> {
                     children: [
                       Text(
                         keyLabel,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight:
-                              isSelected ? FontWeight.w700 : FontWeight.w500,
+                        style: FluxForgeTheme.dockMono(
+                          size: 12,
+                          weight: isSelected ? FontWeight.w700 : FontWeight.w500,
                           color: isActive
                               ? FabFilterColors.cyan
                               : isSelected
@@ -378,17 +378,17 @@ class _ScreensetsPanelState extends State<ScreensetsPanel> {
                 if (slot.savedAt != null) ...[
                   Text(
                     'Saved: ${_formatTime(slot.savedAt!)}',
-                    style: const TextStyle(fontSize: 10, color: _kSecondary),
+                    style: FluxForgeTheme.dockMono(size: 10, color: _kSecondary),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     'State keys: ${slot.layoutState.length}',
-                    style: const TextStyle(fontSize: 10, color: _kSecondary),
+                    style: FluxForgeTheme.dockMono(size: 10, color: _kSecondary),
                   ),
                 ] else
-                  const Text(
+                  Text(
                     'Empty slot — click Save to store current layout.',
-                    style: TextStyle(fontSize: 10, color: _kSecondary),
+                    style: FluxForgeTheme.dockSans(size: 10, color: _kSecondary),
                   ),
               ],
             ),
@@ -464,16 +464,16 @@ class _ScreensetsPanelState extends State<ScreensetsPanel> {
         const SizedBox(width: 6),
         Text(
           slot.name,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
+          style: FluxForgeTheme.dockSans(
+            size: 13,
+            weight: FontWeight.w600,
             color: _kText,
           ),
         ),
         const SizedBox(width: 8),
         Text(
           'Slot ${slot.id}',
-          style: const TextStyle(fontSize: 10, color: _kSecondary),
+          style: FluxForgeTheme.dockMono(size: 10, color: _kSecondary),
         ),
       ],
     );
@@ -488,7 +488,7 @@ class _ScreensetsPanelState extends State<ScreensetsPanel> {
             child: TextField(
               controller: _renameCtrl,
               focusNode: _renameFocus,
-              style: const TextStyle(fontSize: 11, color: _kText),
+              style: FluxForgeTheme.dockSans(size: 11, color: _kText),
               decoration: _inputDeco('Screenset name...'),
               onSubmitted: (_) => _applyRename(),
             ),
@@ -557,8 +557,8 @@ class _ScreensetsPanelState extends State<ScreensetsPanel> {
                   color: enabled ? _kSecondary : FabFilterColors.textDisabled),
               const SizedBox(width: 6),
               Text(label,
-                  style: TextStyle(
-                      fontSize: 11,
+                  style: FluxForgeTheme.dockSans(
+                      size: 11,
                       color: enabled
                           ? _kSecondary
                           : FabFilterColors.textDisabled)),
@@ -571,7 +571,7 @@ class _ScreensetsPanelState extends State<ScreensetsPanel> {
 
   InputDecoration _inputDeco(String hint) => InputDecoration(
         hintText: hint,
-        hintStyle: const TextStyle(color: _kSecondary, fontSize: 11),
+        hintStyle: FluxForgeTheme.dockSans(color: _kSecondary, size: 11),
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         border: OutlineInputBorder(

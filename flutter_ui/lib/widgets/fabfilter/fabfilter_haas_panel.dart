@@ -17,6 +17,7 @@ import 'fabfilter_theme.dart';
 import 'fabfilter_knob.dart';
 import 'fabfilter_panel_base.dart';
 import 'fabfilter_widgets.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PARAMETER INDICES (must match Rust HaasDelayWrapper)
@@ -329,10 +330,10 @@ class _FabFilterHaasPanelState extends State<FabFilterHaasPanel>
           Icon(Icons.spatial_audio_off, size: 14, color: FabFilterColors.green),
           const SizedBox(width: 6),
           Text('FF-H  Haas Delay',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                   color: FabFilterColors.textPrimary,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600)),
+                  size: 11,
+                  weight: FontWeight.w600)),
           const Spacer(),
           FabCompactAB(
             isStateB: isStateB,
@@ -458,10 +459,10 @@ class _FabFilterHaasPanelState extends State<FabFilterHaasPanel>
       mainAxisSize: MainAxisSize.min,
       children: [
         Text('DELAYED CH',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
                 color: FabFilterColors.textTertiary,
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
+                size: 9,
+                weight: FontWeight.w600,
                 letterSpacing: 1.0)),
         const SizedBox(height: 4),
         Row(
@@ -510,10 +511,10 @@ class _FabFilterHaasPanelState extends State<FabFilterHaasPanel>
             ),
             const SizedBox(width: 6),
             Text('FILTER',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                     color: FabFilterColors.textTertiary,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
+                    size: 9,
+                    weight: FontWeight.w600,
                     letterSpacing: 1.0)),
           ],
         ),
@@ -546,10 +547,9 @@ class _FabFilterHaasPanelState extends State<FabFilterHaasPanel>
         ),
         Text(
           _lpEnabled ? _formatFreq(_lpFrequency) : 'OFF',
-          style: TextStyle(
+          style: FluxForgeTheme.dockMono(
               color: FabFilterColors.textPrimary,
-              fontSize: 10,
-              fontFamily: 'JetBrains Mono'),
+              size: 10),
         ),
       ],
     );
@@ -560,10 +560,10 @@ class _FabFilterHaasPanelState extends State<FabFilterHaasPanel>
       mainAxisSize: MainAxisSize.min,
       children: [
         Text('PHASE',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
                 color: FabFilterColors.textTertiary,
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
+                size: 9,
+                weight: FontWeight.w600,
                 letterSpacing: 1.0)),
         const SizedBox(height: 4),
         FabTinyButton(
@@ -606,10 +606,10 @@ class _FabFilterHaasPanelState extends State<FabFilterHaasPanel>
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
                 color: FabFilterColors.textTertiary,
-                fontSize: 8,
-                fontWeight: FontWeight.w600)),
+                size: 8,
+                weight: FontWeight.w600)),
         const SizedBox(width: 4),
         _buildMeterBar(normL),
         const SizedBox(width: 1),

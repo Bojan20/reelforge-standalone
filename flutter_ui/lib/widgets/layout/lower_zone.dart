@@ -321,9 +321,9 @@ class _LowerZoneState extends State<LowerZone> {
                 const SizedBox(width: 6),
                 Text(
                   group.label.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: isActiveGroup ? FontWeight.w800 : FontWeight.w600,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: isActiveGroup ? FontWeight.w800 : FontWeight.w600,
                     color: isActiveGroup ? groupColor : FluxForgeTheme.textTertiary,
                     letterSpacing: 1.0,
                   ),
@@ -403,12 +403,12 @@ class _LowerZoneState extends State<LowerZone> {
             ],
             Text(
               tab.label,
-              style: TextStyle(
-                fontSize: 10,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
                 color: isActive
                     ? groupColor
                     : FluxForgeTheme.textTertiary,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                weight: isActive ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
           ],
@@ -442,12 +442,12 @@ class _LowerZoneState extends State<LowerZone> {
             ],
             Text(
               tab.label,
-              style: TextStyle(
-                fontSize: 11,
+              style: FluxForgeTheme.dockSans(
+                size: 11,
                 color: isActive
                     ? FluxForgeTheme.accentBlue
                     : FluxForgeTheme.textSecondary,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                weight: isActive ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
           ],
@@ -567,9 +567,9 @@ class MixerStrip extends StatelessWidget {
                   Expanded(
                     child: Text(
                       name,
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
+                      style: FluxForgeTheme.dockSans(
+                        size: 10,
+                        weight: FontWeight.w600,
                         color: FluxForgeTheme.textPrimary,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -582,11 +582,11 @@ class MixerStrip extends StatelessWidget {
                         color: FluxForgeTheme.warningOrange,
                         borderRadius: BorderRadius.circular(2),
                       ),
-                      child: const Text(
+                      child: Text(
                         'M',
-                        style: TextStyle(
-                          fontSize: 8,
-                          fontWeight: FontWeight.bold,
+                        style: FluxForgeTheme.dockSans(
+                          size: 8,
+                          weight: FontWeight.bold,
                           color: Colors.black,
                         ),
                       ),
@@ -663,8 +663,8 @@ class MixerStrip extends StatelessWidget {
                         children: [6, 0, -6, -12, -24, -48]
                             .map((db) => Text(
                                   db.toString(),
-                                  style: TextStyle(
-                                    fontSize: 7,
+                                  style: FluxForgeTheme.dockMono(
+                                    size: 7,
                                     color: FluxForgeTheme.textSecondary,
                                   ),
                                 ))
@@ -712,9 +712,9 @@ class MixerStrip extends StatelessWidget {
                         child: Center(
                           child: Text(
                             'M',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
+                            style: FluxForgeTheme.dockSans(
+                              size: 10,
+                              weight: FontWeight.bold,
                               color: muted
                                   ? Colors.white
                                   : FluxForgeTheme.textSecondary,
@@ -744,9 +744,9 @@ class MixerStrip extends StatelessWidget {
                         child: Center(
                           child: Text(
                             'S',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
+                            style: FluxForgeTheme.dockSans(
+                              size: 10,
+                              weight: FontWeight.bold,
                               color: soloed
                                   ? Colors.black
                                   : FluxForgeTheme.textSecondary,
@@ -803,8 +803,8 @@ class MixerStrip extends StatelessWidget {
             Expanded(
               child: Text(
                 hasPlugin ? insert.name : '+',
-                style: TextStyle(
-                  fontSize: 8,
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
                   color: hasPlugin
                       ? (insert.bypassed
                           ? FluxForgeTheme.textSecondary

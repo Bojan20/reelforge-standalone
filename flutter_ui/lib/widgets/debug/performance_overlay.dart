@@ -270,9 +270,9 @@ class _PerformanceOverlayState extends State<PerformanceOverlay>
                 const SizedBox(width: 6),
                 Text(
                   _expanded ? 'Performance' : '${_metrics.fps.toStringAsFixed(0)}',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
+                  style: FluxForgeTheme.dockMono(
+                    size: 11,
+                    weight: FontWeight.w600,
                     color: FluxForgeTheme.textPrimary,
                   ),
                 ),
@@ -283,8 +283,8 @@ class _PerformanceOverlayState extends State<PerformanceOverlay>
                 if (!_expanded)
                   Text(
                     'fps',
-                    style: TextStyle(
-                      fontSize: 9,
+                    style: FluxForgeTheme.dockSans(
+                      size: 9,
                       color: FluxForgeTheme.textSecondary,
                     ),
                   ),
@@ -417,9 +417,9 @@ class _PerformanceOverlayState extends State<PerformanceOverlay>
   Widget _buildSectionHeader(String title) {
     return Text(
       title,
-      style: TextStyle(
-        fontSize: 9,
-        fontWeight: FontWeight.w600,
+      style: FluxForgeTheme.dockSans(
+        size: 9,
+        weight: FontWeight.w600,
         color: FluxForgeTheme.textSecondary,
         letterSpacing: 0.5,
       ),
@@ -432,18 +432,16 @@ class _PerformanceOverlayState extends State<PerformanceOverlay>
       children: [
         Text(
           value,
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockMono(
+            size: 24,
+            weight: FontWeight.bold,
             color: color,
-            fontFamily: 'monospace',
-            height: 1,
-          ),
+          ).copyWith(height: 1),
         ),
         Text(
           label,
-          style: TextStyle(
-            fontSize: 10,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
             color: FluxForgeTheme.textSecondary,
           ),
         ),
@@ -457,17 +455,16 @@ class _PerformanceOverlayState extends State<PerformanceOverlay>
       children: [
         Text(
           value,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
+          style: FluxForgeTheme.dockMono(
+            size: 11,
+            weight: FontWeight.w600,
             color: color ?? FluxForgeTheme.textPrimary,
-            fontFamily: 'monospace',
           ),
         ),
         Text(
           label,
-          style: TextStyle(
-            fontSize: 9,
+          style: FluxForgeTheme.dockSans(
+            size: 9,
             color: FluxForgeTheme.textSecondary,
           ),
         ),
@@ -539,11 +536,10 @@ class _PerformanceBadgeState extends State<PerformanceBadge>
             const SizedBox(width: 4),
             Text(
               '${_metrics.fps.toStringAsFixed(0)}',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockMono(
+                size: 11,
+                weight: FontWeight.bold,
                 color: fpsColor,
-                fontFamily: 'monospace',
               ),
             ),
             const SizedBox(width: 6),
@@ -557,10 +553,9 @@ class _PerformanceBadgeState extends State<PerformanceBadge>
             const SizedBox(width: 2),
             Text(
               '${_metrics.activeVoices}',
-              style: TextStyle(
-                fontSize: 11,
+              style: FluxForgeTheme.dockMono(
+                size: 11,
                 color: FluxForgeTheme.textSecondary,
-                fontFamily: 'monospace',
               ),
             ),
           ],

@@ -135,10 +135,10 @@ class _PitchCorrectionPanelState extends State<PitchCorrectionPanel> {
           const SizedBox(width: 8),
           Text(
             'PITCH CORRECTION',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
+              size: 14,
+              weight: FontWeight.bold,
               letterSpacing: 1.2,
             ),
           ),
@@ -161,10 +161,10 @@ class _PitchCorrectionPanelState extends State<PitchCorrectionPanel> {
               ),
               child: Text(
                 'BYPASS',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: _bypass ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
+                  size: 11,
+                  weight: FontWeight.bold,
                 ),
               ),
             ),
@@ -288,10 +288,10 @@ class _PitchCorrectionPanelState extends State<PitchCorrectionPanel> {
           const SizedBox(height: 8),
           Text(
             '${_noteNames[_root.index]} ${_scaleNames[_scale.index]}',
-            style: const TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.accentBlue,
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
+              size: 16,
+              weight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 16),
@@ -330,10 +330,10 @@ class _PitchCorrectionPanelState extends State<PitchCorrectionPanel> {
                     child: Center(
                       child: Text(
                         _noteNames[i].replaceAll('#', ''),
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: isActive ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
+                          size: 10,
+                          weight: FontWeight.bold,
                         ),
                       ),
                     ),
@@ -360,10 +360,10 @@ class _PitchCorrectionPanelState extends State<PitchCorrectionPanel> {
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
-      style: const TextStyle(
-        color: Color(0xFF808090),
-        fontSize: 11,
-        fontWeight: FontWeight.bold,
+      style: FluxForgeTheme.dockSans(
+        color: const Color(0xFF808090),
+        size: 11,
+        weight: FontWeight.bold,
         letterSpacing: 1.0,
       ),
     );
@@ -387,7 +387,7 @@ class _PitchCorrectionPanelState extends State<PitchCorrectionPanel> {
         isExpanded: true,
         dropdownColor: FluxForgeTheme.bgMid,
         underline: const SizedBox(),
-        style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 13),
+        style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary, size: 13),
         items: List.generate(items.length, (i) {
           return DropdownMenuItem(
             value: items[i],
@@ -418,10 +418,10 @@ class _PitchCorrectionPanelState extends State<PitchCorrectionPanel> {
             _buildSectionTitle(label),
             Text(
               '${(value * 100).toInt()}%',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: color,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
+                size: 12,
+                weight: FontWeight.bold,
               ),
             ),
           ],
@@ -446,8 +446,8 @@ class _PitchCorrectionPanelState extends State<PitchCorrectionPanel> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(leftLabel, style: const TextStyle(color: Color(0xFF606070), fontSize: 10)),
-            Text(rightLabel, style: const TextStyle(color: Color(0xFF606070), fontSize: 10)),
+            Text(leftLabel, style: FluxForgeTheme.dockSans(color: const Color(0xFF606070), size: 10)),
+            Text(rightLabel, style: FluxForgeTheme.dockSans(color: const Color(0xFF606070), size: 10)),
           ],
         ),
       ],

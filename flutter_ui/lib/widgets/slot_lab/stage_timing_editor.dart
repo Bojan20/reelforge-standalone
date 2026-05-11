@@ -315,7 +315,7 @@ class _StageTimingEditorState extends State<StageTimingEditor> {
                 // Base time
                 Text(
                   '${stage.baseTimeMs.toInt()}ms',
-                  style: FluxForgeTheme.dockMono(size: 9, color: Colors.grey[600]),
+                  style: FluxForgeTheme.dockMono(size: 9, color: Colors.grey[600]!),
                 ),
                 const SizedBox(width: 8),
                 // Delay adjustment
