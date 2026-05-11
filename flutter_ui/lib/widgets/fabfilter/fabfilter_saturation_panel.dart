@@ -24,6 +24,7 @@ import 'fabfilter_theme.dart';
 import 'fabfilter_knob.dart';
 import 'fabfilter_panel_base.dart';
 import 'fabfilter_widgets.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -737,9 +738,9 @@ class _FabFilterSaturationPanelState extends State<FabFilterSaturationPanel>
                       child: Center(
                         child: Text(
                           'B${b + 1}',
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
                             color: selected ? typeColor : FabFilterColors.textTertiary,
-                            fontSize: 9, fontWeight: FontWeight.bold,
+                            size: 9, weight: FontWeight.bold,
                           ),
                         ),
                       ),
@@ -913,7 +914,7 @@ class _FabFilterSaturationPanelState extends State<FabFilterSaturationPanel>
               padding: const EdgeInsets.symmetric(horizontal: 1),
               child: Tooltip(
                 message: '${_satTypeFullLabels[i]}\n${_satTypeFormulas[i]}',
-                textStyle: const TextStyle(fontSize: 9, color: Colors.white),
+                textStyle: FluxForgeTheme.dockSans(size: 9, color: Colors.white),
                 decoration: BoxDecoration(
                   color: FabFilterColors.bgDeep,
                   borderRadius: BorderRadius.circular(4),
@@ -945,9 +946,9 @@ class _FabFilterSaturationPanelState extends State<FabFilterSaturationPanel>
                         ),
                         Text(
                           _satTypeLabels[i],
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
                             color: active ? _satTypeColors[i] : FabFilterColors.textTertiary,
-                            fontSize: 7, fontWeight: FontWeight.bold,
+                            size: 7, weight: FontWeight.bold,
                           ),
                         ),
                       ],
@@ -975,12 +976,10 @@ class _FabFilterSaturationPanelState extends State<FabFilterSaturationPanel>
       child: Center(
         child: Text(
           _satTypeFormulas[band.type],
-          style: TextStyle(
+          style: FluxForgeTheme.dockMono(
             color: _satTypeColors[band.type].withValues(alpha: 0.6),
-            fontSize: 7,
-            fontFamily: 'monospace',
-          ),
-          overflow: TextOverflow.ellipsis,
+            size: 7,
+          ).copyWith(overflow: TextOverflow.ellipsis),
         ),
       ),
     );
@@ -1287,9 +1286,9 @@ class _FabFilterSaturationPanelState extends State<FabFilterSaturationPanel>
           borderRadius: BorderRadius.circular(3),
           border: active ? Border.all(color: color, width: 0.5) : null,
         ),
-        child: Text(label, style: TextStyle(
+        child: Text(label, style: FluxForgeTheme.dockSans(
           color: active ? color : FabFilterColors.textDisabled,
-          fontSize: 8, fontWeight: FontWeight.bold,
+          size: 8, weight: FontWeight.bold,
         )),
       ),
     );
@@ -1313,8 +1312,8 @@ class _FabFilterSaturationPanelState extends State<FabFilterSaturationPanel>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('LFO', style: TextStyle(
-                  color: FabFilterColors.purple, fontSize: 8, fontWeight: FontWeight.bold)),
+                Text('LFO', style: FluxForgeTheme.dockSans(
+                  color: FabFilterColors.purple, size: 8, weight: FontWeight.bold)),
                 const SizedBox(height: 2),
                 // LFO shape selector
                 SizedBox(
@@ -1375,8 +1374,8 @@ class _FabFilterSaturationPanelState extends State<FabFilterSaturationPanel>
                   height: 14,
                   child: Row(
                     children: [
-                      Text('TARGET ', style: TextStyle(
-                        color: FabFilterColors.textDisabled, fontSize: 7, fontWeight: FontWeight.bold)),
+                      Text('TARGET ', style: FluxForgeTheme.dockSans(
+                        color: FabFilterColors.textDisabled, size: 7, weight: FontWeight.bold)),
                       ...['DRV', 'TNE', 'MIX', 'OUT'].asMap().entries.map((e) {
                         final active = _lfoTarget == e.key;
                         return Padding(
@@ -1390,9 +1389,9 @@ class _FabFilterSaturationPanelState extends State<FabFilterSaturationPanel>
                                 borderRadius: BorderRadius.circular(2),
                                 border: active ? Border.all(color: FabFilterColors.purple, width: 0.5) : null,
                               ),
-                              child: Text(e.value, style: TextStyle(
+                              child: Text(e.value, style: FluxForgeTheme.dockSans(
                                 color: active ? FabFilterColors.purple : FabFilterColors.textDisabled,
-                                fontSize: 7, fontWeight: FontWeight.bold,
+                                size: 7, weight: FontWeight.bold,
                               )),
                             ),
                           ),
@@ -1411,8 +1410,8 @@ class _FabFilterSaturationPanelState extends State<FabFilterSaturationPanel>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('ENV FOLLOW', style: TextStyle(
-                  color: FabFilterColors.green, fontSize: 8, fontWeight: FontWeight.bold)),
+                Text('ENV FOLLOW', style: FluxForgeTheme.dockSans(
+                  color: FabFilterColors.green, size: 8, weight: FontWeight.bold)),
                 const SizedBox(height: 2),
                 _buildMiniParam('ATK', '${_envAttack.toStringAsFixed(0)} ms',
                   (_envAttack / 500.0).clamp(0.0, 1.0), FabFilterColors.green,
@@ -1440,8 +1439,8 @@ class _FabFilterSaturationPanelState extends State<FabFilterSaturationPanel>
         children: [
           SizedBox(
             width: 30,
-            child: Text(label, style: TextStyle(
-              color: FabFilterColors.textDisabled, fontSize: 7, fontWeight: FontWeight.bold)),
+            child: Text(label, style: FluxForgeTheme.dockSans(
+              color: FabFilterColors.textDisabled, size: 7, weight: FontWeight.bold)),
           ),
           Expanded(
             child: SliderTheme(
@@ -1458,10 +1457,10 @@ class _FabFilterSaturationPanelState extends State<FabFilterSaturationPanel>
           ),
           SizedBox(
             width: 38,
-            child: Text(display, style: TextStyle(
-              color: color.withValues(alpha: 0.7), fontSize: 7,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ), textAlign: TextAlign.right),
+            child: Text(display, style: FluxForgeTheme.dockSans(
+              color: color.withValues(alpha: 0.7), size: 7,
+            ).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
+            textAlign: TextAlign.right),
           ),
         ],
       ),
@@ -1519,8 +1518,8 @@ class _FabFilterSaturationPanelState extends State<FabFilterSaturationPanel>
       height: 18,
       child: Row(
         children: [
-          Text('TRANSIENT', style: TextStyle(
-            color: FabFilterColors.textDisabled, fontSize: 7, fontWeight: FontWeight.bold)),
+          Text('TRANSIENT', style: FluxForgeTheme.dockSans(
+            color: FabFilterColors.textDisabled, size: 7, weight: FontWeight.bold)),
           const SizedBox(width: 4),
           Expanded(
             child: _buildMiniParam('ATK', '${_transientAttack[b].toStringAsFixed(0)}',
@@ -1614,9 +1613,9 @@ class _FabFilterSaturationPanelState extends State<FabFilterSaturationPanel>
           ),
         ),
         child: Center(
-          child: Text(label, style: TextStyle(
+          child: Text(label, style: FluxForgeTheme.dockSans(
             color: active ? color : FabFilterColors.textDisabled,
-            fontSize: 7, fontWeight: FontWeight.bold,
+            size: 7, weight: FontWeight.bold,
           )),
         ),
       ),
@@ -1690,7 +1689,7 @@ class _FabFilterSaturationPanelState extends State<FabFilterSaturationPanel>
           border: Border.all(color: FabFilterColors.borderSubtle),
         ),
         child: Text('OS ${_oversamplingLabels[osIdx]}',
-          style: TextStyle(color: FabFilterColors.textTertiary, fontSize: 7, fontWeight: FontWeight.bold)),
+          style: FluxForgeTheme.dockSans(color: FabFilterColors.textTertiary, size: 7, weight: FontWeight.bold)),
       ),
     );
   }
@@ -1711,7 +1710,7 @@ class _FabFilterSaturationPanelState extends State<FabFilterSaturationPanel>
         border: Border.all(color: FabFilterColors.borderSubtle),
       ),
       child: Text('CPU ${_estimatedCpuLoad.toStringAsFixed(1)}%',
-        style: TextStyle(color: cpuColor, fontSize: 7, fontWeight: FontWeight.bold)),
+        style: FluxForgeTheme.dockSans(color: cpuColor, size: 7, weight: FontWeight.bold)),
     );
   }
 
@@ -1736,7 +1735,7 @@ class _FabFilterSaturationPanelState extends State<FabFilterSaturationPanel>
           Padding(
             padding: const EdgeInsets.only(left: 2),
             child: Text('${_undoStack.length}',
-              style: TextStyle(color: FabFilterColors.textDisabled, fontSize: 7)),
+              style: FluxForgeTheme.dockSans(color: FabFilterColors.textDisabled, size: 7)),
           ),
       ],
     );
@@ -1759,8 +1758,8 @@ class _FabFilterSaturationPanelState extends State<FabFilterSaturationPanel>
           children: [
             Icon(Icons.casino, size: 8, color: FabFilterColors.pink),
             const SizedBox(width: 1),
-            Text('RND', style: TextStyle(
-              color: FabFilterColors.pink, fontSize: 7, fontWeight: FontWeight.bold)),
+            Text('RND', style: FluxForgeTheme.dockSans(
+              color: FabFilterColors.pink, size: 7, weight: FontWeight.bold)),
           ],
         ),
       ),
@@ -1782,8 +1781,8 @@ class _FabFilterSaturationPanelState extends State<FabFilterSaturationPanel>
               borderRadius: BorderRadius.circular(2),
               border: Border.all(color: FabFilterColors.borderSubtle),
             ),
-            child: Text('CPY', style: TextStyle(
-              color: FabFilterColors.textTertiary, fontSize: 7, fontWeight: FontWeight.bold)),
+            child: Text('CPY', style: FluxForgeTheme.dockSans(
+              color: FabFilterColors.textTertiary, size: 7, weight: FontWeight.bold)),
           ),
         ),
         const SizedBox(width: 2),
@@ -1797,9 +1796,9 @@ class _FabFilterSaturationPanelState extends State<FabFilterSaturationPanel>
               border: Border.all(color: _bandClipboard != null
                   ? FabFilterColors.borderMedium : FabFilterColors.borderSubtle),
             ),
-            child: Text('PST', style: TextStyle(
+            child: Text('PST', style: FluxForgeTheme.dockSans(
               color: _bandClipboard != null ? FabFilterColors.textSecondary : FabFilterColors.textDisabled,
-              fontSize: 7, fontWeight: FontWeight.bold)),
+              size: 7, weight: FontWeight.bold)),
           ),
         ),
       ],
@@ -1821,12 +1820,12 @@ class _FabFilterSaturationPanelState extends State<FabFilterSaturationPanel>
           items.add(PopupMenuItem<_SatPreset>(
             enabled: false, height: 22,
             child: Text(entry.key.toUpperCase(),
-              style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.bold,
                 color: FabFilterColors.orange.withValues(alpha: 0.6))),
           ));
           for (final p in entry.value) {
             items.add(PopupMenuItem(value: p, height: 28,
-              child: Text(p.name, style: const TextStyle(fontSize: 11))));
+              child: Text(p.name, style: FluxForgeTheme.dockSans(size: 11))));
           }
         }
         return items;
@@ -1843,8 +1842,8 @@ class _FabFilterSaturationPanelState extends State<FabFilterSaturationPanel>
           children: [
             Icon(Icons.library_music, size: 9, color: FabFilterColors.textTertiary),
             const SizedBox(width: 2),
-            Text('PRESET', style: TextStyle(
-              color: FabFilterColors.textTertiary, fontSize: 7, fontWeight: FontWeight.bold)),
+            Text('PRESET', style: FluxForgeTheme.dockSans(
+              color: FabFilterColors.textTertiary, size: 7, weight: FontWeight.bold)),
           ],
         ),
       ),
@@ -2096,10 +2095,10 @@ class _CrossoverBandPainter extends CustomPainter {
       final labelPainter = TextPainter(
         text: TextSpan(
           text: 'B${b + 1}',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: isSelected ? color : color.withValues(alpha: 0.5),
-            fontSize: 7,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            size: 7,
+            weight: isSelected ? FontWeight.bold : FontWeight.normal,
           ),
         ),
         textDirection: TextDirection.ltr,
@@ -2124,7 +2123,7 @@ class _CrossoverBandPainter extends CustomPainter {
       final freqPainter = TextPainter(
         text: TextSpan(
           text: freqLabel,
-          style: TextStyle(color: FabFilterColors.textDisabled, fontSize: 6),
+          style: FluxForgeTheme.dockSans(color: FabFilterColors.textDisabled, size: 6),
         ),
         textDirection: TextDirection.ltr,
       );
@@ -2211,14 +2210,14 @@ class _BandMiniWaveformPainter extends CustomPainter {
 
     // Labels
     final prePainter = TextPainter(
-      text: TextSpan(text: 'PRE', style: TextStyle(color: color.withValues(alpha: 0.3), fontSize: 6)),
+      text: TextSpan(text: 'PRE', style: FluxForgeTheme.dockSans(color: color.withValues(alpha: 0.3), size: 6)),
       textDirection: TextDirection.ltr,
     );
     prePainter.layout();
     prePainter.paint(canvas, const Offset(2, 1));
 
     final postPainter = TextPainter(
-      text: TextSpan(text: 'POST', style: TextStyle(color: color.withValues(alpha: 0.7), fontSize: 6)),
+      text: TextSpan(text: 'POST', style: FluxForgeTheme.dockSans(color: color.withValues(alpha: 0.7), size: 6)),
       textDirection: TextDirection.ltr,
     );
     postPainter.layout();
@@ -2274,7 +2273,7 @@ class _HarmonicSpectrumPainter extends CustomPainter {
       final labelPainter = TextPainter(
         text: TextSpan(
           text: 'H${i + 1}',
-          style: TextStyle(color: FabFilterColors.textDisabled, fontSize: 6),
+          style: FluxForgeTheme.dockSans(color: FabFilterColors.textDisabled, size: 6),
         ),
         textDirection: TextDirection.ltr,
       );
@@ -2339,7 +2338,7 @@ class _PrePostSpectrumPainter extends CustomPainter {
     // dB scale labels
     for (final (label, frac) in [('-0dB', 0.0), ('-20', 0.33), ('-40', 0.66), ('-60', 1.0)]) {
       final tp = TextPainter(
-        text: TextSpan(text: label, style: TextStyle(color: FabFilterColors.textDisabled, fontSize: 6)),
+        text: TextSpan(text: label, style: FluxForgeTheme.dockSans(color: FabFilterColors.textDisabled, size: 6)),
         textDirection: TextDirection.ltr,
       );
       tp.layout();
@@ -2398,7 +2397,7 @@ class _PrePostSpectrumPainter extends CustomPainter {
     canvas.drawLine(const Offset(4, 4), const Offset(14, 4),
       Paint()..color = FabFilterColors.cyan.withValues(alpha: 0.3)..strokeWidth = 1.5);
     final preTp = TextPainter(
-      text: TextSpan(text: 'PRE', style: TextStyle(color: FabFilterColors.cyan.withValues(alpha: 0.5), fontSize: 6)),
+      text: TextSpan(text: 'PRE', style: FluxForgeTheme.dockSans(color: FabFilterColors.cyan.withValues(alpha: 0.5), size: 6)),
       textDirection: TextDirection.ltr,
     );
     preTp.layout();
@@ -2408,7 +2407,7 @@ class _PrePostSpectrumPainter extends CustomPainter {
     canvas.drawLine(Offset(preTp.width + 24, 4), Offset(preTp.width + 34, 4),
       Paint()..color = FabFilterProcessorColors.satAccent.withValues(alpha: 0.6)..strokeWidth = 1.5);
     final postTp = TextPainter(
-      text: TextSpan(text: 'POST', style: TextStyle(color: FabFilterProcessorColors.satAccent.withValues(alpha: 0.7), fontSize: 6)),
+      text: TextSpan(text: 'POST', style: FluxForgeTheme.dockSans(color: FabFilterProcessorColors.satAccent.withValues(alpha: 0.7), size: 6)),
       textDirection: TextDirection.ltr,
     );
     postTp.layout();

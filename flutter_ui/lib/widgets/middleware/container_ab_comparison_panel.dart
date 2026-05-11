@@ -229,10 +229,10 @@ class _ContainerABComparisonPanelState extends State<ContainerABComparisonPanel>
         const SizedBox(width: 8),
         Text(
           'A/B Comparison',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 12,
+            weight: FontWeight.bold,
             color: FluxForgeTheme.textPrimary,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(width: 12),
@@ -244,10 +244,10 @@ class _ContainerABComparisonPanelState extends State<ContainerABComparisonPanel>
           ),
           child: Text(
             '${widget.containerType.toUpperCase()} #${widget.containerId}',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.bold,
               color: _getTypeColor(widget.containerType),
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
             ),
           ),
         ),
@@ -277,9 +277,9 @@ class _ContainerABComparisonPanelState extends State<ContainerABComparisonPanel>
                 const SizedBox(width: 4),
                 Text(
                   'Show Diff',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
                     color: _showDiff ? Colors.yellow : FluxForgeTheme.textSecondary,
-                    fontSize: 11,
                   ),
                 ),
               ],
@@ -365,10 +365,10 @@ class _ContainerABComparisonPanelState extends State<ContainerABComparisonPanel>
                           child: Center(
                             child: Text(
                               _activeSlot == ABSlot.a ? 'A' : 'B',
-                              style: TextStyle(
+                              style: FluxForgeTheme.dockSans(
+                                size: 14,
+                                weight: FontWeight.bold,
                                 color: _activeSlot == ABSlot.a ? Colors.blue : Colors.green,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
                               ),
                             ),
                           ),
@@ -428,10 +428,10 @@ class _ContainerABComparisonPanelState extends State<ContainerABComparisonPanel>
               child: Center(
                 child: Text(
                   label,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
+                    weight: FontWeight.bold,
                     color: snapshot != null ? Colors.white : FluxForgeTheme.textSecondary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
@@ -443,17 +443,17 @@ class _ContainerABComparisonPanelState extends State<ContainerABComparisonPanel>
               children: [
                 Text(
                   'Slot $label',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
+                    weight: FontWeight.bold,
                     color: FluxForgeTheme.textPrimary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
                   ),
                 ),
                 Text(
                   snapshot != null ? _formatTime(snapshot.timestamp) : 'Empty',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
                     color: FluxForgeTheme.textSecondary,
-                    fontSize: 9,
                   ),
                 ),
               ],
@@ -502,10 +502,10 @@ class _ContainerABComparisonPanelState extends State<ContainerABComparisonPanel>
                   child: Center(
                     child: Text(
                       label,
-                      style: const TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 14,
+                        weight: FontWeight.bold,
                         color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
@@ -517,18 +517,18 @@ class _ContainerABComparisonPanelState extends State<ContainerABComparisonPanel>
                     children: [
                       Text(
                         'Slot $label',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 13,
+                          weight: FontWeight.bold,
                           color: FluxForgeTheme.textPrimary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
                         ),
                       ),
                       if (snapshot != null)
                         Text(
                           'Captured: ${_formatTime(snapshot.timestamp)}',
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
+                            size: 10,
                             color: FluxForgeTheme.textSecondary,
-                            fontSize: 10,
                           ),
                         ),
                     ],
@@ -549,7 +549,10 @@ class _ContainerABComparisonPanelState extends State<ContainerABComparisonPanel>
                         const SizedBox(width: 4),
                         Text(
                           'Capture',
-                          style: TextStyle(color: color, fontSize: 10),
+                          style: FluxForgeTheme.dockSans(
+                            size: 10,
+                            color: color,
+                          ),
                         ),
                       ],
                     ),
@@ -574,9 +577,9 @@ class _ContainerABComparisonPanelState extends State<ContainerABComparisonPanel>
                         Text(
                           'Click "Capture" to save\ncurrent settings',
                           textAlign: TextAlign.center,
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
+                            size: 11,
                             color: FluxForgeTheme.textSecondary,
-                            fontSize: 11,
                           ),
                         ),
                       ],
@@ -605,7 +608,7 @@ class _ContainerABComparisonPanelState extends State<ContainerABComparisonPanel>
       case 'sequence':
         return _buildSequencePreview(snapshot.data, otherSnapshot?.data, color);
       default:
-        return Text('Unknown type', style: TextStyle(color: FluxForgeTheme.textSecondary));
+        return Text('Unknown type', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary));
     }
   }
 
@@ -623,10 +626,10 @@ class _ContainerABComparisonPanelState extends State<ContainerABComparisonPanel>
         const SizedBox(height: 12),
         Text(
           'Children (${children.length})',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 11,
+            weight: FontWeight.bold,
             color: FluxForgeTheme.textPrimary,
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 8),
@@ -655,12 +658,12 @@ class _ContainerABComparisonPanelState extends State<ContainerABComparisonPanel>
                 Expanded(
                   child: Text(
                     child['name'] as String? ?? 'Child',
-                    style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 10),
+                    style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textPrimary),
                   ),
                 ),
                 Text(
                   '${((child['rtpcStart'] as num?)?.toStringAsFixed(2) ?? '0')} - ${((child['rtpcEnd'] as num?)?.toStringAsFixed(2) ?? '1')}',
-                  style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.bold),
+                  style: FluxForgeTheme.dockMono(size: 9, weight: FontWeight.bold, color: color),
                 ),
               ],
             ),
@@ -689,10 +692,10 @@ class _ContainerABComparisonPanelState extends State<ContainerABComparisonPanel>
         const SizedBox(height: 12),
         Text(
           'Children (${children.length})',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 11,
+            weight: FontWeight.bold,
             color: FluxForgeTheme.textPrimary,
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 8),
@@ -712,7 +715,7 @@ class _ContainerABComparisonPanelState extends State<ContainerABComparisonPanel>
                 Expanded(
                   child: Text(
                     child['name'] as String? ?? 'Child',
-                    style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 10),
+                    style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textPrimary),
                   ),
                 ),
                 Container(
@@ -736,7 +739,7 @@ class _ContainerABComparisonPanelState extends State<ContainerABComparisonPanel>
                 const SizedBox(width: 6),
                 Text(
                   '${weight.toStringAsFixed(1)}',
-                  style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.bold),
+                  style: FluxForgeTheme.dockMono(size: 9, weight: FontWeight.bold, color: color),
                 ),
               ],
             ),
@@ -760,10 +763,10 @@ class _ContainerABComparisonPanelState extends State<ContainerABComparisonPanel>
         const SizedBox(height: 12),
         Text(
           'Steps (${steps.length})',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 11,
+            weight: FontWeight.bold,
             color: FluxForgeTheme.textPrimary,
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 8),
@@ -791,7 +794,7 @@ class _ContainerABComparisonPanelState extends State<ContainerABComparisonPanel>
                   child: Center(
                     child: Text(
                       '${entry.key + 1}',
-                      style: TextStyle(color: color, fontSize: 8, fontWeight: FontWeight.bold),
+                      style: FluxForgeTheme.dockMono(size: 8, weight: FontWeight.bold, color: color),
                     ),
                   ),
                 ),
@@ -799,12 +802,12 @@ class _ContainerABComparisonPanelState extends State<ContainerABComparisonPanel>
                 Expanded(
                   child: Text(
                     step['childName'] as String? ?? 'Step',
-                    style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 10),
+                    style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textPrimary),
                   ),
                 ),
                 Text(
                   '@${delay}ms (${duration}ms)',
-                  style: TextStyle(color: color, fontSize: 8),
+                  style: FluxForgeTheme.dockMono(size: 8, color: color),
                 ),
               ],
             ),
@@ -836,16 +839,16 @@ class _ContainerABComparisonPanelState extends State<ContainerABComparisonPanel>
             width: isDiff ? 70 : 80,
             child: Text(
               label,
-              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 10),
+              style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textSecondary),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.bold,
                 color: isDiff ? Colors.yellow : FluxForgeTheme.textPrimary,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
               ),
             ),
           ),
@@ -876,9 +879,9 @@ class _ContainerABComparisonPanelState extends State<ContainerABComparisonPanel>
               children: [
                 Text(
                   'A',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    weight: FontWeight.bold,
                     color: _slotA != null ? Colors.blue : FluxForgeTheme.textSecondary,
-                    fontWeight: FontWeight.bold,
                   ),
                 ),
                 Icon(
@@ -888,9 +891,9 @@ class _ContainerABComparisonPanelState extends State<ContainerABComparisonPanel>
                 ),
                 Text(
                   'B',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    weight: FontWeight.bold,
                     color: _slotA != null ? Colors.green : FluxForgeTheme.textSecondary,
-                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -917,9 +920,9 @@ class _ContainerABComparisonPanelState extends State<ContainerABComparisonPanel>
               children: [
                 Text(
                   'B',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    weight: FontWeight.bold,
                     color: _slotB != null ? Colors.green : FluxForgeTheme.textSecondary,
-                    fontWeight: FontWeight.bold,
                   ),
                 ),
                 Icon(
@@ -929,9 +932,9 @@ class _ContainerABComparisonPanelState extends State<ContainerABComparisonPanel>
                 ),
                 Text(
                   'A',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    weight: FontWeight.bold,
                     color: _slotB != null ? Colors.blue : FluxForgeTheme.textSecondary,
-                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -957,10 +960,10 @@ class _ContainerABComparisonPanelState extends State<ContainerABComparisonPanel>
               const SizedBox(width: 6),
               Text(
                 'Active: ${_activeSlot == ABSlot.a ? 'A' : 'B'}',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  weight: FontWeight.bold,
                   color: _activeSlot == ABSlot.a ? Colors.blue : Colors.green,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],

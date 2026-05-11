@@ -72,10 +72,10 @@ class _AttenuationCurvePanelState extends State<AttenuationCurvePanel> {
         const SizedBox(width: 8),
         Text(
           'Attenuation Curves',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 12,
+            weight: FontWeight.bold,
             color: FluxForgeTheme.textPrimary,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(width: 8),
@@ -87,10 +87,10 @@ class _AttenuationCurvePanelState extends State<AttenuationCurvePanel> {
           ),
           child: Text(
             'Slot-Specific',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 9,
+              weight: FontWeight.bold,
               color: Colors.indigo,
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
             ),
           ),
         ),
@@ -111,10 +111,10 @@ class _AttenuationCurvePanelState extends State<AttenuationCurvePanel> {
                 const SizedBox(width: 4),
                 Text(
                   'Add Curve',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
+                    weight: FontWeight.bold,
                     color: Colors.indigo,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -141,15 +141,15 @@ class _AttenuationCurvePanelState extends State<AttenuationCurvePanel> {
             const SizedBox(height: 8),
             Text(
               'No attenuation curves',
-              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+              style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textSecondary),
             ),
             const SizedBox(height: 4),
             Text(
               'Add curves to map game values to audio parameters',
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 10,
                 color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
-                fontSize: 10,
               ),
             ),
           ],
@@ -205,10 +205,10 @@ class _AttenuationCurvePanelState extends State<AttenuationCurvePanel> {
                       Expanded(
                         child: Text(
                           curve.name,
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
+                            size: 12,
+                            weight: FontWeight.bold,
                             color: FluxForgeTheme.textPrimary,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
@@ -233,18 +233,18 @@ class _AttenuationCurvePanelState extends State<AttenuationCurvePanel> {
                         ),
                         child: Text(
                           curve.attenuationType.displayName,
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
+                            size: 9,
                             color: typeColor,
-                            fontSize: 9,
                           ),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Text(
                         '${curve.inputMin.toStringAsFixed(0)}-${curve.inputMax.toStringAsFixed(0)} → ${curve.outputMin.toStringAsFixed(2)}-${curve.outputMax.toStringAsFixed(2)}',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockMono(
+                          size: 9,
                           color: FluxForgeTheme.textSecondary,
-                          fontSize: 9,
                         ),
                       ),
                     ],
@@ -339,7 +339,7 @@ class _AttenuationCurvePanelState extends State<AttenuationCurvePanel> {
               const SizedBox(height: 8),
               Text(
                 'Select a curve to edit',
-                style: TextStyle(color: FluxForgeTheme.textSecondary),
+                style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
               ),
             ],
           ),
@@ -373,10 +373,10 @@ class _AttenuationCurvePanelState extends State<AttenuationCurvePanel> {
               const SizedBox(width: 8),
               Text(
                 curve.name,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 14,
+                  weight: FontWeight.bold,
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
               const Spacer(),
@@ -405,10 +405,10 @@ class _AttenuationCurvePanelState extends State<AttenuationCurvePanel> {
           // Input range
           Text(
             'Input Range',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.bold,
               color: FluxForgeTheme.textSecondary,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 8),
@@ -441,10 +441,10 @@ class _AttenuationCurvePanelState extends State<AttenuationCurvePanel> {
           // Output range
           Text(
             'Output Range',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.bold,
               color: FluxForgeTheme.textSecondary,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 8),
@@ -479,10 +479,10 @@ class _AttenuationCurvePanelState extends State<AttenuationCurvePanel> {
           // Curve shape selector
           Text(
             'Curve Shape',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.bold,
               color: FluxForgeTheme.textSecondary,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 8),
@@ -508,10 +508,10 @@ class _AttenuationCurvePanelState extends State<AttenuationCurvePanel> {
                   ),
                   child: Text(
                     shape.displayName,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
+                      weight: isActive ? FontWeight.bold : FontWeight.normal,
                       color: isActive ? typeColor : FluxForgeTheme.textSecondary,
-                      fontSize: 10,
-                      fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),
                 ),
@@ -552,9 +552,9 @@ class _AttenuationCurvePanelState extends State<AttenuationCurvePanel> {
                 children: [
                   Text(
                     'Preview:',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
                       color: FluxForgeTheme.textSecondary,
-                      fontSize: 10,
                     ),
                   ),
                   Expanded(
@@ -579,17 +579,17 @@ class _AttenuationCurvePanelState extends State<AttenuationCurvePanel> {
                       children: [
                         Text(
                           'In: ${(curve.inputMin + _previewValue * (curve.inputMax - curve.inputMin)).toStringAsFixed(1)}',
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockMono(
+                            size: 9,
                             color: FluxForgeTheme.textSecondary,
-                            fontSize: 9,
                           ),
                         ),
                         Text(
                           'Out: ${curve.evaluate(curve.inputMin + _previewValue * (curve.inputMax - curve.inputMin)).toStringAsFixed(3)}',
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockMono(
+                            size: 10,
+                            weight: FontWeight.bold,
                             color: color,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ],
@@ -605,9 +605,9 @@ class _AttenuationCurvePanelState extends State<AttenuationCurvePanel> {
             top: 8,
             child: Text(
               'Output',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 9,
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 9,
               ),
             ),
           ),
@@ -616,9 +616,9 @@ class _AttenuationCurvePanelState extends State<AttenuationCurvePanel> {
             bottom: 40,
             child: Text(
               'Input',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 9,
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 9,
               ),
             ),
           ),
@@ -642,14 +642,14 @@ class _AttenuationCurvePanelState extends State<AttenuationCurvePanel> {
           children: [
             Text(
               label,
-              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 10),
+              style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textSecondary),
             ),
             Text(
               decimals > 0 ? value.toStringAsFixed(decimals) : value.toStringAsFixed(0),
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 11,
+                weight: FontWeight.bold,
                 color: color,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
               ),
             ),
           ],
@@ -668,9 +668,9 @@ class _AttenuationCurvePanelState extends State<AttenuationCurvePanel> {
               contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               border: InputBorder.none,
               hintText: value.toString(),
-              hintStyle: TextStyle(color: FluxForgeTheme.textSecondary),
+              hintStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
             ),
-            style: TextStyle(color: color, fontSize: 12),
+            style: FluxForgeTheme.dockMono(size: 12, color: color),
             onSubmitted: (text) {
               final parsed = double.tryParse(text);
               if (parsed != null) {
@@ -749,10 +749,10 @@ class _AddAttenuationCurveDialogState extends State<_AddAttenuationCurveDialog> 
         children: [
           Text(
             'New Attenuation Curve',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 14,
+              weight: FontWeight.bold,
               color: FluxForgeTheme.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 16),
@@ -760,7 +760,7 @@ class _AddAttenuationCurveDialogState extends State<_AddAttenuationCurveDialog> 
             controller: _nameController,
             decoration: InputDecoration(
               labelText: 'Curve Name',
-              labelStyle: TextStyle(color: FluxForgeTheme.textSecondary),
+              labelStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
               enabledBorder: OutlineInputBorder(
                 borderSide: BorderSide(color: FluxForgeTheme.border),
               ),
@@ -768,15 +768,15 @@ class _AddAttenuationCurveDialogState extends State<_AddAttenuationCurveDialog> 
                 borderSide: BorderSide(color: Colors.indigo),
               ),
             ),
-            style: TextStyle(color: FluxForgeTheme.textPrimary),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
           ),
           const SizedBox(height: 16),
           Text(
             'Attenuation Type',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.bold,
               color: FluxForgeTheme.textSecondary,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 8),
@@ -801,10 +801,10 @@ class _AddAttenuationCurveDialogState extends State<_AddAttenuationCurveDialog> 
                   ),
                   child: Text(
                     type.displayName,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 11,
+                      weight: isActive ? FontWeight.bold : FontWeight.normal,
                       color: isActive ? color : FluxForgeTheme.textSecondary,
-                      fontSize: 11,
-                      fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),
                 ),
@@ -826,7 +826,7 @@ class _AddAttenuationCurveDialogState extends State<_AddAttenuationCurveDialog> 
                   ),
                   child: Text(
                     'Cancel',
-                    style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+                    style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textSecondary),
                   ),
                 ),
               ),
@@ -845,10 +845,10 @@ class _AddAttenuationCurveDialogState extends State<_AddAttenuationCurveDialog> 
                   ),
                   child: Text(
                     'Create',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 12,
+                      weight: FontWeight.bold,
                       color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),

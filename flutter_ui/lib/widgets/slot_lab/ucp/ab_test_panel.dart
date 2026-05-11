@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../../../providers/slot_lab/ab_test_provider.dart';
+import '../../../theme/flux_forge_theme.dart';
 
 /// UCP-13: A/B Testing Analytics Panel — Data-driven audio decisions
 ///
@@ -39,8 +40,8 @@ class _AbTestPanelState extends State<AbTestPanel> {
   Widget build(BuildContext context) {
     final p = _provider;
     if (p == null) {
-      return const Center(
-        child: Text('A/B Test not available', style: TextStyle(color: Colors.grey)),
+      return Center(
+        child: Text('A/B Test not available', style: FluxForgeTheme.dockSans(color: Colors.grey)),
       );
     }
 
@@ -89,11 +90,11 @@ class _AbTestPanelState extends State<AbTestPanel> {
           children: [
             const Icon(Icons.science, color: Color(0xFF8866CC), size: 14),
             const SizedBox(width: 6),
-            const Text('A/B Test Config',
-                style: TextStyle(
-                    color: Color(0xFFCCCCCC),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600)),
+            Text('A/B Test Config',
+                style: FluxForgeTheme.dockSans(
+                    color: const Color(0xFFCCCCCC),
+                    size: 11,
+                    weight: FontWeight.w600)),
             const Spacer(),
             GestureDetector(
               onTap: p.isSimulating ? null : () => p.runSimulation(),
@@ -121,8 +122,8 @@ class _AbTestPanelState extends State<AbTestPanel> {
                     const SizedBox(width: 3),
                     Text(
                       p.isSimulating ? 'Running...' : 'Run',
-                      style: const TextStyle(
-                          color: Color(0xFF44CC44), fontSize: 9),
+                      style: FluxForgeTheme.dockSans(
+                          color: const Color(0xFF44CC44), size: 9),
                     ),
                   ],
                 ),
@@ -137,11 +138,11 @@ class _AbTestPanelState extends State<AbTestPanel> {
         const SizedBox(height: 4),
 
         // Population mix
-        const Text('Population Mix',
-            style: TextStyle(
-                color: Color(0xFF888888),
-                fontSize: 9,
-                fontWeight: FontWeight.w600)),
+        Text('Population Mix',
+            style: FluxForgeTheme.dockSans(
+                color: const Color(0xFF888888),
+                size: 9,
+                weight: FontWeight.w600)),
         const SizedBox(height: 2),
         Expanded(
           child: SingleChildScrollView(
@@ -151,11 +152,11 @@ class _AbTestPanelState extends State<AbTestPanel> {
                   _buildArchetypeRow(p, arch),
                 const SizedBox(height: 8),
                 // Active metrics
-                const Text('Success Metrics',
-                    style: TextStyle(
-                        color: Color(0xFF888888),
-                        fontSize: 9,
-                        fontWeight: FontWeight.w600)),
+                Text('Success Metrics',
+                    style: FluxForgeTheme.dockSans(
+                        color: const Color(0xFF888888),
+                        size: 9,
+                        weight: FontWeight.w600)),
                 const SizedBox(height: 2),
                 for (final m in SuccessMetric.values)
                   _buildMetricToggle(p, m),
@@ -172,12 +173,11 @@ class _AbTestPanelState extends State<AbTestPanel> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label,
-            style: const TextStyle(color: Color(0xFF888888), fontSize: 9)),
+            style: FluxForgeTheme.dockSans(color: const Color(0xFF888888), size: 9)),
         Text(value,
-            style: const TextStyle(
-                color: Color(0xFFCCCCCC),
-                fontSize: 9,
-                fontFamily: 'monospace')),
+            style: FluxForgeTheme.dockMono(
+                color: const Color(0xFFCCCCCC),
+                size: 9)),
       ],
     );
   }
@@ -191,7 +191,7 @@ class _AbTestPanelState extends State<AbTestPanel> {
           SizedBox(
             width: 70,
             child: Text(arch.displayName,
-                style: const TextStyle(color: Color(0xFF999999), fontSize: 9)),
+                style: FluxForgeTheme.dockSans(color: const Color(0xFF999999), size: 9)),
           ),
           Expanded(
             child: Container(
@@ -217,10 +217,9 @@ class _AbTestPanelState extends State<AbTestPanel> {
             width: 30,
             child: Text('${(weight * 100).toStringAsFixed(0)}%',
                 textAlign: TextAlign.right,
-                style: const TextStyle(
-                    color: Color(0xFF888888),
-                    fontSize: 8,
-                    fontFamily: 'monospace')),
+                style: FluxForgeTheme.dockMono(
+                    color: const Color(0xFF888888),
+                    size: 8)),
           ),
         ],
       ),
@@ -247,18 +246,18 @@ class _AbTestPanelState extends State<AbTestPanel> {
             const SizedBox(width: 4),
             Expanded(
               child: Text(m.displayName,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                       color: active
                           ? const Color(0xFFCCCCCC)
                           : const Color(0xFF666677),
-                      fontSize: 9)),
+                      size: 9)),
             ),
             if (m.isResponsibleGaming)
-              const Text('RG',
-                  style: TextStyle(
-                      color: Color(0xFFCC8844),
-                      fontSize: 7,
-                      fontWeight: FontWeight.w700)),
+              Text('RG',
+                  style: FluxForgeTheme.dockSans(
+                      color: const Color(0xFFCC8844),
+                      size: 7,
+                      weight: FontWeight.w700)),
           ],
         ),
       ),
@@ -272,12 +271,12 @@ class _AbTestPanelState extends State<AbTestPanel> {
   Widget _buildResultsPanel(AbTestProvider p) {
     final result = p.lastResult;
     if (result == null) {
-      return const Center(
+      return Center(
         child: Text(
           'Configure variants and click Run to start A/B simulation.\n'
           'Default: 10,000 simulated player sessions per variant.',
           textAlign: TextAlign.center,
-          style: TextStyle(color: Color(0xFF555577), fontSize: 10),
+          style: FluxForgeTheme.dockSans(color: const Color(0xFF555577), size: 10),
         ),
       );
     }
@@ -303,25 +302,25 @@ class _AbTestPanelState extends State<AbTestPanel> {
                         width: 70,
                         child: Text(result.variantA.variantName,
                             textAlign: TextAlign.center,
-                            style: const TextStyle(
-                                color: Color(0xFF4488CC),
-                                fontSize: 9,
-                                fontWeight: FontWeight.w600))),
+                            style: FluxForgeTheme.dockSans(
+                                color: const Color(0xFF4488CC),
+                                size: 9,
+                                weight: FontWeight.w600))),
                     SizedBox(
                         width: 70,
                         child: Text(result.variantB.variantName,
                             textAlign: TextAlign.center,
-                            style: const TextStyle(
-                                color: Color(0xFFCC8844),
-                                fontSize: 9,
-                                fontWeight: FontWeight.w600))),
-                    const SizedBox(width: 70,
+                            style: FluxForgeTheme.dockSans(
+                                color: const Color(0xFFCC8844),
+                                size: 9,
+                                weight: FontWeight.w600))),
+                    SizedBox(width: 70,
                         child: Text('Delta',
                             textAlign: TextAlign.center,
-                            style: TextStyle(
-                                color: Color(0xFF888888),
-                                fontSize: 9,
-                                fontWeight: FontWeight.w600))),
+                            style: FluxForgeTheme.dockSans(
+                                color: const Color(0xFF888888),
+                                size: 9,
+                                weight: FontWeight.w600))),
                   ],
                 ),
                 const SizedBox(height: 4),
@@ -332,18 +331,18 @@ class _AbTestPanelState extends State<AbTestPanel> {
 
                 // Responsible Gaming Flags
                 if (result.responsibleGamingFlags.isNotEmpty) ...[
-                  const Text('Responsible Gaming Flags',
-                      style: TextStyle(
-                          color: Color(0xFFCC4444),
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600)),
+                  Text('Responsible Gaming Flags',
+                      style: FluxForgeTheme.dockSans(
+                          color: const Color(0xFFCC4444),
+                          size: 10,
+                          weight: FontWeight.w600)),
                   const SizedBox(height: 4),
                   for (final flag in result.responsibleGamingFlags)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 2),
                       child: Text(flag,
-                          style: const TextStyle(
-                              color: Color(0xFFCC8844), fontSize: 9)),
+                          style: FluxForgeTheme.dockSans(
+                              color: const Color(0xFFCC8844), size: 9)),
                     ),
                 ],
               ],
@@ -401,19 +400,19 @@ class _AbTestPanelState extends State<AbTestPanel> {
                           ? '$winner wins (p=${result.pValue.toStringAsFixed(4)})'
                           : 'Significant but no clear winner')
                       : 'Not statistically significant (p=${result.pValue.toStringAsFixed(4)})',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                       color: isSignificant
                           ? const Color(0xFFEEEEEE)
                           : const Color(0xFF999999),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600),
+                      size: 10,
+                      weight: FontWeight.w600),
                 ),
                 Text(
                   '95% CI: [${result.confidenceInterval.$1.toStringAsFixed(4)}, '
                   '${result.confidenceInterval.$2.toStringAsFixed(4)}] | '
                   'n=${result.variantA.sampleSize} per variant',
-                  style: const TextStyle(
-                      color: Color(0xFF888888), fontSize: 8),
+                  style: FluxForgeTheme.dockMono(
+                      color: const Color(0xFF888888), size: 8),
                 ),
               ],
             ),
@@ -444,11 +443,11 @@ class _AbTestPanelState extends State<AbTestPanel> {
                   ),
                 Expanded(
                   child: Text(metric.displayName,
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                           color: metric.isResponsibleGaming
                               ? const Color(0xFFCC8844)
                               : const Color(0xFFCCCCCC),
-                          fontSize: 9)),
+                          size: 9)),
                 ),
               ],
             ),
@@ -466,13 +465,12 @@ class _AbTestPanelState extends State<AbTestPanel> {
             child: Text(
               '${delta >= 0 ? '+' : ''}${delta.toStringAsFixed(1)}%',
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                   color: isBetter
                       ? const Color(0xFF44CC44)
                       : const Color(0xFFCC4444),
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
-                  fontFamily: 'monospace'),
+                  size: 9,
+                  weight: FontWeight.w600),
             ),
           ),
         ],
@@ -507,8 +505,8 @@ class _AbTestPanelState extends State<AbTestPanel> {
           width: 22,
           child: Text(
             (value * 100).toStringAsFixed(0),
-            style: TextStyle(
-                color: color, fontSize: 8, fontFamily: 'monospace'),
+            style: FluxForgeTheme.dockMono(
+                color: color, size: 8),
           ),
         ),
       ],
@@ -523,15 +521,15 @@ class _AbTestPanelState extends State<AbTestPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Row(
+        Row(
           children: [
-            Icon(Icons.compare_arrows, color: Color(0xFF888888), size: 14),
-            SizedBox(width: 6),
+            const Icon(Icons.compare_arrows, color: Color(0xFF888888), size: 14),
+            const SizedBox(width: 6),
             Text('Variants',
-                style: TextStyle(
-                    color: Color(0xFFCCCCCC),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600)),
+                style: FluxForgeTheme.dockSans(
+                    color: const Color(0xFFCCCCCC),
+                    size: 11,
+                    weight: FontWeight.w600)),
           ],
         ),
         const SizedBox(height: 6),
@@ -547,11 +545,11 @@ class _AbTestPanelState extends State<AbTestPanel> {
 
         // History
         if (p.history.isNotEmpty) ...[
-          const Text('Test History',
-              style: TextStyle(
-                  color: Color(0xFF888888),
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600)),
+          Text('Test History',
+              style: FluxForgeTheme.dockSans(
+                  color: const Color(0xFF888888),
+                  size: 9,
+                  weight: FontWeight.w600)),
           const SizedBox(height: 2),
           SizedBox(
             height: 80,
@@ -577,14 +575,14 @@ class _AbTestPanelState extends State<AbTestPanel> {
                       Expanded(
                         child: Text(
                           r.winner ?? 'No winner',
-                          style: const TextStyle(
-                              color: Color(0xFF999999), fontSize: 8),
+                          style: FluxForgeTheme.dockSans(
+                              color: const Color(0xFF999999), size: 8),
                         ),
                       ),
                       Text(
                         ago.inMinutes < 1 ? 'now' : '${ago.inMinutes}m',
-                        style: const TextStyle(
-                            color: Color(0xFF555577), fontSize: 8),
+                        style: FluxForgeTheme.dockMono(
+                            color: const Color(0xFF555577), size: 8),
                       ),
                     ],
                   ),
@@ -609,14 +607,14 @@ class _AbTestPanelState extends State<AbTestPanel> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(variant.name,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                   color: color,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600)),
+                  size: 10,
+                  weight: FontWeight.w600)),
           if (variant.description.isNotEmpty)
             Text(variant.description,
-                style: const TextStyle(
-                    color: Color(0xFF888888), fontSize: 8)),
+                style: FluxForgeTheme.dockSans(
+                    color: const Color(0xFF888888), size: 8)),
           const SizedBox(height: 4),
           for (final entry in variant.characteristics.entries)
             Padding(
@@ -626,8 +624,8 @@ class _AbTestPanelState extends State<AbTestPanel> {
                   SizedBox(
                     width: 80,
                     child: Text(entry.key,
-                        style: const TextStyle(
-                            color: Color(0xFF888888), fontSize: 8)),
+                        style: FluxForgeTheme.dockSans(
+                            color: const Color(0xFF888888), size: 8)),
                   ),
                   Expanded(
                     child: Container(

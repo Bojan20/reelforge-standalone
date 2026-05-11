@@ -17,6 +17,7 @@ import '../../../../services/loudness_report_service.dart';
 import '../../../../services/loudness_analysis_service.dart';
 import '../../../fabfilter/fabfilter_theme.dart';
 import '../../../fabfilter/fabfilter_widgets.dart';
+import '../../../../theme/fluxforge_theme.dart';
 
 class LoudnessReportPanel extends StatefulWidget {
   final void Function(String action, Map<String, dynamic>? params)? onAction;
@@ -79,11 +80,11 @@ class _LoudnessReportPanelState extends State<LoudnessReportPanel> {
       children: [
         const Icon(Icons.assessment, size: 14, color: FabFilterColors.cyan),
         const SizedBox(width: 6),
-        const Text(
+        Text(
           'LOUDNESS REPORT',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: 11,
+            weight: FontWeight.bold,
             color: FabFilterColors.cyan,
             letterSpacing: 1.0,
           ),
@@ -118,7 +119,7 @@ class _LoudnessReportPanelState extends State<LoudnessReportPanel> {
           value: _selectedTarget,
           isDense: true,
           dropdownColor: FabFilterColors.bgSurface,
-          style: const TextStyle(fontSize: 10, color: FabFilterColors.textPrimary),
+          style: FluxForgeTheme.dockSans(size: 10, color: FabFilterColors.textPrimary),
           items: LoudnessTarget.values
               .where((t) => t != LoudnessTarget.custom)
               .map((t) => DropdownMenuItem(
@@ -152,9 +153,9 @@ class _LoudnessReportPanelState extends State<LoudnessReportPanel> {
             const SizedBox(width: 4),
             Text(
               label,
-              style: const TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(
+                size: 9,
+                weight: FontWeight.bold,
                 color: FabFilterColors.cyan,
               ),
             ),
@@ -179,14 +180,14 @@ class _LoudnessReportPanelState extends State<LoudnessReportPanel> {
             color: FabFilterColors.textMuted.withValues(alpha: 0.3),
           ),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             'No Loudness Report',
-            style: TextStyle(fontSize: 12, color: FabFilterColors.textMuted),
+            style: FluxForgeTheme.dockSans(size: 12, color: FabFilterColors.textMuted),
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Click DRY RUN to analyze audio without rendering',
-            style: TextStyle(fontSize: 9, color: FabFilterColors.textDisabled),
+            style: FluxForgeTheme.dockSans(size: 9, color: FabFilterColors.textDisabled),
           ),
         ],
       ),
@@ -215,12 +216,12 @@ class _LoudnessReportPanelState extends State<LoudnessReportPanel> {
           const SizedBox(height: 12),
           Text(
             'Analyzing... ${(_service.progress * 100).toStringAsFixed(0)}%',
-            style: const TextStyle(fontSize: 12, color: FabFilterColors.cyan),
+            style: FluxForgeTheme.dockSans(size: 12, color: FabFilterColors.cyan),
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Dry run — no audio will be rendered',
-            style: TextStyle(fontSize: 9, color: FabFilterColors.textMuted),
+            style: FluxForgeTheme.dockSans(size: 9, color: FabFilterColors.textMuted),
           ),
         ],
       ),
@@ -314,9 +315,9 @@ class _LoudnessReportPanelState extends State<LoudnessReportPanel> {
                     const SizedBox(width: 4),
                     Text(
                       compliance.isCompliant ? 'COMPLIANT' : 'NON-COMPLIANT',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+                      style: FluxForgeTheme.dockSans(
+                        size: 10,
+                        weight: FontWeight.bold,
                         color: compliance.isCompliant ? FabFilterColors.green : FabFilterColors.red,
                       ),
                     ),
@@ -325,20 +326,20 @@ class _LoudnessReportPanelState extends State<LoudnessReportPanel> {
                 const SizedBox(height: 4),
                 Text(
                   '${_selectedTarget.name} (${_selectedTarget.targetLufs.toStringAsFixed(0)} LUFS)',
-                  style: const TextStyle(fontSize: 8, color: FabFilterColors.textMuted),
+                  style: FluxForgeTheme.dockSans(size: 8, color: FabFilterColors.textMuted),
                 ),
                 if (!compliance.lufsCompliant) ...[
                   const SizedBox(height: 2),
                   Text(
                     'LUFS: ${compliance.lufsStatus}',
-                    style: const TextStyle(fontSize: 8, color: FabFilterColors.orange),
+                    style: FluxForgeTheme.dockSans(size: 8, color: FabFilterColors.orange),
                   ),
                 ],
                 if (!compliance.peakCompliant) ...[
                   const SizedBox(height: 2),
                   Text(
                     'Peak: ${compliance.peakStatus}',
-                    style: const TextStyle(fontSize: 8, color: FabFilterColors.red),
+                    style: FluxForgeTheme.dockSans(size: 8, color: FabFilterColors.red),
                   ),
                 ],
               ],
@@ -356,20 +357,19 @@ class _LoudnessReportPanelState extends State<LoudnessReportPanel> {
         children: [
           Text(
             label,
-            style: TextStyle(
-              fontSize: isPrimary ? 10 : 9,
+            style: FluxForgeTheme.dockSans(
+              size: isPrimary ? 10 : 9,
               color: isPrimary ? FabFilterColors.cyan : FabFilterColors.textMuted,
-              fontWeight: isPrimary ? FontWeight.bold : FontWeight.normal,
+              weight: isPrimary ? FontWeight.bold : FontWeight.normal,
             ),
           ),
           const Spacer(),
           Text(
             value,
-            style: TextStyle(
-              fontSize: isPrimary ? 13 : 10,
-              fontWeight: isPrimary ? FontWeight.bold : FontWeight.normal,
+            style: FluxForgeTheme.dockMono(
+              size: isPrimary ? 13 : 10,
+              weight: isPrimary ? FontWeight.bold : FontWeight.normal,
               color: valueColor,
-              fontFamily: 'monospace',
             ),
           ),
         ],
@@ -398,15 +398,15 @@ class _LoudnessReportPanelState extends State<LoudnessReportPanel> {
               const Spacer(),
               Text(
                 '${report.shortTermHistory.length} readings',
-                style: const TextStyle(fontSize: 8, color: FabFilterColors.textDisabled),
+                style: FluxForgeTheme.dockSans(size: 8, color: FabFilterColors.textDisabled),
               ),
             ],
           ),
           const SizedBox(height: 4),
           Expanded(
             child: report.shortTermHistory.isEmpty
-                ? const Center(
-                    child: Text('No data', style: TextStyle(fontSize: 9, color: FabFilterColors.textMuted)),
+                ? Center(
+                    child: Text('No data', style: FluxForgeTheme.dockSans(size: 9, color: FabFilterColors.textMuted)),
                   )
                 : CustomPaint(
                     size: Size.infinite,
@@ -471,10 +471,9 @@ class _LoudnessReportPanelState extends State<LoudnessReportPanel> {
                           width: 60,
                           child: Text(
                             _formatTime(e.timeSec),
-                            style: const TextStyle(
-                              fontSize: 9,
+                            style: FluxForgeTheme.dockMono(
+                              size: 9,
                               color: FabFilterColors.textSecondary,
-                              fontFamily: 'monospace',
                             ),
                           ),
                         ),
@@ -482,16 +481,15 @@ class _LoudnessReportPanelState extends State<LoudnessReportPanel> {
                           width: 50,
                           child: Text(
                             '${e.peakDb.toStringAsFixed(1)} dB',
-                            style: const TextStyle(
-                              fontSize: 9,
+                            style: FluxForgeTheme.dockMono(
+                              size: 9,
                               color: FabFilterColors.red,
-                              fontFamily: 'monospace',
                             ),
                           ),
                         ),
                         Text(
                           e.channel,
-                          style: const TextStyle(fontSize: 9, color: FabFilterColors.textMuted),
+                          style: FluxForgeTheme.dockSans(size: 9, color: FabFilterColors.textMuted),
                         ),
                       ],
                     ),
@@ -502,7 +500,7 @@ class _LoudnessReportPanelState extends State<LoudnessReportPanel> {
             if (report.clipCount > 20)
               Text(
                 '... +${report.clipCount - 20} more (see HTML report)',
-                style: const TextStyle(fontSize: 8, color: FabFilterColors.textDisabled),
+                style: FluxForgeTheme.dockSans(size: 8, color: FabFilterColors.textDisabled),
               ),
           ],
         ],
@@ -530,9 +528,9 @@ class _LoudnessReportPanelState extends State<LoudnessReportPanel> {
           // Header row
           Row(
             children: [
-              Expanded(flex: 3, child: Text('Target', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: FabFilterColors.cyan))),
-              Expanded(flex: 2, child: Text('LUFS', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: FabFilterColors.cyan))),
-              SizedBox(width: 40, child: Text('Result', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: FabFilterColors.cyan))),
+              Expanded(flex: 3, child: Text('Target', style: FluxForgeTheme.dockSans(size: 8, weight: FontWeight.bold, color: FabFilterColors.cyan))),
+              Expanded(flex: 2, child: Text('LUFS', style: FluxForgeTheme.dockSans(size: 8, weight: FontWeight.bold, color: FabFilterColors.cyan))),
+              SizedBox(width: 40, child: Text('Result', style: FluxForgeTheme.dockSans(size: 8, weight: FontWeight.bold, color: FabFilterColors.cyan))),
             ],
           ),
           const SizedBox(height: 4),
@@ -559,10 +557,10 @@ class _LoudnessReportPanelState extends State<LoudnessReportPanel> {
                           flex: 3,
                           child: Text(
                             target.name,
-                            style: TextStyle(
-                              fontSize: 9,
+                            style: FluxForgeTheme.dockSans(
+                              size: 9,
                               color: isSelected ? FabFilterColors.cyan : FabFilterColors.textSecondary,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              weight: isSelected ? FontWeight.bold : FontWeight.normal,
                             ),
                           ),
                         ),
@@ -570,7 +568,7 @@ class _LoudnessReportPanelState extends State<LoudnessReportPanel> {
                           flex: 2,
                           child: Text(
                             '${target.targetLufs.toStringAsFixed(0)} LUFS',
-                            style: const TextStyle(fontSize: 9, color: FabFilterColors.textMuted, fontFamily: 'monospace'),
+                            style: FluxForgeTheme.dockMono(size: 9, color: FabFilterColors.textMuted),
                           ),
                         ),
                         SizedBox(
@@ -585,9 +583,9 @@ class _LoudnessReportPanelState extends State<LoudnessReportPanel> {
                               const SizedBox(width: 2),
                               Text(
                                 compliance.isCompliant ? 'PASS' : 'FAIL',
-                                style: TextStyle(
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.bold,
+                                style: FluxForgeTheme.dockSans(
+                                  size: 8,
+                                  weight: FontWeight.bold,
                                   color: compliance.isCompliant ? FabFilterColors.green : FabFilterColors.red,
                                 ),
                               ),
@@ -606,15 +604,14 @@ class _LoudnessReportPanelState extends State<LoudnessReportPanel> {
             Divider(height: 12, color: FabFilterColors.borderSubtle),
             Row(
               children: [
-                const Text('Rec. Gain:', style: TextStyle(fontSize: 8, color: FabFilterColors.textMuted)),
+                Text('Rec. Gain:', style: FluxForgeTheme.dockSans(size: 8, color: FabFilterColors.textMuted)),
                 const Spacer(),
                 Text(
                   _recommendedGain(report),
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockMono(
+                    size: 10,
+                    weight: FontWeight.bold,
                     color: FabFilterColors.orange,
-                    fontFamily: 'monospace',
                   ),
                 ),
               ],
@@ -727,7 +724,7 @@ class _ShortTermGraphPainter extends CustomPainter {
 
       textPainter.text = TextSpan(
         text: '${lufs.toInt()}',
-        style: const TextStyle(fontSize: 8, color: FabFilterColors.textDisabled),
+        style: FluxForgeTheme.dockSans(size: 8, color: FabFilterColors.textDisabled),
       );
       textPainter.layout();
       textPainter.paint(canvas, Offset(2, y - 10));
@@ -792,7 +789,7 @@ class _ShortTermGraphPainter extends CustomPainter {
 
       textPainter.text = TextSpan(
         text: 'INT: ${integratedLufs.toStringAsFixed(1)}',
-        style: const TextStyle(fontSize: 8, color: FabFilterColors.green),
+        style: FluxForgeTheme.dockSans(size: 8, color: FabFilterColors.green),
       );
       textPainter.layout();
       textPainter.paint(canvas, Offset(w - textPainter.width - 4, iy - 12));
@@ -813,7 +810,7 @@ class _ShortTermGraphPainter extends CustomPainter {
 
       textPainter.text = TextSpan(
         text: 'TGT: ${targetLufs.toStringAsFixed(0)}',
-        style: TextStyle(fontSize: 8, color: FabFilterColors.orange.withValues(alpha: 0.8)),
+        style: FluxForgeTheme.dockSans(size: 8, color: FabFilterColors.orange.withValues(alpha: 0.8)),
       );
       textPainter.layout();
       textPainter.paint(canvas, Offset(4, ty + 2));

@@ -13,6 +13,7 @@ import 'package:get_it/get_it.dart';
 
 import '../../models/ai_composer.dart';
 import '../../services/ai_composer_service.dart';
+import '../../theme/flux_forge_theme.dart';
 import 'ai_provider_settings_dialog.dart';
 import 'ai_audio_settings_dialog.dart';
 import 'ai_audio_progress_dialog.dart';
@@ -176,17 +177,17 @@ class _AiComposerPanelState extends State<AiComposerPanel> {
               children: [
                 Text(
                   'AI COMPOSER · $providerLabel',
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+                    size: 13,
+                    weight: FontWeight.w600,
                     letterSpacing: 0.6,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   modelText,
-                  style: const TextStyle(color: Colors.white60, fontSize: 11),
+                  style: FluxForgeTheme.dockSans(color: Colors.white60, size: 11),
                 ),
               ],
             ),
@@ -223,11 +224,11 @@ class _AiComposerPanelState extends State<AiComposerPanel> {
           TextField(
             controller: _descCtrl,
             maxLines: 4,
-            style: const TextStyle(color: Colors.white, fontSize: 13),
-            decoration: const InputDecoration(
+            style: FluxForgeTheme.dockSans(color: Colors.white, size: 13),
+            decoration: InputDecoration(
               hintText:
                   'Describe the slot. e.g. "Egyptian temple, 96% RTP, medium volatility, brass-driven, 2x bonus rounds"',
-              hintStyle: TextStyle(color: Colors.white38, fontSize: 12),
+              hintStyle: FluxForgeTheme.dockSans(color: Colors.white38, size: 12),
               border: OutlineInputBorder(),
               focusedBorder: OutlineInputBorder(
                 borderSide: BorderSide(color: Color(0xFF44DD66)),
@@ -243,7 +244,7 @@ class _AiComposerPanelState extends State<AiComposerPanel> {
             children: _allJurisdictions.map((j) {
               final selected = _selectedJurisdictions.contains(j);
               return FilterChip(
-                label: Text(j, style: const TextStyle(fontSize: 11)),
+                label: Text(j, style: FluxForgeTheme.dockSans(size: 11)),
                 selected: selected,
                 onSelected: (v) {
                   setState(() {
@@ -256,7 +257,7 @@ class _AiComposerPanelState extends State<AiComposerPanel> {
                 },
                 selectedColor: const Color(0xFF44DD66).withValues(alpha: 0.25),
                 backgroundColor: const Color(0xFF1A1A28),
-                labelStyle: TextStyle(
+                labelStyle: FluxForgeTheme.dockSans(
                   color: selected ? const Color(0xFF44DD66) : Colors.white60,
                 ),
                 visualDensity: VisualDensity.compact,
@@ -315,7 +316,7 @@ class _AiComposerPanelState extends State<AiComposerPanel> {
           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
         const SizedBox(width: 4),
-        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+        Text(label, style: FluxForgeTheme.dockSans(color: Colors.white70, size: 11)),
       ],
     );
   }
@@ -332,7 +333,7 @@ class _AiComposerPanelState extends State<AiComposerPanel> {
           _service.isBusy
               ? 'Calling provider… (multi-pass pipeline)'
               : 'Type a description above and press COMPOSE.',
-          style: const TextStyle(color: Colors.white38, fontSize: 12),
+          style: FluxForgeTheme.dockSans(color: Colors.white38, size: 12),
         ),
       );
     }
@@ -355,7 +356,7 @@ class _AiComposerPanelState extends State<AiComposerPanel> {
           Expanded(
             child: SelectableText(
               msg,
-              style: const TextStyle(color: Color(0xFFFF8888), fontSize: 12),
+              style: FluxForgeTheme.dockSans(color: const Color(0xFFFF8888), size: 12),
             ),
           ),
         ],
@@ -372,13 +373,13 @@ class _AiComposerPanelState extends State<AiComposerPanel> {
         children: [
           _resultStats(out),
           const SizedBox(height: 8),
-          const TabBar(
+          TabBar(
             isScrollable: true,
-            indicatorColor: Color(0xFF44DD66),
-            labelColor: Color(0xFF44DD66),
+            indicatorColor: const Color(0xFF44DD66),
+            labelColor: const Color(0xFF44DD66),
             unselectedLabelColor: Colors.white60,
-            labelStyle: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
-            tabs: [
+            labelStyle: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.w600),
+            tabs: const [
               Tab(text: 'STAGE MAP'),
               Tab(text: 'BRIEF'),
               Tab(text: 'VOICE DIR'),
@@ -414,15 +415,15 @@ class _AiComposerPanelState extends State<AiComposerPanel> {
         const Spacer(),
         TextButton.icon(
           icon: const Icon(Icons.tune, size: 14),
-          label: const Text('Audio Settings', style: TextStyle(fontSize: 11)),
+          label: Text('Audio Settings', style: FluxForgeTheme.dockSans(size: 11)),
           onPressed: _openAudioSettings,
           style: TextButton.styleFrom(foregroundColor: Colors.white60),
         ),
         const SizedBox(width: 6),
         ElevatedButton.icon(
           icon: const Icon(Icons.audiotrack, size: 14),
-          label: const Text('GENERATE ALL AUDIO',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+          label: Text('GENERATE ALL AUDIO',
+              style: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.w700)),
           onPressed: _service.audioProgress.active ? null : _generateAllAudio,
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFFFFAA33),
@@ -447,12 +448,12 @@ class _AiComposerPanelState extends State<AiComposerPanel> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text('$label: ',
-              style: const TextStyle(color: Colors.white38, fontSize: 10)),
+              style: FluxForgeTheme.dockSans(color: Colors.white38, size: 10)),
           Text(value,
-              style: const TextStyle(
-                color: Color(0xFF44DD66),
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockMono(
+                color: const Color(0xFF44DD66),
+                size: 10,
+                weight: FontWeight.w600,
               )),
         ],
       ),
@@ -468,13 +469,13 @@ class _AiComposerPanelState extends State<AiComposerPanel> {
         return ExpansionTile(
           tilePadding: const EdgeInsets.symmetric(horizontal: 8),
           title: Text(stage.stageId,
-              style: const TextStyle(
-                color: Color(0xFF44DD66),
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
+              style: FluxForgeTheme.dockSans(
+                color: const Color(0xFF44DD66),
+                weight: FontWeight.w600,
+                size: 12,
               )),
           subtitle: Text('${stage.assets.length} asset(s)',
-              style: const TextStyle(color: Colors.white54, fontSize: 10)),
+              style: FluxForgeTheme.dockSans(color: Colors.white54, size: 10)),
           collapsedIconColor: Colors.white54,
           iconColor: Colors.white,
           children: stage.assets.map((a) {
@@ -494,35 +495,35 @@ class _AiComposerPanelState extends State<AiComposerPanel> {
                   Row(
                     children: [
                       Text('${a.kind.toUpperCase()} · ${a.bus}',
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
                             color: _busColor(a.bus),
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
+                            size: 10,
+                            weight: FontWeight.w700,
                           )),
                       const SizedBox(width: 8),
                       Text('${a.dynamicLevel}%',
-                          style: const TextStyle(
-                              color: Colors.white60, fontSize: 10)),
+                          style: FluxForgeTheme.dockMono(
+                              color: Colors.white60, size: 10)),
                       if (a.lengthMs != null) ...[
                         const SizedBox(width: 8),
                         Text('${a.lengthMs}ms',
-                            style: const TextStyle(
-                                color: Colors.white60, fontSize: 10)),
+                            style: FluxForgeTheme.dockMono(
+                                color: Colors.white60, size: 10)),
                       ],
                     ],
                   ),
                   const SizedBox(height: 4),
                   Text(a.suggestedName,
-                      style: const TextStyle(
-                          color: Colors.white, fontSize: 12)),
+                      style: FluxForgeTheme.dockSans(
+                          color: Colors.white, size: 12)),
                   const SizedBox(height: 2),
                   Text('mood: ${a.mood}',
-                      style: const TextStyle(
-                          color: Colors.white60, fontSize: 11)),
+                      style: FluxForgeTheme.dockSans(
+                          color: Colors.white60, size: 11)),
                   const SizedBox(height: 4),
                   Text(a.generationPrompt,
-                      style: const TextStyle(
-                          color: Colors.white70, fontSize: 11)),
+                      style: FluxForgeTheme.dockSans(
+                          color: Colors.white70, size: 11)),
                 ],
               ),
             );
@@ -548,11 +549,9 @@ class _AiComposerPanelState extends State<AiComposerPanel> {
       padding: const EdgeInsets.all(12),
       child: SelectableText(
         md,
-        style: const TextStyle(
+        style: FluxForgeTheme.dockMono(
             color: Colors.white,
-            fontSize: 11,
-            fontFamily: 'monospace',
-            height: 1.5),
+            size: 11).copyWith(height: 1.5),
       ),
     );
   }
@@ -565,32 +564,32 @@ class _AiComposerPanelState extends State<AiComposerPanel> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Target jurisdictions: ${h.targetJurisdictions.join(", ")}',
-              style: const TextStyle(color: Colors.white, fontSize: 12)),
+              style: FluxForgeTheme.dockSans(color: Colors.white, size: 12)),
           const SizedBox(height: 12),
           _complianceRow('LDW audio suppressed', h.ldwAudioSuppressed),
           _complianceRow('Proportional celebrations', h.proportionalCelebrations),
           _complianceRow('Near-miss neutralised', h.nearMissNeutralized),
           const SizedBox(height: 16),
           if (h.reviewerNotes.isNotEmpty) ...[
-            const Text('Reviewer notes',
-                style: TextStyle(
+            Text('Reviewer notes',
+                style: FluxForgeTheme.dockSans(
                     color: Colors.white60,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600)),
+                    size: 11,
+                    weight: FontWeight.w600)),
             const SizedBox(height: 4),
             SelectableText(h.reviewerNotes,
-                style: const TextStyle(color: Colors.white, fontSize: 12)),
+                style: FluxForgeTheme.dockSans(color: Colors.white, size: 12)),
             const SizedBox(height: 16),
           ],
           if (map.selfCritique.isNotEmpty) ...[
-            const Text('AI self-critique',
-                style: TextStyle(
+            Text('AI self-critique',
+                style: FluxForgeTheme.dockSans(
                     color: Colors.white60,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600)),
+                    size: 11,
+                    weight: FontWeight.w600)),
             const SizedBox(height: 4),
             SelectableText(map.selfCritique,
-                style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                style: FluxForgeTheme.dockSans(color: Colors.white70, size: 12)),
           ],
         ],
       ),
@@ -606,8 +605,8 @@ class _AiComposerPanelState extends State<AiComposerPanel> {
           Icon(ok ? Icons.check_circle : Icons.cancel, color: color, size: 16),
           const SizedBox(width: 8),
           Text(label,
-              style: TextStyle(
-                  color: color, fontSize: 12, fontWeight: FontWeight.w500)),
+              style: FluxForgeTheme.dockSans(
+                  color: color, size: 12, weight: FontWeight.w500)),
         ],
       ),
     );

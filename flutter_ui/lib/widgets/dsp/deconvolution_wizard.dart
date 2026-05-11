@@ -128,23 +128,23 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
         children: [
           const Icon(Icons.auto_fix_high, color: Colors.white, size: 24),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Deconvolution Wizard',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                    size: 18,
+                    weight: FontWeight.bold,
                   ),
                 ),
                 Text(
                   'Create custom impulse responses',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.white70,
-                    fontSize: 12,
+                    size: 12,
                   ),
                 ),
               ],
@@ -205,12 +205,12 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
                       ? const Icon(Icons.check, size: 14, color: Colors.white)
                       : Text(
                           '${index + 1}',
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
                             color: isCurrent
                                 ? FluxForgeTheme.textPrimary
                                 : FluxForgeTheme.textSecondary,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
+                            size: 11,
+                            weight: FontWeight.bold,
                           ),
                         ),
                 ),
@@ -382,21 +382,21 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
             const SizedBox(height: 8),
             Text(
               info['name'] as String,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: isSelected
                     ? FluxForgeTheme.textPrimary
                     : FluxForgeTheme.textSecondary,
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                size: 11,
+                weight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 4),
             Text(
               info['desc'] as String,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
-                fontSize: 9,
+                size: 9,
               ),
               textAlign: TextAlign.center,
             ),
@@ -453,9 +453,9 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
           const SizedBox(height: 12),
           Text(
             _statusMessage,
-            style: const TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textSecondary,
-              fontSize: 12,
+              size: 12,
             ),
           ),
         ] else
@@ -541,11 +541,11 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Input Level',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textSecondary,
-              fontSize: 10,
+              size: 10,
             ),
           ),
           const SizedBox(height: 8),
@@ -586,9 +586,9 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
   Widget _buildMeterLabel(String text) {
     return Text(
       text,
-      style: TextStyle(
+      style: FluxForgeTheme.dockMono(
         color: FluxForgeTheme.textSecondary.withValues(alpha: 0.6),
-        fontSize: 8,
+        size: 8,
       ),
     );
   }
@@ -611,9 +611,9 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
           const SizedBox(height: 12),
           Text(
             _statusMessage,
-            style: const TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textSecondary,
-              fontSize: 12,
+              size: 12,
             ),
             textAlign: TextAlign.center,
           ),
@@ -647,10 +647,12 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
             color: FluxForgeTheme.bgDeep,
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Center(
+          child: Center(
             child: Text(
               'IR Waveform Preview',
-              style: TextStyle(color: FluxForgeTheme.textSecondary),
+              style: FluxForgeTheme.dockSans(
+                color: FluxForgeTheme.textSecondary,
+              ),
             ),
           ),
         ),
@@ -714,18 +716,18 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
           const SizedBox(height: 4),
           Text(
             label,
-            style: const TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textSecondary,
-              fontSize: 10,
+              size: 10,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             value,
-            style: const TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: FluxForgeTheme.textPrimary,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
+              size: 12,
+              weight: FontWeight.bold,
             ),
           ),
         ],
@@ -765,37 +767,37 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
             color: FluxForgeTheme.bgMid,
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Column(
+          child: Column(
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Duration', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12)),
-                  Text('2.5 seconds', style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12)),
+                  Text('Duration', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12)),
+                  Text('2.5 seconds', style: FluxForgeTheme.dockMono(color: FluxForgeTheme.textPrimary, size: 12)),
                 ],
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Sample Rate', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12)),
-                  Text('48 kHz', style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12)),
+                  Text('Sample Rate', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12)),
+                  Text('48 kHz', style: FluxForgeTheme.dockMono(color: FluxForgeTheme.textPrimary, size: 12)),
                 ],
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Channels', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12)),
-                  Text('Stereo', style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12)),
+                  Text('Channels', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12)),
+                  Text('Stereo', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary, size: 12)),
                 ],
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('File Size', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12)),
-                  Text('~720 KB', style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12)),
+                  Text('File Size', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12)),
+                  Text('~720 KB', style: FluxForgeTheme.dockMono(color: FluxForgeTheme.textPrimary, size: 12)),
                 ],
               ),
             ],
@@ -821,9 +823,9 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
         ),
         child: Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: isSelected ? const Color(0xFF00BCD4) : FluxForgeTheme.textSecondary,
-            fontSize: 12,
+            size: 12,
           ),
         ),
       ),
@@ -883,10 +885,10 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
   Widget _buildStepTitle(String title) {
     return Text(
       title,
-      style: const TextStyle(
+      style: FluxForgeTheme.dockSans(
         color: FluxForgeTheme.textPrimary,
-        fontSize: 18,
-        fontWeight: FontWeight.bold,
+        size: 18,
+        weight: FontWeight.bold,
       ),
     );
   }
@@ -894,10 +896,10 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
-      style: const TextStyle(
+      style: FluxForgeTheme.dockSans(
         color: FluxForgeTheme.textSecondary,
-        fontSize: 12,
-        fontWeight: FontWeight.w500,
+        size: 12,
+        weight: FontWeight.w500,
       ),
     );
   }
@@ -921,18 +923,18 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: FluxForgeTheme.textPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
+                    size: 14,
+                    weight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   description,
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: FluxForgeTheme.textSecondary,
-                    fontSize: 12,
+                    size: 12,
                   ),
                 ),
               ],
@@ -961,17 +963,17 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
               children: [
                 Text(
                   label,
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: FluxForgeTheme.textSecondary,
-                    fontSize: 9,
+                    size: 9,
                   ),
                 ),
                 Text(
                   value,
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockMono(
                     color: FluxForgeTheme.textPrimary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
+                    size: 12,
+                    weight: FontWeight.w500,
                   ),
                 ),
               ],
@@ -1017,17 +1019,17 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: FluxForgeTheme.textPrimary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                      size: 12,
+                      weight: FontWeight.w500,
                     ),
                   ),
                   Text(
                     description,
-                    style: const TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: FluxForgeTheme.textSecondary,
-                      fontSize: 10,
+                      size: 10,
                     ),
                   ),
                 ],
@@ -1050,10 +1052,10 @@ class _DeconvolutionWizardState extends State<DeconvolutionWizard> {
         const SizedBox(height: 8),
         Text(
           '${(_progress * 100).toStringAsFixed(0)}%',
-          style: const TextStyle(
+          style: FluxForgeTheme.dockMono(
             color: FluxForgeTheme.textPrimary,
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
+            size: 14,
+            weight: FontWeight.bold,
           ),
         ),
       ],

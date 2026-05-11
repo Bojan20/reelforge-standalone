@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 import '../../services/video_export_service.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Video export panel widget
 class VideoExportPanel extends StatefulWidget {
@@ -104,11 +105,11 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
           size: 24,
         ),
         const SizedBox(width: 8),
-        const Text(
+        Text(
           'Video Export',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: 18,
+            weight: FontWeight.bold,
             color: Colors.white,
           ),
         ),
@@ -144,11 +145,10 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
           const SizedBox(width: 6),
           Text(
             'REC ${_formatDuration(_service.recordingDuration)}',
-            style: const TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: Colors.red,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'monospace',
+              size: 12,
+              weight: FontWeight.bold,
             ),
           ),
         ],
@@ -180,9 +180,9 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
             const SizedBox(width: 4),
             Text(
               'FFmpeg',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: _ffmpegAvailable ? Colors.green : Colors.orange,
-                fontSize: 11,
+                size: 11,
               ),
             ),
           ],
@@ -203,23 +203,23 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.warning_amber, color: Colors.orange, size: 20),
-              SizedBox(width: 8),
+              const Icon(Icons.warning_amber, color: Colors.orange, size: 20),
+              const SizedBox(width: 8),
               Text(
                 'FFmpeg Required',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: Colors.orange,
-                  fontWeight: FontWeight.bold,
+                  weight: FontWeight.bold,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Video export requires FFmpeg to be installed and available in PATH.',
-            style: TextStyle(color: Colors.white70, fontSize: 13),
+            style: FluxForgeTheme.dockSans(color: Colors.white70, size: 13),
           ),
           const SizedBox(height: 12),
           Row(
@@ -350,7 +350,7 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
         const SizedBox(width: 12),
         Text(
           _exportStatus.isNotEmpty ? _exportStatus : 'Encoding...',
-          style: const TextStyle(color: Colors.white70),
+          style: FluxForgeTheme.dockSans(color: Colors.white70),
         ),
       ],
     );
@@ -374,18 +374,17 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
       children: [
         Text(
           value,
-          style: const TextStyle(
+          style: FluxForgeTheme.dockMono(
             color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
-            fontFamily: 'monospace',
+            weight: FontWeight.bold,
+            size: 14,
           ),
         ),
         Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: Colors.white.withValues(alpha: 0.5),
-            fontSize: 11,
+            size: 11,
           ),
         ),
       ],
@@ -403,9 +402,9 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
         const SizedBox(height: 8),
         Text(
           '${(_exportProgress * 100).toInt()}% - $_exportStatus',
-          style: TextStyle(
+          style: FluxForgeTheme.dockMono(
             color: Colors.white.withValues(alpha: 0.7),
-            fontSize: 12,
+            size: 12,
           ),
         ),
       ],
@@ -422,12 +421,12 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Export Settings',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white70,
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
+              weight: FontWeight.bold,
+              size: 13,
             ),
           ),
           const SizedBox(height: 12),
@@ -455,9 +454,9 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Format',
-          style: TextStyle(color: Colors.white54, fontSize: 11),
+          style: FluxForgeTheme.dockSans(color: Colors.white54, size: 11),
         ),
         const SizedBox(height: 4),
         DropdownButtonFormField<VideoExportFormat>(
@@ -476,7 +475,7 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
             ),
           ),
           dropdownColor: const Color(0xFF2A2A30),
-          style: const TextStyle(color: Colors.white, fontSize: 13),
+          style: FluxForgeTheme.dockSans(color: Colors.white, size: 13),
           items: VideoExportFormat.values.map((format) {
             return DropdownMenuItem(
               value: format,
@@ -499,9 +498,9 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Quality',
-          style: TextStyle(color: Colors.white54, fontSize: 11),
+          style: FluxForgeTheme.dockSans(color: Colors.white54, size: 11),
         ),
         const SizedBox(height: 4),
         DropdownButtonFormField<VideoExportQuality>(
@@ -520,7 +519,7 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
             ),
           ),
           dropdownColor: const Color(0xFF2A2A30),
-          style: const TextStyle(color: Colors.white, fontSize: 13),
+          style: FluxForgeTheme.dockSans(color: Colors.white, size: 13),
           items: VideoExportQuality.values.map((quality) {
             return DropdownMenuItem(
               value: quality,
@@ -543,9 +542,9 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Max Duration',
-          style: TextStyle(color: Colors.white54, fontSize: 11),
+          style: FluxForgeTheme.dockSans(color: Colors.white54, size: 11),
         ),
         const SizedBox(height: 4),
         DropdownButtonFormField<int>(
@@ -564,7 +563,7 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
             ),
           ),
           dropdownColor: const Color(0xFF2A2A30),
-          style: const TextStyle(color: Colors.white, fontSize: 13),
+          style: FluxForgeTheme.dockSans(color: Colors.white, size: 13),
           items: const [
             DropdownMenuItem(value: 30, child: Text('30 seconds')),
             DropdownMenuItem(value: 60, child: Text('1 minute')),
@@ -608,9 +607,9 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
               return Colors.white24;
             }),
           ),
-          const Text(
+          Text(
             'Audio',
-            style: TextStyle(color: Colors.white70, fontSize: 12),
+            style: FluxForgeTheme.dockSans(color: Colors.white70, size: 12),
           ),
         ],
       ),
@@ -625,21 +624,21 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
       children: [
         Row(
           children: [
-            const Text(
+            Text(
               'Export History',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.white70,
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
+                weight: FontWeight.bold,
+                size: 13,
               ),
             ),
             const Spacer(),
             if (history.isNotEmpty)
               TextButton(
                 onPressed: () => _showClearHistoryDialog(),
-                child: const Text(
+                child: Text(
                   'Clear All',
-                  style: TextStyle(color: Colors.white54, fontSize: 11),
+                  style: FluxForgeTheme.dockSans(color: Colors.white54, size: 11),
                 ),
               ),
           ],
@@ -672,17 +671,17 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
           const SizedBox(height: 12),
           Text(
             'No exports yet',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white.withValues(alpha: 0.4),
-              fontSize: 14,
+              size: 14,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             'Start recording to create your first video',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white.withValues(alpha: 0.3),
-              fontSize: 12,
+              size: 12,
             ),
           ),
         ],
@@ -718,34 +717,34 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
                 if (result.success) ...[
                   Text(
                     result.filePath?.split('/').last ?? 'Unknown',
-                    style: const TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: Colors.white,
-                      fontSize: 13,
+                      size: 13,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
                   Text(
                     '${result.durationFormatted} • ${result.frameCount} frames • ${result.fileSizeFormatted}',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockMono(
                       color: Colors.white.withValues(alpha: 0.5),
-                      fontSize: 11,
+                      size: 11,
                     ),
                   ),
                 ] else ...[
-                  const Text(
+                  Text(
                     'Export failed',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: Colors.red,
-                      fontSize: 13,
+                      size: 13,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     result.error ?? 'Unknown error',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: Colors.white.withValues(alpha: 0.5),
-                      fontSize: 11,
+                      size: 11,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -821,10 +820,10 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF2A2A30),
-        title: const Text('Clear History', style: TextStyle(color: Colors.white)),
-        content: const Text(
+        title: Text('Clear History', style: FluxForgeTheme.dockSans(color: Colors.white)),
+        content: Text(
           'Are you sure you want to clear all export history?',
-          style: TextStyle(color: Colors.white70),
+          style: FluxForgeTheme.dockSans(color: Colors.white70),
         ),
         actions: [
           TextButton(
@@ -836,7 +835,7 @@ class _VideoExportPanelState extends State<VideoExportPanel> {
               _service.clearHistory();
               Navigator.pop(context);
             },
-            child: const Text('Clear', style: TextStyle(color: Colors.red)),
+            child: Text('Clear', style: FluxForgeTheme.dockSans(color: Colors.red)),
           ),
         ],
       ),
@@ -985,11 +984,10 @@ class _RecordingTimeIndicatorState extends State<RecordingTimeIndicator> {
           const SizedBox(width: 6),
           Text(
             '$minutes:$seconds',
-            style: const TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: Colors.red,
-              fontSize: 11,
-              fontFamily: 'monospace',
-              fontWeight: FontWeight.bold,
+              size: 11,
+              weight: FontWeight.bold,
             ),
           ),
         ],
