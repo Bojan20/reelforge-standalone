@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../../services/shared_meter_reader.dart';
+import '../../theme/fluxforge_theme.dart';
 import 'lower_zone_types.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -222,9 +223,9 @@ class _RealTimeBusMetersState extends State<RealTimeBusMeters>
         const SizedBox(width: 8),
         Text(
           'BUS METERS',
-          style: TextStyle(
-            fontSize: LowerZoneTypography.sizeLabel,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: LowerZoneTypography.sizeLabel,
+            weight: FontWeight.bold,
             color: widget.accentColor,
             letterSpacing: 1.0,
           ),
@@ -242,10 +243,10 @@ class _RealTimeBusMetersState extends State<RealTimeBusMeters>
         const SizedBox(width: 4),
         Text(
           _initialized ? 'LIVE' : 'OFFLINE',
-          style: TextStyle(
-            fontSize: LowerZoneTypography.sizeTiny,
+          style: FluxForgeTheme.dockSans(
+            size: LowerZoneTypography.sizeTiny,
             color: _initialized ? LowerZoneColors.success : LowerZoneColors.error,
-            fontWeight: FontWeight.bold,
+            weight: FontWeight.bold,
           ),
         ),
         const Spacer(),
@@ -260,12 +261,11 @@ class _RealTimeBusMetersState extends State<RealTimeBusMeters>
             ),
             child: Text(
               '${_snapshot.lufsShort.toStringAsFixed(1)} LUFS',
-              style: TextStyle(
-                fontSize: LowerZoneTypography.sizeBadge,
+              style: FluxForgeTheme.dockMono(
+                size: LowerZoneTypography.sizeBadge,
                 color: _snapshot.lufsShort > -14
                     ? LowerZoneColors.warning
                     : LowerZoneColors.textSecondary,
-                fontFamily: 'monospace',
               ),
             ),
           ),
@@ -329,12 +329,11 @@ class _RealTimeBusMetersState extends State<RealTimeBusMeters>
                 child: Text(
                   '$db',
                   textAlign: TextAlign.right,
-                  style: TextStyle(
-                    fontSize: 8,
+                  style: FluxForgeTheme.dockMono(
+                    size: 8,
                     color: db == 0
                         ? LowerZoneColors.error
                         : LowerZoneColors.textMuted,
-                    fontFamily: 'monospace',
                   ),
                 ),
               ),
@@ -407,21 +406,20 @@ class _RealTimeBusMetersState extends State<RealTimeBusMeters>
           // Peak readout
           Text(
             _formatDb(leftPeak > rightPeak ? leftPeak : rightPeak),
-            style: TextStyle(
-              fontSize: 8,
+            style: FluxForgeTheme.dockMono(
+              size: 8,
               color: (leftPeak > 0.9 || rightPeak > 0.9)
                   ? LowerZoneColors.error
                   : bus.color,
-              fontFamily: 'monospace',
             ),
           ),
           const SizedBox(height: 2),
           // Bus name
           Text(
             bus.name,
-            style: TextStyle(
-              fontSize: LowerZoneTypography.sizeTiny,
-              fontWeight: bus.isMaster ? FontWeight.bold : FontWeight.normal,
+            style: FluxForgeTheme.dockSans(
+              size: LowerZoneTypography.sizeTiny,
+              weight: bus.isMaster ? FontWeight.bold : FontWeight.normal,
               color: bus.isMaster ? bus.color : LowerZoneColors.textMuted,
             ),
           ),

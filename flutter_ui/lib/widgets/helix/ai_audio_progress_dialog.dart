@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/ai_composer.dart';
+import '../../theme/fluxforge_theme.dart';
 import '../../services/ai_composer_service.dart';
 
 class AiAudioProgressDialog extends StatefulWidget {
@@ -73,10 +74,10 @@ class _AiAudioProgressDialogState extends State<AiAudioProgressDialog> {
                         : (p.total == 0
                             ? 'Starting…'
                             : 'Done — ${p.succeeded} ok / ${p.failed} failed'),
-                    style: const TextStyle(
+                    style: FluxForgeTheme.dockSans(
                         color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                        size: 14,
+                        weight: FontWeight.w600,
                         letterSpacing: 0.6),
                   ),
                 ),
@@ -108,7 +109,7 @@ class _AiAudioProgressDialogState extends State<AiAudioProgressDialog> {
             Text(
               '${p.completed} / ${p.total}'
               '${p.current != null ? "  ·  ${p.current}" : ""}',
-              style: const TextStyle(color: Colors.white60, fontSize: 11),
+              style: FluxForgeTheme.dockMono(color: Colors.white60, size: 11),
             ),
             const SizedBox(height: 12),
             const Divider(color: Colors.white12, height: 1),
@@ -151,23 +152,23 @@ class _AiAudioProgressDialogState extends State<AiAudioProgressDialog> {
             width: 110,
             child: Text(r.stageId,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: FluxForgeTheme.dockSans(
                     color: Colors.white60,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600)),
+                    size: 10,
+                    weight: FontWeight.w600)),
           ),
           Expanded(
             child: Text(r.assetName,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white, fontSize: 11)),
+                style: FluxForgeTheme.dockMono(color: Colors.white, size: 11)),
           ),
           Text(r.backend.displayLabel,
-              style: const TextStyle(color: Colors.white38, fontSize: 10)),
+              style: FluxForgeTheme.dockSans(color: Colors.white38, size: 10)),
           if (ok) ...[
             const SizedBox(width: 8),
             Text(_formatBytes(r.bytes),
                 style:
-                    const TextStyle(color: Color(0xFF44DD66), fontSize: 10)),
+                    FluxForgeTheme.dockMono(color: Color(0xFF44DD66), size: 10)),
           ],
         ],
       ),

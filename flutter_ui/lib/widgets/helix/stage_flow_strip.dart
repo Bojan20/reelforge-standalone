@@ -91,9 +91,8 @@ class StageFlowStrip extends StatelessWidget {
         const SizedBox(width: 8),
         Text(
           'No stages cached yet — press SPIN to populate the flow strip.',
-          style: TextStyle(
-            fontFamily: 'monospace',
-            fontSize: 10,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
             color: FluxForgeTheme.textTertiary.withValues(alpha: 0.7),
           ),
         ),
@@ -120,10 +119,9 @@ class StageFlowStrip extends StatelessWidget {
           children: [
             Text(
               'STAGE FLOW',
-              style: TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 9,
-                fontWeight: FontWeight.w800,
+              style: FluxForgeTheme.dockSans(
+                size: 9,
+                weight: FontWeight.w800,
                 letterSpacing: 1.0,
                 color: FluxForgeTheme.accentOrange.withValues(alpha: 0.9),
               ),
@@ -131,20 +129,18 @@ class StageFlowStrip extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               '· ${stages.length} events',
-              style: const TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 8,
+              style: FluxForgeTheme.dockMono(
+                size: 8,
                 color: FluxForgeTheme.textTertiary,
               ),
             ),
             const Spacer(),
             Text(
               '$totalMsLabel ms',
-              style: const TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 9,
+              style: FluxForgeTheme.dockMono(
+                size: 9,
                 color: FluxForgeTheme.textSecondary,
-                fontWeight: FontWeight.w600,
+                weight: FontWeight.w600,
               ),
             ),
           ],
@@ -278,9 +274,8 @@ class _ChunkTileState extends State<_ChunkTile> {
           message:
               '$stageType\n${widget.chunk.startMs.round()} → ${widget.chunk.endMs.round()} ms\n(${widget.chunk.durationMs.round()} ms)\nclick to audition',
           waitDuration: const Duration(milliseconds: 400),
-          textStyle: const TextStyle(
-            fontFamily: 'monospace',
-            fontSize: 10,
+          textStyle: FluxForgeTheme.dockMono(
+            size: 10,
             color: Colors.white,
           ),
           child: Container(
@@ -303,15 +298,13 @@ class _ChunkTileState extends State<_ChunkTile> {
                         textAlign: TextAlign.center,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 8,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.3,
+                        style: FluxForgeTheme.dockMono(
+                          size: 8,
+                          weight: FontWeight.w700,
                           color: _hover
                               ? Colors.white
                               : color.withValues(alpha: 0.95),
-                        ),
+                        ).copyWith(letterSpacing: 0.3),
                       ),
                     ),
                   )

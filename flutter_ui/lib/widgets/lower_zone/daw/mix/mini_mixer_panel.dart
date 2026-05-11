@@ -195,9 +195,9 @@ class _MiniMixerPanelState extends State<MiniMixerPanel> {
           const SizedBox(width: 6),
           Text(
             'MINI MIXER',
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 9,
+              weight: FontWeight.bold,
               color: FluxForgeTheme.textSecondary,
               letterSpacing: 0.5,
             ),
@@ -215,8 +215,8 @@ class _MiniMixerPanelState extends State<MiniMixerPanel> {
                   children: [
                     Text(
                       'FULL',
-                      style: TextStyle(
-                        fontSize: 8,
+                      style: FluxForgeTheme.dockSans(
+                        size: 8,
                         color: FluxForgeTheme.accentBlue,
                       ),
                     ),
@@ -241,8 +241,8 @@ class _MiniMixerPanelState extends State<MiniMixerPanel> {
       child: Center(
         child: Text(
           'MixerProvider not available',
-          style: TextStyle(
-            fontSize: 11,
+          style: FluxForgeTheme.dockSans(
+            size: 11,
             color: FluxForgeTheme.textSecondary,
           ),
         ),
@@ -311,9 +311,9 @@ class _MiniChannelStrip extends StatelessWidget {
             alignment: Alignment.center,
             child: Text(
               name.length > 4 ? name.substring(0, 4) : name,
-              style: TextStyle(
-                fontSize: 8,
-                fontWeight: isMaster ? FontWeight.bold : FontWeight.normal,
+              style: FluxForgeTheme.dockSans(
+                size: 8,
+                weight: isMaster ? FontWeight.bold : FontWeight.normal,
                 color: muted
                     ? FluxForgeTheme.textSecondary.withAlpha(100)
                     : FluxForgeTheme.textPrimary,
@@ -378,9 +378,8 @@ class _MiniChannelStrip extends StatelessWidget {
           // dB value
           Text(
             _volumeToDb(volume),
-            style: TextStyle(
-              fontSize: 7,
-              fontFamily: 'monospace',
+            style: FluxForgeTheme.dockMono(
+              size: 7,
               color: muted
                   ? FluxForgeTheme.textSecondary.withAlpha(100)
                   : FluxForgeTheme.textSecondary,
@@ -588,9 +587,9 @@ class _MiniButton extends StatelessWidget {
         alignment: Alignment.center,
         child: Text(
           label,
-          style: TextStyle(
-            fontSize: 7,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: 7,
+            weight: FontWeight.bold,
             color: isActive ? Colors.white : FluxForgeTheme.textSecondary,
           ),
         ),

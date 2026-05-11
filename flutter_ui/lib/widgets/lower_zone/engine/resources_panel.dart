@@ -73,11 +73,11 @@ class _EngineResourcesPanelState extends State<EngineResourcesPanel> {
             children: [
               const Icon(Icons.analytics_outlined, size: 16, color: FluxForgeTheme.accentBlue),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'ENGINE RESOURCES',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  weight: FontWeight.w700,
                   color: Colors.white70,
                   letterSpacing: 1.2,
                 ),
@@ -110,7 +110,7 @@ class _EngineResourcesPanelState extends State<EngineResourcesPanel> {
                   Expanded(
                     child: Text(
                       _errorMessage,
-                      style: const TextStyle(fontSize: 10, color: Colors.red),
+                      style: FluxForgeTheme.dockSans(size: 10, color: Colors.red),
                     ),
                   ),
                 ],
@@ -128,15 +128,15 @@ class _EngineResourcesPanelState extends State<EngineResourcesPanel> {
   }
 
   Widget _buildLoadingState() {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          CircularProgressIndicator(strokeWidth: 2),
-          SizedBox(height: 12),
+          const CircularProgressIndicator(strokeWidth: 2),
+          const SizedBox(height: 12),
           Text(
             'Loading engine stats...',
-            style: TextStyle(fontSize: 10, color: Colors.white38),
+            style: FluxForgeTheme.dockSans(size: 10, color: Colors.white38),
           ),
         ],
       ),
@@ -214,9 +214,9 @@ class _EngineResourcesPanelState extends State<EngineResourcesPanel> {
               const SizedBox(width: 6),
               Text(
                 title,
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
+                  weight: FontWeight.w700,
                   color: color,
                   letterSpacing: 1.0,
                 ),
@@ -239,7 +239,7 @@ class _EngineResourcesPanelState extends State<EngineResourcesPanel> {
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(fontSize: 10, color: Colors.white54),
+              style: FluxForgeTheme.dockSans(size: 10, color: Colors.white54),
             ),
           ),
           if (fraction != null)
@@ -265,11 +265,10 @@ class _EngineResourcesPanelState extends State<EngineResourcesPanel> {
             ),
           Text(
             value,
-            style: const TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockMono(
+              size: 10,
+              weight: FontWeight.w600,
               color: Colors.white70,
-              fontFamily: 'monospace',
             ),
           ),
         ],

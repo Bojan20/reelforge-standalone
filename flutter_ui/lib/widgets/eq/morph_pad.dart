@@ -876,8 +876,8 @@ class _MorphPadWithSelectorState extends State<MorphPadWithSelector> {
         const SizedBox(height: 8),
         Text(
           'Tap corners to assign presets',
-          style: TextStyle(
-            fontSize: 11,
+          style: FluxForgeTheme.dockSans(
+            size: 11,
             color: FluxForgeTheme.textPrimary.withAlpha(128),
           ),
         ),
@@ -903,11 +903,11 @@ class _PresetSelectorSheet extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Select Preset',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 16,
+              weight: FontWeight.bold,
               color: FluxForgeTheme.textPrimary,
             ),
           ),
@@ -939,8 +939,8 @@ class _PresetSelectorSheet extends StatelessWidget {
                       const SizedBox(width: 8),
                       Text(
                         preset.name,
-                        style: const TextStyle(
-                          fontSize: 13,
+                        style: FluxForgeTheme.dockSans(
+                          size: 13,
                           color: FluxForgeTheme.textPrimary,
                         ),
                       ),
