@@ -184,6 +184,12 @@ class _TimelinePanelState extends State<_TimelinePanel> {
           // work; replay već radi kroz stage re-fire.
           const SessionRecorderPanel(),
           const SizedBox(height: 4),
+          // FAZA 3.6.G — Stress Test Panel.
+          // Batch simulation (rf-ab-sim) — runs 10K/100K/1M spins in
+          // background Rust threads, streams progress via polling,
+          // shows RTP delta, voice budget, event heatmap, warnings.
+          const StressTestPanel(),
+          const SizedBox(height: 4),
           // Ruler — clickable to seek (T3), with scroll
           GestureDetector(
             onTapDown: (d) {
