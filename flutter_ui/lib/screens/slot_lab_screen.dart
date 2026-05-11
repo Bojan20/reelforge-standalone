@@ -8744,7 +8744,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           border: Border.all(
             color: region.isSelected
                 ? Colors.white
-                : (muted ? Colors.grey : region.color),
+                : (muted ? FluxForgeTheme.textTertiary : region.color),
             width: region.isSelected ? 2 : 1,
           ),
         ),
@@ -8889,8 +8889,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            (muted ? Colors.grey : color).withValues(alpha: 0.4),
-            (muted ? Colors.grey : color).withValues(alpha: 0.25),
+            (muted ? FluxForgeTheme.textTertiary : color).withValues(alpha: 0.4),
+            (muted ? FluxForgeTheme.textTertiary : color).withValues(alpha: 0.25),
           ],
         ),
       ),
@@ -8902,7 +8902,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               child: CustomPaint(
                 painter: _WaveformPainter(
                   data: waveformData,
-                  color: (muted ? Colors.grey : color).withValues(alpha: 0.6),
+                  color: (muted ? FluxForgeTheme.textTertiary : color).withValues(alpha: 0.6),
                 ),
               ),
             ),
@@ -8913,7 +8913,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             right: 4,
             child: Text(
               layer.name,
-              style: FluxForgeTheme.dockSans(size: 9, color: muted ? Colors.grey : Colors.white, weight: FontWeight.w500),
+              style: FluxForgeTheme.dockSans(size: 9, color: muted ? FluxForgeTheme.textTertiary : Colors.white, weight: FontWeight.w500),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -8933,8 +8933,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            (muted ? Colors.grey : color).withValues(alpha: 0.4),
-            (muted ? Colors.grey : color).withValues(alpha: 0.25),
+            (muted ? FluxForgeTheme.textTertiary : color).withValues(alpha: 0.4),
+            (muted ? FluxForgeTheme.textTertiary : color).withValues(alpha: 0.25),
           ],
         ),
         border: Border(
@@ -8949,7 +8949,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               child: CustomPaint(
                 painter: _WaveformPainter(
                   data: waveformData,
-                  color: (muted ? Colors.grey : color).withValues(alpha: 0.6),
+                  color: (muted ? FluxForgeTheme.textTertiary : color).withValues(alpha: 0.6),
                 ),
               ),
             ),
@@ -8968,14 +8968,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     child: Icon(
                       Icons.unfold_more,
                       size: 10,
-                      color: muted ? Colors.grey : Colors.white54,
+                      color: muted ? FluxForgeTheme.textTertiary : Colors.white54,
                     ),
                   ),
                 // Layer name
                 Expanded(
                   child: Text(
                     layer.name,
-                    style: FluxForgeTheme.dockSans(size: 9, color: muted ? Colors.grey : Colors.white, weight: FontWeight.w500),
+                    style: FluxForgeTheme.dockSans(size: 9, color: muted ? FluxForgeTheme.textTertiary : Colors.white, weight: FontWeight.w500),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -9010,8 +9010,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            (muted ? Colors.grey : region.color).withValues(alpha: 0.4),
-            (muted ? Colors.grey : region.color).withValues(alpha: 0.25),
+            (muted ? FluxForgeTheme.textTertiary : region.color).withValues(alpha: 0.4),
+            (muted ? FluxForgeTheme.textTertiary : region.color).withValues(alpha: 0.25),
           ],
         ),
       ),
@@ -9022,7 +9022,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               child: CustomPaint(
                 painter: _WaveformPainter(
                   data: region.waveformData!,
-                  color: muted ? Colors.grey : region.color,
+                  color: muted ? FluxForgeTheme.textTertiary : region.color,
                 ),
               ),
             ),
@@ -9031,7 +9031,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             top: 2,
             child: Text(
               region.name,
-              style: FluxForgeTheme.dockSans(size: 9, color: muted ? Colors.grey : Colors.white, weight: FontWeight.w600),
+              style: FluxForgeTheme.dockSans(size: 9, color: muted ? FluxForgeTheme.textTertiary : Colors.white, weight: FontWeight.w600),
             ),
           ),
         ],
@@ -12003,11 +12003,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         decoration: BoxDecoration(
           color: const Color(0xFF0E0E14),
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+          border: Border.all(color: FluxForgeTheme.accentOrange.withValues(alpha: 0.3)),
         ),
         child: Text(
           'No containers',
-          style: FluxForgeTheme.dockSans(color: Colors.orange),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentOrange),
         ),
       );
     }

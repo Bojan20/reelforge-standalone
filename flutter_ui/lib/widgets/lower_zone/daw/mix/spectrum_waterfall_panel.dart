@@ -466,12 +466,12 @@ class _SpectrumWaterfallPanelState extends State<SpectrumWaterfallPanel>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
               decoration: BoxDecoration(
-                color: Colors.orange.withAlpha(51),
+                color: FluxForgeTheme.accentOrange.withAlpha(51),
                 borderRadius: BorderRadius.circular(2),
               ),
               child: Text(
                 'PAUSED',
-                style: FluxForgeTheme.dockSans(color: Colors.orange, size: 8, weight: FontWeight.bold),
+                style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentOrange, size: 8, weight: FontWeight.bold),
               ),
             ),
 
@@ -482,14 +482,14 @@ class _SpectrumWaterfallPanelState extends State<SpectrumWaterfallPanel>
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
             decoration: BoxDecoration(
               color: _ffiConnected
-                  ? Colors.green.withAlpha(51)
-                  : Colors.orange.withAlpha(51),
+                  ? FluxForgeTheme.accentGreen.withAlpha(51)
+                  : FluxForgeTheme.accentOrange.withAlpha(51),
               borderRadius: BorderRadius.circular(2),
             ),
             child: Text(
               _ffiConnected ? 'FFI' : 'OFFLINE',
               style: FluxForgeTheme.dockSans(
-                color: _ffiConnected ? Colors.green : Colors.orange,
+                color: _ffiConnected ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentOrange,
                 size: 8,
                 weight: FontWeight.bold,
               ),

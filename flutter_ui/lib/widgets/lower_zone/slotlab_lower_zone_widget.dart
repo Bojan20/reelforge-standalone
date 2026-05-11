@@ -1722,7 +1722,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       const Color(0xFF40C8FF), const Color(0xFF9370DB), const Color(0xFFFF4060),
     ];
     final layerIndex = event.layers.indexOf(l);
-    final trackColor = l.muted ? Colors.grey : trackColors[layerIndex % trackColors.length];
+    final trackColor = l.muted ? FluxForgeTheme.textTertiary : trackColors[layerIndex % trackColors.length];
 
     return GestureDetector(
       onTap: () => setState(() {
@@ -1897,7 +1897,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       const Color(0xFF4A9EFF), const Color(0xFF40FF90), const Color(0xFFFF9040),
       const Color(0xFF40C8FF), const Color(0xFF9370DB), const Color(0xFFFF4060),
     ];
-    final trackColor = l.muted ? Colors.grey : trackColors[layerIndex % trackColors.length];
+    final trackColor = l.muted ? FluxForgeTheme.textTertiary : trackColors[layerIndex % trackColors.length];
 
     return Container(
       height: _kTlTrackHeight,
@@ -4555,7 +4555,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('⚠️ $valid valid, $invalid invalid: ${issues.take(2).join(", ")}'),
-                backgroundColor: Colors.orange[700],
+                backgroundColor: FluxForgeTheme.accentOrange,
                 duration: const Duration(seconds: 3),
               ),
             );

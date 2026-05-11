@@ -535,7 +535,7 @@ class _ExportPresetManagerState extends State<ExportPresetManager> {
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
               decoration: BoxDecoration(
                 color: preset.format.isLossy
-                    ? Colors.orange.withAlpha(40)
+                    ? FluxForgeTheme.accentOrange.withAlpha(40)
                     : FluxForgeTheme.accentGreen.withAlpha(40),
                 borderRadius: BorderRadius.circular(2),
               ),
@@ -545,7 +545,7 @@ class _ExportPresetManagerState extends State<ExportPresetManager> {
                   size: 8,
                   weight: FontWeight.bold,
                   color: preset.format.isLossy
-                      ? Colors.orange
+                      ? FluxForgeTheme.accentOrange
                       : FluxForgeTheme.accentGreen,
                 ),
               ),
@@ -1262,7 +1262,7 @@ class ExportPresetSelector extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                   decoration: BoxDecoration(
                     color: preset.format.isLossy
-                        ? Colors.orange.withAlpha(40)
+                        ? FluxForgeTheme.accentOrange.withAlpha(40)
                         : FluxForgeTheme.accentGreen.withAlpha(40),
                     borderRadius: BorderRadius.circular(2),
                   ),
@@ -1272,7 +1272,7 @@ class ExportPresetSelector extends StatelessWidget {
                       size: 8,
                       weight: FontWeight.bold,
                       color: preset.format.isLossy
-                          ? Colors.orange
+                          ? FluxForgeTheme.accentOrange
                           : FluxForgeTheme.accentGreen,
                     ),
                   ),

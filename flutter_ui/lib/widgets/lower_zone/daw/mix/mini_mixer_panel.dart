@@ -300,7 +300,7 @@ class _MiniChannelStrip extends StatelessWidget {
             height: 3,
             margin: const EdgeInsets.only(bottom: 4),
             decoration: BoxDecoration(
-              color: muted ? Colors.grey : color,
+              color: muted ? FluxForgeTheme.textTertiary : color,
               borderRadius: BorderRadius.circular(1),
             ),
           ),
@@ -367,7 +367,7 @@ class _MiniChannelStrip extends StatelessWidget {
                 _MiniButton(
                   label: 'S',
                   isActive: soloed,
-                  activeColor: Colors.amber,
+                  activeColor: FluxForgeTheme.brandGold,
                   onTap: onSoloToggle,
                 ),
             ],
@@ -450,7 +450,7 @@ class _MiniMeter extends StatelessWidget {
                     colors: [
                       FluxForgeTheme.accentGreen,
                       level > 0.7
-                          ? (isClipping ? Colors.red : Colors.amber)
+                          ? (isClipping ? FluxForgeTheme.accentRed : FluxForgeTheme.brandGold)
                           : FluxForgeTheme.accentGreen,
                     ],
                   ),

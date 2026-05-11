@@ -2018,7 +2018,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('${invalidPaths.length} file(s) skipped (invalid path or type)'),
-                  backgroundColor: Colors.orange,
+                  backgroundColor: FluxForgeTheme.accentOrange,
                 ),
               );
             }
@@ -2911,7 +2911,7 @@ class _EditableClipPanelState extends State<_EditableClipPanel> {
                   style: FluxForgeTheme.dockSans(
                     size: 10,
                     weight: FontWeight.bold,
-                    color: _gain > 1.0 ? Colors.orange : LowerZoneColors.dawAccent,
+                    color: _gain > 1.0 ? FluxForgeTheme.accentOrange : LowerZoneColors.dawAccent,
                   ),
                 ),
               ),
@@ -2923,9 +2923,9 @@ class _EditableClipPanelState extends State<_EditableClipPanel> {
               trackHeight: 4,
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
               overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-              activeTrackColor: _gain > 1.0 ? Colors.orange : LowerZoneColors.dawAccent,
+              activeTrackColor: _gain > 1.0 ? FluxForgeTheme.accentOrange : LowerZoneColors.dawAccent,
               inactiveTrackColor: LowerZoneColors.bgMid,
-              thumbColor: _gain > 1.0 ? Colors.orange : LowerZoneColors.dawAccent,
+              thumbColor: _gain > 1.0 ? FluxForgeTheme.accentOrange : LowerZoneColors.dawAccent,
             ),
             child: Slider(
               value: _gain.clamp(0.0, 2.0),

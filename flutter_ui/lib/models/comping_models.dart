@@ -15,6 +15,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'timeline_models.dart';
 import 'timeline/automation_lane.dart';
+import '../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // RECORDING LANE
@@ -235,15 +236,15 @@ class Take {
   Color get ratingColor {
     switch (rating) {
       case TakeRating.none:
-        return Colors.grey;
+        return FluxForgeTheme.textTertiary;
       case TakeRating.bad:
-        return Colors.red;
+        return FluxForgeTheme.accentRed;
       case TakeRating.okay:
-        return Colors.orange;
+        return FluxForgeTheme.accentOrange;
       case TakeRating.good:
-        return Colors.lightGreen;
+        return FluxForgeTheme.accentGreen;
       case TakeRating.best:
-        return Colors.yellow;
+        return FluxForgeTheme.accentYellow;
     }
   }
 

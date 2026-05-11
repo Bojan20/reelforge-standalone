@@ -432,9 +432,9 @@ class _TlWaveformPainter extends CustomPainter {
   late final Paint _centerPaint;
 
   _TlWaveformPainter({required this.data, required this.color, this.isMuted = false}) {
-    final waveColor = isMuted ? Colors.grey.withValues(alpha: 0.4) : color.withValues(alpha: 0.7);
+    final waveColor = isMuted ? FluxForgeTheme.textTertiary.withValues(alpha: 0.4) : color.withValues(alpha: 0.7);
     _fillPaint = Paint()
-      ..color = (isMuted ? Colors.grey.withValues(alpha: 0.15) : color.withValues(alpha: 0.2))
+      ..color = (isMuted ? FluxForgeTheme.textTertiary.withValues(alpha: 0.15) : color.withValues(alpha: 0.2))
       ..style = PaintingStyle.fill;
     _strokePaint = Paint()
       ..color = waveColor
