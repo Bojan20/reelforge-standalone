@@ -864,7 +864,7 @@ class _ChainPresetLibraryPanelState extends State<ChainPresetLibraryPanel> {
                           horizontal: 14, vertical: 8),
                     ),
                     child: Text('Obriši',
-                        style: FluxForgeTheme.dockSans(size: 12, color: Colors.white)),
+                        style: FluxForgeTheme.dockSans(size: 12)),
                   ),
                 ],
               ),
@@ -1203,7 +1203,7 @@ class _PrimaryButton extends StatelessWidget {
           ],
           Text(label,
               style: FluxForgeTheme.dockSans(
-                  size: compact ? 11 : 12, weight: FontWeight.w600, color: Colors.white)),
+                  size: compact ? 11 : 12, weight: FontWeight.w600)),
         ],
       ),
     );
