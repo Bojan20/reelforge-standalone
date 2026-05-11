@@ -25,6 +25,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PANEL LAYOUT STATE
@@ -646,14 +647,14 @@ class PanelPresetPicker extends StatelessWidget {
                 final items = <PopupMenuEntry<PanelLayoutState>>[];
 
                 // Built-in presets
-                items.add(const PopupMenuItem<PanelLayoutState>(
+                items.add(PopupMenuItem<PanelLayoutState>(
                   enabled: false,
                   height: 28,
                   child: Text(
                     'BUILT-IN',
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
+                    style: FluxForgeTheme.dockSans(
+                      size: 9,
+                      weight: FontWeight.bold,
                       color: Colors.white38,
                       letterSpacing: 1,
                     ),
@@ -667,14 +668,14 @@ class PanelPresetPicker extends StatelessWidget {
                 // User presets
                 if (service.userPresets.isNotEmpty) {
                   items.add(const PopupMenuDivider());
-                  items.add(const PopupMenuItem<PanelLayoutState>(
+                  items.add(PopupMenuItem<PanelLayoutState>(
                     enabled: false,
                     height: 28,
                     child: Text(
                       'CUSTOM',
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
+                      style: FluxForgeTheme.dockSans(
+                        size: 9,
+                        weight: FontWeight.bold,
                         color: Colors.white38,
                         letterSpacing: 1,
                       ),
@@ -700,10 +701,10 @@ class PanelPresetPicker extends StatelessWidget {
                   children: [
                     Text(
                       selectedPreset?.name ?? 'Default',
-                      style: TextStyle(
-                        fontSize: 10,
+                      style: FluxForgeTheme.dockSans(
+                        size: 10,
                         color: color,
-                        fontWeight: FontWeight.w500,
+                        weight: FontWeight.w500,
                       ),
                     ),
                     const SizedBox(width: 4),
@@ -758,17 +759,17 @@ class PanelPresetPicker extends StatelessWidget {
               children: [
                 Text(
                   preset.name,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
+                    weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                     color: isSelected ? color : Colors.white,
                   ),
                 ),
                 if (preset.description != null)
                   Text(
                     preset.description!,
-                    style: const TextStyle(
-                      fontSize: 9,
+                    style: FluxForgeTheme.dockSans(
+                      size: 9,
                       color: Colors.white38,
                     ),
                     maxLines: 1,
@@ -867,9 +868,9 @@ class _SavePresetDialogState extends State<SavePresetDialog> {
         children: [
           Icon(Icons.save, size: 20, color: color),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Save Layout Preset',
-            style: TextStyle(fontSize: 14, color: Colors.white),
+            style: FluxForgeTheme.dockSans(size: 14, color: Colors.white),
           ),
         ],
       ),
@@ -883,12 +884,12 @@ class _SavePresetDialogState extends State<SavePresetDialog> {
             TextField(
               controller: _controller,
               autofocus: true,
-              style: const TextStyle(color: Colors.white, fontSize: 12),
+              style: FluxForgeTheme.dockSans(color: Colors.white, size: 12),
               decoration: InputDecoration(
                 labelText: 'Preset Name',
-                labelStyle: const TextStyle(color: Colors.white54, fontSize: 11),
+                labelStyle: FluxForgeTheme.dockSans(color: Colors.white54, size: 11),
                 errorText: _error,
-                errorStyle: TextStyle(color: color, fontSize: 10),
+                errorStyle: FluxForgeTheme.dockSans(color: color, size: 10),
                 enabledBorder: OutlineInputBorder(
                   borderSide: BorderSide(color: color.withValues(alpha: 0.3)),
                 ),
@@ -916,11 +917,11 @@ class _SavePresetDialogState extends State<SavePresetDialog> {
             // Description field
             TextField(
               controller: _descController,
-              style: const TextStyle(color: Colors.white, fontSize: 12),
+              style: FluxForgeTheme.dockSans(color: Colors.white, size: 12),
               maxLines: 2,
               decoration: InputDecoration(
                 labelText: 'Description (optional)',
-                labelStyle: const TextStyle(color: Colors.white54, fontSize: 11),
+                labelStyle: FluxForgeTheme.dockSans(color: Colors.white54, size: 11),
                 enabledBorder: OutlineInputBorder(
                   borderSide: BorderSide(color: color.withValues(alpha: 0.3)),
                 ),
@@ -939,7 +940,7 @@ class _SavePresetDialogState extends State<SavePresetDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text('Cancel', style: TextStyle(color: color)),
+          child: Text('Cancel', style: FluxForgeTheme.dockSans(color: color)),
         ),
         ElevatedButton(
           onPressed: _validateAndSave,
@@ -947,7 +948,7 @@ class _SavePresetDialogState extends State<SavePresetDialog> {
             backgroundColor: color,
             foregroundColor: Colors.white,
           ),
-          child: const Text('Save', style: TextStyle(fontSize: 12)),
+          child: Text('Save', style: FluxForgeTheme.dockSans(size: 12)),
         ),
       ],
     );

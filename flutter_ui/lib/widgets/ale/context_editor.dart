@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/ale_provider.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Context list and editor widget
 class ContextEditor extends StatefulWidget {
@@ -74,12 +75,12 @@ class _ContextEditorState extends State<ContextEditor> {
         children: [
           const Icon(Icons.folder_special, color: Color(0xFF4a9eff), size: 18),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Contexts',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white,
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
+              weight: FontWeight.w600,
+              size: 13,
             ),
           ),
           const SizedBox(width: 8),
@@ -91,9 +92,9 @@ class _ContextEditorState extends State<ContextEditor> {
             ),
             child: Text(
               '$contextCount',
-              style: const TextStyle(
-                color: Color(0xFF888888),
-                fontSize: 11,
+              style: FluxForgeTheme.dockMono(
+                color: const Color(0xFF888888),
+                size: 11,
               ),
             ),
           ),
@@ -119,9 +120,9 @@ class _ContextEditorState extends State<ContextEditor> {
             size: 32,
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'No contexts defined',
-            style: TextStyle(color: Color(0xFF666666), fontSize: 12),
+            style: FluxForgeTheme.dockSans(color: const Color(0xFF666666), size: 12),
           ),
           const SizedBox(height: 12),
           TextButton.icon(
@@ -211,10 +212,10 @@ class _ContextEditorState extends State<ContextEditor> {
               Expanded(
                 child: Text(
                   ctx.name,
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
+                    weight: FontWeight.w600,
+                    size: 14,
                   ),
                 ),
               ),
@@ -230,9 +231,9 @@ class _ContextEditorState extends State<ContextEditor> {
             const SizedBox(height: 4),
             Text(
               ctx.description!,
-              style: const TextStyle(
-                color: Color(0xFF888888),
-                fontSize: 11,
+              style: FluxForgeTheme.dockSans(
+                color: const Color(0xFF888888),
+                size: 11,
               ),
             ),
           ],
@@ -240,12 +241,12 @@ class _ContextEditorState extends State<ContextEditor> {
           const SizedBox(height: 12),
 
           // Layers preview
-          const Text(
+          Text(
             'Layers',
-            style: TextStyle(
-              color: Color(0xFF888888),
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              color: const Color(0xFF888888),
+              size: 11,
+              weight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 6),
@@ -274,12 +275,12 @@ class _ContextEditorState extends State<ContextEditor> {
                   ),
                   child: Text(
                     layer.assetId.isEmpty ? 'L${index + 1}' : layer.assetId,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockMono(
                       color: isActive
                           ? _getLayerColor(index)
                           : const Color(0xFF666666),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
+                      size: 10,
+                      weight: FontWeight.w500,
                     ),
                   ),
                 );
@@ -345,9 +346,9 @@ class _ContextEditorState extends State<ContextEditor> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1a1a20),
-        title: const Text(
+        title: Text(
           'Add Context',
-          style: TextStyle(color: Colors.white),
+          style: FluxForgeTheme.dockSans(color: Colors.white),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -358,7 +359,7 @@ class _ContextEditorState extends State<ContextEditor> {
                 labelText: 'Context ID',
                 hintText: 'e.g., BASE, FREESPINS',
               ),
-              style: const TextStyle(color: Colors.white),
+              style: FluxForgeTheme.dockSans(color: Colors.white),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -367,7 +368,7 @@ class _ContextEditorState extends State<ContextEditor> {
                 labelText: 'Display Name',
                 hintText: 'e.g., Base Game',
               ),
-              style: const TextStyle(color: Colors.white),
+              style: FluxForgeTheme.dockSans(color: Colors.white),
             ),
           ],
         ),
@@ -479,18 +480,18 @@ class _ContextTile extends StatelessWidget {
                     children: [
                       Text(
                         ctx.id,
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockMono(
                           color: isActive ? Colors.white : const Color(0xFFcccccc),
-                          fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                          fontSize: 12,
+                          weight: isActive ? FontWeight.w600 : FontWeight.w500,
+                          size: 12,
                         ),
                       ),
                       if (ctx.name != ctx.id)
                         Text(
                           ctx.name,
-                          style: const TextStyle(
-                            color: Color(0xFF888888),
-                            fontSize: 10,
+                          style: FluxForgeTheme.dockSans(
+                            color: const Color(0xFF888888),
+                            size: 10,
                           ),
                         ),
                     ],
@@ -506,9 +507,9 @@ class _ContextTile extends StatelessWidget {
                   ),
                   child: Text(
                     '${ctx.layers.length}L',
-                    style: const TextStyle(
-                      color: Color(0xFF888888),
-                      fontSize: 10,
+                    style: FluxForgeTheme.dockMono(
+                      color: const Color(0xFF888888),
+                      size: 10,
                     ),
                   ),
                 ),

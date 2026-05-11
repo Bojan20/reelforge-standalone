@@ -17,6 +17,7 @@ import 'fabfilter_theme.dart';
 import 'fabfilter_knob.dart';
 import 'fabfilter_panel_base.dart';
 import 'fabfilter_widgets.dart';
+import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ENUMS & DATA CLASSES
@@ -428,8 +429,8 @@ class _FabFilterExpanderPanelState extends State<FabFilterExpanderPanel>
           Text(widget.title, style: FabFilterText.title.copyWith(fontSize: 11)),
           const SizedBox(width: 8),
           Flexible(
-            child: Text('Downward Expander', style: TextStyle(
-              color: FabFilterColors.textTertiary, fontSize: 9,
+            child: Text('Downward Expander', style: FluxForgeTheme.dockSans(
+              size: 9, color: FabFilterColors.textTertiary,
             ), overflow: TextOverflow.ellipsis),
           ),
           const Spacer(),
@@ -443,12 +444,11 @@ class _FabFilterExpanderPanelState extends State<FabFilterExpanderPanel>
             child: Text(
               _expansionAmount >= 0.99 ? '0.0 dB'
                   : '-${((1.0 - _expansionAmount) * 60).toStringAsFixed(1)} dB',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 9,
+                weight: FontWeight.bold,
                 color: _expansionAmount > 0.95 ? FabFilterColors.green : FabFilterColors.orange,
-                fontSize: 9,
-                fontWeight: FontWeight.bold,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
+              ).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
             ),
           ),
           const SizedBox(width: 8),
@@ -503,7 +503,7 @@ class _FabFilterExpanderPanelState extends State<FabFilterExpanderPanel>
                 ),
               ),
               const SizedBox(width: 4),
-              Text(stateLabel, style: TextStyle(color: stateColor, fontSize: 8, fontWeight: FontWeight.bold)),
+              Text(stateLabel, style: FluxForgeTheme.dockSans(size: 8, weight: FontWeight.bold, color: stateColor)),
             ],
           ),
         );
@@ -518,7 +518,7 @@ class _FabFilterExpanderPanelState extends State<FabFilterExpanderPanel>
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: TextStyle(color: FabFilterColors.textTertiary, fontSize: 7, fontWeight: FontWeight.bold)),
+        Text(label, style: FluxForgeTheme.dockMono(size: 7, weight: FontWeight.bold, color: FabFilterColors.textTertiary)),
         const SizedBox(height: 2),
         Container(
           height: 10,
@@ -636,16 +636,15 @@ class _FabFilterExpanderPanelState extends State<FabFilterExpanderPanel>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Ratio', style: TextStyle(color: FabFilterColors.textTertiary, fontSize: 8)),
+                Text('Ratio', style: FluxForgeTheme.dockSans(size: 8, color: FabFilterColors.textTertiary)),
                 const SizedBox(height: 2),
                 Text(
                   '${_ratio.toStringAsFixed(1)}:1',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
+                    size: 16,
+                    weight: FontWeight.bold,
                     color: FabFilterColors.orange,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
+                  ).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
                 ),
               ],
             ),
@@ -662,16 +661,15 @@ class _FabFilterExpanderPanelState extends State<FabFilterExpanderPanel>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Threshold', style: TextStyle(color: FabFilterColors.textTertiary, fontSize: 8)),
+                Text('Threshold', style: FluxForgeTheme.dockSans(size: 8, color: FabFilterColors.textTertiary)),
                 const SizedBox(height: 2),
                 Text(
                   '${_threshold.toStringAsFixed(0)} dB',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
+                    size: 16,
+                    weight: FontWeight.bold,
                     color: FabFilterColors.green,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
+                  ).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
                 ),
               ],
             ),
@@ -690,13 +688,13 @@ class _FabFilterExpanderPanelState extends State<FabFilterExpanderPanel>
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Knee', style: TextStyle(color: FabFilterColors.textTertiary, fontSize: 8)),
+                    Text('Knee', style: FluxForgeTheme.dockSans(size: 8, color: FabFilterColors.textTertiary)),
                     Text(
                       _knee <= 0.5 ? 'Hard' : '${_knee.toStringAsFixed(0)} dB',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockMono(
+                        size: 12,
+                        weight: FontWeight.bold,
                         color: FabFilterColors.blue,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ],

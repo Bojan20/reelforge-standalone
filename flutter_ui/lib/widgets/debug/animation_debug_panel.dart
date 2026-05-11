@@ -250,9 +250,9 @@ class _AnimationDebugPanelState extends State<AnimationDebugPanel> {
               const SizedBox(width: 6),
               Text(
                 'Animation Debug',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  weight: FontWeight.w600,
                   color: FluxForgeTheme.textPrimary,
                 ),
               ),
@@ -308,9 +308,9 @@ class _AnimationDebugPanelState extends State<AnimationDebugPanel> {
   Widget _buildGridHeader(String label) {
     return Text(
       label,
-      style: TextStyle(
-        fontSize: 9,
-        fontWeight: FontWeight.w600,
+      style: FluxForgeTheme.dockSans(
+        size: 9,
+        weight: FontWeight.w600,
         color: FluxForgeTheme.textSecondary,
       ),
     );
@@ -328,11 +328,10 @@ class _AnimationDebugPanelState extends State<AnimationDebugPanel> {
             width: 35,
             child: Text(
               'R${reelIndex + 1}',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockMono(
+                size: 10,
+                weight: FontWeight.w600,
                 color: FluxForgeTheme.textPrimary,
-                fontFamily: 'monospace',
               ),
             ),
           ),
@@ -343,10 +342,9 @@ class _AnimationDebugPanelState extends State<AnimationDebugPanel> {
             width: 50,
             child: Text(
               state.scrollOffset.toStringAsFixed(1),
-              style: TextStyle(
-                fontSize: 10,
+              style: FluxForgeTheme.dockMono(
+                size: 10,
                 color: FluxForgeTheme.textSecondary,
-                fontFamily: 'monospace',
               ),
               textAlign: TextAlign.right,
             ),
@@ -356,12 +354,11 @@ class _AnimationDebugPanelState extends State<AnimationDebugPanel> {
             width: 50,
             child: Text(
               state.velocity.toStringAsFixed(1),
-              style: TextStyle(
-                fontSize: 10,
+              style: FluxForgeTheme.dockMono(
+                size: 10,
                 color: state.velocity.abs() > 10
                     ? FluxForgeTheme.accentBlue
                     : FluxForgeTheme.textSecondary,
-                fontFamily: 'monospace',
               ),
               textAlign: TextAlign.right,
             ),
@@ -398,9 +395,9 @@ class _AnimationDebugPanelState extends State<AnimationDebugPanel> {
           Center(
             child: Text(
               state.phase.displayName,
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockSans(
+                size: 9,
+                weight: FontWeight.w600,
                 color: state.phase.color,
               ),
             ),
@@ -416,8 +413,8 @@ class _AnimationDebugPanelState extends State<AnimationDebugPanel> {
       children: [
         Text(
           'Transition Log',
-          style: TextStyle(
-            fontSize: 10,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
             color: FluxForgeTheme.textSecondary,
           ),
         ),
@@ -431,8 +428,8 @@ class _AnimationDebugPanelState extends State<AnimationDebugPanel> {
             ),
             child: Text(
               _showLog ? 'Hide' : 'Show',
-              style: TextStyle(
-                fontSize: 9,
+              style: FluxForgeTheme.dockSans(
+                size: 9,
                 color: _showLog ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
               ),
             ),
@@ -450,8 +447,8 @@ class _AnimationDebugPanelState extends State<AnimationDebugPanel> {
         alignment: Alignment.center,
         child: Text(
           'No transitions yet',
-          style: TextStyle(
-            fontSize: 10,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
             color: FluxForgeTheme.textSecondary,
           ),
         ),
@@ -476,26 +473,25 @@ class _AnimationDebugPanelState extends State<AnimationDebugPanel> {
               children: [
                 Text(
                   t.formattedTime,
-                  style: TextStyle(
-                    fontSize: 9,
+                  style: FluxForgeTheme.dockMono(
+                    size: 9,
                     color: FluxForgeTheme.textSecondary,
-                    fontFamily: 'monospace',
                   ),
                 ),
                 const SizedBox(width: 6),
                 Text(
                   'R${t.reelIndex + 1}',
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
+                    weight: FontWeight.w600,
                     color: FluxForgeTheme.textPrimary,
                   ),
                 ),
                 const SizedBox(width: 4),
                 Text(
                   t.from.displayName,
-                  style: TextStyle(
-                    fontSize: 9,
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
                     color: t.from.color,
                   ),
                 ),
@@ -509,8 +505,8 @@ class _AnimationDebugPanelState extends State<AnimationDebugPanel> {
                 ),
                 Text(
                   t.to.displayName,
-                  style: TextStyle(
-                    fontSize: 9,
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
                     color: t.to.color,
                   ),
                 ),

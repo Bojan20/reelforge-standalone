@@ -87,7 +87,7 @@ class ChannelPanel extends StatelessWidget {
         children: [
           Text(
             _typeIcons[channel.type] ?? '🎵',
-            style: const TextStyle(fontSize: 18),
+            style: FluxForgeTheme.dockSans(size: 18),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -96,16 +96,16 @@ class ChannelPanel extends StatelessWidget {
               children: [
                 Text(
                   channel.name,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+                  style: FluxForgeTheme.dockSans(
+                    size: 13,
+                    weight: FontWeight.w600,
                     color: FluxForgeTheme.textPrimary,
                   ),
                 ),
                 Text(
                   channel.type.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 10,
+                  style: FluxForgeTheme.dockMono(
+                    size: 10,
                     color: FluxForgeTheme.textSecondary,
                   ),
                 ),
@@ -154,9 +154,9 @@ class ChannelPanel extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               'EQ Enabled',
-              style: TextStyle(fontSize: 11, color: FluxForgeTheme.textSecondary),
+              style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textSecondary),
             ),
             _ToggleButton(
               label: channel.eqEnabled ? 'ON' : 'OFF',
@@ -247,9 +247,9 @@ class _Section extends StatelessWidget {
             ),
             child: Text(
               title,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.w600,
                 color: FluxForgeTheme.textSecondary,
               ),
             ),
@@ -281,7 +281,7 @@ class _IORow extends StatelessWidget {
             width: 32,
             child: Text(
               label,
-              style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary),
+              style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textSecondary),
             ),
           ),
           Expanded(
@@ -299,8 +299,8 @@ class _IORow extends StatelessWidget {
                   children: [
                     Text(
                       value,
-                      style: const TextStyle(
-                        fontSize: 11,
+                      style: FluxForgeTheme.dockSans(
+                        size: 11,
                         color: FluxForgeTheme.textPrimary,
                       ),
                     ),
@@ -363,8 +363,8 @@ class _InsertSlot extends StatelessWidget {
             Expanded(
               child: Text(
                 hasPlugin ? insert.name : 'Insert ${index + 1}',
-                style: TextStyle(
-                  fontSize: 11,
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
                   color: hasPlugin
                       ? (insert.bypassed
                           ? FluxForgeTheme.textSecondary
@@ -416,7 +416,7 @@ class _Slider extends StatelessWidget {
             width: 48,
             child: Text(
               label,
-              style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary),
+              style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textSecondary),
             ),
           ),
           Expanded(
@@ -492,9 +492,9 @@ class _ToggleButton extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: FontWeight.w600,
             color: active ? activeColor : FluxForgeTheme.textSecondary,
           ),
         ),
@@ -532,9 +532,9 @@ class _ActionButton extends StatelessWidget {
         child: Center(
           child: Text(
             label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 12,
+              weight: FontWeight.w600,
               color: active ? activeColor : FluxForgeTheme.textSecondary,
             ),
           ),
@@ -557,13 +557,13 @@ class ChannelPanelEmpty extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Text('🎚️', style: TextStyle(fontSize: 32)),
+          Text('🎚️', style: FluxForgeTheme.dockSans(size: 32)),
           const SizedBox(height: 8),
           Text(
             'Select a track to view channel',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textSecondary,
-              fontSize: 12,
+              size: 12,
             ),
           ),
         ],

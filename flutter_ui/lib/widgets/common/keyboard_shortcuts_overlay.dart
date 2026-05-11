@@ -13,6 +13,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../lower_zone/lower_zone_types.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Shortcut category for organization
 enum ShortcutCategory {
@@ -538,11 +539,11 @@ class _KeyboardShortcutsOverlayState extends State<KeyboardShortcutsOverlay> {
         children: [
           Icon(Icons.keyboard, color: LowerZoneColors.dawAccent, size: 24),
           const SizedBox(width: 12),
-          const Text(
+          Text(
             'Keyboard Shortcuts',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 18,
+              weight: FontWeight.bold,
               color: LowerZoneColors.textPrimary,
             ),
           ),
@@ -563,10 +564,10 @@ class _KeyboardShortcutsOverlayState extends State<KeyboardShortcutsOverlay> {
       child: TextField(
         controller: _searchController,
         onChanged: (value) => setState(() => _searchQuery = value),
-        style: const TextStyle(color: LowerZoneColors.textPrimary),
+        style: FluxForgeTheme.dockSans(color: LowerZoneColors.textPrimary),
         decoration: InputDecoration(
           hintText: 'Search shortcuts...',
-          hintStyle: const TextStyle(color: LowerZoneColors.textMuted),
+          hintStyle: FluxForgeTheme.dockSans(color: LowerZoneColors.textMuted),
           prefixIcon: const Icon(Icons.search, color: LowerZoneColors.textMuted),
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
@@ -615,9 +616,9 @@ class _KeyboardShortcutsOverlayState extends State<KeyboardShortcutsOverlay> {
         backgroundColor: LowerZoneColors.bgSurface,
         selectedColor: LowerZoneColors.dawAccent.withValues(alpha: 0.3),
         checkmarkColor: LowerZoneColors.dawAccent,
-        labelStyle: TextStyle(
+        labelStyle: FluxForgeTheme.dockSans(
           color: isSelected ? LowerZoneColors.dawAccent : LowerZoneColors.textSecondary,
-          fontSize: 12,
+          size: 12,
         ),
         side: BorderSide(
           color: isSelected ? LowerZoneColors.dawAccent : LowerZoneColors.border,
@@ -638,7 +639,7 @@ class _KeyboardShortcutsOverlayState extends State<KeyboardShortcutsOverlay> {
             const SizedBox(height: 16),
             Text(
               'No shortcuts found',
-              style: TextStyle(color: LowerZoneColors.textMuted, fontSize: 14),
+              style: FluxForgeTheme.dockSans(color: LowerZoneColors.textMuted, size: 14),
             ),
           ],
         ),
@@ -658,9 +659,9 @@ class _KeyboardShortcutsOverlayState extends State<KeyboardShortcutsOverlay> {
                 const SizedBox(width: 8),
                 Text(
                   entry.key.label,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    size: 13,
+                    weight: FontWeight.bold,
                     color: LowerZoneColors.dawAccent,
                   ),
                 ),
@@ -686,9 +687,9 @@ class _KeyboardShortcutsOverlayState extends State<KeyboardShortcutsOverlay> {
           Expanded(
             child: Text(
               shortcut.label,
-              style: const TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: LowerZoneColors.textPrimary,
-                fontSize: 13,
+                size: 13,
               ),
             ),
           ),
@@ -701,9 +702,8 @@ class _KeyboardShortcutsOverlayState extends State<KeyboardShortcutsOverlay> {
             ),
             child: Text(
               shortcut.displayShortcut,
-              style: const TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 12,
+              style: FluxForgeTheme.dockMono(
+                size: 12,
                 color: LowerZoneColors.textSecondary,
               ),
             ),
@@ -725,7 +725,7 @@ class _KeyboardShortcutsOverlayState extends State<KeyboardShortcutsOverlay> {
         children: [
           Text(
             'Press ',
-            style: TextStyle(color: LowerZoneColors.textMuted, fontSize: 12),
+            style: FluxForgeTheme.dockSans(color: LowerZoneColors.textMuted, size: 12),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -734,18 +734,17 @@ class _KeyboardShortcutsOverlayState extends State<KeyboardShortcutsOverlay> {
               borderRadius: BorderRadius.circular(4),
               border: Border.all(color: LowerZoneColors.border),
             ),
-            child: const Text(
+            child: Text(
               'Esc',
-              style: TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 11,
+              style: FluxForgeTheme.dockMono(
+                size: 11,
                 color: LowerZoneColors.textSecondary,
               ),
             ),
           ),
           Text(
             ' or ',
-            style: TextStyle(color: LowerZoneColors.textMuted, fontSize: 12),
+            style: FluxForgeTheme.dockSans(color: LowerZoneColors.textMuted, size: 12),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -754,18 +753,17 @@ class _KeyboardShortcutsOverlayState extends State<KeyboardShortcutsOverlay> {
               borderRadius: BorderRadius.circular(4),
               border: Border.all(color: LowerZoneColors.border),
             ),
-            child: const Text(
+            child: Text(
               '?',
-              style: TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 11,
+              style: FluxForgeTheme.dockMono(
+                size: 11,
                 color: LowerZoneColors.textSecondary,
               ),
             ),
           ),
           Text(
             ' to close',
-            style: TextStyle(color: LowerZoneColors.textMuted, fontSize: 12),
+            style: FluxForgeTheme.dockSans(color: LowerZoneColors.textMuted, size: 12),
           ),
         ],
       ),

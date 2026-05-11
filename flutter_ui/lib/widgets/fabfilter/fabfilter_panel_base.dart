@@ -9,6 +9,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'fabfilter_theme.dart';
+import '../../theme/fluxforge_theme.dart';
 import '../../providers/dsp_chain_provider.dart';
 import '../../src/rust/native_ffi.dart';
 
@@ -338,10 +339,10 @@ mixin FabFilterPanelMixin<T extends FabFilterPanelBase> on State<T> {
           const SizedBox(width: 6),
           Text(
             widget.title,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FabFilterColors.textPrimary,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
+              size: 10,
+              weight: FontWeight.bold,
               letterSpacing: 0.8,
             ),
           ),
@@ -400,10 +401,10 @@ mixin FabFilterPanelMixin<T extends FabFilterPanelBase> on State<T> {
         ),
         child: Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: active ? color : FabFilterColors.textDisabled,
-            fontSize: 8,
-            fontWeight: FontWeight.bold,
+            size: 8,
+            weight: FontWeight.bold,
           ),
         ),
       ),
@@ -431,12 +432,12 @@ mixin FabFilterPanelMixin<T extends FabFilterPanelBase> on State<T> {
             : FabFilterDecorations.toggleInactive(),
         child: Text(
           'EXPERT',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: _showExpertMode
                 ? widget.accentColor
                 : FabFilterColors.textTertiary,
-            fontSize: 9,
-            fontWeight: FontWeight.bold,
+            size: 9,
+            weight: FontWeight.bold,
           ),
         ),
       ),
@@ -482,8 +483,8 @@ mixin FabFilterPanelMixin<T extends FabFilterPanelBase> on State<T> {
                   const SizedBox(width: 2),
                   Text(
                     _isStateB ? '→A' : '→B',
-                    style: const TextStyle(
-                      fontSize: 8,
+                    style: FluxForgeTheme.dockSans(
+                      size: 8,
                       color: FabFilterColors.textTertiary,
                     ),
                   ),
@@ -521,10 +522,10 @@ mixin FabFilterPanelMixin<T extends FabFilterPanelBase> on State<T> {
             children: [
               Text(
                 label,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: isActive ? widget.accentColor : FabFilterColors.textTertiary,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
+                  size: 11,
+                  weight: FontWeight.bold,
                 ),
               ),
               // Stored indicator dot
@@ -560,12 +561,12 @@ mixin FabFilterPanelMixin<T extends FabFilterPanelBase> on State<T> {
             : FabFilterDecorations.toggleInactive(),
         child: Text(
           'BYPASS',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: _bypassed
                 ? FabFilterColors.orange
                 : FabFilterColors.textTertiary,
-            fontSize: 9,
-            fontWeight: FontWeight.bold,
+            size: 9,
+            weight: FontWeight.bold,
           ),
         ),
       ),
@@ -594,14 +595,13 @@ mixin FabFilterPanelMixin<T extends FabFilterPanelBase> on State<T> {
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(color: FabFilterColors.orange, width: 1),
                 ),
-                child: const Text(
+                child: Text(
                   'BYPASSED',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: FabFilterColors.orange,
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 2,
-                  ),
+                    size: 13,
+                    weight: FontWeight.bold,
+                  ).copyWith(letterSpacing: 2),
                 ),
               ),
             ),
@@ -699,9 +699,9 @@ mixin FabFilterPanelMixin<T extends FabFilterPanelBase> on State<T> {
       value: size,
       child: Text(
         label,
-        style: const TextStyle(
+        style: FluxForgeTheme.dockSans(
           color: FabFilterColors.textSecondary,
-          fontSize: 12,
+          size: 12,
         ),
       ),
     );
@@ -745,10 +745,10 @@ mixin FabFilterPanelMixin<T extends FabFilterPanelBase> on State<T> {
             : FabFilterDecorations.toggleInactive(),
         child: Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: value ? color : FabFilterColors.textTertiary,
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
+            size: 10,
+            weight: FontWeight.bold,
           ),
         ),
       ),
@@ -777,9 +777,9 @@ mixin FabFilterPanelMixin<T extends FabFilterPanelBase> on State<T> {
           child: DropdownButton<E>(
             value: value,
             dropdownColor: FabFilterColors.bgMid,
-            style: const TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FabFilterColors.textSecondary,
-              fontSize: 10,
+              size: 10,
             ),
             underline: const SizedBox(),
             isDense: true,
@@ -809,19 +809,18 @@ mixin FabFilterPanelMixin<T extends FabFilterPanelBase> on State<T> {
             const SizedBox(height: 12),
             Text(
               processorName.toUpperCase(),
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: FabFilterColors.textDisabled,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.5,
-              ),
+                size: 12,
+                weight: FontWeight.bold,
+              ).copyWith(letterSpacing: 1.5),
             ),
             const SizedBox(height: 4),
             Text(
               'Not in chain',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FabFilterColors.textDisabled.withValues(alpha: 0.5),
-                fontSize: 10,
+                size: 10,
               ),
             ),
             const SizedBox(height: 16),
@@ -839,12 +838,11 @@ mixin FabFilterPanelMixin<T extends FabFilterPanelBase> on State<T> {
                 ),
                 child: Text(
                   'ADD TO CHAIN',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: FabFilterColors.textSecondary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
-                  ),
+                    size: 10,
+                    weight: FontWeight.bold,
+                  ).copyWith(letterSpacing: 1),
                 ),
               ),
             ),
