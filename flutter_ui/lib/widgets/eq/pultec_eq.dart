@@ -204,11 +204,11 @@ class _PultecEqState extends State<PultecEq> with SingleTickerProviderStateMixin
             children: [
               Text(
                 'FF EQP',
-                style: TextStyle(
-                  fontFamily: 'serif',
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 24,
+                  weight: FontWeight.bold,
                   color: const Color(0xFFD4C5A0),
+                ).copyWith(
                   shadows: [
                     Shadow(
                       color: FluxForgeTheme.bgVoid.withAlpha(128),
@@ -218,12 +218,12 @@ class _PultecEqState extends State<PultecEq> with SingleTickerProviderStateMixin
                   ],
                 ),
               ),
-              const Text(
+              Text(
                 'PROGRAM EQUALIZER',
-                style: TextStyle(
-                  fontSize: 10,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
                   letterSpacing: 2,
-                  color: Color(0xFF8A8070),
+                  color: const Color(0xFF8A8070),
                 ),
               ),
             ],
@@ -240,22 +240,21 @@ class _PultecEqState extends State<PultecEq> with SingleTickerProviderStateMixin
           Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.end,
-            children: const [
+            children: [
               Text(
                 'EQP-1A',
-                style: TextStyle(
-                  fontFamily: 'serif',
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFFD4C5A0),
+                style: FluxForgeTheme.dockSans(
+                  size: 20,
+                  weight: FontWeight.bold,
+                  color: const Color(0xFFD4C5A0),
                 ),
               ),
               Text(
                 'TUBE PROGRAM EQ',
-                style: TextStyle(
-                  fontSize: 8,
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
                   letterSpacing: 1,
-                  color: Color(0xFF8A8070),
+                  color: const Color(0xFF8A8070),
                 ),
               ),
             ],
@@ -306,17 +305,17 @@ class _PultecEqState extends State<PultecEq> with SingleTickerProviderStateMixin
           ),
 
           // VU label
-          const Positioned(
+          Positioned(
             bottom: 4,
             left: 0,
             right: 0,
             child: Text(
               'VU',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 8,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF4A4540),
+              style: FluxForgeTheme.dockSans(
+                size: 8,
+                weight: FontWeight.bold,
+                color: const Color(0xFF4A4540),
               ),
             ),
           ),
@@ -328,13 +327,13 @@ class _PultecEqState extends State<PultecEq> with SingleTickerProviderStateMixin
   Widget _buildLowSection() {
     return Column(
       children: [
-        const Text(
+        Text(
           'LOW FREQUENCY',
-          style: TextStyle(
-            fontSize: 10,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: FontWeight.bold,
             letterSpacing: 2,
-            color: Color(0xFFD4C5A0),
-            fontWeight: FontWeight.bold,
+            color: const Color(0xFFD4C5A0),
           ),
         ),
         const SizedBox(height: 12),
@@ -380,12 +379,12 @@ class _PultecEqState extends State<PultecEq> with SingleTickerProviderStateMixin
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Text(
+        Text(
           'BANDWIDTH',
-          style: TextStyle(
-            fontSize: 9,
+          style: FluxForgeTheme.dockSans(
+            size: 9,
             letterSpacing: 1,
-            color: Color(0xFFD4C5A0),
+            color: const Color(0xFFD4C5A0),
           ),
         ),
         const SizedBox(height: 8),
@@ -428,11 +427,11 @@ class _PultecEqState extends State<PultecEq> with SingleTickerProviderStateMixin
           },
         ),
         const SizedBox(height: 4),
-        const Text(
+        Text(
           'TUBE',
-          style: TextStyle(
-            fontSize: 7,
-            color: Color(0xFF8A8070),
+          style: FluxForgeTheme.dockSans(
+            size: 7,
+            color: const Color(0xFF8A8070),
           ),
         ),
       ],
@@ -442,13 +441,13 @@ class _PultecEqState extends State<PultecEq> with SingleTickerProviderStateMixin
   Widget _buildHighSection() {
     return Column(
       children: [
-        const Text(
+        Text(
           'HIGH FREQUENCY',
-          style: TextStyle(
-            fontSize: 10,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: FontWeight.bold,
             letterSpacing: 2,
-            color: Color(0xFFD4C5A0),
-            fontWeight: FontWeight.bold,
+            color: const Color(0xFFD4C5A0),
           ),
         ),
         const SizedBox(height: 12),
@@ -528,9 +527,9 @@ class _PultecEqState extends State<PultecEq> with SingleTickerProviderStateMixin
         children: [
           Text(
             label,
-            style: const TextStyle(
-              fontSize: 8,
-              color: Color(0xFF8A8070),
+            style: FluxForgeTheme.dockSans(
+              size: 8,
+              color: const Color(0xFF8A8070),
             ),
           ),
           const SizedBox(width: 8),
@@ -539,10 +538,10 @@ class _PultecEqState extends State<PultecEq> with SingleTickerProviderStateMixin
               value: selected,
               isDense: true,
               dropdownColor: const Color(0xFF2A2520),
-              style: const TextStyle(
-                color: Color(0xFFD4C5A0),
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockMono(
+                size: 11,
+                weight: FontWeight.bold,
+                color: const Color(0xFFD4C5A0),
               ),
               items: frequencies.map((f) {
                 final display = displayDivider > 1 ? '${f ~/ displayDivider}' : '$f';
@@ -625,9 +624,9 @@ class _PultecEqState extends State<PultecEq> with SingleTickerProviderStateMixin
                 // Value display
                 Text(
                   value.toStringAsFixed(1),
-                  style: TextStyle(
-                    fontSize: size * 0.18,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockMono(
+                    size: size * 0.18,
+                    weight: FontWeight.bold,
                     color: const Color(0xFFF5F0E0),
                   ),
                 ),
@@ -639,10 +638,10 @@ class _PultecEqState extends State<PultecEq> with SingleTickerProviderStateMixin
           const SizedBox(height: 4),
           Text(
             label,
-            style: const TextStyle(
-              fontSize: 9,
-              color: Color(0xFFD4C5A0),
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 9,
+              weight: FontWeight.bold,
+              color: const Color(0xFFD4C5A0),
             ),
           ),
         ],
@@ -691,9 +690,9 @@ class _PultecEqState extends State<PultecEq> with SingleTickerProviderStateMixin
               ),
               child: Text(
                 'BYPASS',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.bold,
                   color: _params.bypass ? FluxForgeTheme.textPrimary : const Color(0xFF8A8070),
                 ),
               ),
@@ -706,12 +705,12 @@ class _PultecEqState extends State<PultecEq> with SingleTickerProviderStateMixin
           Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text(
+              Text(
                 'OUTPUT',
-                style: TextStyle(
-                  fontSize: 8,
-                  color: Color(0xFF8A8070),
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
                   letterSpacing: 1,
+                  color: const Color(0xFF8A8070),
                 ),
               ),
               const SizedBox(height: 2),
@@ -732,10 +731,9 @@ class _PultecEqState extends State<PultecEq> with SingleTickerProviderStateMixin
             width: 50,
             child: Text(
               '${_params.outputLevel >= 0 ? '+' : ''}${_params.outputLevel.toStringAsFixed(1)} dB',
-              style: const TextStyle(
-                fontSize: 10,
-                color: Color(0xFFD4C5A0),
-                fontFamily: 'monospace',
+              style: FluxForgeTheme.dockMono(
+                size: 10,
+                color: const Color(0xFFD4C5A0),
               ),
             ),
           ),

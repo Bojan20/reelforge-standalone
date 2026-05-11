@@ -138,10 +138,10 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
           const SizedBox(width: 8),
           Text(
             'ML Processor',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+              size: 14,
+              weight: FontWeight.w600,
             ),
           ),
           const Spacer(),
@@ -172,10 +172,10 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
       ),
       child: Text(
         text,
-        style: TextStyle(
+        style: FluxForgeTheme.dockSans(
           color: badgeColor,
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
+          size: 11,
+          weight: FontWeight.w500,
         ),
       ),
     );
@@ -187,10 +187,10 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
       children: [
         Text(
           'Processing Mode',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textSecondary,
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
+            size: 11,
+            weight: FontWeight.w500,
           ),
         ),
         const SizedBox(height: 8),
@@ -238,12 +238,12 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
             const SizedBox(width: 6),
             Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: isSelected
                     ? FluxForgeTheme.accentBlue
                     : FluxForgeTheme.textPrimary,
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                size: 12,
+                weight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
           ],
@@ -286,10 +286,10 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
       children: [
         Text(
           'AI Model',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textSecondary,
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
+            size: 11,
+            weight: FontWeight.w500,
           ),
         ),
         const SizedBox(height: 8),
@@ -313,11 +313,11 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
                     children: [
                       Text(
                         _getModelLabel(model),
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: isAvailable
                               ? FluxForgeTheme.textPrimary
                               : FluxForgeTheme.textSecondary,
-                          fontSize: 12,
+                          size: 12,
                         ),
                       ),
                       const Spacer(),
@@ -333,9 +333,9 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
                           ),
                           child: Text(
                             'Download',
-                            style: TextStyle(
+                            style: FluxForgeTheme.dockSans(
                               color: FluxForgeTheme.accentOrange,
-                              fontSize: 10,
+                              size: 10,
                             ),
                           ),
                         ),
@@ -414,10 +414,10 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
         children: [
           Text(
             'Extract Stems',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textSecondary,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
+              size: 11,
+              weight: FontWeight.w500,
             ),
           ),
           const SizedBox(height: 12),
@@ -473,10 +473,10 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
             const SizedBox(width: 6),
             Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color:
                     value ? FluxForgeTheme.accentGreen : FluxForgeTheme.textPrimary,
-                fontSize: 12,
+                size: 12,
               ),
             ),
           ],
@@ -583,9 +583,9 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
               Expanded(
                 child: Text(
                   'Isolates voice/dialogue from background noise and music',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: FluxForgeTheme.textSecondary,
-                    fontSize: 11,
+                    size: 11,
                   ),
                 ),
               ),
@@ -619,17 +619,17 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
           children: [
             Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 11,
+                size: 11,
               ),
             ),
             Text(
               '${(value * 100).toInt()}%',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: FluxForgeTheme.accentBlue,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
+                size: 11,
+                weight: FontWeight.w600,
               ),
             ),
           ],
@@ -676,9 +676,9 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
         const SizedBox(width: 6),
         Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textPrimary,
-            fontSize: 11,
+            size: 11,
           ),
         ),
       ],
@@ -700,17 +700,17 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
             children: [
               Text(
                 'Progress',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textSecondary,
-                  fontSize: 11,
+                  size: 11,
                 ),
               ),
               Text(
                 '${(_progress * 100).toInt()}%',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
                   color: FluxForgeTheme.accentBlue,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+                  size: 11,
+                  weight: FontWeight.w600,
                 ),
               ),
             ],
@@ -732,9 +732,9 @@ class _MlProcessorPanelState extends State<MlProcessorPanel> {
           const SizedBox(height: 8),
           Text(
             _statusMessage,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textSecondary,
-              fontSize: 10,
+              size: 10,
             ),
           ),
         ],

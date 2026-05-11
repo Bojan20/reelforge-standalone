@@ -320,17 +320,17 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
             children: [
               Text(
                 'Audio Backend',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textSecondary,
-                  fontSize: 12,
+                  size: 12,
                 ),
               ),
               Text(
                 hostType,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+                  size: 18,
+                  weight: FontWeight.bold,
                 ),
               ),
             ],
@@ -347,7 +347,7 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
       child: DropdownButtonFormField<String>(
         value: _selectedOutputDevice,
         dropdownColor: FluxForgeTheme.bgMid,
-        style: TextStyle(color: FluxForgeTheme.textPrimary),
+        style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
         decoration: InputDecoration(
           filled: true,
           fillColor: FluxForgeTheme.bgSurface,
@@ -381,18 +381,18 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
                     ),
                     child: Text(
                       'Default',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockMono(
                         color: FluxForgeTheme.accentGreen,
-                        fontSize: 10,
+                        size: 10,
                       ),
                     ),
                   ),
                 const SizedBox(width: 8),
                 Text(
                   '${device.channels}ch',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: FluxForgeTheme.textSecondary,
-                    fontSize: 12,
+                    size: 12,
                   ),
                 ),
               ],
@@ -411,7 +411,7 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
       child: DropdownButtonFormField<String>(
         value: _selectedInputDevice,
         dropdownColor: FluxForgeTheme.bgMid,
-        style: TextStyle(color: FluxForgeTheme.textPrimary),
+        style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
         decoration: InputDecoration(
           filled: true,
           fillColor: FluxForgeTheme.bgSurface,
@@ -445,18 +445,18 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
                     ),
                     child: Text(
                       'Default',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockMono(
                         color: FluxForgeTheme.accentGreen,
-                        fontSize: 10,
+                        size: 10,
                       ),
                     ),
                   ),
                 const SizedBox(width: 8),
                 Text(
                   '${device.channels}ch',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: FluxForgeTheme.textSecondary,
-                    fontSize: 12,
+                    size: 12,
                   ),
                 ),
               ],
@@ -491,7 +491,7 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
             backgroundColor: FluxForgeTheme.bgSurface,
             selectedColor: FluxForgeTheme.accentBlue,
             disabledColor: FluxForgeTheme.bgMid,
-            labelStyle: TextStyle(
+            labelStyle: FluxForgeTheme.dockSans(
               color: isSelected
                   ? FluxForgeTheme.textPrimary
                   : isAvailable
@@ -522,7 +522,7 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
                 onSelected: (_) => _setBufferSize(size),
                 backgroundColor: FluxForgeTheme.bgSurface,
                 selectedColor: FluxForgeTheme.accentBlue,
-                labelStyle: TextStyle(
+                labelStyle: FluxForgeTheme.dockSans(
                   color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textPrimary,
                 ),
               );
@@ -539,9 +539,9 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
               const SizedBox(width: 8),
               Text(
                 'Lower = less latency, higher CPU usage',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textSecondary,
-                  fontSize: 12,
+                  size: 12,
                 ),
               ),
             ],
@@ -588,9 +588,9 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
               const SizedBox(width: 8),
               Text(
                 'Latency',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textSecondary,
-                  fontSize: 12,
+                  size: 12,
                 ),
               ),
               const Spacer(),
@@ -602,10 +602,10 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
                 ),
                 child: Text(
                   latencyLabel,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: latencyColor,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+                    size: 12,
+                    weight: FontWeight.bold,
                   ),
                 ),
               ),
@@ -630,17 +630,17 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
       children: [
         Text(
           value,
-          style: TextStyle(
+          style: FluxForgeTheme.dockMono(
             color: FluxForgeTheme.textPrimary,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
+            size: 18,
+            weight: FontWeight.bold,
           ),
         ),
         Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textSecondary,
-            fontSize: 12,
+            size: 12,
           ),
         ),
       ],
@@ -689,10 +689,10 @@ class _AudioSettingsScreenState extends State<AudioSettingsScreen> {
             const SizedBox(width: 8),
             Text(
               title,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.textPrimary,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+                size: 16,
+                weight: FontWeight.bold,
               ),
             ),
           ],

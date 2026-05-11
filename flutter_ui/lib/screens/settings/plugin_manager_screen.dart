@@ -301,11 +301,10 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
               Expanded(
                 child: Text(
                   _scanStatus,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
                     color: FluxForgeTheme.textSecondary,
-                    fontSize: 12,
-                  ),
-                  overflow: TextOverflow.ellipsis,
+                  ).copyWith(overflow: TextOverflow.ellipsis),
                 ),
               ),
             ],
@@ -339,7 +338,9 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
                       const SizedBox(height: 16),
                       Text(
                         'No plugins found',
-                        style: TextStyle(color: FluxForgeTheme.textSecondary),
+                        style: FluxForgeTheme.dockSans(
+                          color: FluxForgeTheme.textSecondary,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       ElevatedButton.icon(
@@ -380,10 +381,10 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
         children: [
           // Search field
           TextField(
-            style: TextStyle(color: FluxForgeTheme.textPrimary),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
             decoration: InputDecoration(
               hintText: 'Search plugins...',
-              hintStyle: TextStyle(color: FluxForgeTheme.textTertiary),
+              hintStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary),
               prefixIcon: Icon(Icons.search, color: FluxForgeTheme.textSecondary),
               filled: true,
               fillColor: FluxForgeTheme.bgSurface,
@@ -456,9 +457,9 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
       backgroundColor: FluxForgeTheme.bgSurface,
       selectedColor: FluxForgeTheme.accentBlue,
       checkmarkColor: FluxForgeTheme.textPrimary,
-      labelStyle: TextStyle(
+      labelStyle: FluxForgeTheme.dockSans(
         color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textPrimary,
-        fontSize: 12,
+        size: 12,
       ),
     );
   }
@@ -486,10 +487,10 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
           child: Center(
             child: Text(
               plugin.formatName,
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: _getFormatColor(plugin.format),
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+                size: 10,
+                weight: FontWeight.bold,
               ),
             ),
           ),
@@ -499,9 +500,9 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
             Expanded(
               child: Text(
                 plugin.name,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textPrimary,
-                  fontWeight: FontWeight.w500,
+                  weight: FontWeight.w500,
                 ),
               ),
             ),
@@ -514,10 +515,10 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
                 ),
                 child: Text(
                   'INST',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
                     color: FluxForgeTheme.accentPurple,
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
+                    size: 9,
+                    weight: FontWeight.bold,
                   ),
                 ),
               ),
@@ -525,9 +526,9 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
         ),
         subtitle: Text(
           '${plugin.vendor} v${plugin.version}',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textSecondary,
-            fontSize: 12,
+            size: 12,
           ),
         ),
         trailing: Switch(
@@ -547,7 +548,7 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
         backgroundColor: FluxForgeTheme.bgElevated,
         title: Text(
           plugin.name,
-          style: TextStyle(color: FluxForgeTheme.textPrimary),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -561,9 +562,9 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
             const SizedBox(height: 8),
             Text(
               'Path',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 12,
+                size: 12,
               ),
             ),
             const SizedBox(height: 4),
@@ -575,10 +576,9 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
               ),
               child: Text(
                 plugin.path,
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
                   color: FluxForgeTheme.textTertiary,
-                  fontSize: 11,
-                  fontFamily: 'JetBrains Mono',
+                  size: 11,
                 ),
               ),
             ),
@@ -602,16 +602,16 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
         children: [
           Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textSecondary,
-              fontSize: 13,
+              size: 13,
             ),
           ),
           Text(
             value,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textPrimary,
-              fontSize: 13,
+              size: 13,
             ),
           ),
         ],
@@ -627,10 +627,10 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
         children: [
           Text(
             'Plugin Search Paths',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textPrimary,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+              size: 16,
+              weight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 16),
@@ -656,10 +656,9 @@ class _PluginManagerScreenState extends State<PluginManagerScreen>
                       Expanded(
                         child: Text(
                           _scanPaths[index],
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockMono(
                             color: FluxForgeTheme.textPrimary,
-                            fontFamily: 'JetBrains Mono',
-                            fontSize: 12,
+                            size: 12,
                           ),
                         ),
                       ),

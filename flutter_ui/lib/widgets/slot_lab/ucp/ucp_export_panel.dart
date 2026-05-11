@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
 import '../../../providers/slot_lab/ucp_export_provider.dart';
+import '../../../theme/fluxforge_theme.dart';
 
 /// UCP-12: UCP Export™ Panel — Universal Casino Protocol Export Engine
 ///
@@ -42,9 +43,9 @@ class _UcpExportPanelState extends State<UcpExportPanel> {
   Widget build(BuildContext context) {
     final p = _provider;
     if (p == null) {
-      return const Center(
+      return Center(
         child: Text('UCP Export not available',
-            style: TextStyle(color: Colors.grey)),
+            style: FluxForgeTheme.dockSans(color: Colors.grey)),
       );
     }
 
@@ -99,11 +100,11 @@ class _UcpExportPanelState extends State<UcpExportPanel> {
           children: [
             const Icon(Icons.rocket_launch, color: Color(0xFFFFCC00), size: 14),
             const SizedBox(width: 6),
-            const Text('Export Targets',
-                style: TextStyle(
+            Text('Export Targets',
+                style: FluxForgeTheme.dockSans(
                     color: Color(0xFFCCCCCC),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600)),
+                    size: 11,
+                    weight: FontWeight.w600)),
             const Spacer(),
             // Select all / none
             _miniButton('All', () {
@@ -129,10 +130,10 @@ class _UcpExportPanelState extends State<UcpExportPanel> {
                   Padding(
                     padding: const EdgeInsets.only(top: 4, bottom: 2),
                     child: Text(entry.key,
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                             color: Color(entry.value.first.colorValue),
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
+                            size: 9,
+                            weight: FontWeight.w700,
                             letterSpacing: 1.2)),
                   ),
                   for (final t in entry.value)
@@ -183,15 +184,15 @@ class _UcpExportPanelState extends State<UcpExportPanel> {
             const SizedBox(width: 6),
             Expanded(
               child: Text(t.displayName,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                       color: isActive
                           ? const Color(0xFFEEEEEE)
                           : const Color(0xFF999999),
-                      fontSize: 10)),
+                      size: 10)),
             ),
             Text(t.fileExtension,
-                style: const TextStyle(
-                    color: Color(0xFF555577), fontSize: 8)),
+                style: FluxForgeTheme.dockSans(
+                    color: Color(0xFF555577), size: 8)),
           ],
         ),
       ),
@@ -215,10 +216,10 @@ class _UcpExportPanelState extends State<UcpExportPanel> {
               _previewTarget != null
                   ? 'Preview: ${_previewTarget!.displayName}'
                   : 'Select a target to preview',
-              style: const TextStyle(
+              style: FluxForgeTheme.dockSans(
                   color: Color(0xFFCCCCCC),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600),
+                  size: 11,
+                  weight: FontWeight.w600),
             ),
             const Spacer(),
             if (_previewOutput != null) ...[
@@ -251,21 +252,20 @@ class _UcpExportPanelState extends State<UcpExportPanel> {
                 ? SingleChildScrollView(
                     child: SelectableText(
                       _previewOutput!,
-                      style: const TextStyle(
+                      style: FluxForgeTheme.dockMono(
                         color: Color(0xFF88CC88),
-                        fontSize: 10,
-                        fontFamily: 'monospace',
+                        size: 10,
                         height: 1.3,
                       ),
                     ),
                   )
-                : const Center(
+                : Center(
                     child: Text(
                       'Click a target to preview export format.\n'
                       'Check targets for batch export.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                          color: Color(0xFF555577), fontSize: 10),
+                      style: FluxForgeTheme.dockSans(
+                          color: Color(0xFF555577), size: 10),
                     ),
                   ),
           ),
@@ -282,24 +282,24 @@ class _UcpExportPanelState extends State<UcpExportPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Row(
+        Row(
           children: [
-            Icon(Icons.history, color: Color(0xFF888888), size: 14),
-            SizedBox(width: 6),
+            const Icon(Icons.history, color: Color(0xFF888888), size: 14),
+            const SizedBox(width: 6),
             Text('Export History',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                     color: Color(0xFFCCCCCC),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600)),
+                    size: 11,
+                    weight: FontWeight.w600)),
           ],
         ),
         const SizedBox(height: 4),
         Expanded(
           child: p.exportHistory.isEmpty
-              ? const Center(
+              ? Center(
                   child: Text('No exports yet',
-                      style: TextStyle(
-                          color: Color(0xFF555577), fontSize: 10)),
+                      style: FluxForgeTheme.dockSans(
+                          color: Color(0xFF555577), size: 10)),
                 )
               : ListView.builder(
                   itemCount: p.exportHistory.length,
@@ -335,9 +335,9 @@ class _UcpExportPanelState extends State<UcpExportPanel> {
                               const SizedBox(width: 4),
                               Expanded(
                                 child: Text(target.displayName,
-                                    style: const TextStyle(
+                                    style: FluxForgeTheme.dockSans(
                                         color: Color(0xFFCCCCCC),
-                                        fontSize: 9)),
+                                        size: 9)),
                               ),
                             ],
                           ),
@@ -346,13 +346,13 @@ class _UcpExportPanelState extends State<UcpExportPanel> {
                                 MainAxisAlignment.spaceBetween,
                             children: [
                               Text(info,
-                                  style: const TextStyle(
+                                  style: FluxForgeTheme.dockSans(
                                       color: Color(0xFF888888),
-                                      fontSize: 8)),
+                                      size: 8)),
                               Text(agoStr,
-                                  style: const TextStyle(
+                                  style: FluxForgeTheme.dockSans(
                                       color: Color(0xFF555577),
-                                      fontSize: 8)),
+                                      size: 8)),
                             ],
                           ),
                         ],
@@ -486,8 +486,8 @@ class _UcpExportPanelState extends State<UcpExportPanel> {
           borderRadius: BorderRadius.circular(3),
         ),
         child: Text(label,
-            style: const TextStyle(
-                color: Color(0xFF8888AA), fontSize: 9)),
+            style: FluxForgeTheme.dockSans(
+                color: Color(0xFF8888AA), size: 9)),
       ),
     );
   }
@@ -515,7 +515,7 @@ class _UcpExportPanelState extends State<UcpExportPanel> {
             Icon(icon, size: 12, color: color),
             const SizedBox(width: 4),
             Text(label,
-                style: TextStyle(color: color, fontSize: 9)),
+                style: FluxForgeTheme.dockSans(color: color, size: 9)),
           ],
         ),
       ),

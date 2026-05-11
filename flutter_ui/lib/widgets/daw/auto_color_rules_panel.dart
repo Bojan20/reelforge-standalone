@@ -111,20 +111,18 @@ class _AutoColorRulesPanelState extends State<AutoColorRulesPanel> {
           const SizedBox(width: 10),
           Text(
             'Auto-Color Rules',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 14,
+              weight: FontWeight.w600,
               color: FluxForgeTheme.textPrimary,
-              fontFamily: FluxForgeTheme.fontFamily,
             ),
           ),
           const SizedBox(width: 8),
           Text(
             '${svc.count} rules',
-            style: TextStyle(
-              fontSize: 11,
+            style: FluxForgeTheme.dockMono(
+              size: 11,
               color: FluxForgeTheme.textTertiary,
-              fontFamily: FluxForgeTheme.monoFontFamily,
             ),
           ),
           const Spacer(),
@@ -165,12 +163,11 @@ class _AutoColorRulesPanelState extends State<AutoColorRulesPanel> {
         children: [
           Text(
             'TEST:',
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
-              color: FluxForgeTheme.textDisabled,
+            style: FluxForgeTheme.dockSans(
+              size: 9,
+              weight: FontWeight.w700,
               letterSpacing: 1.2,
-              fontFamily: FluxForgeTheme.fontFamily,
+              color: FluxForgeTheme.textDisabled,
             ),
           ),
           const SizedBox(width: 8),
@@ -180,16 +177,14 @@ class _AutoColorRulesPanelState extends State<AutoColorRulesPanel> {
               child: TextField(
                 controller: _testNameController,
                 onChanged: (_) => _runTest(),
-                style: TextStyle(
-                  fontSize: 12,
+                style: FluxForgeTheme.dockMono(
+                  size: 12,
                   color: FluxForgeTheme.textPrimary,
-                  fontFamily: FluxForgeTheme.monoFontFamily,
                 ),
                 decoration: InputDecoration(
                   hintText: 'Type a track name to test...',
-                  hintStyle: TextStyle(
+                  hintStyle: FluxForgeTheme.dockMono(
                     color: FluxForgeTheme.textTertiary.withValues(alpha: 0.5),
-                    fontFamily: FluxForgeTheme.monoFontFamily,
                   ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(4),
@@ -229,13 +224,12 @@ class _AutoColorRulesPanelState extends State<AutoColorRulesPanel> {
             const SizedBox(width: 6),
             Text(
               _testResult!.hasMatch ? _testResult!.rule!.name : 'No match',
-              style: TextStyle(
-                fontSize: 11,
+              style: FluxForgeTheme.dockSans(
+                size: 11,
+                weight: FontWeight.w500,
                 color: _testResult!.hasMatch
                     ? _testResult!.color
                     : FluxForgeTheme.textDisabled,
-                fontWeight: FontWeight.w500,
-                fontFamily: FluxForgeTheme.fontFamily,
               ),
             ),
           ],
@@ -260,10 +254,9 @@ class _AutoColorRulesPanelState extends State<AutoColorRulesPanel> {
               const SizedBox(height: 8),
               Text(
                 'No rules defined',
-                style: TextStyle(
-                  fontSize: 13,
+                style: FluxForgeTheme.dockSans(
+                  size: 13,
                   color: FluxForgeTheme.textTertiary,
-                  fontFamily: FluxForgeTheme.fontFamily,
                 ),
               ),
             ],
@@ -386,11 +379,10 @@ class _AutoColorRulesPanelState extends State<AutoColorRulesPanel> {
               width: 80,
               child: Text(
                 rule.name,
-                style: TextStyle(
-                  fontSize: 12,
+                style: FluxForgeTheme.dockSans(
+                  size: 12,
+                  weight: FontWeight.w500,
                   color: rule.enabled ? FluxForgeTheme.textPrimary : FluxForgeTheme.textDisabled,
-                  fontWeight: FontWeight.w500,
-                  fontFamily: FluxForgeTheme.fontFamily,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -407,12 +399,11 @@ class _AutoColorRulesPanelState extends State<AutoColorRulesPanel> {
                 ),
                 child: Text(
                   rule.pattern,
-                  style: TextStyle(
-                    fontSize: 10,
+                  style: FluxForgeTheme.dockMono(
+                    size: 10,
                     color: rule.enabled
                         ? (isTestMatch ? rule.color : FluxForgeTheme.textSecondary)
                         : FluxForgeTheme.textDisabled,
-                    fontFamily: FluxForgeTheme.monoFontFamily,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -430,12 +421,11 @@ class _AutoColorRulesPanelState extends State<AutoColorRulesPanel> {
                 ),
                 child: Text(
                   'MATCH',
-                  style: TextStyle(
-                    fontSize: 8,
-                    fontWeight: FontWeight.w700,
-                    color: rule.color,
+                  style: FluxForgeTheme.dockSans(
+                    size: 8,
+                    weight: FontWeight.w700,
                     letterSpacing: 0.5,
-                    fontFamily: FluxForgeTheme.fontFamily,
+                    color: rule.color,
                   ),
                 ),
               ),
@@ -566,11 +556,10 @@ class _AutoColorRulesPanelState extends State<AutoColorRulesPanel> {
             const SizedBox(width: 4),
             Text(
               label,
-              style: TextStyle(
-                fontSize: 10,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.w500,
                 color: color,
-                fontWeight: FontWeight.w500,
-                fontFamily: FluxForgeTheme.fontFamily,
               ),
             ),
           ],
@@ -695,10 +684,9 @@ class _RuleEditorState extends State<_RuleEditor> {
                   height: 28,
                   child: TextField(
                     controller: _nameCtrl,
-                    style: TextStyle(
-                      fontSize: 12,
+                    style: FluxForgeTheme.dockSans(
+                      size: 12,
                       color: FluxForgeTheme.textPrimary,
-                      fontFamily: FluxForgeTheme.fontFamily,
                     ),
                     decoration: _inputDecor('Rule name'),
                     cursorColor: FluxForgeTheme.accentBlue,
@@ -740,12 +728,11 @@ class _RuleEditorState extends State<_RuleEditor> {
                   child: TextField(
                     controller: _patternCtrl,
                     onChanged: (_) => _validatePattern(),
-                    style: TextStyle(
-                      fontSize: 11,
+                    style: FluxForgeTheme.dockMono(
+                      size: 11,
                       color: _patternError != null
                           ? const Color(0xFFFF4040)
                           : FluxForgeTheme.textPrimary,
-                      fontFamily: FluxForgeTheme.monoFontFamily,
                     ),
                     decoration: _inputDecor('Regex pattern (e.g. ^drum|kick|snare)'),
                     cursorColor: FluxForgeTheme.accentBlue,
@@ -766,11 +753,10 @@ class _RuleEditorState extends State<_RuleEditor> {
                   ),
                   child: Text(
                     'Save',
-                    style: TextStyle(
-                      fontSize: 11,
+                    style: FluxForgeTheme.dockSans(
+                      size: 11,
+                      weight: FontWeight.w600,
                       color: FluxForgeTheme.accentBlue,
-                      fontWeight: FontWeight.w600,
-                      fontFamily: FluxForgeTheme.fontFamily,
                     ),
                   ),
                 ),
@@ -794,9 +780,9 @@ class _RuleEditorState extends State<_RuleEditor> {
               alignment: Alignment.centerLeft,
               child: Text(
                 _patternError!,
-                style: const TextStyle(
-                  fontSize: 10,
-                  color: Color(0xFFFF4040),
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  color: const Color(0xFFFF4040),
                 ),
               ),
             ),
@@ -808,10 +794,9 @@ class _RuleEditorState extends State<_RuleEditor> {
 
   InputDecoration _inputDecor(String hint) => InputDecoration(
     hintText: hint,
-    hintStyle: TextStyle(
+    hintStyle: FluxForgeTheme.dockMono(
+      size: 11,
       color: FluxForgeTheme.textTertiary.withValues(alpha: 0.5),
-      fontFamily: FluxForgeTheme.monoFontFamily,
-      fontSize: 11,
     ),
     border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(4),

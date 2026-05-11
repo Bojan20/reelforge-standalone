@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/ale_provider.dart';
+import '../../theme/fluxforge_theme.dart';
 import 'context_editor.dart';
 import 'rule_editor.dart';
 import 'signal_monitor.dart';
@@ -359,12 +360,12 @@ class _AlePanelState extends State<AlePanel>
           // ALE logo/title
           const Icon(Icons.auto_awesome, color: Color(0xFF4a9eff), size: 20),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Adaptive Layer Engine',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 14,
+              weight: FontWeight.w600,
               color: Colors.white,
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
             ),
           ),
 
@@ -380,9 +381,9 @@ class _AlePanelState extends State<AlePanel>
               ),
               child: Text(
                 ale.profile!.gameName!,
-                style: const TextStyle(
-                  color: Color(0xFF888888),
-                  fontSize: 11,
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  color: const Color(0xFF888888),
                 ),
               ),
             ),
@@ -410,44 +411,44 @@ class _AlePanelState extends State<AlePanel>
             color: const Color(0xFF1a1a20),
             onSelected: (value) => _handleProfileAction(value, ale),
             itemBuilder: (context) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'new',
                 child: Row(
                   children: [
-                    Icon(Icons.add, size: 16, color: Color(0xFF888888)),
-                    SizedBox(width: 8),
-                    Text('New Profile', style: TextStyle(color: Colors.white)),
+                    const Icon(Icons.add, size: 16, color: Color(0xFF888888)),
+                    const SizedBox(width: 8),
+                    Text('New Profile', style: FluxForgeTheme.dockSans(color: Colors.white)),
                   ],
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'load',
                 child: Row(
                   children: [
-                    Icon(Icons.folder_open, size: 16, color: Color(0xFF888888)),
-                    SizedBox(width: 8),
-                    Text('Load Profile', style: TextStyle(color: Colors.white)),
+                    const Icon(Icons.folder_open, size: 16, color: Color(0xFF888888)),
+                    const SizedBox(width: 8),
+                    Text('Load Profile', style: FluxForgeTheme.dockSans(color: Colors.white)),
                   ],
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'save',
                 child: Row(
                   children: [
-                    Icon(Icons.save, size: 16, color: Color(0xFF888888)),
-                    SizedBox(width: 8),
-                    Text('Save Profile', style: TextStyle(color: Colors.white)),
+                    const Icon(Icons.save, size: 16, color: Color(0xFF888888)),
+                    const SizedBox(width: 8),
+                    Text('Save Profile', style: FluxForgeTheme.dockSans(color: Colors.white)),
                   ],
                 ),
               ),
               const PopupMenuDivider(),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'export',
                 child: Row(
                   children: [
-                    Icon(Icons.download, size: 16, color: Color(0xFF888888)),
-                    SizedBox(width: 8),
-                    Text('Export JSON', style: TextStyle(color: Colors.white)),
+                    const Icon(Icons.download, size: 16, color: Color(0xFF888888)),
+                    const SizedBox(width: 8),
+                    Text('Export JSON', style: FluxForgeTheme.dockSans(color: Colors.white)),
                   ],
                 ),
               ),
@@ -496,12 +497,12 @@ class _AlePanelState extends State<AlePanel>
                 const SizedBox(width: 4),
                 Text(
                   ale.initialized ? 'Engine Running' : 'Engine Stopped',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: FontWeight.w600,
                     color: ale.initialized
                         ? const Color(0xFF40ff90)
                         : const Color(0xFFff4060),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -516,26 +517,26 @@ class _AlePanelState extends State<AlePanel>
             const SizedBox(width: 4),
             Text(
               activeContext.id,
-              style: const TextStyle(
-                color: Color(0xFF4a9eff),
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
+              style: FluxForgeTheme.dockSans(
+                size: 11,
+                weight: FontWeight.w500,
+                color: const Color(0xFF4a9eff),
               ),
             ),
             const SizedBox(width: 8),
             Text(
               'Level ${ale.currentLevel + 1}/${ale.layerCount}',
-              style: const TextStyle(
-                color: Color(0xFF888888),
-                fontSize: 11,
+              style: FluxForgeTheme.dockMono(
+                size: 11,
+                color: const Color(0xFF888888),
               ),
             ),
           ] else
-            const Text(
+            Text(
               'No active context',
-              style: TextStyle(
-                color: Color(0xFF666666),
-                fontSize: 11,
+              style: FluxForgeTheme.dockSans(
+                size: 11,
+                color: const Color(0xFF666666),
               ),
             ),
 
@@ -549,10 +550,10 @@ class _AlePanelState extends State<AlePanel>
                 color: const Color(0xFFffff40).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  SizedBox(
+                  const SizedBox(
                     width: 10,
                     height: 10,
                     child: CircularProgressIndicator(
@@ -560,12 +561,12 @@ class _AlePanelState extends State<AlePanel>
                       valueColor: AlwaysStoppedAnimation(Color(0xFFffff40)),
                     ),
                   ),
-                  SizedBox(width: 4),
+                  const SizedBox(width: 4),
                   Text(
                     'Transitioning',
-                    style: TextStyle(
-                      color: Color(0xFFffff40),
-                      fontSize: 10,
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
+                      color: const Color(0xFFffff40),
                     ),
                   ),
                 ],
@@ -577,9 +578,9 @@ class _AlePanelState extends State<AlePanel>
           // Tempo display
           Text(
             '${ale.tempo.toStringAsFixed(1)} BPM',
-            style: const TextStyle(
-              color: Color(0xFF666666),
-              fontSize: 10,
+            style: FluxForgeTheme.dockMono(
+              size: 10,
+              color: const Color(0xFF666666),
             ),
           ),
         ],
@@ -764,12 +765,12 @@ class _ToolbarButton extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 label,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  weight: FontWeight.w500,
                   color: isActive
                       ? const Color(0xFF4a9eff)
                       : const Color(0xFF888888),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
@@ -795,21 +796,21 @@ class _TestSignalsDropdown extends StatelessWidget {
           color: const Color(0xFF2a2a35),
           borderRadius: BorderRadius.circular(6),
         ),
-        child: const Row(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.science, color: Color(0xFFff9040), size: 16),
-            SizedBox(width: 6),
+            const Icon(Icons.science, color: Color(0xFFff9040), size: 16),
+            const SizedBox(width: 6),
             Text(
               'Test',
-              style: TextStyle(
-                color: Color(0xFFff9040),
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
+              style: FluxForgeTheme.dockSans(
+                size: 11,
+                weight: FontWeight.w500,
+                color: const Color(0xFFff9040),
               ),
             ),
-            SizedBox(width: 4),
-            Icon(Icons.arrow_drop_down, color: Color(0xFFff9040), size: 16),
+            const SizedBox(width: 4),
+            const Icon(Icons.arrow_drop_down, color: Color(0xFFff9040), size: 16),
           ],
         ),
       ),
@@ -892,16 +893,16 @@ class _TestMenuItem extends StatelessWidget {
           children: [
             Text(
               label,
-              style: const TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 12,
                 color: Colors.white,
-                fontSize: 12,
               ),
             ),
             Text(
               description,
-              style: const TextStyle(
-                color: Color(0xFF666666),
-                fontSize: 10,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                color: const Color(0xFF666666),
               ),
             ),
           ],

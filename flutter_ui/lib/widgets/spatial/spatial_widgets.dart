@@ -7,6 +7,7 @@
 /// - SpatialTextField — Text input with label
 
 import 'package:flutter/material.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Compact slider with label
 class SpatialSlider extends StatelessWidget {
@@ -38,18 +39,17 @@ class SpatialSlider extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: enabled ? Colors.white54 : Colors.white24,
-                  fontSize: 9,
+                  size: 9,
                 ),
               ),
               const Spacer(),
               Text(
                 _formatValue(value),
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
                   color: enabled ? Colors.white70 : Colors.white38,
-                  fontSize: 9,
-                  fontFamily: 'monospace',
+                  size: 9,
                 ),
               ),
             ],
@@ -116,7 +116,7 @@ class SpatialDropdown<T extends Enum> extends StatelessWidget {
         children: [
           Text(
             label,
-            style: const TextStyle(color: Colors.white54, fontSize: 9),
+            style: FluxForgeTheme.dockSans(color: Colors.white54, size: 9),
           ),
           const SizedBox(height: 4),
           Container(
@@ -132,7 +132,7 @@ class SpatialDropdown<T extends Enum> extends StatelessWidget {
                 value: value,
                 isExpanded: true,
                 dropdownColor: const Color(0xFF242430),
-                style: const TextStyle(color: Colors.white70, fontSize: 10),
+                style: FluxForgeTheme.dockSans(color: Colors.white70, size: 10),
                 icon: const Icon(Icons.arrow_drop_down,
                     color: Colors.white38, size: 16),
                 items: items.map((item) {
@@ -140,7 +140,7 @@ class SpatialDropdown<T extends Enum> extends StatelessWidget {
                     value: item,
                     child: Text(
                       _formatEnumName(item.name),
-                      style: const TextStyle(fontSize: 10),
+                      style: FluxForgeTheme.dockSans(size: 10),
                     ),
                   );
                 }).toList(),
@@ -219,9 +219,9 @@ class SpatialToggle extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: value ? const Color(0xFF40ff90) : Colors.white54,
-                fontSize: 10,
+                size: 10,
               ),
             ),
           ],
@@ -282,17 +282,17 @@ class _SpatialTextFieldState extends State<SpatialTextField> {
         children: [
           Text(
             widget.label,
-            style: const TextStyle(color: Colors.white54, fontSize: 9),
+            style: FluxForgeTheme.dockSans(color: Colors.white54, size: 9),
           ),
           const SizedBox(height: 4),
           SizedBox(
             height: 28,
             child: TextField(
               controller: _controller,
-              style: const TextStyle(color: Colors.white70, fontSize: 10),
+              style: FluxForgeTheme.dockSans(color: Colors.white70, size: 10),
               decoration: InputDecoration(
                 hintText: widget.hint,
-                hintStyle: const TextStyle(color: Colors.white24, fontSize: 10),
+                hintStyle: FluxForgeTheme.dockSans(color: Colors.white24, size: 10),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 8),
                 filled: true,
                 fillColor: const Color(0xFF121216),
@@ -350,15 +350,14 @@ class SpatialMeter extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: const TextStyle(color: Colors.white54, fontSize: 9),
+                style: FluxForgeTheme.dockSans(color: Colors.white54, size: 9),
               ),
               const Spacer(),
               Text(
                 value.toStringAsFixed(2),
-                style: const TextStyle(
+                style: FluxForgeTheme.dockMono(
                   color: Colors.white70,
-                  fontSize: 9,
-                  fontFamily: 'monospace',
+                  size: 9,
                 ),
               ),
             ],
@@ -411,7 +410,7 @@ class SpatialPanMeter extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: const TextStyle(color: Colors.white54, fontSize: 9),
+                style: FluxForgeTheme.dockSans(color: Colors.white54, size: 9),
               ),
               const Spacer(),
               Text(
@@ -420,10 +419,9 @@ class SpatialPanMeter extends StatelessWidget {
                     : clampedValue > 0.01
                         ? 'R ${(clampedValue * 100).toStringAsFixed(0)}%'
                         : 'C',
-                style: const TextStyle(
+                style: FluxForgeTheme.dockMono(
                   color: Colors.white70,
-                  fontSize: 9,
-                  fontFamily: 'monospace',
+                  size: 9,
                 ),
               ),
             ],
@@ -500,10 +498,10 @@ class SpatialSectionHeader extends StatelessWidget {
           ],
           Text(
             title.toUpperCase(),
-            style: const TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white38,
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
+              size: 9,
+              weight: FontWeight.w600,
               letterSpacing: 1,
             ),
           ),
@@ -542,10 +540,10 @@ class SpatialBadge extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: TextStyle(
+        style: FluxForgeTheme.dockSans(
           color: color,
-          fontSize: 9,
-          fontWeight: FontWeight.bold,
+          size: 9,
+          weight: FontWeight.bold,
         ),
       ),
     );
