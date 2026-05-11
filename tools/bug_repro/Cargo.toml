@@ -1,0 +1,19 @@
+[package]
+name = "bug-repro"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Bug Reproduction Harness — deterministic scenario runner for FluxForge slot engine (C.1)"
+
+[[bin]]
+name = "bug-repro"
+path = "src/main.rs"
+
+[dependencies]
+rf-slot-lab = { path = "../../crates/rf-slot-lab" }
+rf-stage = { path = "../../crates/rf-stage" }
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+anyhow.workspace = true

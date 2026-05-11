@@ -74,6 +74,8 @@ members = [
     "crates/rf-rgai",
     # AI Composer — Multi-provider audio design intelligence (Local/BYOK/Azure)
     "crates/rf-composer",
+    # Bug Reproduction Harness — deterministic scenario runner (C.1)
+    "tools/bug_repro",
 ]
 
 [workspace.package]

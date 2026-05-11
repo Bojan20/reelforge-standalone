@@ -64,7 +64,7 @@
 | # | Stavka | Lokacija | Effort | Status |
 |---|---|---|---|---|
 | C.0 | **Reactivate bug context** — Boki da repeat opis 2 buga (sećanje pominje "prvi je…" ali se rečenica gubi). Ako su to: (a) audio thread silent on first spin, (b) drag-drop assign zaboravlja last layer — već su zatvoreni u `c27dfc3f` / `0c7e43e1` / `f00ce538`. | — | XS | 🟡 NEEDS-INFO |
-| C.1 | **Bug Reproduction Harness** — `tools/bug_repro/` CLI koji uzima JSON scenario (init state + sequence of UI actions kroz `helix_action`) i loop-uje N puta, prijavi prvi divergentni stage_trace. Boki: "ako ne postoje toolovi, napravices ih". | `tools/bug_repro/` (novi crate) | L (1 dan) | 🔴 OPEN |
+| C.1 | **Bug Reproduction Harness** — `tools/bug_repro/` CLI koji uzima JSON scenario (init state + sequence of UI actions kroz `helix_action`) i loop-uje N puta, prijavi prvi divergentni stage_trace. Boki: "ako ne postoje toolovi, napravices ih". | `tools/bug_repro/` (novi crate) | L (1 dan) | ✅ DONE — CLI + 8 built-in scenarija + JSON schema + 9 testova zelena (9/9). Root cause fix: `EngineConfig::Default` impl (serde default != Rust Default). |
 | C.2 | _(slot za bug #1 kad Boki potvrdi opis)_ | — | — | 🟡 PENDING |
 | C.3 | _(slot za bug #2 kad Boki potvrdi opis)_ | — | — | 🟡 PENDING |
 
