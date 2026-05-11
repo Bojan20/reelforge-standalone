@@ -9,6 +9,7 @@ library;
 import 'package:ffi/ffi.dart';
 import 'package:flutter/material.dart';
 import '../../../../src/rust/native_ffi.dart';
+import '../../../../theme/fluxforge_theme.dart';
 import '../../lower_zone_types.dart';
 import 'panel_helpers.dart';
 
@@ -413,9 +414,9 @@ class _AudioSettingsPanelState extends State<AudioSettingsPanel> {
               const SizedBox(width: 6),
               Text(
                 title,
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.bold,
                   color: LowerZoneColors.dawAccent,
                   letterSpacing: 0.5,
                 ),
@@ -423,8 +424,8 @@ class _AudioSettingsPanelState extends State<AudioSettingsPanel> {
               const Spacer(),
               Text(
                 '${devices.length} device${devices.length == 1 ? '' : 's'}',
-                style: const TextStyle(
-                  fontSize: 9,
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
                   color: LowerZoneColors.textMuted,
                 ),
               ),
@@ -432,9 +433,9 @@ class _AudioSettingsPanelState extends State<AudioSettingsPanel> {
           ),
           const SizedBox(height: 8),
           if (devices.isEmpty)
-            const Text(
+            Text(
               'No devices found',
-              style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted),
+              style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textMuted),
             )
           else
             DropdownButtonFormField<String>(
@@ -449,7 +450,7 @@ class _AudioSettingsPanelState extends State<AudioSettingsPanel> {
                 contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               ),
               dropdownColor: LowerZoneColors.bgDeep,
-              style: const TextStyle(fontSize: 11, color: LowerZoneColors.textPrimary),
+              style: FluxForgeTheme.dockSans(size: 11, color: LowerZoneColors.textPrimary),
               items: devices.map((device) {
                 return DropdownMenuItem<String>(
                   value: device.name,
@@ -463,11 +464,11 @@ class _AudioSettingsPanelState extends State<AudioSettingsPanel> {
                             color: LowerZoneColors.success.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(2),
                           ),
-                          child: const Text(
+                          child: Text(
                             'DEFAULT',
-                            style: TextStyle(
-                              fontSize: 8,
-                              fontWeight: FontWeight.bold,
+                            style: FluxForgeTheme.dockSans(
+                              size: 8,
+                              weight: FontWeight.bold,
                               color: LowerZoneColors.success,
                             ),
                           ),
@@ -481,8 +482,8 @@ class _AudioSettingsPanelState extends State<AudioSettingsPanel> {
                       const SizedBox(width: 8),
                       Text(
                         '${device.channelCount}ch',
-                        style: const TextStyle(
-                          fontSize: 9,
+                        style: FluxForgeTheme.dockMono(
+                          size: 9,
                           color: LowerZoneColors.textMuted,
                         ),
                       ),
@@ -529,11 +530,11 @@ class _AudioSettingsPanelState extends State<AudioSettingsPanel> {
             children: [
               const Icon(Icons.speed, size: 14, color: LowerZoneColors.dawAccent),
               const SizedBox(width: 6),
-              const Text(
+              Text(
                 'SAMPLE RATE',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.bold,
                   color: LowerZoneColors.dawAccent,
                   letterSpacing: 0.5,
                 ),
@@ -541,9 +542,9 @@ class _AudioSettingsPanelState extends State<AudioSettingsPanel> {
               const Spacer(),
               Text(
                 _formatSampleRate(_selectedSampleRate),
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockMono(
+                  size: 11,
+                  weight: FontWeight.bold,
                   color: LowerZoneColors.textPrimary,
                 ),
               ),
@@ -585,11 +586,11 @@ class _AudioSettingsPanelState extends State<AudioSettingsPanel> {
             children: [
               const Icon(Icons.memory, size: 14, color: LowerZoneColors.dawAccent),
               const SizedBox(width: 6),
-              const Text(
+              Text(
                 'BUFFER SIZE',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.bold,
                   color: LowerZoneColors.dawAccent,
                   letterSpacing: 0.5,
                 ),
@@ -597,9 +598,9 @@ class _AudioSettingsPanelState extends State<AudioSettingsPanel> {
               const Spacer(),
               Text(
                 '$_selectedBufferSize samples',
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockMono(
+                  size: 11,
+                  weight: FontWeight.bold,
                   color: LowerZoneColors.textPrimary,
                 ),
               ),
@@ -653,10 +654,7 @@ class _AudioSettingsPanelState extends State<AudioSettingsPanel> {
         const SizedBox(width: 4),
         Text(
           '$label ($range)',
-          style: const TextStyle(
-            fontSize: 8,
-            color: LowerZoneColors.textMuted,
-          ),
+          style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted),
         ),
       ],
     );
@@ -705,9 +703,9 @@ class _AudioSettingsPanelState extends State<AudioSettingsPanel> {
                   children: [
                     Text(
                       '${latency.toStringAsFixed(2)} ms',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                      style: FluxForgeTheme.dockMono(
+                        size: 18,
+                        weight: FontWeight.bold,
                         color: latencyColor,
                       ),
                     ),
@@ -720,9 +718,9 @@ class _AudioSettingsPanelState extends State<AudioSettingsPanel> {
                       ),
                       child: Text(
                         latencyLabel,
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
+                        style: FluxForgeTheme.dockSans(
+                          size: 9,
+                          weight: FontWeight.bold,
                           color: latencyColor,
                         ),
                       ),
@@ -732,10 +730,7 @@ class _AudioSettingsPanelState extends State<AudioSettingsPanel> {
                 const SizedBox(height: 2),
                 Text(
                   'Buffer Latency (Round-trip: ${roundTripLatency.toStringAsFixed(2)} ms)',
-                  style: const TextStyle(
-                    fontSize: 9,
-                    color: LowerZoneColors.textMuted,
-                  ),
+                  style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textMuted),
                 ),
               ],
             ),
@@ -809,9 +804,9 @@ class _AudioSettingsPanelState extends State<AudioSettingsPanel> {
         ),
         child: Text(
           label,
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: isSelected ? FontWeight.bold : FontWeight.normal,
             color: isSelected
                 ? LowerZoneColors.dawAccent
                 : LowerZoneColors.textPrimary,
@@ -873,9 +868,9 @@ class AudioSettingsBadge extends StatelessWidget {
                 const SizedBox(width: 4),
                 Text(
                   '${(sampleRate / 1000).toStringAsFixed(1)}k',
-                  style: const TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockMono(
+                    size: 9,
+                    weight: FontWeight.bold,
                     color: LowerZoneColors.textPrimary,
                   ),
                 ),
@@ -888,8 +883,8 @@ class AudioSettingsBadge extends StatelessWidget {
                 const SizedBox(width: 4),
                 Text(
                   '$bufferSize',
-                  style: const TextStyle(
-                    fontSize: 9,
+                  style: FluxForgeTheme.dockMono(
+                    size: 9,
                     color: LowerZoneColors.textMuted,
                   ),
                 ),

@@ -342,12 +342,12 @@ class _BusHierarchyPanelState extends State<BusHierarchyPanel>
             children: [
               const Icon(Icons.account_tree, size: 14, color: FluxForgeTheme.accentGreen),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'BUS HIERARCHY',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.bold,
                   color: FluxForgeTheme.accentGreen,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
                   letterSpacing: 1,
                 ),
               ),
@@ -366,12 +366,12 @@ class _BusHierarchyPanelState extends State<BusHierarchyPanel>
               const SizedBox(width: 4),
               Text(
                 _meterInitialized ? 'FFI' : 'OFF',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
+                  weight: FontWeight.bold,
                   color: _meterInitialized
                       ? FluxForgeTheme.accentGreen
                       : const Color(0xFFFF4040),
-                  fontSize: 8,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
@@ -445,10 +445,10 @@ class _BusHierarchyPanelState extends State<BusHierarchyPanel>
                 Expanded(
                   child: Text(
                     bus.name,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 11,
+                      weight: bus.parentId == null ? FontWeight.bold : FontWeight.normal,
                       color: bus.isMuted ? Colors.white38 : Colors.white,
-                      fontSize: 11,
-                      fontWeight: bus.parentId == null ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),
                 ),
@@ -487,10 +487,10 @@ class _BusHierarchyPanelState extends State<BusHierarchyPanel>
                     child: Center(
                       child: Text(
                         'M',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 9,
+                          weight: FontWeight.bold,
                           color: bus.isMuted ? Colors.white : Colors.white38,
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
@@ -513,10 +513,10 @@ class _BusHierarchyPanelState extends State<BusHierarchyPanel>
                     child: Center(
                       child: Text(
                         'S',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 9,
+                          weight: FontWeight.bold,
                           color: bus.isSolo ? Colors.black : Colors.white38,
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
@@ -592,9 +592,12 @@ class _BusHierarchyPanelState extends State<BusHierarchyPanel>
           children: [
             Icon(Icons.speaker, size: 40, color: Colors.white.withValues(alpha: 0.2)),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Select a bus to view details',
-              style: TextStyle(color: Colors.white38, fontSize: 12),
+              style: FluxForgeTheme.dockSans(
+                size: 12,
+                color: Colors.white38,
+              ),
             ),
           ],
         ),
@@ -614,10 +617,10 @@ class _BusHierarchyPanelState extends State<BusHierarchyPanel>
               const SizedBox(width: 8),
               Text(
                 selectedBus.name.toUpperCase(),
-                style: const TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.bold,
                   color: FluxForgeTheme.accentCyan,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
                   letterSpacing: 1,
                 ),
               ),
@@ -631,13 +634,12 @@ class _BusHierarchyPanelState extends State<BusHierarchyPanel>
                 ),
                 child: Text(
                   _formatDb(selectedBus.meterLevelL, selectedBus.meterLevelR),
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
+                    size: 9,
+                    weight: FontWeight.bold,
                     color: (selectedBus.meterLevelL > 0.9 || selectedBus.meterLevelR > 0.9)
                         ? const Color(0xFFFF4040)
                         : FluxForgeTheme.accentCyan,
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'monospace',
                   ),
                 ),
               ),
@@ -662,12 +664,12 @@ class _BusHierarchyPanelState extends State<BusHierarchyPanel>
                       _buildLargeStereoMeter(selectedBus),
                       const SizedBox(height: 12),
                       // Effects chain
-                      const Text(
+                      Text(
                         'EFFECTS CHAIN',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 9,
+                          weight: FontWeight.bold,
                           color: Colors.white54,
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
                           letterSpacing: 1,
                         ),
                       ),
@@ -690,12 +692,12 @@ class _BusHierarchyPanelState extends State<BusHierarchyPanel>
   Widget _buildVolumeFader(_BusNode bus) {
     return Column(
       children: [
-        const Text(
+        Text(
           'VOL',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 9,
+            weight: FontWeight.bold,
             color: Colors.white54,
-            fontSize: 9,
-            fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 4),
@@ -728,11 +730,10 @@ class _BusHierarchyPanelState extends State<BusHierarchyPanel>
           ),
           child: Text(
             '${(bus.volume * 100).toInt()}%',
-            style: const TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 9,
+              weight: FontWeight.bold,
               color: FluxForgeTheme.accentCyan,
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'monospace',
             ),
           ),
         ),
@@ -748,20 +749,20 @@ class _BusHierarchyPanelState extends State<BusHierarchyPanel>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // L label
-          const SizedBox(
+          SizedBox(
             width: 12,
             child: Center(
-              child: Text('L', style: TextStyle(color: Colors.white38, fontSize: 8)),
+              child: Text('L', style: FluxForgeTheme.dockSans(size: 8, color: Colors.white38)),
             ),
           ),
           // L bar
           Expanded(child: _buildHorizontalMeterBar(bus.meterLevelL, bus.meterPeakL)),
           const SizedBox(height: 2),
           // R label
-          const SizedBox(
+          SizedBox(
             width: 12,
             child: Center(
-              child: Text('R', style: TextStyle(color: Colors.white38, fontSize: 8)),
+              child: Text('R', style: FluxForgeTheme.dockSans(size: 8, color: Colors.white38)),
             ),
           ),
           // R bar
@@ -837,10 +838,10 @@ class _BusHierarchyPanelState extends State<BusHierarchyPanel>
           borderRadius: BorderRadius.circular(4),
           border: Border.all(color: FluxForgeTheme.borderSubtle),
         ),
-        child: const Center(
+        child: Center(
           child: Text(
             'No effects',
-            style: TextStyle(color: Colors.white38, fontSize: 10),
+            style: FluxForgeTheme.dockSans(size: 10, color: Colors.white38),
           ),
         ),
       );
@@ -871,10 +872,10 @@ class _BusHierarchyPanelState extends State<BusHierarchyPanel>
               const SizedBox(width: 6),
               Text(
                 fx,
-                style: const TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.w600,
                   color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -900,17 +901,17 @@ class _BusHierarchyPanelState extends State<BusHierarchyPanel>
         children: [
           const Icon(Icons.arrow_forward, size: 12, color: Colors.white54),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Output:',
-            style: TextStyle(color: Colors.white54, fontSize: 10),
+            style: FluxForgeTheme.dockSans(size: 10, color: Colors.white54),
           ),
           const SizedBox(width: 8),
           Text(
             parent?.name ?? 'Hardware Out',
-            style: const TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.w600,
               color: FluxForgeTheme.accentCyan,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
             ),
           ),
         ],

@@ -14,6 +14,7 @@ library;
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../../theme/fluxforge_theme.dart';
 import '../../lower_zone_types.dart';
 import '../../../../services/track_preset_service.dart';
 import '../../../../providers/mixer_provider.dart';
@@ -145,9 +146,9 @@ class _TrackPresetsPanelState extends State<TrackPresetsPanel> {
         const SizedBox(width: 6),
         Text(
           title,
-          style: const TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: FontWeight.bold,
             color: LowerZoneColors.dawAccent,
             letterSpacing: 0.5,
           ),
@@ -192,9 +193,9 @@ class _TrackPresetsPanelState extends State<TrackPresetsPanel> {
           ),
           child: Text(
             label,
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+            style: FluxForgeTheme.dockSans(
+              size: 9,
+              weight: isSelected ? FontWeight.w600 : FontWeight.normal,
               color: isSelected ? Colors.white : LowerZoneColors.textSecondary,
             ),
           ),
@@ -214,20 +215,14 @@ class _TrackPresetsPanelState extends State<TrackPresetsPanel> {
             color: LowerZoneColors.textTertiary,
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'No presets yet',
-            style: TextStyle(
-              fontSize: 11,
-              color: LowerZoneColors.textSecondary,
-            ),
+            style: FluxForgeTheme.dockSans(size: 11, color: LowerZoneColors.textSecondary),
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Save your track settings as a preset',
-            style: TextStyle(
-              fontSize: 9,
-              color: LowerZoneColors.textTertiary,
-            ),
+            style: FluxForgeTheme.dockSans(size: 9, color: LowerZoneColors.textTertiary),
           ),
         ],
       ),
@@ -253,10 +248,10 @@ class _TrackPresetsPanelState extends State<TrackPresetsPanel> {
               const SizedBox(width: 4),
               Text(
                 tooltip,
-                style: const TextStyle(
-                  fontSize: 9,
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
                   color: LowerZoneColors.dawAccent,
-                  fontWeight: FontWeight.w500,
+                  weight: FontWeight.w500,
                 ),
               ),
             ],
@@ -286,9 +281,9 @@ class _TrackPresetsPanelState extends State<TrackPresetsPanel> {
                 Expanded(
                   child: Text(
                     preset.name,
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
+                      weight: FontWeight.w500,
                       color: LowerZoneColors.textPrimary,
                     ),
                     overflow: TextOverflow.ellipsis,
@@ -303,9 +298,9 @@ class _TrackPresetsPanelState extends State<TrackPresetsPanel> {
                     ),
                     child: Text(
                       preset.category!.substring(0, math.min(3, preset.category!.length)),
-                      style: TextStyle(
-                        fontSize: 7,
-                        fontWeight: FontWeight.w600,
+                      style: FluxForgeTheme.dockSans(
+                        size: 7,
+                        weight: FontWeight.w600,
                         color: _categoryColor(preset.category!),
                       ),
                     ),
@@ -316,10 +311,7 @@ class _TrackPresetsPanelState extends State<TrackPresetsPanel> {
               const SizedBox(height: 2),
               Text(
                 preset.description!,
-                style: const TextStyle(
-                  fontSize: 8,
-                  color: LowerZoneColors.textTertiary,
-                ),
+                style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textTertiary),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -351,10 +343,7 @@ class _TrackPresetsPanelState extends State<TrackPresetsPanel> {
         const SizedBox(width: 2),
         Text(
           value,
-          style: const TextStyle(
-            fontSize: 7,
-            color: LowerZoneColors.textSecondary,
-          ),
+          style: FluxForgeTheme.dockMono(size: 7, color: LowerZoneColors.textSecondary),
         ),
       ],
     );
@@ -440,7 +429,7 @@ class _TrackPresetsPanelState extends State<TrackPresetsPanel> {
         const PopupMenuDivider(),
         PopupMenuItem(
           value: 'delete',
-          child: Text('Delete', style: TextStyle(color: Colors.red.shade300)),
+          child: Text('Delete', style: FluxForgeTheme.dockSans(color: Colors.red.shade300)),
         ),
       ],
     ).then((value) async {
@@ -499,11 +488,11 @@ class _TrackPresetSaveDialogState extends State<TrackPresetSaveDialog> {
         children: [
           Icon(Icons.save_outlined, size: 20, color: LowerZoneColors.dawAccent),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Save Track Preset',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 14,
+              weight: FontWeight.w600,
               color: LowerZoneColors.textPrimary,
             ),
           ),
@@ -516,24 +505,18 @@ class _TrackPresetSaveDialogState extends State<TrackPresetSaveDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Name field
-            const Text(
+            Text(
               'Preset Name',
-              style: TextStyle(
-                fontSize: 11,
-                color: LowerZoneColors.textSecondary,
-              ),
+              style: FluxForgeTheme.dockSans(size: 11, color: LowerZoneColors.textSecondary),
             ),
             const SizedBox(height: 6),
             TextField(
               controller: _nameController,
               autofocus: true,
-              style: const TextStyle(
-                fontSize: 12,
-                color: LowerZoneColors.textPrimary,
-              ),
+              style: FluxForgeTheme.dockSans(size: 12, color: LowerZoneColors.textPrimary),
               decoration: InputDecoration(
                 hintText: 'My Track Preset',
-                hintStyle: const TextStyle(color: LowerZoneColors.textTertiary),
+                hintStyle: FluxForgeTheme.dockSans(color: LowerZoneColors.textTertiary),
                 filled: true,
                 fillColor: LowerZoneColors.bgSurface,
                 border: OutlineInputBorder(
@@ -553,12 +536,9 @@ class _TrackPresetSaveDialogState extends State<TrackPresetSaveDialog> {
             ),
             const SizedBox(height: 16),
             // Category selector
-            const Text(
+            Text(
               'Category',
-              style: TextStyle(
-                fontSize: 11,
-                color: LowerZoneColors.textSecondary,
-              ),
+              style: FluxForgeTheme.dockSans(size: 11, color: LowerZoneColors.textSecondary),
             ),
             const SizedBox(height: 6),
             Wrap(
@@ -585,9 +565,9 @@ class _TrackPresetSaveDialogState extends State<TrackPresetSaveDialog> {
                     ),
                     child: Text(
                       category,
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                      style: FluxForgeTheme.dockSans(
+                        size: 10,
+                        weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                         color: isSelected ? Colors.white : LowerZoneColors.textSecondary,
                       ),
                     ),
@@ -601,9 +581,9 @@ class _TrackPresetSaveDialogState extends State<TrackPresetSaveDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text(
+          child: Text(
             'Cancel',
-            style: TextStyle(color: LowerZoneColors.textSecondary),
+            style: FluxForgeTheme.dockSans(color: LowerZoneColors.textSecondary),
           ),
         ),
         ElevatedButton(

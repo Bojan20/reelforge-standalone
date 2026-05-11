@@ -75,11 +75,10 @@ class AudioCoverageWidget extends StatelessWidget {
                   // Count
                   Text(
                     '$totalAssigned/$totalSlots',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
+                      weight: FontWeight.w600,
                       color: progressColor,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      fontFamily: 'SpaceGrotesk',
                     ),
                   ),
                   const SizedBox(width: 5),
@@ -98,11 +97,10 @@ class AudioCoverageWidget extends StatelessWidget {
                   // Percent
                   Text(
                     '$percent%',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 8,
+                      weight: FontWeight.w500,
                       color: progressColor.withValues(alpha: 0.7),
-                      fontSize: 8,
-                      fontWeight: FontWeight.w500,
-                      fontFamily: 'SpaceGrotesk',
                     ),
                   ),
                 ],
@@ -257,14 +255,13 @@ class _AudioCoverageDialogState extends State<_AudioCoverageDialog> {
                 children: [
                   Icon(Icons.graphic_eq, color: progressColor, size: 20),
                   const SizedBox(width: 10),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Audio Coverage',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 15,
+                        weight: FontWeight.w600,
                         color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: 'SpaceGrotesk',
                       ),
                     ),
                   ),
@@ -280,11 +277,10 @@ class _AudioCoverageDialogState extends State<_AudioCoverageDialog> {
                     ),
                     child: Text(
                       '$percent%',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 14,
+                        weight: FontWeight.w700,
                         color: progressColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        fontFamily: 'SpaceGrotesk',
                       ),
                     ),
                   ),
@@ -309,16 +305,15 @@ class _AudioCoverageDialogState extends State<_AudioCoverageDialog> {
                   ],
 
                   // Per-section bars
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 6),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
                     child: Text(
                       'BY SECTION',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 9,
+                        weight: FontWeight.w600,
                         color: Colors.white38,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w600,
                         letterSpacing: 1.5,
-                        fontFamily: 'SpaceGrotesk',
                       ),
                     ),
                   ),
@@ -336,14 +331,13 @@ class _AudioCoverageDialogState extends State<_AudioCoverageDialog> {
                       padding: const EdgeInsets.only(bottom: 6),
                       child: Row(
                         children: [
-                          const Text(
+                          Text(
                             'MISSING ASSETS',
-                            style: TextStyle(
+                            style: FluxForgeTheme.dockSans(
+                              size: 9,
+                              weight: FontWeight.w600,
                               color: Colors.white38,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w600,
                               letterSpacing: 1.5,
-                              fontFamily: 'SpaceGrotesk',
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -357,11 +351,10 @@ class _AudioCoverageDialogState extends State<_AudioCoverageDialog> {
                             ),
                             child: Text(
                               '${_missingAssets.length}',
-                              style: TextStyle(
+                              style: FluxForgeTheme.dockSans(
+                                size: 9,
+                                weight: FontWeight.w600,
                                 color: FluxForgeTheme.accentRed,
-                                fontSize: 9,
-                                fontWeight: FontWeight.w600,
-                                fontFamily: 'SpaceGrotesk',
                               ),
                             ),
                           ),
@@ -383,9 +376,9 @@ class _AudioCoverageDialogState extends State<_AudioCoverageDialog> {
                 children: [
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    child: const Text(
+                    child: Text(
                       'Close',
-                      style: TextStyle(fontFamily: 'SpaceGrotesk'),
+                      style: FluxForgeTheme.dockSans(),
                     ),
                   ),
                 ],
@@ -407,19 +400,17 @@ class _AudioCoverageDialogState extends State<_AudioCoverageDialog> {
           children: [
             Text(
               'UI Slots Assigned',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 11,
                 color: Colors.white.withValues(alpha: 0.7),
-                fontSize: 11,
-                fontFamily: 'SpaceGrotesk',
               ),
             ),
             Text(
               '$assigned / $total',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 11,
+                weight: FontWeight.w600,
                 color: color,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                fontFamily: 'SpaceGrotesk',
               ),
             ),
           ],
@@ -453,10 +444,9 @@ class _AudioCoverageDialogState extends State<_AudioCoverageDialog> {
               children: [
                 Text(
                   'Canonical Assets',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
                     color: Colors.white.withValues(alpha: 0.7),
-                    fontSize: 11,
-                    fontFamily: 'SpaceGrotesk',
                   ),
                 ),
                 const SizedBox(width: 6),
@@ -474,11 +464,10 @@ class _AudioCoverageDialogState extends State<_AudioCoverageDialog> {
             ),
             Text(
               '$pct%',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 11,
+                weight: FontWeight.w600,
                 color: color,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                fontFamily: 'SpaceGrotesk',
               ),
             ),
           ],
@@ -510,10 +499,9 @@ class _AudioCoverageDialogState extends State<_AudioCoverageDialog> {
             width: 130,
             child: Text(
               name,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 10,
                 color: Colors.white.withValues(alpha: 0.6),
-                fontSize: 10,
-                fontFamily: 'SpaceGrotesk',
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -536,11 +524,10 @@ class _AudioCoverageDialogState extends State<_AudioCoverageDialog> {
             child: Text(
               '$assigned/$total',
               textAlign: TextAlign.right,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 9,
+                weight: FontWeight.w500,
                 color: color.withValues(alpha: 0.7),
-                fontSize: 9,
-                fontWeight: FontWeight.w500,
-                fontFamily: 'SpaceGrotesk',
               ),
             ),
           ),
@@ -582,20 +569,18 @@ class _AudioCoverageDialogState extends State<_AudioCoverageDialog> {
                 const SizedBox(width: 4),
                 Text(
                   categoryLabel,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: FontWeight.w600,
                     color: categoryColor,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    fontFamily: 'SpaceGrotesk',
                   ),
                 ),
                 const SizedBox(width: 6),
                 Text(
                   '${assets.length}',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
                     color: categoryColor.withValues(alpha: 0.5),
-                    fontSize: 9,
-                    fontFamily: 'SpaceGrotesk',
                   ),
                 ),
               ],
@@ -622,10 +607,9 @@ class _AudioCoverageDialogState extends State<_AudioCoverageDialog> {
                   ),
                   child: Text(
                     id,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 8,
                       color: Colors.white.withValues(alpha: 0.5),
-                      fontSize: 8,
-                      fontFamily: 'SpaceGrotesk',
                     ),
                   ),
                 );

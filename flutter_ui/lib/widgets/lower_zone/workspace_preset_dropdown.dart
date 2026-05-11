@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 import '../../models/workspace_preset.dart';
 import '../../services/workspace_preset_service.dart';
+import '../../theme/fluxforge_theme.dart';
 import 'lower_zone_types.dart';
 
 /// Callback for when a preset is applied
@@ -90,8 +91,8 @@ class _WorkspacePresetDropdownState extends State<WorkspacePresetDropdown> {
             const SizedBox(width: 4),
             Text(
               activePreset?.name ?? 'Layout',
-              style: TextStyle(
-                fontSize: LowerZoneTypography.sizeLabel,
+              style: FluxForgeTheme.dockSans(
+                size: LowerZoneTypography.sizeLabel,
                 color: activePreset != null
                     ? widget.accentColor
                     : LowerZoneColors.textSecondary,
@@ -112,14 +113,14 @@ class _WorkspacePresetDropdownState extends State<WorkspacePresetDropdown> {
         // Built-in presets section
         final builtInPresets = presets.where((p) => p.isBuiltIn).toList();
         if (builtInPresets.isNotEmpty) {
-          items.add(const PopupMenuItem(
+          items.add(PopupMenuItem(
             enabled: false,
             height: 24,
             child: Text(
               'BUILT-IN',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.bold,
                 color: LowerZoneColors.textMuted,
               ),
             ),
@@ -133,14 +134,14 @@ class _WorkspacePresetDropdownState extends State<WorkspacePresetDropdown> {
         final customPresets = presets.where((p) => !p.isBuiltIn).toList();
         if (customPresets.isNotEmpty) {
           items.add(const PopupMenuDivider());
-          items.add(const PopupMenuItem(
+          items.add(PopupMenuItem(
             enabled: false,
             height: 24,
             child: Text(
               'CUSTOM',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.bold,
                 color: LowerZoneColors.textMuted,
               ),
             ),
@@ -160,8 +161,8 @@ class _WorkspacePresetDropdownState extends State<WorkspacePresetDropdown> {
               const SizedBox(width: 8),
               Text(
                 'Save Current Layout...',
-                style: TextStyle(
-                  fontSize: 12,
+                style: FluxForgeTheme.dockSans(
+                  size: 12,
                   color: widget.accentColor,
                 ),
               ),
@@ -173,14 +174,14 @@ class _WorkspacePresetDropdownState extends State<WorkspacePresetDropdown> {
         if (activePreset != null) {
           items.add(PopupMenuItem(
             value: _PresetAction(type: _ActionType.clear),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.clear, size: 14, color: LowerZoneColors.textSecondary),
-                SizedBox(width: 8),
+                const Icon(Icons.clear, size: 14, color: LowerZoneColors.textSecondary),
+                const SizedBox(width: 8),
                 Text(
                   'Clear Selection',
-                  style: TextStyle(
-                    fontSize: 12,
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
                     color: LowerZoneColors.textSecondary,
                   ),
                 ),
@@ -213,9 +214,9 @@ class _WorkspacePresetDropdownState extends State<WorkspacePresetDropdown> {
           Expanded(
             child: Text(
               preset.name,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              style: FluxForgeTheme.dockSans(
+                size: 12,
+                weight: isActive ? FontWeight.bold : FontWeight.normal,
                 color: isActive ? widget.accentColor : LowerZoneColors.textPrimary,
               ),
             ),
@@ -271,10 +272,10 @@ class _WorkspacePresetDropdownState extends State<WorkspacePresetDropdown> {
         ),
         title: Text(
           'Save Layout Preset',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 14,
+            weight: FontWeight.bold,
             color: LowerZoneColors.textPrimary,
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
           ),
         ),
         content: Column(
@@ -283,10 +284,10 @@ class _WorkspacePresetDropdownState extends State<WorkspacePresetDropdown> {
             TextField(
               controller: nameController,
               autofocus: true,
-              style: const TextStyle(color: LowerZoneColors.textPrimary, fontSize: 12),
+              style: FluxForgeTheme.dockSans(size: 12, color: LowerZoneColors.textPrimary),
               decoration: InputDecoration(
                 labelText: 'Preset Name',
-                labelStyle: const TextStyle(color: LowerZoneColors.textSecondary, fontSize: 11),
+                labelStyle: FluxForgeTheme.dockSans(size: 11, color: LowerZoneColors.textSecondary),
                 filled: true,
                 fillColor: LowerZoneColors.bgMid,
                 border: OutlineInputBorder(
@@ -299,10 +300,10 @@ class _WorkspacePresetDropdownState extends State<WorkspacePresetDropdown> {
             const SizedBox(height: 12),
             TextField(
               controller: descController,
-              style: const TextStyle(color: LowerZoneColors.textPrimary, fontSize: 12),
+              style: FluxForgeTheme.dockSans(size: 12, color: LowerZoneColors.textPrimary),
               decoration: InputDecoration(
                 labelText: 'Description (optional)',
-                labelStyle: const TextStyle(color: LowerZoneColors.textSecondary, fontSize: 11),
+                labelStyle: FluxForgeTheme.dockSans(size: 11, color: LowerZoneColors.textSecondary),
                 filled: true,
                 fillColor: LowerZoneColors.bgMid,
                 border: OutlineInputBorder(
@@ -317,7 +318,7 @@ class _WorkspacePresetDropdownState extends State<WorkspacePresetDropdown> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: LowerZoneColors.textSecondary)),
+            child: Text('Cancel', style: FluxForgeTheme.dockSans(color: LowerZoneColors.textSecondary)),
           ),
           TextButton(
             onPressed: () async {
@@ -336,7 +337,7 @@ class _WorkspacePresetDropdownState extends State<WorkspacePresetDropdown> {
 
               if (mounted) Navigator.pop(context);
             },
-            child: Text('Save', style: TextStyle(color: widget.accentColor)),
+            child: Text('Save', style: FluxForgeTheme.dockSans(color: widget.accentColor)),
           ),
         ],
       ),
@@ -355,29 +356,29 @@ class _WorkspacePresetDropdownState extends State<WorkspacePresetDropdown> {
           borderRadius: BorderRadius.circular(8),
           side: const BorderSide(color: LowerZoneColors.border),
         ),
-        title: const Text(
+        title: Text(
           'Delete Preset?',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 14,
+            weight: FontWeight.bold,
             color: LowerZoneColors.textPrimary,
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
           ),
         ),
         content: Text(
           'Are you sure you want to delete "${preset.name}"? This cannot be undone.',
-          style: const TextStyle(color: LowerZoneColors.textSecondary, fontSize: 12),
+          style: FluxForgeTheme.dockSans(size: 12, color: LowerZoneColors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: LowerZoneColors.textSecondary)),
+            child: Text('Cancel', style: FluxForgeTheme.dockSans(color: LowerZoneColors.textSecondary)),
           ),
           TextButton(
             onPressed: () async {
               await _service.deletePreset(preset.id);
               if (mounted) Navigator.pop(context);
             },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: Text('Delete', style: FluxForgeTheme.dockSans(color: Colors.red)),
           ),
         ],
       ),

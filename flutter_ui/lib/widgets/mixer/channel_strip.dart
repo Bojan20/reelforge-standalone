@@ -359,9 +359,9 @@ class _ChannelStripState extends State<ChannelStrip> {
       alignment: Alignment.center,
       child: Text(
         widget.data.name,
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
+        style: FluxForgeTheme.dockSans(
+          size: 10,
+          weight: FontWeight.w600,
           color: FluxForgeTheme.textPrimary,
         ),
         overflow: TextOverflow.ellipsis,
@@ -383,8 +383,8 @@ class _ChannelStripState extends State<ChannelStrip> {
           Expanded(
             child: Text(
               widget.data.inputSource ?? 'No Input',
-              style: TextStyle(
-                fontSize: 9,
+              style: FluxForgeTheme.dockSans(
+                size: 9,
                 color: FluxForgeTheme.textSecondary,
               ),
               overflow: TextOverflow.ellipsis,
@@ -401,8 +401,8 @@ class _ChannelStripState extends State<ChannelStrip> {
             child: Center(
               child: Text(
                 '${widget.data.inputTrim.toStringAsFixed(0)}',
-                style: TextStyle(
-                  fontSize: 8,
+                style: FluxForgeTheme.dockMono(
+                  size: 8,
                   color: FluxForgeTheme.textTertiary,
                 ),
               ),
@@ -433,9 +433,9 @@ class _ChannelStripState extends State<ChannelStrip> {
         children: [
           Text(
             'INSERTS',
-            style: TextStyle(
-              fontSize: 8,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 8,
+              weight: FontWeight.bold,
               color: FluxForgeTheme.textTertiary,
             ),
           ),
@@ -507,8 +507,8 @@ class _ChannelStripState extends State<ChannelStrip> {
               // Slot number
               Text(
                 '${index + 1}',
-                style: TextStyle(
-                  fontSize: 8,
+                style: FluxForgeTheme.dockMono(
+                  size: 8,
                   color: FluxForgeTheme.textTertiary,
                 ),
               ),
@@ -532,8 +532,8 @@ class _ChannelStripState extends State<ChannelStrip> {
               Expanded(
                 child: Text(
                   slot.pluginName ?? '—',
-                  style: TextStyle(
-                    fontSize: 9,
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
                     color: textColor,
                   ),
                   overflow: TextOverflow.ellipsis,
@@ -585,9 +585,9 @@ class _ChannelStripState extends State<ChannelStrip> {
           alignment: Alignment.center,
           child: Text(
             'EQ',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.w600,
               color: widget.data.eqEnabled
                   ? FluxForgeTheme.accentOrange
                   : FluxForgeTheme.textTertiary,
@@ -617,9 +617,9 @@ class _ChannelStripState extends State<ChannelStrip> {
         alignment: Alignment.center,
         child: Text(
           'DYN',
-          style: TextStyle(
-            fontSize: 9,
-            fontWeight: FontWeight.w600,
+          style: FluxForgeTheme.dockSans(
+            size: 9,
+            weight: FontWeight.w600,
             color: widget.data.dynamicsEnabled
                 ? FluxForgeTheme.accentPurple
                 : FluxForgeTheme.textTertiary,
@@ -641,9 +641,9 @@ class _ChannelStripState extends State<ChannelStrip> {
         children: [
           Text(
             'SENDS',
-            style: TextStyle(
-              fontSize: 8,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 8,
+              weight: FontWeight.bold,
               color: FluxForgeTheme.textTertiary,
             ),
           ),
@@ -683,8 +683,8 @@ class _ChannelStripState extends State<ChannelStrip> {
                       : slot.levelDb.isFinite
                           ? '${slot.levelDb.toStringAsFixed(0)}'
                           : '-∞',
-                  style: TextStyle(
-                    fontSize: 8,
+                  style: FluxForgeTheme.dockMono(
+                    size: 8,
                     color: slot.enabled
                         ? FluxForgeTheme.textSecondary
                         : FluxForgeTheme.textTertiary,
@@ -714,8 +714,8 @@ class _ChannelStripState extends State<ChannelStrip> {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   slot.destinationName ?? '—',
-                  style: TextStyle(
-                    fontSize: 8,
+                  style: FluxForgeTheme.dockSans(
+                    size: 8,
                     color: slot.isEmpty
                         ? FluxForgeTheme.textTertiary
                         : slot.enabled
@@ -733,9 +733,9 @@ class _ChannelStripState extends State<ChannelStrip> {
                 alignment: Alignment.center,
                 child: Text(
                   slot.preFader ? 'P' : '',
-                  style: TextStyle(
-                    fontSize: 7,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    size: 7,
+                    weight: FontWeight.bold,
                     color: FluxForgeTheme.accentBlue,
                   ),
                 ),
@@ -804,8 +804,8 @@ class _ChannelStripState extends State<ChannelStrip> {
                 child: Center(
                   child: Text(
                     _panLabel,
-                    style: TextStyle(
-                      fontSize: 9,
+                    style: FluxForgeTheme.dockMono(
+                      size: 9,
                       color: FluxForgeTheme.textTertiary,
                     ),
                   ),
@@ -967,8 +967,8 @@ class _ChannelStripState extends State<ChannelStrip> {
                     top: _dbToPosition(db.toDouble(), trackHeight) - 4,
                     child: Text(
                       '$db',
-                      style: TextStyle(
-                        fontSize: 7,
+                      style: FluxForgeTheme.dockMono(
+                        size: 7,
                         color: FluxForgeTheme.textTertiary,
                       ),
                     ),
@@ -1032,9 +1032,9 @@ class _ChannelStripState extends State<ChannelStrip> {
                   child: Center(
                     child: Text(
                       _faderDbLabel,
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w600,
+                      style: FluxForgeTheme.dockMono(
+                        size: 9,
+                        weight: FontWeight.w600,
                         color: FluxForgeTheme.textSecondary,
                       ),
                     ),
@@ -1113,9 +1113,9 @@ class _ChannelStripState extends State<ChannelStrip> {
         alignment: Alignment.center,
         child: Text(
           label,
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: FontWeight.bold,
             color: active ? FluxForgeTheme.bgDeepest : FluxForgeTheme.textTertiary,
           ),
         ),
@@ -1136,8 +1136,8 @@ class _ChannelStripState extends State<ChannelStrip> {
       alignment: Alignment.center,
       child: Text(
         widget.data.outputDestination ?? 'Master',
-        style: TextStyle(
-          fontSize: 9,
+        style: FluxForgeTheme.dockSans(
+          size: 9,
           color: FluxForgeTheme.textSecondary,
         ),
         overflow: TextOverflow.ellipsis,

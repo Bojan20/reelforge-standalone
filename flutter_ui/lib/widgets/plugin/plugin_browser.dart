@@ -13,6 +13,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/plugin_provider.dart';
+import '../../theme/fluxforge_theme.dart';
 import '../common/fluxforge_search_field.dart';
 
 /// Plugin browser panel for selecting and loading plugins
@@ -129,18 +130,18 @@ class _PluginBrowserState extends State<PluginBrowser> {
             children: [
               const Icon(Icons.extension, size: 16, color: Color(0xFF4A9EFF)),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'Plugin Browser',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
+                  size: 13,
+                  weight: FontWeight.w500,
                 ),
               ),
               const Spacer(),
               Text(
                 '${provider.filteredPlugins.length} plugins',
-                style: const TextStyle(color: Color(0xFF808080), fontSize: 11),
+                style: FluxForgeTheme.dockSans(color: const Color(0xFF808080), size: 11),
               ),
               const SizedBox(width: 12),
               IconButton(
@@ -269,10 +270,10 @@ class _PluginBrowserState extends State<PluginBrowser> {
               ],
               Text(
                 label,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: isSelected ? (color ?? const Color(0xFF4A9EFF)) : const Color(0xFF808080),
-                  fontSize: 11,
-                  fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+                  size: 11,
+                  weight: isSelected ? FontWeight.w500 : FontWeight.normal,
                 ),
               ),
             ],
@@ -298,7 +299,7 @@ class _PluginBrowserState extends State<PluginBrowser> {
                 const SizedBox(height: 16),
                 Text(
                   'Scanning plugins... ${(provider.scanProgress * 100).toInt()}%',
-                  style: const TextStyle(color: Color(0xFF808080), fontSize: 13),
+                  style: FluxForgeTheme.dockSans(color: const Color(0xFF808080), size: 13),
                 ),
               ],
             ),
@@ -314,7 +315,7 @@ class _PluginBrowserState extends State<PluginBrowser> {
                 const SizedBox(height: 12),
                 Text(
                   provider.scanError ?? 'Plugin scan failed',
-                  style: TextStyle(color: Colors.red.withValues(alpha: 0.8), fontSize: 13),
+                  style: FluxForgeTheme.dockSans(color: Colors.red.withValues(alpha: 0.8), size: 13),
                 ),
                 const SizedBox(height: 8),
                 TextButton.icon(
@@ -340,7 +341,7 @@ class _PluginBrowserState extends State<PluginBrowser> {
                       : provider.allPlugins.isEmpty
                           ? 'No plugins found'
                           : 'No plugins match filters',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 13),
+                  style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.5), size: 13),
                 ),
                 const SizedBox(height: 8),
                 if (provider.allPlugins.isEmpty)
@@ -391,10 +392,10 @@ class _PluginBrowserState extends State<PluginBrowser> {
                       alignment: Alignment.center,
                       child: Text(
                         _getFormatLabel(plugin.format),
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockMono(
                           color: _getFormatColor(plugin.format),
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
+                          size: 9,
+                          weight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -403,14 +404,13 @@ class _PluginBrowserState extends State<PluginBrowser> {
                     Expanded(
                       child: Text(
                         plugin.name,
-                        style: const TextStyle(color: Colors.white, fontSize: 12),
-                        overflow: TextOverflow.ellipsis,
+                        style: FluxForgeTheme.dockSans(color: Colors.white, size: 12).copyWith(overflow: TextOverflow.ellipsis),
                       ),
                     ),
                     // Vendor
                     Text(
                       plugin.vendor,
-                      style: const TextStyle(color: Color(0xFF606060), fontSize: 11),
+                      style: FluxForgeTheme.dockSans(color: const Color(0xFF606060), size: 11),
                     ),
                     const SizedBox(width: 8),
                     // Favorite toggle
@@ -463,10 +463,10 @@ class _PluginBrowserState extends State<PluginBrowser> {
                 alignment: Alignment.center,
                 child: Text(
                   _getFormatLabel(plugin.format),
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
                     color: _getFormatColor(plugin.format),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                    size: 16,
+                    weight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -482,10 +482,10 @@ class _PluginBrowserState extends State<PluginBrowser> {
                         Expanded(
                           child: Text(
                             plugin.name,
-                            style: const TextStyle(
+                            style: FluxForgeTheme.dockSans(
                               color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
+                              size: 14,
+                              weight: FontWeight.w500,
                             ),
                           ),
                         ),
@@ -502,12 +502,12 @@ class _PluginBrowserState extends State<PluginBrowser> {
                     const SizedBox(height: 2),
                     Text(
                       '${plugin.vendor} \u2022 ${plugin.categoryName}',
-                      style: const TextStyle(color: Color(0xFF808080), fontSize: 11),
+                      style: FluxForgeTheme.dockSans(color: const Color(0xFF808080), size: 11),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       plugin.id,
-                      style: const TextStyle(color: Color(0xFF505050), fontSize: 10),
+                      style: FluxForgeTheme.dockMono(color: const Color(0xFF505050), size: 10),
                     ),
                   ],
                 ),
@@ -521,7 +521,7 @@ class _PluginBrowserState extends State<PluginBrowser> {
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                 ),
-                child: const Text('Load', style: TextStyle(fontSize: 12)),
+                child: Text('Load', style: FluxForgeTheme.dockSans(size: 12)),
               ),
             ],
           ),
@@ -613,9 +613,9 @@ class PluginSelector extends StatelessWidget {
                 const SizedBox(width: 6),
                 Text(
                   selectedPlugin?.name ?? 'Select Plugin',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: selectedPlugin != null ? Colors.white : const Color(0xFF606060),
-                    fontSize: 12,
+                    size: 12,
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -688,9 +688,9 @@ class RecentPluginsBar extends StatelessWidget {
             children: [
               const Icon(Icons.history, size: 14, color: Color(0xFF606060)),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'Recent:',
-                style: TextStyle(color: Color(0xFF606060), fontSize: 11),
+                style: FluxForgeTheme.dockSans(color: const Color(0xFF606060), size: 11),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -711,7 +711,7 @@ class RecentPluginsBar extends StatelessWidget {
                         ),
                         child: Text(
                           plugin.name,
-                          style: const TextStyle(color: Colors.white, fontSize: 11),
+                          style: FluxForgeTheme.dockSans(color: Colors.white, size: 11),
                         ),
                       ),
                     );

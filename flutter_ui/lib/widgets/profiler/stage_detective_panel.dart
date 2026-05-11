@@ -9,6 +9,7 @@
 
 import 'package:flutter/material.dart';
 import '../../services/stage_resolution_tracer.dart';
+import '../../theme/fluxforge_theme.dart';
 
 class StageDetectivePanel extends StatefulWidget {
   const StageDetectivePanel({super.key});
@@ -78,9 +79,9 @@ class _StageDetectivePanelState extends State<StageDetectivePanel> {
         children: [
           const Icon(Icons.search, size: 20, color: Colors.cyan),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Stage Detective',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            style: FluxForgeTheme.dockSans(size: 16, weight: FontWeight.bold),
           ),
           const Spacer(),
 
@@ -100,9 +101,9 @@ class _StageDetectivePanelState extends State<StageDetectivePanel> {
           const SizedBox(width: 8),
           Text(
             tracer.enabled ? 'Enabled' : 'Disabled',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 12,
               color: tracer.enabled ? Colors.green : Colors.grey,
-              fontSize: 12,
             ),
           ),
 
@@ -195,16 +196,16 @@ class _StageDetectivePanelState extends State<StageDetectivePanel> {
                 const SizedBox(width: 4),
                 Text(
                   label,
-                  style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+                  style: FluxForgeTheme.dockSans(size: 11, color: Colors.grey[400]!),
                 ),
               ],
             ),
             const SizedBox(height: 4),
             Text(
               value,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(
+                size: 16,
+                weight: FontWeight.bold,
                 color: color,
               ),
             ),
@@ -231,7 +232,7 @@ class _StageDetectivePanelState extends State<StageDetectivePanel> {
                 ),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               ),
-              style: const TextStyle(fontSize: 13),
+              style: FluxForgeTheme.dockSans(size: 13),
               onChanged: (value) {
                 setState(() {
                   _searchQuery = value;
@@ -277,12 +278,12 @@ class _StageDetectivePanelState extends State<StageDetectivePanel> {
             const SizedBox(height: 16),
             Text(
               'No traces yet',
-              style: TextStyle(color: Colors.grey[500]),
+              style: FluxForgeTheme.dockSans(color: Colors.grey[500]!),
             ),
             const SizedBox(height: 8),
             Text(
               'Enable tracing and trigger audio events',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              style: FluxForgeTheme.dockSans(size: 12, color: Colors.grey[600]!),
             ),
           ],
         ),
@@ -331,21 +332,19 @@ class _StageDetectivePanelState extends State<StageDetectivePanel> {
                 Expanded(
                   child: Text(
                     trace.originalStage,
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                    overflow: TextOverflow.ellipsis,
+                    style: FluxForgeTheme.dockSans(size: 13, weight: FontWeight.bold).copyWith(overflow: TextOverflow.ellipsis),
                   ),
                 ),
                 Text(
                   '${trace.resolutionTimeMs?.toStringAsFixed(1) ?? "?"}ms',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                  style: FluxForgeTheme.dockMono(size: 12, color: Colors.grey[400]!),
                 ),
               ],
             ),
             const SizedBox(height: 4),
             Text(
               trace.summary,
-              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-              overflow: TextOverflow.ellipsis,
+              style: FluxForgeTheme.dockSans(size: 11, color: Colors.grey[500]!).copyWith(overflow: TextOverflow.ellipsis),
             ),
           ],
         ),
@@ -377,12 +376,12 @@ class _StageDetectivePanelState extends State<StageDetectivePanel> {
                     children: [
                       Text(
                         trace.originalStage,
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                        style: FluxForgeTheme.dockSans(size: 14, weight: FontWeight.bold),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         trace.summary,
-                        style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                        style: FluxForgeTheme.dockSans(size: 12, color: Colors.grey[400]!),
                       ),
                     ],
                   ),
@@ -392,11 +391,11 @@ class _StageDetectivePanelState extends State<StageDetectivePanel> {
                   children: [
                     Text(
                       '${trace.resolutionTimeMs?.toStringAsFixed(2) ?? "?"}ms',
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                      style: FluxForgeTheme.dockMono(size: 13, weight: FontWeight.bold),
                     ),
                     Text(
                       '${trace.steps.length} steps',
-                      style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                      style: FluxForgeTheme.dockSans(size: 11, color: Colors.grey[500]!),
                     ),
                   ],
                 ),
@@ -443,7 +442,7 @@ class _StageDetectivePanelState extends State<StageDetectivePanel> {
             child: Center(
               child: Text(
                 '$stepNumber',
-                style: TextStyle(fontSize: 11, color: step.color, fontWeight: FontWeight.bold),
+                style: FluxForgeTheme.dockMono(size: 11, color: step.color, weight: FontWeight.bold),
               ),
             ),
           ),
@@ -460,7 +459,7 @@ class _StageDetectivePanelState extends State<StageDetectivePanel> {
               children: [
                 Text(
                   step.description,
-                  style: const TextStyle(fontSize: 13),
+                  style: FluxForgeTheme.dockSans(size: 13),
                 ),
                 if (step.data != null && step.data!.isNotEmpty) ...[
                   const SizedBox(height: 4),
@@ -468,7 +467,7 @@ class _StageDetectivePanelState extends State<StageDetectivePanel> {
                     padding: const EdgeInsets.only(top: 2),
                     child: Text(
                       '${entry.key}: ${entry.value}',
-                      style: TextStyle(fontSize: 11, color: Colors.grey[500], fontFamily: 'monospace'),
+                      style: FluxForgeTheme.dockMono(size: 11, color: Colors.grey[500]!),
                     ),
                   )),
                 ],
