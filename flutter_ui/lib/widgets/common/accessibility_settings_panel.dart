@@ -14,6 +14,7 @@ library;
 
 import 'package:flutter/material.dart';
 import '../../services/accessibility/accessibility_service.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Full accessibility settings panel
 class AccessibilitySettingsPanel extends StatefulWidget {
@@ -50,20 +51,20 @@ class _AccessibilitySettingsPanelState extends State<AccessibilitySettingsPanel>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header
-          const Text(
+          Text(
             'Accessibility',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 18,
+              weight: FontWeight.bold,
               color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             'Customize FluxForge for your needs',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 12,
               color: Colors.white54,
-              fontSize: 12,
             ),
           ),
           const SizedBox(height: 24),
@@ -160,17 +161,17 @@ class _AccessibilitySettingsPanelState extends State<AccessibilitySettingsPanel>
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 14,
+                        weight: FontWeight.w600,
                         color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     Text(
                       subtitle,
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 11,
                         color: Colors.white54,
-                        fontSize: 11,
                       ),
                     ),
                   ],
@@ -212,10 +213,10 @@ class _AccessibilitySettingsPanelState extends State<AccessibilitySettingsPanel>
                     const SizedBox(height: 8),
                     Text(
                       mode.displayName,
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 11,
+                        weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                         color: isSelected ? const Color(0xFF4A9EFF) : Colors.white70,
-                        fontSize: 11,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                       ),
                     ),
                   ],
@@ -286,10 +287,10 @@ class _AccessibilitySettingsPanelState extends State<AccessibilitySettingsPanel>
                 const SizedBox(width: 8),
                 Text(
                   mode == ColorBlindnessMode.none ? 'None' : mode.displayName.split(' ')[0],
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
+                    weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                     color: isSelected ? const Color(0xFF4A9EFF) : Colors.white70,
-                    fontSize: 11,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                   ),
                 ),
               ],
@@ -329,7 +330,7 @@ class _AccessibilitySettingsPanelState extends State<AccessibilitySettingsPanel>
       children: [
         Row(
           children: [
-            const Text('A', style: TextStyle(color: Colors.white54, fontSize: 10)),
+            Text('A', style: FluxForgeTheme.dockSans(size: 10, color: Colors.white54)),
             Expanded(
               child: Slider(
                 value: service.textScale,
@@ -341,7 +342,7 @@ class _AccessibilitySettingsPanelState extends State<AccessibilitySettingsPanel>
                 onChanged: (v) => service.setTextScale(v),
               ),
             ),
-            const Text('A', style: TextStyle(color: Colors.white54, fontSize: 18)),
+            Text('A', style: FluxForgeTheme.dockSans(size: 18, color: Colors.white54)),
           ],
         ),
         Row(
@@ -349,19 +350,19 @@ class _AccessibilitySettingsPanelState extends State<AccessibilitySettingsPanel>
           children: [
             Text(
               '80%',
-              style: TextStyle(color: Colors.white38, fontSize: 10),
+              style: FluxForgeTheme.dockMono(size: 10, color: Colors.white38),
             ),
             Text(
               '${(service.textScale * 100).toInt()}%',
-              style: const TextStyle(
-                color: Color(0xFF4A9EFF),
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockMono(
+                size: 12,
+                weight: FontWeight.w600,
+                color: const Color(0xFF4A9EFF),
               ),
             ),
             Text(
               '200%',
-              style: TextStyle(color: Colors.white38, fontSize: 10),
+              style: FluxForgeTheme.dockMono(size: 10, color: Colors.white38),
             ),
           ],
         ),
@@ -383,16 +384,16 @@ class _AccessibilitySettingsPanelState extends State<AccessibilitySettingsPanel>
             children: [
               Text(
                 title,
-                style: const TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 13,
                   color: Colors.white,
-                  fontSize: 13,
                 ),
               ),
               Text(
                 subtitle,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
                   color: Colors.white54,
-                  fontSize: 11,
                 ),
               ),
             ],
@@ -418,12 +419,12 @@ class _AccessibilitySettingsPanelState extends State<AccessibilitySettingsPanel>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Preview',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 12,
+              weight: FontWeight.w500,
               color: Colors.white70,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
             ),
           ),
           const SizedBox(height: 12),
@@ -441,16 +442,16 @@ class _AccessibilitySettingsPanelState extends State<AccessibilitySettingsPanel>
           const SizedBox(height: 16),
           Text(
             'Sample Text',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 14 * service.textScale,
               color: service.applyHighContrast(Colors.white70),
-              fontSize: 14 * service.textScale,
             ),
           ),
           Text(
             'This is how text will appear with current settings.',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 12 * service.textScale,
               color: service.applyHighContrast(Colors.white54),
-              fontSize: 12 * service.textScale,
             ),
           ),
         ],
@@ -476,9 +477,9 @@ class _AccessibilitySettingsPanelState extends State<AccessibilitySettingsPanel>
           const SizedBox(height: 4),
           Text(
             name,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 9,
               color: Colors.white54,
-              fontSize: 9,
             ),
           ),
         ],
@@ -531,10 +532,10 @@ class _AccessibilityQuickMenuState extends State<AccessibilityQuickMenu> {
           enabled: false,
           child: Text(
             'Quick Settings',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.w500,
               color: Colors.white54,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
             ),
           ),
         ),
@@ -553,7 +554,7 @@ class _AccessibilityQuickMenuState extends State<AccessibilityQuickMenu> {
               const SizedBox(width: 8),
               Text(
                 'High Contrast: ${service.highContrastMode.displayName}',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: service.isHighContrastEnabled
                       ? const Color(0xFF4A9EFF)
                       : Colors.white,
@@ -576,7 +577,7 @@ class _AccessibilityQuickMenuState extends State<AccessibilityQuickMenu> {
               const SizedBox(width: 8),
               Text(
                 'Screen Reader: ${service.screenReaderEnabled ? "On" : "Off"}',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: service.screenReaderEnabled
                       ? const Color(0xFF4A9EFF)
                       : Colors.white,
@@ -586,13 +587,13 @@ class _AccessibilityQuickMenuState extends State<AccessibilityQuickMenu> {
           ),
         ),
         const PopupMenuDivider(),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'settings',
           child: Row(
             children: [
-              Icon(Icons.settings, color: Colors.white54, size: 18),
-              SizedBox(width: 8),
-              Text('All Settings...', style: TextStyle(color: Colors.white)),
+              const Icon(Icons.settings, color: Colors.white54, size: 18),
+              const SizedBox(width: 8),
+              Text('All Settings...', style: FluxForgeTheme.dockSans(color: Colors.white)),
             ],
           ),
         ),
@@ -633,12 +634,12 @@ class _AccessibilityQuickMenuState extends State<AccessibilityQuickMenu> {
                   children: [
                     const Icon(Icons.accessibility_new, color: Color(0xFF4A9EFF)),
                     const SizedBox(width: 8),
-                    const Text(
+                    Text(
                       'Accessibility Settings',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 16,
+                        weight: FontWeight.bold,
                         color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
                       ),
                     ),
                     const Spacer(),

@@ -128,10 +128,10 @@ class _RtpcDspBindingEditorPanelState extends State<RtpcDspBindingEditorPanel> {
           const SizedBox(width: 8),
           Text(
             'RTPC → DSP Bindings',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 13,
+              weight: FontWeight.w600,
               color: FluxForgeTheme.textPrimary,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(width: 8),
@@ -143,10 +143,10 @@ class _RtpcDspBindingEditorPanelState extends State<RtpcDspBindingEditorPanel> {
             ),
             child: Text(
               '$count',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 11,
+                weight: FontWeight.w600,
                 color: _orange,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -191,13 +191,13 @@ class _RtpcDspBindingEditorPanelState extends State<RtpcDspBindingEditorPanel> {
               const SizedBox(height: 12),
               Text(
                 'No DSP Bindings',
-                style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 14),
+                style: FluxForgeTheme.dockSans(size: 14, color: FluxForgeTheme.textMuted),
               ),
               const SizedBox(height: 8),
               Text(
                 'Create a binding to route\nRTPC to DSP parameters',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: FluxForgeTheme.textMuted.withValues(alpha: 0.7), fontSize: 11),
+                style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textMuted.withValues(alpha: 0.7)),
               ),
             ],
           ),
@@ -237,7 +237,7 @@ class _RtpcDspBindingEditorPanelState extends State<RtpcDspBindingEditorPanel> {
           const SizedBox(height: 12),
           Text(
             'Select a binding or create new',
-            style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 13),
+            style: FluxForgeTheme.dockSans(size: 13, color: FluxForgeTheme.textMuted),
           ),
         ],
       ),
@@ -260,10 +260,10 @@ class _RtpcDspBindingEditorPanelState extends State<RtpcDspBindingEditorPanel> {
               const SizedBox(width: 8),
               Text(
                 'Create DSP Binding',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 12,
+                  weight: FontWeight.w600,
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
               const Spacer(),
@@ -313,7 +313,7 @@ class _RtpcDspBindingEditorPanelState extends State<RtpcDspBindingEditorPanel> {
               ),
               child: Text(
                 'Processor: ${DspRtpcModulator.getProcessorForParameter(_newTarget)?.fullName ?? "Any"}',
-                style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 11),
+                style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textMuted),
               ),
             ),
           ]),
@@ -413,10 +413,10 @@ class _RtpcDspBindingEditorPanelState extends State<RtpcDspBindingEditorPanel> {
               Expanded(
                 child: Text(
                   binding.label ?? 'DSP Binding',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
+                    weight: FontWeight.w600,
                     color: FluxForgeTheme.textPrimary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -487,7 +487,7 @@ class _RtpcDspBindingEditorPanelState extends State<RtpcDspBindingEditorPanel> {
                   width: 80,
                   child: Text(
                     'RTPC Input:',
-                    style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 12),
+                    style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textMuted),
                   ),
                 ),
                 Expanded(
@@ -514,7 +514,7 @@ class _RtpcDspBindingEditorPanelState extends State<RtpcDspBindingEditorPanel> {
                   width: 50,
                   child: Text(
                     '${(_previewRtpcValue * 100).toStringAsFixed(0)}%',
-                    style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
+                    style: FluxForgeTheme.dockMono(size: 12, color: FluxForgeTheme.textPrimary),
                     textAlign: TextAlign.right,
                   ),
                 ),
@@ -528,7 +528,7 @@ class _RtpcDspBindingEditorPanelState extends State<RtpcDspBindingEditorPanel> {
                   width: 80,
                   child: Text(
                     'Output:',
-                    style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 12),
+                    style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textMuted),
                   ),
                 ),
                 Expanded(
@@ -541,11 +541,10 @@ class _RtpcDspBindingEditorPanelState extends State<RtpcDspBindingEditorPanel> {
                     ),
                     child: Text(
                       DspRtpcModulator.instance.formatParameterValue(binding.target, outputValue),
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockMono(
+                        size: 14,
+                        weight: FontWeight.w600,
                         color: _orange,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: 'monospace',
                       ),
                     ),
                   ),
@@ -560,11 +559,11 @@ class _RtpcDspBindingEditorPanelState extends State<RtpcDspBindingEditorPanel> {
                 children: [
                   Text(
                     'Range: ${DspRtpcModulator.instance.formatParameterValue(binding.target, range.min)}',
-                    style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 11),
+                    style: FluxForgeTheme.dockMono(size: 11, color: FluxForgeTheme.textMuted),
                   ),
                   Text(
                     '→ ${DspRtpcModulator.instance.formatParameterValue(binding.target, range.max)}',
-                    style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 11),
+                    style: FluxForgeTheme.dockMono(size: 11, color: FluxForgeTheme.textMuted),
                   ),
                 ],
               ),
@@ -607,7 +606,7 @@ class _RtpcDspBindingEditorPanelState extends State<RtpcDspBindingEditorPanel> {
             width: double.infinity,
             child: OutlinedButton.icon(
               icon: Icon(Icons.delete_outline, color: _red),
-              label: Text('Delete Binding', style: TextStyle(color: _red)),
+              label: Text('Delete Binding', style: FluxForgeTheme.dockSans(color: _red)),
               style: OutlinedButton.styleFrom(
                 side: BorderSide(color: _red.withValues(alpha: 0.5)),
                 padding: const EdgeInsets.symmetric(vertical: 12),
@@ -634,10 +633,10 @@ class _RtpcDspBindingEditorPanelState extends State<RtpcDspBindingEditorPanel> {
             const SizedBox(width: 6),
             Text(
               title,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 12,
+                weight: FontWeight.w500,
                 color: FluxForgeTheme.textMuted,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
               ),
             ),
           ],
@@ -663,7 +662,7 @@ class _RtpcDspBindingEditorPanelState extends State<RtpcDspBindingEditorPanel> {
           Expanded(
             child: Text(
               message,
-              style: TextStyle(color: _orange, fontSize: 12),
+              style: FluxForgeTheme.dockSans(size: 12, color: _orange),
             ),
           ),
         ],
@@ -674,7 +673,7 @@ class _RtpcDspBindingEditorPanelState extends State<RtpcDspBindingEditorPanel> {
   InputDecoration _inputDecoration(String label) {
     return InputDecoration(
       labelText: label,
-      labelStyle: TextStyle(color: FluxForgeTheme.textMuted),
+      labelStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted),
       filled: true,
       fillColor: FluxForgeTheme.bgMid,
       border: OutlineInputBorder(
@@ -859,17 +858,17 @@ class _DspBindingListTile extends StatelessWidget {
                   children: [
                     Text(
                       '$rtpcName → ${binding.target.displayName}',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 12,
+                        weight: FontWeight.w500,
                         color: binding.enabled ? FluxForgeTheme.textPrimary : FluxForgeTheme.textMuted,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'Track ${binding.trackId}, Slot ${binding.slotIndex}',
-                      style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 10),
+                      style: FluxForgeTheme.dockMono(size: 10, color: FluxForgeTheme.textMuted),
                     ),
                   ],
                 ),
@@ -921,17 +920,17 @@ class _InfoCard extends StatelessWidget {
               const SizedBox(width: 4),
               Text(
                 label,
-                style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 10),
+                style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textMuted),
               ),
             ],
           ),
           const SizedBox(height: 4),
           Text(
             value,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 13,
+              weight: FontWeight.w600,
               color: color,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
             ),
             overflow: TextOverflow.ellipsis,
           ),

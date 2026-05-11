@@ -323,9 +323,9 @@ class _ProMixerStripState extends State<ProMixerStrip> {
           Expanded(
             child: Text(
               d.name,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockSans(
+                size: 11,
+                weight: FontWeight.w600,
                 color: FluxForgeTheme.textPrimary,
               ),
               overflow: TextOverflow.ellipsis,
@@ -354,7 +354,7 @@ class _ProMixerStripState extends State<ProMixerStrip> {
           Expanded(
             child: Text(
               d.type == 'audio' ? 'Stereo In' : 'No Input',
-              style: TextStyle(fontSize: 9, color: FluxForgeTheme.textSecondary),
+              style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textSecondary),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -431,8 +431,8 @@ class _ProMixerStripState extends State<ProMixerStrip> {
                   Expanded(
                     child: Text(
                       slot.isEmpty ? '' : slot.name ?? '',
-                      style: TextStyle(
-                        fontSize: 9,
+                      style: FluxForgeTheme.dockSans(
+                        size: 9,
                         color: slot.bypassed
                             ? FluxForgeTheme.textDisabled
                             : FluxForgeTheme.textSecondary,
@@ -474,9 +474,9 @@ class _ProMixerStripState extends State<ProMixerStrip> {
           height: 28,
           child: Text(
             isPreFader ? 'PRE-FADER SLOT ${slotIndex + 1}' : 'POST-FADER SLOT ${slotIndex - 3}',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.w600,
               color: FluxForgeTheme.textTertiary,
               letterSpacing: 0.5,
             ),
@@ -492,7 +492,7 @@ class _ProMixerStripState extends State<ProMixerStrip> {
             children: [
               Icon(Icons.add_box_outlined, size: 12, color: FluxForgeTheme.accentBlue),
               const SizedBox(width: 6),
-              Text('INSERT', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: FluxForgeTheme.accentBlue)),
+              Text('INSERT', style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.w600, color: FluxForgeTheme.accentBlue)),
             ],
           ),
         ),
@@ -508,7 +508,7 @@ class _ProMixerStripState extends State<ProMixerStrip> {
             children: [
               Icon(Icons.call_split, size: 12, color: FluxForgeTheme.accentCyan),
               const SizedBox(width: 6),
-              Text('AUX SEND', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: FluxForgeTheme.accentCyan)),
+              Text('AUX SEND', style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.w600, color: FluxForgeTheme.accentCyan)),
             ],
           ),
         ),
@@ -524,7 +524,7 @@ class _ProMixerStripState extends State<ProMixerStrip> {
             children: [
               Icon(Icons.alt_route, size: 12, color: FluxForgeTheme.accentGreen),
               const SizedBox(width: 6),
-              Text('BUS', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: FluxForgeTheme.accentGreen)),
+              Text('BUS', style: FluxForgeTheme.dockSans(size: 9, weight: FontWeight.w600, color: FluxForgeTheme.accentGreen)),
             ],
           ),
         ),
@@ -542,7 +542,7 @@ class _ProMixerStripState extends State<ProMixerStrip> {
               children: [
                 Icon(Icons.clear, size: 14, color: FluxForgeTheme.accentRed),
                 const SizedBox(width: 8),
-                Text('Clear Slot', style: TextStyle(fontSize: 11, color: FluxForgeTheme.accentRed)),
+                Text('Clear Slot', style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.accentRed)),
               ],
             ),
           ),
@@ -571,7 +571,7 @@ class _ProMixerStripState extends State<ProMixerStrip> {
       child: Row(
         children: [
           const SizedBox(width: 18),
-          Text(plugin, style: TextStyle(fontSize: 11, color: FluxForgeTheme.textPrimary)),
+          Text(plugin, style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textPrimary)),
         ],
       ),
     )).toList();
@@ -600,7 +600,7 @@ class _ProMixerStripState extends State<ProMixerStrip> {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          Text(bus.name, style: TextStyle(fontSize: 11, color: FluxForgeTheme.textPrimary)),
+          Text(bus.name, style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textPrimary)),
         ],
       ),
     )).toList();
@@ -630,7 +630,7 @@ class _ProMixerStripState extends State<ProMixerStrip> {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          Text(bus.name, style: TextStyle(fontSize: 11, color: FluxForgeTheme.textPrimary)),
+          Text(bus.name, style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textPrimary)),
         ],
       ),
     )).toList();
@@ -702,9 +702,9 @@ class _ProMixerStripState extends State<ProMixerStrip> {
                       child: Center(
                         child: Text(
                           'M',
-                          style: TextStyle(
-                            fontSize: 8,
-                            fontWeight: FontWeight.w700,
+                          style: FluxForgeTheme.dockSans(
+                            size: 8,
+                            weight: FontWeight.w700,
                             color: slot.muted
                                 ? Colors.white
                                 : FluxForgeTheme.textTertiary,
@@ -760,7 +760,7 @@ class _ProMixerStripState extends State<ProMixerStrip> {
                           height: 24,
                           child: Text(
                             '-- None --',
-                            style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary),
+                            style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary),
                           ),
                         ),
                         ...fxBuses.map((bus) => PopupMenuItem<String>(
@@ -779,7 +779,7 @@ class _ProMixerStripState extends State<ProMixerStrip> {
                               ),
                               Text(
                                 bus.name,
-                                style: TextStyle(fontSize: 10, color: FluxForgeTheme.textPrimary),
+                                style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textPrimary),
                               ),
                             ],
                           ),
@@ -789,8 +789,8 @@ class _ProMixerStripState extends State<ProMixerStrip> {
                         padding: const EdgeInsets.symmetric(horizontal: 2),
                         child: Text(
                           slot.isEmpty ? '' : (slot.destination ?? ''),
-                          style: TextStyle(
-                            fontSize: 8,
+                          style: FluxForgeTheme.dockSans(
+                            size: 8,
                             color: slot.muted
                                 ? FluxForgeTheme.textTertiary
                                 : FluxForgeTheme.textSecondary,
@@ -821,9 +821,9 @@ class _ProMixerStripState extends State<ProMixerStrip> {
                       ),
                       child: Text(
                         slot.preFader ? 'PRE' : 'PST',
-                        style: TextStyle(
-                          fontSize: 6,
-                          fontWeight: FontWeight.w600,
+                        style: FluxForgeTheme.dockMono(
+                          size: 6,
+                          weight: FontWeight.w600,
                           color: slot.preFader
                               ? FluxForgeTheme.accentCyan
                               : FluxForgeTheme.textTertiary,
@@ -907,9 +907,9 @@ class _ProMixerStripState extends State<ProMixerStrip> {
                     children: ['+6', '+3', '0', '-3', '-6', '-12', '-24', '-48', '-∞']
                         .map((db) => Text(
                               db,
-                              style: TextStyle(
-                                fontSize: 8,
-                                fontWeight: db == '0' ? FontWeight.w600 : FontWeight.w400,
+                              style: FluxForgeTheme.dockMono(
+                                size: 8,
+                                weight: db == '0' ? FontWeight.w600 : FontWeight.w400,
                                 color: db == '0'
                                     ? FluxForgeTheme.accentBlue
                                     : FluxForgeTheme.textDisabled,
@@ -997,9 +997,9 @@ class _ProMixerStripState extends State<ProMixerStrip> {
                       child: Center(
                         child: Text(
                           'CLIP',
-                          style: TextStyle(
-                            fontSize: 6,
-                            fontWeight: FontWeight.w700,
+                          style: FluxForgeTheme.dockMono(
+                            size: 6,
+                            weight: FontWeight.w700,
                             color: FluxForgeTheme.textPrimary,
                           ),
                         ),
@@ -1174,10 +1174,9 @@ class _ProMixerStripState extends State<ProMixerStrip> {
             width: 28,
             child: Text(
               _formatPan(d.pan),
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
-                fontFamily: 'monospace',
+              style: FluxForgeTheme.dockMono(
+                size: 9,
+                weight: FontWeight.w600,
                 color: FluxForgeTheme.textSecondary,
               ),
               textAlign: TextAlign.center,
@@ -1218,10 +1217,9 @@ class _ProMixerStripState extends State<ProMixerStrip> {
       child: Center(
         child: Text(
           '$dbStr dB',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            fontFamily: 'monospace',
+          style: FluxForgeTheme.dockMono(
+            size: 11,
+            weight: FontWeight.w600,
             color: isOver
                 ? FluxForgeTheme.accentRed
                 : (_isDraggingFader
@@ -1295,7 +1293,7 @@ class _ProMixerStripState extends State<ProMixerStrip> {
             Expanded(
               child: Text(
                 d.output ?? (d.isMaster ? 'Out 1-2' : 'Master'),
-                style: TextStyle(fontSize: 9, color: FluxForgeTheme.textSecondary),
+                style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textSecondary),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -1415,9 +1413,9 @@ class _ChannelButton extends StatelessWidget {
         child: Center(
           child: Text(
             label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.w700,
               color: isActive
                   ? FluxForgeTheme.textInverse
                   : FluxForgeTheme.textTertiary,

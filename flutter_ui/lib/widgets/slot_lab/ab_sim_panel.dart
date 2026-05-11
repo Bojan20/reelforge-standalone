@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../../providers/slot_lab/ab_test_provider.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// A/B Testing Analytics™ Panel — powered by AbTestProvider.
 ///
@@ -68,10 +69,10 @@ class _AbSimPanelState extends State<AbSimPanel> {
         const SizedBox(width: 4),
         Text(
           'A/B Testing Analytics',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: Colors.white.withValues(alpha: 0.9),
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
+            size: 11,
+            weight: FontWeight.w600,
           ),
         ),
         const SizedBox(width: 8),
@@ -83,9 +84,9 @@ class _AbSimPanelState extends State<AbSimPanel> {
               borderRadius: BorderRadius.circular(4),
               border: Border.all(color: const Color(0xFFFFBB33).withValues(alpha: 0.4)),
             ),
-            child: const Text(
+            child: Text(
               'SIMULATING',
-              style: TextStyle(color: Color(0xFFFFBB33), fontSize: 9, fontWeight: FontWeight.w700),
+              style: FluxForgeTheme.dockSans(color: Color(0xFFFFBB33), size: 9, weight: FontWeight.w700),
             ),
           ),
         if (result != null && !_provider.isSimulating)
@@ -102,17 +103,17 @@ class _AbSimPanelState extends State<AbSimPanel> {
             ),
             child: Text(
               result.isSignificant ? 'SIGNIFICANT' : 'NOT SIGNIFICANT',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: result.isSignificant ? const Color(0xFF4CAF50) : const Color(0xFFFFBB33),
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
+                size: 9,
+                weight: FontWeight.w700,
               ),
             ),
           ),
         const Spacer(),
         Text(
           'n=${_provider.sampleSize}',
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 9),
+          style: FluxForgeTheme.dockMono(color: Colors.white.withValues(alpha: 0.4), size: 9),
         ),
       ],
     );
@@ -124,11 +125,11 @@ class _AbSimPanelState extends State<AbSimPanel> {
       children: [
         Row(
           children: [
-            Text('Simulating', style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 9)),
+            Text('Simulating', style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.5), size: 9)),
             const Spacer(),
             Text(
               '${(_provider.simulationProgress * 100).toStringAsFixed(0)}%',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 9, fontWeight: FontWeight.w600),
+              style: FluxForgeTheme.dockMono(color: Colors.white.withValues(alpha: 0.7), size: 9, weight: FontWeight.w600),
             ),
           ],
         ),
@@ -158,7 +159,7 @@ class _AbSimPanelState extends State<AbSimPanel> {
                   ? 'Simulation in progress...'
                   : 'No results yet.\nRun simulation to compare variants.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.35), fontSize: 11),
+              style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.35), size: 11),
             ),
           ],
         ),
@@ -186,16 +187,16 @@ class _AbSimPanelState extends State<AbSimPanel> {
                   const SizedBox(width: 6),
                   Text(
                     'Winner: ${result.winner}',
-                    style: const TextStyle(
-                      color: Color(0xFF4CAF50),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
+                    style: FluxForgeTheme.dockSans(
+                      color: const Color(0xFF4CAF50),
+                      size: 11,
+                      weight: FontWeight.w700,
                     ),
                   ),
                   const Spacer(),
                   Text(
                     'p=${result.pValue.toStringAsFixed(4)}',
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 9),
+                    style: FluxForgeTheme.dockMono(color: Colors.white.withValues(alpha: 0.5), size: 9),
                   ),
                 ],
               ),
@@ -215,16 +216,16 @@ class _AbSimPanelState extends State<AbSimPanel> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     children: [
-                      Icon(Icons.warning_amber, size: 12, color: Color(0xFFFF5252)),
-                      SizedBox(width: 4),
-                      Text('RG Flags', style: TextStyle(color: Color(0xFFFF5252), fontSize: 9, fontWeight: FontWeight.w700)),
+                      const Icon(Icons.warning_amber, size: 12, color: Color(0xFFFF5252)),
+                      const SizedBox(width: 4),
+                      Text('RG Flags', style: FluxForgeTheme.dockSans(color: const Color(0xFFFF5252), size: 9, weight: FontWeight.w700)),
                     ],
                   ),
                   ...result.responsibleGamingFlags.map((f) => Padding(
                         padding: const EdgeInsets.only(top: 2),
-                        child: Text('• $f', style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 9)),
+                        child: Text('• $f', style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.6), size: 9)),
                       )),
                 ],
               ),
@@ -287,9 +288,9 @@ class _AbSimPanelState extends State<AbSimPanel> {
             flex: 3,
             child: Text(
               metric.displayName,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.white.withValues(alpha: 0.7),
-                fontSize: 9,
+                size: 9,
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -298,21 +299,21 @@ class _AbSimPanelState extends State<AbSimPanel> {
             width: 45,
             child: Text(
               aScore.toStringAsFixed(2),
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 9),
+              style: FluxForgeTheme.dockMono(color: Colors.white.withValues(alpha: 0.5), size: 9),
               textAlign: TextAlign.right,
             ),
           ),
           const SizedBox(width: 4),
-          const Text('vs', style: TextStyle(color: Color(0xFF3A3A5C), fontSize: 8)),
+          Text('vs', style: FluxForgeTheme.dockSans(color: const Color(0xFF3A3A5C), size: 8)),
           const SizedBox(width: 4),
           SizedBox(
             width: 45,
             child: Text(
               bScore.toStringAsFixed(2),
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: bIsBetter ? const Color(0xFF4CAF50) : Colors.white.withValues(alpha: 0.5),
-                fontSize: 9,
-                fontWeight: bIsBetter ? FontWeight.w600 : FontWeight.normal,
+                size: 9,
+                weight: bIsBetter ? FontWeight.w600 : FontWeight.normal,
               ),
               textAlign: TextAlign.right,
             ),
@@ -322,12 +323,12 @@ class _AbSimPanelState extends State<AbSimPanel> {
             width: 42,
             child: Text(
               '${delta >= 0 ? "+" : ""}${delta.toStringAsFixed(1)}%',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: bIsBetter
                     ? const Color(0xFF4CAF50)
                     : (delta.abs() > 5 ? const Color(0xFFFF5252) : Colors.white.withValues(alpha: 0.4)),
-                fontSize: 8,
-                fontWeight: FontWeight.w600,
+                size: 8,
+                weight: FontWeight.w600,
               ),
               textAlign: TextAlign.right,
             ),
@@ -350,12 +351,12 @@ class _AbSimPanelState extends State<AbSimPanel> {
           const SizedBox(width: 4),
           Text(
             h.winner ?? 'No winner',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 9),
+            style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.6), size: 9),
           ),
           const Spacer(),
           Text(
             'p=${h.pValue.toStringAsFixed(3)}',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 8),
+            style: FluxForgeTheme.dockMono(color: Colors.white.withValues(alpha: 0.4), size: 8),
           ),
         ],
       ),
@@ -371,7 +372,7 @@ class _AbSimPanelState extends State<AbSimPanel> {
             icon: const Icon(Icons.play_arrow, size: 14),
             label: Text(
               _provider.lastResult != null ? 'Re-run Sim' : 'Run Simulation',
-              style: const TextStyle(fontSize: 10),
+              style: FluxForgeTheme.dockSans(size: 10),
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF40C8FF),
@@ -388,10 +389,10 @@ class _AbSimPanelState extends State<AbSimPanel> {
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
-      style: TextStyle(
+      style: FluxForgeTheme.dockSans(
         color: Colors.white.withValues(alpha: 0.8),
-        fontSize: 10,
-        fontWeight: FontWeight.w600,
+        size: 10,
+        weight: FontWeight.w600,
       ),
     );
   }
@@ -403,10 +404,10 @@ class _AbSimPanelState extends State<AbSimPanel> {
         children: [
           SizedBox(
             width: 80,
-            child: Text(key, style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 9)),
+            child: Text(key, style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.5), size: 9)),
           ),
           Expanded(
-            child: Text(value, style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 9)),
+            child: Text(value, style: FluxForgeTheme.dockSans(color: Colors.white.withValues(alpha: 0.8), size: 9)),
           ),
         ],
       ),

@@ -132,9 +132,9 @@ class _TrackVersionsPanelState extends State<TrackVersionsPanel> {
             const SizedBox(width: 4),
             Text(
               provider.enabled ? 'Enabled' : 'Disabled',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.w500,
                 color: provider.enabled ? _accentColor : FluxForgeTheme.textSecondary,
               ),
             ),
@@ -169,8 +169,8 @@ class _TrackVersionsPanelState extends State<TrackVersionsPanel> {
             const SizedBox(width: 4),
             Text(
               label,
-              style: TextStyle(
-                fontSize: 10,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
                 color: isActive ? _accentColor : FluxForgeTheme.textSecondary,
               ),
             ),
@@ -192,9 +192,9 @@ class _TrackVersionsPanelState extends State<TrackVersionsPanel> {
             children: [
               Text(
                 'TRACKS',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.w600,
                   color: FluxForgeTheme.textSecondary,
                   letterSpacing: 0.5,
                 ),
@@ -202,9 +202,9 @@ class _TrackVersionsPanelState extends State<TrackVersionsPanel> {
               const Spacer(),
               Text(
                 '${trackIds.length}',
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockMono(
+                  size: 11,
+                  weight: FontWeight.w600,
                   color: _accentColor,
                 ),
               ),
@@ -220,8 +220,8 @@ class _TrackVersionsPanelState extends State<TrackVersionsPanel> {
                     child: Text(
                       'No tracks with versions\n\nRight-click a track to create a version',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 11,
+                      style: FluxForgeTheme.dockSans(
+                        size: 11,
                         color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
                       ),
                     ),
@@ -263,9 +263,9 @@ class _TrackVersionsPanelState extends State<TrackVersionsPanel> {
                             Expanded(
                               child: Text(
                                 'Track $trackId',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                style: FluxForgeTheme.dockSans(
+                                  size: 11,
+                                  weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                                   color: isSelected
                                       ? _accentColor
                                       : FluxForgeTheme.textPrimary,
@@ -280,8 +280,8 @@ class _TrackVersionsPanelState extends State<TrackVersionsPanel> {
                               ),
                               child: Text(
                                 '$versionCount',
-                                style: const TextStyle(
-                                  fontSize: 9,
+                                style: FluxForgeTheme.dockMono(
+                                  size: 9,
                                   color: FluxForgeTheme.textSecondary,
                                 ),
                               ),
@@ -314,8 +314,8 @@ class _TrackVersionsPanelState extends State<TrackVersionsPanel> {
       return Center(
         child: Text(
           'Select a track to view versions',
-          style: TextStyle(
-            fontSize: 12,
+          style: FluxForgeTheme.dockSans(
+            size: 12,
             color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
           ),
         ),
@@ -337,9 +337,9 @@ class _TrackVersionsPanelState extends State<TrackVersionsPanel> {
             children: [
               Text(
                 'VERSIONS',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.w600,
                   color: FluxForgeTheme.textSecondary,
                   letterSpacing: 0.5,
                 ),
@@ -477,9 +477,9 @@ class _TrackVersionsPanelState extends State<TrackVersionsPanel> {
                           Expanded(
                             child: Text(
                               version.name,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                              style: FluxForgeTheme.dockSans(
+                                size: 12,
+                                weight: isActive ? FontWeight.w600 : FontWeight.normal,
                                 color: FluxForgeTheme.textPrimary,
                               ),
                             ),
@@ -502,8 +502,8 @@ class _TrackVersionsPanelState extends State<TrackVersionsPanel> {
                       const SizedBox(height: 2),
                       Text(
                         '${version.clips.length} clips',
-                        style: TextStyle(
-                          fontSize: 10,
+                        style: FluxForgeTheme.dockMono(
+                          size: 10,
                           color: FluxForgeTheme.textSecondary,
                         ),
                       ),
@@ -524,9 +524,9 @@ class _TrackVersionsPanelState extends State<TrackVersionsPanel> {
                     const PopupMenuItem(value: 'duplicate', child: Text('Duplicate')),
                     const PopupMenuItem(value: 'lock', child: Text('Toggle Lock')),
                     const PopupMenuDivider(),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'delete',
-                      child: Text('Delete', style: TextStyle(color: Colors.red)),
+                      child: Text('Delete', style: FluxForgeTheme.dockSans(color: Colors.red)),
                     ),
                   ],
                   onSelected: (action) {
@@ -554,8 +554,8 @@ class _TrackVersionsPanelState extends State<TrackVersionsPanel> {
               const SizedBox(height: 8),
               Text(
                 version.description!,
-                style: TextStyle(
-                  fontSize: 10,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
                   color: FluxForgeTheme.textSecondary,
                 ),
                 maxLines: 2,
@@ -578,9 +578,9 @@ class _TrackVersionsPanelState extends State<TrackVersionsPanel> {
       ),
       child: Text(
         label,
-        style: TextStyle(
-          fontSize: 9,
-          fontWeight: FontWeight.w600,
+        style: FluxForgeTheme.dockSans(
+          size: 9,
+          weight: FontWeight.w600,
           color: color,
         ),
       ),
@@ -597,8 +597,8 @@ class _TrackVersionsPanelState extends State<TrackVersionsPanel> {
       return Center(
         child: Text(
           'No version selected',
-          style: TextStyle(
-            fontSize: 11,
+          style: FluxForgeTheme.dockSans(
+            size: 11,
             color: FluxForgeTheme.textSecondary,
           ),
         ),
@@ -612,9 +612,9 @@ class _TrackVersionsPanelState extends State<TrackVersionsPanel> {
           padding: const EdgeInsets.all(12),
           child: Text(
             'VERSION DETAILS',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.w600,
               color: FluxForgeTheme.textSecondary,
               letterSpacing: 0.5,
             ),
@@ -646,8 +646,8 @@ class _TrackVersionsPanelState extends State<TrackVersionsPanel> {
               // Color picker
               Text(
                 'Color',
-                style: TextStyle(
-                  fontSize: 10,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
                   color: FluxForgeTheme.textSecondary,
                 ),
               ),
@@ -668,15 +668,15 @@ class _TrackVersionsPanelState extends State<TrackVersionsPanel> {
         children: [
           Text(
             label,
-            style: TextStyle(
-              fontSize: 11,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
               color: FluxForgeTheme.textSecondary,
             ),
           ),
           Text(
             value,
-            style: const TextStyle(
-              fontSize: 11,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
               color: FluxForgeTheme.textPrimary,
             ),
           ),
@@ -752,9 +752,9 @@ class _TrackVersionsPanelState extends State<TrackVersionsPanel> {
               const SizedBox(width: 6),
               Text(
                 label,
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  weight: FontWeight.w500,
                   color: _accentColor,
                 ),
               ),
@@ -786,8 +786,8 @@ class _TrackVersionsPanelState extends State<TrackVersionsPanel> {
               const SizedBox(width: 4),
               Text(
                 label,
-                style: const TextStyle(
-                  fontSize: 10,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
                   color: FluxForgeTheme.textSecondary,
                 ),
               ),
@@ -809,7 +809,7 @@ class _TrackVersionsPanelState extends State<TrackVersionsPanel> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: FluxForgeTheme.bgElevated,
-        title: const Text('Rename Version', style: TextStyle(fontSize: 14)),
+        title: Text('Rename Version', style: FluxForgeTheme.dockSans(size: 14)),
         content: TextField(
           controller: controller,
           decoration: const InputDecoration(

@@ -13,6 +13,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/mixer_provider.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Preset group colors
 const _groupColorPresets = [
@@ -114,12 +115,12 @@ class _GroupManagerPanelState extends State<GroupManagerPanel> {
         children: [
           const Icon(Icons.folder_outlined, color: Color(0xFF4A9EFF), size: 18),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Track Groups',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 13,
+              weight: FontWeight.w600,
               color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
             ),
           ),
           const Spacer(),
@@ -147,21 +148,21 @@ class _GroupManagerPanelState extends State<GroupManagerPanel> {
             Icon(
               Icons.create_new_folder_outlined,
               size: 48,
-              color: Colors.grey[600],
+              color: Colors.grey[600]!,
             ),
             const SizedBox(height: 12),
             Text(
               'No Groups',
-              style: TextStyle(
-                color: Colors.grey[400],
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
+              style: FluxForgeTheme.dockSans(
+                size: 14,
+                weight: FontWeight.w500,
+                color: Colors.grey[400]!,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               'Create a group to organize tracks',
-              style: TextStyle(color: Colors.grey[600], fontSize: 12),
+              style: FluxForgeTheme.dockSans(size: 12, color: Colors.grey[600]!),
             ),
           ],
         ),
@@ -186,19 +187,22 @@ class _GroupManagerPanelState extends State<GroupManagerPanel> {
             context: context,
             builder: (ctx) => AlertDialog(
               backgroundColor: const Color(0xFF1A1A20),
-              title: const Text(
+              title: Text(
                 'Move Channel',
-                style: TextStyle(color: Colors.white, fontSize: 16),
+                style: FluxForgeTheme.dockSans(
+                  size: 16,
+                  color: Colors.white,
+                ),
               ),
               content: Text(
                 '"${channel.name}" is already in group "$currentGroupName". '
                 'This will remove it from "$currentGroupName" and add it to "${group.name}". Continue?',
-                style: const TextStyle(color: Colors.white70),
+                style: FluxForgeTheme.dockSans(color: Colors.white70),
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx, false),
-                  child: Text('Cancel', style: TextStyle(color: Colors.grey[500])),
+                  child: Text('Cancel', style: FluxForgeTheme.dockSans(color: Colors.grey[500]!)),
                 ),
                 ElevatedButton(
                   onPressed: () => Navigator.pop(ctx, true),
@@ -259,7 +263,7 @@ class _GroupManagerPanelState extends State<GroupManagerPanel> {
                           isExpanded
                               ? Icons.keyboard_arrow_down
                               : Icons.keyboard_arrow_right,
-                          color: Colors.grey[400],
+                          color: Colors.grey[400]!,
                           size: 20,
                         ),
                       ),
@@ -280,10 +284,10 @@ class _GroupManagerPanelState extends State<GroupManagerPanel> {
                       Expanded(
                         child: Text(
                           group.name,
-                          style: const TextStyle(
+                          style: FluxForgeTheme.dockSans(
+                            size: 13,
+                            weight: FontWeight.w500,
                             color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -294,14 +298,14 @@ class _GroupManagerPanelState extends State<GroupManagerPanel> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: Colors.grey[800],
+                          color: Colors.grey[800]!,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
                           '${memberChannels.length}',
-                          style: TextStyle(
-                            color: Colors.grey[400],
-                            fontSize: 11,
+                          style: FluxForgeTheme.dockMono(
+                            size: 11,
+                            color: Colors.grey[400]!,
                           ),
                         ),
                       ),
@@ -315,7 +319,7 @@ class _GroupManagerPanelState extends State<GroupManagerPanel> {
                         onPressed: () =>
                             _confirmDeleteGroup(context, mixer, group),
                         icon: const Icon(Icons.delete_outline, size: 16),
-                        color: Colors.grey[500],
+                        color: Colors.grey[500]!,
                         padding: EdgeInsets.zero,
                         constraints:
                             const BoxConstraints(minWidth: 24, minHeight: 24),
@@ -391,10 +395,10 @@ class _GroupManagerPanelState extends State<GroupManagerPanel> {
               ),
               child: Text(
                 group.linkMode == GroupLinkMode.relative ? 'REL' : 'ABS',
-                style: TextStyle(
-                  color: Colors.grey[400],
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
+                style: FluxForgeTheme.dockMono(
+                  size: 10,
+                  weight: FontWeight.w500,
+                  color: Colors.grey[400]!,
                 ),
               ),
             ),
@@ -416,10 +420,10 @@ class _GroupManagerPanelState extends State<GroupManagerPanel> {
         ),
         child: Text(
           label,
-          style: TextStyle(
-            color: enabled ? Colors.white : Colors.grey[500],
-            fontSize: 10,
-            fontWeight: FontWeight.w500,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: FontWeight.w500,
+            color: enabled ? Colors.white : Colors.grey[500]!,
           ),
         ),
       ),
@@ -441,7 +445,7 @@ class _GroupManagerPanelState extends State<GroupManagerPanel> {
           ),
           child: Text(
             channel.name,
-            style: const TextStyle(color: Colors.white, fontSize: 12),
+            style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
           ),
         ),
       ),
@@ -466,7 +470,7 @@ class _GroupManagerPanelState extends State<GroupManagerPanel> {
             Expanded(
               child: Text(
                 channel.name,
-                style: const TextStyle(color: Colors.white70, fontSize: 12),
+                style: FluxForgeTheme.dockSans(size: 12, color: Colors.white70),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -474,7 +478,7 @@ class _GroupManagerPanelState extends State<GroupManagerPanel> {
             InkWell(
               onTap: () => mixer.removeChannelFromGroup(channel.id, group.id),
               borderRadius: BorderRadius.circular(4),
-              child: Icon(Icons.close, size: 14, color: Colors.grey[600]),
+              child: Icon(Icons.close, size: 14, color: Colors.grey[600]!),
             ),
           ],
         ),
@@ -487,7 +491,7 @@ class _GroupManagerPanelState extends State<GroupManagerPanel> {
     return PopupMenuButton<Color>(
       tooltip: 'Group Color',
       padding: EdgeInsets.zero,
-      icon: Icon(Icons.palette_outlined, size: 16, color: Colors.grey[500]),
+      icon: Icon(Icons.palette_outlined, size: 16, color: Colors.grey[500]!),
       constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
       itemBuilder: (context) => [
         PopupMenuItem<Color>(
@@ -545,10 +549,10 @@ class _GroupManagerPanelState extends State<GroupManagerPanel> {
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
             child: Text(
               'Ungrouped Tracks (${ungroupedChannels.length})',
-              style: TextStyle(
-                color: Colors.grey[500],
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
+              style: FluxForgeTheme.dockSans(
+                size: 11,
+                weight: FontWeight.w500,
+                color: Colors.grey[500]!,
               ),
             ),
           ),
@@ -572,8 +576,7 @@ class _GroupManagerPanelState extends State<GroupManagerPanel> {
                       ),
                       child: Text(
                         channel.name,
-                        style:
-                            const TextStyle(color: Colors.white, fontSize: 12),
+                        style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
                       ),
                     ),
                   ),
@@ -599,13 +602,12 @@ class _GroupManagerPanelState extends State<GroupManagerPanel> {
                         Expanded(
                           child: Text(
                             channel.name,
-                            style: const TextStyle(
-                                color: Colors.white70, fontSize: 12),
+                            style: FluxForgeTheme.dockSans(size: 12, color: Colors.white70),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         Icon(Icons.drag_indicator,
-                            size: 14, color: Colors.grey[600]),
+                            size: 14, color: Colors.grey[600]!),
                       ],
                     ),
                   ),
@@ -625,17 +627,17 @@ class _GroupManagerPanelState extends State<GroupManagerPanel> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A20),
-        title: const Text(
+        title: Text(
           'Create Group',
-          style: TextStyle(color: Colors.white, fontSize: 16),
+          style: FluxForgeTheme.dockSans(size: 16, color: Colors.white),
         ),
         content: TextField(
           controller: _newGroupNameController,
           autofocus: true,
-          style: const TextStyle(color: Colors.white),
+          style: FluxForgeTheme.dockSans(color: Colors.white),
           decoration: InputDecoration(
             hintText: 'Group name',
-            hintStyle: TextStyle(color: Colors.grey[600]),
+            hintStyle: FluxForgeTheme.dockSans(color: Colors.grey[600]!),
             filled: true,
             fillColor: const Color(0xFF2A2A30),
             border: OutlineInputBorder(
@@ -653,7 +655,7 @@ class _GroupManagerPanelState extends State<GroupManagerPanel> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: TextStyle(color: Colors.grey[500])),
+            child: Text('Cancel', style: FluxForgeTheme.dockSans(color: Colors.grey[500]!)),
           ),
           ElevatedButton(
             onPressed: () {
@@ -679,18 +681,18 @@ class _GroupManagerPanelState extends State<GroupManagerPanel> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A20),
-        title: const Text(
+        title: Text(
           'Delete Group',
-          style: TextStyle(color: Colors.white, fontSize: 16),
+          style: FluxForgeTheme.dockSans(size: 16, color: Colors.white),
         ),
         content: Text(
           'Delete "${group.name}"? Tracks will be ungrouped.',
-          style: const TextStyle(color: Colors.white70),
+          style: FluxForgeTheme.dockSans(color: Colors.white70),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: TextStyle(color: Colors.grey[500])),
+            child: Text('Cancel', style: FluxForgeTheme.dockSans(color: Colors.grey[500]!)),
           ),
           ElevatedButton(
             onPressed: () {

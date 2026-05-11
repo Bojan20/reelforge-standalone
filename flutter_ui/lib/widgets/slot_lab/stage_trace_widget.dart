@@ -461,11 +461,11 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
           const SizedBox(width: 4),
           Text(
             'STAGE TRACE',
-            style: TextStyle(
-              color: isPlaying ? FluxForgeTheme.accentGreen : const Color(0xFFD0D0D8),
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.w700,
               letterSpacing: 0.5,
+              color: isPlaying ? FluxForgeTheme.accentGreen : const Color(0xFFD0D0D8),
             ),
           ),
           const SizedBox(width: 8),
@@ -478,7 +478,7 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
               ),
               child: Text(
                 '${stages.length} stages',
-                style: const TextStyle(color: Color(0xFF4A9EFF), fontSize: 8, fontWeight: FontWeight.w600),
+                style: FluxForgeTheme.dockMono(size: 8, weight: FontWeight.w600, color: const Color(0xFF4A9EFF)),
               ),
             ),
             const SizedBox(width: 6),
@@ -491,10 +491,10 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
                 ),
                 child: Text(
                   stages[currentIdx].stageType.toUpperCase().replaceAll('_', ' '),
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 8,
+                    weight: FontWeight.w700,
                     color: StageConfig.instance.getColor(stages[currentIdx].stageType),
-                    fontSize: 8,
-                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -510,11 +510,10 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
               ),
               child: Text(
                 '${_zoomLevel.toStringAsFixed(1)}x',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 8,
+                  weight: FontWeight.w600,
                   color: FluxForgeTheme.accentCyan,
-                  fontSize: 8,
-                  fontWeight: FontWeight.w600,
-                  fontFamily: 'monospace',
                 ),
               ),
             ),
@@ -528,7 +527,7 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
           if (stages.isNotEmpty) ...[
             Text(
               _formatTime(stages.last.timestampMs - stages.first.timestampMs),
-              style: const TextStyle(color: Color(0xFF606068), fontSize: 8, fontFamily: 'monospace'),
+              style: FluxForgeTheme.dockMono(size: 8, color: const Color(0xFF606068)),
             ),
           ],
         ],
@@ -562,22 +561,22 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
         children: [
           Icon(Icons.timeline, size: 28, color: Colors.white.withValues(alpha: 0.15)),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'No stage trace yet',
-            style: TextStyle(color: Color(0xFF606068), fontSize: 11, fontWeight: FontWeight.w500),
+            style: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.w500, color: const Color(0xFF606068)),
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Spin the slot to record a stage trace',
-            style: TextStyle(color: Color(0xFF404048), fontSize: 9),
+            style: FluxForgeTheme.dockSans(size: 9, color: const Color(0xFF404048)),
           ),
           const SizedBox(height: 8),
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _keyHint('G'), const Text(' zoom in  ', style: TextStyle(color: Color(0xFF404048), fontSize: 8)),
-              _keyHint('H'), const Text(' zoom out  ', style: TextStyle(color: Color(0xFF404048), fontSize: 8)),
-              _keyHint('Cmd'), const Text('+scroll zoom', style: TextStyle(color: Color(0xFF404048), fontSize: 8)),
+              _keyHint('G'), Text(' zoom in  ', style: FluxForgeTheme.dockSans(size: 8, color: const Color(0xFF404048))),
+              _keyHint('H'), Text(' zoom out  ', style: FluxForgeTheme.dockSans(size: 8, color: const Color(0xFF404048))),
+              _keyHint('Cmd'), Text('+scroll zoom', style: FluxForgeTheme.dockSans(size: 8, color: const Color(0xFF404048))),
             ],
           ),
         ],
@@ -593,7 +592,7 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
         borderRadius: BorderRadius.circular(2),
         border: Border.all(color: const Color(0xFF3A3A42)),
       ),
-      child: Text(key, style: const TextStyle(color: Color(0xFF808088), fontSize: 7, fontWeight: FontWeight.w600)),
+      child: Text(key, style: FluxForgeTheme.dockMono(size: 7, weight: FontWeight.w600, color: const Color(0xFF808088))),
     );
   }
 
@@ -701,18 +700,18 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
                 Expanded(
                   child: Text(
                     group.toUpperCase(),
-                    style: TextStyle(
-                      color: color,
-                      fontSize: 8,
-                      fontWeight: FontWeight.w700,
+                    style: FluxForgeTheme.dockSans(
+                      size: 8,
+                      weight: FontWeight.w700,
                       letterSpacing: 0.3,
+                      color: color,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 Text(
                   '${stages.length}',
-                  style: TextStyle(color: color.withValues(alpha: 0.4), fontSize: 7, fontWeight: FontWeight.w600),
+                  style: FluxForgeTheme.dockMono(size: 7, weight: FontWeight.w600, color: color.withValues(alpha: 0.4)),
                 ),
               ],
             ),
@@ -771,8 +770,8 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(stage.stageType.toUpperCase(), style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w700)),
-                Text(fileName, style: TextStyle(color: color.withValues(alpha: 0.5), fontSize: 9)),
+                Text(stage.stageType.toUpperCase(), style: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.w700, color: color)),
+                Text(fileName, style: FluxForgeTheme.dockMono(size: 9, color: color.withValues(alpha: 0.5))),
               ],
             ),
           ],
@@ -801,9 +800,9 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
         children: [
           SizedBox(
             width: _headerWidth,
-            child: const Padding(
-              padding: EdgeInsets.only(left: 6),
-              child: Text('TIME', style: TextStyle(color: Color(0xFF404048), fontSize: 7, fontWeight: FontWeight.w600)),
+            child: Padding(
+              padding: const EdgeInsets.only(left: 6),
+              child: Text('TIME', style: FluxForgeTheme.dockSans(size: 7, weight: FontWeight.w600, color: const Color(0xFF404048))),
             ),
           ),
           Expanded(
@@ -912,11 +911,11 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
                       left: 3, top: 1,
                       child: Text(
                         entry.event.stageType.replaceAll('_', ' ').toUpperCase(),
-                        style: TextStyle(
-                          color: isActive ? Colors.white : color.withValues(alpha: isPast ? 0.5 : 0.7),
-                          fontSize: 6,
-                          fontWeight: FontWeight.w700,
+                        style: FluxForgeTheme.dockSans(
+                          size: 6,
+                          weight: FontWeight.w700,
                           letterSpacing: 0.2,
+                          color: isActive ? Colors.white : color.withValues(alpha: isPast ? 0.5 : 0.7),
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -927,7 +926,7 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
                       left: 3, bottom: 1, right: 3,
                       child: Text(
                         fileName ?? '',
-                        style: TextStyle(color: color.withValues(alpha: 0.35), fontSize: 6, fontFamily: 'monospace'),
+                        style: FluxForgeTheme.dockMono(size: 6, color: color.withValues(alpha: 0.35)),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -1033,9 +1032,10 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
               width: 80,
               child: Text(
                 stages[currentIdx].stageType.replaceAll('_', ' ').toUpperCase(),
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 7,
+                  weight: FontWeight.w700,
                   color: StageConfig.instance.getColor(stages[currentIdx].stageType),
-                  fontSize: 7, fontWeight: FontWeight.w700,
                 ),
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.right,
@@ -1232,11 +1232,11 @@ class StageProgressBar extends StatelessWidget {
               if (currentIndex >= 0 && currentIndex < stages.length)
                 Text(
                   stages[currentIndex].stageType.replaceAll('_', ' ').toUpperCase(),
-                  style: TextStyle(
-                    color: StageConfig.instance.getColor(stages[currentIndex].stageType),
-                    fontSize: 8,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    size: 8,
+                    weight: FontWeight.bold,
                     letterSpacing: 0.5,
+                    color: StageConfig.instance.getColor(stages[currentIndex].stageType),
                   ),
                 ),
             ],

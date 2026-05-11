@@ -9,6 +9,7 @@
 
 import 'package:flutter/material.dart';
 import '../../services/voice_steal_profiler.dart';
+import '../../theme/fluxforge_theme.dart';
 
 class VoiceStealPanel extends StatefulWidget {
   const VoiceStealPanel({super.key});
@@ -55,9 +56,9 @@ class _VoiceStealPanelState extends State<VoiceStealPanel> {
         children: [
           const Icon(Icons.swap_horiz, size: 20, color: Colors.orange),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Voice Steal Statistics',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            style: FluxForgeTheme.dockSans(size: 16, weight: FontWeight.bold),
           ),
           const Spacer(),
 
@@ -77,9 +78,9 @@ class _VoiceStealPanelState extends State<VoiceStealPanel> {
           const SizedBox(width: 8),
           Text(
             profiler.enabled ? 'Enabled' : 'Disabled',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: profiler.enabled ? Colors.green : Colors.grey,
-              fontSize: 12,
+              size: 12,
             ),
           ),
 
@@ -175,16 +176,16 @@ class _VoiceStealPanelState extends State<VoiceStealPanel> {
                 const SizedBox(width: 4),
                 Text(
                   label,
-                  style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+                  style: FluxForgeTheme.dockSans(size: 11, color: Colors.grey[400]!),
                 ),
               ],
             ),
             const SizedBox(height: 4),
             Text(
               value,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockMono(
+                size: 14,
+                weight: FontWeight.bold,
                 color: color,
               ),
               overflow: TextOverflow.ellipsis,
@@ -231,10 +232,10 @@ class _VoiceStealPanelState extends State<VoiceStealPanel> {
           child: Text(
             label,
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              color: isSelected ? Colors.blue : Colors.grey[400],
+            style: FluxForgeTheme.dockSans(
+              size: 13,
+              weight: isSelected ? FontWeight.bold : FontWeight.normal,
+              color: isSelected ? Colors.blue : Colors.grey[400]!,
             ),
           ),
         ),
@@ -286,10 +287,10 @@ class _VoiceStealPanelState extends State<VoiceStealPanel> {
             width: 40,
             child: Text(
               '#$rank',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[500],
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockMono(
+                size: 12,
+                color: Colors.grey[500]!,
+                weight: FontWeight.bold,
               ),
             ),
           ),
@@ -299,7 +300,7 @@ class _VoiceStealPanelState extends State<VoiceStealPanel> {
             flex: 3,
             child: Text(
               stats.source,
-              style: const TextStyle(fontSize: 13),
+              style: FluxForgeTheme.dockSans(size: 13),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -312,7 +313,7 @@ class _VoiceStealPanelState extends State<VoiceStealPanel> {
                 const SizedBox(width: 4),
                 Text(
                   '${stats.stolenCount}',
-                  style: const TextStyle(fontSize: 13, color: Colors.orange),
+                  style: FluxForgeTheme.dockMono(size: 13, color: Colors.orange),
                 ),
               ],
             ),
@@ -326,7 +327,7 @@ class _VoiceStealPanelState extends State<VoiceStealPanel> {
                 const SizedBox(width: 4),
                 Text(
                   '${stats.stealerCount}',
-                  style: const TextStyle(fontSize: 13, color: Colors.blue),
+                  style: FluxForgeTheme.dockMono(size: 13, color: Colors.blue),
                 ),
               ],
             ),
@@ -336,7 +337,7 @@ class _VoiceStealPanelState extends State<VoiceStealPanel> {
           Expanded(
             child: Text(
               '${stats.avgPlayDurationMs.toStringAsFixed(1)}ms',
-              style: const TextStyle(fontSize: 13),
+              style: FluxForgeTheme.dockMono(size: 13),
             ),
           ),
 
@@ -350,7 +351,7 @@ class _VoiceStealPanelState extends State<VoiceStealPanel> {
               ),
               child: Text(
                 '⚠️ ${stats.abnormalSteals}',
-                style: const TextStyle(fontSize: 11, color: Colors.red),
+                style: FluxForgeTheme.dockMono(size: 11, color: Colors.red),
               ),
             ),
         ],
@@ -403,16 +404,16 @@ class _VoiceStealPanelState extends State<VoiceStealPanel> {
               Expanded(
                 child: RichText(
                   text: TextSpan(
-                    style: const TextStyle(fontSize: 13),
+                    style: FluxForgeTheme.dockSans(size: 13),
                     children: [
                       TextSpan(
                         text: event.stealerSource,
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
+                        style: FluxForgeTheme.dockSans(weight: FontWeight.bold, color: Colors.blue),
                       ),
-                      const TextSpan(text: ' → ', style: TextStyle(color: Colors.grey)),
+                      TextSpan(text: ' → ', style: FluxForgeTheme.dockSans(color: Colors.grey)),
                       TextSpan(
                         text: event.stolenSource,
-                        style: TextStyle(color: color),
+                        style: FluxForgeTheme.dockSans(color: color),
                       ),
                     ],
                   ),
@@ -422,7 +423,7 @@ class _VoiceStealPanelState extends State<VoiceStealPanel> {
               // Play duration
               Text(
                 '${event.playDurationMs.toStringAsFixed(1)}ms',
-                style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                style: FluxForgeTheme.dockMono(size: 12, color: Colors.grey[400]!),
               ),
             ],
           ),
@@ -432,12 +433,12 @@ class _VoiceStealPanelState extends State<VoiceStealPanel> {
               const SizedBox(width: 24),
               Text(
                 'Priority: ${event.stealerPriority} → ${event.stolenPriority}',
-                style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                style: FluxForgeTheme.dockSans(size: 11, color: Colors.grey[500]!),
               ),
               const Spacer(),
               Text(
                 'Voice ${event.stolenVoiceId}',
-                style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                style: FluxForgeTheme.dockMono(size: 11, color: Colors.grey[500]!),
               ),
             ],
           ),
@@ -478,7 +479,7 @@ class _VoiceStealPanelState extends State<VoiceStealPanel> {
           Expanded(
             child: Text(
               stats.source,
-              style: const TextStyle(fontSize: 13),
+              style: FluxForgeTheme.dockSans(size: 13),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -490,7 +491,7 @@ class _VoiceStealPanelState extends State<VoiceStealPanel> {
             ),
             child: Text(
               '${stats.abnormalSteals} abnormal steals',
-              style: const TextStyle(fontSize: 12, color: Colors.red),
+              style: FluxForgeTheme.dockMono(size: 12, color: Colors.red),
             ),
           ),
         ],
@@ -507,13 +508,13 @@ class _VoiceStealPanelState extends State<VoiceStealPanel> {
           const SizedBox(height: 16),
           Text(
             message,
-            style: TextStyle(color: Colors.grey[500]),
+            style: FluxForgeTheme.dockSans(color: Colors.grey[500]!),
           ),
           if (subtitle != null) ...[
             const SizedBox(height: 8),
             Text(
               subtitle,
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              style: FluxForgeTheme.dockSans(size: 12, color: Colors.grey[600]!),
             ),
           ],
         ],
