@@ -10,6 +10,7 @@ import '../../middleware/music_transition_preview_panel.dart';
 import '../../middleware/music_segment_looping_panel.dart';
 import '../../middleware/beat_grid_editor.dart';
 import '../../middleware/tempo_state_panel.dart';
+import 'slotlab_music_gen_panel.dart';
 import 'slotlab_music_layers_panel.dart';
 
 class SlotLabMusicTabContent extends StatelessWidget {
@@ -27,6 +28,7 @@ class SlotLabMusicTabContent extends StatelessWidget {
       SlotLabMusicSubTab.looping => const _LoopingPanel(),
       SlotLabMusicSubTab.beatGrid => const _BeatGridPanel(),
       SlotLabMusicSubTab.tempoStates => const _TempoStatesPanel(),
+      SlotLabMusicSubTab.gen => const SlotLabMusicGenPanel(),
     };
   }
 }
