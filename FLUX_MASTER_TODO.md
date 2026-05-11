@@ -1310,16 +1310,16 @@ Sprint 4 (layout memory, power users):                 ✅ DONE (ce2a90a9 + c58c
 
 ### 5.1 Generative Slot Scoring (Part V.6)
 
-| # | Zadatak | Tehn |
-|---|---|---|
-| 5.1.1 | `rf-generative` crate, ONNX via tract | Rust |
-| 5.1.2 | Stable Audio Open Small local inference (30s u 8s na M3) | ONNX |
-| 5.1.3 | `generate_stage_audio(stage, style, duration)` FFI | `sam_ffi.rs` |
-| 5.1.4 | "GEN" sub-tab u MUSIC ili MONITOR super-tab | UI |
-| 5.1.5 | Emotional arc timeline input (tension → excitement → euphoria) | UI |
-| 5.1.6 | Style transfer iz reference slota | Model |
-| 5.1.7 | Variation generation (5 alternate BIG_WIN stings) | 1 klik |
-| 5.1.8 | Auto-compliance validator na generisan audio | `rf-slot-builder` |
+| # | Zadatak | Tehn | Status |
+|---|---|---|---|
+| 5.1.1 | `rf-generative` crate, ONNX via tract | Rust | ✅ Sprint 18 — `crates/rf-generative` (lib + 4 modula: backend/request/response/mock). `GenerativeBackend` trait (`Send + Sync`, deterministic seed contract, `BackendCapabilities` advertise). `GenerationRequest` + `GenerationStyle` + `SlotStageHint` (12 variants) + `EmotionalArc` (linear-interp envelope, validate monotonic). `GenerationResponse` + `ProvenanceTag` (backend_id/model_id/seed/UTC ts) — required za 5.1.8 compliance audit. `MockBackend` deterministic additive synth (SplitMix64 PRNG, per-stage chord presets, 5ms fade-in/out anti-click, normalized [-1,1]) — pokriva sve FAZA 5 UI work pre tract-a. `feature = "onnx"` flag (default off) drži workspace build brz. Zero deps (samo serde/thiserror, workspace). **18/18 unit testovi zelena** (determinism byte-identical, seed differentiation, stage spectrum, arc amplitude modulation, range checks, ISO8601 epoch math). cargo check workspace clean, clippy -D warnings clean. |
+| 5.1.2 | Stable Audio Open Small local inference (30s u 8s na M3) | ONNX | 🔴 OPEN (next) — `onnx.rs` modul iza `feature = "onnx"`, tract crate dep, model loader (`*.onnx`), tensor I/O |
+| 5.1.3 | `generate_stage_audio(stage, style, duration)` FFI | `sam_ffi.rs` | 🔴 OPEN — rf-bridge wrapper, JSON request/response, Dart NativeFFI extension |
+| 5.1.4 | "GEN" sub-tab u MUSIC ili MONITOR super-tab | UI | 🔴 OPEN |
+| 5.1.5 | Emotional arc timeline input (tension → excitement → euphoria) | UI | 🔴 OPEN — model već postoji (`EmotionalArc` u rf-generative), treba samo UI |
+| 5.1.6 | Style transfer iz reference slota | Model | 🔴 OPEN |
+| 5.1.7 | Variation generation (5 alternate BIG_WIN stings) | 1 klik | 🔴 OPEN |
+| 5.1.8 | Auto-compliance validator na generisan audio | `rf-slot-builder` | 🔴 OPEN — `ProvenanceTag` polje već obavezno u response-u |
 
 ### 5.2 Generative Voice / Foley (Part V.9)
 

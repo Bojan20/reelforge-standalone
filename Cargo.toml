@@ -76,6 +76,8 @@ members = [
     "crates/rf-composer",
     # Bug Reproduction Harness — deterministic scenario runner (C.1)
     "tools/bug_repro",
+    # Generative Audio Inference — on-device ONNX (tract) + mock backend (FAZA 5.1)
+    "crates/rf-generative",
 ]
 
 [workspace.package]

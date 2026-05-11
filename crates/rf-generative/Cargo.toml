@@ -1,0 +1,26 @@
+[package]
+name = "rf-generative"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "On-device generative audio inference layer — ONNX (tract) backend, deterministic mock, slot-domain bindings (FAZA 5.1)"
+
+[lib]
+name = "rf_generative"
+crate-type = ["rlib"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[features]
+default = []
+# Real ONNX inference via tract. Disabled by default so workspace builds stay
+# fast and the mock backend is enough for unit / integration tests. Flip on
+# when you need actual model execution (5.1.2 will wire Stable Audio Open Small).
+onnx = []
+
+[dev-dependencies]
