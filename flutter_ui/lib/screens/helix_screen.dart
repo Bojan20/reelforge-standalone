@@ -211,7 +211,7 @@ class HelixScreen extends StatefulWidget {
 }
 
 class _HelixScreenState extends State<HelixScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
 
   // ── Dock ──────────────────────────────────────────────────────────────────
   int _dockTab = 0; // 0=FLOW 1=AUDIO 2=MATH 3=TIMELINE 4=INTEL 5=EXPORT 6=SFX 7=BT 8=DNA 9=AI 10=CLOUD 11=A/B
@@ -393,6 +393,7 @@ class _HelixScreenState extends State<HelixScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this); // C.4: glow pause on app background
     _restoreSession(); // 2026-05-10 (Sprint 14) — Faza 4.A.3 state persistence
     _focusNode = FocusNode()..requestFocus();
     _bpmController = TextEditingController(text: '128.0');
@@ -677,6 +678,7 @@ class _HelixScreenState extends State<HelixScreen>
     nav.onHelixMode = null;
     nav.onHelixAction = null;
 
+    WidgetsBinding.instance.removeObserver(this); // C.4
     _focusNode.dispose();
     _bpmController.dispose();
     _projectNameController.dispose();
@@ -691,6 +693,16 @@ class _HelixScreenState extends State<HelixScreen>
     _winLinesClearTimer?.cancel(); // H-014
     _persistSession(); // 2026-05-10 (Sprint 14) — Faza 4.A.3 state persistence
     super.dispose();
+  }
+
+  // ── C.4: Pause glow animation when app goes to background ─────────────
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      if (!_glowCtrl.isAnimating) _glowCtrl.repeat(reverse: true);
+    } else {
+      _glowCtrl.stop();
+    }
   }
 
   // ── Session persistence (Sprint 14, Boki "ne radi mi") ─────────────────
@@ -2045,7 +2057,8 @@ class _HelixScreenState extends State<HelixScreen>
               // RenderObject regardless of grid resize.  PremiumSlotPreview
               // keeps its own ValueKey for the rebuild-on-resize trigger.
               Center(
-                child: KeyedSubtree(
+                child: RepaintBoundary( // C.4: isolate slot canvas repaints from dock/omnibar rebuilds
+                  child: KeyedSubtree(
                   key: _slotPreviewKey,
                   child: ListenableBuilder(
                   listenable: GetIt.instance<SlotLabProjectProvider>(),
@@ -2115,6 +2128,7 @@ class _HelixScreenState extends State<HelixScreen>
                   },
                 );
                   },
+                ),
                 ),
                 ),
               ),
