@@ -78,7 +78,7 @@ class _ScreenshotButtonState extends State<ScreenshotButton> {
             Expanded(
               child: Text(
                 'Screenshot saved (${result.sizeString})',
-                style: const TextStyle(color: Colors.white),
+                style: FluxForgeTheme.dockSans(color: Colors.white),
               ),
             ),
             TextButton(
@@ -179,11 +179,11 @@ class _ScreenshotSettingsPanelState extends State<ScreenshotSettingsPanel> {
             children: [
               const Icon(Icons.camera_alt, size: 16, color: Color(0xFF4A9EFF)),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'SCREENSHOT SETTINGS',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  weight: FontWeight.bold,
                   color: Colors.white70,
                   letterSpacing: 1.2,
                 ),
@@ -260,7 +260,7 @@ class _ScreenshotSettingsPanelState extends State<ScreenshotSettingsPanel> {
           width: 60,
           child: Text(
             label,
-            style: const TextStyle(fontSize: 11, color: Colors.white54),
+            style: FluxForgeTheme.dockSans(size: 11, color: Colors.white54),
           ),
         ),
         Expanded(
@@ -277,7 +277,7 @@ class _ScreenshotSettingsPanelState extends State<ScreenshotSettingsPanel> {
                 isDense: true,
                 isExpanded: true,
                 dropdownColor: FluxForgeTheme.bgSurface,
-                style: const TextStyle(fontSize: 11, color: Colors.white),
+                style: FluxForgeTheme.dockSans(size: 11, color: Colors.white),
                 items: items.map((item) {
                   return DropdownMenuItem<T>(
                     value: item,
@@ -306,7 +306,7 @@ class _ScreenshotSettingsPanelState extends State<ScreenshotSettingsPanel> {
           ),
         ),
         const SizedBox(width: 8),
-        Text(label, style: const TextStyle(fontSize: 11, color: Colors.white70)),
+        Text(label, style: FluxForgeTheme.dockSans(size: 11, color: Colors.white70)),
       ],
     );
   }
@@ -344,11 +344,11 @@ class _ScreenshotHistoryPanelState extends State<ScreenshotHistoryPanel> {
             children: [
               const Icon(Icons.history, size: 16, color: Color(0xFF40C8FF)),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'SCREENSHOT HISTORY',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  weight: FontWeight.bold,
                   color: Colors.white70,
                   letterSpacing: 1.2,
                 ),
@@ -360,7 +360,7 @@ class _ScreenshotHistoryPanelState extends State<ScreenshotHistoryPanel> {
                     ScreenshotService.instance.clearHistory();
                     setState(() {});
                   },
-                  child: const Text('Clear', style: TextStyle(fontSize: 10)),
+                  child: Text('Clear', style: FluxForgeTheme.dockSans(size: 10)),
                 ),
             ],
           ),
@@ -368,12 +368,12 @@ class _ScreenshotHistoryPanelState extends State<ScreenshotHistoryPanel> {
 
           // History list
           if (history.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(16),
+            Padding(
+              padding: const EdgeInsets.all(16),
               child: Center(
                 child: Text(
                   'No screenshots yet',
-                  style: TextStyle(fontSize: 11, color: Colors.white38),
+                  style: FluxForgeTheme.dockSans(size: 11, color: Colors.white38),
                 ),
               ),
             )
@@ -429,12 +429,12 @@ class _ScreenshotHistoryPanelState extends State<ScreenshotHistoryPanel> {
           // Info
           Text(
             result.sizeString,
-            style: const TextStyle(fontSize: 9, color: Colors.white54),
+            style: FluxForgeTheme.dockMono(size: 9, color: Colors.white54),
             overflow: TextOverflow.ellipsis,
           ),
           Text(
             result.fileSizeString,
-            style: const TextStyle(fontSize: 9, color: Colors.white38),
+            style: FluxForgeTheme.dockMono(size: 9, color: Colors.white38),
             overflow: TextOverflow.ellipsis,
           ),
         ],
@@ -520,11 +520,11 @@ class _ScreenshotModeOverlayState extends State<ScreenshotModeOverlay> {
                     children: [
                       const Icon(Icons.camera_alt, color: Color(0xFF4A9EFF)),
                       const SizedBox(width: 12),
-                      const Text(
+                      Text(
                         'SCREENSHOT MODE',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
+                        style: FluxForgeTheme.dockSans(
+                          size: 14,
+                          weight: FontWeight.bold,
                           color: Colors.white,
                           letterSpacing: 1.5,
                         ),
@@ -569,11 +569,11 @@ class _ScreenshotModeOverlayState extends State<ScreenshotModeOverlay> {
                         width: 220,
                         padding: const EdgeInsets.all(12),
                         color: FluxForgeTheme.bgSurface,
-                        child: Column(
+                        child: const Column(
                           children: [
-                            const ScreenshotSettingsPanel(),
-                            const SizedBox(height: 12),
-                            const Expanded(child: ScreenshotHistoryPanel()),
+                            ScreenshotSettingsPanel(),
+                            SizedBox(height: 12),
+                            Expanded(child: ScreenshotHistoryPanel()),
                           ],
                         ),
                       ),
@@ -612,16 +612,16 @@ class _ScreenshotModeOverlayState extends State<ScreenshotModeOverlay> {
         const SizedBox(height: 16),
         Text(
           'Click "Capture" to take a screenshot',
-          style: TextStyle(
-            fontSize: 14,
+          style: FluxForgeTheme.dockSans(
+            size: 14,
             color: Colors.white.withAlpha(100),
           ),
         ),
         const SizedBox(height: 8),
         Text(
           'Keyboard shortcut: ⌘+Shift+S',
-          style: TextStyle(
-            fontSize: 12,
+          style: FluxForgeTheme.dockMono(
+            size: 12,
             color: Colors.white.withAlpha(60),
           ),
         ),
@@ -659,7 +659,7 @@ class _ScreenshotModeOverlayState extends State<ScreenshotModeOverlay> {
         // Info
         Text(
           'Saved: ${result.sizeString} • ${result.fileSizeString}',
-          style: const TextStyle(fontSize: 12, color: Colors.white70),
+          style: FluxForgeTheme.dockMono(size: 12, color: Colors.white70),
         ),
         const SizedBox(height: 8),
 

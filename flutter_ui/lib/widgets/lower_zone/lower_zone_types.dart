@@ -6,6 +6,7 @@
 // Based on LOWER_ZONE_ARCHITECTURE.md
 
 import 'package:flutter/material.dart';
+import '../../theme/flux_forge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -205,31 +206,34 @@ class LowerZoneTypography {
   static const double sizeTiny = 9.0;
 
   // Pre-built TextStyles for consistency
-  static const TextStyle title = TextStyle(
-    fontSize: sizeTitle,
-    fontWeight: FontWeight.bold,
-    letterSpacing: 0.5,
-  );
+  static TextStyle title({Color? color}) {
+    final s = FluxForgeTheme.dockSans(
+      size: sizeTitle,
+      weight: FontWeight.bold,
+      letterSpacing: 0.5,
+    );
+    return color != null ? s.copyWith(color: color) : s;
+  }
 
-  static const TextStyle label = TextStyle(
-    fontSize: sizeLabel,
-    fontWeight: FontWeight.w500,
-  );
+  static TextStyle label({Color? color}) {
+    final s = FluxForgeTheme.dockSans(size: sizeLabel, weight: FontWeight.w500);
+    return color != null ? s.copyWith(color: color) : s;
+  }
 
-  static const TextStyle value = TextStyle(
-    fontSize: sizeValue,
-    fontWeight: FontWeight.normal,
-  );
+  static TextStyle value({Color? color}) {
+    final s = FluxForgeTheme.dockSans(size: sizeValue);
+    return color != null ? s.copyWith(color: color) : s;
+  }
 
-  static const TextStyle badge = TextStyle(
-    fontSize: sizeBadge,
-    fontWeight: FontWeight.w500,
-  );
+  static TextStyle badge({Color? color}) {
+    final s = FluxForgeTheme.dockSans(size: sizeBadge, weight: FontWeight.w500);
+    return color != null ? s.copyWith(color: color) : s;
+  }
 
-  static const TextStyle small = TextStyle(
-    fontSize: sizeSmall,
-    fontWeight: FontWeight.normal,
-  );
+  static TextStyle small({Color? color}) {
+    final s = FluxForgeTheme.dockSans(size: sizeSmall);
+    return color != null ? s.copyWith(color: color) : s;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1416,8 +1420,8 @@ class LowerZoneErrorBanner extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: TextStyle(
-                fontSize: LowerZoneTypography.sizeLabel,
+              style: FluxForgeTheme.dockSans(
+                size: LowerZoneTypography.sizeLabel,
                 color: _color,
               ),
             ),
@@ -1434,9 +1438,9 @@ class LowerZoneErrorBanner extends StatelessWidget {
                 ),
                 child: Text(
                   'Retry',
-                  style: TextStyle(
-                    fontSize: LowerZoneTypography.sizeBadge,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    size: LowerZoneTypography.sizeBadge,
+                    weight: FontWeight.bold,
                     color: _color,
                   ),
                 ),
@@ -1486,9 +1490,9 @@ class LowerZoneEmptyState extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             title,
-            style: TextStyle(
-              fontSize: LowerZoneTypography.sizeTitle,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: LowerZoneTypography.sizeTitle,
+              weight: FontWeight.w600,
               color: LowerZoneColors.textSecondary,
             ),
           ),
@@ -1496,8 +1500,8 @@ class LowerZoneEmptyState extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               subtitle!,
-              style: TextStyle(
-                fontSize: LowerZoneTypography.sizeLabel,
+              style: FluxForgeTheme.dockSans(
+                size: LowerZoneTypography.sizeLabel,
                 color: LowerZoneColors.textMuted,
               ),
               textAlign: TextAlign.center,
@@ -1517,9 +1521,9 @@ class LowerZoneEmptyState extends StatelessWidget {
                 ),
                 child: Text(
                   actionLabel!,
-                  style: TextStyle(
-                    fontSize: LowerZoneTypography.sizeLabel,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    size: LowerZoneTypography.sizeLabel,
+                    weight: FontWeight.bold,
                     color: color,
                   ),
                 ),
@@ -1562,8 +1566,8 @@ class LowerZoneLoadingState extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               message!,
-              style: TextStyle(
-                fontSize: LowerZoneTypography.sizeLabel,
+              style: FluxForgeTheme.dockSans(
+                size: LowerZoneTypography.sizeLabel,
                 color: LowerZoneColors.textMuted,
               ),
             ),
@@ -1647,9 +1651,9 @@ class LowerZoneDraggable extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               data.name,
-              style: TextStyle(
-                fontSize: LowerZoneTypography.sizeLabel,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(
+                size: LowerZoneTypography.sizeLabel,
+                weight: FontWeight.bold,
                 color: LowerZoneColors.textPrimary,
               ),
             ),
@@ -1740,9 +1744,9 @@ class _LowerZoneDropTargetState extends State<LowerZoneDropTarget> {
                           const SizedBox(height: 8),
                           Text(
                             widget.hintText!,
-                            style: TextStyle(
-                              fontSize: LowerZoneTypography.sizeLabel,
-                              fontWeight: FontWeight.bold,
+                            style: FluxForgeTheme.dockSans(
+                              size: LowerZoneTypography.sizeLabel,
+                              weight: FontWeight.bold,
                               color: color,
                             ),
                           ),
@@ -1852,8 +1856,8 @@ class LowerZoneContextMenu extends StatelessWidget {
                 const SizedBox(width: 10),
                 Text(
                   action.label,
-                  style: TextStyle(
-                    fontSize: LowerZoneTypography.sizeLabel,
+                  style: FluxForgeTheme.dockSans(
+                    size: LowerZoneTypography.sizeLabel,
                     color: action.isDestructive
                         ? LowerZoneColors.error
                         : action.onTap != null

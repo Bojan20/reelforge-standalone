@@ -313,12 +313,12 @@ class _ContainerGroupsPanelState extends State<ContainerGroupsPanel> {
         children: [
           Icon(Icons.account_tree, color: Colors.teal, size: 16),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'CONTAINER GROUPS',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textPrimary,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+              size: 11,
+              weight: FontWeight.w600,
               letterSpacing: 1,
             ),
           ),
@@ -331,10 +331,10 @@ class _ContainerGroupsPanelState extends State<ContainerGroupsPanel> {
             ),
             child: Text(
               '${_rootGroups.length} roots',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.teal,
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
+                size: 9,
+                weight: FontWeight.w700,
               ),
             ),
           ),
@@ -371,7 +371,7 @@ class _ContainerGroupsPanelState extends State<ContainerGroupsPanel> {
           children: [
             Icon(icon, size: 11, color: c),
             const SizedBox(width: 4),
-            Text(label, style: TextStyle(color: c, fontSize: 9, fontWeight: FontWeight.w600)),
+            Text(label, style: FluxForgeTheme.dockSans(color: c, size: 9, weight: FontWeight.w600)),
           ],
         ),
       ),
@@ -387,12 +387,12 @@ class _ContainerGroupsPanelState extends State<ContainerGroupsPanel> {
           const SizedBox(height: 8),
           Text(
             'No container groups',
-            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11),
           ),
           const SizedBox(height: 4),
           Text(
             'Create groups to nest containers hierarchically',
-            style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 10),
           ),
         ],
       ),
@@ -470,10 +470,10 @@ class _ContainerGroupsPanelState extends State<ContainerGroupsPanel> {
                 Expanded(
                   child: Text(
                     node.name,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: FluxForgeTheme.textPrimary,
-                      fontSize: 11,
-                      fontWeight: isGroup ? FontWeight.w600 : FontWeight.w400,
+                      size: 11,
+                      weight: isGroup ? FontWeight.w600 : FontWeight.w400,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -494,10 +494,10 @@ class _ContainerGroupsPanelState extends State<ContainerGroupsPanel> {
                         const SizedBox(width: 3),
                         Text(
                           node.evalMode.label,
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
                             color: node.evalMode.color,
-                            fontSize: 8,
-                            fontWeight: FontWeight.w600,
+                            size: 8,
+                            weight: FontWeight.w600,
                           ),
                         ),
                       ],
@@ -507,10 +507,9 @@ class _ContainerGroupsPanelState extends State<ContainerGroupsPanel> {
                   // Child count
                   Text(
                     '${node.children.length}',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockMono(
                       color: FluxForgeTheme.textTertiary,
-                      fontSize: 9,
-                      fontFamily: 'monospace',
+                      size: 9,
                     ),
                   ),
                 ],
@@ -524,10 +523,10 @@ class _ContainerGroupsPanelState extends State<ContainerGroupsPanel> {
                     ),
                     child: Text(
                       node.type.label,
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: node.type.color,
-                        fontSize: 8,
-                        fontWeight: FontWeight.w600,
+                        size: 8,
+                        weight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -577,7 +576,7 @@ class _ContainerGroupsPanelState extends State<ContainerGroupsPanel> {
               const SizedBox(width: 8),
               Text(
                 type.label,
-                style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 11),
+                style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary, size: 11),
               ),
             ],
           ),
@@ -613,7 +612,7 @@ class _ContainerGroupsPanelState extends State<ContainerGroupsPanel> {
           if (selectedNode != null && selectedNode.type == _ContainerChildType.group) ...[
             Text(
               'Eval:',
-              style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 9),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 9),
             ),
             const SizedBox(width: 4),
             ...GroupEvalMode.values.map((mode) {
@@ -633,10 +632,10 @@ class _ContainerGroupsPanelState extends State<ContainerGroupsPanel> {
                     ),
                     child: Text(
                       mode.label,
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: isActive ? mode.color : FluxForgeTheme.textTertiary,
-                        fontSize: 8,
-                        fontWeight: isActive ? FontWeight.w700 : FontWeight.w400,
+                        size: 8,
+                        weight: isActive ? FontWeight.w700 : FontWeight.w400,
                       ),
                     ),
                   ),
@@ -662,12 +661,12 @@ class _ContainerGroupsPanelState extends State<ContainerGroupsPanel> {
         children: [
           Text(
             label,
-            style: TextStyle(color: color.withValues(alpha: 0.7), fontSize: 8, fontWeight: FontWeight.w600),
+            style: FluxForgeTheme.dockSans(color: color.withValues(alpha: 0.7), size: 8, weight: FontWeight.w600),
           ),
           const SizedBox(width: 4),
           Text(
             value,
-            style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w700, fontFamily: 'monospace'),
+            style: FluxForgeTheme.dockMono(color: color, size: 9, weight: FontWeight.w700),
           ),
         ],
       ),

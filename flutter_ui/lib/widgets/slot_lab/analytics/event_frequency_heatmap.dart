@@ -146,21 +146,18 @@ class _EventFrequencyHeatmapState extends State<EventFrequencyHeatmap> {
           const SizedBox(width: 6),
           Text(
             'AUDIO EVENT FREQUENCY HEATMAP',
-            style: TextStyle(
-              fontSize: 10,
-              fontFamily: 'monospace',
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockMono(
+              size: 10,
+              weight: FontWeight.bold,
               color: FluxForgeTheme.accentBlue.withValues(alpha: 0.9),
-              letterSpacing: 1.0,
             ),
           ),
           if (_liveResult != null) ...[
             const SizedBox(width: 6),
             Text(
               '(${_formatSpins(_liveResult!.spinCount)} spins)',
-              style: TextStyle(
-                fontSize: 9,
-                fontFamily: 'monospace',
+              style: FluxForgeTheme.dockMono(
+                size: 9,
                 color: Colors.white38,
               ),
             ),
@@ -197,10 +194,9 @@ class _EventFrequencyHeatmapState extends State<EventFrequencyHeatmap> {
             const SizedBox(width: 3),
             Text(
               'RUN SIM',
-              style: TextStyle(
-                fontSize: 9,
-                fontFamily: 'monospace',
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockMono(
+                size: 9,
+                weight: FontWeight.bold,
                 color: FluxForgeTheme.accentGreen,
               ),
             ),
@@ -220,18 +216,16 @@ class _EventFrequencyHeatmapState extends State<EventFrequencyHeatmap> {
             children: [
               Text(
                 'Simulating...',
-                style: TextStyle(
-                  fontSize: 9,
-                  fontFamily: 'monospace',
+                style: FluxForgeTheme.dockMono(
+                  size: 9,
                   color: FluxForgeTheme.accentOrange,
                 ),
               ),
               const Spacer(),
               Text(
                 '${(_progress * 100).toStringAsFixed(1)}%',
-                style: TextStyle(
-                  fontSize: 9,
-                  fontFamily: 'monospace',
+                style: FluxForgeTheme.dockMono(
+                  size: 9,
                   color: FluxForgeTheme.accentOrange,
                 ),
               ),
@@ -305,9 +299,8 @@ class _EventFrequencyHeatmapState extends State<EventFrequencyHeatmap> {
         const SizedBox(width: 3),
         Text(
           label,
-          style: TextStyle(
-            fontSize: 9,
-            fontFamily: 'monospace',
+          style: FluxForgeTheme.dockMono(
+            size: 9,
             color: color,
           ),
         ),
@@ -321,10 +314,13 @@ class _EventFrequencyHeatmapState extends State<EventFrequencyHeatmap> {
       ..sort((a, b) => b.value.avgPer1000Spins.compareTo(a.value.avgPer1000Spins));
 
     if (entries.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           'No events recorded',
-          style: TextStyle(color: Colors.white24, fontSize: 10),
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            color: Colors.white24,
+          ),
         ),
       );
     }
@@ -359,9 +355,8 @@ class _EventFrequencyHeatmapState extends State<EventFrequencyHeatmap> {
             width: 130,
             child: Text(
               eventName,
-              style: TextStyle(
-                fontSize: 9,
-                fontFamily: 'monospace',
+              style: FluxForgeTheme.dockMono(
+                size: 9,
                 color: Colors.white70,
               ),
               overflow: TextOverflow.ellipsis,
@@ -406,9 +401,8 @@ class _EventFrequencyHeatmapState extends State<EventFrequencyHeatmap> {
             width: 72,
             child: Text(
               freqLabel,
-              style: TextStyle(
-                fontSize: 9,
-                fontFamily: 'monospace',
+              style: FluxForgeTheme.dockMono(
+                size: 9,
                 color: Colors.white38,
               ),
               textAlign: TextAlign.right,
@@ -435,18 +429,16 @@ class _EventFrequencyHeatmapState extends State<EventFrequencyHeatmap> {
           const SizedBox(width: 4),
           Text(
             'Actual RTP: ${(result.actualRtp * 100).toStringAsFixed(2)}%',
-            style: TextStyle(
-              fontSize: 9,
-              fontFamily: 'monospace',
+            style: FluxForgeTheme.dockMono(
+              size: 9,
               color: rtpColor,
             ),
           ),
           if (result.targetRtp > 0) ...[
             Text(
               '  (target: ${result.targetRtp.toStringAsFixed(2)}%)',
-              style: const TextStyle(
-                fontSize: 9,
-                fontFamily: 'monospace',
+              style: FluxForgeTheme.dockMono(
+                size: 9,
                 color: Colors.white38,
               ),
             ),
@@ -454,9 +446,8 @@ class _EventFrequencyHeatmapState extends State<EventFrequencyHeatmap> {
           const Spacer(),
           Text(
             '${_formatDuration(result.simDurationMs)}',
-            style: const TextStyle(
-              fontSize: 9,
-              fontFamily: 'monospace',
+            style: FluxForgeTheme.dockMono(
+              size: 9,
               color: Colors.white24,
             ),
           ),
@@ -490,8 +481,8 @@ class _EventFrequencyHeatmapState extends State<EventFrequencyHeatmap> {
           Text(
             'Run a batch simulation to see\naudio event frequency analysis',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 10,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: Colors.white24,
             ),
           ),
@@ -511,10 +502,9 @@ class _EventFrequencyHeatmapState extends State<EventFrequencyHeatmap> {
                 ),
                 child: Text(
                   'RUN SIMULATION',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontFamily: 'monospace',
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockMono(
+                    size: 10,
+                    weight: FontWeight.bold,
                     color: FluxForgeTheme.accentGreen,
                   ),
                 ),

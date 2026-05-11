@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Represents a slot configuration for A/B comparison
 class SlotConfiguration {
@@ -323,13 +324,13 @@ class _ABConfigComparisonPanelState extends State<ABConfigComparisonPanel> {
         children: [
           const Icon(Icons.compare_arrows, color: Color(0xFF4a9eff)),
           const SizedBox(width: 12),
-          const Flexible(
+          Flexible(
             child: Text(
               'A/B Configuration Comparison',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 16,
+                weight: FontWeight.bold,
                 color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -341,9 +342,9 @@ class _ABConfigComparisonPanelState extends State<ABConfigComparisonPanel> {
             children: [
               Text(
                 'Differences only',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 12,
                   color: Colors.white.withValues(alpha: 0.7),
-                  fontSize: 12,
                 ),
               ),
               const SizedBox(width: 8),
@@ -382,9 +383,9 @@ class _ABConfigComparisonPanelState extends State<ABConfigComparisonPanel> {
               onSelected: (_) => setState(() => _selectedCategory = category),
               backgroundColor: const Color(0xFF2a2a30),
               selectedColor: const Color(0xFF4a9eff).withValues(alpha: 0.3),
-              labelStyle: TextStyle(
+              labelStyle: FluxForgeTheme.dockSans(
+                size: 12,
                 color: isSelected ? const Color(0xFF4a9eff) : Colors.white70,
-                fontSize: 12,
               ),
               side: BorderSide(
                 color: isSelected ? const Color(0xFF4a9eff) : Colors.transparent,
@@ -412,14 +413,16 @@ class _ABConfigComparisonPanelState extends State<ABConfigComparisonPanel> {
             const SizedBox(height: 12),
             Text(
               'No Config $label',
-              style: TextStyle(color: color.withValues(alpha: 0.7)),
+              style: FluxForgeTheme.dockSans(
+                color: color.withValues(alpha: 0.7),
+              ),
             ),
             const SizedBox(height: 8),
             TextButton(
               onPressed: () {
                 // Would trigger config selection
               },
-              child: Text('Load Config', style: TextStyle(color: color)),
+              child: Text('Load Config', style: FluxForgeTheme.dockSans(color: color)),
             ),
           ],
         ),
@@ -451,9 +454,9 @@ class _ABConfigComparisonPanelState extends State<ABConfigComparisonPanel> {
                   child: Center(
                     child: Text(
                       label,
-                      style: const TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        weight: FontWeight.bold,
                         color: Colors.white,
-                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
@@ -465,14 +468,17 @@ class _ABConfigComparisonPanelState extends State<ABConfigComparisonPanel> {
                     children: [
                       Text(
                         config.name,
-                        style: const TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          weight: FontWeight.bold,
                           color: Colors.white,
-                          fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(
                         'Modified: ${_formatDate(config.lastModified)}',
-                        style: const TextStyle(color: Colors.white38, fontSize: 11),
+                        style: FluxForgeTheme.dockSans(
+                          size: 11,
+                          color: Colors.white38,
+                        ),
                       ),
                     ],
                   ),
@@ -536,10 +542,10 @@ class _ABConfigComparisonPanelState extends State<ABConfigComparisonPanel> {
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Text(
             title,
-            style: const TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 12,
+              weight: FontWeight.bold,
               color: Colors.white70,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
             ),
           ),
         ),
@@ -608,18 +614,18 @@ class _ABConfigComparisonPanelState extends State<ABConfigComparisonPanel> {
           Expanded(
             child: Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 12,
                 color: textColor ?? Colors.white70,
-                fontSize: 12,
               ),
             ),
           ),
           Text(
             value,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 12,
+              weight: FontWeight.w500,
               color: textColor ?? Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -651,9 +657,12 @@ class _ABConfigComparisonPanelState extends State<ABConfigComparisonPanel> {
           if (changedCount > 0)
             _buildDiffBadge('~$changedCount', const Color(0xFFFFD700)),
           if (addedCount == 0 && removedCount == 0 && changedCount == 0)
-            const Text(
+            Text(
               'Same',
-              style: TextStyle(color: Colors.white38, fontSize: 10),
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                color: Colors.white38,
+              ),
             ),
         ],
       ),
@@ -670,7 +679,11 @@ class _ABConfigComparisonPanelState extends State<ABConfigComparisonPanel> {
       ),
       child: Text(
         text,
-        style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+        style: FluxForgeTheme.dockSans(
+          size: 10,
+          weight: FontWeight.bold,
+          color: color,
+        ),
       ),
     );
   }
@@ -722,7 +735,10 @@ class _ABConfigComparisonPanelState extends State<ABConfigComparisonPanel> {
             // Summary
             Text(
               '${diffs.where((d) => d.type != DiffType.unchanged).length} differences',
-              style: const TextStyle(color: Colors.white54, fontSize: 12),
+              style: FluxForgeTheme.dockSans(
+                size: 12,
+                color: Colors.white54,
+              ),
             ),
             const SizedBox(width: 16),
             // Export button

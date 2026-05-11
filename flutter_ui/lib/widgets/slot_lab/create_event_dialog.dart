@@ -110,12 +110,11 @@ class _CreateEventDialogState extends State<CreateEventDialog> {
               children: [
                 Icon(Icons.add_circle, color: FluxForgeTheme.accentBlue, size: 20),
                 const SizedBox(width: 8),
-                const Text(
+                Text(
                   'Create New Event',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                  style: FluxForgeTheme.dockSans(
+                    size: 16,
+                    weight: FontWeight.w600,
                   ),
                 ),
                 const Spacer(),
@@ -130,15 +129,19 @@ class _CreateEventDialogState extends State<CreateEventDialog> {
             const SizedBox(height: 16),
 
             // Event Name Input
-            const Text(
+            Text(
               'Event Name',
-              style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600),
+              style: FluxForgeTheme.dockSans(
+                color: Colors.white70,
+                size: 11,
+                weight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: 4),
             TextField(
               controller: _nameController,
               autofocus: true,
-              style: const TextStyle(color: Colors.white, fontSize: 13),
+              style: FluxForgeTheme.dockSans(size: 13),
               decoration: InputDecoration(
                 isDense: true,
                 filled: true,
@@ -149,7 +152,7 @@ class _CreateEventDialogState extends State<CreateEventDialog> {
                 ),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 hintText: 'Enter event name...',
-                hintStyle: const TextStyle(color: Colors.white24),
+                hintStyle: FluxForgeTheme.dockSans(color: Colors.white24),
               ),
             ),
             const SizedBox(height: 16),
@@ -157,9 +160,13 @@ class _CreateEventDialogState extends State<CreateEventDialog> {
             // Stage Selection Header
             Row(
               children: [
-                const Text(
+                Text(
                   'Trigger Stages',
-                  style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600),
+                  style: FluxForgeTheme.dockSans(
+                    color: Colors.white70,
+                    size: 11,
+                    weight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 if (_selectedStages.isNotEmpty)
@@ -171,9 +178,9 @@ class _CreateEventDialogState extends State<CreateEventDialog> {
                     ),
                     child: Text(
                       '${_selectedStages.length} selected',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: FluxForgeTheme.accentBlue,
-                        fontSize: 10,
+                        size: 10,
                       ),
                     ),
                   ),
@@ -191,16 +198,16 @@ class _CreateEventDialogState extends State<CreateEventDialog> {
                       value: _filterCategory,
                       isDense: true,
                       dropdownColor: const Color(0xFF1A1A22),
-                      style: const TextStyle(color: Colors.white70, fontSize: 10),
-                      hint: const Text('All', style: TextStyle(color: Colors.white38, fontSize: 10)),
+                      style: FluxForgeTheme.dockSans(color: Colors.white70, size: 10),
+                      hint: Text('All', style: FluxForgeTheme.dockSans(color: Colors.white38, size: 10)),
                       items: [
-                        const DropdownMenuItem(
+                        DropdownMenuItem(
                           value: null,
-                          child: Text('All Categories'),
+                          child: Text('All Categories', style: FluxForgeTheme.dockSans(size: 10)),
                         ),
                         ...StageCategory.values.map((cat) => DropdownMenuItem(
                               value: cat,
-                              child: Text(_categoryLabel(cat)),
+                              child: Text(_categoryLabel(cat), style: FluxForgeTheme.dockSans(size: 10)),
                             )),
                       ],
                       onChanged: (cat) => setState(() => _filterCategory = cat),
@@ -213,7 +220,7 @@ class _CreateEventDialogState extends State<CreateEventDialog> {
 
             // Search box
             TextField(
-              style: const TextStyle(color: Colors.white70, fontSize: 11),
+              style: FluxForgeTheme.dockSans(color: Colors.white70, size: 11),
               decoration: InputDecoration(
                 isDense: true,
                 filled: true,
@@ -224,7 +231,7 @@ class _CreateEventDialogState extends State<CreateEventDialog> {
                 ),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 hintText: 'Search stages...',
-                hintStyle: const TextStyle(color: Colors.white24, fontSize: 11),
+                hintStyle: FluxForgeTheme.dockSans(color: Colors.white24, size: 11),
                 prefixIcon: const Icon(Icons.search, size: 14, color: Colors.white24),
                 prefixIconConstraints: const BoxConstraints(minWidth: 28),
               ),
@@ -239,7 +246,7 @@ class _CreateEventDialogState extends State<CreateEventDialog> {
                 runSpacing: 4,
                 children: _selectedStages.map((stage) {
                   return Chip(
-                    label: Text(stage, style: const TextStyle(fontSize: 10, color: Colors.white)),
+                    label: Text(stage, style: FluxForgeTheme.dockSans(size: 10)),
                     deleteIcon: const Icon(Icons.close, size: 12),
                     deleteIconColor: Colors.white54,
                     onDeleted: () => setState(() => _selectedStages.remove(stage)),
@@ -295,8 +302,8 @@ class _CreateEventDialogState extends State<CreateEventDialog> {
                             Expanded(
                               child: Text(
                                 stage,
-                                style: TextStyle(
-                                  fontSize: 11,
+                                style: FluxForgeTheme.dockSans(
+                                  size: 11,
                                   color: isSelected ? Colors.white : Colors.white70,
                                 ),
                               ),
@@ -319,7 +326,7 @@ class _CreateEventDialogState extends State<CreateEventDialog> {
               children: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+                  child: Text('Cancel', style: FluxForgeTheme.dockSans(color: Colors.white54)),
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
@@ -359,7 +366,7 @@ class _CreateEventDialogState extends State<CreateEventDialog> {
       ),
       child: Text(
         _categoryLabel(def.category),
-        style: TextStyle(fontSize: 8, color: color),
+        style: FluxForgeTheme.dockSans(size: 8, color: color),
       ),
     );
   }

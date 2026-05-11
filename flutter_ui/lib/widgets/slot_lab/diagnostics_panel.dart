@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/diagnostics/diagnostics_service.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Real-time health dashboard for FluxForge diagnostics system.
 ///
@@ -87,10 +88,10 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
           const SizedBox(width: 8),
           Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: color,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
+              size: 13,
+              weight: FontWeight.w700,
               letterSpacing: 1.2,
             ),
           ),
@@ -98,9 +99,9 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
           if (_diagnostics.lastReport != null) ...[
             Text(
               '${_diagnostics.lastReport!.totalChecks} checks',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.white.withValues(alpha: 0.5),
-                fontSize: 11,
+                size: 11,
               ),
             ),
           ],
@@ -173,7 +174,7 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
             const SizedBox(width: 4),
             Text(
               label,
-              style: TextStyle(color: color, fontSize: 11),
+              style: FluxForgeTheme.dockSans(color: color, size: 11),
             ),
           ],
         ),
@@ -222,9 +223,9 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
             padding: const EdgeInsets.only(left: 8, top: 2),
             child: Text(
               '... and ${report.okCount - 5} more OK checks',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.white.withValues(alpha: 0.3),
-                fontSize: 10,
+                size: 10,
               ),
             ),
           ),
@@ -258,17 +259,17 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
             const SizedBox(height: 12),
             Text(
               'No diagnostics yet',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.white.withValues(alpha: 0.4),
-                fontSize: 13,
+                size: 13,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               'Run a check or start monitoring',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.white.withValues(alpha: 0.25),
-                fontSize: 11,
+                size: 11,
               ),
             ),
           ],
@@ -282,10 +283,10 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
       children: [
         Text(
           title.toUpperCase(),
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: Colors.white.withValues(alpha: 0.6),
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
+            size: 10,
+            weight: FontWeight.w700,
             letterSpacing: 1.5,
           ),
         ),
@@ -293,9 +294,9 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
           const SizedBox(width: 8),
           Text(
             subtitle,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white.withValues(alpha: 0.3),
-              fontSize: 10,
+              size: 10,
             ),
           ),
         ],
@@ -312,10 +313,10 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
       ),
       child: Text(
         '$count $label',
-        style: TextStyle(
+        style: FluxForgeTheme.dockMono(
           color: count > 0 ? color : Colors.white.withValues(alpha: 0.3),
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
+          size: 11,
+          weight: FontWeight.w600,
         ),
       ),
     );
@@ -345,17 +346,16 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
                   ),
                   child: Text(
                     finding.checker,
-                    style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w600),
+                    style: FluxForgeTheme.dockSans(color: color, size: 9, weight: FontWeight.w600),
                   ),
                 ),
                 if (finding.affectedStage != null) ...[
                   const SizedBox(width: 4),
                   Text(
                     finding.affectedStage!,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockMono(
                       color: Colors.white.withValues(alpha: 0.4),
-                      fontSize: 9,
-                      fontFamily: 'monospace',
+                      size: 9,
                     ),
                   ),
                 ],
@@ -364,9 +364,9 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
                   '${finding.timestamp.hour.toString().padLeft(2, '0')}:'
                   '${finding.timestamp.minute.toString().padLeft(2, '0')}:'
                   '${finding.timestamp.second.toString().padLeft(2, '0')}',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
                     color: Colors.white.withValues(alpha: 0.2),
-                    fontSize: 9,
+                    size: 9,
                   ),
                 ),
               ],
@@ -374,18 +374,18 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
             const SizedBox(height: 2),
             Text(
               finding.message,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: Colors.white.withValues(alpha: 0.8),
-                fontSize: 11,
+                size: 11,
               ),
             ),
             if (finding.detail != null) ...[
               const SizedBox(height: 2),
               Text(
                 finding.detail!,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: Colors.white.withValues(alpha: 0.4),
-                  fontSize: 10,
+                  size: 10,
                 ),
               ),
             ],

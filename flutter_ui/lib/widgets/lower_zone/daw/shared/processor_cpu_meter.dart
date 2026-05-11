@@ -12,6 +12,7 @@ import 'dart:math' as math;
 import '../../../lower_zone/lower_zone_types.dart';
 import '../../../../providers/dsp_chain_provider.dart';
 import '../../../../src/rust/native_ffi.dart';
+import '../../../../theme/flux_forge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CPU ESTIMATION MODEL
@@ -171,9 +172,9 @@ class _ProcessorCpuMeterInlineState extends State<ProcessorCpuMeterInline> {
                 Center(
                   child: Text(
                     '${loadPercent.toStringAsFixed(0)}%',
-                    style: TextStyle(
-                      fontSize: 6,
-                      fontWeight: FontWeight.bold,
+                    style: FluxForgeTheme.dockMono(
+                      size: 6,
+                      weight: FontWeight.bold,
                       color: loadPercent > 5
                           ? Colors.white
                           : LowerZoneColors.textMuted,
@@ -304,9 +305,9 @@ class _ProcessorCpuPanelState extends State<ProcessorCpuPanel> {
         const SizedBox(width: 6),
         Text(
           'CPU USAGE — Track ${widget.trackId}',
-          style: const TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: FontWeight.bold,
             color: LowerZoneColors.dawAccent,
             letterSpacing: 0.5,
           ),
@@ -324,9 +325,9 @@ class _ProcessorCpuPanelState extends State<ProcessorCpuPanel> {
           ),
           child: Text(
             'DSP: ${_overallDspLoad.toStringAsFixed(1)}%',
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockMono(
+              size: 9,
+              weight: FontWeight.w600,
               color: _getLoadColor(_overallDspLoad),
             ),
           ),
@@ -347,18 +348,18 @@ class _ProcessorCpuPanelState extends State<ProcessorCpuPanel> {
               color: LowerZoneColors.textMuted.withValues(alpha: 0.5),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'No Processors',
-              style: TextStyle(
-                fontSize: 11,
+              style: FluxForgeTheme.dockSans(
+                size: 11,
                 color: LowerZoneColors.textMuted,
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
+            Text(
               'Add processors to see CPU usage',
-              style: TextStyle(
-                fontSize: 9,
+              style: FluxForgeTheme.dockSans(
+                size: 9,
                 color: LowerZoneColors.textTertiary,
               ),
             ),
@@ -416,9 +417,9 @@ class _ProcessorCpuPanelState extends State<ProcessorCpuPanel> {
                 children: [
                   Text(
                     node.type.shortName,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
+                    style: FluxForgeTheme.dockSans(
+                      size: 11,
+                      weight: FontWeight.w600,
                       color: node.bypass
                           ? LowerZoneColors.textMuted
                           : LowerZoneColors.textPrimary,
@@ -426,8 +427,8 @@ class _ProcessorCpuPanelState extends State<ProcessorCpuPanel> {
                   ),
                   Text(
                     node.bypass ? 'Bypassed' : node.type.fullName,
-                    style: const TextStyle(
-                      fontSize: 9,
+                    style: FluxForgeTheme.dockSans(
+                      size: 9,
                       color: LowerZoneColors.textTertiary,
                     ),
                   ),
@@ -443,9 +444,9 @@ class _ProcessorCpuPanelState extends State<ProcessorCpuPanel> {
                 children: [
                   Text(
                     node.bypass ? '0.0%' : '${displayCpu.toStringAsFixed(1)}%',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
+                    style: FluxForgeTheme.dockMono(
+                      size: 10,
+                      weight: FontWeight.bold,
                       color: node.bypass ? LowerZoneColors.textMuted : color,
                     ),
                   ),
@@ -502,8 +503,8 @@ class _ProcessorCpuPanelState extends State<ProcessorCpuPanel> {
               const SizedBox(width: 6),
               Text(
                 'Total: $processorCount processor${processorCount != 1 ? 's' : ''}',
-                style: const TextStyle(
-                  fontSize: 10,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
                   color: LowerZoneColors.textSecondary,
                 ),
               ),
@@ -513,16 +514,16 @@ class _ProcessorCpuPanelState extends State<ProcessorCpuPanel> {
             children: [
               Text(
                 'Est. CPU: ',
-                style: const TextStyle(
-                  fontSize: 10,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
                   color: LowerZoneColors.textMuted,
                 ),
               ),
               Text(
                 '${totalCpu.toStringAsFixed(1)}%',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockMono(
+                  size: 10,
+                  weight: FontWeight.bold,
                   color: _getLoadColor(totalCpu),
                 ),
               ),
@@ -603,17 +604,17 @@ class ProcessorCpuBadge extends StatelessWidget {
               if (showLabel) ...[
                 Text(
                   'CPU: ',
-                  style: TextStyle(
-                    fontSize: 9,
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
                     color: color.withValues(alpha: 0.8),
                   ),
                 ),
               ],
               Text(
                 '${totalCpu.toStringAsFixed(1)}%',
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockMono(
+                  size: 9,
+                  weight: FontWeight.bold,
                   color: color,
                 ),
               ),
@@ -723,9 +724,9 @@ class _GlobalDspLoadIndicatorState extends State<GlobalDspLoadIndicator> {
               const SizedBox(width: 4),
               Text(
                 '${_currentLoad.toStringAsFixed(0)}%',
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockMono(
+                  size: 9,
+                  weight: FontWeight.w600,
                   color: color,
                 ),
               ),
