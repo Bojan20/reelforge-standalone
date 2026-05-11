@@ -95,7 +95,7 @@ class _CloudSyncPanelState extends State<_CloudSyncPanel> {
                     });
                   },
                   child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
+                    duration: FluxMotion.quick,
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
                       color: _autoSyncEnabled

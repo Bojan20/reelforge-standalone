@@ -52,7 +52,7 @@ class _OmniIconBtnState extends State<_OmniIconBtn> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
+          duration: FluxMotion.quick,
           width: 34, height: 34,
           decoration: BoxDecoration(
             color: _hovered
@@ -99,7 +99,7 @@ class _ModeBadgeState extends State<_ModeBadge> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
+          duration: FluxMotion.quick,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           decoration: BoxDecoration(
             color: isActive
@@ -153,7 +153,7 @@ class _TransportBtnState extends State<_TransportBtn> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 110),
+          duration: FluxMotion.quick,
           width: 32, height: 32,
           decoration: BoxDecoration(
             color: widget.active && c != null

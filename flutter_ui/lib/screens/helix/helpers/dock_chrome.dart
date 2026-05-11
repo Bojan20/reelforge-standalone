@@ -28,7 +28,7 @@ part of '../../helix_screen.dart';class _StageNode extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AnimatedContainer(
-    duration: const Duration(milliseconds: 300),
+    duration: FluxMotion.standard,
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
     decoration: BoxDecoration(
       color: active ? color.withValues(alpha: 0.12) : Colors.transparent,
@@ -189,7 +189,7 @@ class _FlowNodeState extends State<_FlowNode> {
         mainAxisSize: MainAxisSize.min,
         children: [
           AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
+            duration: FluxMotion.brisk,
             width: 70, height: 44,
             decoration: BoxDecoration(
               color: widget.active
@@ -431,7 +431,7 @@ class _ExportCardState extends State<_ExportCard> {
     child: GestureDetector(
       onTap: widget.onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
+        duration: FluxMotion.quick,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           gradient: LinearGradient(

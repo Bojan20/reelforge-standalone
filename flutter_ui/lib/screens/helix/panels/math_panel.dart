@@ -347,7 +347,7 @@ class _RunSimButtonState extends State<_RunSimButton> {
           tier: win > avgWinMult * 1.5 ? 'WIN 3' : win > 0 ? 'WIN 1' : null);
       }
     });
-    await Future.delayed(const Duration(milliseconds: 800));
+    await Future.delayed(FluxMotion.cinematic);
     if (mounted) setState(() => _running = false);
   }
 
@@ -355,7 +355,7 @@ class _RunSimButtonState extends State<_RunSimButton> {
   Widget build(BuildContext context) => GestureDetector(
     onTap: _run,
     child: AnimatedContainer(
-      duration: const Duration(milliseconds: 150),
+      duration: FluxMotion.quick,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: _running

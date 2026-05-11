@@ -458,7 +458,7 @@ class _FlowPanelState extends State<_FlowPanel> {
                               child: GestureDetector(
                                 onTap: () => _tapNode(node, flow),
                                 child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 150),
+                                  duration: FluxMotion.quick,
                                   width: 48,
                                   height: 36,
                                   decoration: BoxDecoration(

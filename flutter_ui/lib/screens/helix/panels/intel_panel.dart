@@ -185,7 +185,7 @@ class _IntelPanelState extends State<_IntelPanel> {
                                 }
                               },
                               child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 120),
+                                duration: FluxMotion.quick,
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(
                                   color: isActive ? c.withValues(alpha: 0.18) : c.withValues(alpha: 0.05),

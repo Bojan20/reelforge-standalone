@@ -285,7 +285,7 @@ class _DnaApplyButtonState extends State<_DnaApplyButton> {
         });
       },
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+        duration: FluxMotion.brisk,
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 6),
         decoration: BoxDecoration(

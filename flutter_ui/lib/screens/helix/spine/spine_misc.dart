@@ -222,7 +222,7 @@ class _SpineToggle extends StatelessWidget {
       GestureDetector(
         onTap: () => onChanged(!value),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
+          duration: FluxMotion.quick,
           width: 36, height: 18,
           decoration: BoxDecoration(
             color: value ? activeColor.withValues(alpha: 0.2) : FluxForgeTheme.bgElevated,
@@ -231,7 +231,7 @@ class _SpineToggle extends StatelessWidget {
           ),
           child: Stack(children: [
             AnimatedPositioned(
-              duration: const Duration(milliseconds: 150),
+              duration: FluxMotion.quick,
               left: value ? 20 : 2,
               top: 2, bottom: 2,
               child: Container(

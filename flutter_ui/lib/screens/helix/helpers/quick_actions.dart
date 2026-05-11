@@ -47,7 +47,7 @@ class _QuickActionPillState extends State<_QuickActionPill> {
       child: GestureDetector(
         onTap: widget.action.onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
+          duration: FluxMotion.quick,
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             color: _hovered

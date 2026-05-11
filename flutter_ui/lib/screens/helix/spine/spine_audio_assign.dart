@@ -580,7 +580,7 @@ class _SpineAudioAssignState extends State<_SpineAudioAssign> {
       child: GestureDetector(
         onTap: () => helixState?.openContextLens(e),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
+          duration: FluxMotion.quick,
           margin: const EdgeInsets.only(bottom: 4),
           padding: const EdgeInsets.fromLTRB(8, 6, 6, 6),
           decoration: BoxDecoration(

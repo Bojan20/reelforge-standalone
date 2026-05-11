@@ -34,6 +34,7 @@ import 'package:get_it/get_it.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 
 import '../theme/fluxforge_theme.dart';
+import '../theme/flux_motion.dart';
 import 'helix/helpers/slot_rect_resolver.dart';
 import '../providers/engine_provider.dart';
 import '../providers/slot_lab/game_flow_provider.dart';

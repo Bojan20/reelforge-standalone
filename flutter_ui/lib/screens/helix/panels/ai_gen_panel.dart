@@ -194,7 +194,7 @@ class _AiGenerationPanelState extends State<_AiGenerationPanel> {
     return GestureDetector(
       onTap: () => setState(() => _selectedBackend = id),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
+        duration: FluxMotion.quick,
         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
         margin: const EdgeInsets.only(right: 5),
         decoration: BoxDecoration(
@@ -260,7 +260,7 @@ class _AiGenerationPanelState extends State<_AiGenerationPanel> {
 
                 // ── Settings panel (inline, slides in) ─────────────────
                 AnimatedCrossFade(
-                  duration: const Duration(milliseconds: 180),
+                  duration: FluxMotion.brisk,
                   crossFadeState: _showSettings
                     ? CrossFadeState.showSecond
                     : CrossFadeState.showFirst,
@@ -366,7 +366,7 @@ class _AiGenerationPanelState extends State<_AiGenerationPanel> {
                     GestureDetector(
                       onTap: _isGenerating ? null : _runGeneration,
                       child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 150),
+                        duration: FluxMotion.quick,
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
                         decoration: BoxDecoration(
                           color: _isGenerating

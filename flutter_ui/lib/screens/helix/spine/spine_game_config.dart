@@ -2443,7 +2443,7 @@ class _SpineGameConfigState extends State<_SpineGameConfig> {
               borderRadius: BorderRadius.circular(8),
             ),
             child: AnimatedAlign(
-              duration: const Duration(milliseconds: 150),
+              duration: FluxMotion.quick,
               alignment: value ? Alignment.centerRight : Alignment.centerLeft,
               child: Container(
                 width: 12, height: 12,

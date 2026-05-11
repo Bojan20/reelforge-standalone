@@ -48,7 +48,9 @@ import 'package:flutter_test/flutter_test.dart';
 /// _kWinLineClearMs)`. Nije nov literal, samo prevod jedinice; sec-baseline
 /// se reciprocno smanjuje u flux_motion ali ovde nije relevantno jer su to
 /// odvojeni regex-i.
-const int _kRawDurationMsBaseline = 953;
+// Lowered 2026-05-10 (Sprint 15 Faza 4.B.2 Duration batch) -24 za helix
+// panels/spine/omnibar/dock FluxMotion.quick/brisk/standard/cinematic migration.
+const int _kRawDurationMsBaseline = 929;
 
 /// Frozen baseline za `Duration(seconds: …)` literala.
 /// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` SnackBar

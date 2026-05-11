@@ -55,7 +55,7 @@ class _DockTabState extends State<_DockTab> {
           alignment: Alignment.bottomCenter,
           children: [
             AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
+              duration: FluxMotion.quick,
               height: 30,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
@@ -80,7 +80,7 @@ class _DockTabState extends State<_DockTab> {
                 children: [
                   // Colored icon box — 14×14 px, border-radius 3 (mockup .dock-tab-icon)
                   AnimatedContainer(
-                    duration: const Duration(milliseconds: 160),
+                    duration: FluxMotion.quick,
                     width: 14, height: 14,
                     decoration: BoxDecoration(
                       color: color.withValues(alpha: isActive ? 1.0 : 0.65),
@@ -92,7 +92,7 @@ class _DockTabState extends State<_DockTab> {
                   ),
                   const SizedBox(width: 6),
                   AnimatedDefaultTextStyle(
-                    duration: const Duration(milliseconds: 160),
+                    duration: FluxMotion.quick,
                     style: TextStyle(
                       fontFamily: 'monospace', fontSize: 11,
                       fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,

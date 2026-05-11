@@ -39,7 +39,7 @@ class _SpineItemState extends State<_SpineItem> {
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
+          duration: FluxMotion.quick,
           width: 38, height: 38,
           decoration: BoxDecoration(
             color: widget.active
