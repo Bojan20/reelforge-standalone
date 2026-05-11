@@ -226,9 +226,11 @@ pub fn processor_name_to_slot_kind(name: &str) -> Option<SlotKind> {
 /// How the planner picks plugins for each slot.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum PluginPickStrategy {
     /// Always prefer external scanned plugin (top candidate) when
     /// available; fall back to internal.
+    #[default]
     PreferExternal,
     /// Always use the engine's internal rf-dsp processor.
     InternalOnly,
@@ -236,11 +238,6 @@ pub enum PluginPickStrategy {
     ExternalOnly,
 }
 
-impl Default for PluginPickStrategy {
-    fn default() -> Self {
-        Self::PreferExternal
-    }
-}
 
 /// Tunable knobs.
 #[derive(Debug, Clone, Serialize, Deserialize)]

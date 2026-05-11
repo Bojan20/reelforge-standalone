@@ -288,16 +288,14 @@ pub fn resolve_preset_dir(override_dir: Option<&Path>) -> PresetResult<PathBuf> 
 
 /// Home directory resolver — `$HOME` on Unix, `%USERPROFILE%` on Windows.
 fn home_dir() -> Option<PathBuf> {
-    if let Ok(h) = std::env::var("HOME") {
-        if !h.trim().is_empty() {
+    if let Ok(h) = std::env::var("HOME")
+        && !h.trim().is_empty() {
             return Some(PathBuf::from(h));
         }
-    }
-    if let Ok(h) = std::env::var("USERPROFILE") {
-        if !h.trim().is_empty() {
+    if let Ok(h) = std::env::var("USERPROFILE")
+        && !h.trim().is_empty() {
             return Some(PathBuf::from(h));
         }
-    }
     None
 }
 
@@ -462,7 +460,7 @@ pub fn list_presets(dir: &Path) -> PresetResult<Vec<ChainPresetMeta>> {
             }
         }
     }
-    metas.sort_by(|a, b| b.updated_ms.cmp(&a.updated_ms));
+    metas.sort_by_key(|m| std::cmp::Reverse(m.updated_ms));
     Ok(metas)
 }
 

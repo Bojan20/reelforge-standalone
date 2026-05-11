@@ -42,8 +42,8 @@ fn locate_bundle_executable(path: &Path) -> Option<PathBuf> {
     if path.is_dir() {
         // Standard CFBundle layout: Contents/MacOS/<binary>
         let macos_dir = path.join("Contents").join("MacOS");
-        if macos_dir.is_dir() {
-            if let Ok(entries) = std::fs::read_dir(&macos_dir) {
+        if macos_dir.is_dir()
+            && let Ok(entries) = std::fs::read_dir(&macos_dir) {
                 for entry in entries.flatten() {
                     let p = entry.path();
                     if p.is_file() {
@@ -51,7 +51,6 @@ fn locate_bundle_executable(path: &Path) -> Option<PathBuf> {
                     }
                 }
             }
-        }
     }
     None
 }

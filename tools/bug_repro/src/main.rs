@@ -94,7 +94,7 @@ fn run(args: Vec<String>) -> Result<()> {
         serde_json::from_str::<Scenario>(&json)
             .with_context(|| "parsing scenario JSON")?
     } else if let Some(name) = scenario_name {
-        load_built_in(&name).with_context(|| format!("loading built-in scenario '{name}'"))?
+        load_built_in(name).with_context(|| format!("loading built-in scenario '{name}'"))?
     } else {
         anyhow::bail!("Must specify --scenario <name> or --file <path>");
     };

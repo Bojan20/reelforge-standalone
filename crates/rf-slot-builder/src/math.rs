@@ -255,7 +255,7 @@ pub fn solve_paytable(config: &RtpSolverConfig) -> Result<RtpSolution, String> {
             let top5 = base_top_pay / tier_ratio.powi(i as i32);
             (0..=reels)
                 .map(|k| {
-                    if k < 3 || k > 5 {
+                    if !(3..=5).contains(&k) {
                         0.0
                     } else {
                         (top5 * match_ratios[k]).max(1.0)
