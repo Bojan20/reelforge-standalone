@@ -12,7 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/middleware_models.dart';
 import '../../providers/subsystems/rtpc_system_provider.dart';
-import '../../theme/fluxforge_theme.dart';
+import '../../theme/flux_forge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PRESET MORPH EDITOR PANEL
@@ -99,10 +99,10 @@ class _PresetMorphEditorPanelState extends State<PresetMorphEditorPanel> {
           const SizedBox(width: 8),
           Text(
             'Preset Morphs',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 13,
               color: FluxForgeTheme.textPrimary,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+              weight: FontWeight.w600,
             ),
           ),
           const SizedBox(width: 8),
@@ -114,10 +114,10 @@ class _PresetMorphEditorPanelState extends State<PresetMorphEditorPanel> {
             ),
             child: Text(
               '$count',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 11,
                 color: FluxForgeTheme.accentPurple,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
+                weight: FontWeight.w600,
               ),
             ),
           ),
@@ -159,13 +159,19 @@ class _PresetMorphEditorPanelState extends State<PresetMorphEditorPanel> {
               const SizedBox(height: 12),
               Text(
                 'No Morphs',
-                style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 14),
+                style: FluxForgeTheme.dockSans(
+                  size: 14,
+                  color: FluxForgeTheme.textMuted,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
                 'Create a morph to smoothly\nblend between presets',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: FluxForgeTheme.textMuted.withValues(alpha: 0.7), fontSize: 11),
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  color: FluxForgeTheme.textMuted.withValues(alpha: 0.7),
+                ),
               ),
             ],
           ),
@@ -240,18 +246,18 @@ class _PresetMorphEditorPanelState extends State<PresetMorphEditorPanel> {
               children: [
                 Text(
                   morph.name,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
                     color: FluxForgeTheme.textPrimary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                    weight: FontWeight.w600,
                   ),
                 ),
                 if (morph.description.isNotEmpty)
                   Text(
                     morph.description,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 11,
                       color: FluxForgeTheme.textMuted,
-                      fontSize: 11,
                     ),
                   ),
               ],
@@ -282,7 +288,10 @@ class _PresetMorphEditorPanelState extends State<PresetMorphEditorPanel> {
                 const SizedBox(width: 4),
                 Text(
                   morph.globalCurve.displayName,
-                  style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 11),
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
+                    color: FluxForgeTheme.textMuted,
+                  ),
                 ),
               ],
             ),
@@ -321,19 +330,18 @@ class _PresetMorphEditorPanelState extends State<PresetMorphEditorPanel> {
                   children: [
                     Text(
                       'A',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 10,
                         color: FluxForgeTheme.textMuted,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
+                        weight: FontWeight.w600,
                       ),
                     ),
                     Text(
                       morph.presetA.isEmpty ? 'Preset A' : morph.presetA,
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 12,
                         color: FluxForgeTheme.textPrimary,
-                        fontSize: 12,
-                      ),
-                      overflow: TextOverflow.ellipsis,
+                      ).copyWith(overflow: TextOverflow.ellipsis),
                     ),
                   ],
                 ),
@@ -343,11 +351,10 @@ class _PresetMorphEditorPanelState extends State<PresetMorphEditorPanel> {
             // Position indicator
             Text(
               '${(morph.position * 100).toStringAsFixed(0)}%',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 13,
                 color: FluxForgeTheme.accentPurple,
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'monospace',
+                weight: FontWeight.bold,
               ),
             ),
             const SizedBox(width: 16),
@@ -368,19 +375,18 @@ class _PresetMorphEditorPanelState extends State<PresetMorphEditorPanel> {
                   children: [
                     Text(
                       'B',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 10,
                         color: FluxForgeTheme.textMuted,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
+                        weight: FontWeight.w600,
                       ),
                     ),
                     Text(
                       morph.presetB.isEmpty ? 'Preset B' : morph.presetB,
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 12,
                         color: FluxForgeTheme.textPrimary,
-                        fontSize: 12,
-                      ),
-                      overflow: TextOverflow.ellipsis,
+                      ).copyWith(overflow: TextOverflow.ellipsis),
                     ),
                   ],
                 ),
@@ -469,10 +475,10 @@ class _PresetMorphEditorPanelState extends State<PresetMorphEditorPanel> {
           children: [
             Text(
               'Parameters',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 13,
                 color: FluxForgeTheme.textPrimary,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
+                weight: FontWeight.w600,
               ),
             ),
             const SizedBox(width: 8),
@@ -484,9 +490,9 @@ class _PresetMorphEditorPanelState extends State<PresetMorphEditorPanel> {
               ),
               child: Text(
                 '${morph.parameters.length}',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
                   color: FluxForgeTheme.textMuted,
-                  fontSize: 11,
                 ),
               ),
             ),
@@ -509,11 +515,10 @@ class _PresetMorphEditorPanelState extends State<PresetMorphEditorPanel> {
             padding: const EdgeInsets.symmetric(vertical: 16),
             child: Text(
               'No parameters. Add parameters to morph between values.',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 12,
                 color: FluxForgeTheme.textMuted,
-                fontSize: 12,
-                fontStyle: FontStyle.italic,
-              ),
+              ).copyWith(fontStyle: FontStyle.italic),
             ),
           )
         else
@@ -556,10 +561,10 @@ class _PresetMorphEditorPanelState extends State<PresetMorphEditorPanel> {
         children: [
           Text(
             'Add Parameter',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 12,
               color: FluxForgeTheme.textPrimary,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+              weight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 8),
@@ -571,12 +576,12 @@ class _PresetMorphEditorPanelState extends State<PresetMorphEditorPanel> {
                   value: _newParamTarget,
                   decoration: InputDecoration(
                     labelText: 'Target',
-                    labelStyle: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 12),
+                    labelStyle: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textMuted),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                   ),
                   dropdownColor: FluxForgeTheme.surface,
-                  style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
+                  style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textPrimary),
                   items: RtpcTargetParameter.values.map((param) {
                     return DropdownMenuItem(
                       value: param,
@@ -605,7 +610,7 @@ class _PresetMorphEditorPanelState extends State<PresetMorphEditorPanel> {
               // Cancel
               TextButton(
                 onPressed: () => setState(() => _isAddingParameter = false),
-                child: Text('Cancel', style: TextStyle(color: FluxForgeTheme.textMuted)),
+                child: Text('Cancel', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted)),
               ),
             ],
           ),
@@ -623,7 +628,10 @@ class _PresetMorphEditorPanelState extends State<PresetMorphEditorPanel> {
           const SizedBox(height: 12),
           Text(
             'Select a morph to edit',
-            style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 14),
+            style: FluxForgeTheme.dockSans(
+              size: 14,
+              color: FluxForgeTheme.textMuted,
+            ),
           ),
         ],
       ),
@@ -688,17 +696,17 @@ class _PresetMorphEditorPanelState extends State<PresetMorphEditorPanel> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: FluxForgeTheme.surface,
-        title: Text('Rename Morph', style: TextStyle(color: FluxForgeTheme.textPrimary)),
+        title: Text('Rename Morph', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary)),
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: TextStyle(color: FluxForgeTheme.textPrimary),
+          style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
           decoration: const InputDecoration(labelText: 'Name'),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: TextStyle(color: FluxForgeTheme.textMuted)),
+            child: Text('Cancel', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted)),
           ),
           ElevatedButton(
             onPressed: () {
@@ -728,7 +736,7 @@ class _PresetMorphEditorPanelState extends State<PresetMorphEditorPanel> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: FluxForgeTheme.surface,
-        title: Text('Morph Color', style: TextStyle(color: FluxForgeTheme.textPrimary)),
+        title: Text('Morph Color', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary)),
         content: Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -823,12 +831,11 @@ class _MorphListTile extends StatelessWidget {
                 Expanded(
                   child: Text(
                     morph.name,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 12,
                       color: morph.enabled ? FluxForgeTheme.textPrimary : FluxForgeTheme.textMuted,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+                      weight: FontWeight.w500,
+                    ).copyWith(overflow: TextOverflow.ellipsis),
                   ),
                 ),
                 // Delete
@@ -847,7 +854,7 @@ class _MorphListTile extends StatelessWidget {
               children: [
                 Text(
                   'A',
-                  style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 9),
+                  style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textMuted),
                 ),
                 Expanded(
                   child: SliderTheme(
@@ -867,16 +874,16 @@ class _MorphListTile extends StatelessWidget {
                 ),
                 Text(
                   'B',
-                  style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 9),
+                  style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textMuted),
                 ),
               ],
             ),
             // Info
             Text(
               '${morph.parameters.length} param${morph.parameters.length != 1 ? "s" : ""}',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 10,
                 color: FluxForgeTheme.textMuted,
-                fontSize: 10,
               ),
             ),
           ],
@@ -938,10 +945,10 @@ class _ParameterTile extends StatelessWidget {
               children: [
                 Text(
                   parameter.target.displayName,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
                     color: parameter.enabled ? FluxForgeTheme.textPrimary : FluxForgeTheme.textMuted,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
+                    weight: FontWeight.w500,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -950,10 +957,9 @@ class _ParameterTile extends StatelessWidget {
                   children: [
                     Text(
                       '${parameter.startValue.toStringAsFixed(1)} → ${parameter.endValue.toStringAsFixed(1)}',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockMono(
+                        size: 10,
                         color: FluxForgeTheme.textMuted,
-                        fontSize: 10,
-                        fontFamily: 'monospace',
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -965,11 +971,10 @@ class _ParameterTile extends StatelessWidget {
                       ),
                       child: Text(
                         currentValue.toStringAsFixed(2),
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockMono(
+                          size: 10,
                           color: FluxForgeTheme.accentPurple,
-                          fontSize: 10,
-                          fontFamily: 'monospace',
-                          fontWeight: FontWeight.w600,
+                          weight: FontWeight.w600,
                         ),
                       ),
                     ),

@@ -2225,7 +2225,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           style: FluxForgeTheme.dockSans(size: 13, color: FluxForgeTheme.textPrimary),
           decoration: InputDecoration(
             hintText: 'Track name',
-            hintStyle: TextStyle(color: FluxForgeTheme.textSecondary),
+            hintStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
             enabledBorder: UnderlineInputBorder(
               borderSide: BorderSide(color: FluxForgeTheme.textSecondary),
             ),
@@ -2238,11 +2238,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: Text('Cancel', style: TextStyle(color: FluxForgeTheme.textSecondary)),
+            child: Text('Cancel', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary)),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(controller.text),
-            child: Text('Rename', style: TextStyle(color: FluxForgeTheme.accentBlue)),
+            child: Text('Rename', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentBlue)),
           ),
         ],
       ),
@@ -3138,11 +3138,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: FluxForgeTheme.bgElevated,
-        title: const Text('New Project', style: TextStyle(color: FluxForgeTheme.textPrimary)),
+        title: Text('New Project', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Create a new project?', style: TextStyle(color: FluxForgeTheme.textSecondary)),
+            Text('Create a new project?', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary)),
             const SizedBox(height: 8),
             Text('Unsaved changes will be lost.', style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textTertiary)),
           ],
@@ -3150,7 +3150,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: TextStyle(color: FluxForgeTheme.textSecondary)),
+            child: Text('Cancel', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary)),
           ),
           TextButton(
             onPressed: () {
@@ -3164,7 +3164,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 _loopRegion = const timeline.LoopRegion(start: 0.0, end: 8.0);
               });
             },
-            child: Text('Create', style: TextStyle(color: FluxForgeTheme.accentBlue)),
+            child: Text('Create', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentBlue)),
           ),
         ],
       ),
@@ -4295,7 +4295,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: FluxForgeTheme.bgElevated,
-        title: const Text('Project Settings', style: TextStyle(color: FluxForgeTheme.textPrimary)),
+        title: Text('Project Settings', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary)),
         content: SizedBox(
           width: 400,
           child: Column(
@@ -4315,7 +4315,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Close', style: TextStyle(color: FluxForgeTheme.accentBlue)),
+            child: Text('Close', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentBlue)),
           ),
         ],
       ),
@@ -4367,7 +4367,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             const SizedBox(width: 8),
             Text(
               issues.isEmpty ? 'Validation Passed' : 'Validation Issues',
-              style: const TextStyle(color: FluxForgeTheme.textPrimary),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
             ),
           ],
         ),
@@ -4375,7 +4375,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: issues.isEmpty
-              ? [Text('No issues found.', style: TextStyle(color: FluxForgeTheme.textSecondary))]
+              ? [Text('No issues found.', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary))]
               : issues.map((i) => Padding(
                   padding: const EdgeInsets.symmetric(vertical: 2),
                   child: Row(
@@ -4390,7 +4390,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('OK', style: TextStyle(color: FluxForgeTheme.accentBlue)),
+            child: Text('OK', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentBlue)),
           ),
         ],
       ),
@@ -5231,11 +5231,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                         ),
                         child: Text(
                           _formatSampleRate(entry.key),
-                          style: const TextStyle(
-                            color: Color(0xFFFF9040),
-                            fontSize: 11,
-                            fontFamily: 'JetBrains Mono',
-                            fontWeight: FontWeight.w500,
+                          style: FluxForgeTheme.dockMono(
+                            color: const Color(0xFFFF9040),
+                            size: 11,
+                            weight: FontWeight.w500,
                           ),
                         ),
                       ),
@@ -5644,10 +5643,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 TextField(
                   controller: nameController,
                   autofocus: true,
-                  style: TextStyle(color: FluxForgeTheme.textPrimary),
+                  style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary),
                   decoration: InputDecoration(
                     labelText: 'Event Name',
-                    labelStyle: TextStyle(color: FluxForgeTheme.textSecondary),
+                    labelStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
                     filled: true,
                     fillColor: FluxForgeTheme.bgDeep,
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
@@ -5670,7 +5669,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                     items: ['spin', 'win', 'bigWin', 'feature', 'bonus', 'ui', 'ambient', 'music'].map((cat) {
                       return DropdownMenuItem(
                         value: cat,
-                        child: Text(cat.toUpperCase(), style: TextStyle(color: FluxForgeTheme.textPrimary)),
+                        child: Text(cat.toUpperCase(), style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary)),
                       );
                     }).toList(),
                     onChanged: (val) {
@@ -5684,7 +5683,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text('Cancel', style: TextStyle(color: FluxForgeTheme.textSecondary)),
+              child: Text('Cancel', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: FluxForgeTheme.accentGreen),
@@ -6188,24 +6187,24 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: FluxForgeTheme.bgElevated,
-        title: Text('Middleware Settings', style: TextStyle(color: FluxForgeTheme.textPrimary)),
+        title: Text('Middleware Settings', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Events: ${_middlewareEvents.length}', style: TextStyle(color: FluxForgeTheme.textSecondary)),
+            Text('Events: ${_middlewareEvents.length}', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary)),
             const SizedBox(height: 8),
             Text('Total Actions: ${_middlewareEvents.fold<int>(0, (sum, e) => sum + e.actions.length)}',
-                style: TextStyle(color: FluxForgeTheme.textSecondary)),
+                style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary)),
             const SizedBox(height: 16),
             Text('View Mode: ${_middlewareGridView ? 'Grid' : 'List'}',
-                style: TextStyle(color: FluxForgeTheme.textSecondary)),
+                style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary)),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Close', style: TextStyle(color: FluxForgeTheme.accentBlue)),
+            child: Text('Close', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentBlue)),
           ),
         ],
       ),
@@ -9239,7 +9238,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           children: [
             Icon(Icons.timeline, size: 48, color: FluxForgeTheme.textTertiary),
             const SizedBox(height: 12),
-            Text('Select an event to view timeline', style: TextStyle(color: FluxForgeTheme.textSecondary)),
+            Text('Select an event to view timeline', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary)),
           ],
         ),
       );
@@ -9709,7 +9708,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           border: Border.all(color: FluxForgeTheme.borderSubtle),
         ),
         child: Center(
-          child: Text('No event selected', style: TextStyle(color: FluxForgeTheme.textSecondary)),
+          child: Text('No event selected', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary)),
         ),
       );
     }
@@ -9765,7 +9764,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             Container(
               padding: const EdgeInsets.all(24),
               child: Center(
-                child: Text('No layers. Click "Add" to create one.', style: TextStyle(color: FluxForgeTheme.textTertiary)),
+                child: Text('No layers. Click "Add" to create one.', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary)),
               ),
             )
           else
@@ -11703,8 +11702,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel',
-                style: TextStyle(color: Color(0xFF888899))),
+            child: Text('Cancel',
+                style: FluxForgeTheme.dockSans(color: const Color(0xFF888899))),
           ),
           TextButton(
             onPressed: () {
@@ -11714,8 +11713,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
               }
               Navigator.of(ctx).pop();
             },
-            child: const Text('OK',
-                style: TextStyle(color: Color(0xFF4A9EFF))),
+            child: Text('OK',
+                style: FluxForgeTheme.dockSans(color: const Color(0xFF4A9EFF))),
           ),
         ],
       ),
@@ -13269,7 +13268,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 children: [
                   Text(
                     'Failed to load plugin: ${plugin.name}',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    style: FluxForgeTheme.dockSans(weight: FontWeight.bold),
                   ),
                   const SizedBox(height: 4),
                   Text(reason, style: FluxForgeTheme.dockSans(size: 12)),
@@ -13895,13 +13894,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                                 _detectedBpm > 0
                                     ? _detectedBpm.toStringAsFixed(2)
                                     : '--.-',
-                                style: TextStyle(
+                                style: FluxForgeTheme.dockMono(
                                   color: _detectedBpm > 0
                                       ? FluxForgeTheme.accentGreen
                                       : FluxForgeTheme.textTertiary,
-                                  fontSize: 26,
-                                  fontFamily: 'JetBrains Mono',
-                                  fontWeight: FontWeight.bold,
+                                  size: 26,
+                                  weight: FontWeight.bold,
                                 ),
                               ),
                             ],
@@ -13933,10 +13931,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                               const SizedBox(height: 2),
                               Text(
                                 '${(_bpmConfidence * 100).toStringAsFixed(0)}%',
-                                style: TextStyle(
+                                style: FluxForgeTheme.dockMono(
                                   color: FluxForgeTheme.textSecondary,
-                                  fontSize: 11,
-                                  fontFamily: 'JetBrains Mono',
+                                  size: 11,
                                 ),
                               ),
                             ],
@@ -13961,7 +13958,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                           onChanged: (v) => setState(() => _bpmMinRange = v.clamp(40.0, _bpmMaxRange - 10)),
                         ),
                       ),
-                      Text('${_bpmMinRange.toStringAsFixed(0)}', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 10, fontFamily: 'JetBrains Mono')),
+                      Text('${_bpmMinRange.toStringAsFixed(0)}', style: FluxForgeTheme.dockMono(color: FluxForgeTheme.textSecondary, size: 10)),
                     ],
                   ),
                   Row(
@@ -13978,7 +13975,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                           onChanged: (v) => setState(() => _bpmMaxRange = v.clamp(_bpmMinRange + 10, 300.0)),
                         ),
                       ),
-                      Text('${_bpmMaxRange.toStringAsFixed(0)}', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 10, fontFamily: 'JetBrains Mono')),
+                      Text('${_bpmMaxRange.toStringAsFixed(0)}', style: FluxForgeTheme.dockMono(color: FluxForgeTheme.textSecondary, size: 10)),
                     ],
                   ),
                   // Alternatives (half/double tempo)
@@ -14003,10 +14000,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                           ),
                           child: Text(
                             alt.toStringAsFixed(1),
-                            style: TextStyle(
+                            style: FluxForgeTheme.dockMono(
                               color: FluxForgeTheme.accentGreen,
-                              fontSize: 11,
-                              fontFamily: 'JetBrains Mono',
+                              size: 11,
                             ),
                           ),
                         ),

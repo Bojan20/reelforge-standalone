@@ -138,22 +138,22 @@ class _LoopEditorPanelState extends State<LoopEditorPanel> {
           Icon(Icons.loop, size: 16, color: FluxForgeTheme.accentBlue),
           const SizedBox(width: 8),
           Text('Loop Editor',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600)),
+                  size: 13,
+                  weight: FontWeight.w600)),
           const SizedBox(width: 12),
           if (widget.selectedTrackId != null) ...[
             _badge('Track ${widget.selectedTrackId}',
                 FluxForgeTheme.accentBlue),
             const SizedBox(width: 8),
             Text('${_trackClips.length} clips',
-                style: TextStyle(
-                    color: FluxForgeTheme.textSecondary, fontSize: 11)),
+                style: FluxForgeTheme.dockSans(
+                    color: FluxForgeTheme.textSecondary, size: 11)),
           ] else
             Text('Select a track',
-                style: TextStyle(
-                    color: FluxForgeTheme.textTertiary, fontSize: 11)),
+                style: FluxForgeTheme.dockSans(
+                    color: FluxForgeTheme.textTertiary, size: 11)),
           const Spacer(),
           _badge(
             _provider.isInitialized ? 'ENGINE ACTIVE' : 'ENGINE OFFLINE',
@@ -172,8 +172,8 @@ class _LoopEditorPanelState extends State<LoopEditorPanel> {
         borderRadius: BorderRadius.circular(3),
       ),
       child: Text(text,
-          style: TextStyle(
-              color: color, fontSize: 10, fontWeight: FontWeight.w600)),
+          style: FluxForgeTheme.dockSans(
+              color: color, size: 10, weight: FontWeight.w600)),
     );
   }
 
@@ -231,19 +231,19 @@ class _LoopEditorPanelState extends State<LoopEditorPanel> {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(clip.name,
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                           color: sel
                               ? FluxForgeTheme.accentBlue
                               : FluxForgeTheme.textPrimary,
-                          fontSize: 11,
-                          fontWeight:
+                          size: 11,
+                          weight:
                               sel ? FontWeight.w600 : FontWeight.w400),
                       overflow: TextOverflow.ellipsis),
                 ),
                 Text(
                   '${clip.duration.toStringAsFixed(1)}s',
-                  style: TextStyle(
-                      color: FluxForgeTheme.textTertiary, fontSize: 9),
+                  style: FluxForgeTheme.dockSans(
+                      color: FluxForgeTheme.textTertiary, size: 9),
                 ),
               ],
             ),
@@ -281,16 +281,16 @@ class _LoopEditorPanelState extends State<LoopEditorPanel> {
               children: [
                 Expanded(
                   child: Text(asset.id,
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                           color: sel
                               ? FluxForgeTheme.accentBlue
                               : FluxForgeTheme.textPrimary,
-                          fontSize: 11),
+                          size: 11),
                       overflow: TextOverflow.ellipsis),
                 ),
                 Text('${asset.regions.length}R',
-                    style: TextStyle(
-                        color: FluxForgeTheme.textTertiary, fontSize: 9)),
+                    style: FluxForgeTheme.dockSans(
+                        color: FluxForgeTheme.textTertiary, size: 9)),
               ],
             ),
           ),
@@ -372,10 +372,9 @@ class _LoopEditorPanelState extends State<LoopEditorPanel> {
               _controlLabel('Iterations'),
               Text(
                 clip.loopCount == 0 ? '∞' : '${clip.loopCount}',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
                     color: FluxForgeTheme.textPrimary,
-                    fontSize: 12,
-                    fontFamily: 'monospace'),
+                    size: 12),
               ),
               SizedBox(
                 width: 120,
@@ -396,10 +395,9 @@ class _LoopEditorPanelState extends State<LoopEditorPanel> {
               _controlLabel('Xfade'),
               Text(
                 '${(clip.loopCrossfade * 1000).toStringAsFixed(0)}ms',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
                     color: FluxForgeTheme.textPrimary,
-                    fontSize: 12,
-                    fontFamily: 'monospace'),
+                    size: 12),
               ),
               SizedBox(
                 width: 100,
@@ -426,10 +424,9 @@ class _LoopEditorPanelState extends State<LoopEditorPanel> {
                     ? 'unity'
                     : '${clip.iterationGain.toStringAsFixed(3)} '
                         '(${clip.iterationGain < 1.0 ? "decay" : "crescendo"})',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
                     color: FluxForgeTheme.textPrimary,
-                    fontSize: 12,
-                    fontFamily: 'monospace'),
+                    size: 12),
               ),
               SizedBox(
                 width: 140,
@@ -456,10 +453,9 @@ class _LoopEditorPanelState extends State<LoopEditorPanel> {
                 clip.loopRandomStart == 0
                     ? 'off'
                     : '${(clip.loopRandomStart * 1000).toStringAsFixed(0)}ms',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
                     color: FluxForgeTheme.textPrimary,
-                    fontSize: 12,
-                    fontFamily: 'monospace'),
+                    size: 12),
               ),
               SizedBox(
                 width: 100,
@@ -485,10 +481,9 @@ class _LoopEditorPanelState extends State<LoopEditorPanel> {
                 clip.loopStartSamples > 0 || clip.loopEndSamples > 0
                     ? '${clip.loopStartSamples} → ${clip.loopEndSamples == 0 ? "end" : "${clip.loopEndSamples}"} smp'
                     : 'Full clip',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
                     color: FluxForgeTheme.textPrimary,
-                    fontSize: 11,
-                    fontFamily: 'monospace'),
+                    size: 11),
               ),
               const SizedBox(width: 8),
               if (clip.loopStartSamples > 0 || clip.loopEndSamples > 0)
@@ -502,8 +497,8 @@ class _LoopEditorPanelState extends State<LoopEditorPanel> {
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                   child: Text('Reset',
-                      style: TextStyle(
-                          color: FluxForgeTheme.textSecondary, fontSize: 10)),
+                      style: FluxForgeTheme.dockSans(
+                          color: FluxForgeTheme.textSecondary, size: 10)),
                 ),
               const Spacer(),
               // Gain after N iterations preview
@@ -512,10 +507,9 @@ class _LoopEditorPanelState extends State<LoopEditorPanel> {
                   'After 5: ${(_gainAt(clip.iterationGain, 5) * 100).toStringAsFixed(0)}%  '
                   '10: ${(_gainAt(clip.iterationGain, 10) * 100).toStringAsFixed(0)}%  '
                   '20: ${(_gainAt(clip.iterationGain, 20) * 100).toStringAsFixed(0)}%',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
                       color: FluxForgeTheme.textTertiary,
-                      fontSize: 9,
-                      fontFamily: 'monospace'),
+                      size: 9),
                 ),
               ],
             ],
@@ -560,12 +554,12 @@ class _LoopEditorPanelState extends State<LoopEditorPanel> {
             children: asset.regions.map((r) {
               final sel = r.name == _selectedRegionName;
               return ChoiceChip(
-                label: Text(r.name, style: const TextStyle(fontSize: 10)),
+                label: Text(r.name, style: FluxForgeTheme.dockSans(size: 10)),
                 selected: sel,
                 selectedColor:
                     FluxForgeTheme.accentBlue.withValues(alpha: 0.3),
                 backgroundColor: FluxForgeTheme.bgSurface,
-                labelStyle: TextStyle(
+                labelStyle: FluxForgeTheme.dockSans(
                     color: sel
                         ? FluxForgeTheme.accentBlue
                         : FluxForgeTheme.textPrimary),
@@ -679,8 +673,8 @@ class _LoopEditorPanelState extends State<LoopEditorPanel> {
     if (instances.isEmpty) {
       return Center(
           child: Text('No instances',
-              style: TextStyle(
-                  color: FluxForgeTheme.textTertiary, fontSize: 10)));
+              style: FluxForgeTheme.dockSans(
+                  color: FluxForgeTheme.textTertiary, size: 10)));
     }
     return ListView.builder(
       itemCount: instances.length,
@@ -707,8 +701,8 @@ class _LoopEditorPanelState extends State<LoopEditorPanel> {
               Expanded(
                 child: Text(
                     '#${inst.instanceId} ${inst.currentRegion} ×${inst.loopCount}',
-                    style: TextStyle(
-                        color: FluxForgeTheme.textPrimary, fontSize: 9),
+                    style: FluxForgeTheme.dockSans(
+                        color: FluxForgeTheme.textPrimary, size: 9),
                     overflow: TextOverflow.ellipsis),
               ),
               if (inst.state != LoopPlaybackState.stopped)
@@ -729,8 +723,8 @@ class _LoopEditorPanelState extends State<LoopEditorPanel> {
     if (cbs.isEmpty) {
       return Center(
           child: Text('No callbacks',
-              style: TextStyle(
-                  color: FluxForgeTheme.textTertiary, fontSize: 10)));
+              style: FluxForgeTheme.dockSans(
+                  color: FluxForgeTheme.textTertiary, size: 10)));
     }
     return ListView.builder(
       itemCount: cbs.length,
@@ -742,12 +736,11 @@ class _LoopEditorPanelState extends State<LoopEditorPanel> {
           height: 18,
           padding: const EdgeInsets.symmetric(horizontal: 6),
           child: Text(_cbSummary(cb),
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                   color: cb.isError
                       ? Colors.red.shade300
                       : FluxForgeTheme.textTertiary,
-                  fontSize: 8,
-                  fontFamily: 'monospace'),
+                  size: 8),
               overflow: TextOverflow.ellipsis),
         );
       },
@@ -768,10 +761,10 @@ class _LoopEditorPanelState extends State<LoopEditorPanel> {
           Icon(icon, size: 13, color: FluxForgeTheme.textSecondary),
           const SizedBox(width: 5),
           Text(title,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textSecondary,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
+                  size: 9,
+                  weight: FontWeight.w600,
                   letterSpacing: 1)),
         ],
       ),
@@ -787,8 +780,8 @@ class _LoopEditorPanelState extends State<LoopEditorPanel> {
               color: FluxForgeTheme.textTertiary.withValues(alpha: 0.3)),
           const SizedBox(height: 6),
           Text(text,
-              style: TextStyle(
-                  color: FluxForgeTheme.textTertiary, fontSize: 11)),
+              style: FluxForgeTheme.dockSans(
+                  color: FluxForgeTheme.textTertiary, size: 11)),
         ],
       ),
     );
@@ -798,8 +791,8 @@ class _LoopEditorPanelState extends State<LoopEditorPanel> {
     return SizedBox(
       width: 70,
       child: Text(text,
-          style: TextStyle(
-              color: FluxForgeTheme.textSecondary, fontSize: 10)),
+          style: FluxForgeTheme.dockSans(
+              color: FluxForgeTheme.textSecondary, size: 10)),
     );
   }
 
@@ -808,10 +801,10 @@ class _LoopEditorPanelState extends State<LoopEditorPanel> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(title,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.accentBlue,
-                fontSize: 11,
-                fontWeight: FontWeight.w600)),
+                size: 11,
+                weight: FontWeight.w600)),
         const SizedBox(height: 4),
         ...children,
       ],
@@ -826,14 +819,13 @@ class _LoopEditorPanelState extends State<LoopEditorPanel> {
           SizedBox(
               width: 100,
               child: Text(label,
-                  style: TextStyle(
-                      color: FluxForgeTheme.textSecondary, fontSize: 10))),
+                  style: FluxForgeTheme.dockSans(
+                      color: FluxForgeTheme.textSecondary, size: 10))),
           Expanded(
               child: Text(value,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
                       color: FluxForgeTheme.textPrimary,
-                      fontSize: 10,
-                      fontFamily: 'monospace'))),
+                      size: 10))),
         ],
       ),
     );
@@ -846,7 +838,7 @@ class _LoopEditorPanelState extends State<LoopEditorPanel> {
       child: ElevatedButton.icon(
         onPressed: onPressed,
         icon: Icon(icon, size: 13),
-        label: Text(label, style: const TextStyle(fontSize: 10)),
+        label: Text(label, style: FluxForgeTheme.dockSans(size: 10)),
         style: ElevatedButton.styleFrom(
           backgroundColor: onPressed != null
               ? color.withValues(alpha: 0.2)

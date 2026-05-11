@@ -14,7 +14,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../../theme/fluxforge_theme.dart';
+import '../../theme/flux_forge_theme.dart';
 import '../../models/timeline_models.dart';
 import '../../models/middleware_models.dart' show FadeCurve;
 import '../../providers/editor_mode_provider.dart';
@@ -304,9 +304,9 @@ class _ClipWidgetState extends State<ClipWidget> {
               children: [
                 Icon(Icons.graphic_eq, size: 18, color: FluxForgeTheme.accentBlue),
                 const SizedBox(width: 8),
-                Text('Edit Audio', style: TextStyle(color: FluxForgeTheme.accentBlue)),
+                Text('Edit Audio', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentBlue)),
                 const Spacer(),
-                Text('Double-Click', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10)),
+                Text('Double-Click', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 10)),
               ],
             ),
           ),
@@ -317,9 +317,9 @@ class _ClipWidgetState extends State<ClipWidget> {
             children: [
               Icon(Icons.edit, size: 18, color: clip.locked ? FluxForgeTheme.textTertiary : null),
               const SizedBox(width: 8),
-              Text('Rename', style: clip.locked ? TextStyle(color: FluxForgeTheme.textTertiary) : null),
+              Text('Rename', style: clip.locked ? FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary) : null),
               const Spacer(),
-              Text('F2', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 12)),
+              Text('F2', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 12)),
             ],
           ),
         ),
@@ -330,9 +330,9 @@ class _ClipWidgetState extends State<ClipWidget> {
             children: [
               Icon(Icons.copy, size: 18, color: clip.locked ? FluxForgeTheme.textTertiary : null),
               const SizedBox(width: 8),
-              Text('Duplicate', style: clip.locked ? TextStyle(color: FluxForgeTheme.textTertiary) : null),
+              Text('Duplicate', style: clip.locked ? FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary) : null),
               const Spacer(),
-              Text('⌘D', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 12)),
+              Text('⌘D', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 12)),
             ],
           ),
         ),
@@ -343,9 +343,9 @@ class _ClipWidgetState extends State<ClipWidget> {
             children: [
               Icon(Icons.content_cut, size: 18, color: clip.locked ? FluxForgeTheme.textTertiary : null),
               const SizedBox(width: 8),
-              Text('Split at Playhead', style: clip.locked ? TextStyle(color: FluxForgeTheme.textTertiary) : null),
+              Text('Split at Playhead', style: clip.locked ? FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary) : null),
               const Spacer(),
-              Text('S', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 12)),
+              Text('S', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 12)),
             ],
           ),
         ),
@@ -358,7 +358,7 @@ class _ClipWidgetState extends State<ClipWidget> {
               const SizedBox(width: 8),
               Text(clip.muted ? 'Unmute' : 'Mute'),
               const Spacer(),
-              Text('M', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 12)),
+              Text('M', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 12)),
             ],
           ),
         ),
@@ -371,9 +371,9 @@ class _ClipWidgetState extends State<ClipWidget> {
                 color: clip.reversed ? FluxForgeTheme.accentCyan : null),
               const SizedBox(width: 8),
               Text(clip.reversed ? 'Unreverse' : 'Reverse',
-                style: clip.reversed ? TextStyle(color: FluxForgeTheme.accentCyan) : null),
+                style: clip.reversed ? FluxForgeTheme.dockSans(color: FluxForgeTheme.accentCyan) : null),
               const Spacer(),
-              Text('R', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 12)),
+              Text('R', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 12)),
             ],
           ),
         ),
@@ -401,7 +401,7 @@ class _ClipWidgetState extends State<ClipWidget> {
                 const SizedBox(width: 8),
                 const Text('Quantize Warp Markers'),
                 const Spacer(),
-                Text('Q', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 12)),
+                Text('Q', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 12)),
               ],
             ),
           ),
@@ -439,9 +439,9 @@ class _ClipWidgetState extends State<ClipWidget> {
             children: [
               Icon(Icons.delete, size: 18, color: clip.locked ? FluxForgeTheme.textTertiary : FluxForgeTheme.accentRed),
               const SizedBox(width: 8),
-              Text('Delete', style: TextStyle(color: clip.locked ? FluxForgeTheme.textTertiary : FluxForgeTheme.accentRed)),
+              Text('Delete', style: FluxForgeTheme.dockSans(color: clip.locked ? FluxForgeTheme.textTertiary : FluxForgeTheme.accentRed)),
               const Spacer(),
-              Text('⌫', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 12)),
+              Text('⌫', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary, size: 12)),
             ],
           ),
         ),
@@ -499,21 +499,21 @@ class _ClipWidgetState extends State<ClipWidget> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A24),
-        title: const Text('Fade Curves', style: TextStyle(color: Colors.white, fontSize: 14)),
+        title: Text('Fade Curves', style: FluxForgeTheme.dockSans(color: Colors.white, size: 14)),
         content: SizedBox(
           width: 280,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (clip.fadeIn > 0) ...[
-                const Text('Fade In', style: TextStyle(color: Color(0xFF64FFDA), fontSize: 12)),
+                Text('Fade In', style: FluxForgeTheme.dockSans(color: Color(0xFF64FFDA), size: 12)),
                 const SizedBox(height: 4),
                 Wrap(
                   spacing: 4,
                   children: curves.map((c) {
                     final isSelected = c == clip.fadeInCurve;
                     return ChoiceChip(
-                      label: Text(c.name, style: TextStyle(fontSize: 10, color: isSelected ? Colors.black : Colors.white)),
+                      label: Text(c.name, style: FluxForgeTheme.dockSans(size: 10, color: isSelected ? Colors.black : Colors.white)),
                       selected: isSelected,
                       selectedColor: const Color(0xFF64FFDA),
                       backgroundColor: const Color(0xFF2A2A38),
@@ -527,14 +527,14 @@ class _ClipWidgetState extends State<ClipWidget> {
                 const SizedBox(height: 12),
               ],
               if (clip.fadeOut > 0) ...[
-                const Text('Fade Out', style: TextStyle(color: Color(0xFFFF6464), fontSize: 12)),
+                Text('Fade Out', style: FluxForgeTheme.dockSans(color: Color(0xFFFF6464), size: 12)),
                 const SizedBox(height: 4),
                 Wrap(
                   spacing: 4,
                   children: curves.map((c) {
                     final isSelected = c == clip.fadeOutCurve;
                     return ChoiceChip(
-                      label: Text(c.name, style: TextStyle(fontSize: 10, color: isSelected ? Colors.black : Colors.white)),
+                      label: Text(c.name, style: FluxForgeTheme.dockSans(size: 10, color: isSelected ? Colors.black : Colors.white)),
                       selected: isSelected,
                       selectedColor: const Color(0xFFFF6464),
                       backgroundColor: const Color(0xFF2A2A38),
@@ -1257,14 +1257,14 @@ class _ClipWidgetState extends State<ClipWidget> {
                       color: FluxForgeTheme.accentCyan.withValues(alpha: 0.85),
                       borderRadius: BorderRadius.circular(2),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.swap_horiz, size: 10, color: Colors.white),
-                        SizedBox(width: 2),
-                        Text('R', style: TextStyle(
-                          fontSize: 8,
-                          fontWeight: FontWeight.w700,
+                        const Icon(Icons.swap_horiz, size: 10, color: Colors.white),
+                        const SizedBox(width: 2),
+                        Text('R', style: FluxForgeTheme.dockSans(
+                          size: 8,
+                          weight: FontWeight.w700,
                           color: Colors.white,
                         )),
                       ],
@@ -1317,10 +1317,9 @@ class _ClipWidgetState extends State<ClipWidget> {
                         ),
                         child: Text(
                           _gainDisplay,
-                          style: TextStyle(
-                            fontSize: 9,
+                          style: FluxForgeTheme.dockMono(
+                            size: 9,
                             color: FluxForgeTheme.textPrimary,
-                            fontFamily: 'JetBrains Mono',
                           ),
                         ),
                       ),
@@ -1404,10 +1403,10 @@ class _ClipWidgetState extends State<ClipWidget> {
                       if (clip.loopCount > 0)
                         Text(
                           '${clip.loopCount}\u00D7',
-                          style: TextStyle(
-                            fontSize: 9,
+                          style: FluxForgeTheme.dockSans(
+                            size: 9,
                             color: Colors.cyan.withValues(alpha: 0.8),
-                            fontWeight: FontWeight.bold,
+                            weight: FontWeight.bold,
                           ),
                         ),
                       Icon(
@@ -3117,13 +3116,12 @@ class _FadeHandleState extends State<_FadeHandle> {
                   ),
                   child: Text(
                     _formatFadeTime(widget.width),
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontFamily: 'JetBrains Mono',
+                    style: FluxForgeTheme.dockMono(
+                      size: 9,
                       color: (_isHovered || widget.isActive)
                           ? FluxForgeTheme.accentBlue
                           : Colors.white,
-                      fontWeight: FontWeight.w600,
+                      weight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -3823,9 +3821,9 @@ class _WarpMarkerDragHandleState extends State<_WarpMarkerDragHandle> {
           height: 28,
           child: Text(
             'Segment Pitch',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.bold,
               color: Colors.white54,
               letterSpacing: 0.8,
             ),
@@ -3853,8 +3851,8 @@ class _WarpMarkerDragHandleState extends State<_WarpMarkerDragHandle> {
                 const SizedBox(width: 4),
                 Text(
                   label,
-                  style: TextStyle(
-                    fontSize: 12,
+                  style: FluxForgeTheme.dockMono(
+                    size: 12,
                     color: isActive
                         ? const Color(0xFF50D0FF)
                         : st == 0
@@ -3862,8 +3860,7 @@ class _WarpMarkerDragHandleState extends State<_WarpMarkerDragHandle> {
                             : st > 0
                                 ? const Color(0xFFFF9850)
                                 : const Color(0xFF50AAFF),
-                    fontFamily: 'JetBrains Mono',
-                    fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                    weight: isActive ? FontWeight.bold : FontWeight.normal,
                   ),
                 ),
               ],

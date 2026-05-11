@@ -28,6 +28,7 @@ import 'package:flutter/services.dart';
 
 import '../../models/chain_preset.dart';
 import '../../services/chain_preset_service.dart';
+import '../../theme/flux_forge_theme.dart';
 
 // ─── Colors (match chain_history_bar.dart) ──────────────────────────────────
 
@@ -499,8 +500,8 @@ class _ChainPresetLibraryPanelState extends State<ChainPresetLibraryPanel> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               ),
-              child: const Text('Resetuj filter',
-                  style: TextStyle(fontSize: 11)),
+              child: Text('Resetuj filter',
+                  style: FluxForgeTheme.dockSans(size: 11, color: _kFgDim)),
             ),
           ],
         ],
@@ -517,12 +518,12 @@ class _ChainPresetLibraryPanelState extends State<ChainPresetLibraryPanel> {
         children: [
           const Icon(Icons.library_music, size: 18, color: _kAccent),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Chain Preset Library',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: _kFg,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+              size: 14,
+              weight: FontWeight.w600,
               letterSpacing: 0.4,
             ),
           ),
@@ -535,7 +536,7 @@ class _ChainPresetLibraryPanelState extends State<ChainPresetLibraryPanel> {
                   dir,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: _kFgDim, fontSize: 11),
+                  style: FluxForgeTheme.dockSans(color: _kFgDim, size: 11),
                 ),
               ),
             )
@@ -565,13 +566,13 @@ class _ChainPresetLibraryPanelState extends State<ChainPresetLibraryPanel> {
               child: TextField(
                 controller: _searchCtl,
                 focusNode: _searchFocus,
-                style: const TextStyle(color: _kFg, fontSize: 13),
+                style: FluxForgeTheme.dockSans(color: _kFg, size: 13),
                 decoration: InputDecoration(
                   isDense: true,
                   prefixIcon: const Icon(Icons.search,
                       size: 16, color: _kFgDim),
                   hintText: 'Pretraga (ime, opis, tag)…',
-                  hintStyle: const TextStyle(color: _kFgDim, fontSize: 12),
+                  hintStyle: FluxForgeTheme.dockSans(color: _kFgDim, size: 12),
                   filled: true,
                   fillColor: _kBgRaised,
                   contentPadding:
@@ -622,7 +623,7 @@ class _ChainPresetLibraryPanelState extends State<ChainPresetLibraryPanel> {
               filterActive
                   ? 'Nema rezultata za trenutni filter.'
                   : 'Biblioteka je prazna — snimite svoj prvi chain.',
-              style: const TextStyle(color: _kFgDim, fontSize: 12),
+              style: FluxForgeTheme.dockSans(color: _kFgDim, size: 12),
             ),
             if (filterActive) ...[
               const SizedBox(height: 8),
@@ -633,8 +634,8 @@ class _ChainPresetLibraryPanelState extends State<ChainPresetLibraryPanel> {
                   visualDensity: VisualDensity.compact,
                 ),
                 icon: const Icon(Icons.close, size: 14),
-                label: const Text('Resetuj filter',
-                    style: TextStyle(fontSize: 11)),
+                label: Text('Resetuj filter',
+                    style: FluxForgeTheme.dockSans(size: 11, color: _kAccent)),
               ),
             ],
           ],
@@ -664,7 +665,7 @@ class _ChainPresetLibraryPanelState extends State<ChainPresetLibraryPanel> {
         children: [
           Text(
             '$visible / $total preseta',
-            style: const TextStyle(color: _kFgDim, fontSize: 11),
+            style: FluxForgeTheme.dockSans(color: _kFgDim, size: 11),
           ),
           const SizedBox(width: 16),
           if (_toast != null)
@@ -673,9 +674,9 @@ class _ChainPresetLibraryPanelState extends State<ChainPresetLibraryPanel> {
                 _toast!,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: _toastIsError ? _kDanger : _kSuccess,
-                  fontSize: 11,
+                  size: 11,
                 ),
               ),
             )
@@ -720,10 +721,10 @@ class _ChainPresetLibraryPanelState extends State<ChainPresetLibraryPanel> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
+                  Text(
                     'Snimi chain kao preset',
-                    style: TextStyle(
-                        color: _kFg, fontSize: 14, fontWeight: FontWeight.w600),
+                    style: FluxForgeTheme.dockSans(
+                        color: _kFg, size: 14, weight: FontWeight.w600),
                   ),
                   const SizedBox(height: 14),
                   _DialogField(
@@ -741,8 +742,8 @@ class _ChainPresetLibraryPanelState extends State<ChainPresetLibraryPanel> {
                   ),
                   const SizedBox(height: 10),
                   // Category chip strip — single-select.
-                  const Text('Kategorija',
-                      style: TextStyle(color: _kFgDim, fontSize: 11)),
+                  Text('Kategorija',
+                      style: FluxForgeTheme.dockSans(color: _kFgDim, size: 11)),
                   const SizedBox(height: 4),
                   SizedBox(
                     height: 28,
@@ -783,8 +784,8 @@ class _ChainPresetLibraryPanelState extends State<ChainPresetLibraryPanel> {
                     children: [
                       TextButton(
                         onPressed: () => Navigator.of(ctx).pop(),
-                        child: const Text('Otkaži',
-                            style: TextStyle(color: _kFgDim)),
+                        child: Text('Otkaži',
+                            style: FluxForgeTheme.dockSans(color: _kFgDim)),
                       ),
                       const SizedBox(width: 6),
                       _PrimaryButton(
@@ -833,15 +834,15 @@ class _ChainPresetLibraryPanelState extends State<ChainPresetLibraryPanel> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
+              Text(
                 'Brisanje preseta',
-                style: TextStyle(
-                    color: _kFg, fontSize: 14, fontWeight: FontWeight.w600),
+                style: FluxForgeTheme.dockSans(
+                    color: _kFg, size: 14, weight: FontWeight.w600),
               ),
               const SizedBox(height: 10),
               Text(
                 'Da li želite da obrišete "$name"? Ova akcija je trajna.',
-                style: const TextStyle(color: _kFg, fontSize: 12),
+                style: FluxForgeTheme.dockSans(color: _kFg, size: 12),
               ),
               const SizedBox(height: 18),
               Row(
@@ -849,8 +850,8 @@ class _ChainPresetLibraryPanelState extends State<ChainPresetLibraryPanel> {
                 children: [
                   TextButton(
                     onPressed: () => Navigator.of(ctx).pop(false),
-                    child: const Text('Otkaži',
-                        style: TextStyle(color: _kFgDim)),
+                    child: Text('Otkaži',
+                        style: FluxForgeTheme.dockSans(color: _kFgDim)),
                   ),
                   const SizedBox(width: 6),
                   ElevatedButton(
@@ -862,8 +863,8 @@ class _ChainPresetLibraryPanelState extends State<ChainPresetLibraryPanel> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 14, vertical: 8),
                     ),
-                    child: const Text('Obriši',
-                        style: TextStyle(fontSize: 12)),
+                    child: Text('Obriši',
+                        style: FluxForgeTheme.dockSans(size: 12, color: Colors.white)),
                   ),
                 ],
               ),
@@ -898,8 +899,8 @@ class _ChainPresetLibraryPanelState extends State<ChainPresetLibraryPanel> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                      color: _kFg, fontSize: 14, fontWeight: FontWeight.w600),
+                  style: FluxForgeTheme.dockSans(
+                      color: _kFg, size: 14, weight: FontWeight.w600),
                 ),
                 const SizedBox(height: 14),
                 _DialogField(
@@ -914,8 +915,8 @@ class _ChainPresetLibraryPanelState extends State<ChainPresetLibraryPanel> {
                   children: [
                     TextButton(
                       onPressed: () => Navigator.of(ctx).pop(null),
-                      child: const Text('Otkaži',
-                          style: TextStyle(color: _kFgDim)),
+                      child: Text('Otkaži',
+                          style: FluxForgeTheme.dockSans(color: _kFgDim)),
                     ),
                     const SizedBox(width: 6),
                     _PrimaryButton(
@@ -979,10 +980,10 @@ class _PresetRow extends StatelessWidget {
                       Flexible(
                         child: Text(
                           meta.name,
-                          style: const TextStyle(
+                          style: FluxForgeTheme.dockSans(
                             color: _kFg,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                            size: 13,
+                            weight: FontWeight.w600,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -1003,7 +1004,7 @@ class _PresetRow extends StatelessWidget {
                     const SizedBox(height: 3),
                     Text(
                       meta.description,
-                      style: const TextStyle(color: _kFgDim, fontSize: 11),
+                      style: FluxForgeTheme.dockSans(color: _kFgDim, size: 11),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1020,8 +1021,8 @@ class _PresetRow extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     _formatTimestamp(meta.updatedMs),
-                    style: const TextStyle(
-                        color: _kFgDim, fontSize: 10, height: 1.2),
+                    style: FluxForgeTheme.dockSans(
+                        color: _kFgDim, size: 10, height: 1.2),
                   ),
                 ],
               ),
@@ -1079,10 +1080,10 @@ class _Badge extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: const TextStyle(
+        style: FluxForgeTheme.dockSans(
           color: _kFg,
-          fontSize: 10,
-          fontWeight: FontWeight.w500,
+          size: 10,
+          weight: FontWeight.w500,
         ),
       ),
     );
@@ -1103,7 +1104,7 @@ class _Tag extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: const TextStyle(color: _kFgDim, fontSize: 9.5),
+        style: FluxForgeTheme.dockSans(color: _kFgDim, size: 9.5),
       ),
     );
   }
@@ -1130,18 +1131,18 @@ class _DialogField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label,
-            style: const TextStyle(color: _kFgDim, fontSize: 11)),
+            style: FluxForgeTheme.dockSans(color: _kFgDim, size: 11)),
         const SizedBox(height: 4),
         TextField(
           controller: controller,
           autofocus: autofocus,
           maxLines: maxLines,
-          style: const TextStyle(color: _kFg, fontSize: 12),
+          style: FluxForgeTheme.dockSans(color: _kFg, size: 12),
           inputFormatters: const <TextInputFormatter>[],
           decoration: InputDecoration(
             isDense: true,
             hintText: hint,
-            hintStyle: const TextStyle(color: _kFgDim, fontSize: 11),
+            hintStyle: FluxForgeTheme.dockSans(color: _kFgDim, size: 11),
             filled: true,
             fillColor: _kBgRaised,
             contentPadding:
@@ -1201,8 +1202,8 @@ class _PrimaryButton extends StatelessWidget {
             const SizedBox(width: 4),
           ],
           Text(label,
-              style: TextStyle(
-                  fontSize: compact ? 11 : 12, fontWeight: FontWeight.w600)),
+              style: FluxForgeTheme.dockSans(
+                  size: compact ? 11 : 12, weight: FontWeight.w600, color: Colors.white)),
         ],
       ),
     );
@@ -1241,7 +1242,7 @@ class _SecondaryButton extends StatelessWidget {
             const SizedBox(width: 4),
           ],
           Text(label,
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
+              style: FluxForgeTheme.dockSans(size: 11, weight: FontWeight.w500, color: _kFg)),
         ],
       ),
     );
@@ -1301,10 +1302,10 @@ class _StripLabel extends StatelessWidget {
       width: 76,
       child: Text(
         text,
-        style: const TextStyle(
+        style: FluxForgeTheme.dockSans(
           color: _kFgDim,
-          fontSize: 9.5,
-          fontWeight: FontWeight.w600,
+          size: 9.5,
+          weight: FontWeight.w600,
           letterSpacing: 0.6,
         ),
       ),
@@ -1368,10 +1369,10 @@ class _FilterChip extends StatelessWidget {
               ],
               Text(
                 label,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: disabled ? _kFgDim : fg,
-                  fontSize: 11,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                  size: 11,
+                  weight: selected ? FontWeight.w600 : FontWeight.w400,
                 ),
               ),
             ],
@@ -1399,10 +1400,10 @@ class _CategoryBadge extends StatelessWidget {
       ),
       child: Text(
         category,
-        style: const TextStyle(
+        style: FluxForgeTheme.dockSans(
           color: Colors.white,
-          fontSize: 9.5,
-          fontWeight: FontWeight.w600,
+          size: 9.5,
+          weight: FontWeight.w600,
           letterSpacing: 0.4,
         ),
       ),

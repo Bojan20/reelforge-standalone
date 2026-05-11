@@ -17,7 +17,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart' show kPrimaryButton;
 import '../../services/native_file_picker.dart';
 import '../../src/rust/native_ffi.dart';
-import '../../theme/fluxforge_theme.dart';
+import '../../theme/flux_forge_theme.dart';
 import '../debug/debug_console.dart';
 import '../common/fluxforge_search_field.dart';
 
@@ -494,10 +494,10 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
         context: context,
         builder: (ctx) => AlertDialog(
           backgroundColor: FluxForgeTheme.bgMid,
-          title: const Text('Files In Use', style: TextStyle(color: Colors.white)),
+          title: Text('Files In Use', style: FluxForgeTheme.dockSans(color: Colors.white)),
           content: Text(
             '$usedCount of ${filesToRemove.length} files are in use. Remove all ${filesToRemove.length} files anyway?',
-            style: const TextStyle(color: Colors.white70),
+            style: FluxForgeTheme.dockSans(color: Colors.white70),
           ),
           actions: [
             TextButton(
@@ -526,10 +526,10 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
         context: context,
         builder: (ctx) => AlertDialog(
           backgroundColor: FluxForgeTheme.bgMid,
-          title: const Text('Remove Files', style: TextStyle(color: Colors.white)),
+          title: Text('Remove Files', style: FluxForgeTheme.dockSans(color: Colors.white)),
           content: Text(
             'Remove ${filesToRemove.length} selected files from pool?',
-            style: const TextStyle(color: Colors.white70),
+            style: FluxForgeTheme.dockSans(color: Colors.white70),
           ),
           actions: [
             TextButton(
@@ -561,10 +561,10 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
         context: context,
         builder: (ctx) => AlertDialog(
           backgroundColor: FluxForgeTheme.bgMid,
-          title: const Text('File In Use', style: TextStyle(color: Colors.white)),
+          title: Text('File In Use', style: FluxForgeTheme.dockSans(color: Colors.white)),
           content: Text(
             '"${file.name}" is used in ${file.usedInClips.length} clip(s). Remove anyway?',
-            style: const TextStyle(color: Colors.white70),
+            style: FluxForgeTheme.dockSans(color: Colors.white70),
           ),
           actions: [
             TextButton(
@@ -655,12 +655,12 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
         children: [
           const Icon(Icons.folder_special, color: FluxForgeTheme.accentBlue, size: 18),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'AUDIO POOL',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
+              size: 12,
+              weight: FontWeight.bold,
               letterSpacing: 1.2,
             ),
           ),
@@ -674,14 +674,14 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
               ),
               child: Text(
                 '${_selectedFileIds.length} selected',
-                style: const TextStyle(color: FluxForgeTheme.accentBlue, fontSize: 10, fontWeight: FontWeight.bold),
+                style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentBlue, size: 10, weight: FontWeight.bold),
               ),
             ),
             const SizedBox(width: 8),
           ],
           Text(
             '${_filteredFiles.length} of ${_files.length} files',
-            style: const TextStyle(color: Colors.white54, fontSize: 11),
+            style: FluxForgeTheme.dockSans(color: Colors.white54, size: 11),
           ),
           if (missingCount > 0) ...[
             const SizedBox(width: 8),
@@ -698,7 +698,7 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
                   const SizedBox(width: 4),
                   Text(
                     '$missingCount missing',
-                    style: const TextStyle(color: FluxForgeTheme.accentRed, fontSize: 10),
+                    style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentRed, size: 10),
                   ),
                 ],
               ),
@@ -732,7 +732,7 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
           ElevatedButton.icon(
             onPressed: _importFiles,
             icon: const Icon(Icons.add, size: 14),
-            label: const Text('Import', style: TextStyle(fontSize: 11)),
+            label: Text('Import', style: FluxForgeTheme.dockSans(size: 11)),
             style: ElevatedButton.styleFrom(
               backgroundColor: FluxForgeTheme.accentBlue,
               foregroundColor: Colors.white,
@@ -780,7 +780,7 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
             ElevatedButton.icon(
               onPressed: _removeSelectedFiles,
               icon: const Icon(Icons.delete_outline, size: 14),
-              label: Text('Delete (${_selectedFileIds.length})', style: const TextStyle(fontSize: 11)),
+              label: Text('Delete (${_selectedFileIds.length})', style: FluxForgeTheme.dockSans(size: 11)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: FluxForgeTheme.accentRed.withValues(alpha: 0.8),
                 foregroundColor: Colors.white,
@@ -809,9 +809,9 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
       value: mode,
       child: Row(
         children: [
-          Text(label, style: TextStyle(
+          Text(label, style: FluxForgeTheme.dockSans(
             color: _sortMode == mode ? FluxForgeTheme.accentBlue : Colors.white,
-            fontSize: 12,
+            size: 12,
           )),
           if (_sortMode == mode) ...[
             const Spacer(),
@@ -835,7 +835,7 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
             padding: const EdgeInsets.only(right: 8),
             child: FilterChip(
               selected: isSelected,
-              label: Text('${filter.name.toUpperCase()} ($count)', style: const TextStyle(fontSize: 10)),
+              label: Text('${filter.name.toUpperCase()} ($count)', style: FluxForgeTheme.dockSans(size: 10)),
               onSelected: (_) {
                 _invalidateFilterCache();
                 setState(() => _filter = filter);
@@ -843,7 +843,7 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
               backgroundColor: FluxForgeTheme.bgDeep,
               selectedColor: FluxForgeTheme.accentBlue.withValues(alpha: 0.3),
               checkmarkColor: FluxForgeTheme.accentBlue,
-              labelStyle: TextStyle(
+              labelStyle: FluxForgeTheme.dockSans(
                 color: isSelected ? FluxForgeTheme.accentBlue : Colors.white70,
               ),
               padding: EdgeInsets.zero,
@@ -881,12 +881,12 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
             const SizedBox(height: 16),
             Text(
               _searchQuery.isNotEmpty ? 'No files match your search' : 'No audio files in pool',
-              style: const TextStyle(color: Colors.white38, fontSize: 14),
+              style: FluxForgeTheme.dockSans(color: Colors.white38, size: 14),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Click "Import" to add audio files',
-              style: TextStyle(color: Colors.white24, fontSize: 11),
+              style: FluxForgeTheme.dockSans(color: Colors.white24, size: 11),
             ),
           ],
         ),
@@ -1007,7 +1007,7 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
                 children: [
                   Text(
                     file.name,
-                    style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                    style: FluxForgeTheme.dockSans(color: Colors.white, size: 13, weight: FontWeight.w600),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1018,11 +1018,11 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
                   _buildInfoRow('Bit Depth', '${file.bitDepth}-bit'),
                   _buildInfoRow('File Size', file.formattedSize),
                   const SizedBox(height: 12),
-                  const Text('Path', style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold)),
+                  Text('Path', style: FluxForgeTheme.dockSans(color: Colors.white54, size: 10, weight: FontWeight.bold)),
                   const SizedBox(height: 4),
                   Text(
                     file.path,
-                    style: const TextStyle(color: Colors.white38, fontSize: 9),
+                    style: FluxForgeTheme.dockSans(color: Colors.white38, size: 9),
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1030,7 +1030,7 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
                     const SizedBox(height: 12),
                     Text(
                       'Used in ${file.usedInClips.length} clip(s)',
-                      style: const TextStyle(color: FluxForgeTheme.accentGreen, fontSize: 10),
+                      style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentGreen, size: 10),
                     ),
                   ],
                 ],
@@ -1047,9 +1047,9 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(
         children: [
-          Text(label, style: const TextStyle(color: Colors.white54, fontSize: 10)),
+          Text(label, style: FluxForgeTheme.dockSans(color: Colors.white54, size: 10)),
           const Spacer(),
-          Text(value, style: const TextStyle(color: Colors.white, fontSize: 10, fontFamily: 'JetBrains Mono')),
+          Text(value, style: FluxForgeTheme.dockMono(color: Colors.white, size: 10)),
         ],
       ),
     );
@@ -1225,10 +1225,10 @@ class _FileInfo extends StatelessWidget {
             Expanded(
               child: Text(
                 file.name,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: file.isMissing ? FluxForgeTheme.accentRed : Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+                  size: 12,
+                  weight: FontWeight.w500,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -1241,17 +1241,17 @@ class _FileInfo extends StatelessWidget {
           children: [
             Text(
               file.formattedDuration,
-              style: const TextStyle(color: Colors.white54, fontSize: 10, fontFamily: 'JetBrains Mono'),
+              style: FluxForgeTheme.dockMono(color: Colors.white54, size: 10),
             ),
             const SizedBox(width: 8),
             Text(
               '${file.sampleRate ~/ 1000}kHz',
-              style: const TextStyle(color: Colors.white38, fontSize: 10),
+              style: FluxForgeTheme.dockSans(color: Colors.white38, size: 10),
             ),
             const SizedBox(width: 8),
             Text(
               file.channelsLabel,
-              style: const TextStyle(color: Colors.white38, fontSize: 10),
+              style: FluxForgeTheme.dockSans(color: Colors.white38, size: 10),
             ),
             const Spacer(),
             if (file.usedInClips.isNotEmpty)
@@ -1263,7 +1263,7 @@ class _FileInfo extends StatelessWidget {
                 ),
                 child: Text(
                   '${file.usedInClips.length}x',
-                  style: const TextStyle(color: FluxForgeTheme.accentGreen, fontSize: 9),
+                  style: FluxForgeTheme.dockSans(color: FluxForgeTheme.accentGreen, size: 9),
                 ),
               ),
           ],
@@ -1331,12 +1331,12 @@ class _DragFeedback extends StatelessWidget {
               child: files.length > 1
                   ? Text(
                       '${files.length} files',
-                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                      style: FluxForgeTheme.dockSans(color: Colors.white, size: 10, weight: FontWeight.bold),
                       overflow: TextOverflow.ellipsis,
                     )
                   : Text(
                       fileName,
-                      style: const TextStyle(color: Colors.white, fontSize: 10),
+                      style: FluxForgeTheme.dockSans(color: Colors.white, size: 10),
                       overflow: TextOverflow.ellipsis,
                     ),
             ),
@@ -1349,7 +1349,7 @@ class _DragFeedback extends StatelessWidget {
                 ),
                 child: Text(
                   '${files.length}',
-                  style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                  style: FluxForgeTheme.dockSans(color: Colors.white, size: 9, weight: FontWeight.bold),
                 ),
               ),
           ],

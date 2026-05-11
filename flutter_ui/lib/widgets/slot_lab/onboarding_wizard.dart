@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../theme/flux_forge_theme.dart';
 
 /// Onboarding wizard step definition
 class OnboardingStep {
@@ -323,17 +324,17 @@ class OnboardingWizardState extends State<OnboardingWizard>
               children: [
                 Text(
                   step.title,
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 20,
                     color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+                    weight: FontWeight.bold,
                   ),
                 ),
                 Text(
                   step.subtitle,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 14,
                     color: Colors.white.withValues(alpha: 0.6),
-                    fontSize: 14,
                   ),
                 ),
               ],
@@ -344,7 +345,9 @@ class OnboardingWizardState extends State<OnboardingWizard>
               onPressed: _skipOnboarding,
               child: Text(
                 'Skip Tutorial',
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+                style: FluxForgeTheme.dockSans(
+                  color: Colors.white.withValues(alpha: 0.5),
+                ),
               ),
             ),
         ],
@@ -408,9 +411,9 @@ class OnboardingWizardState extends State<OnboardingWizard>
             const SizedBox(width: 80),
           Text(
             'Step ${_currentStep + 1} of ${_steps.length}',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 12,
               color: Colors.white.withValues(alpha: 0.5),
-              fontSize: 12,
             ),
           ),
           ElevatedButton.icon(
@@ -483,9 +486,12 @@ class OnboardingWizardState extends State<OnboardingWizard>
                     ),
                   ),
                   const SizedBox(height: 12),
-                  const Text(
+                  Text(
                     'Watch 2-minute tour',
-                    style: TextStyle(color: Colors.white70, fontSize: 14),
+                    style: FluxForgeTheme.dockSans(
+                      size: 14,
+                      color: Colors.white70,
+                    ),
                   ),
                 ],
               ),
@@ -521,7 +527,10 @@ class OnboardingWizardState extends State<OnboardingWizard>
         children: [
           Icon(icon, color: const Color(0xFF4a9eff), size: 18),
           const SizedBox(width: 8),
-          Text(label, style: const TextStyle(color: Colors.white70)),
+          Text(
+            label,
+            style: FluxForgeTheme.dockSans(color: Colors.white70),
+          ),
         ],
       ),
     );
@@ -566,9 +575,12 @@ class OnboardingWizardState extends State<OnboardingWizard>
                 color: const Color(0xFF2a2a30),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: const Text(
+              child: Text(
                 'OR',
-                style: TextStyle(color: Colors.white54, fontSize: 12),
+                style: FluxForgeTheme.dockSans(
+                  size: 12,
+                  color: Colors.white54,
+                ),
               ),
             ),
             Container(
@@ -631,19 +643,19 @@ class OnboardingWizardState extends State<OnboardingWizard>
             const SizedBox(height: 16),
             Text(
               title,
-              style: const TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 18,
                 color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+                weight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               subtitle,
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 13,
                 color: Colors.white.withValues(alpha: 0.6),
-                fontSize: 13,
               ),
             ),
             if (isSelected) ...[
@@ -661,7 +673,10 @@ class OnboardingWizardState extends State<OnboardingWizard>
                     const SizedBox(width: 4),
                     Text(
                       'Selected',
-                      style: TextStyle(color: color, fontSize: 12),
+                      style: FluxForgeTheme.dockSans(
+                        size: 12,
+                        color: color,
+                      ),
                     ),
                   ],
                 ),
@@ -685,7 +700,10 @@ class OnboardingWizardState extends State<OnboardingWizard>
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1a1a20),
-        title: const Text('Choose Template', style: TextStyle(color: Colors.white)),
+        title: Text(
+          'Choose Template',
+          style: FluxForgeTheme.dockSans(color: Colors.white),
+        ),
         content: SizedBox(
           width: 300,
           child: Column(
@@ -693,8 +711,14 @@ class OnboardingWizardState extends State<OnboardingWizard>
             children: templates.map((t) {
               return ListTile(
                 leading: const Icon(Icons.grid_view, color: Color(0xFF40ff90)),
-                title: Text(t.$2, style: const TextStyle(color: Colors.white)),
-                subtitle: Text(t.$3, style: const TextStyle(color: Colors.white54)),
+                title: Text(
+                  t.$2,
+                  style: FluxForgeTheme.dockSans(color: Colors.white),
+                ),
+                subtitle: Text(
+                  t.$3,
+                  style: FluxForgeTheme.dockSans(color: Colors.white54),
+                ),
                 selected: _selectedTemplateId == t.$1,
                 selectedTileColor: const Color(0xFF40ff90).withValues(alpha: 0.1),
                 onTap: () {
@@ -726,14 +750,17 @@ class OnboardingWizardState extends State<OnboardingWizard>
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: const Color(0xFF4a9eff).withValues(alpha: 0.3)),
           ),
-          child: const Row(
+          child: Row(
             children: [
-              Icon(Icons.info_outline, color: Color(0xFF4a9eff), size: 18),
-              SizedBox(width: 8),
+              const Icon(Icons.info_outline, color: Color(0xFF4a9eff), size: 18),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   'Drag audio files from the left and drop on symbols on the right',
-                  style: TextStyle(color: Colors.white70, fontSize: 13),
+                  style: FluxForgeTheme.dockSans(
+                    size: 13,
+                    color: Colors.white70,
+                  ),
                 ),
               ),
             ],
@@ -755,11 +782,11 @@ class OnboardingWizardState extends State<OnboardingWizard>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Sample Audio Files',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: Colors.white,
-                          fontWeight: FontWeight.bold,
+                          weight: FontWeight.bold,
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -798,7 +825,7 @@ class OnboardingWizardState extends State<OnboardingWizard>
                                       const SizedBox(width: 8),
                                       Text(
                                         file.label,
-                                        style: const TextStyle(color: Colors.white),
+                                        style: FluxForgeTheme.dockSans(color: Colors.white),
                                       ),
                                     ],
                                   ),
@@ -826,13 +853,13 @@ class OnboardingWizardState extends State<OnboardingWizard>
                                         children: [
                                           Text(
                                             file.label,
-                                            style: const TextStyle(color: Colors.white),
+                                            style: FluxForgeTheme.dockSans(color: Colors.white),
                                           ),
                                           Text(
                                             file.filename,
-                                            style: const TextStyle(
+                                            style: FluxForgeTheme.dockSans(
+                                              size: 11,
                                               color: Colors.white54,
-                                              fontSize: 11,
                                             ),
                                           ),
                                         ],
@@ -865,21 +892,21 @@ class OnboardingWizardState extends State<OnboardingWizard>
                     children: [
                       Row(
                         children: [
-                          const Text(
+                          Text(
                             'Symbols',
-                            style: TextStyle(
+                            style: FluxForgeTheme.dockSans(
                               color: Colors.white,
-                              fontWeight: FontWeight.bold,
+                              weight: FontWeight.bold,
                             ),
                           ),
                           const Spacer(),
                           Text(
                             '${_assignedAudio.length}/${_demoSymbols.length} assigned',
-                            style: TextStyle(
+                            style: FluxForgeTheme.dockSans(
+                              size: 12,
                               color: _assignedAudio.length == _demoSymbols.length
                                   ? const Color(0xFF40ff90)
                                   : Colors.white54,
-                              fontSize: 12,
                             ),
                           ),
                         ],
@@ -934,10 +961,10 @@ class OnboardingWizardState extends State<OnboardingWizard>
                                         child: Center(
                                           child: Text(
                                             symbol.id,
-                                            style: TextStyle(
+                                            style: FluxForgeTheme.dockSans(
+                                              size: 10,
                                               color: symbol.color,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 10,
+                                              weight: FontWeight.bold,
                                             ),
                                           ),
                                         ),
@@ -949,17 +976,17 @@ class OnboardingWizardState extends State<OnboardingWizard>
                                           children: [
                                             Text(
                                               symbol.label,
-                                              style: const TextStyle(color: Colors.white),
+                                              style: FluxForgeTheme.dockSans(color: Colors.white),
                                             ),
                                             Text(
                                               hasAudio
                                                   ? _assignedAudio[symbol.id]!
                                                   : 'Drop audio here',
-                                              style: TextStyle(
+                                              style: FluxForgeTheme.dockSans(
+                                                size: 11,
                                                 color: hasAudio
                                                     ? const Color(0xFF40ff90)
                                                     : Colors.white38,
-                                                fontSize: 11,
                                               ),
                                             ),
                                           ],
@@ -1023,7 +1050,7 @@ class OnboardingWizardState extends State<OnboardingWizard>
                 const SizedBox(height: 8),
                 Text(
                   'Spins completed: $_spinsCompleted',
-                  style: const TextStyle(color: Colors.white70),
+                  style: FluxForgeTheme.dockSans(color: Colors.white70),
                 ),
               ],
             ),
@@ -1031,9 +1058,12 @@ class OnboardingWizardState extends State<OnboardingWizard>
         ),
         const SizedBox(height: 24),
         // Forced outcome buttons
-        const Text(
+        Text(
           'Test with forced outcomes:',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: FluxForgeTheme.dockSans(
+            color: Colors.white,
+            weight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: 16),
         Row(
@@ -1064,14 +1094,17 @@ class OnboardingWizardState extends State<OnboardingWizard>
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.3)),
           ),
-          child: const Row(
+          child: Row(
             children: [
-              Icon(Icons.lightbulb_outline, color: Color(0xFFFFD700), size: 18),
-              SizedBox(width: 8),
+              const Icon(Icons.lightbulb_outline, color: Color(0xFFFFD700), size: 18),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   'Tip: Use keyboard shortcuts 1-4 to trigger outcomes quickly',
-                  style: TextStyle(color: Colors.white70, fontSize: 13),
+                  style: FluxForgeTheme.dockSans(
+                    size: 13,
+                    color: Colors.white70,
+                  ),
                 ),
               ),
             ],
@@ -1091,12 +1124,12 @@ class OnboardingWizardState extends State<OnboardingWizard>
 
     return Column(
       children: [
-        const Text(
+        Text(
           'Export to your game engine',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 18,
             color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
+            weight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 24),
@@ -1118,15 +1151,18 @@ class OnboardingWizardState extends State<OnboardingWizard>
                       const SizedBox(height: 12),
                       Text(
                         platform.$1,
-                        style: const TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: Colors.white,
-                          fontWeight: FontWeight.bold,
+                          weight: FontWeight.bold,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         platform.$4,
-                        style: const TextStyle(color: Colors.white54, fontSize: 12),
+                        style: FluxForgeTheme.dockSans(
+                          size: 12,
+                          color: Colors.white54,
+                        ),
                       ),
                     ],
                   ),
@@ -1146,16 +1182,16 @@ class OnboardingWizardState extends State<OnboardingWizard>
           ),
           child: Column(
             children: [
-              const Row(
+              Row(
                 children: [
-                  Icon(Icons.check_circle, color: Color(0xFF40ff90)),
-                  SizedBox(width: 12),
+                  const Icon(Icons.check_circle, color: Color(0xFF40ff90)),
+                  const SizedBox(width: 12),
                   Text(
                     'You are ready to start!',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 16,
                       color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                      weight: FontWeight.bold,
                     ),
                   ),
                 ],
@@ -1188,9 +1224,9 @@ class OnboardingWizardState extends State<OnboardingWizard>
         const SizedBox(width: 4),
         Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 13,
             color: completed ? Colors.white : Colors.white54,
-            fontSize: 13,
           ),
         ),
       ],

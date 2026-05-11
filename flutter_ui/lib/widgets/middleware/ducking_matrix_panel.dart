@@ -9,7 +9,7 @@ import 'package:provider/provider.dart';
 import '../../models/middleware_models.dart';
 import '../../providers/middleware_provider.dart';
 import '../../services/ducking_preview_service.dart';
-import '../../theme/fluxforge_theme.dart';
+import '../../theme/flux_forge_theme.dart';
 
 /// Ducking Matrix Panel Widget
 class DuckingMatrixPanel extends StatefulWidget {
@@ -100,10 +100,10 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
         const SizedBox(width: 6),
         Text(
           'Ducking Matrix',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textPrimary,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
+            size: 12,
+            weight: FontWeight.bold,
           ),
         ),
         const Spacer(),
@@ -203,10 +203,10 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
             const SizedBox(width: 4),
             Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: buttonColor,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
+                size: 11,
+                weight: FontWeight.bold,
               ),
             ),
           ],
@@ -236,14 +236,14 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
               const SizedBox(height: 8),
               Text(
                 'No ducking rules configured',
-                style: TextStyle(color: FluxForgeTheme.textSecondary),
+                style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary),
               ),
               const SizedBox(height: 4),
               Text(
                 'Add a rule to duck one bus when another plays',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
-                  fontSize: 12,
+                  size: 12,
                 ),
               ),
             ],
@@ -292,10 +292,10 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
       child: Text(
         label,
         textAlign: TextAlign.center,
-        style: TextStyle(
+        style: FluxForgeTheme.dockSans(
           color: FluxForgeTheme.textSecondary,
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
+          size: 10,
+          weight: FontWeight.bold,
         ),
       ),
     );
@@ -331,10 +331,10 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
                   width: 80,
                   child: Text(
                     'Source ↓',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: FluxForgeTheme.textSecondary,
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
+                      size: 9,
+                      weight: FontWeight.bold,
                     ),
                   ),
                 ),
@@ -346,18 +346,18 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
                       children: [
                         Text(
                           'Target',
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
                             color: FluxForgeTheme.textSecondary.withValues(alpha: 0.6),
-                            fontSize: 8,
+                            size: 8,
                           ),
                         ),
                         Text(
                           bus,
                           textAlign: TextAlign.center,
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
                             color: Colors.cyan,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
+                            size: 10,
+                            weight: FontWeight.bold,
                           ),
                         ),
                       ],
@@ -402,10 +402,10 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
                 Expanded(
                   child: Text(
                     sourceBus,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: Colors.orange,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
+                      size: 10,
+                      weight: FontWeight.bold,
                     ),
                   ),
                 ),
@@ -495,18 +495,18 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
                   children: [
                     Text(
                       '${rule.duckAmountDb.toStringAsFixed(0)}dB',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: isEnabled ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
+                        size: 9,
+                        weight: FontWeight.bold,
                       ),
                     ),
                     if (!isEnabled)
                       Text(
                         'OFF',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: FluxForgeTheme.textSecondary.withValues(alpha: 0.6),
-                          fontSize: 7,
+                          size: 7,
                         ),
                       ),
                   ],
@@ -570,12 +570,12 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
               child: Text(
                 '${rule.duckAmountDb.toStringAsFixed(1)} dB',
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: rule.enabled
                       ? FluxForgeTheme.accentBlue
                       : FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
+                  size: 11,
+                  weight: FontWeight.bold,
                 ),
               ),
             ),
@@ -585,9 +585,9 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
               child: Text(
                 '${rule.attackMs.toStringAsFixed(0)}ms',
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textSecondary,
-                  fontSize: 10,
+                  size: 10,
                 ),
               ),
             ),
@@ -597,9 +597,9 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
               child: Text(
                 '${rule.releaseMs.toStringAsFixed(0)}ms',
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textSecondary,
-                  fontSize: 10,
+                  size: 10,
                 ),
               ),
             ),
@@ -661,10 +661,10 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
       child: Text(
         bus,
         textAlign: TextAlign.center,
-        style: TextStyle(
+        style: FluxForgeTheme.dockSans(
           color: color,
-          fontSize: 11,
-          fontWeight: FontWeight.bold,
+          size: 11,
+          weight: FontWeight.bold,
         ),
       ),
     );
@@ -688,10 +688,10 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
             children: [
               Text(
                 'Edit Rule: ${rule.sourceBus} → ${rule.targetBus}',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+                  size: 12,
+                  weight: FontWeight.bold,
                 ),
               ),
               const Spacer(),
@@ -772,7 +772,7 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
                 width: 80,
                 child: Text(
                   'Curve',
-                  style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+                  style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11),
                 ),
               ),
               Expanded(
@@ -801,12 +801,12 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
                           child: Text(
                             curve.displayName,
                             textAlign: TextAlign.center,
-                            style: TextStyle(
+                            style: FluxForgeTheme.dockSans(
                               color: isActive
                                   ? FluxForgeTheme.accentBlue
                                   : FluxForgeTheme.textSecondary,
-                              fontSize: 9,
-                              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                              size: 9,
+                              weight: isActive ? FontWeight.bold : FontWeight.normal,
                             ),
                           ),
                         ),
@@ -834,7 +834,7 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
           width: 80,
           child: Text(
             label,
-            style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+            style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 11),
           ),
         ),
         Expanded(
@@ -858,10 +858,10 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
           child: Text(
             value,
             textAlign: TextAlign.right,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.accentBlue,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
+              size: 11,
+              weight: FontWeight.bold,
             ),
           ),
         ),
@@ -907,10 +907,10 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
               const SizedBox(width: 8),
               Text(
                 'Preview: ${rule.sourceBus} → ${rule.targetBus}',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+                  size: 12,
+                  weight: FontWeight.bold,
                 ),
               ),
               const SizedBox(width: 16),
@@ -938,10 +938,10 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
               // Current duck level
               Text(
                 '${(service.currentDuckLevel * 100).toStringAsFixed(0)}%',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: Colors.green,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+                  size: 12,
+                  weight: FontWeight.bold,
                 ),
               ),
               const SizedBox(width: 8),
@@ -998,9 +998,9 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
         const SizedBox(width: 4),
         Text(
           '$label: ${durationMs.toStringAsFixed(0)}ms',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textSecondary,
-            fontSize: 10,
+            size: 10,
           ),
         ),
       ],
@@ -1172,10 +1172,10 @@ class _AddDuckingRuleDialogState extends State<_AddDuckingRuleDialog> {
         children: [
           Text(
             'Add Ducking Rule',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
+              size: 14,
+              weight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 16),
@@ -1187,9 +1187,9 @@ class _AddDuckingRuleDialogState extends State<_AddDuckingRuleDialog> {
                   children: [
                     Text(
                       'Source Bus (Trigger)',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: FluxForgeTheme.textSecondary,
-                        fontSize: 11,
+                        size: 11,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -1214,9 +1214,9 @@ class _AddDuckingRuleDialogState extends State<_AddDuckingRuleDialog> {
                   children: [
                     Text(
                       'Target Bus (Ducked)',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: FluxForgeTheme.textSecondary,
-                        fontSize: 11,
+                        size: 11,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -1245,7 +1245,7 @@ class _AddDuckingRuleDialogState extends State<_AddDuckingRuleDialog> {
                   ),
                   child: Text(
                     'Cancel',
-                    style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+                    style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12),
                   ),
                 ),
               ),
@@ -1260,10 +1260,10 @@ class _AddDuckingRuleDialogState extends State<_AddDuckingRuleDialog> {
                   ),
                   child: Text(
                     'Add Rule',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                      size: 12,
+                      weight: FontWeight.bold,
                     ),
                   ),
                 ),
@@ -1292,7 +1292,7 @@ class _AddDuckingRuleDialogState extends State<_AddDuckingRuleDialog> {
         isExpanded: true,
         underline: const SizedBox.shrink(),
         dropdownColor: FluxForgeTheme.surfaceDark,
-        style: TextStyle(color: color, fontSize: 12),
+        style: FluxForgeTheme.dockSans(color: color, size: 12),
         items: kAllBuses.map((bus) {
           return DropdownMenuItem(
             value: bus,
