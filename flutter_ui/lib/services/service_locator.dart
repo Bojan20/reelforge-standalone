@@ -187,6 +187,7 @@ import 'project_history_service.dart'; // T7.1
 import 'spatial_audio_service.dart'; // T7.2–T7.4
 import 'ai_generation_service.dart'; // T8.1–T8.4
 import 'ai_composer_service.dart'; // Model 3 — multi-provider AI Composer
+import 'copilot_explainer.dart';  // H.4 — rule-based param explanation registry
 
 /// Global service locator instance
 final GetIt sl = GetIt.instance;
@@ -572,6 +573,12 @@ class ServiceLocator {
     sl.registerLazySingleton<AiCopilotService>(
       () => AiCopilotService(),
     );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.10k-EXPLAIN: Co-Pilot Explainer (H.4 — "Explain this" context menu)
+    // Rule-based param explanation registry — no LLM, fully offline
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<CopilotExplainer>(() => CopilotExplainer());
 
     // ═══════════════════════════════════════════════════════════════════════════
     // LAYER 5.9.10l-FINGERPRINT: Neural Fingerprint™ Service (T6.1–T6.5)

@@ -1260,12 +1260,12 @@ Sprint 4 (layout memory, power users):                 ✅ DONE (ce2a90a9 + c58c
 
 ### 4.1 Copilot infrastruktura
 
-| # | Zadatak | Tehn | Effort |
-|---|---|---|---|
-| 4.1.1 | `rf-copilot` crate sa `Action` trait (svaka sugestija reversibilna) | Rust | 2 nedelje |
-| 4.1.2 | Local LLM integracija (Llama 3 8B ili Phi-4) via Metal MPSGraph | MPS | 1 mesec |
-| 4.1.3 | Isolate za copilot, FFI kroz `rf-bridge/src/copilot_ffi.rs` | | 1 nedelja |
-| 4.1.4 | Dart `CopilotService` + `CopilotPanel` widget | Flutter | 2 nedelje |
+| # | Zadatak | Tehn | Effort | Status |
+|---|---|---|---|---|
+| 4.1.1 | `rf-copilot` `Action` trait (svaka sugestija reversibilna) | Rust | 2 nedelje | ✅ DONE — `actions.rs`: `Action` trait + `ActionRegistry` + 5 konkretnih akcija (BumpVoiceBudget/SetReelSpinLoop/SetAmbientLoop/PromoteFeatureTriggerTier/SetRequiredEventWeight). 13 testova zelena. commit `7618ab55` |
+| 4.1.2 | Local LLM integracija (Llama 3 8B ili Phi-4) via Metal MPSGraph | MPS | 1 mesec | 🔴 OPEN |
+| 4.1.3 | FFI kroz `rf-bridge/src/slot_lab_ffi.rs` | Rust | 1 nedelja | ✅ DONE — `copilot_apply_action(project_json, rule_id)` FFI + `copilotApplyAction` u native_ffi.dart. commit `7618ab55` |
+| 4.1.4 | Dart `CopilotService` + `CopilotPanel` widget | Flutter | 2 nedelje | ✅ DONE — `AiCopilotService`: `applyAction()` + `applyActionAndReanalyze()` + `_lastProjectJson` cache. `AiCopilotPanel`: DEMO/LIVE mode toggle, LIVE koristi pravi Rust engine, "Auto-fix" dugme + "Fix all" batch. 0 analyzer errors. commit `7618ab55` |
 
 ### 4.2 Features
 
