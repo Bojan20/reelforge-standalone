@@ -166,23 +166,23 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
           ),
         ),
         const SizedBox(width: 12),
-        const Expanded(
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'GPU DSP Settings',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 16,
+                  weight: FontWeight.bold,
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
               Text(
                 'Hardware-accelerated audio processing',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
                   color: FluxForgeTheme.textSecondary,
-                  fontSize: 11,
                 ),
               ),
             ],
@@ -229,10 +229,10 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
               Expanded(
                 child: Text(
                   device.name,
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 13,
+                    weight: FontWeight.w500,
                     color: FluxForgeTheme.textPrimary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
@@ -259,17 +259,17 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 9,
             color: FluxForgeTheme.textSecondary,
-            fontSize: 9,
           ),
         ),
         Text(
           value,
-          style: const TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 11,
+            weight: FontWeight.w500,
             color: FluxForgeTheme.textPrimary,
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
           ),
         ),
       ],
@@ -280,11 +280,11 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Processing Mode',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 11,
             color: FluxForgeTheme.textSecondary,
-            fontSize: 11,
           ),
         ),
         const SizedBox(height: 8),
@@ -345,14 +345,14 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
             const SizedBox(width: 6),
             Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 11,
+                weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 color: isSelected
                     ? FluxForgeTheme.textPrimary
                     : canSelect
                         ? FluxForgeTheme.textSecondary
                         : FluxForgeTheme.textSecondary.withValues(alpha: 0.3),
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
           ],
@@ -365,11 +365,11 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'FFT Size',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 11,
             color: FluxForgeTheme.textSecondary,
-            fontSize: 11,
           ),
         ),
         const SizedBox(height: 8),
@@ -389,9 +389,9 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
         const SizedBox(height: 8),
         Text(
           'Larger = better frequency resolution, higher latency',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 10,
             color: FluxForgeTheme.textSecondary.withValues(alpha: 0.6),
-            fontSize: 10,
           ),
         ),
       ],
@@ -420,10 +420,10 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
         ),
         child: Text(
           sizeK,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 11,
+            weight: isSelected ? FontWeight.w600 : FontWeight.normal,
             color: isSelected ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
-            fontSize: 11,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
           ),
         ),
       ),
@@ -442,11 +442,11 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Performance',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: FluxForgeTheme.textSecondary,
-              fontSize: 10,
             ),
           ),
           const SizedBox(height: 8),
@@ -488,17 +488,17 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
           children: [
             Text(
               label,
-              style: const TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 10,
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 10,
               ),
             ),
             Text(
               '${value.toStringAsFixed(1)}$unit',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.w500,
                 color: color,
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
               ),
             ),
           ],
@@ -531,17 +531,16 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 9,
             color: FluxForgeTheme.textSecondary,
-            fontSize: 9,
           ),
         ),
         Text(
           value,
-          style: const TextStyle(
+          style: FluxForgeTheme.dockMono(
+            size: 11,
             color: FluxForgeTheme.textPrimary,
-            fontSize: 11,
-            fontFamily: 'monospace',
           ),
         ),
       ],
@@ -576,23 +575,23 @@ class _GpuSettingsPanelState extends State<GpuSettingsPanel> {
               size: 18,
             ),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'Auto-Tuning',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 12,
+                      weight: FontWeight.w500,
                       color: FluxForgeTheme.textPrimary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
                     ),
                   ),
                   Text(
                     'Automatically optimize workgroup size and batch parameters',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
                       color: FluxForgeTheme.textSecondary,
-                      fontSize: 10,
                     ),
                   ),
                 ],
@@ -678,31 +677,30 @@ class GpuIndicator extends StatelessWidget {
                 color: color,
                 borderRadius: BorderRadius.circular(2),
               ),
-              child: const Text(
+              child: Text(
                 'GPU',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 8,
+                  weight: FontWeight.bold,
                   color: Colors.black,
-                  fontSize: 8,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),
             const SizedBox(width: 6),
             Text(
               _getModeLabel(),
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.w500,
                 color: color,
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
               ),
             ),
             const SizedBox(width: 6),
             Text(
               '${utilization.toStringAsFixed(0)}%',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 10,
                 color: color,
-                fontSize: 10,
-                fontFamily: 'monospace',
               ),
             ),
           ],

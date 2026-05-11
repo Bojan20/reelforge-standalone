@@ -9,6 +9,7 @@
 import 'package:flutter/material.dart';
 
 import '../../services/schema_migration.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Schema Migration Panel
 class SchemaMigrationPanel extends StatefulWidget {
@@ -103,12 +104,12 @@ class _SchemaMigrationPanelState extends State<SchemaMigrationPanel> {
         children: [
           const Icon(Icons.upgrade, color: Color(0xFF4A9EFF), size: 20),
           const SizedBox(width: 10),
-          const Text(
+          Text(
             'SCHEMA VERSION',
-            style: TextStyle(
-              color: Color(0xFF4A9EFF),
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
+            style: FluxForgeTheme.dockSans(
+              size: 12,
+              weight: FontWeight.w700,
+              color: const Color(0xFF4A9EFF),
               letterSpacing: 1.0,
             ),
           ),
@@ -140,12 +141,12 @@ class _SchemaMigrationPanelState extends State<SchemaMigrationPanel> {
                 const SizedBox(width: 6),
                 Text(
                   'v$_currentProjectVersion',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
+                    size: 11,
+                    weight: FontWeight.w700,
                     color: _needsMigration
                         ? const Color(0xFFFF9040)
                         : const Color(0xFF40FF90),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
@@ -221,11 +222,11 @@ class _SchemaMigrationPanelState extends State<SchemaMigrationPanel> {
                     _needsMigration
                         ? 'This project uses an older schema version and needs migration.'
                         : 'Project is using the latest schema version.',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 12,
                       color: _needsMigration
                           ? const Color(0xFFFF9040)
                           : const Color(0xFF40FF90),
-                      fontSize: 12,
                     ),
                   ),
                 ),
@@ -251,18 +252,18 @@ class _SchemaMigrationPanelState extends State<SchemaMigrationPanel> {
           const SizedBox(height: 8),
           Text(
             label,
-            style: const TextStyle(
-              color: Color(0xFF808090),
-              fontSize: 10,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              color: const Color(0xFF808090),
             ),
           ),
           const SizedBox(height: 4),
           Text(
             version,
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 18,
+              weight: FontWeight.w700,
               color: color,
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -278,12 +279,12 @@ class _SchemaMigrationPanelState extends State<SchemaMigrationPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'MIGRATION PREVIEW',
-            style: TextStyle(
-              color: Color(0xFF808090),
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.w600,
+              color: const Color(0xFF808090),
               letterSpacing: 1.0,
             ),
           ),
@@ -310,10 +311,10 @@ class _SchemaMigrationPanelState extends State<SchemaMigrationPanel> {
                       child: Center(
                         child: Text(
                           '${index + 1}',
-                          style: const TextStyle(
-                            color: Color(0xFF4A9EFF),
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
+                          style: FluxForgeTheme.dockMono(
+                            size: 10,
+                            weight: FontWeight.w700,
+                            color: const Color(0xFF4A9EFF),
                           ),
                         ),
                       ),
@@ -332,9 +333,9 @@ class _SchemaMigrationPanelState extends State<SchemaMigrationPanel> {
                     padding: const EdgeInsets.only(bottom: 16),
                     child: Text(
                       step,
-                      style: const TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 12,
                         color: Colors.white70,
-                        fontSize: 12,
                       ),
                     ),
                   ),
@@ -388,12 +389,12 @@ class _SchemaMigrationPanelState extends State<SchemaMigrationPanel> {
               const SizedBox(width: 8),
               Text(
                 result.success ? 'Migration Successful' : 'Migration Failed',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 13,
+                  weight: FontWeight.w600,
                   color: result.success
                       ? const Color(0xFF40FF90)
                       : const Color(0xFFFF4040),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -402,13 +403,13 @@ class _SchemaMigrationPanelState extends State<SchemaMigrationPanel> {
           if (result.success) ...[
             Text(
               'Migrated from v${result.fromVersion} to v${result.toVersion}',
-              style: const TextStyle(color: Colors.white70, fontSize: 12),
+              style: FluxForgeTheme.dockSans(size: 12, color: Colors.white70),
             ),
             if (result.stepsApplied.isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(
                 '${result.stepsApplied.length} migration step(s) applied',
-                style: const TextStyle(color: Color(0xFF808090), fontSize: 11),
+                style: FluxForgeTheme.dockSans(size: 11, color: const Color(0xFF808090)),
               ),
             ],
           ] else if (result.error != null) ...[
@@ -420,7 +421,7 @@ class _SchemaMigrationPanelState extends State<SchemaMigrationPanel> {
               ),
               child: Text(
                 result.error!,
-                style: const TextStyle(color: Color(0xFFFF4040), fontSize: 11),
+                style: FluxForgeTheme.dockSans(size: 11, color: const Color(0xFFFF4040)),
               ),
             ),
           ],
@@ -446,12 +447,12 @@ class _SchemaMigrationPanelState extends State<SchemaMigrationPanel> {
                   size: 20,
                 ),
                 const SizedBox(width: 8),
-                const Text(
+                Text(
                   'MIGRATION HISTORY',
-                  style: TextStyle(
-                    color: Color(0xFF808090),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: FontWeight.w600,
+                    color: const Color(0xFF808090),
                     letterSpacing: 1.0,
                   ),
                 ),
@@ -464,9 +465,9 @@ class _SchemaMigrationPanelState extends State<SchemaMigrationPanel> {
                   ),
                   child: Text(
                     '${_migrationHistory.length}',
-                    style: const TextStyle(
-                      color: Color(0xFF808090),
-                      fontSize: 9,
+                    style: FluxForgeTheme.dockMono(
+                      size: 9,
+                      color: const Color(0xFF808090),
                     ),
                   ),
                 ),
@@ -503,19 +504,19 @@ class _SchemaMigrationPanelState extends State<SchemaMigrationPanel> {
                             ),
                             child: Text(
                               'v${entry['from_version']} → v${entry['to_version']}',
-                              style: const TextStyle(
-                                color: Color(0xFF4A9EFF),
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
+                              style: FluxForgeTheme.dockMono(
+                                size: 10,
+                                weight: FontWeight.w600,
+                                color: const Color(0xFF4A9EFF),
                               ),
                             ),
                           ),
                           const Spacer(),
                           Text(
                             _formatDate(entry['applied_at'] as String?),
-                            style: const TextStyle(
-                              color: Color(0xFF606070),
-                              fontSize: 9,
+                            style: FluxForgeTheme.dockMono(
+                              size: 9,
+                              color: const Color(0xFF606070),
                             ),
                           ),
                         ],
@@ -523,9 +524,9 @@ class _SchemaMigrationPanelState extends State<SchemaMigrationPanel> {
                       const SizedBox(height: 8),
                       Text(
                         entry['description'] as String? ?? '',
-                        style: const TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 11,
                           color: Colors.white70,
-                          fontSize: 11,
                         ),
                       ),
                       if ((entry['changes'] as List?)?.isNotEmpty == true) ...[
@@ -543,9 +544,9 @@ class _SchemaMigrationPanelState extends State<SchemaMigrationPanel> {
                                 const SizedBox(width: 6),
                                 Text(
                                   change.toString(),
-                                  style: const TextStyle(
-                                    color: Color(0xFF808090),
-                                    fontSize: 10,
+                                  style: FluxForgeTheme.dockSans(
+                                    size: 10,
+                                    color: const Color(0xFF808090),
                                   ),
                                 ),
                               ],
@@ -637,12 +638,12 @@ class SchemaVersionIndicator extends StatelessWidget {
             ],
             Text(
               'Schema v$version',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 10,
+                weight: FontWeight.w500,
                 color: needsMigration
                     ? const Color(0xFFFF9040)
                     : const Color(0xFF808090),
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
               ),
             ),
             if (needsMigration) ...[
@@ -655,10 +656,10 @@ class SchemaVersionIndicator extends StatelessWidget {
               const SizedBox(width: 2),
               Text(
                 'v$currentSchemaVersion',
-                style: const TextStyle(
-                  color: Color(0xFF40FF90),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockMono(
+                  size: 10,
+                  weight: FontWeight.w600,
+                  color: const Color(0xFF40FF90),
                 ),
               ),
             ],

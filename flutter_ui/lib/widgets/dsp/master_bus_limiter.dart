@@ -239,10 +239,10 @@ class _MasterBusLimiterState extends State<MasterBusLimiter> {
         const SizedBox(width: 8),
         Text(
           'Master Limiter',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textPrimary,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
+            size: 16,
+            weight: FontWeight.bold,
           ),
         ),
         const Spacer(),
@@ -265,10 +265,10 @@ class _MasterBusLimiterState extends State<MasterBusLimiter> {
             ),
             child: Text(
               _enabled ? 'ON' : 'OFF',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: _enabled ? Colors.green : FluxForgeTheme.textSecondary,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+                size: 10,
+                weight: FontWeight.bold,
               ),
             ),
           ),
@@ -298,10 +298,10 @@ class _MasterBusLimiterState extends State<MasterBusLimiter> {
                 width: 40,
                 child: Text(
                   'GR',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
                     color: FluxForgeTheme.textSecondary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                    size: 10,
+                    weight: FontWeight.bold,
                   ),
                 ),
               ),
@@ -312,10 +312,10 @@ class _MasterBusLimiterState extends State<MasterBusLimiter> {
                 width: 60,
                 child: Text(
                   '${_gainReduction.toStringAsFixed(1)} dB',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
                     color: _gainReduction < -1 ? Colors.orange : FluxForgeTheme.textSecondary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                    size: 10,
+                    weight: FontWeight.bold,
                   ),
                   textAlign: TextAlign.right,
                 ),
@@ -331,9 +331,9 @@ class _MasterBusLimiterState extends State<MasterBusLimiter> {
                 width: 40,
                 child: Text(
                   'TP L',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
                     color: FluxForgeTheme.textSecondary,
-                    fontSize: 10,
+                    size: 10,
                   ),
                 ),
               ),
@@ -348,9 +348,9 @@ class _MasterBusLimiterState extends State<MasterBusLimiter> {
                 width: 60,
                 child: Text(
                   '${_truePeakL.toStringAsFixed(1)} dB',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
                     color: _truePeakL > _ceiling ? Colors.red : FluxForgeTheme.textSecondary,
-                    fontSize: 10,
+                    size: 10,
                   ),
                   textAlign: TextAlign.right,
                 ),
@@ -366,9 +366,9 @@ class _MasterBusLimiterState extends State<MasterBusLimiter> {
                 width: 40,
                 child: Text(
                   'TP R',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
                     color: FluxForgeTheme.textSecondary,
-                    fontSize: 10,
+                    size: 10,
                   ),
                 ),
               ),
@@ -383,9 +383,9 @@ class _MasterBusLimiterState extends State<MasterBusLimiter> {
                 width: 60,
                 child: Text(
                   '${_truePeakR.toStringAsFixed(1)} dB',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
                     color: _truePeakR > _ceiling ? Colors.red : FluxForgeTheme.textSecondary,
-                    fontSize: 10,
+                    size: 10,
                   ),
                   textAlign: TextAlign.right,
                 ),
@@ -399,17 +399,17 @@ class _MasterBusLimiterState extends State<MasterBusLimiter> {
             children: [
               Text(
                 'MAX TP: ',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
                   color: FluxForgeTheme.textSecondary,
-                  fontSize: 10,
+                  size: 10,
                 ),
               ),
               Text(
                 '${_maxTruePeak.toStringAsFixed(2)} dBTP',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
                   color: isClipping ? Colors.red : Colors.green,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+                  size: 12,
+                  weight: FontWeight.bold,
                 ),
               ),
               const Spacer(),
@@ -423,9 +423,9 @@ class _MasterBusLimiterState extends State<MasterBusLimiter> {
                   ),
                   child: Text(
                     'RESET',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockMono(
                       color: FluxForgeTheme.textSecondary,
-                      fontSize: 9,
+                      size: 9,
                     ),
                   ),
                 ),
@@ -501,26 +501,26 @@ class _MasterBusLimiterState extends State<MasterBusLimiter> {
       children: [
         Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textSecondary,
-            fontSize: 11,
+            size: 11,
           ),
         ),
         const SizedBox(height: 4),
         Text(
           '${value.toStringAsFixed(1)} $unit',
-          style: TextStyle(
+          style: FluxForgeTheme.dockMono(
             color: FluxForgeTheme.accentBlue,
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
+            size: 14,
+            weight: FontWeight.bold,
           ),
         ),
         if (isISPSafe)
           Text(
             'ISP Safe',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: Colors.green,
-              fontSize: 9,
+              size: 9,
             ),
           ),
         const SizedBox(height: 4),
@@ -549,9 +549,9 @@ class _MasterBusLimiterState extends State<MasterBusLimiter> {
       children: [
         Text(
           'Release Mode',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textSecondary,
-            fontSize: 11,
+            size: 11,
           ),
         ),
         const SizedBox(height: 8),
@@ -583,10 +583,10 @@ class _MasterBusLimiterState extends State<MasterBusLimiter> {
                 ),
                 child: Text(
                   mode.name,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
-                    fontSize: 11,
-                    fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                    size: 11,
+                    weight: isActive ? FontWeight.bold : FontWeight.normal,
                   ),
                 ),
               ),
@@ -602,9 +602,9 @@ class _MasterBusLimiterState extends State<MasterBusLimiter> {
       children: [
         Text(
           'Oversampling',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textSecondary,
-            fontSize: 11,
+            size: 11,
           ),
         ),
         const Spacer(),
@@ -630,10 +630,10 @@ class _MasterBusLimiterState extends State<MasterBusLimiter> {
                 ),
                 child: Text(
                   mode.name,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
-                    fontSize: 10,
-                    fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                    size: 10,
+                    weight: isActive ? FontWeight.bold : FontWeight.normal,
                   ),
                 ),
               ),
@@ -663,9 +663,9 @@ class _MasterBusLimiterState extends State<MasterBusLimiter> {
               const SizedBox(width: 4),
               Text(
                 'Link Stereo',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: _linkStereo ? FluxForgeTheme.accentBlue : FluxForgeTheme.textSecondary,
-                  fontSize: 11,
+                  size: 11,
                 ),
               ),
             ],
@@ -675,9 +675,9 @@ class _MasterBusLimiterState extends State<MasterBusLimiter> {
         // Lookahead
         Text(
           'Lookahead: ${_lookahead.toStringAsFixed(1)}ms',
-          style: TextStyle(
+          style: FluxForgeTheme.dockMono(
             color: FluxForgeTheme.textSecondary,
-            fontSize: 10,
+            size: 10,
           ),
         ),
       ],

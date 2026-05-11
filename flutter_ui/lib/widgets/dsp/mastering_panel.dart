@@ -194,10 +194,10 @@ class _MasteringPanelState extends State<MasteringPanel>
           const SizedBox(width: 8),
           Text(
             'Intelligent Mastering',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+              size: 14,
+              weight: FontWeight.w600,
             ),
           ),
           const Spacer(),
@@ -239,12 +239,12 @@ class _MasteringPanelState extends State<MasteringPanel>
             const SizedBox(width: 4),
             Text(
               _enabled ? 'ON' : 'OFF',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: _enabled
                     ? FluxForgeTheme.accentGreen
                     : FluxForgeTheme.textSecondary,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
+                size: 11,
+                weight: FontWeight.w600,
               ),
             ),
           ],
@@ -279,10 +279,10 @@ class _MasteringPanelState extends State<MasteringPanel>
         children: [
           Text(
             'Mastering Presets',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textSecondary,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
+              size: 11,
+              weight: FontWeight.w500,
             ),
           ),
           const SizedBox(height: 12),
@@ -353,21 +353,21 @@ class _MasteringPanelState extends State<MasteringPanel>
                 Expanded(
                   child: Text(
                     preset['name'] as String,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: isSelected
                           ? FluxForgeTheme.accentOrange
                           : FluxForgeTheme.textPrimary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                      size: 13,
+                      weight: FontWeight.w600,
                     ),
                   ),
                 ),
                 Text(
                   '${preset['targetLufs']} LUFS',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
                     color: FluxForgeTheme.accentCyan,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
+                    size: 10,
+                    weight: FontWeight.w500,
                   ),
                 ),
               ],
@@ -375,9 +375,9 @@ class _MasteringPanelState extends State<MasteringPanel>
             const SizedBox(height: 4),
             Text(
               preset['description'] as String,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 10,
+                size: 10,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -408,10 +408,10 @@ class _MasteringPanelState extends State<MasteringPanel>
               const SizedBox(width: 8),
               Text(
                 'Reference Matching',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+                  size: 12,
+                  weight: FontWeight.w500,
                 ),
               ),
             ],
@@ -423,9 +423,9 @@ class _MasteringPanelState extends State<MasteringPanel>
                 Expanded(
                   child: Text(
                     _referencePath!.split('/').last,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockMono(
                       color: FluxForgeTheme.accentGreen,
-                      fontSize: 11,
+                      size: 11,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -502,10 +502,10 @@ class _MasteringPanelState extends State<MasteringPanel>
         children: [
           Text(
             title,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textSecondary,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
+              size: 11,
+              weight: FontWeight.w500,
             ),
           ),
           const SizedBox(height: 12),
@@ -575,17 +575,17 @@ class _MasteringPanelState extends State<MasteringPanel>
           children: [
             Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.textPrimary,
-                fontSize: 12,
+                size: 12,
               ),
             ),
             Text(
               valueLabel,
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: FluxForgeTheme.accentOrange,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+                size: 12,
+                weight: FontWeight.w600,
               ),
             ),
           ],
@@ -662,11 +662,11 @@ class _MasteringPanelState extends State<MasteringPanel>
             const SizedBox(width: 4),
             Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: value
                     ? FluxForgeTheme.accentGreen
                     : FluxForgeTheme.textPrimary,
-                fontSize: 11,
+                size: 11,
               ),
             ),
           ],
@@ -722,10 +722,10 @@ class _MasteringPanelState extends State<MasteringPanel>
         children: [
           Text(
             'Analysis Results',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textSecondary,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
+              size: 11,
+              weight: FontWeight.w500,
             ),
           ),
           const SizedBox(height: 12),
@@ -747,17 +747,17 @@ class _MasteringPanelState extends State<MasteringPanel>
         children: [
           Text(
             label,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textPrimary,
-              fontSize: 12,
+              size: 12,
             ),
           ),
           Text(
             value,
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
               color: FluxForgeTheme.accentCyan,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+              size: 12,
+              weight: FontWeight.w600,
             ),
           ),
         ],
@@ -786,10 +786,10 @@ class _MasteringPanelState extends State<MasteringPanel>
               const SizedBox(width: 8),
               Text(
                 'Issues Found',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.accentOrange,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+                  size: 12,
+                  weight: FontWeight.w500,
                 ),
               ),
             ],
@@ -802,14 +802,16 @@ class _MasteringPanelState extends State<MasteringPanel>
                   children: [
                     Text(
                       '• ',
-                      style: TextStyle(color: FluxForgeTheme.textSecondary),
+                      style: FluxForgeTheme.dockSans(
+                        color: FluxForgeTheme.textSecondary,
+                      ),
                     ),
                     Expanded(
                       child: Text(
                         issue,
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: FluxForgeTheme.textPrimary,
-                          fontSize: 11,
+                          size: 11,
                         ),
                       ),
                     ),
@@ -839,17 +841,17 @@ class _MasteringPanelState extends State<MasteringPanel>
             const SizedBox(height: 12),
             Text(
               'No analysis yet',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 12,
+                size: 12,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               'Click "Analyze Audio" to get recommendations',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
-                fontSize: 11,
+                size: 11,
               ),
             ),
           ],

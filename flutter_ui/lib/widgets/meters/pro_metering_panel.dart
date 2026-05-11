@@ -49,10 +49,10 @@ class DynamicRangeMeter extends StatelessWidget {
         children: [
           Text(
             'DR',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 10,
+              weight: FontWeight.bold,
               color: FluxForgeTheme.textTertiary,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 4),
@@ -76,10 +76,10 @@ class DynamicRangeMeter extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           '${dynamicRange.toStringAsFixed(1)} dB',
-          style: TextStyle(
+          style: FluxForgeTheme.dockMono(
+            size: 11,
+            weight: FontWeight.bold,
             color: _getDrColor(dynamicRange),
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
           ),
         ),
         ],
@@ -203,9 +203,9 @@ class StereoBalanceMeter extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('L', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10)),
-              Text('Balance', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10)),
-              Text('R', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10)),
+              Text('L', style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary)),
+              Text('Balance', style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary)),
+              Text('R', style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary)),
             ],
           ),
           const SizedBox(height: 2),
@@ -226,9 +226,9 @@ class StereoBalanceMeter extends StatelessWidget {
           Text(
             balance.abs() < 0.05 ? 'C' :
               '${balance > 0 ? "R" : "L"} ${(balance.abs() * 100).toStringAsFixed(0)}%',
-            style: TextStyle(
+            style: FluxForgeTheme.dockMono(
+              size: 10,
               color: balance.abs() < 0.1 ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentOrange,
-              fontSize: 10,
             ),
           ),
         ],
@@ -361,10 +361,10 @@ class KSystemMeter extends StatelessWidget {
             ),
             child: Text(
               'K-$headroom',
-              style: const TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 10,
+                weight: FontWeight.bold,
                 color: FluxForgeTheme.textPrimary,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
               ),
             ),
           ),
@@ -590,10 +590,10 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
                 children: [
                   Text(
                     'STEREO ANALYSIS',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
+                      weight: FontWeight.bold,
                       color: FluxForgeTheme.textTertiary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
                       letterSpacing: 1.2,
                     ),
                   ),
@@ -649,10 +649,10 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
                 children: [
                   Text(
                     'LOUDNESS (EBU R128)',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
+                      weight: FontWeight.bold,
                       color: FluxForgeTheme.textTertiary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
                       letterSpacing: 1.2,
                     ),
                   ),
@@ -676,10 +676,10 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
       children: [
         Text(
           'MODE: ',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: FontWeight.bold,
             color: FluxForgeTheme.textTertiary,
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(width: 8),
@@ -699,10 +699,10 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
                 ),
                 child: Text(
                   mode.name.toUpperCase(),
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: FontWeight.bold,
                     color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
@@ -718,10 +718,10 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
       children: [
         Text(
           _selectedMeterMode.name.toUpperCase(),
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: FontWeight.bold,
             color: FluxForgeTheme.textTertiary,
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 4),
@@ -764,10 +764,10 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
                   ),
                   child: Text(
                     'K$label',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockMono(
+                      size: 9,
+                      weight: FontWeight.bold,
                       color: isSelected ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
@@ -813,15 +813,15 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
               const SizedBox(width: 8),
               Text(
                 'Target: -14 LUFS',
-                style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+                style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textSecondary),
               ),
               const Spacer(),
               Text(
                 _getTargetDiff(m.masterLufsI, -14),
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 11,
+                  weight: FontWeight.bold,
                   color: _getTargetColor(m.masterLufsI, -14),
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
@@ -850,14 +850,14 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
             children: [
               Text(
                 label,
-                style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10),
+                style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary),
               ),
               Text(
                 '${displayValue.toStringAsFixed(1)} LUFS',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 16,
+                  weight: FontWeight.bold,
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
@@ -893,18 +893,18 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
             children: [
               Text(
                 'TRUE PEAK',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.bold,
                   color: FluxForgeTheme.textTertiary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
               Text(
                 '${tp.toStringAsFixed(1)} dBTP',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 18,
+                  weight: FontWeight.bold,
                   color: isOver ? FluxForgeTheme.accentRed : FluxForgeTheme.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
@@ -917,12 +917,12 @@ class _ProMeteringPanelState extends State<ProMeteringPanel> {
                 color: FluxForgeTheme.accentRed,
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: const Text(
+              child: Text(
                 'OVER',
-                style: TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 10,
+                  weight: FontWeight.bold,
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),

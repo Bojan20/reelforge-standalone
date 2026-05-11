@@ -14,6 +14,7 @@ library;
 
 import 'package:flutter/material.dart';
 import '../../lower_zone_types.dart';
+import '../../../../theme/fluxforge_theme.dart';
 import '../../../../providers/timeline_playback_provider.dart' show TimelineClipData;
 import '../../../../models/timeline_models.dart' show ClipChannelMode;
 import '../../../editors/crossfade_editor.dart';
@@ -105,11 +106,11 @@ class ClipPropertiesPanel extends StatelessWidget {
             children: [
               const Icon(Icons.content_cut, size: 14, color: LowerZoneColors.dawAccent),
               const SizedBox(width: 6),
-              const Text(
+              Text(
                 'CLIP PROPERTIES',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.bold,
                   color: LowerZoneColors.dawAccent,
                   letterSpacing: 0.5,
                 ),
@@ -128,19 +129,19 @@ class ClipPropertiesPanel extends StatelessWidget {
                     color: LowerZoneColors.textMuted.withValues(alpha: 0.5),
                   ),
                   const SizedBox(height: 12),
-                  const Text(
+                  Text(
                     'No Clip Selected',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                    style: FluxForgeTheme.dockSans(
+                      size: 12,
+                      weight: FontWeight.w500,
                       color: LowerZoneColors.textMuted,
                     ),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
+                  Text(
                     'Select a clip on the timeline to edit',
-                    style: TextStyle(
-                      fontSize: 10,
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
                       color: LowerZoneColors.textTertiary,
                     ),
                   ),
@@ -356,11 +357,11 @@ class _EditableClipPanelState extends State<EditableClipPanel> {
       children: [
         const Icon(Icons.content_cut, size: 14, color: LowerZoneColors.dawAccent),
         const SizedBox(width: 6),
-        const Text(
+        Text(
           'CLIP PROPERTIES',
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: FontWeight.bold,
             color: LowerZoneColors.dawAccent,
             letterSpacing: 0.5,
           ),
@@ -385,9 +386,9 @@ class _EditableClipPanelState extends State<EditableClipPanel> {
               borderRadius: BorderRadius.circular(3),
               border: Border.all(color: LowerZoneColors.border),
             ),
-            child: const Text(
+            child: Text(
               'RESET',
-              style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted),
+              style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textMuted),
             ),
           ),
         ),
@@ -411,13 +412,13 @@ class _EditableClipPanelState extends State<EditableClipPanel> {
             width: 60,
             child: Text(
               label,
-              style: const TextStyle(fontSize: 10, color: LowerZoneColors.textMuted),
+              style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textMuted),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(fontSize: 10, color: LowerZoneColors.textPrimary),
+              style: FluxForgeTheme.dockMono(size: 10, color: LowerZoneColors.textPrimary),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -445,16 +446,16 @@ class _EditableClipPanelState extends State<EditableClipPanel> {
             children: [
               const Icon(Icons.graphic_eq, size: 14, color: LowerZoneColors.dawAccent),
               const SizedBox(width: 6),
-              const Text(
+              Text(
                 'Gain',
-                style: TextStyle(fontSize: 10, color: LowerZoneColors.textSecondary),
+                style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textSecondary),
               ),
               const Spacer(),
               Text(
                 gainDb,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
+                style: FluxForgeTheme.dockMono(
+                  size: 11,
+                  weight: FontWeight.bold,
                   color: isBoost
                       ? LowerZoneColors.warning
                       : isCut
@@ -504,14 +505,14 @@ class _EditableClipPanelState extends State<EditableClipPanel> {
               const SizedBox(width: 6),
               Text(
                 label,
-                style: const TextStyle(fontSize: 10, color: LowerZoneColors.textSecondary),
+                style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textSecondary),
               ),
               const Spacer(),
               Text(
                 _formatTime(value),
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockMono(
+                  size: 10,
+                  weight: FontWeight.w600,
                   color: LowerZoneColors.textPrimary,
                 ),
               ),
@@ -546,17 +547,17 @@ class _EditableClipPanelState extends State<EditableClipPanel> {
             children: [
               const Icon(Icons.adjust, size: 14, color: LowerZoneColors.dawAccent),
               const SizedBox(width: 6),
-              const Text('Snap Offset',
-                style: TextStyle(fontSize: 10, color: LowerZoneColors.textSecondary)),
+              Text('Snap Offset',
+                style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textSecondary)),
               const Spacer(),
               Text(_formatTime(_snapOffset),
-                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockMono(size: 10, weight: FontWeight.w600,
                     color: LowerZoneColors.textPrimary)),
             ],
           ),
           const SizedBox(height: 4),
-          const Text('Point within clip that aligns to grid (e.g. downbeat)',
-            style: TextStyle(fontSize: 8, color: LowerZoneColors.textTertiary)),
+          Text('Point within clip that aligns to grid (e.g. downbeat)',
+            style: FluxForgeTheme.dockSans(size: 8, color: LowerZoneColors.textTertiary)),
           const SizedBox(height: 8),
           Slider(
             value: _snapOffset,
@@ -589,8 +590,8 @@ class _EditableClipPanelState extends State<EditableClipPanel> {
             children: [
               const Icon(Icons.surround_sound, size: 14, color: LowerZoneColors.dawAccent),
               const SizedBox(width: 6),
-              const Text('Channel Mode',
-                style: TextStyle(fontSize: 10, color: LowerZoneColors.textSecondary)),
+              Text('Channel Mode',
+                style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textSecondary)),
             ],
           ),
           const SizedBox(height: 8),
@@ -619,9 +620,9 @@ class _EditableClipPanelState extends State<EditableClipPanel> {
                   ),
                   child: Text(
                     _channelModeLabel(mode),
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                    style: FluxForgeTheme.dockSans(
+                      size: 9,
+                      weight: isActive ? FontWeight.bold : FontWeight.normal,
                       color: isActive
                           ? LowerZoneColors.dawAccent
                           : LowerZoneColors.textMuted,
@@ -662,12 +663,12 @@ class _EditableClipPanelState extends State<EditableClipPanel> {
             children: [
               const Icon(Icons.notes, size: 14, color: LowerZoneColors.dawAccent),
               const SizedBox(width: 6),
-              const Text('Notes',
-                style: TextStyle(fontSize: 10, color: LowerZoneColors.textSecondary)),
+              Text('Notes',
+                style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textSecondary)),
               const Spacer(),
               if (_notesController.text.isNotEmpty)
                 Text('${_notesController.text.length} chars',
-                  style: const TextStyle(fontSize: 8, color: LowerZoneColors.textTertiary)),
+                  style: FluxForgeTheme.dockMono(size: 8, color: LowerZoneColors.textTertiary)),
             ],
           ),
           const SizedBox(height: 8),
@@ -675,11 +676,11 @@ class _EditableClipPanelState extends State<EditableClipPanel> {
             controller: _notesController,
             maxLines: 4,
             minLines: 2,
-            style: const TextStyle(fontSize: 10, color: LowerZoneColors.textPrimary),
+            style: FluxForgeTheme.dockSans(size: 10, color: LowerZoneColors.textPrimary),
             decoration: InputDecoration(
               hintText: 'Add notes, annotations, or cues...',
-              hintStyle: TextStyle(
-                fontSize: 10,
+              hintStyle: FluxForgeTheme.dockSans(
+                size: 10,
                 color: LowerZoneColors.textMuted.withValues(alpha: 0.5),
               ),
               filled: true,

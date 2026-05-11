@@ -118,11 +118,11 @@ class _LogicalEditorPanelState extends State<LogicalEditorPanel> {
           value: null, // Current preset is always "custom" until loaded
           hint: Text(
             currentName,
-            style: const TextStyle(fontSize: 11, color: FluxForgeTheme.textPrimary),
+            style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textPrimary),
           ),
           isDense: true,
           dropdownColor: FluxForgeTheme.bgElevated,
-          style: const TextStyle(fontSize: 11, color: FluxForgeTheme.textPrimary),
+          style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textPrimary),
           items: [
             const DropdownMenuItem<String>(
               value: '__new__',
@@ -161,7 +161,7 @@ class _LogicalEditorPanelState extends State<LogicalEditorPanel> {
       children: [
         Text(
           'Combine:',
-          style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary),
+          style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textSecondary),
         ),
         const SizedBox(width: 4),
         _buildCombineChip(provider, FilterCombineMode.and, 'AND'),
@@ -186,9 +186,9 @@ class _LogicalEditorPanelState extends State<LogicalEditorPanel> {
         ),
         child: Text(
           label,
-          style: TextStyle(
-            fontSize: 9,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+          style: FluxForgeTheme.dockSans(
+            size: 9,
+            weight: isSelected ? FontWeight.w600 : FontWeight.normal,
             color: isSelected ? FluxForgeTheme.accentOrange : FluxForgeTheme.textSecondary,
           ),
         ),
@@ -210,9 +210,9 @@ class _LogicalEditorPanelState extends State<LogicalEditorPanel> {
             children: [
               Text(
                 'FILTER CONDITIONS',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.w600,
                   color: FluxForgeTheme.textSecondary,
                   letterSpacing: 0.5,
                 ),
@@ -274,9 +274,9 @@ class _LogicalEditorPanelState extends State<LogicalEditorPanel> {
                 ),
                 child: Text(
                   filter.property.name.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
+                    weight: FontWeight.w600,
                     color: FluxForgeTheme.accentCyan,
                   ),
                 ),
@@ -284,8 +284,8 @@ class _LogicalEditorPanelState extends State<LogicalEditorPanel> {
               const SizedBox(width: 8),
               Text(
                 _getOperatorDisplayName(filter.operator),
-                style: TextStyle(
-                  fontSize: 11,
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
                   color: FluxForgeTheme.textSecondary,
                 ),
               ),
@@ -304,8 +304,8 @@ class _LogicalEditorPanelState extends State<LogicalEditorPanel> {
           // Value display
           Text(
             _formatFilterValue(filter),
-            style: TextStyle(
-              fontSize: 12,
+            style: FluxForgeTheme.dockSans(
+              size: 12,
               color: filter.enabled ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary,
             ),
           ),
@@ -328,9 +328,9 @@ class _LogicalEditorPanelState extends State<LogicalEditorPanel> {
             children: [
               Text(
                 'ACTIONS',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.w600,
                   color: FluxForgeTheme.textSecondary,
                   letterSpacing: 0.5,
                 ),
@@ -394,9 +394,9 @@ class _LogicalEditorPanelState extends State<LogicalEditorPanel> {
                 ),
                 child: Text(
                   action.type.name.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
+                    weight: FontWeight.w600,
                     color: actionColor,
                   ),
                 ),
@@ -404,8 +404,8 @@ class _LogicalEditorPanelState extends State<LogicalEditorPanel> {
               const SizedBox(width: 8),
               Text(
                 action.target.name,
-                style: TextStyle(
-                  fontSize: 11,
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
                   color: FluxForgeTheme.textSecondary,
                 ),
               ),
@@ -424,8 +424,8 @@ class _LogicalEditorPanelState extends State<LogicalEditorPanel> {
           // Value display
           Text(
             action.displayString,
-            style: TextStyle(
-              fontSize: 12,
+            style: FluxForgeTheme.dockSans(
+              size: 12,
               color: action.enabled ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary,
             ),
           ),
@@ -449,8 +449,8 @@ class _LogicalEditorPanelState extends State<LogicalEditorPanel> {
           // Stats
           Text(
             '${provider.filters.length} filters, ${provider.actions.length} actions',
-            style: TextStyle(
-              fontSize: 10,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: FluxForgeTheme.textSecondary,
             ),
           ),
@@ -459,8 +459,8 @@ class _LogicalEditorPanelState extends State<LogicalEditorPanel> {
             const SizedBox(width: 16),
             Text(
               'Last: ${provider.lastMatchCount} matched, ${provider.lastAffectedCount} affected',
-              style: TextStyle(
-                fontSize: 10,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
                 color: FluxForgeTheme.accentGreen,
               ),
             ),
@@ -538,16 +538,16 @@ class _LogicalEditorPanelState extends State<LogicalEditorPanel> {
           const SizedBox(height: 8),
           Text(
             title,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
+            style: FluxForgeTheme.dockSans(
+              size: 12,
+              weight: FontWeight.w500,
               color: FluxForgeTheme.textSecondary,
             ),
           ),
           Text(
             subtitle,
-            style: TextStyle(
-              fontSize: 10,
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
             ),
           ),
@@ -597,9 +597,9 @@ class _LogicalEditorPanelState extends State<LogicalEditorPanel> {
               const SizedBox(width: 6),
               Text(
                 label,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  weight: FontWeight.w500,
                   color: color,
                 ),
               ),
@@ -693,7 +693,7 @@ class _LogicalEditorPanelState extends State<LogicalEditorPanel> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: FluxForgeTheme.bgElevated,
-        title: const Text('Save Preset', style: TextStyle(fontSize: 14)),
+        title: Text('Save Preset', style: FluxForgeTheme.dockSans(size: 14)),
         content: TextField(
           controller: controller,
           decoration: const InputDecoration(
@@ -751,7 +751,7 @@ class _AddFilterDialogState extends State<_AddFilterDialog> {
 
     return AlertDialog(
       backgroundColor: FluxForgeTheme.bgElevated,
-      title: const Text('Add Filter Condition', style: TextStyle(fontSize: 14)),
+      title: Text('Add Filter Condition', style: FluxForgeTheme.dockSans(size: 14)),
       content: SizedBox(
         width: 300,
         child: Column(
@@ -896,7 +896,7 @@ class _AddActionDialogState extends State<_AddActionDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: FluxForgeTheme.bgElevated,
-      title: const Text('Add Action', style: TextStyle(fontSize: 14)),
+      title: Text('Add Action', style: FluxForgeTheme.dockSans(size: 14)),
       content: SizedBox(
         width: 300,
         child: Column(

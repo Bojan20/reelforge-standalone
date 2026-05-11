@@ -192,23 +192,23 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
           ),
         ),
         const SizedBox(width: 12),
-        const Expanded(
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'Convolution Ultra',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 16,
+                  weight: FontWeight.bold,
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
               Text(
                 'Zero-latency reverb with IR morphing',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
                   color: FluxForgeTheme.textSecondary,
-                  fontSize: 11,
                 ),
               ),
             ],
@@ -273,10 +273,10 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
                   child: Center(
                     child: Text(
                       label,
-                      style: const TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 12,
+                        weight: FontWeight.bold,
                         color: Colors.black,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
@@ -285,12 +285,12 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
                 Expanded(
                   child: Text(
                     hasIr ? ir.name : 'Click to load IR',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 12,
+                      weight: hasIr ? FontWeight.w500 : FontWeight.normal,
                       color: hasIr
                           ? FluxForgeTheme.textPrimary
                           : FluxForgeTheme.textSecondary,
-                      fontSize: 12,
-                      fontWeight: hasIr ? FontWeight.w500 : FontWeight.normal,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -302,12 +302,12 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
                       color: const Color(0xFF9C27B0),
                       borderRadius: BorderRadius.circular(3),
                     ),
-                    child: const Text(
+                    child: Text(
                       'TRUE STEREO',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 7,
+                        weight: FontWeight.bold,
                         color: Colors.white,
-                        fontSize: 7,
-                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
@@ -342,10 +342,9 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
       ),
       child: Text(
         text,
-        style: const TextStyle(
+        style: FluxForgeTheme.dockMono(
+          size: 9,
           color: FluxForgeTheme.textSecondary,
-          fontSize: 9,
-          fontFamily: 'monospace',
         ),
       ),
     );
@@ -357,11 +356,11 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
       children: [
         Row(
           children: [
-            const Text(
+            Text(
               'IR Morphing',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 11,
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 11,
               ),
             ),
             const Spacer(),
@@ -385,12 +384,12 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
                 ),
                 child: Text(
                   _enableMorphing ? 'ENABLED' : 'DISABLED',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 9,
+                    weight: FontWeight.bold,
                     color: _enableMorphing
                         ? const Color(0xFF9C27B0)
                         : FluxForgeTheme.textSecondary,
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
@@ -421,13 +420,13 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
                 color: const Color(0xFF4FC3F7),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: const Center(
+              child: Center(
                 child: Text(
                   'A',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 14,
+                    weight: FontWeight.bold,
                     color: Colors.black,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
@@ -458,13 +457,13 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
                 color: const Color(0xFFFFB74D),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: const Center(
+              child: Center(
                 child: Text(
                   'B',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 14,
+                    weight: FontWeight.bold,
                     color: Colors.black,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
@@ -473,9 +472,9 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
         ),
         Text(
           '${(_morphBlend * 100).toStringAsFixed(0)}% blend',
-          style: const TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 10,
             color: FluxForgeTheme.textSecondary,
-            fontSize: 10,
           ),
         ),
       ],
@@ -508,11 +507,11 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
             ),
             child: Text(
               _getMorphModeLabel(mode),
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 10,
                 color: isSelected
                     ? FluxForgeTheme.textPrimary
                     : FluxForgeTheme.textSecondary,
-                fontSize: 10,
               ),
             ),
           ),
@@ -540,11 +539,11 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Convolution Mode',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 11,
             color: FluxForgeTheme.textSecondary,
-            fontSize: 11,
           ),
         ),
         const SizedBox(height: 8),
@@ -568,9 +567,9 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
           ),
           child: Text(
             _getModeDescription(_mode),
-            style: const TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: FluxForgeTheme.textSecondary,
-              fontSize: 10,
             ),
           ),
         ),
@@ -609,12 +608,12 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
             const SizedBox(height: 4),
             Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 color: isSelected
                     ? FluxForgeTheme.textPrimary
                     : FluxForgeTheme.textSecondary,
-                fontSize: 10,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
           ],
@@ -640,11 +639,11 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Mix',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 11,
             color: FluxForgeTheme.textSecondary,
-            fontSize: 11,
           ),
         ),
         const SizedBox(height: 8),
@@ -692,11 +691,10 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
             children: [
               Text(
                 suffix ?? '${(value * 100).toStringAsFixed(0)}%',
-                style: const TextStyle(
+                style: FluxForgeTheme.dockMono(
+                  size: 14,
+                  weight: FontWeight.bold,
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'monospace',
                 ),
               ),
               const SizedBox(height: 4),
@@ -723,9 +721,9 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
         const SizedBox(height: 4),
         Text(
           label,
-          style: const TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 10,
             color: FluxForgeTheme.textSecondary,
-            fontSize: 10,
           ),
         ),
       ],
@@ -746,17 +744,17 @@ class _ConvolutionUltraPanelState extends State<ConvolutionUltraPanel> {
                 ),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.auto_fix_high, size: 16, color: Colors.white),
-                  SizedBox(width: 8),
+                  const Icon(Icons.auto_fix_high, size: 16, color: Colors.white),
+                  const SizedBox(width: 8),
                   Text(
                     'Deconvolution Wizard',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 12,
+                      weight: FontWeight.w600,
                       color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
@@ -808,10 +806,10 @@ class ConvolutionIndicator extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               _getModeShort(mode),
-              style: const TextStyle(
-                color: Color(0xFF9C27B0),
-                fontSize: 8,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(
+                size: 8,
+                weight: FontWeight.bold,
+                color: const Color(0xFF9C27B0),
               ),
             ),
           ],
