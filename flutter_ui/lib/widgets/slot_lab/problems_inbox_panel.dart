@@ -22,6 +22,7 @@ import '../../models/mix_problem.dart';
 import '../../providers/orb_mixer_provider.dart';
 import '../../services/audio_playback_service.dart';
 import '../../services/problems_inbox_service.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Convenience: show the panel as a modal bottom sheet from anywhere.
 Future<void> showProblemsInbox(BuildContext context) {
@@ -436,8 +437,8 @@ class _ClipReplayRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const accentCyan = Color(0xFF00E5FF);
-    const accentAmber = Color(0xFFFFC85E);
+    const accentCyan = FluxForgeTheme.accentCyan;        // 0xFF50D8FF
+    const accentAmber = FluxForgeTheme.brandGoldBright;  // 0xFFF4D479 (amber/gold)
     final color = isPlaying ? accentAmber : accentCyan;
 
     return Row(
