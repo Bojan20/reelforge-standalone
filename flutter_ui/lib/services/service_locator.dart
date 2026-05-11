@@ -72,6 +72,7 @@ import 'missing_plugin_detector.dart';
 import 'predictive/predictive_analyzer.dart';
 import 'predictive/routing_feedback_log.dart';
 import 'compliance/audio_compliance_guard.dart';
+import 'memory/memory_event_log.dart';
 import '../controllers/middleware_timeline_sync_controller.dart';
 import '../providers/event_folder_provider.dart';
 import '../providers/aurexis_provider.dart';
@@ -1049,6 +1050,15 @@ class ServiceLocator {
     // FAZA 4.4.5 — eager-init feedback log tako da listenuje od prvog
     // dropa (lazy bi propustio rane event-e).
     sl<RoutingFeedbackLog>();
+
+    // FAZA 4.3.1 — wire memory event log + auto-hooks.
+    // Singleton instance je direktan (ne kroz GetIt) — log je app-level
+    // service, nezavisan od provider lifecycle-a. Auto-hooks listenuje
+    // na predictive + compliance streams.
+    MemoryEventLog.instance.attachAutoHooks(
+      analyzer: sl<PredictiveAnalyzer>(),
+      guard: sl<AudioComplianceGuard>(),
+    );
 
     _initialized = true;
   }
