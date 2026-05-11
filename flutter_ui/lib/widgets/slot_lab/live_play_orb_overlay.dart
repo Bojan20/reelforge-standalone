@@ -64,6 +64,7 @@ import '../../providers/orb_mixer_provider.dart';
 import '../../providers/slot_lab/game_flow_provider.dart';
 import '../../services/problems_inbox_service.dart';
 import '../../services/shared_meter_reader.dart';
+import '../../theme/fluxforge_theme.dart';
 import '../../utils/audio_math.dart' as audio_math;
 import 'orb_mixer.dart';
 import 'problems_inbox_panel.dart';
@@ -555,23 +556,23 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
                         color: Colors.white.withValues(alpha: 0.55)),
                       const SizedBox(width: 6),
                       Text('MIXER',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: Colors.white.withValues(alpha: 0.85),
-                          fontSize: 10, fontWeight: FontWeight.w800,
-                          letterSpacing: 1.4, fontFamily: 'SpaceGrotesk',
+                          size: 10, weight: FontWeight.w800,
+                          letterSpacing: 1.4,
                         )),
                       const SizedBox(width: 8),
                       Text(_sizeMode.label,
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: Colors.cyanAccent.withValues(alpha: 0.70),
-                          fontSize: 9, fontWeight: FontWeight.w700,
-                          letterSpacing: 0.8, fontFamily: 'SpaceGrotesk',
+                          size: 9, weight: FontWeight.w700,
+                          letterSpacing: 0.8,
                         )),
                       const Spacer(),
                       Text('${_orbPx.toInt()}px',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockMono(
                           color: Colors.white.withValues(alpha: 0.35),
-                          fontSize: 9, fontFamily: 'SpaceGrotesk',
+                          size: 9,
                         )),
                     ],
                   ),
@@ -707,10 +708,10 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
               child: Row(
                 children: [
                   Text('BUSES',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: Colors.white.withValues(alpha: 0.55),
-                      fontSize: 9, fontWeight: FontWeight.w800,
-                      letterSpacing: 1.4, fontFamily: 'SpaceGrotesk',
+                      size: 9, weight: FontWeight.w800,
+                      letterSpacing: 1.4,
                     )),
                   const SizedBox(width: 8),
                   Expanded(child: Container(
@@ -761,10 +762,9 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
           SizedBox(
             width: 30,
             child: Text(busId.label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: busId.color,
-                fontSize: 10, fontWeight: FontWeight.w800,
-                fontFamily: 'SpaceGrotesk',
+                size: 10, weight: FontWeight.w800,
               )),
           ),
           // dB volume
@@ -772,12 +772,11 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
             width: 56,
             child: Text(db,
               textAlign: TextAlign.right,
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: muted
                     ? Colors.white.withValues(alpha: 0.30)
                     : Colors.white.withValues(alpha: 0.92),
-                fontSize: 10, fontWeight: FontWeight.w600,
-                fontFamily: 'SpaceGrotesk',
+                size: 10, weight: FontWeight.w600,
               )),
           ),
           const SizedBox(width: 6),
@@ -788,9 +787,9 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
           SizedBox(
             width: 30,
             child: Text('pk $peakDb',
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: Colors.white.withValues(alpha: 0.40),
-                fontSize: 8, fontFamily: 'SpaceGrotesk',
+                size: 8,
               )),
           ),
           const SizedBox(width: 4),
@@ -799,10 +798,9 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
             width: 22,
             child: Text(panTxt,
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: Colors.cyanAccent.withValues(alpha: 0.75),
-                fontSize: 9, fontWeight: FontWeight.w700,
-                fontFamily: 'SpaceGrotesk',
+                size: 9, weight: FontWeight.w700,
               )),
           ),
           const Spacer(),
@@ -902,11 +900,11 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
               ),
             ),
             child: Text(label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
                 color: active
                     ? (activeColor == Colors.yellowAccent ? Colors.black : Colors.white)
                     : Colors.white.withValues(alpha: 0.55),
-                fontSize: 9, fontWeight: FontWeight.w900,
+                size: 9, weight: FontWeight.w900,
               )),
           ),
         ),
@@ -1001,12 +999,12 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
               ),
             ),
             child: Text(label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: active
                     ? Colors.cyanAccent
                     : Colors.white.withValues(alpha: 0.80),
-                fontSize: 10, fontWeight: FontWeight.w700,
-                letterSpacing: 0.4, fontFamily: 'SpaceGrotesk',
+                size: 10, weight: FontWeight.w700,
+                letterSpacing: 0.4,
               )),
           ),
         ),
@@ -1069,9 +1067,9 @@ class LivePlayOrbOverlayState extends State<LivePlayOrbOverlay>
                     constraints: const BoxConstraints(minWidth: 14),
                     child: Text('$badge',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
+                      style: FluxForgeTheme.dockMono(
                         color: Colors.white,
-                        fontSize: 8, fontWeight: FontWeight.w800,
+                        size: 8, weight: FontWeight.w800,
                       )),
                   ),
                 ),

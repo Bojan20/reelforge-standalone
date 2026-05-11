@@ -273,10 +273,10 @@ class RtpcCurveTemplatePanel extends StatefulWidget {
                 children: [
                   Text(
                     'Curve Templates',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: FluxForgeTheme.textPrimary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                      size: 12,
+                      weight: FontWeight.w600,
                     ),
                   ),
                   const Spacer(),
@@ -369,17 +369,17 @@ class _RtpcCurveTemplatePanelState extends State<RtpcCurveTemplatePanel> {
                   selectedTileColor: FluxForgeTheme.accent.withValues(alpha: 0.1),
                   title: Text(
                     cat,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: isSelected ? FluxForgeTheme.accent : FluxForgeTheme.textPrimary,
-                      fontSize: 12,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                      size: 12,
+                      weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                     ),
                   ),
                   trailing: Text(
                     '$count',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockMono(
                       color: FluxForgeTheme.textMuted,
-                      fontSize: 11,
+                      size: 11,
                     ),
                   ),
                   onTap: () => setState(() => _selectedCategory = cat),
@@ -403,7 +403,7 @@ class _RtpcCurveTemplatePanelState extends State<RtpcCurveTemplatePanel> {
                   child: TextField(
                     decoration: InputDecoration(
                       hintText: 'Search templates...',
-                      hintStyle: TextStyle(color: FluxForgeTheme.textMuted),
+                      hintStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted),
                       prefixIcon: Icon(Icons.search, color: FluxForgeTheme.textMuted, size: 18),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(6),
@@ -411,7 +411,7 @@ class _RtpcCurveTemplatePanelState extends State<RtpcCurveTemplatePanel> {
                       ),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     ),
-                    style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
+                    style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary, size: 12),
                     onChanged: (value) => setState(() => _searchQuery = value),
                   ),
                 ),
@@ -467,7 +467,7 @@ class _RtpcCurveTemplatePanelState extends State<RtpcCurveTemplatePanel> {
             const SizedBox(height: 12),
             Text(
               'Select a template',
-              style: TextStyle(color: FluxForgeTheme.textMuted, fontSize: 14),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted, size: 14),
             ),
           ],
         ),
@@ -482,10 +482,10 @@ class _RtpcCurveTemplatePanelState extends State<RtpcCurveTemplatePanel> {
           // Name
           Text(
             template.name,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textPrimary,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+              size: 12,
+              weight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 4),
@@ -498,10 +498,10 @@ class _RtpcCurveTemplatePanelState extends State<RtpcCurveTemplatePanel> {
             ),
             child: Text(
               template.category,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.accent,
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
+                size: 10,
+                weight: FontWeight.w600,
               ),
             ),
           ),
@@ -509,9 +509,9 @@ class _RtpcCurveTemplatePanelState extends State<RtpcCurveTemplatePanel> {
           // Description
           Text(
             template.description,
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textMuted,
-              fontSize: 12,
+              size: 12,
             ),
           ),
           const SizedBox(height: 16),
@@ -604,10 +604,10 @@ class _TemplateListTile extends StatelessWidget {
             Expanded(
               child: Text(
                 template.name,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 12,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  size: 12,
+                  weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),

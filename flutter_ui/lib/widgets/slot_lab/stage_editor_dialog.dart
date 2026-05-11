@@ -84,9 +84,9 @@ class _StageEditorDialogState extends State<StageEditorDialog> {
         children: [
           Icon(Icons.edit_note, color: FluxForgeTheme.accentBlue, size: 20),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Edit Trigger Stages',
-            style: TextStyle(color: Colors.white, fontSize: 16),
+            style: FluxForgeTheme.dockSans(color: Colors.white, size: 16),
           ),
         ],
       ),
@@ -110,10 +110,10 @@ class _StageEditorDialogState extends State<StageEditorDialog> {
                   Expanded(
                     child: Text(
                       widget.event.name,
-                      style: const TextStyle(
-                        fontSize: 12,
+                      style: FluxForgeTheme.dockSans(
+                        size: 12,
                         color: Colors.white,
-                        fontWeight: FontWeight.w500,
+                        weight: FontWeight.w500,
                       ),
                     ),
                   ),
@@ -125,10 +125,9 @@ class _StageEditorDialogState extends State<StageEditorDialog> {
                     ),
                     child: Text(
                       '${_editedStages.length} stage${_editedStages.length == 1 ? '' : 's'}',
-                      style: TextStyle(
-                        fontSize: 9,
+                      style: FluxForgeTheme.dockMono(
+                        size: 9,
                         color: FluxForgeTheme.accentBlue,
-                        fontFamily: 'monospace',
                       ),
                     ),
                   ),
@@ -140,9 +139,9 @@ class _StageEditorDialogState extends State<StageEditorDialog> {
             // Current stages section
             Text(
               'CURRENT TRIGGER STAGES',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.bold,
                 color: Colors.white54,
                 letterSpacing: 1.0,
               ),
@@ -161,11 +160,10 @@ class _StageEditorDialogState extends State<StageEditorDialog> {
                       child: Text(
                         'No stages assigned\nAdd stages below',
                         textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 11,
+                        style: FluxForgeTheme.dockSans(
+                          size: 11,
                           color: Colors.white24,
-                          fontStyle: FontStyle.italic,
-                        ),
+                        ).copyWith(fontStyle: FontStyle.italic),
                       ),
                     )
                   : ListView.builder(
@@ -189,10 +187,9 @@ class _StageEditorDialogState extends State<StageEditorDialog> {
                               Expanded(
                                 child: Text(
                                   stage,
-                                  style: TextStyle(
-                                    fontSize: 11,
+                                  style: FluxForgeTheme.dockMono(
+                                    size: 11,
                                     color: FluxForgeTheme.accentGreen,
-                                    fontFamily: 'monospace',
                                   ),
                                 ),
                               ),
@@ -215,9 +212,9 @@ class _StageEditorDialogState extends State<StageEditorDialog> {
             // Add stages section
             Text(
               'ADD STAGES',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: FontWeight.bold,
                 color: Colors.white54,
                 letterSpacing: 1.0,
               ),
@@ -226,7 +223,7 @@ class _StageEditorDialogState extends State<StageEditorDialog> {
 
             // Search field
             TextField(
-              style: const TextStyle(fontSize: 12, color: Colors.white),
+              style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
               decoration: InputDecoration(
                 isDense: true,
                 filled: true,
@@ -237,7 +234,7 @@ class _StageEditorDialogState extends State<StageEditorDialog> {
                 ),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                 hintText: 'Search stages... (${_allStages.length} available)',
-                hintStyle: const TextStyle(color: Colors.white24, fontSize: 11),
+                hintStyle: FluxForgeTheme.dockSans(color: Colors.white24, size: 11),
                 prefixIcon: Icon(Icons.search, size: 16, color: Colors.white38),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
@@ -266,11 +263,10 @@ class _StageEditorDialogState extends State<StageEditorDialog> {
                     ? Center(
                         child: Text(
                           'No stages match "$_searchQuery"',
-                          style: TextStyle(
-                            fontSize: 11,
+                          style: FluxForgeTheme.dockSans(
+                            size: 11,
                             color: Colors.white24,
-                            fontStyle: FontStyle.italic,
-                          ),
+                          ).copyWith(fontStyle: FontStyle.italic),
                         ),
                       )
                     : SingleChildScrollView(
@@ -282,10 +278,9 @@ class _StageEditorDialogState extends State<StageEditorDialog> {
                             return ActionChip(
                               label: Text(
                                 stage,
-                                style: TextStyle(
-                                  fontSize: 10,
+                                style: FluxForgeTheme.dockMono(
+                                  size: 10,
                                   color: isAdded ? Colors.white38 : Colors.white70,
-                                  fontFamily: 'monospace',
                                 ),
                               ),
                               backgroundColor: isAdded

@@ -84,13 +84,13 @@ class _RecordingPanelState extends State<RecordingPanel> {
           // Title & status
           Row(
             children: [
-              const Text(
+              Text(
                 'RECORDING',
-                style: TextStyle(
-                  color: FluxForgeTheme.textPrimary,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  weight: FontWeight.w600,
                   letterSpacing: 1.2,
+                  color: FluxForgeTheme.textPrimary,
                 ),
               ),
               const SizedBox(width: 12),
@@ -113,12 +113,12 @@ class _RecordingPanelState extends State<RecordingPanel> {
                         ),
                       ),
                       const SizedBox(width: 4),
-                      const Text(
+                      Text(
                         'REC',
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
+                          size: 10,
+                          weight: FontWeight.bold,
                           color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ],
@@ -127,9 +127,9 @@ class _RecordingPanelState extends State<RecordingPanel> {
               const Spacer(),
               Text(
                 '${recording.armedCount} armed · ${recording.recordingCount} recording',
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
                   color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
-                  fontSize: 10,
                 ),
               ),
             ],
@@ -159,9 +159,9 @@ class _RecordingPanelState extends State<RecordingPanel> {
                       Expanded(
                         child: Text(
                           recording.outputDir.isEmpty ? 'No output directory' : recording.outputDir,
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockMono(
+                            size: 11,
                             color: FluxForgeTheme.textSecondary,
-                            fontSize: 11,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -252,18 +252,18 @@ class _RecordingPanelState extends State<RecordingPanel> {
             const SizedBox(height: 16),
             Text(
               'No Armed Tracks',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 14,
+                weight: FontWeight.w500,
                 color: FluxForgeTheme.textSecondary.withValues(alpha: 0.6),
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               'Arm tracks from the mixer or timeline to start recording',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 12,
                 color: FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
-                fontSize: 12,
               ),
               textAlign: TextAlign.center,
             ),
@@ -290,18 +290,18 @@ class _RecordingPanelState extends State<RecordingPanel> {
                 const SizedBox(height: 16),
                 Text(
                   'No Armed Tracks',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 14,
+                    weight: FontWeight.w500,
                     color: FluxForgeTheme.textSecondary.withValues(alpha: 0.6),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'Arm tracks from the mixer or timeline to start recording',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 12,
                     color: FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
-                    fontSize: 12,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -394,10 +394,10 @@ class _ArmedTrackItem extends StatelessWidget {
                   children: [
                     Text(
                       trackName,
-                      style: const TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 13,
+                        weight: FontWeight.w500,
                         color: FluxForgeTheme.textPrimary,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -408,12 +408,12 @@ class _ArmedTrackItem extends StatelessWidget {
                           color: FluxForgeTheme.accentRed,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Text(
+                        child: Text(
                           'REC',
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockSans(
+                            size: 9,
+                            weight: FontWeight.bold,
                             color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
@@ -422,9 +422,9 @@ class _ArmedTrackItem extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   recordingPath ?? 'Ready to record',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
+                    size: 11,
                     color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
-                    fontSize: 11,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),

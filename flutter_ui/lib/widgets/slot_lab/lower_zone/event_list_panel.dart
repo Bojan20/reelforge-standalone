@@ -224,15 +224,15 @@ class _Toolbar extends StatelessWidget {
             ),
             child: TextField(
               controller: searchController,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.textPrimary,
-                fontSize: 12,
+                size: 12,
               ),
               decoration: InputDecoration(
                 contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 border: InputBorder.none,
                 hintText: 'Search events...',
-                hintStyle: TextStyle(color: FluxForgeTheme.textMuted.withValues(alpha: 0.5)),
+                hintStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textMuted.withValues(alpha: 0.5)),
                 prefixIcon: Icon(Icons.search, size: 16, color: FluxForgeTheme.textMuted),
                 prefixIconConstraints: const BoxConstraints(minWidth: 32),
               ),
@@ -256,7 +256,7 @@ class _Toolbar extends StatelessWidget {
             child: DropdownButton<String>(
               value: filterBus,
               dropdownColor: FluxForgeTheme.bgMid,
-              style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textPrimary, size: 12),
               icon: Icon(Icons.expand_more, size: 16, color: FluxForgeTheme.textMuted),
               items: busOptions.map((b) {
                 return DropdownMenuItem(value: b, child: Text(b));
@@ -281,10 +281,10 @@ class _Toolbar extends StatelessWidget {
         if (selectedCount > 0) ...[
           Text(
             '$selectedCount selected',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.accentBlue,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
+              size: 11,
+              weight: FontWeight.w500,
             ),
           ),
           const SizedBox(width: 8),
@@ -303,9 +303,9 @@ class _Toolbar extends StatelessWidget {
         ] else ...[
           Text(
             '$totalCount events',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textMuted,
-              fontSize: 11,
+              size: 11,
             ),
           ),
           const SizedBox(width: 8),
@@ -355,9 +355,9 @@ class _SortButton extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               sortBy.substring(0, 1).toUpperCase() + sortBy.substring(1),
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 11,
+                size: 11,
               ),
             ),
           ],
@@ -564,11 +564,10 @@ class _EventListItemState extends State<_EventListItem> {
                   children: [
                     Text(
                       widget.event.name,
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockMono(
                         color: FluxForgeTheme.textPrimary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        fontFamily: 'monospace',
+                        size: 12,
+                        weight: FontWeight.w500,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -607,9 +606,9 @@ class _EventListItemState extends State<_EventListItem> {
                       ),
                       child: Text(
                         tag,
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: FluxForgeTheme.textMuted,
-                          fontSize: 9,
+                          size: 9,
                         ),
                       ),
                     );
@@ -656,9 +655,9 @@ class _InfoChip extends StatelessWidget {
         const SizedBox(width: 3),
         Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textMuted,
-            fontSize: 10,
+            size: 10,
           ),
         ),
       ],
@@ -689,9 +688,9 @@ class _EmptyState extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             hasFilter ? 'No events match your filter' : 'No events created yet',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textMuted,
-              fontSize: 14,
+              size: 14,
             ),
           ),
           const SizedBox(height: 4),
@@ -699,9 +698,9 @@ class _EmptyState extends StatelessWidget {
             hasFilter
                 ? 'Try adjusting your search or filters'
                 : 'Drop audio onto slot elements to create events',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: FluxForgeTheme.textMuted.withValues(alpha: 0.6),
-              fontSize: 12,
+              size: 12,
             ),
           ),
         ],

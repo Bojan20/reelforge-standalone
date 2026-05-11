@@ -50,9 +50,9 @@ class BatchDistributionDialog extends StatelessWidget {
         children: [
           Icon(Icons.folder_open, color: FluxForgeTheme.accentBlue, size: 20),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Batch Import Results',
-            style: TextStyle(color: Colors.white, fontSize: 16),
+            style: FluxForgeTheme.dockSans(size: 16),
           ),
         ],
       ),
@@ -168,18 +168,17 @@ class BatchDistributionDialog extends StatelessWidget {
       children: [
         Text(
           value,
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
+          style: FluxForgeTheme.dockMono(
+            size: 24,
+            weight: FontWeight.bold,
             color: color,
-            fontFamily: 'monospace',
           ),
         ),
         const SizedBox(height: 4),
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 10,
+          style: FluxForgeTheme.dockSans(
+            size: 10,
             color: Colors.white54,
             letterSpacing: 0.5,
           ),
@@ -198,7 +197,7 @@ class BatchDistributionDialog extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               'No files matched',
-              style: TextStyle(fontSize: 14, color: Colors.white54),
+              style: FluxForgeTheme.dockSans(size: 14, color: Colors.white54),
             ),
           ],
         ),
@@ -230,10 +229,9 @@ class BatchDistributionDialog extends StatelessWidget {
                   children: [
                     Text(
                       match.audioPath.split('/').last,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Colors.white,
-                        fontWeight: FontWeight.w500,
+                      style: FluxForgeTheme.dockMono(
+                        size: 11,
+                        weight: FontWeight.w500,
                       ),
                     ),
                     const SizedBox(height: 3),
@@ -243,10 +241,9 @@ class BatchDistributionDialog extends StatelessWidget {
                         const SizedBox(width: 4),
                         Text(
                           match.stage,
-                          style: TextStyle(
-                            fontSize: 10,
+                          style: FluxForgeTheme.dockMono(
+                            size: 10,
                             color: FluxForgeTheme.accentGreen,
-                            fontFamily: 'monospace',
                           ),
                         ),
                       ],
@@ -263,11 +260,10 @@ class BatchDistributionDialog extends StatelessWidget {
                 ),
                 child: Text(
                   '${match.confidence}%',
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockMono(
+                    size: 9,
+                    weight: FontWeight.bold,
                     color: FluxForgeTheme.accentGreen,
-                    fontFamily: 'monospace',
                   ),
                 ),
               ),
@@ -288,16 +284,16 @@ class BatchDistributionDialog extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               'All files matched!',
-              style: TextStyle(
-                fontSize: 14,
+              style: FluxForgeTheme.dockSans(
+                size: 14,
                 color: FluxForgeTheme.accentGreen,
-                fontWeight: FontWeight.w500,
+                weight: FontWeight.w500,
               ),
             ),
             const SizedBox(height: 6),
             Text(
               '100% success rate',
-              style: TextStyle(fontSize: 12, color: Colors.white54),
+              style: FluxForgeTheme.dockSans(size: 12, color: Colors.white54),
             ),
           ],
         ),
@@ -330,10 +326,9 @@ class BatchDistributionDialog extends StatelessWidget {
                   children: [
                     Text(
                       file.audioPath.split('/').last,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Colors.white,
-                        fontWeight: FontWeight.w500,
+                      style: FluxForgeTheme.dockMono(
+                        size: 11,
+                        weight: FontWeight.w500,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -341,11 +336,10 @@ class BatchDistributionDialog extends StatelessWidget {
                       file.suggestions.isEmpty
                           ? 'No keywords matched'
                           : 'Suggestions: ${file.suggestions.take(2).map((s) => s.stage).join(', ')}',
-                      style: TextStyle(
-                        fontSize: 9,
+                      style: FluxForgeTheme.dockSans(
+                        size: 9,
                         color: FluxForgeTheme.accentOrange.withValues(alpha: 0.8),
-                        fontStyle: FontStyle.italic,
-                      ),
+                      ).copyWith(fontStyle: FontStyle.italic),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),

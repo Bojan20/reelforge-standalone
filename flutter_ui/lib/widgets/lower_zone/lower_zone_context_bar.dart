@@ -5,6 +5,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../theme/fluxforge_theme.dart';
 import 'lower_zone_types.dart';
 import 'daw_lower_zone_controller.dart' show RecentTabEntry;
 
@@ -328,9 +329,9 @@ class LowerZoneContextBar extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               superTabLabels[index],
-              style: TextStyle(
-                fontSize: LowerZoneTypography.sizeLabel,
-                fontWeight: FontWeight.bold,
+              style: FluxForgeTheme.dockSans(
+                size: LowerZoneTypography.sizeLabel,
+                weight: FontWeight.bold,
                 color: isSelected ? color : LowerZoneColors.textTertiary,
               ),
             ),
@@ -347,9 +348,8 @@ class LowerZoneContextBar extends StatelessWidget {
                   superTabShortcuts != null && index < superTabShortcuts!.length
                       ? superTabShortcuts![index]
                       : '${index + 1}',
-                  style: TextStyle(
-                    fontSize: LowerZoneTypography.sizeTiny,
-                    fontFamily: 'monospace',
+                  style: FluxForgeTheme.dockMono(
+                    size: LowerZoneTypography.sizeTiny,
                     color: color.withValues(alpha: 0.8),
                   ),
                 ),
@@ -366,9 +366,9 @@ class LowerZoneContextBar extends StatelessWidget {
                 ),
                 child: Text(
                   '${superTabBadges![index]}',
-                  style: const TextStyle(
-                    fontSize: 8,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockMono(
+                    size: 8,
+                    weight: FontWeight.bold,
                     color: Colors.white,
                   ),
                 ),
@@ -422,8 +422,8 @@ class LowerZoneContextBar extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               onQuickSwitcher != null ? 'Quick Switch' : 'Search...',
-              style: TextStyle(
-                fontSize: LowerZoneTypography.sizeBadge,
+              style: FluxForgeTheme.dockSans(
+                size: LowerZoneTypography.sizeBadge,
                 color: LowerZoneColors.textMuted,
               ),
             ),
@@ -436,12 +436,11 @@ class LowerZoneContextBar extends StatelessWidget {
                   borderRadius: BorderRadius.circular(3),
                   border: Border.all(color: LowerZoneColors.border),
                 ),
-                child: const Text(
+                child: Text(
                   '⌘K',
-                  style: TextStyle(
-                    fontSize: 9,
+                  style: FluxForgeTheme.dockMono(
+                    size: 9,
                     color: LowerZoneColors.textTertiary,
-                    fontFamily: 'monospace',
                   ),
                 ),
               ),
@@ -460,8 +459,8 @@ class LowerZoneContextBar extends StatelessWidget {
         // Label
         Text(
           'Recent:',
-          style: TextStyle(
-            fontSize: LowerZoneTypography.sizeTiny,
+          style: FluxForgeTheme.dockSans(
+            size: LowerZoneTypography.sizeTiny,
             color: LowerZoneColors.textMuted,
           ),
         ),
@@ -596,9 +595,9 @@ class LowerZoneContextBar extends StatelessWidget {
       children: [
         Text(
           breadcrumbCategory!,
-          style: TextStyle(
-            fontSize: 9,
-            fontWeight: FontWeight.w700,
+          style: FluxForgeTheme.dockSans(
+            size: 9,
+            weight: FontWeight.w700,
             letterSpacing: 1.0,
             color: accentColor.withValues(alpha: 0.5),
           ),
@@ -609,9 +608,9 @@ class LowerZoneContextBar extends StatelessWidget {
         ),
         Text(
           superLabel,
-          style: TextStyle(
-            fontSize: 9,
-            fontWeight: FontWeight.w600,
+          style: FluxForgeTheme.dockSans(
+            size: 9,
+            weight: FontWeight.w600,
             letterSpacing: 0.5,
             color: accentColor.withValues(alpha: 0.7),
           ),
@@ -660,9 +659,9 @@ class LowerZoneContextBar extends StatelessWidget {
           children: [
             Text(
               subTabLabels[index],
-              style: TextStyle(
-                fontSize: LowerZoneTypography.sizeLabel,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              style: FluxForgeTheme.dockSans(
+                size: LowerZoneTypography.sizeLabel,
+                weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 color: isSelected ? accentColor : LowerZoneColors.textSecondary,
               ),
             ),
@@ -679,9 +678,8 @@ class LowerZoneContextBar extends StatelessWidget {
                 ),
                 child: Text(
                   shortcut,
-                  style: TextStyle(
-                    fontSize: LowerZoneTypography.sizeTiny,
-                    fontFamily: 'monospace',
+                  style: FluxForgeTheme.dockMono(
+                    size: LowerZoneTypography.sizeTiny,
                     color: isSelected
                         ? accentColor.withValues(alpha: 0.7)
                         : LowerZoneColors.textMuted,
@@ -814,9 +812,9 @@ class LowerZoneContextBar extends StatelessWidget {
                 child: Center(
                   child: Text(
                     '$count',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    style: FluxForgeTheme.dockMono(
+                      size: 10,
+                      weight: isSelected ? FontWeight.bold : FontWeight.normal,
                       color: isSelected ? accentColor : LowerZoneColors.textSecondary,
                     ),
                   ),
