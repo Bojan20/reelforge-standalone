@@ -155,7 +155,7 @@ Widget _renderHelixErrorFallback(String tag, Object error, {double fontSize = 10
   return Center(
     child: Text(
       '$tag ERR: $error',
-      style: TextStyle(color: const Color(0xFFFF4444), fontSize: fontSize),
+      style: FluxForgeTheme.dockMono(size: fontSize, color: const Color(0xFFFF4444)),
     ),
   );
 }
@@ -1123,9 +1123,10 @@ class _HelixScreenState extends State<HelixScreen>
                   const Icon(Icons.keyboard_rounded, size: 18,
                       color: FluxForgeTheme.brandGold),
                   const SizedBox(width: 8),
-                  const Text('KEYBOARD SHORTCUTS', style: TextStyle(
-                    fontFamily: 'monospace', fontSize: 13,
-                    fontWeight: FontWeight.w800, letterSpacing: 1.2,
+                  Text('KEYBOARD SHORTCUTS', style: FluxForgeTheme.dockMono(
+                    size: 13,
+                    weight: FontWeight.w800,
+                    letterSpacing: 1.2,
                     color: FluxForgeTheme.brandGold)),
                   const Spacer(),
                   IconButton(
@@ -1301,11 +1302,10 @@ class _HelixScreenState extends State<HelixScreen>
                       size: 14, color: FluxForgeTheme.accentCyan),
                   const SizedBox(width: 6),
                   Text('Jump to stage  (${stages.length})',
-                      style: const TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 12,
-                          color: FluxForgeTheme.textPrimary,
-                          fontWeight: FontWeight.w600)),
+                      style: FluxForgeTheme.dockMono(
+                          size: 12,
+                          weight: FontWeight.w600,
+                          color: FluxForgeTheme.textPrimary)),
                   const Spacer(),
                   GestureDetector(
                     onTap: () => Navigator.pop(ctx),
@@ -1331,22 +1331,19 @@ class _HelixScreenState extends State<HelixScreen>
                             SizedBox(
                               width: 30,
                               child: Text('${i + 1}',
-                                  style: const TextStyle(
-                                      fontFamily: 'monospace',
-                                      fontSize: 10,
+                                  style: FluxForgeTheme.dockMono(
+                                      size: 10,
                                       color: FluxForgeTheme.textTertiary)),
                             ),
                             Expanded(
                               child: Text(s.stageType,
-                                  style: const TextStyle(
-                                      fontFamily: 'monospace',
-                                      fontSize: 11,
+                                  style: FluxForgeTheme.dockMono(
+                                      size: 11,
                                       color: FluxForgeTheme.textPrimary)),
                             ),
                             Text('${s.timestampMs.toInt()} ms',
-                                style: const TextStyle(
-                                    fontFamily: 'monospace',
-                                    fontSize: 9,
+                                style: FluxForgeTheme.dockMono(
+                                    size: 9,
                                     color: FluxForgeTheme.textTertiary)),
                           ],
                         ),
@@ -1389,9 +1386,8 @@ class _HelixScreenState extends State<HelixScreen>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message,
-            style: const TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 11,
+            style: FluxForgeTheme.dockMono(
+                size: 11,
                 color: FluxForgeTheme.textPrimary)),
         backgroundColor: const Color(0xFF1A1A22),
         behavior: SnackBarBehavior.floating,
@@ -1412,12 +1408,11 @@ class _HelixScreenState extends State<HelixScreen>
             const SizedBox(width: 8),
             Text(
               'STAGE: $stage',
-              style: const TextStyle(
-                fontFamily: 'JetBrainsMono',
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: FluxForgeTheme.brandGoldBright,
+              style: FluxForgeTheme.dockMono(
+                size: 11,
+                weight: FontWeight.w700,
                 letterSpacing: 1.4,
+                color: FluxForgeTheme.brandGoldBright,
               ),
             ),
           ],
@@ -1464,19 +1459,19 @@ class _HelixScreenState extends State<HelixScreen>
                   children: [
                     const Icon(Icons.compress_rounded, size: 12, color: FluxForgeTheme.textTertiary),
                     const SizedBox(width: 6),
-                    Text('HELIX MINI', style: TextStyle(
-                      fontSize: 10, fontWeight: FontWeight.w700,
-                      color: FluxForgeTheme.textTertiary, letterSpacing: 1.2)),
+                    Text('HELIX MINI', style: FluxForgeTheme.dockMono(
+                      size: 10, weight: FontWeight.w700,
+                      letterSpacing: 1.2, color: FluxForgeTheme.textTertiary)),
                     const Spacer(),
                     GestureDetector(
                       onTap: () => setState(() => _mode = 0),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text('⌘⇧M', style: TextStyle(
-                            fontSize: 9, color: FluxForgeTheme.textTertiary, fontFamily: 'monospace')),
-                          SizedBox(width: 4),
-                          Icon(Icons.open_in_full_rounded, size: 11, color: FluxForgeTheme.textTertiary),
+                          Text('⌘⇧M', style: FluxForgeTheme.dockMono(
+                            size: 9, color: FluxForgeTheme.textTertiary)),
+                          const SizedBox(width: 4),
+                          const Icon(Icons.open_in_full_rounded, size: 11, color: FluxForgeTheme.textTertiary),
                         ],
                       ),
                     ),
@@ -1493,9 +1488,9 @@ class _HelixScreenState extends State<HelixScreen>
                       _MiniModeSection(
                         label: 'FSM STATE',
                         child: Text(fsm,
-                          style: const TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.w800,
-                            color: FluxForgeTheme.accentCyan, letterSpacing: 0.5)),
+                          style: FluxForgeTheme.dockMono(
+                            size: 13, weight: FontWeight.w800,
+                            letterSpacing: 0.5, color: FluxForgeTheme.accentCyan)),
                       ),
                       const _MiniDivider(),
                       // SPIN button
@@ -1510,14 +1505,14 @@ class _HelixScreenState extends State<HelixScreen>
                             border: Border.all(color: FluxForgeTheme.accentGreen.withValues(alpha: 0.5)),
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.play_arrow_rounded, size: 16, color: FluxForgeTheme.accentGreen),
-                              SizedBox(width: 2),
-                              Text('SPIN', style: TextStyle(
-                                fontSize: 9, fontWeight: FontWeight.w800,
-                                color: FluxForgeTheme.accentGreen, letterSpacing: 0.8)),
+                              const Icon(Icons.play_arrow_rounded, size: 16, color: FluxForgeTheme.accentGreen),
+                              const SizedBox(width: 2),
+                              Text('SPIN', style: FluxForgeTheme.dockMono(
+                                size: 9, weight: FontWeight.w800,
+                                letterSpacing: 0.8, color: FluxForgeTheme.accentGreen)),
                             ],
                           ),
                         ),
@@ -1538,8 +1533,8 @@ class _HelixScreenState extends State<HelixScreen>
                                   color: ok ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentOrange,
                                 ),
                                 const SizedBox(width: 4),
-                                Text(ok ? 'OK' : 'WARN', style: TextStyle(
-                                  fontSize: 10, fontWeight: FontWeight.w700,
+                                Text(ok ? 'OK' : 'WARN', style: FluxForgeTheme.dockMono(
+                                  size: 10, weight: FontWeight.w700,
                                   color: ok ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentOrange)),
                               ],
                             );
@@ -1563,8 +1558,8 @@ class _HelixScreenState extends State<HelixScreen>
                                     border: Border.all(color: FluxForgeTheme.borderSubtle),
                                   ),
                                   child: Center(child: Text(m.$1,
-                                    style: const TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary,
-                                      fontWeight: FontWeight.w700))),
+                                    style: FluxForgeTheme.dockMono(size: 10,
+                                      weight: FontWeight.w700, color: FluxForgeTheme.textSecondary))),
                                 ),
                               ),
                             ),
@@ -1614,16 +1609,16 @@ class _HelixScreenState extends State<HelixScreen>
               ],
               border: Border.all(color: FluxForgeTheme.brandGoldBright.withValues(alpha: 0.4), width: 0.5),
             ),
-            child: const Center(
+            child: Center(
               child: Text('HX',
-                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900,
-                  color: FluxForgeTheme.brandGoldDark, letterSpacing: 0.8)),
+                style: FluxForgeTheme.dockMono(size: 10, weight: FontWeight.w900,
+                  letterSpacing: 0.8, color: FluxForgeTheme.brandGoldDark)),
             ),
           ),
           const SizedBox(width: 8),
-          const Text('HELIX', style: TextStyle(
-            fontFamily: 'monospace', fontSize: 11, fontWeight: FontWeight.w700,
-            color: FluxForgeTheme.textPrimary, letterSpacing: 1.5)),
+          Text('HELIX', style: FluxForgeTheme.dockMono(
+            size: 11, weight: FontWeight.w700,
+            letterSpacing: 1.5, color: FluxForgeTheme.textPrimary)),
           const SizedBox(width: 12),
           Container(width: 1, height: 24, color: FluxForgeTheme.borderSubtle),
           const SizedBox(width: 8),
@@ -1659,9 +1654,8 @@ class _HelixScreenState extends State<HelixScreen>
                     child: TextField(
                       controller: _projectNameController,
                       autofocus: true,
-                      style: const TextStyle(
-                        fontFamily: 'monospace', fontSize: 11,
-                        color: FluxForgeTheme.textPrimary),
+                      style: FluxForgeTheme.dockMono(
+                        size: 11, color: FluxForgeTheme.textPrimary),
                       decoration: const InputDecoration(
                         isDense: true, border: InputBorder.none,
                         contentPadding: EdgeInsets.zero),
@@ -1677,9 +1671,8 @@ class _HelixScreenState extends State<HelixScreen>
                 else
                   Text(GetIt.instance<SlotLabProjectProvider>().projectName,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontFamily: 'monospace', fontSize: 11,
-                      color: FluxForgeTheme.textPrimary)),
+                    style: FluxForgeTheme.dockMono(
+                      size: 11, color: FluxForgeTheme.textPrimary)),
               ]),
             ),
           ),
@@ -1715,9 +1708,9 @@ class _HelixScreenState extends State<HelixScreen>
                 ? FluxForgeTheme.accentCyan.withValues(alpha: 0.7)
                 : FluxForgeTheme.accentCyan.withValues(alpha: 0.35),
               child: Row(children: [
-                const Text('BPM', style: TextStyle(
-                  fontFamily: 'monospace', fontSize: 11,
-                  color: FluxForgeTheme.accentCyan, letterSpacing: 0.5, fontWeight: FontWeight.w700)),
+                Text('BPM', style: FluxForgeTheme.dockMono(
+                  size: 11, letterSpacing: 0.5, weight: FontWeight.w700,
+                  color: FluxForgeTheme.accentCyan)),
                 const SizedBox(width: 8),
                 if (_bpmEditing)
                   SizedBox(
@@ -1726,9 +1719,9 @@ class _HelixScreenState extends State<HelixScreen>
                       controller: _bpmController,
                       autofocus: true,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      style: const TextStyle(
-                        fontFamily: 'monospace', fontSize: 13,
-                        color: FluxForgeTheme.accentCyan, fontWeight: FontWeight.w700),
+                      style: FluxForgeTheme.dockMono(
+                        size: 13, weight: FontWeight.w700,
+                        color: FluxForgeTheme.accentCyan),
                       decoration: const InputDecoration(
                         isDense: true, border: InputBorder.none,
                         contentPadding: EdgeInsets.zero),
@@ -1745,9 +1738,9 @@ class _HelixScreenState extends State<HelixScreen>
                     ),
                   )
                 else
-                  Text(_bpmDisplay.toStringAsFixed(1), style: const TextStyle(
-                    fontFamily: 'monospace', fontSize: 13,
-                    color: FluxForgeTheme.accentCyan, fontWeight: FontWeight.w700)),
+                  Text(_bpmDisplay.toStringAsFixed(1), style: FluxForgeTheme.dockMono(
+                    size: 13, weight: FontWeight.w700,
+                    color: FluxForgeTheme.accentCyan)),
               ]),
             ),
           ),
@@ -1847,12 +1840,11 @@ class _HelixScreenState extends State<HelixScreen>
                   : accent.withValues(alpha: 0.35),
               child: Row(children: [
                 Text('GRID',
-                    style: TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 11,
-                        color: accent,
+                    style: FluxForgeTheme.dockMono(
+                        size: 11,
                         letterSpacing: 0.5,
-                        fontWeight: FontWeight.w700)),
+                        weight: FontWeight.w700,
+                        color: accent)),
                 const SizedBox(width: 8),
                 if (_gridEditing)
                   SizedBox(
@@ -1860,11 +1852,10 @@ class _HelixScreenState extends State<HelixScreen>
                     child: TextField(
                       controller: _gridController,
                       autofocus: true,
-                      style: TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 13,
-                          color: accent,
-                          fontWeight: FontWeight.w700),
+                      style: FluxForgeTheme.dockMono(
+                          size: 13,
+                          weight: FontWeight.w700,
+                          color: accent),
                       decoration: const InputDecoration(
                         isDense: true,
                         border: InputBorder.none,
@@ -1883,18 +1874,16 @@ class _HelixScreenState extends State<HelixScreen>
                   )
                 else if (_gridFlash != null)
                   Text(_gridFlash!,
-                      style: TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 11,
-                          color: flashColor,
-                          fontWeight: FontWeight.w700))
+                      style: FluxForgeTheme.dockMono(
+                          size: 11,
+                          weight: FontWeight.w700,
+                          color: flashColor))
                 else
                   Text('${reels}×$rows',
-                      style: TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 13,
-                          color: accent,
-                          fontWeight: FontWeight.w700)),
+                      style: FluxForgeTheme.dockMono(
+                          size: 13,
+                          weight: FontWeight.w700,
+                          color: accent)),
               ]),
             ),
           ),
@@ -2116,7 +2105,7 @@ class _HelixScreenState extends State<HelixScreen>
                           backgroundColor: FluxForgeTheme.bgElevated,
                           content: Text(
                             '🎵 Bound to $stage',
-                            style: const TextStyle(
+                            style: FluxForgeTheme.dockSans(
                               color: FluxForgeTheme.brandGold,
                             ),
                           ),
@@ -2307,8 +2296,8 @@ class _HelixScreenState extends State<HelixScreen>
       // Visual feedback: switch to FLOW panel + show snackbar so user sees the change
       setState(() => _dockTab = 0);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Stage → $label', style: const TextStyle(
-          fontFamily: 'monospace', fontSize: 11, color: FluxForgeTheme.textPrimary)),
+        content: Text('Stage → $label', style: FluxForgeTheme.dockMono(
+          size: 11, color: FluxForgeTheme.textPrimary)),
         backgroundColor: FluxForgeTheme.bgSurface,
         duration: const Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
@@ -2594,7 +2583,7 @@ class _HelixScreenState extends State<HelixScreen>
                     backgroundColor: FluxForgeTheme.bgElevated,
                     content: Text(
                       '🔄 ${summary.summaryLine}',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
                         color: summary.removed > 0
                             ? FluxForgeTheme.accentOrange
                             : FluxForgeTheme.accentGreen,
@@ -2750,8 +2739,8 @@ class _HelixScreenState extends State<HelixScreen>
       SnackBar(
         content: Text(
           '${actionPart}$featureName — work-in-progress, coming in next sprint',
-          style: const TextStyle(
-            fontFamily: 'monospace', fontSize: 11,
+          style: FluxForgeTheme.dockMono(
+            size: 11,
             color: FluxForgeTheme.textPrimary,
           ),
         ),

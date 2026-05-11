@@ -556,17 +556,17 @@ class _ModeSwitcher extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    Text(config.icon, style: const TextStyle(fontSize: 12)),
+                    Text(config.icon, style: FluxForgeTheme.dockSans(size: 12)),
                     if (!compact) ...[
                       const SizedBox(width: 6),
                       Text(
                         config.name,
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: isActive
                               ? config.accentColor
                               : FluxForgeTheme.textSecondary,
-                          fontSize: 11,
-                          fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                          size: 11,
+                          weight: isActive ? FontWeight.w600 : FontWeight.normal,
                         ),
                       ),
                     ],
@@ -606,14 +606,14 @@ class _ModeStatusIndicator extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(config.icon, style: const TextStyle(fontSize: 12)),
+          Text(config.icon, style: FluxForgeTheme.dockSans(size: 12)),
           const SizedBox(width: 6),
           Text(
             layoutConfig.features.showSlotTools ? 'Slot Audio' : 'Events',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
               color: config.accentColor,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+              size: 11,
+              weight: FontWeight.w600,
             ),
           ),
         ],
@@ -828,7 +828,7 @@ class _TransportBtnState extends State<_TransportBtn> {
               child: Center(
                 child: Text(
                   widget.icon,
-                  style: TextStyle(fontSize: 13, color: color),
+                  style: FluxForgeTheme.dockSans(size: 13, color: color),
                 ),
               ),
             ),
@@ -882,20 +882,19 @@ class _PdcButton extends StatelessWidget {
             children: [
               Text(
                 'PDC',
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
+                style: FluxForgeTheme.dockSans(
+                  size: 9,
+                  weight: FontWeight.w700,
                   color: color,
                 ),
               ),
               const SizedBox(width: 4),
               Text(
                 '${latencyMs.toStringAsFixed(1)}ms',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockMono(
+                  size: 10,
+                  weight: FontWeight.w600,
                   color: color,
-                  fontFamily: 'JetBrains Mono',
                 ),
               ),
             ],
@@ -949,7 +948,7 @@ class _SnapDropdown extends StatelessWidget {
         isDense: true,
         underline: const SizedBox(),
         dropdownColor: FluxForgeTheme.bgElevated,
-        style: const TextStyle(fontSize: 10, color: FluxForgeTheme.textPrimary),
+        style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textPrimary),
         items: const [
           DropdownMenuItem(value: 0.25, child: Text('1/16')),
           DropdownMenuItem(value: 0.5, child: Text('1/8')),
@@ -1438,8 +1437,7 @@ class _TempoDisplayState extends State<_TempoDisplay> {
                       style: FluxForgeTheme.monoSmall
                           .copyWith(fontSize: 14, fontWeight: FontWeight.w600)),
               Text('BPM',
-                  style:
-                      TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 9)),
+                  style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 9)),
             ],
           ),
         ),
@@ -1630,10 +1628,10 @@ class _TimeDisplayState extends State<_TimeDisplay> {
                   ),
                   child: Text(
                     widget.modeLabel,
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
                       color: FluxForgeTheme.accentBlue,
-                      fontSize: 8,
-                      fontWeight: FontWeight.w700,
+                      size: 8,
+                      weight: FontWeight.w700,
                     ),
                   ),
                 ),
@@ -1662,8 +1660,7 @@ class _ProjectInfo extends StatelessWidget {
       child: Row(
         children: [
           Text(name,
-              style:
-                  TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12)),
+              style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textSecondary, size: 12)),
           if (onSave != null) ...[
             const SizedBox(width: 8),
             Tooltip(
@@ -1676,8 +1673,8 @@ class _ProjectInfo extends StatelessWidget {
                   height: 32,
                   decoration:
                       BoxDecoration(borderRadius: BorderRadius.circular(4)),
-                  child: const Center(
-                    child: Text('💾', style: TextStyle(fontSize: 12)),
+                  child: Center(
+                    child: Text('💾', style: FluxForgeTheme.dockSans(size: 12)),
                   ),
                 ),
               ),
@@ -1758,8 +1755,8 @@ class _ZoneBtnState extends State<_ZoneBtn> {
             child: Center(
               child: Text(
                 widget.icon,
-                style: TextStyle(
-                  fontSize: 10,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
                   color: _isHovered
                       ? FluxForgeTheme.textPrimary
                       : FluxForgeTheme.textSecondary,
@@ -1893,10 +1890,10 @@ class _CloudBadge extends StatelessWidget {
               const SizedBox(width: 3),
               Text(
                 label,
-                style: TextStyle(
+                style: FluxForgeTheme.dockSans(
                   color: color,
-                  fontSize: 8,
-                  fontWeight: FontWeight.w600,
+                  size: 8,
+                  weight: FontWeight.w600,
                 ),
               ),
             ],
@@ -1979,9 +1976,9 @@ class _CortexIntelligenceBadge extends StatelessWidget {
                 const SizedBox(width: 3),
                 Text(
                   label,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: FontWeight.bold,
                     color: color,
                   ),
                 ),
@@ -2056,10 +2053,10 @@ class _MeterBar extends StatelessWidget {
       children: [
         Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
             color: FluxForgeTheme.textTertiary,
-            fontSize: 8,
-            fontWeight: FontWeight.w600,
+            size: 8,
+            weight: FontWeight.w600,
           ),
         ),
         const SizedBox(height: 2),
@@ -2152,9 +2149,9 @@ class _KeyboardFocusButton extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     isActive ? 'CMD' : 'A-Z',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
+                      weight: FontWeight.bold,
                       color: isActive
                           ? FluxForgeTheme.accentOrange
                           : FluxForgeTheme.textSecondary,
@@ -2215,9 +2212,9 @@ class _RazorEditButton extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     'Razor',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
+                      weight: FontWeight.w500,
                       color: hasSelection
                           ? FluxForgeTheme.accentOrange
                           : FluxForgeTheme.textSecondary,
@@ -2279,9 +2276,9 @@ class _ArrangerTrackButton extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     'Arr',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
+                      weight: FontWeight.w500,
                       color: isEnabled
                           ? FluxForgeTheme.accentBlue
                           : FluxForgeTheme.textSecondary,
@@ -2345,9 +2342,9 @@ class _ChordTrackButton extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     currentChord ?? 'Chord',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
+                      weight: FontWeight.w500,
                       color: isEnabled
                           ? const Color(0xFFAA40FF)
                           : FluxForgeTheme.textSecondary,
@@ -2413,9 +2410,9 @@ class ModulatorButton extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     'Mod',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
+                      weight: FontWeight.w500,
                       color: isEnabled
                           ? FluxForgeTheme.accentCyan
                           : FluxForgeTheme.textSecondary,
@@ -2480,9 +2477,9 @@ class ExpressionMapButton extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     'Expr',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
+                      weight: FontWeight.w500,
                       color: isEnabled
                           ? FluxForgeTheme.accentGreen
                           : FluxForgeTheme.textSecondary,
@@ -2545,9 +2542,9 @@ class _ScaleAssistantButton extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     key.shortName,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
+                      weight: FontWeight.w500,
                       color: isEnabled
                           ? const Color(0xFFFFD700)
                           : FluxForgeTheme.textSecondary,
@@ -2610,9 +2607,9 @@ class _GrooveQuantizeButton extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     'Grv',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
+                      weight: FontWeight.w500,
                       color: isEnabled
                           ? const Color(0xFFFF6B6B)
                           : FluxForgeTheme.textSecondary,
@@ -2675,9 +2672,9 @@ class _TrackVersionsButton extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     'Ver',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
+                      weight: FontWeight.w500,
                       color: isEnabled
                           ? const Color(0xFF9B59B6)
                           : FluxForgeTheme.textSecondary,
@@ -2741,9 +2738,9 @@ class _MacroControlsButton extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     'Macro',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
+                      weight: FontWeight.w500,
                       color: isEnabled
                           ? const Color(0xFF1ABC9C)
                           : FluxForgeTheme.textSecondary,
@@ -2836,9 +2833,9 @@ class _MoreToolsMenuState extends State<_MoreToolsMenu> {
           Expanded(
             child: Text(
               label,
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
                 color: isActive ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary,
-                fontSize: 12,
+                size: 12,
               ),
             ),
           ),
@@ -3007,9 +3004,9 @@ class _BackButtonState extends State<_BackButton> {
                         padding: const EdgeInsets.only(left: 6),
                         child: Text(
                           widget.label,
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
+                          style: FluxForgeTheme.dockSans(
+                            size: 10,
+                            weight: FontWeight.w600,
                             color: widget.accentColor,
                           ),
                         ),

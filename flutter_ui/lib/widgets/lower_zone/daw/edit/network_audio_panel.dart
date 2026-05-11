@@ -12,6 +12,7 @@ library;
 
 import 'package:flutter/material.dart';
 import '../../../../services/network_audio_service.dart';
+import '../../../../theme/fluxforge_theme.dart';
 import '../../../fabfilter/fabfilter_theme.dart';
 import '../../../fabfilter/fabfilter_widgets.dart';
 
@@ -83,7 +84,7 @@ class _NetworkAudioPanelState extends State<NetworkAudioPanel> {
         Expanded(
           child: sends.isEmpty
               ? Center(child: Text('No send streams',
-                  style: TextStyle(fontSize: 10, color: FabFilterColors.textTertiary)))
+                  style: FluxForgeTheme.dockSans(size: 10, color: FabFilterColors.textTertiary)))
               : ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   itemCount: sends.length,
@@ -105,7 +106,7 @@ class _NetworkAudioPanelState extends State<NetworkAudioPanel> {
         Expanded(
           child: receives.isEmpty
               ? Center(child: Text('No receive streams',
-                  style: TextStyle(fontSize: 10, color: FabFilterColors.textTertiary)))
+                  style: FluxForgeTheme.dockSans(size: 10, color: FabFilterColors.textTertiary)))
               : ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   itemCount: receives.length,
@@ -159,13 +160,13 @@ class _NetworkAudioPanelState extends State<NetworkAudioPanel> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(stream.name, style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                Text(stream.name, style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  weight: selected ? FontWeight.w600 : FontWeight.normal,
                   color: FabFilterColors.textPrimary,
                 ), overflow: TextOverflow.ellipsis),
                 Text('${stream.channelCount}ch ${stream.dataType.name}',
-                  style: TextStyle(fontSize: 9, color: FabFilterColors.textTertiary)),
+                  style: FluxForgeTheme.dockSans(size: 9, color: FabFilterColors.textTertiary)),
               ],
             ),
           ),
@@ -228,7 +229,7 @@ class _NetworkAudioPanelState extends State<NetworkAudioPanel> {
     if (stream == null) {
       return Center(child: Text(
         'Select a stream to view details',
-        style: TextStyle(color: FabFilterColors.textTertiary, fontSize: 12),
+        style: FluxForgeTheme.dockSans(size: 12, color: FabFilterColors.textTertiary),
       ));
     }
 
@@ -242,8 +243,8 @@ class _NetworkAudioPanelState extends State<NetworkAudioPanel> {
             Icon(stream.isSend ? Icons.upload : Icons.download, size: 16,
               color: stream.isSend ? FabFilterColors.orange : FabFilterColors.cyan),
             const SizedBox(width: 6),
-            Text(stream.name, style: const TextStyle(
-              fontSize: 13, fontWeight: FontWeight.w600, color: FabFilterColors.textPrimary)),
+            Text(stream.name, style: FluxForgeTheme.dockSans(
+              size: 13, weight: FontWeight.w600, color: FabFilterColors.textPrimary)),
             const Spacer(),
             _statusBadge(stream),
           ]),
@@ -323,10 +324,10 @@ class _NetworkAudioPanelState extends State<NetworkAudioPanel> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 1),
       child: Row(children: [
-        SizedBox(width: 80, child: Text('$label:', style: const TextStyle(
-          fontSize: 10, color: FabFilterColors.textTertiary))),
-        Text(value, style: const TextStyle(
-          fontSize: 10, color: FabFilterColors.textSecondary)),
+        SizedBox(width: 80, child: Text('$label:', style: FluxForgeTheme.dockSans(
+          size: 10, color: FabFilterColors.textTertiary))),
+        Text(value, style: FluxForgeTheme.dockSans(
+          size: 10, color: FabFilterColors.textSecondary)),
       ]),
     );
   }
@@ -347,8 +348,8 @@ class _NetworkAudioPanelState extends State<NetworkAudioPanel> {
         borderRadius: BorderRadius.circular(3),
         border: Border.all(color: color),
       ),
-      child: Text(label, style: TextStyle(
-        fontSize: 8, fontWeight: FontWeight.w600, color: color)),
+      child: Text(label, style: FluxForgeTheme.dockSans(
+        size: 8, weight: FontWeight.w600, color: color)),
     );
   }
 
@@ -363,8 +364,8 @@ class _NetworkAudioPanelState extends State<NetworkAudioPanel> {
           borderRadius: BorderRadius.circular(3),
           border: Border.all(color: active ? FabFilterColors.cyan : FabFilterColors.border),
         ),
-        child: Text(label, style: TextStyle(
-          fontSize: 10, color: active ? FabFilterColors.cyan : FabFilterColors.textTertiary)),
+        child: Text(label, style: FluxForgeTheme.dockSans(
+          size: 10, color: active ? FabFilterColors.cyan : FabFilterColors.textTertiary)),
       ),
     );
   }
@@ -380,8 +381,8 @@ class _NetworkAudioPanelState extends State<NetworkAudioPanel> {
           borderRadius: BorderRadius.circular(3),
           border: Border.all(color: active ? FabFilterColors.orange : FabFilterColors.border),
         ),
-        child: Text(label, style: TextStyle(
-          fontSize: 10, color: active ? FabFilterColors.orange : FabFilterColors.textTertiary)),
+        child: Text(label, style: FluxForgeTheme.dockSans(
+          size: 10, color: active ? FabFilterColors.orange : FabFilterColors.textTertiary)),
       ),
     );
   }
@@ -397,8 +398,8 @@ class _NetworkAudioPanelState extends State<NetworkAudioPanel> {
           borderRadius: BorderRadius.circular(3),
           border: Border.all(color: active ? FabFilterColors.green : FabFilterColors.border),
         ),
-        child: Text('$count', style: TextStyle(
-          fontSize: 10, color: active ? FabFilterColors.green : FabFilterColors.textTertiary)),
+        child: Text('$count', style: FluxForgeTheme.dockMono(
+          size: 10, color: active ? FabFilterColors.green : FabFilterColors.textTertiary)),
       ),
     );
   }
@@ -421,11 +422,11 @@ class _NetworkAudioPanelState extends State<NetworkAudioPanel> {
           FabSectionLabel('STATUS'),
           const SizedBox(height: 4),
           Text('Total streams: ${_service.streamCount}',
-            style: const TextStyle(fontSize: 10, color: FabFilterColors.textTertiary)),
+            style: FluxForgeTheme.dockSans(size: 10, color: FabFilterColors.textTertiary)),
           Text('Connected: ${_service.connectedCount}',
-            style: const TextStyle(fontSize: 10, color: FabFilterColors.textTertiary)),
+            style: FluxForgeTheme.dockSans(size: 10, color: FabFilterColors.textTertiary)),
           Text('Host: ${_service.localHostname}',
-            style: const TextStyle(fontSize: 10, color: FabFilterColors.textTertiary)),
+            style: FluxForgeTheme.dockSans(size: 10, color: FabFilterColors.textTertiary)),
           const SizedBox(height: 8),
 
           // Selected stream stats
@@ -433,19 +434,19 @@ class _NetworkAudioPanelState extends State<NetworkAudioPanel> {
             FabSectionLabel('STATISTICS'),
             const SizedBox(height: 4),
             Text('Latency: ${selected.latencyMs.toStringAsFixed(1)} ms',
-              style: const TextStyle(fontSize: 10, color: FabFilterColors.textTertiary)),
+              style: FluxForgeTheme.dockMono(size: 10, color: FabFilterColors.textTertiary)),
             Text('Peak: ${(selected.peakLevel * 100).toStringAsFixed(0)}%',
-              style: const TextStyle(fontSize: 10, color: FabFilterColors.textTertiary)),
+              style: FluxForgeTheme.dockMono(size: 10, color: FabFilterColors.textTertiary)),
             Text('RMS: ${(selected.rmsLevel * 100).toStringAsFixed(0)}%',
-              style: const TextStyle(fontSize: 10, color: FabFilterColors.textTertiary)),
+              style: FluxForgeTheme.dockMono(size: 10, color: FabFilterColors.textTertiary)),
             if (selected.isSend)
               Text('Sent: ${selected.packetsSent}',
-                style: const TextStyle(fontSize: 10, color: FabFilterColors.textTertiary)),
+                style: FluxForgeTheme.dockMono(size: 10, color: FabFilterColors.textTertiary)),
             if (selected.isReceive)
               Text('Received: ${selected.packetsReceived}',
-                style: const TextStyle(fontSize: 10, color: FabFilterColors.textTertiary)),
+                style: FluxForgeTheme.dockMono(size: 10, color: FabFilterColors.textTertiary)),
             Text('Lost: ${selected.packetsLost}',
-              style: TextStyle(fontSize: 10,
+              style: FluxForgeTheme.dockMono(size: 10,
                 color: selected.packetsLost > 0 ? FabFilterColors.red : FabFilterColors.textTertiary)),
             const SizedBox(height: 8),
           ],
@@ -454,8 +455,8 @@ class _NetworkAudioPanelState extends State<NetworkAudioPanel> {
           FabSectionLabel('PEERS'),
           const SizedBox(height: 4),
           Row(children: [
-            Text('Discovery: ', style: const TextStyle(
-              fontSize: 10, color: FabFilterColors.textTertiary)),
+            Text('Discovery: ', style: FluxForgeTheme.dockSans(
+              size: 10, color: FabFilterColors.textTertiary)),
             GestureDetector(
               onTap: () => _service.toggleDiscovery(),
               child: Container(
@@ -468,8 +469,8 @@ class _NetworkAudioPanelState extends State<NetworkAudioPanel> {
                   border: Border.all(
                     color: _service.discoveryActive ? FabFilterColors.green : FabFilterColors.border),
                 ),
-                child: Text(_service.discoveryActive ? 'ON' : 'OFF', style: TextStyle(
-                  fontSize: 9, fontWeight: FontWeight.w600,
+                child: Text(_service.discoveryActive ? 'ON' : 'OFF', style: FluxForgeTheme.dockSans(
+                  size: 9, weight: FontWeight.w600,
                   color: _service.discoveryActive ? FabFilterColors.green : FabFilterColors.textTertiary,
                 )),
               ),
@@ -481,7 +482,7 @@ class _NetworkAudioPanelState extends State<NetworkAudioPanel> {
                 ? Center(child: Text(
                     'No peers found.\n\nEnable discovery to\nfind hosts on LAN.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 10, color: FabFilterColors.textTertiary),
+                    style: FluxForgeTheme.dockSans(size: 10, color: FabFilterColors.textTertiary),
                   ))
                 : ListView.builder(
                     padding: EdgeInsets.zero,
@@ -518,16 +519,16 @@ class _NetworkAudioPanelState extends State<NetworkAudioPanel> {
           Expanded(child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(peer.hostname, style: const TextStyle(
-                fontSize: 10, color: FabFilterColors.textPrimary),
+              Text(peer.hostname, style: FluxForgeTheme.dockSans(
+                size: 10, color: FabFilterColors.textPrimary),
                 overflow: TextOverflow.ellipsis),
-              Text('${peer.ipAddress}:${peer.port}', style: const TextStyle(
-                fontSize: 8, color: FabFilterColors.textTertiary)),
+              Text('${peer.ipAddress}:${peer.port}', style: FluxForgeTheme.dockMono(
+                size: 8, color: FabFilterColors.textTertiary)),
             ],
           )),
           if (peer.availableStreams.isNotEmpty)
-            Text('${peer.availableStreams.length}', style: const TextStyle(
-              fontSize: 9, color: FabFilterColors.cyan)),
+            Text('${peer.availableStreams.length}', style: FluxForgeTheme.dockMono(
+              size: 9, color: FabFilterColors.cyan)),
         ]),
       ),
     );
@@ -571,7 +572,7 @@ class _NetworkAudioPanelState extends State<NetworkAudioPanel> {
               Icon(icon, size: 14,
                 color: enabled ? FabFilterColors.textSecondary : FabFilterColors.textDisabled),
               const SizedBox(width: 6),
-              Text(label, style: TextStyle(fontSize: 11,
+              Text(label, style: FluxForgeTheme.dockSans(size: 11,
                 color: enabled ? FabFilterColors.textSecondary : FabFilterColors.textDisabled)),
             ],
           ),

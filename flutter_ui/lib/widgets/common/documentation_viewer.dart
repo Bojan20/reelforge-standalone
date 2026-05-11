@@ -8,6 +8,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/documentation_generator.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Documentation viewer panel
 class DocumentationViewer extends StatefulWidget {
@@ -95,12 +96,12 @@ class _DocumentationViewerState extends State<DocumentationViewer> {
         children: [
           const Icon(Icons.menu_book, color: Color(0xFF4a9eff), size: 20),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'Documentation',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 14,
+              weight: FontWeight.w600,
               color: Colors.white,
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
             ),
           ),
           const Spacer(),
@@ -111,10 +112,10 @@ class _DocumentationViewerState extends State<DocumentationViewer> {
               height: 28,
               child: TextField(
                 controller: _searchController,
-                style: const TextStyle(color: Colors.white, fontSize: 12),
+                style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
                 decoration: InputDecoration(
                   hintText: 'Search...',
-                  hintStyle: const TextStyle(color: Color(0xFF888888)),
+                  hintStyle: FluxForgeTheme.dockSans(color: const Color(0xFF888888)),
                   prefixIcon: const Icon(Icons.search, size: 16, color: Color(0xFF888888)),
                   filled: true,
                   fillColor: const Color(0xFF0a0a0c),
@@ -137,10 +138,10 @@ class _DocumentationViewerState extends State<DocumentationViewer> {
               ),
               child: Text(
                 '${widget.manifest!.stats['total'] ?? 0} items',
-                style: const TextStyle(
-                  color: Color(0xFF4a9eff),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  weight: FontWeight.w500,
+                  color: const Color(0xFF4a9eff),
                 ),
               ),
             ),
@@ -181,9 +182,9 @@ class _DocumentationViewerState extends State<DocumentationViewer> {
             const SizedBox(width: 4),
             Text(
               label,
-              style: const TextStyle(
-                color: Color(0xFF888888),
-                fontSize: 11,
+              style: FluxForgeTheme.dockSans(
+                size: 11,
+                color: const Color(0xFF888888),
               ),
             ),
           ],
@@ -205,17 +206,17 @@ class _DocumentationViewerState extends State<DocumentationViewer> {
           const SizedBox(height: 16),
           Text(
             'No documentation generated',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 14,
               color: Colors.white.withValues(alpha: 0.5),
-              fontSize: 14,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Click "Generate" to scan the codebase',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 12,
               color: Colors.white.withValues(alpha: 0.3),
-              fontSize: 12,
             ),
           ),
           const SizedBox(height: 24),
@@ -248,18 +249,18 @@ class _DocumentationViewerState extends State<DocumentationViewer> {
               children: [
                 Text(
                   manifest.projectName,
-                  style: const TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 13,
+                    weight: FontWeight.w600,
                     color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   'v${manifest.version}',
-                  style: const TextStyle(
-                    color: Color(0xFF888888),
-                    fontSize: 11,
+                  style: FluxForgeTheme.dockSans(
+                    size: 11,
+                    color: const Color(0xFF888888),
                   ),
                 ),
               ],
@@ -292,10 +293,10 @@ class _DocumentationViewerState extends State<DocumentationViewer> {
     return ExpansionTile(
       title: Text(
         section.title,
-        style: TextStyle(
+        style: FluxForgeTheme.dockSans(
+          size: 12,
+          weight: FontWeight.w500,
           color: isSelected ? const Color(0xFF4a9eff) : Colors.white,
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
         ),
       ),
       leading: Icon(
@@ -311,9 +312,9 @@ class _DocumentationViewerState extends State<DocumentationViewer> {
         ),
         child: Text(
           '${section.entries.length}',
-          style: const TextStyle(
-            color: Color(0xFF888888),
-            fontSize: 10,
+          style: FluxForgeTheme.dockMono(
+            size: 10,
+            color: const Color(0xFF888888),
           ),
         ),
       ),
@@ -331,9 +332,9 @@ class _DocumentationViewerState extends State<DocumentationViewer> {
       selectedTileColor: const Color(0xFF4a9eff).withValues(alpha: 0.1),
       title: Text(
         entry.name,
-        style: TextStyle(
+        style: FluxForgeTheme.dockSans(
+          size: 11,
           color: isSelected ? const Color(0xFF4a9eff) : Colors.white,
-          fontSize: 11,
         ),
       ),
       onTap: () {
@@ -353,7 +354,7 @@ class _DocumentationViewerState extends State<DocumentationViewer> {
         padding: const EdgeInsets.all(16),
         child: Text(
           'No results for "$_searchQuery"',
-          style: const TextStyle(color: Color(0xFF888888), fontSize: 12),
+          style: FluxForgeTheme.dockSans(size: 12, color: const Color(0xFF888888)),
         ),
       );
     }
@@ -365,7 +366,7 @@ class _DocumentationViewerState extends State<DocumentationViewer> {
           padding: const EdgeInsets.all(12),
           child: Text(
             '${results.length} results',
-            style: const TextStyle(color: Color(0xFF888888), fontSize: 11),
+            style: FluxForgeTheme.dockSans(size: 11, color: const Color(0xFF888888)),
           ),
         ),
         ...results.map((e) => ListTile(
@@ -379,11 +380,11 @@ class _DocumentationViewerState extends State<DocumentationViewer> {
               ),
               title: Text(
                 e.name,
-                style: const TextStyle(color: Colors.white, fontSize: 11),
+                style: FluxForgeTheme.dockSans(size: 11, color: Colors.white),
               ),
               subtitle: Text(
                 e.type.name,
-                style: const TextStyle(color: Color(0xFF888888), fontSize: 10),
+                style: FluxForgeTheme.dockSans(size: 10, color: const Color(0xFF888888)),
               ),
               onTap: () => setState(() => _selectedEntry = e),
             )),
@@ -405,9 +406,9 @@ class _DocumentationViewerState extends State<DocumentationViewer> {
             const SizedBox(height: 12),
             Text(
               'Select an item from the sidebar',
-              style: TextStyle(
+              style: FluxForgeTheme.dockSans(
+                size: 13,
                 color: Colors.white.withValues(alpha: 0.5),
-                fontSize: 13,
               ),
             ),
           ],
@@ -437,19 +438,19 @@ class _DocumentationViewerState extends State<DocumentationViewer> {
                   children: [
                     SelectableText(
                       entry.name,
-                      style: const TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 20,
+                        weight: FontWeight.w600,
                         color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       entry.type.name.toUpperCase(),
-                      style: const TextStyle(
-                        color: Color(0xFF888888),
-                        fontSize: 11,
+                      style: FluxForgeTheme.dockSans(
+                        size: 11,
                         letterSpacing: 1,
+                        color: const Color(0xFF888888),
                       ),
                     ),
                   ],
@@ -509,10 +510,10 @@ class _DocumentationViewerState extends State<DocumentationViewer> {
         children: [
           Text(
             title,
-            style: const TextStyle(
-              color: Color(0xFF888888),
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.w500,
+              color: const Color(0xFF888888),
             ),
           ),
           const SizedBox(height: 8),
@@ -526,17 +527,16 @@ class _DocumentationViewerState extends State<DocumentationViewer> {
               ),
               child: SelectableText(
                 content,
-                style: const TextStyle(
-                  color: Color(0xFF40ff90),
-                  fontFamily: 'SF Mono',
-                  fontSize: 12,
+                style: FluxForgeTheme.dockMono(
+                  size: 12,
+                  color: const Color(0xFF40ff90),
                 ),
               ),
             )
           else
             SelectableText(
               content,
-              style: const TextStyle(color: Colors.white, fontSize: 13),
+              style: FluxForgeTheme.dockSans(size: 13, color: Colors.white),
             ),
         ],
       ),
@@ -549,12 +549,12 @@ class _DocumentationViewerState extends State<DocumentationViewer> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Tags',
-            style: TextStyle(
-              color: Color(0xFF888888),
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.w500,
+              color: const Color(0xFF888888),
             ),
           ),
           const SizedBox(height: 8),
@@ -569,9 +569,9 @@ class _DocumentationViewerState extends State<DocumentationViewer> {
                   ),
                   child: Text(
                     t,
-                    style: const TextStyle(
-                      color: Color(0xFF4a9eff),
-                      fontSize: 11,
+                    style: FluxForgeTheme.dockSans(
+                      size: 11,
+                      color: const Color(0xFF4a9eff),
                     ),
                   ),
                 )).toList(),
@@ -587,12 +587,12 @@ class _DocumentationViewerState extends State<DocumentationViewer> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Parameters',
-            style: TextStyle(
-              color: Color(0xFF888888),
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.w500,
+              color: const Color(0xFF888888),
             ),
           ),
           const SizedBox(height: 8),
@@ -609,10 +609,9 @@ class _DocumentationViewerState extends State<DocumentationViewer> {
                       ),
                       child: Text(
                         e.key,
-                        style: const TextStyle(
-                          color: Color(0xFFff9040),
-                          fontFamily: 'SF Mono',
-                          fontSize: 11,
+                        style: FluxForgeTheme.dockMono(
+                          size: 11,
+                          color: const Color(0xFFff9040),
                         ),
                       ),
                     ),
@@ -620,7 +619,7 @@ class _DocumentationViewerState extends State<DocumentationViewer> {
                     Expanded(
                       child: Text(
                         e.value,
-                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                        style: FluxForgeTheme.dockSans(size: 12, color: Colors.white),
                       ),
                     ),
                   ],
@@ -637,12 +636,12 @@ class _DocumentationViewerState extends State<DocumentationViewer> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Examples',
-            style: TextStyle(
-              color: Color(0xFF888888),
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
+            style: FluxForgeTheme.dockSans(
+              size: 11,
+              weight: FontWeight.w500,
+              color: const Color(0xFF888888),
             ),
           ),
           const SizedBox(height: 8),
@@ -656,10 +655,9 @@ class _DocumentationViewerState extends State<DocumentationViewer> {
                 ),
                 child: SelectableText(
                   e,
-                  style: const TextStyle(
-                    color: Color(0xFF40c8ff),
-                    fontFamily: 'SF Mono',
-                    fontSize: 11,
+                  style: FluxForgeTheme.dockMono(
+                    size: 11,
+                    color: const Color(0xFF40c8ff),
                   ),
                 ),
               )),

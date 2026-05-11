@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../providers/dsp_chain_provider.dart';
+import '../../theme/fluxforge_theme.dart';
 import 'fabfilter_theme.dart';
 import 'fabfilter_knob.dart';
 import 'fabfilter_panel_base.dart';
@@ -738,11 +739,10 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
                     ),
                     child: Text(
                       '${_ratio.toStringAsFixed(1)}:1  ${_threshold.toStringAsFixed(0)}dB',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockMono(
                         color: FabFilterProcessorColors.compAccent,
-                        fontSize: 8, fontWeight: FontWeight.bold,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
+                        size: 8, weight: FontWeight.bold,
+                      ).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
                     ),
                   ),
                 ),
@@ -755,9 +755,9 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
                       if (_knee > 0.5)
                         Text(
                           'K ${_knee.toStringAsFixed(0)}dB',
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockMono(
                             color: FabFilterProcessorColors.compKnee.withValues(alpha: 0.6),
-                            fontSize: 7, fontWeight: FontWeight.bold,
+                            size: 7, weight: FontWeight.bold,
                           ),
                         ),
                       if (_knee > 0.5 && _lookahead > 0.1)
@@ -765,9 +765,9 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
                       if (_lookahead > 0.1)
                         Text(
                           'LA ${_lookahead.toStringAsFixed(1)}ms',
-                          style: TextStyle(
+                          style: FluxForgeTheme.dockMono(
                             color: FabFilterColors.cyan.withValues(alpha: 0.6),
-                            fontSize: 7, fontWeight: FontWeight.bold,
+                            size: 7, weight: FontWeight.bold,
                           ),
                         ),
                     ],
@@ -779,9 +779,9 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
                     right: 4, bottom: 3,
                     child: Text(
                       'MIX ${_mix.toStringAsFixed(0)}%',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockMono(
                         color: FabFilterColors.blue.withValues(alpha: 0.6),
-                        fontSize: 7, fontWeight: FontWeight.bold,
+                        size: 7, weight: FontWeight.bold,
                       ),
                     ),
                   ),
@@ -791,9 +791,9 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
                     left: 4, top: 3,
                     child: Text(
                       '↩${_undoStack.length}',
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockMono(
                         color: FabFilterColors.textTertiary.withValues(alpha: 0.4),
-                        fontSize: 6, fontWeight: FontWeight.bold,
+                        size: 6, weight: FontWeight.bold,
                       ),
                     ),
                   ),
@@ -854,9 +854,9 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
                               color: FabFilterColors.purple.withValues(alpha: 0.25),
                               borderRadius: BorderRadius.circular(3),
                             ),
-                            child: Text('SC LISTEN', style: TextStyle(
+                            child: Text('SC LISTEN', style: FluxForgeTheme.dockSans(
                               color: FabFilterColors.purple,
-                              fontSize: 6, fontWeight: FontWeight.bold,
+                              size: 6, weight: FontWeight.bold,
                             )),
                           ),
                         ),
@@ -876,16 +876,16 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
                       ),
                     ),
                     child: RichText(text: TextSpan(
-                      style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold,
-                        fontFeatures: [FontFeature.tabularFigures()]),
+                      style: FluxForgeTheme.dockMono(size: 8, weight: FontWeight.bold)
+                          .copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
                       children: [
                         TextSpan(
                           text: 'GR ${_grCurrent.toStringAsFixed(1)}',
-                          style: TextStyle(color: FabFilterProcessorColors.compGainReduction),
+                          style: FluxForgeTheme.dockMono(color: FabFilterProcessorColors.compGainReduction),
                         ),
                         TextSpan(
                           text: '  pk ${_grPeakHold.toStringAsFixed(1)}',
-                          style: TextStyle(color: FabFilterColors.textTertiary),
+                          style: FluxForgeTheme.dockMono(color: FabFilterColors.textTertiary),
                         ),
                       ],
                     )),
@@ -905,9 +905,9 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
                           color: FabFilterColors.textTertiary.withValues(alpha: 0.3),
                         ),
                       ),
-                      child: Text('RST', style: TextStyle(
+                      child: Text('RST', style: FluxForgeTheme.dockSans(
                         color: FabFilterColors.textTertiary,
-                        fontSize: 6, fontWeight: FontWeight.bold,
+                        size: 6, weight: FontWeight.bold,
                       )),
                     ),
                   ),
@@ -926,19 +926,18 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
                         ),
                         child: Text(
                           ['PEAK', 'RMS', 'HYB'][_detection],
-                          style: TextStyle(
-                            color: FabFilterColors.cyan, fontSize: 7, fontWeight: FontWeight.bold,
+                          style: FluxForgeTheme.dockSans(
+                            color: FabFilterColors.cyan, size: 7, weight: FontWeight.bold,
                           ),
                         ),
                       ),
                       const SizedBox(width: 3),
                       Text(
                         _style.label.toUpperCase(),
-                        style: TextStyle(
+                        style: FluxForgeTheme.dockSans(
                           color: FabFilterProcessorColors.compAccent.withValues(alpha: 0.5),
-                          fontSize: 7, fontWeight: FontWeight.bold,
-                        ),
-                        overflow: TextOverflow.ellipsis,
+                          size: 7, weight: FontWeight.bold,
+                        ).copyWith(overflow: TextOverflow.ellipsis),
                       ),
                     ],
                   ),
@@ -992,9 +991,9 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
                 Icon(s.icon, size: 12,
                   color: active ? FabFilterProcessorColors.compAccent : FabFilterColors.textTertiary),
                 const SizedBox(width: 3),
-                Text(s.label, style: TextStyle(
+                Text(s.label, style: FluxForgeTheme.dockSans(
                   color: active ? FabFilterProcessorColors.compAccent : FabFilterColors.textSecondary,
-                  fontSize: 9, fontWeight: active ? FontWeight.bold : FontWeight.w500,
+                  size: 9, weight: active ? FontWeight.bold : FontWeight.w500,
                 ), overflow: TextOverflow.ellipsis),
               ],
             ),
@@ -1040,8 +1039,8 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
           children: [
             Icon(_character.icon, size: 12, color: _character.color),
             const SizedBox(width: 3),
-            Text(_character.label, style: TextStyle(
-              color: _character.color, fontSize: 9, fontWeight: FontWeight.bold,
+            Text(_character.label, style: FluxForgeTheme.dockSans(
+              color: _character.color, size: 9, weight: FontWeight.bold,
             ), overflow: TextOverflow.ellipsis),
           ],
         ),
@@ -1093,19 +1092,17 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
                 children: [
                   Text(
                     'CF ${_crestFactor.toStringAsFixed(0)}',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockMono(
                       color: FabFilterColors.yellow.withValues(alpha: 0.7),
-                      fontSize: 6, fontWeight: FontWeight.bold,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
+                      size: 6, weight: FontWeight.bold,
+                    ).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
                   ),
                   Text(
                     'LU ${_lufsApprox.toStringAsFixed(0)}',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockMono(
                       color: FabFilterColors.green.withValues(alpha: 0.7),
-                      fontSize: 6, fontWeight: FontWeight.bold,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
+                      size: 6, weight: FontWeight.bold,
+                    ).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
                   ),
                 ],
               ),
@@ -1115,21 +1112,19 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
                 children: [
                   Text(
                     'DR ${_dynamicRange.toStringAsFixed(0)}',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockMono(
                       color: FabFilterColors.cyan.withValues(alpha: 0.7),
-                      fontSize: 6, fontWeight: FontWeight.bold,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
+                      size: 6, weight: FontWeight.bold,
+                    ).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
                   ),
                   Text(
                     'SC ${_stereoCorrelation.toStringAsFixed(1)}',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockMono(
                       color: _stereoCorrelation < 0
                           ? FabFilterColors.red.withValues(alpha: 0.8)
                           : FabFilterColors.blue.withValues(alpha: 0.7),
-                      fontSize: 6, fontWeight: FontWeight.bold,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
+                      size: 6, weight: FontWeight.bold,
+                    ).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
                   ),
                 ],
               ),
@@ -1352,7 +1347,7 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(label, style: FabFilterText.paramLabel.copyWith(fontSize: 7)),
-              Text(display, style: TextStyle(color: color, fontSize: 7)),
+              Text(display, style: FluxForgeTheme.dockMono(color: color, size: 7)),
             ],
           )),
         ],
@@ -1497,8 +1492,8 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
           children: [
             Icon(Icons.library_music, size: 10, color: widget.accentColor),
             const SizedBox(width: 3),
-            Text('PRE', style: TextStyle(
-              color: widget.accentColor, fontSize: 8, fontWeight: FontWeight.bold,
+            Text('PRE', style: FluxForgeTheme.dockSans(
+              color: widget.accentColor, size: 8, weight: FontWeight.bold,
             )),
           ],
         ),
@@ -1509,16 +1504,16 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
           // Category header
           items.add(PopupMenuItem<_CompPreset>(
             enabled: false, height: 20,
-            child: Text(cat.key.toUpperCase(), style: TextStyle(
+            child: Text(cat.key.toUpperCase(), style: FluxForgeTheme.dockSans(
               color: widget.accentColor.withValues(alpha: 0.6),
-              fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1,
+              size: 9, weight: FontWeight.bold, letterSpacing: 1,
             )),
           ));
           for (final p in cat.value) {
             items.add(PopupMenuItem<_CompPreset>(
               value: p, height: 28,
-              child: Text(p.name, style: const TextStyle(
-                color: Colors.white, fontSize: 11,
+              child: Text(p.name, style: FluxForgeTheme.dockSans(
+                color: Colors.white, size: 11,
               )),
             ));
           }

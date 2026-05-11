@@ -138,10 +138,10 @@ class _IntensityCrossfadeWizardState extends State<IntensityCrossfadeWizard> {
           const SizedBox(width: 8),
           Text(
             'Intensity Crossfade Wizard',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 13,
+              weight: FontWeight.w600,
               color: FluxForgeTheme.textPrimary,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
             ),
           ),
           const Spacer(),
@@ -155,7 +155,7 @@ class _IntensityCrossfadeWizardState extends State<IntensityCrossfadeWizard> {
                 if (tpl != null) _applyTemplate(tpl);
               },
               itemBuilder: (ctx) => _service.templateNames
-                  .map((n) => PopupMenuItem(value: n, child: Text(n, style: const TextStyle(fontSize: 12))))
+                  .map((n) => PopupMenuItem(value: n, child: Text(n, style: FluxForgeTheme.dockSans(size: 12))))
                   .toList(),
             ),
         ],
@@ -230,11 +230,10 @@ class _IntensityCrossfadeWizardState extends State<IntensityCrossfadeWizard> {
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Text(
             'Add audio variants ordered from low to high intensity',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 10,
               color: FluxForgeTheme.textTertiary,
-              fontSize: 10,
-              fontStyle: FontStyle.italic,
-            ),
+            ).copyWith(fontStyle: FontStyle.italic),
           ),
         )
       else
@@ -251,19 +250,19 @@ class _IntensityCrossfadeWizardState extends State<IntensityCrossfadeWizard> {
                 children: [
                   Text(
                     '${i + 1}.',
-                    style: TextStyle(
+                    style: FluxForgeTheme.dockSans(
+                      size: 10,
+                      weight: FontWeight.w600,
                       color: Colors.cyan.withValues(alpha: 0.6),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       _variants[i].split('/').last,
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 11,
                         color: FluxForgeTheme.textSecondary,
-                        fontSize: 11,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -304,7 +303,7 @@ class _IntensityCrossfadeWizardState extends State<IntensityCrossfadeWizard> {
         children: [
           Text(
             'Overlap: ${(_overlapPercent * 100).round()}%',
-            style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10),
+            style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary),
           ),
           Expanded(
             child: Slider(
@@ -354,10 +353,10 @@ class _IntensityCrossfadeWizardState extends State<IntensityCrossfadeWizard> {
                   child: Center(
                     child: Text(
                       label,
-                      style: TextStyle(
+                      style: FluxForgeTheme.dockSans(
+                        size: 10,
+                        weight: selected ? FontWeight.w600 : FontWeight.normal,
                         color: selected ? Colors.cyan : FluxForgeTheme.textTertiary,
-                        fontSize: 10,
-                        fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
                       ),
                     ),
                   ),
@@ -377,11 +376,10 @@ class _IntensityCrossfadeWizardState extends State<IntensityCrossfadeWizard> {
       return _section('Live Preview', [
         Text(
           'Add at least 2 variants to see crossfade preview',
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 10,
             color: FluxForgeTheme.textTertiary,
-            fontSize: 10,
-            fontStyle: FontStyle.italic,
-          ),
+          ).copyWith(fontStyle: FontStyle.italic),
         ),
       ]);
     }
@@ -395,7 +393,7 @@ class _IntensityCrossfadeWizardState extends State<IntensityCrossfadeWizard> {
         children: [
           Text(
             _rtpcName,
-            style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10),
+            style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary),
           ),
           Expanded(
             child: Slider(
@@ -411,10 +409,9 @@ class _IntensityCrossfadeWizardState extends State<IntensityCrossfadeWizard> {
             width: 40,
             child: Text(
               _previewValue.toStringAsFixed(1),
-              style: TextStyle(
+              style: FluxForgeTheme.dockMono(
+                size: 10,
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 10,
-                fontFamily: 'monospace',
               ),
               textAlign: TextAlign.right,
             ),
@@ -436,10 +433,10 @@ class _IntensityCrossfadeWizardState extends State<IntensityCrossfadeWizard> {
                 width: 20,
                 child: Text(
                   '${range.index + 1}',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: FontWeight.w600,
                     color: isActive ? Colors.cyan : FluxForgeTheme.textTertiary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -447,9 +444,9 @@ class _IntensityCrossfadeWizardState extends State<IntensityCrossfadeWizard> {
                 flex: 2,
                 child: Text(
                   fileName,
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
                     color: isActive ? FluxForgeTheme.textSecondary : FluxForgeTheme.textTertiary,
-                    fontSize: 10,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -485,10 +482,9 @@ class _IntensityCrossfadeWizardState extends State<IntensityCrossfadeWizard> {
                 width: 35,
                 child: Text(
                   '${(vol * 100).round()}%',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
+                    size: 9,
                     color: isActive ? Colors.cyan : FluxForgeTheme.textTertiary,
-                    fontSize: 9,
-                    fontFamily: 'monospace',
                   ),
                   textAlign: TextAlign.right,
                 ),
@@ -540,13 +536,13 @@ class _IntensityCrossfadeWizardState extends State<IntensityCrossfadeWizard> {
               value: _bus,
               decoration: InputDecoration(
                 labelText: 'Bus',
-                labelStyle: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10),
+                labelStyle: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textTertiary),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 isDense: true,
               ),
               dropdownColor: FluxForgeTheme.bgSurface,
-              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+              style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textSecondary),
               items: ['Master', 'Music', 'SFX', 'Ambience', 'Voice', 'UI']
                   .map((b) => DropdownMenuItem(value: b, child: Text(b)))
                   .toList(),
@@ -577,9 +573,9 @@ class _IntensityCrossfadeWizardState extends State<IntensityCrossfadeWizard> {
           icon: Icon(Icons.bookmark_add, size: 14, color: canGenerate ? Colors.cyan : FluxForgeTheme.textTertiary),
           label: Text(
             'Save Template',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 11,
               color: canGenerate ? Colors.cyan : FluxForgeTheme.textTertiary,
-              fontSize: 11,
             ),
           ),
         ),
@@ -594,7 +590,7 @@ class _IntensityCrossfadeWizardState extends State<IntensityCrossfadeWizard> {
                 }
               : null,
           icon: const Icon(Icons.auto_awesome, size: 14),
-          label: const Text('Generate Event', style: TextStyle(fontSize: 12)),
+          label: Text('Generate Event', style: FluxForgeTheme.dockSans(size: 12)),
           style: ElevatedButton.styleFrom(
             backgroundColor: canGenerate ? Colors.cyan : FluxForgeTheme.bgElevated,
             foregroundColor: canGenerate ? Colors.white : FluxForgeTheme.textTertiary,
@@ -613,10 +609,10 @@ class _IntensityCrossfadeWizardState extends State<IntensityCrossfadeWizard> {
       children: [
         Text(
           title,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: FontWeight.w600,
             color: FluxForgeTheme.textTertiary,
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
             letterSpacing: 0.5,
           ),
         ),
@@ -630,10 +626,10 @@ class _IntensityCrossfadeWizardState extends State<IntensityCrossfadeWizard> {
     return TextField(
       controller: ctrl,
       onChanged: onChanged,
-      style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+      style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textSecondary),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: TextStyle(color: FluxForgeTheme.textTertiary.withValues(alpha: 0.5)),
+        hintStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary.withValues(alpha: 0.5)),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         isDense: true,
@@ -645,13 +641,12 @@ class _IntensityCrossfadeWizardState extends State<IntensityCrossfadeWizard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 9)),
+        Text(label, style: FluxForgeTheme.dockSans(size: 9, color: FluxForgeTheme.textTertiary)),
         Text(
           value.toStringAsFixed(0),
-          style: TextStyle(
+          style: FluxForgeTheme.dockMono(
+            size: 11,
             color: FluxForgeTheme.textSecondary,
-            fontSize: 11,
-            fontFamily: 'monospace',
           ),
         ),
       ],
@@ -673,10 +668,10 @@ class _IntensityCrossfadeWizardState extends State<IntensityCrossfadeWizard> {
         ),
         child: Text(
           label,
-          style: TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 10,
+            weight: value ? FontWeight.w600 : FontWeight.normal,
             color: value ? Colors.cyan : FluxForgeTheme.textTertiary,
-            fontSize: 10,
-            fontWeight: value ? FontWeight.w600 : FontWeight.normal,
           ),
         ),
       ),
@@ -707,21 +702,21 @@ class _IntensityCrossfadeWizardState extends State<IntensityCrossfadeWizard> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: FluxForgeTheme.bgSurface,
-        title: Text('Save Template', style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 14)),
+        title: Text('Save Template', style: FluxForgeTheme.dockSans(size: 14, color: FluxForgeTheme.textPrimary)),
         content: TextField(
           controller: ctrl,
           autofocus: true,
-          style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+          style: FluxForgeTheme.dockSans(size: 12, color: FluxForgeTheme.textSecondary),
           decoration: InputDecoration(
             hintText: 'Template name...',
-            hintStyle: TextStyle(color: FluxForgeTheme.textTertiary),
+            hintStyle: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary),
             border: const OutlineInputBorder(),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: TextStyle(color: FluxForgeTheme.textTertiary)),
+            child: Text('Cancel', style: FluxForgeTheme.dockSans(color: FluxForgeTheme.textTertiary)),
           ),
           TextButton(
             onPressed: () {
@@ -743,7 +738,7 @@ class _IntensityCrossfadeWizardState extends State<IntensityCrossfadeWizard> {
                 Navigator.pop(ctx);
               }
             },
-            child: const Text('Save', style: TextStyle(color: Colors.cyan)),
+            child: Text('Save', style: FluxForgeTheme.dockSans(color: Colors.cyan)),
           ),
         ],
       ),

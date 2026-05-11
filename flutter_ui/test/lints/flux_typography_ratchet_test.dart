@@ -117,7 +117,10 @@ import 'package:flutter_test/flutter_test.dart';
 // Lowered 2026-05-11 (Sprint 15 B.2 batch 13) -237: container_ab_comparison_panel.dart,
 // attenuation_curve_panel.dart, loudness_report_panel.dart, fabfilter_saturation_panel.dart,
 // deconvolution_wizard.dart, video_export_panel.dart, ab_test_panel.dart, ai_composer_panel.dart.
-const int _kRawTextStyleBaseline = 5851;
+// Lowered 2026-05-11 (Sprint 15 B.2 batch 14) -209: documentation_viewer.dart, helix_screen.dart,
+// session_replay_panel.dart, audio_alignment_panel.dart, intensity_crossfade_wizard.dart,
+// network_audio_panel.dart, control_bar.dart, fabfilter_compressor_panel.dart.
+const int _kRawTextStyleBaseline = 5642;
 
 /// Frozen baseline za `fontFamily:` referenca van theme/.
 /// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` `'monospace'`
@@ -155,7 +158,8 @@ const int _kRawTextStyleBaseline = 5851;
 // Lowered 2026-05-11 (Sprint 15 B.2 batch 11) -18.
 // Lowered 2026-05-11 (Sprint 15 B.2 batch 12) -22.
 // Lowered 2026-05-11 (Sprint 15 B.2 batch 13) -14.
-const int _kRawFontFamilyBaseline = 675;
+// Lowered 2026-05-11 (Sprint 15 B.2 batch 14) -28.
+const int _kRawFontFamilyBaseline = 647;
 
 /// Frozen baseline za `fontSize:` referenca van theme/.
 /// Bumped 2026-05-10 (Sprint 10 E.1) +1 za `_ExportClipButton` 9px label
@@ -191,7 +195,8 @@ const int _kRawFontFamilyBaseline = 675;
 // Lowered 2026-05-11 (Sprint 15 B.2 batch 11) -259.
 // Lowered 2026-05-11 (Sprint 15 B.2 batch 12) -176.
 // Lowered 2026-05-11 (Sprint 15 B.2 batch 13) -220.
-const int _kRawFontSizeBaseline = 5698;
+// Lowered 2026-05-11 (Sprint 15 B.2 batch 14) -203.
+const int _kRawFontSizeBaseline = 5495;
 
 const Set<String> _kExcludedPathPrefixes = <String>{
   'theme/',

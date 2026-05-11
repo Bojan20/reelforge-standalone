@@ -13,6 +13,7 @@ import 'package:flutter/services.dart';
 
 import '../../models/session_replay_models.dart';
 import '../../services/session_replay_service.dart';
+import '../../theme/fluxforge_theme.dart';
 
 /// Main session replay panel widget
 class SessionReplayPanel extends StatefulWidget {
@@ -107,12 +108,12 @@ class _SessionReplayPanelState extends State<SessionReplayPanel> {
         children: [
           const Icon(Icons.videocam, color: Color(0xFF4A9EFF), size: 20),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             'SESSION REPLAY',
-            style: TextStyle(
+            style: FluxForgeTheme.dockSans(
+              size: 12,
+              weight: FontWeight.w600,
               color: Colors.white70,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
               letterSpacing: 1.2,
             ),
           ),
@@ -168,10 +169,10 @@ class _SessionReplayPanelState extends State<SessionReplayPanel> {
         const SizedBox(width: 6),
         Text(
           title,
-          style: const TextStyle(
+          style: FluxForgeTheme.dockSans(
+            size: 11,
+            weight: FontWeight.w600,
             color: Colors.white54,
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
             letterSpacing: 1.0,
           ),
         ),
@@ -252,10 +253,9 @@ class _SessionReplayPanelState extends State<SessionReplayPanel> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+        Text(label, style: FluxForgeTheme.dockSans(size: 12, color: Colors.white54)),
         Text(value,
-            style: const TextStyle(
-                color: Colors.white, fontSize: 12, fontFamily: 'monospace')),
+            style: FluxForgeTheme.dockMono(size: 12, color: Colors.white)),
       ],
     );
   }
@@ -290,7 +290,7 @@ class _SessionReplayPanelState extends State<SessionReplayPanel> {
           children: [
             const Icon(Icons.error_outline, color: Color(0xFFFF4060), size: 48),
             const SizedBox(height: 12),
-            Text(_errorMessage!, style: const TextStyle(color: Colors.white54)),
+            Text(_errorMessage!, style: FluxForgeTheme.dockSans(color: Colors.white54)),
             const SizedBox(height: 12),
             TextButton(
               onPressed: () {
@@ -305,17 +305,17 @@ class _SessionReplayPanelState extends State<SessionReplayPanel> {
     }
 
     if (_savedSessions.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.videocam_off, color: Colors.white24, size: 48),
-            SizedBox(height: 12),
+            const Icon(Icons.videocam_off, color: Colors.white24, size: 48),
+            const SizedBox(height: 12),
             Text('No recorded sessions',
-                style: TextStyle(color: Colors.white54)),
-            SizedBox(height: 4),
+                style: FluxForgeTheme.dockSans(color: Colors.white54)),
+            const SizedBox(height: 4),
             Text('Start recording to capture sessions',
-                style: TextStyle(color: Colors.white38, fontSize: 12)),
+                style: FluxForgeTheme.dockSans(size: 12, color: Colors.white38)),
           ],
         ),
       );
@@ -369,12 +369,12 @@ class _SessionReplayPanelState extends State<SessionReplayPanel> {
               children: [
                 Text(
                   session.gameName.isNotEmpty ? session.gameName : session.gameId,
-                  style: const TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.w600),
+                  style: FluxForgeTheme.dockSans(
+                      weight: FontWeight.w600, color: Colors.white),
                 ),
                 Text(
                   '${session.spinCount} spins • ${_formatDuration(session.duration)}',
-                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  style: FluxForgeTheme.dockSans(size: 12, color: Colors.white54),
                 ),
               ],
             ),
@@ -421,12 +421,11 @@ class _SessionReplayPanelState extends State<SessionReplayPanel> {
           children: [
             Text(
               'Spin ${position.spinIndex + 1} / ${_replay.totalSpins}',
-              style: const TextStyle(color: Colors.white70, fontSize: 12),
+              style: FluxForgeTheme.dockSans(size: 12, color: Colors.white70),
             ),
             Text(
               '${(position.progress * 100).toStringAsFixed(1)}%',
-              style: const TextStyle(
-                  color: Color(0xFF4A9EFF), fontSize: 12, fontFamily: 'monospace'),
+              style: FluxForgeTheme.dockMono(size: 12, color: const Color(0xFF4A9EFF)),
             ),
           ],
         ),
@@ -692,10 +691,10 @@ class _RecordingIndicatorState extends State<_RecordingIndicator>
         const SizedBox(width: 8),
         Text(
           'REC • ${widget.spinCount} spins',
-          style: const TextStyle(
-            color: Color(0xFFFF4060),
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
+          style: FluxForgeTheme.dockSans(
+            size: 12,
+            weight: FontWeight.w600,
+            color: const Color(0xFFFF4060),
           ),
         ),
       ],
@@ -716,10 +715,10 @@ class _PlaybackIndicator extends StatelessWidget {
         const SizedBox(width: 4),
         Text(
           'PLAYING • Spin ${position.spinIndex + 1}',
-          style: const TextStyle(
-            color: Color(0xFF40FF90),
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
+          style: FluxForgeTheme.dockSans(
+            size: 12,
+            weight: FontWeight.w600,
+            color: const Color(0xFF40FF90),
           ),
         ),
       ],
@@ -752,7 +751,7 @@ class _QuickActionButton extends StatelessWidget {
             children: [
               Icon(icon, color: Colors.white54, size: 18),
               const SizedBox(width: 10),
-              Text(label, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+              Text(label, style: FluxForgeTheme.dockSans(size: 13, color: Colors.white70)),
             ],
           ),
         ),
@@ -804,20 +803,20 @@ class _SessionCard extends StatelessWidget {
                   children: [
                     Text(
                       summary.gameName.isNotEmpty ? summary.gameName : summary.gameId,
-                      style: const TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.w500),
+                      style: FluxForgeTheme.dockSans(
+                          weight: FontWeight.w500, color: Colors.white),
                     ),
                     const SizedBox(height: 2),
                     Row(
                       children: [
                         Text(
                           '${summary.spinCount} spins',
-                          style: const TextStyle(color: Colors.white54, fontSize: 12),
+                          style: FluxForgeTheme.dockSans(size: 12, color: Colors.white54),
                         ),
-                        const Text(' • ', style: TextStyle(color: Colors.white38)),
+                        Text(' • ', style: FluxForgeTheme.dockSans(color: Colors.white38)),
                         Text(
                           _formatDate(summary.startedAt),
-                          style: const TextStyle(color: Colors.white38, fontSize: 12),
+                          style: FluxForgeTheme.dockSans(size: 12, color: Colors.white38),
                         ),
                       ],
                     ),
@@ -833,8 +832,8 @@ class _SessionCard extends StatelessWidget {
                     color: const Color(0xFF40FF90).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: const Text('FS',
-                      style: TextStyle(color: Color(0xFF40FF90), fontSize: 10)),
+                  child: Text('FS',
+                      style: FluxForgeTheme.dockSans(size: 10, color: const Color(0xFF40FF90))),
                 ),
               if (summary.hasJackpot)
                 Container(
@@ -844,8 +843,8 @@ class _SessionCard extends StatelessWidget {
                     color: const Color(0xFFFFD700).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: const Text('JP',
-                      style: TextStyle(color: Color(0xFFFFD700), fontSize: 10)),
+                  child: Text('JP',
+                      style: FluxForgeTheme.dockSans(size: 10, color: const Color(0xFFFFD700))),
                 ),
               // Actions
               IconButton(
@@ -923,10 +922,9 @@ class _SpinListItem extends StatelessWidget {
                 width: 40,
                 child: Text(
                   '#${spin.spinIndex + 1}',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockMono(
+                    size: 12,
                     color: isPast ? Colors.white54 : Colors.white70,
-                    fontFamily: 'monospace',
-                    fontSize: 12,
                   ),
                 ),
               ),
@@ -936,9 +934,9 @@ class _SpinListItem extends StatelessWidget {
                   spin.isWin
                       ? '+${spin.winAmount.toStringAsFixed(2)}'
                       : 'No win',
-                  style: TextStyle(
+                  style: FluxForgeTheme.dockSans(
                     color: spin.isWin ? const Color(0xFF40FF90) : Colors.white38,
-                    fontWeight: spin.isWin ? FontWeight.w600 : FontWeight.normal,
+                    weight: spin.isWin ? FontWeight.w600 : FontWeight.normal,
                   ),
                 ),
               ),
@@ -946,7 +944,7 @@ class _SpinListItem extends StatelessWidget {
               if (spin.isWin)
                 Text(
                   '${spin.winRatio.toStringAsFixed(1)}x',
-                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  style: FluxForgeTheme.dockSans(size: 12, color: Colors.white54),
                 ),
               // Feature/Jackpot badges
               if (spin.hasFeature)
@@ -957,8 +955,8 @@ class _SpinListItem extends StatelessWidget {
                     color: const Color(0xFF40FF90).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(3),
                   ),
-                  child: const Text('FS',
-                      style: TextStyle(color: Color(0xFF40FF90), fontSize: 9)),
+                  child: Text('FS',
+                      style: FluxForgeTheme.dockSans(size: 9, color: const Color(0xFF40FF90))),
                 ),
               if (spin.hasJackpot)
                 Container(
@@ -968,8 +966,8 @@ class _SpinListItem extends StatelessWidget {
                     color: const Color(0xFFFFD700).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(3),
                   ),
-                  child: const Text('JP',
-                      style: TextStyle(color: Color(0xFFFFD700), fontSize: 9)),
+                  child: Text('JP',
+                      style: FluxForgeTheme.dockSans(size: 9, color: const Color(0xFFFFD700))),
                 ),
             ],
           ),
@@ -997,10 +995,10 @@ class _StatBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(label,
-              style: const TextStyle(color: Colors.white38, fontSize: 9)),
+              style: FluxForgeTheme.dockSans(size: 9, color: Colors.white38)),
           Text(value,
-              style: const TextStyle(
-                  color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+              style: FluxForgeTheme.dockSans(
+                  size: 12, weight: FontWeight.w600, color: Colors.white)),
         ],
       ),
     );
@@ -1031,7 +1029,7 @@ class _SpeedSelector extends StatelessWidget {
             const Icon(Icons.speed, color: Colors.white54, size: 16),
             const SizedBox(width: 6),
             Text(speed.label,
-                style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                style: FluxForgeTheme.dockSans(size: 12, color: Colors.white70)),
             const Icon(Icons.arrow_drop_down, color: Colors.white54, size: 18),
           ],
         ),

@@ -95,11 +95,11 @@ class AudioAlignmentPanel extends StatelessWidget {
           value: provider.activeSession?.id,
           hint: Text(
             'Select Session',
-            style: TextStyle(fontSize: 11, color: FluxForgeTheme.textSecondary),
+            style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textSecondary),
           ),
           isDense: true,
           dropdownColor: FluxForgeTheme.bgElevated,
-          style: const TextStyle(fontSize: 11, color: FluxForgeTheme.textPrimary),
+          style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textPrimary),
           items: provider.sessions.map((s) => DropdownMenuItem(
             value: s.id,
             child: Text(s.name),
@@ -127,7 +127,7 @@ class AudioAlignmentPanel extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               label,
-              style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary),
+              style: FluxForgeTheme.dockSans(size: 10, color: FluxForgeTheme.textSecondary),
             ),
           ],
         ),
@@ -148,17 +148,17 @@ class AudioAlignmentPanel extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             'No Alignment Session',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
+            style: FluxForgeTheme.dockSans(
+              size: 14,
+              weight: FontWeight.w500,
               color: FluxForgeTheme.textSecondary,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Create a new session to align audio clips',
-            style: TextStyle(
-              fontSize: 12,
+            style: FluxForgeTheme.dockSans(
+              size: 12,
               color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
             ),
           ),
@@ -218,9 +218,9 @@ class AudioAlignmentPanel extends StatelessWidget {
             children: [
               Text(
                 session.name,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockSans(
+                  size: 12,
+                  weight: FontWeight.w600,
                   color: FluxForgeTheme.textPrimary,
                 ),
               ),
@@ -318,9 +318,9 @@ class AudioAlignmentPanel extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: TextStyle(
-          fontSize: 9,
-          fontWeight: FontWeight.w500,
+        style: FluxForgeTheme.dockSans(
+          size: 9,
+          weight: FontWeight.w500,
           color: color,
         ),
       ),
@@ -330,9 +330,9 @@ class AudioAlignmentPanel extends StatelessWidget {
   Widget _buildSectionHeader(String title) {
     return Text(
       title,
-      style: TextStyle(
-        fontSize: 10,
-        fontWeight: FontWeight.w600,
+      style: FluxForgeTheme.dockSans(
+        size: 10,
+        weight: FontWeight.w600,
         color: FluxForgeTheme.textSecondary,
         letterSpacing: 0.5,
       ),
@@ -363,9 +363,9 @@ class AudioAlignmentPanel extends StatelessWidget {
             ),
             child: Text(
               _getAlgorithmName(algo),
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              style: FluxForgeTheme.dockSans(
+                size: 10,
+                weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 color: isSelected ? _accentColor : FluxForgeTheme.textSecondary,
               ),
             ),
@@ -400,9 +400,9 @@ class AudioAlignmentPanel extends StatelessWidget {
               child: Center(
                 child: Text(
                   quality.name[0].toUpperCase() + quality.name.substring(1),
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  style: FluxForgeTheme.dockSans(
+                    size: 10,
+                    weight: isSelected ? FontWeight.w600 : FontWeight.normal,
                     color: isSelected ? _accentColor : FluxForgeTheme.textSecondary,
                   ),
                 ),
@@ -438,8 +438,8 @@ class AudioAlignmentPanel extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               label,
-              style: TextStyle(
-                fontSize: 11,
+              style: FluxForgeTheme.dockSans(
+                size: 11,
                 color: value ? FluxForgeTheme.textPrimary : FluxForgeTheme.textSecondary,
               ),
             ),
@@ -457,13 +457,13 @@ class AudioAlignmentPanel extends StatelessWidget {
           children: [
             Text(
               'Strength',
-              style: TextStyle(fontSize: 11, color: FluxForgeTheme.textSecondary),
+              style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textSecondary),
             ),
             Text(
               '${(session.alignmentStrength * 100).toInt()}%',
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockMono(
+                size: 11,
+                weight: FontWeight.w600,
                 color: _accentColor,
               ),
             ),
@@ -521,13 +521,13 @@ class AudioAlignmentPanel extends StatelessWidget {
         children: [
           Text(
             label,
-            style: TextStyle(fontSize: 11, color: FluxForgeTheme.textSecondary),
+            style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textSecondary),
           ),
           Text(
             value,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+            style: FluxForgeTheme.dockMono(
+              size: 11,
+              weight: FontWeight.w600,
               color: valueColor,
             ),
           ),
@@ -565,9 +565,9 @@ class AudioAlignmentPanel extends StatelessWidget {
                       const SizedBox(width: 6),
                       Text(
                         'Guide (Reference)',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
+                        style: FluxForgeTheme.dockSans(
+                          size: 10,
+                          weight: FontWeight.w600,
                           color: FluxForgeTheme.accentBlue,
                         ),
                       ),
@@ -578,8 +578,8 @@ class AudioAlignmentPanel extends StatelessWidget {
                   child: Center(
                     child: Text(
                       'Guide: ${session.guideClipId}',
-                      style: TextStyle(
-                        fontSize: 11,
+                      style: FluxForgeTheme.dockSans(
+                        size: 11,
                         color: FluxForgeTheme.textSecondary,
                       ),
                     ),
@@ -616,9 +616,9 @@ class AudioAlignmentPanel extends StatelessWidget {
                       const SizedBox(width: 6),
                       Text(
                         'Dub (To Align)',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
+                        style: FluxForgeTheme.dockSans(
+                          size: 10,
+                          weight: FontWeight.w600,
                           color: _accentColor,
                         ),
                       ),
@@ -632,8 +632,8 @@ class AudioAlignmentPanel extends StatelessWidget {
                   child: Center(
                     child: Text(
                       'Dub: ${session.dubClipId}',
-                      style: TextStyle(
-                        fontSize: 11,
+                      style: FluxForgeTheme.dockSans(
+                        size: 11,
                         color: FluxForgeTheme.textSecondary,
                       ),
                     ),
@@ -657,9 +657,9 @@ class AudioAlignmentPanel extends StatelessWidget {
             children: [
               Text(
                 'ALIGNMENT POINTS',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockSans(
+                  size: 10,
+                  weight: FontWeight.w600,
                   color: FluxForgeTheme.textSecondary,
                   letterSpacing: 0.5,
                 ),
@@ -667,9 +667,9 @@ class AudioAlignmentPanel extends StatelessWidget {
               const Spacer(),
               Text(
                 '${session.alignmentPoints.length}',
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+                style: FluxForgeTheme.dockMono(
+                  size: 11,
+                  weight: FontWeight.w600,
                   color: _accentColor,
                 ),
               ),
@@ -683,8 +683,8 @@ class AudioAlignmentPanel extends StatelessWidget {
                   child: Text(
                     'No points yet\nRun analysis first',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 11,
+                    style: FluxForgeTheme.dockSans(
+                      size: 11,
                       color: FluxForgeTheme.textSecondary.withValues(alpha: 0.7),
                     ),
                   ),
@@ -731,15 +731,15 @@ class AudioAlignmentPanel extends StatelessWidget {
               children: [
                 Text(
                   '${point.guidePosition} → ${point.dubPosition}',
-                  style: const TextStyle(
-                    fontSize: 10,
+                  style: FluxForgeTheme.dockMono(
+                    size: 10,
                     color: FluxForgeTheme.textPrimary,
                   ),
                 ),
                 Text(
                   'Confidence: ${(point.confidence * 100).toInt()}%',
-                  style: TextStyle(
-                    fontSize: 9,
+                  style: FluxForgeTheme.dockMono(
+                    size: 9,
                     color: FluxForgeTheme.textSecondary,
                   ),
                 ),
@@ -786,7 +786,7 @@ class AudioAlignmentPanel extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               provider.processingMessage ?? 'Processing...',
-              style: TextStyle(fontSize: 11, color: FluxForgeTheme.textSecondary),
+              style: FluxForgeTheme.dockSans(size: 11, color: FluxForgeTheme.textSecondary),
             ),
           ],
 
@@ -856,9 +856,9 @@ class AudioAlignmentPanel extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 label,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
+                style: FluxForgeTheme.dockSans(
+                  size: 11,
+                  weight: FontWeight.w500,
                   color: color,
                 ),
               ),
@@ -886,9 +886,9 @@ class AudioAlignmentPanel extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               label,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+              style: FluxForgeTheme.dockSans(
+                size: 12,
+                weight: FontWeight.w600,
                 color: _accentColor,
               ),
             ),
@@ -922,7 +922,7 @@ class AudioAlignmentPanel extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: FluxForgeTheme.bgElevated,
-        title: const Text('New Alignment Session', style: TextStyle(fontSize: 14)),
+        title: Text('New Alignment Session', style: FluxForgeTheme.dockSans(size: 14)),
         content: SizedBox(
           width: 300,
           child: Column(
